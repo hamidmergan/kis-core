@@ -1,13 +1,18 @@
 from io import BytesIO
 from pathlib import Path
 import os
+import tempfile
 from urllib.parse import quote
 
 import deepl
 from docx import Document
+from fpdf import FPDF
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
+from pypdf import PdfReader
+from pptx import Presentation
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 app = FastAPI(title="Fachsprachen MVP - Dokumentübersetzung")
 
@@ -41,7 +46,13 @@ ALLOWED_EXTENSIONS = {
     ".md": "text/markdown",
 }
 
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB für MVP
+DOC_TRANSLATION_EXTENSIONS = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".pdf": "application/pdf",
+}
+
+MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB Limit
 
 
 def translate_docx(content: bytes, source_lang: str, target_lang: str) -> bytes:
@@ -114,6 +125,218 @@ def translate_docx(content: bytes, source_lang: str, target_lang: str) -> bytes:
         raise ValueError(f"Fehler beim Verarbeiten der DOCX-Datei: {str(e)}\n{traceback.format_exc()}")
 
 
+def _iter_pptx_paragraphs(shape):
+    if shape.has_text_frame:
+        for paragraph in shape.text_frame.paragraphs:
+            yield paragraph
+    if shape.has_table:
+        for row in shape.table.rows:
+            for cell in row.cells:
+                for paragraph in cell.text_frame.paragraphs:
+                    yield paragraph
+    if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+        for subshape in shape.shapes:
+            yield from _iter_pptx_paragraphs(subshape)
+
+
+def _set_paragraph_text_preserve_format(paragraph, new_text: str):
+    runs = list(paragraph.runs)
+    if not runs:
+        paragraph.text = new_text
+        return
+
+    orig_lengths = [len(r.text) for r in runs]
+    total_len = sum(orig_lengths)
+
+    if total_len == 0:
+        runs[0].text = new_text
+        for r in runs[1:]:
+            r.text = ""
+        return
+
+    pos = 0
+    new_len = len(new_text)
+    for length, run in zip(orig_lengths, runs):
+        if length <= 0 or pos >= new_len:
+            run.text = ""
+            continue
+        segment = new_text[pos:pos + length]
+        run.text = segment
+        pos += len(segment)
+
+    if pos < new_len:
+        runs[-1].text += new_text[pos:]
+
+
+def translate_pptx(content: bytes, source_lang: str, target_lang: str) -> bytes:
+    """
+    Übersetzt Text in einer PPTX-Datei.
+    Text wird absatzweise in Blöcken übersetzt, Layout bleibt weitgehend erhalten.
+    """
+    if not translator:
+        raise ValueError("Translator nicht initialisiert")
+
+    try:
+        presentation = Presentation(BytesIO(content))
+
+        paragraphs_with_text = []
+        for slide in presentation.slides:
+            for shape in slide.shapes:
+                for para in _iter_pptx_paragraphs(shape):
+                    text = para.text.strip()
+                    if text:
+                        paragraphs_with_text.append((para, text))
+
+        if not paragraphs_with_text:
+            output = BytesIO()
+            presentation.save(output)
+            return output.getvalue()
+
+        BLOCK_SIZE = 5
+        for i in range(0, len(paragraphs_with_text), BLOCK_SIZE):
+            block = paragraphs_with_text[i:i + BLOCK_SIZE]
+            block_texts = [text for _, text in block]
+            combined_text = "\n\n".join(block_texts)
+
+            try:
+                translated = translator.translate_text(
+                    combined_text,
+                    source_lang=source_lang,
+                    target_lang=target_lang
+                )
+                translated_parts = translated.text.split("\n\n")
+
+                for j, (para, _) in enumerate(block):
+                    if j < len(translated_parts):
+                        _set_paragraph_text_preserve_format(para, translated_parts[j].strip())
+                    elif translated_parts:
+                        _set_paragraph_text_preserve_format(para, translated_parts[-1].strip())
+            except Exception as e:
+                raise ValueError(f"Fehler beim Übersetzen von PPTX-Block {i//BLOCK_SIZE + 1}: {str(e)}")
+
+        output = BytesIO()
+        presentation.save(output)
+        output.seek(0)
+        return output.getvalue()
+    except ValueError:
+        raise
+    except Exception as e:
+        import traceback
+        raise ValueError(f"Fehler beim Verarbeiten der PPTX-Datei: {str(e)}\n{traceback.format_exc()}")
+
+
+def translate_pdf(content: bytes, source_lang: str, target_lang: str) -> bytes:
+    """
+    Übersetzt extrahierten Text aus einer PDF-Datei und baut ein einfaches PDF neu auf.
+    Layout kann abweichen, Text geht aber nicht verloren. Ist kein Text extrahierbar,
+    wird die Originaldatei zurückgegeben.
+    """
+    if not translator:
+        raise ValueError("Translator nicht initialisiert")
+
+    try:
+        reader = PdfReader(BytesIO(content))
+        translated_pages = []
+        any_text = False
+
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            stripped = text.strip()
+            if stripped:
+                any_text = True
+                translated = translator.translate_text(
+                    stripped,
+                    source_lang=source_lang,
+                    target_lang=target_lang
+                ).text
+            else:
+                translated = ""
+            translated_pages.append(translated)
+
+        if not any_text:
+            # Kein extrahierbarer Text: Datei unverändert zurückgeben
+            return content
+
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.set_font("Arial", size=12)
+
+        for page_text in translated_pages:
+            pdf.add_page()
+            if page_text:
+                safe_text = page_text.encode("latin-1", errors="replace").decode("latin-1")
+                pdf.multi_cell(0, 10, txt=safe_text)
+
+        raw_pdf = pdf.output(dest="S")
+        if isinstance(raw_pdf, str):
+            return raw_pdf.encode("latin-1")
+        return bytes(raw_pdf)
+
+    except ValueError:
+        raise
+    except Exception as e:
+        import traceback
+        raise ValueError(f"Fehler beim Verarbeiten der PDF-Datei: {str(e)}\n{traceback.format_exc()}")
+
+
+def translate_document_via_deepl(content: bytes, filename: str, source_lang: str, target_lang: str) -> bytes:
+    """
+    Nutzt DeepL Document Translation API direkt (unterstützt PDF/DOCX/PPTX).
+    """
+    if not translator:
+        raise ValueError("DeepL Translator nicht initialisiert")
+
+    try:
+        # Neuere deepl SDKs haben translate_document_from_bytes, ältere nicht.
+        if hasattr(translator, "translate_document_from_bytes"):
+            handle = translator.translate_document_from_bytes(
+                content,
+                filename,
+                target_lang=target_lang,
+                source_lang=source_lang,
+            )
+        else:
+            # Fallback: temporäre Datei schreiben und translate_document_from_filepath nutzen.
+            suffix = Path(filename).suffix or ""
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_out:
+                tmp_out_path = tmp_out.name
+            try:
+                result = translator.translate_document_from_filepath(
+                    tmp_path,
+                    output_path=tmp_out_path,
+                    target_lang=target_lang,
+                    source_lang=source_lang,
+                )
+                if hasattr(result, "document_id"):
+                    translator.translate_document_wait(result)
+                    translated_path = translator.translate_document_download(result, tmp_out_path)
+                    if isinstance(translated_path, (bytes, bytearray)):
+                        return bytes(translated_path)
+                    tmp_out_path = translated_path if translated_path else tmp_out_path
+                # Wenn kein Handle, ist Ergebnis synchron und liegt unter tmp_out_path
+                with open(tmp_out_path, "rb") as f:
+                    return f.read()
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+                try:
+                    os.remove(tmp_out_path)
+                except OSError:
+                    pass
+
+        translator.translate_document_wait(handle)
+        result = translator.translate_document_download(handle)
+        return result if isinstance(result, (bytes, bytearray)) else bytes(result)
+    except Exception as e:
+        import traceback
+        raise ValueError(f"DeepL Document Translation Fehler: {str(e)}\n{traceback.format_exc()}")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -130,13 +353,13 @@ async def translate(request: Request, file: UploadFile = File(...)):
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 10 MB)")
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
 
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Datei ist leer")
     if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 10 MB)")
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
 
     # TARGET_LANG sollte bereits beim Laden gemappt sein (EN -> EN-US)
     # Zur absoluten Sicherheit nochmal prüfen und mappen
@@ -186,17 +409,78 @@ async def translate(request: Request, file: UploadFile = File(...)):
             raise HTTPException(
                 status_code=500, detail=f"DOCX-Verarbeitungsfehler: {error_msg}"
             )
+    # PPTX-Dateien übersetzen
+    elif ext == ".pptx":
+        try:
+            content = translate_pptx(content, SOURCE_LANG, target_lang_final)
+            download_name = f"{Path(file.filename).stem}_translated{ext}"
+        except ValueError as e:
+            raise HTTPException(
+                status_code=500, detail=f"PPTX-Übersetzungsfehler: {str(e)}"
+            )
+        except Exception as e:
+            import traceback
+            error_msg = str(e)
+            error_trace = traceback.format_exc()
+            print(f"PPTX-Fehler: {error_msg}")
+            print(f"Traceback: {error_trace}")
+            raise HTTPException(
+                status_code=500, detail=f"PPTX-Verarbeitungsfehler: {error_msg}"
+            )
     else:
-        # PPTX: Echo (später hier Pipeline einbauen)
-        download_name = f"{Path(file.filename).stem}_echo{ext}"
+        # Fallback: sollte wegen ALLOWED_EXTENSIONS nicht erreicht werden
+        raise HTTPException(status_code=400, detail="Dateityp wird nicht unterstützt")
 
-    # Dateiname für HTTP-Header encoden (RFC 2231 kompatibel)
-    # Sonderzeichen müssen URL-encoded werden
     encoded_filename = quote(download_name, safe='')
-    
     return StreamingResponse(
         iter([content]),
         media_type=ALLOWED_EXTENSIONS[ext],
+        headers={
+            "Content-Disposition": f'attachment; filename="{encoded_filename}"; filename*=UTF-8\'\'{encoded_filename}'
+        },
+    )
+
+
+@app.post("/translate-document")
+async def translate_document(request: Request, file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Dateiname fehlt")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in DOC_TRANSLATION_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Nur .docx, .pptx oder .pdf erlaubt")
+
+    content_length = request.headers.get("content-length")
+    if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Datei ist leer")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
+
+    target_lang_final = TARGET_LANG.strip()
+    if target_lang_final.upper() in ("EN", ""):
+        target_lang_final = "EN-US"
+
+    try:
+        translated_bytes = translate_document_via_deepl(content, file.filename, SOURCE_LANG, target_lang_final)
+        download_name = f"{Path(file.filename).stem}_translated{ext}"
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"Document-Übersetzungsfehler: {str(e)}")
+    except Exception as e:
+        import traceback
+        error_msg = str(e)
+        error_trace = traceback.format_exc()
+        print(f"Document-Fehler: {error_msg}")
+        print(f"Traceback: {error_trace}")
+        raise HTTPException(status_code=500, detail=f"Document-Verarbeitungsfehler: {error_msg}")
+
+    encoded_filename = quote(download_name, safe='')
+    return StreamingResponse(
+        iter([translated_bytes]),
+        media_type=DOC_TRANSLATION_EXTENSIONS[ext],
         headers={
             "Content-Disposition": f'attachment; filename="{encoded_filename}"; filename*=UTF-8\'\'{encoded_filename}'
         },
