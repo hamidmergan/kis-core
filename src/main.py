@@ -525,9 +525,9 @@ def translate_filename(filename: str, source_lang: str, target_lang: str) -> str
         return filename
     
     try:
-        translated = translator.translate_text(
-            stem, source_lang=source_lang, target_lang=target_lang
-        ).text
+        translated = translate_text_with_glossary(
+            stem, source_lang, target_lang
+        )
         # Leerzeichen durch Unterstriche ersetzen (für Dateinamen)
         translated = translated.replace(" ", "_")
         return f"{translated}{ext}"
