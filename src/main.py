@@ -223,6 +223,7 @@ def translate_pptx(content: bytes, source_lang: str, target_lang: str) -> bytes:
     """
     Übersetzt Text in einer PPTX-Datei.
     Text wird absatzweise in Blöcken übersetzt, Layout bleibt weitgehend erhalten.
+    Inkl. Footer, Notizen und Slide-Master.
     """
     if not translator:
         raise ValueError("Translator nicht initialisiert")
@@ -231,6 +232,8 @@ def translate_pptx(content: bytes, source_lang: str, target_lang: str) -> bytes:
         presentation = Presentation(BytesIO(content))
 
         any_text = False
+        
+        # 1. Normale Folien-Shapes
         for slide in presentation.slides:
             for shape in slide.shapes:
                 for para in _iter_pptx_paragraphs(shape):
@@ -244,6 +247,52 @@ def translate_pptx(content: bytes, source_lang: str, target_lang: str) -> bytes:
                         )
                     except Exception as e:
                         raise ValueError(f"Fehler beim Übersetzen von PPTX-Absatz: {str(e)}")
+            
+            # 2. Notizen-Folien (Speaker Notes)
+            if slide.has_notes_slide:
+                notes_slide = slide.notes_slide
+                for shape in notes_slide.shapes:
+                    for para in _iter_pptx_paragraphs(shape):
+                        raw_text = para.text
+                        if not raw_text or not raw_text.strip():
+                            continue
+                        any_text = True
+                        try:
+                            _translate_paragraph_preserve_runs(
+                                para, source_lang, target_lang
+                            )
+                        except Exception:
+                            pass  # Notizen-Fehler ignorieren
+        
+        # 3. Slide-Master (Footer, Header, etc.)
+        for slide_master in presentation.slide_masters:
+            for shape in slide_master.shapes:
+                for para in _iter_pptx_paragraphs(shape):
+                    raw_text = para.text
+                    if not raw_text or not raw_text.strip():
+                        continue
+                    any_text = True
+                    try:
+                        _translate_paragraph_preserve_runs(
+                            para, source_lang, target_lang
+                        )
+                    except Exception:
+                        pass  # Master-Fehler ignorieren
+            
+            # Slide-Layouts im Master
+            for layout in slide_master.slide_layouts:
+                for shape in layout.shapes:
+                    for para in _iter_pptx_paragraphs(shape):
+                        raw_text = para.text
+                        if not raw_text or not raw_text.strip():
+                            continue
+                        any_text = True
+                        try:
+                            _translate_paragraph_preserve_runs(
+                                para, source_lang, target_lang
+                            )
+                        except Exception:
+                            pass  # Layout-Fehler ignorieren
 
         if not any_text:
             output = BytesIO()
@@ -373,6 +422,30 @@ def translate_document_via_deepl(content: bytes, filename: str, source_lang: str
         raise ValueError(f"DeepL Document Translation Fehler: {str(e)}\n{traceback.format_exc()}")
 
 
+def translate_filename(filename: str, source_lang: str, target_lang: str) -> str:
+    """Übersetzt den Dateinamen (ohne Erweiterung)."""
+    if not translator:
+        return filename
+    
+    stem = Path(filename).stem
+    ext = Path(filename).suffix
+    
+    # Nur übersetzen, wenn es Text gibt
+    if not stem.strip():
+        return filename
+    
+    try:
+        translated = translator.translate_text(
+            stem, source_lang=source_lang, target_lang=target_lang
+        ).text
+        # Leerzeichen durch Unterstriche ersetzen (für Dateinamen)
+        translated = translated.replace(" ", "_")
+        return f"{translated}{ext}"
+    except Exception:
+        # Bei Fehler: Originalname behalten
+        return filename
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -409,6 +482,10 @@ async def translate(request: Request, file: UploadFile = File(...)):
             detail="DeepL API Key fehlt oder Translator konnte nicht initialisiert werden",
         )
     
+    # Dateinamen übersetzen (einmal für alle Fälle)
+    translated_filename = translate_filename(file.filename, SOURCE_LANG, target_lang_final)
+    download_name = f"{Path(translated_filename).stem}_translated{ext}"
+    
     # Markdown-Dateien übersetzen
     if ext == ".md":
         try:
@@ -420,7 +497,6 @@ async def translate(request: Request, file: UploadFile = File(...)):
             )
             # Zurück zu Bytes encoden
             content = translated_text.text.encode("utf-8")
-            download_name = f"{Path(file.filename).stem}_translated{ext}"
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Übersetzungsfehler: {str(e)}"
@@ -429,7 +505,6 @@ async def translate(request: Request, file: UploadFile = File(...)):
     elif ext == ".docx":
         try:
             content = translate_docx(content, SOURCE_LANG, target_lang_final)
-            download_name = f"{Path(file.filename).stem}_translated{ext}"
         except ValueError as e:
             raise HTTPException(
                 status_code=500, detail=f"DOCX-Übersetzungsfehler: {str(e)}"
@@ -449,7 +524,6 @@ async def translate(request: Request, file: UploadFile = File(...)):
     elif ext == ".pptx":
         try:
             content = translate_pptx(content, SOURCE_LANG, target_lang_final)
-            download_name = f"{Path(file.filename).stem}_translated{ext}"
         except ValueError as e:
             raise HTTPException(
                 status_code=500, detail=f"PPTX-Übersetzungsfehler: {str(e)}"
@@ -502,7 +576,9 @@ async def translate_document(request: Request, file: UploadFile = File(...)):
 
     try:
         translated_bytes = translate_document_via_deepl(content, file.filename, SOURCE_LANG, target_lang_final)
-        download_name = f"{Path(file.filename).stem}_translated{ext}"
+        # Dateinamen übersetzen
+        translated_filename = translate_filename(file.filename, SOURCE_LANG, target_lang_final)
+        download_name = f"{Path(translated_filename).stem}_translated{ext}"
     except ValueError as e:
         raise HTTPException(status_code=500, detail=f"Document-Übersetzungsfehler: {str(e)}")
     except Exception as e:
