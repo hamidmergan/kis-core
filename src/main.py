@@ -1,7 +1,10 @@
 from io import BytesIO
 from pathlib import Path
+import json
 import os
+import re
 import tempfile
+from typing import Dict, List, Tuple
 from urllib.parse import quote
 
 import deepl
@@ -38,6 +41,97 @@ if DEEPL_API_KEY:
     except Exception as e:
         # Fehler beim Initialisieren wird später beim Übersetzen abgefangen
         pass
+
+
+GLOSSARY_PATH = os.getenv("GLOSSARY_PATH", "glossary.json")
+GLOSSARY: Dict[str, str] = {}
+GLOSSARY_PATTERNS: List[Tuple[re.Pattern, str, str]] = []
+
+
+def _normalize_glossary(data: Dict[str, str]) -> Dict[str, str]:
+    if not isinstance(data, dict):
+        return {}
+    normalized: Dict[str, str] = {}
+    for key, value in data.items():
+        if isinstance(key, str) and isinstance(value, str):
+            key = key.strip()
+            if key:
+                normalized[key] = value
+    return normalized
+
+
+def _load_glossary_from_file(path: str) -> Dict[str, str]:
+    if not path:
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        return _normalize_glossary(data)
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        return {}
+
+
+def _write_glossary_to_file(path: str, glossary: Dict[str, str]) -> None:
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(glossary, handle, ensure_ascii=False, indent=2)
+
+
+def _build_glossary_patterns(glossary: Dict[str, str]) -> List[Tuple[re.Pattern, str, str]]:
+    entries: List[Tuple[re.Pattern, str, str]] = []
+    sorted_items = sorted(glossary.items(), key=lambda item: len(item[0]), reverse=True)
+    for index, (source, target) in enumerate(sorted_items):
+        if not source or not target:
+            continue
+        token = f"__GLOSSARY_{index}__"
+        pattern = re.escape(source)
+        if re.match(r"\w", source[0]):
+            pattern = r"\b" + pattern
+        if re.match(r"\w", source[-1]):
+            pattern = pattern + r"\b"
+        entries.append((re.compile(pattern), token, target))
+    return entries
+
+
+def _set_glossary(entries: Dict[str, str]) -> None:
+    global GLOSSARY, GLOSSARY_PATTERNS
+    GLOSSARY = entries
+    GLOSSARY_PATTERNS = _build_glossary_patterns(entries)
+
+
+def _apply_glossary_to_text(text: str) -> Tuple[str, Dict[str, str]]:
+    if not GLOSSARY_PATTERNS:
+        return text, {}
+    updated = text
+    replacements: Dict[str, str] = {}
+    for pattern, token, target in GLOSSARY_PATTERNS:
+        if pattern.search(updated):
+            updated = pattern.sub(token, updated)
+            replacements[token] = target
+    return updated, replacements
+
+
+def _restore_glossary(text: str, replacements: Dict[str, str]) -> str:
+    restored = text
+    for token, target in replacements.items():
+        restored = restored.replace(token, target)
+    return restored
+
+
+def translate_text_with_glossary(text: str, source_lang: str, target_lang: str) -> str:
+    if not translator:
+        raise ValueError("Translator nicht initialisiert")
+    if not text or not text.strip():
+        return text
+    prepared_text, replacements = _apply_glossary_to_text(text)
+    translated = translator.translate_text(
+        prepared_text, source_lang=source_lang, target_lang=target_lang
+    ).text
+    return _restore_glossary(translated, replacements)
+
+
+_set_glossary(_load_glossary_from_file(GLOSSARY_PATH))
 
 
 ALLOWED_EXTENSIONS = {
@@ -92,14 +186,12 @@ def translate_docx(content: bytes, source_lang: str, target_lang: str) -> bytes:
             
             try:
                 # Block übersetzen
-                translated = translator.translate_text(
-                    combined_text,
-                    source_lang=source_lang,
-                    target_lang=target_lang
+                translated_text = translate_text_with_glossary(
+                    combined_text, source_lang, target_lang
                 )
                 
                 # Übersetzten Text wieder aufteilen (bei \n\n trennen)
-                translated_parts = translated.text.split("\n\n")
+                translated_parts = translated_text.split("\n\n")
                 
                 # Übersetzte Teile wieder zuordnen
                 for j, (para, _) in enumerate(block):
@@ -154,9 +246,9 @@ def _translate_run_text_preserve_linebreaks(text: str, source_lang: str, target_
             leading_ws = line[:len(line) - len(line.lstrip())]
             trailing_ws = line[len(line.rstrip()):]
             # Nur den gestrippten Text übersetzen
-            translated = translator.translate_text(
-                stripped, source_lang=source_lang, target_lang=target_lang
-            ).text
+            translated = translate_text_with_glossary(
+                stripped, source_lang, target_lang
+            )
             # Whitespace wieder hinzufügen
             translated_lines.append(leading_ws + translated + trailing_ws)
         else:
@@ -205,9 +297,9 @@ def _translate_text_preserve_linebreaks(text: str, source_lang: str, target_lang
             leading_ws = line[:len(line) - len(line.lstrip())]
             trailing_ws = line[len(line.rstrip()):]
             # Nur den gestrippten Text übersetzen
-            translated = translator.translate_text(
-                stripped, source_lang=source_lang, target_lang=target_lang
-            ).text
+            translated = translate_text_with_glossary(
+                stripped, source_lang, target_lang
+            )
             # Whitespace wieder hinzufügen
             translated_lines.append(leading_ws + translated + trailing_ws)
         else:
@@ -329,11 +421,9 @@ def translate_pdf(content: bytes, source_lang: str, target_lang: str) -> bytes:
             stripped = text.strip()
             if stripped:
                 any_text = True
-                translated = translator.translate_text(
-                    stripped,
-                    source_lang=source_lang,
-                    target_lang=target_lang
-                ).text
+                translated = translate_text_with_glossary(
+                    stripped, source_lang, target_lang
+                )
             else:
                 translated = ""
             translated_pages.append(translated)
@@ -451,6 +541,34 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/glossary")
+def get_glossary():
+    return {"count": len(GLOSSARY), "path": GLOSSARY_PATH, "entries": GLOSSARY}
+
+
+@app.post("/glossary")
+def set_glossary(entries: Dict[str, str], persist: bool = False):
+    normalized = _normalize_glossary(entries)
+    _set_glossary(normalized)
+    if persist:
+        if not GLOSSARY_PATH:
+            raise HTTPException(status_code=400, detail="GLOSSARY_PATH nicht gesetzt")
+        try:
+            _write_glossary_to_file(GLOSSARY_PATH, normalized)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Glossar konnte nicht gespeichert werden: {str(e)}",
+            )
+    return {"count": len(GLOSSARY), "path": GLOSSARY_PATH}
+
+
+@app.post("/glossary/reload")
+def reload_glossary():
+    _set_glossary(_load_glossary_from_file(GLOSSARY_PATH))
+    return {"count": len(GLOSSARY), "path": GLOSSARY_PATH}
+
+
 @app.post("/translate")
 async def translate(request: Request, file: UploadFile = File(...)):
     if not file.filename:
@@ -492,11 +610,11 @@ async def translate(request: Request, file: UploadFile = File(...)):
             # Markdown als UTF-8 Text dekodieren
             text = content.decode("utf-8")
             # Übersetzen
-            translated_text = translator.translate_text(
-                text, source_lang=SOURCE_LANG, target_lang=target_lang_final
+            translated_text = translate_text_with_glossary(
+                text, SOURCE_LANG, target_lang_final
             )
             # Zurück zu Bytes encoden
-            content = translated_text.text.encode("utf-8")
+            content = translated_text.encode("utf-8")
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Übersetzungsfehler: {str(e)}"
