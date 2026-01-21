@@ -139,33 +139,84 @@ def _iter_pptx_paragraphs(shape):
             yield from _iter_pptx_paragraphs(subshape)
 
 
-def _set_paragraph_text_preserve_format(paragraph, new_text: str):
+def _translate_run_text_preserve_linebreaks(text: str, source_lang: str, target_lang: str) -> str:
+    """Übersetzt Text und erhält Zeilenumbrüche, führende/nachfolgende Leerzeichen und Tabs."""
+    # Tabs durch Platzhalter ersetzen (DeepL würde sie sonst entfernen)
+    TAB_PLACEHOLDER = "⟨TAB⟩"
+    text_with_placeholder = text.replace("\t", TAB_PLACEHOLDER)
+    
+    lines = text_with_placeholder.split("\n")
+    translated_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped:
+            # Führende und nachfolgende Whitespace (Leerzeichen, Tabs) erfassen
+            leading_ws = line[:len(line) - len(line.lstrip())]
+            trailing_ws = line[len(line.rstrip()):]
+            # Nur den gestrippten Text übersetzen
+            translated = translator.translate_text(
+                stripped, source_lang=source_lang, target_lang=target_lang
+            ).text
+            # Whitespace wieder hinzufügen
+            translated_lines.append(leading_ws + translated + trailing_ws)
+        else:
+            # Leere Zeile oder nur Whitespace: unverändert lassen
+            translated_lines.append(line)
+    
+    result = "\n".join(translated_lines)
+    # Platzhalter wieder durch Tabs ersetzen
+    return result.replace(TAB_PLACEHOLDER, "\t")
+
+
+def _translate_paragraph_preserve_runs(paragraph, source_lang: str, target_lang: str):
     runs = list(paragraph.runs)
     if not runs:
-        paragraph.text = new_text
+        paragraph.text = _translate_text_preserve_linebreaks(
+            paragraph.text, source_lang, target_lang
+        )
         return
 
-    orig_lengths = [len(r.text) for r in runs]
-    total_len = sum(orig_lengths)
-
-    if total_len == 0:
-        runs[0].text = new_text
-        for r in runs[1:]:
-            r.text = ""
+    if len(runs) == 1:
+        runs[0].text = _translate_text_preserve_linebreaks(
+            runs[0].text, source_lang, target_lang
+        )
         return
 
-    pos = 0
-    new_len = len(new_text)
-    for length, run in zip(orig_lengths, runs):
-        if length <= 0 or pos >= new_len:
-            run.text = ""
-            continue
-        segment = new_text[pos:pos + length]
-        run.text = segment
-        pos += len(segment)
+    # Mehrere Runs: run-weise übersetzen, um Schriftgrößen/Formatierung zu erhalten
+    for run in runs:
+        if run.text.strip():
+            run.text = _translate_run_text_preserve_linebreaks(
+                run.text, source_lang, target_lang
+            )
 
-    if pos < new_len:
-        runs[-1].text += new_text[pos:]
+
+def _translate_text_preserve_linebreaks(text: str, source_lang: str, target_lang: str) -> str:
+    """Übersetzt Text und erhält Zeilenumbrüche, führende/nachfolgende Leerzeichen und Tabs."""
+    # Tabs durch Platzhalter ersetzen (DeepL würde sie sonst entfernen)
+    TAB_PLACEHOLDER = "⟨TAB⟩"
+    text_with_placeholder = text.replace("\t", TAB_PLACEHOLDER)
+    
+    lines = text_with_placeholder.split("\n")
+    translated_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped:
+            # Führende und nachfolgende Whitespace (Leerzeichen, Tabs) erfassen
+            leading_ws = line[:len(line) - len(line.lstrip())]
+            trailing_ws = line[len(line.rstrip()):]
+            # Nur den gestrippten Text übersetzen
+            translated = translator.translate_text(
+                stripped, source_lang=source_lang, target_lang=target_lang
+            ).text
+            # Whitespace wieder hinzufügen
+            translated_lines.append(leading_ws + translated + trailing_ws)
+        else:
+            # Leere Zeile oder nur Whitespace: unverändert lassen
+            translated_lines.append(line)
+    
+    result = "\n".join(translated_lines)
+    # Platzhalter wieder durch Tabs ersetzen
+    return result.replace(TAB_PLACEHOLDER, "\t")
 
 
 def translate_pptx(content: bytes, source_lang: str, target_lang: str) -> bytes:
@@ -179,40 +230,25 @@ def translate_pptx(content: bytes, source_lang: str, target_lang: str) -> bytes:
     try:
         presentation = Presentation(BytesIO(content))
 
-        paragraphs_with_text = []
+        any_text = False
         for slide in presentation.slides:
             for shape in slide.shapes:
                 for para in _iter_pptx_paragraphs(shape):
-                    text = para.text.strip()
-                    if text:
-                        paragraphs_with_text.append((para, text))
+                    raw_text = para.text
+                    if not raw_text or not raw_text.strip():
+                        continue
+                    any_text = True
+                    try:
+                        _translate_paragraph_preserve_runs(
+                            para, source_lang, target_lang
+                        )
+                    except Exception as e:
+                        raise ValueError(f"Fehler beim Übersetzen von PPTX-Absatz: {str(e)}")
 
-        if not paragraphs_with_text:
+        if not any_text:
             output = BytesIO()
             presentation.save(output)
             return output.getvalue()
-
-        BLOCK_SIZE = 5
-        for i in range(0, len(paragraphs_with_text), BLOCK_SIZE):
-            block = paragraphs_with_text[i:i + BLOCK_SIZE]
-            block_texts = [text for _, text in block]
-            combined_text = "\n\n".join(block_texts)
-
-            try:
-                translated = translator.translate_text(
-                    combined_text,
-                    source_lang=source_lang,
-                    target_lang=target_lang
-                )
-                translated_parts = translated.text.split("\n\n")
-
-                for j, (para, _) in enumerate(block):
-                    if j < len(translated_parts):
-                        _set_paragraph_text_preserve_format(para, translated_parts[j].strip())
-                    elif translated_parts:
-                        _set_paragraph_text_preserve_format(para, translated_parts[-1].strip())
-            except Exception as e:
-                raise ValueError(f"Fehler beim Übersetzen von PPTX-Block {i//BLOCK_SIZE + 1}: {str(e)}")
 
         output = BytesIO()
         presentation.save(output)
