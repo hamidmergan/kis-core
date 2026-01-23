@@ -202,11 +202,30 @@ DOC_TRANSLATION_EXTENSIONS = {
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB Limit
 
 
+def _iter_docx_paragraphs(container):
+    for paragraph in getattr(container, "paragraphs", []):
+        yield paragraph
+    for table in getattr(container, "tables", []):
+        for row in table.rows:
+            for cell in row.cells:
+                yield from _iter_docx_paragraphs(cell)
+
+
+def _iter_docx_paragraphs_with_header_footer(doc):
+    yield from _iter_docx_paragraphs(doc)
+    for section in doc.sections:
+        for header in (section.header, section.first_page_header, section.even_page_header):
+            yield from _iter_docx_paragraphs(header)
+        for footer in (section.footer, section.first_page_footer, section.even_page_footer):
+            yield from _iter_docx_paragraphs(footer)
+
+
 def translate_docx(content: bytes, source_lang: str, target_lang: str) -> bytes:
     """
     Übersetzt Text in einer DOCX-Datei.
     Layout, Formatierung und Struktur bleiben erhalten.
     Strategie: Absatz- und Run-basiert, um Formatierungen zu bewahren.
+    Inklusive Header und Footer.
     """
     if not translator:
         raise ValueError("Translator nicht initialisiert")
@@ -217,7 +236,11 @@ def translate_docx(content: bytes, source_lang: str, target_lang: str) -> bytes:
         
         # Absätze einzeln übersetzen, um Runs/Formatierung (z.B. Bold) zu erhalten.
         any_text = False
-        for para in doc.paragraphs:
+        seen_paragraphs = set()
+        for para in _iter_docx_paragraphs_with_header_footer(doc):
+            if id(para) in seen_paragraphs:
+                continue
+            seen_paragraphs.add(id(para))
             text = para.text
             if not text or not text.strip():
                 continue
