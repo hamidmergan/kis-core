@@ -206,7 +206,7 @@ def translate_docx(content: bytes, source_lang: str, target_lang: str) -> bytes:
     """
     Übersetzt Text in einer DOCX-Datei.
     Layout, Formatierung und Struktur bleiben erhalten.
-    Strategie: Absätze in Blöcken sammeln und übersetzen (schneller als einzeln).
+    Strategie: Absatz- und Run-basiert, um Formatierungen zu bewahren.
     """
     if not translator:
         raise ValueError("Translator nicht initialisiert")
@@ -215,47 +215,27 @@ def translate_docx(content: bytes, source_lang: str, target_lang: str) -> bytes:
         # DOCX aus Bytes öffnen
         doc = Document(BytesIO(content))
         
-        # Alle Absätze sammeln (nur nicht-leere)
-        paragraphs_with_text = []
+        # Absätze einzeln übersetzen, um Runs/Formatierung (z.B. Bold) zu erhalten.
+        any_text = False
         for para in doc.paragraphs:
-            text = para.text.strip()
-            if text:
-                paragraphs_with_text.append((para, text))
-        
-        if not paragraphs_with_text:
+            text = para.text
+            if not text or not text.strip():
+                continue
+            any_text = True
+            try:
+                _translate_paragraph_preserve_runs(
+                    para, source_lang, target_lang
+                )
+            except Exception as e:
+                raise ValueError(
+                    f"Fehler beim Übersetzen eines Absatzes: {str(e)}"
+                )
+
+        if not any_text:
             # Keine Text-Absätze gefunden, Datei unverändert zurückgeben
             output = BytesIO()
             doc.save(output)
             return output.getvalue()
-        
-        # Absätze in Blöcken von 5 übersetzen (weniger API-Calls = schneller)
-        BLOCK_SIZE = 5
-        for i in range(0, len(paragraphs_with_text), BLOCK_SIZE):
-            block = paragraphs_with_text[i:i + BLOCK_SIZE]
-            
-            # Text aus Block sammeln
-            block_texts = [text for _, text in block]
-            combined_text = "\n\n".join(block_texts)
-            
-            try:
-                # Block übersetzen
-                translated_text = translate_text_with_glossary(
-                    combined_text, source_lang, target_lang
-                )
-                
-                # Übersetzten Text wieder aufteilen (bei \n\n trennen)
-                translated_parts = translated_text.split("\n\n")
-                
-                # Übersetzte Teile wieder zuordnen
-                for j, (para, _) in enumerate(block):
-                    if j < len(translated_parts):
-                        para.text = translated_parts[j].strip()
-                    # Falls weniger Teile zurückkommen, letzten Teil verwenden
-                    elif translated_parts:
-                        para.text = translated_parts[-1].strip()
-                        
-            except Exception as e:
-                raise ValueError(f"Fehler beim Übersetzen von Block {i//BLOCK_SIZE + 1}: {str(e)}")
         
         # Zurück zu Bytes konvertieren
         output = BytesIO()
