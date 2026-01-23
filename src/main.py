@@ -131,6 +131,59 @@ def translate_text_with_glossary(text: str, source_lang: str, target_lang: str) 
     return _restore_glossary(translated, replacements)
 
 
+def _split_markdown_by_code_fences(text: str) -> List[Tuple[bool, str]]:
+    if not text:
+        return [(False, text)]
+    lines = text.splitlines(keepends=True)
+    parts: List[Tuple[bool, str]] = []
+    in_block = False
+    fence_char = ""
+    fence_len = 0
+    buffer: List[str] = []
+
+    for line in lines:
+        if not in_block:
+            match = re.match(r"^[ \t]{0,3}([`~]{3,})", line)
+            if match:
+                if buffer:
+                    parts.append((False, "".join(buffer)))
+                    buffer = []
+                in_block = True
+                fence_seq = match.group(1)
+                fence_char = fence_seq[0]
+                fence_len = len(fence_seq)
+                buffer = [line]
+            else:
+                buffer.append(line)
+        else:
+            buffer.append(line)
+            fence_pattern = r"^[ \t]{0,3}" + re.escape(fence_char) + "{" + str(fence_len) + r",}\s*$"
+            if re.match(fence_pattern, line.rstrip("\n")):
+                parts.append((True, "".join(buffer)))
+                buffer = []
+                in_block = False
+                fence_char = ""
+                fence_len = 0
+
+    if buffer:
+        parts.append((in_block, "".join(buffer)))
+
+    return parts
+
+
+def _translate_markdown_preserve_code_blocks(text: str, source_lang: str, target_lang: str) -> str:
+    parts = _split_markdown_by_code_fences(text)
+    translated_parts: List[str] = []
+    for is_code, chunk in parts:
+        if is_code or not chunk or not chunk.strip():
+            translated_parts.append(chunk)
+        else:
+            translated_parts.append(
+                translate_text_with_glossary(chunk, source_lang, target_lang)
+            )
+    return "".join(translated_parts)
+
+
 _set_glossary(_load_glossary_from_file(GLOSSARY_PATH))
 
 
@@ -609,17 +662,15 @@ async def translate(request: Request, file: UploadFile = File(...)):
         try:
             # Markdown als UTF-8 Text dekodieren
             text = content.decode("utf-8")
-            # Übersetzen
-            translated_text = translate_text_with_glossary(
+            translated_text = _translate_markdown_preserve_code_blocks(
                 text, SOURCE_LANG, target_lang_final
             )
-            # Zurück zu Bytes encoden
+            # Zurueck zu Bytes encoden
             content = translated_text.encode("utf-8")
         except Exception as e:
             raise HTTPException(
-                status_code=500, detail=f"Übersetzungsfehler: {str(e)}"
+                status_code=500, detail=f"uebersetzungsfehler: {str(e)}"
             )
-    # DOCX-Dateien übersetzen
     elif ext == ".docx":
         try:
             content = translate_docx(content, SOURCE_LANG, target_lang_final)

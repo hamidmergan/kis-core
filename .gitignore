@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .env
+glossary.json
 output/
 *.log
 .DS_Store
