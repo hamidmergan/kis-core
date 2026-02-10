@@ -12,7 +12,7 @@ from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Security, UploadFile
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.security import APIKeyHeader
 from pypdf import PdfReader
@@ -25,7 +25,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # Globale API-Key-Absicherung
 # ---------------------------------------------------------------------------
-_OPEN_PATHS = {"/docs", "/redoc", "/openapi.json"}
+_OPEN_PATHS = {"/", "/docs", "/redoc", "/openapi.json"}
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
@@ -72,6 +72,19 @@ async def custom_swagger_docs():
     html = response.body.decode()
     html = html.replace("</body>", patch_script + "\n</body>")
     return HTMLResponse(html)
+
+
+# ---------------------------------------------------------------------------
+# Landing Page (öffentlich, ohne API-Key)
+# ---------------------------------------------------------------------------
+_INDEX_HTML = Path(__file__).resolve().parent / "templates" / "index.html"
+
+
+@app.get("/", include_in_schema=False)
+async def landing_page():
+    """Under-Construction-Seite mit Impressum & Datenschutz."""
+    return FileResponse(_INDEX_HTML, media_type="text/html")
+
 
 TRANSLATION_PROVIDER = os.getenv("TRANSLATION_PROVIDER", "deepl")
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
