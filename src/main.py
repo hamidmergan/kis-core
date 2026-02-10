@@ -11,17 +11,67 @@ import deepl
 from docx import Document
 from fpdf import FPDF
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Security, UploadFile
+from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.security import APIKeyHeader
 from pypdf import PdfReader
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-app = FastAPI(title="kis-thl - Dokumentübersetzung")
-
-
 # Konfiguration aus .env laden (falls vorhanden)
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Globale API-Key-Absicherung
+# ---------------------------------------------------------------------------
+_OPEN_PATHS = {"/docs", "/redoc", "/openapi.json"}
+
+api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
+
+
+async def verify_api_key(
+    request: Request,
+    api_key: str = Security(api_key_header),
+):
+    """Prüft den API-Key für alle Endpunkte (außer Docs/OpenAPI)."""
+    if request.url.path in _OPEN_PATHS:
+        return
+    token = os.getenv("KIS_API_TOKEN")
+    if not token or api_key != token:
+        raise HTTPException(status_code=401, detail="Ungültiger oder fehlender API-Key")
+
+
+app = FastAPI(
+    title="kis-thl - Dokumentübersetzung",
+    dependencies=[Depends(verify_api_key)],
+    docs_url=None,  # Standard-Docs deaktiviert → eigene Route unten
+)
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_docs():
+    """Swagger UI mit autocomplete=off & Passwort-Feld für den API-Key."""
+    response = get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - Docs",
+    )
+    # Kleines Script injizieren: Auth-Inputs → type=password + autocomplete=off
+    patch_script = """
+<script>
+(function () {
+  const obs = new MutationObserver(() => {
+    document.querySelectorAll('.auth-container input[type="text"]').forEach(el => {
+      el.setAttribute('type', 'password');
+      el.setAttribute('autocomplete', 'off');
+    });
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+})();
+</script>"""
+    html = response.body.decode()
+    html = html.replace("</body>", patch_script + "\n</body>")
+    return HTMLResponse(html)
 
 TRANSLATION_PROVIDER = os.getenv("TRANSLATION_PROVIDER", "deepl")
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
