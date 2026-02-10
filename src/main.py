@@ -17,7 +17,7 @@ from pypdf import PdfReader
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-app = FastAPI(title="Fachsprachen MVP - Dokumentübersetzung")
+app = FastAPI(title="kis-thl - Dokumentübersetzung")
 
 
 # Konfiguration aus .env laden (falls vorhanden)

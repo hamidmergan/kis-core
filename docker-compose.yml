@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: kis-thl
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Optional: Mount für Development (wenn du Code-Änderungen ohne Rebuild testen willst)
+      # - ./src:/app/src
+      # Optional: Mount für Glossar-Datei
+      - ./glossary.json:/app/glossary.json:ro
+    restart: unless-stopped
