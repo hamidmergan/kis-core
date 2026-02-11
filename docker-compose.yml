@@ -1,16 +1,21 @@
-version: '3.8'
-
 services:
-  app:
-    build: .
-    container_name: kis-thl
-    ports:
-      - "8000:8000"
+  backend:
+    build: ./backend
+    container_name: kis-thl-backend
     env_file:
       - .env
-    volumes:
-      # Optional: Mount für Development (wenn du Code-Änderungen ohne Rebuild testen willst)
-      # - ./src:/app/src
-      # Optional: Mount für Glossar-Datei
-      - ./glossary.json:/app/glossary.json:ro
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    container_name: kis-thl-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
     restart: unless-stopped
