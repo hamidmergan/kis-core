@@ -5,7 +5,7 @@ from src.dependencies import get_settings, get_session_store
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
-_OPEN_PATHS = {"/", "/docs", "/redoc", "/openapi.json", "/health"}
+_OPEN_PATHS = {"/", "/health"}
 _OPEN_PREFIXES = ("/auth/",)
 
 

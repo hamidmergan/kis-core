@@ -54,7 +54,7 @@ docker-compose up -d --build
 docker-compose down
 ```
 
-## Deployment (Hetzner)
+## Deployment
 
 Der bestehende Host-Nginx leitet alles an das Frontend weiter. Das Frontend proxied API-Calls intern per Docker Bridge-Networking an den Backend-Container.
 
@@ -130,7 +130,7 @@ Das Glossar stellt sicher, dass bestimmte Begriffe immer gleich übersetzt werde
 | `SESSION_SECRET` | Secret für Session-Tokens | – |
 | `SESSION_MAX_AGE_SECONDS` | Session-Dauer | `86400` (24h) |
 | `KIS_API_TOKEN` | API-Key für externe Zugriffe | – |
-| `CORS_ORIGINS` | Erlaubte Origins (Komma-getrennt) | – |
+| `ENABLE_DOCS` | Swagger UI aktivieren | `false` |
 
 ## Projektstruktur
 
