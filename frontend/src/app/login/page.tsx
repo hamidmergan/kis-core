@@ -35,7 +35,7 @@ export default function LoginPage() {
               KIS-THL
             </Link>
           </h1>
-          <p className="text-sm text-gray-500 text-center mb-8">Dokumentübersetzung</p>
+
 
           <form onSubmit={handleSubmit}>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">

@@ -9,13 +9,12 @@ class Settings(BaseSettings):
     target_lang: str = "EN-US"
 
     # Security
-    kis_api_token: str = ""
     app_password: str = "admin"
     session_secret: str = "change-me-in-production"
     session_max_age_seconds: int = 86400  # 24h
 
-    # Docs (Swagger UI) – only enable in development
-    enable_docs: bool = False
+    # Environment: set True on server, False for local dev
+    production: bool = False
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

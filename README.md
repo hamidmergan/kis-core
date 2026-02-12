@@ -1,4 +1,4 @@
-# KIS-THL – Dokumentübersetzung (DE → EN)
+# KIS-THL
 
 Webbasierter Übersetzungsservice für Dokumente der TH Lübeck. Übersetzt DOCX, PPTX, MD, TEX und PDF automatisch von Deutsch nach Englisch – mit Glossar für konsistente Fachbegriffe.
 
@@ -76,11 +76,10 @@ location / {
 
 ## Features
 
-- **Dokumentübersetzung** (DE → EN) mit Layout-Erhalt
+- **Dokumentübersetzung** (DE → EN) mit Layout-Erhalt (DOCX, PPTX, MD, TEX, PDF)
 - **Glossar** – Konsistente Übersetzung von Fachbegriffen (nur im Browser-Tab, kein Server-Speicher)
 - **Dateinamen-Übersetzung** – Dateien werden mit übersetztem Namen heruntergeladen
-- **Passwort-Login** mit Session-Cookies (kein externer Auth-Provider nötig)
-- **API-Key-Zugang** für externe Systeme/Swagger UI
+- **Passwort-Login** mit Session-Cookies
 
 ## Unterstützte Formate
 
@@ -129,8 +128,7 @@ Das Glossar stellt sicher, dass bestimmte Begriffe immer gleich übersetzt werde
 | `APP_PASSWORD` | Login-Passwort | `admin` |
 | `SESSION_SECRET` | Secret für Session-Tokens | – |
 | `SESSION_MAX_AGE_SECONDS` | Session-Dauer | `86400` (24h) |
-| `KIS_API_TOKEN` | API-Key für externe Zugriffe | – |
-| `ENABLE_DOCS` | Swagger UI aktivieren | `false` |
+| `PRODUCTION` | Produktionsmodus (Docs aus, Cookies secure) | `false` |
 
 ## Projektstruktur
 

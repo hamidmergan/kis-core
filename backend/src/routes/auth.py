@@ -24,7 +24,7 @@ async def login(body: LoginRequest, response: Response):
         httponly=True,
         samesite="lax",
         max_age=settings.session_max_age_seconds,
-        secure=False,  # Set True behind HTTPS/Nginx
+        secure=settings.production,
     )
     return {"status": "ok"}
 

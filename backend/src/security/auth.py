@@ -1,19 +1,13 @@
-from fastapi import HTTPException, Request, Security
-from fastapi.security import APIKeyHeader
+from fastapi import HTTPException, Request
 
-from src.dependencies import get_settings, get_session_store
+from src.dependencies import get_session_store
 
-api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
-
-_OPEN_PATHS = {"/", "/health"}
+_OPEN_PATHS = {"/", "/health", "/docs", "/redoc", "/openapi.json"}
 _OPEN_PREFIXES = ("/auth/",)
 
 
-async def verify_auth(
-    request: Request,
-    api_key: str = Security(api_key_header),
-):
-    """Dual auth: accepts session cookie OR x-api-key header.
+async def verify_auth(request: Request):
+    """Checks session cookie for authentication.
 
     Open paths (landing page, docs, health, auth endpoints) are exempt.
     """
@@ -21,17 +15,12 @@ async def verify_auth(
     if path in _OPEN_PATHS or any(path.startswith(p) for p in _OPEN_PREFIXES):
         return
 
-    # 1. Check session cookie
+    # Check session cookie
     session_token = request.cookies.get("session")
     if session_token:
         store = get_session_store()
         if store.validate(session_token):
             return
 
-    # 2. Check x-api-key header
-    settings = get_settings()
-    token = settings.kis_api_token
-    if token and api_key == token:
-        return
+    raise HTTPException(status_code=401, detail="Nicht authentifiziert")
 
-    raise HTTPException(status_code=401, detail="Ungültiger oder fehlender API-Key")
