@@ -2,7 +2,7 @@ from fastapi import HTTPException, Request
 
 from src.dependencies import get_session_store
 
-_OPEN_PATHS = {"/", "/health", "/docs", "/redoc", "/openapi.json"}
+_OPEN_PATHS = {"/health", "/docs", "/redoc", "/openapi.json"}
 _OPEN_PREFIXES = ("/auth/",)
 
 
