@@ -1,9 +1,9 @@
-import traceback
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
+from loguru import logger
 
 from src.dependencies import get_settings
 from src.services.elevenlabs_client import ElevenLabsClient
@@ -23,7 +23,7 @@ def _get_elevenlabs_client() -> ElevenLabsClient:
     return ElevenLabsClient(settings.elevenlabs_api_key)
 
 
-# ---------- route ----------
+# ---------- Route ----------
 
 
 @router.post("/tts")
@@ -73,8 +73,7 @@ async def text_to_speech(
     try:
         text = extractor(content)
     except Exception as e:
-        print(f"Text-Extraktionsfehler: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
+        logger.exception("Text extraction error for file '{}'", file.filename)
         raise HTTPException(
             status_code=500, detail=f"Fehler beim Lesen der Datei: {str(e)}"
         )
@@ -100,11 +99,12 @@ async def text_to_speech(
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
-        print(f"TTS-Fehler: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
+        logger.exception("TTS synthesis error for file '{}'", file.filename)
         raise HTTPException(
             status_code=500, detail=f"Fehler bei der Audiogenerierung: {str(e)}"
         )
+
+    logger.info("TTS synthesis completed for file '{}'", file.filename)
 
     # Build output filename
     stem = Path(file.filename).stem

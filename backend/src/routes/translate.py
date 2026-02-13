@@ -1,10 +1,10 @@
 import json
-import traceback
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
+from loguru import logger
 
 from src.dependencies import get_deepl_client, get_settings
 from src.services.glossary import GlossaryService
@@ -101,11 +101,9 @@ async def translate(
                 status_code=500, detail=f"DOCX-Übersetzungsfehler: {str(e)}"
             )
         except Exception as e:
-            error_msg = str(e)
-            print(f"DOCX-Fehler: {error_msg}")
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.exception("DOCX processing error for file '{}'", file.filename)
             raise HTTPException(
-                status_code=500, detail=f"DOCX-Verarbeitungsfehler: {error_msg}"
+                status_code=500, detail=f"DOCX-Verarbeitungsfehler: {str(e)}"
             )
     elif ext == ".pptx":
         try:
@@ -115,14 +113,14 @@ async def translate(
                 status_code=500, detail=f"PPTX-Übersetzungsfehler: {str(e)}"
             )
         except Exception as e:
-            error_msg = str(e)
-            print(f"PPTX-Fehler: {error_msg}")
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.exception("PPTX processing error for file '{}'", file.filename)
             raise HTTPException(
-                status_code=500, detail=f"PPTX-Verarbeitungsfehler: {error_msg}"
+                status_code=500, detail=f"PPTX-Verarbeitungsfehler: {str(e)}"
             )
     else:
         raise HTTPException(status_code=400, detail="Dateityp wird nicht unterstützt")
+
+    logger.info("Translation completed: '{}' -> '{}'", file.filename, download_name)
 
     encoded_filename = quote(download_name, safe="")
     return StreamingResponse(
@@ -171,12 +169,12 @@ async def translate_document(request: Request, file: UploadFile = File(...)):
             status_code=500, detail=f"Document-Übersetzungsfehler: {str(e)}"
         )
     except Exception as e:
-        error_msg = str(e)
-        print(f"Document-Fehler: {error_msg}")
-        print(f"Traceback: {traceback.format_exc()}")
+        logger.exception("Document translation error for file '{}'", file.filename)
         raise HTTPException(
-            status_code=500, detail=f"Document-Verarbeitungsfehler: {error_msg}"
+            status_code=500, detail=f"Document-Verarbeitungsfehler: {str(e)}"
         )
+
+    logger.info("Document translation completed: '{}' -> '{}'", file.filename, download_name)
 
     encoded_filename = quote(download_name, safe="")
     return StreamingResponse(

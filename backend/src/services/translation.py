@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from loguru import logger
+
 from src.services.deepl_client import DeepLClient
 from src.services.glossary import GlossaryService
 
@@ -47,5 +49,5 @@ class TranslationService:
                 return filename
             return f"{translated}{ext}"
         except Exception as e:
-            print(f"Dateinamen-Übersetzung fehlgeschlagen für '{filename}': {e}")
+            logger.warning("Filename translation failed for '{}': {}", filename, e)
             return filename

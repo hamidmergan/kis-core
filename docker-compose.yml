@@ -7,6 +7,11 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
 
   frontend:
     build:
@@ -19,3 +24,8 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"

@@ -1,6 +1,7 @@
 from io import BytesIO
 
 from docx import Document
+from loguru import logger
 
 from src.services.translation import TranslationService
 from src.utils.text import translate_paragraph_preserve_runs
@@ -44,7 +45,7 @@ def translate_docx(
             try:
                 translate_paragraph_preserve_runs(para, source_lang, target_lang, service)
             except Exception as e:
-                raise ValueError(f"Fehler beim Übersetzen eines Absatzes: {str(e)}")
+                raise ValueError(f"Error translating a paragraph: {e}")
 
         output = BytesIO()
         doc.save(output)
@@ -55,7 +56,5 @@ def translate_docx(
     except ValueError:
         raise
     except Exception as e:
-        import traceback
-        raise ValueError(
-            f"Fehler beim Verarbeiten der DOCX-Datei: {str(e)}\n{traceback.format_exc()}"
-        )
+        logger.exception("Error processing DOCX file")
+        raise ValueError(f"Error processing DOCX file: {e}")

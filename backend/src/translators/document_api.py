@@ -4,6 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 from fpdf import FPDF
+from loguru import logger
 from pypdf import PdfReader
 
 from src.services.translation import TranslationService
@@ -49,10 +50,8 @@ def translate_pdf(
     except ValueError:
         raise
     except Exception as e:
-        import traceback
-        raise ValueError(
-            f"Fehler beim Verarbeiten der PDF-Datei: {str(e)}\n{traceback.format_exc()}"
-        )
+        logger.exception("Error processing PDF file")
+        raise ValueError(f"Error processing PDF file: {e}")
 
 
 def translate_document_via_deepl(
@@ -106,7 +105,5 @@ def translate_document_via_deepl(
         result = translator.translate_document_download(handle)
         return result if isinstance(result, (bytes, bytearray)) else bytes(result)
     except Exception as e:
-        import traceback
-        raise ValueError(
-            f"DeepL Document Translation Fehler: {str(e)}\n{traceback.format_exc()}"
-        )
+        logger.exception("DeepL document translation error for '{}'", filename)
+        raise ValueError(f"DeepL document translation error: {e}")

@@ -1,9 +1,9 @@
-import traceback
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
+from loguru import logger
 
 from src.dependencies import get_settings
 from src.services.kisski_client import KisskiClient
@@ -61,8 +61,7 @@ async def generate_script(
     try:
         text = extractor(content)
     except Exception as e:
-        print(f"Text-Extraktionsfehler: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
+        logger.exception("Text extraction error for file '{}'", file.filename)
         raise HTTPException(
             status_code=500, detail=f"Fehler beim Lesen der Datei: {str(e)}"
         )
@@ -77,11 +76,12 @@ async def generate_script(
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
-        print(f"Skript-Fehler: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
+        logger.exception("Script generation error for file '{}'", file.filename)
         raise HTTPException(
             status_code=500, detail=f"Fehler bei der Skripterstellung: {str(e)}"
         )
+
+    logger.info("Script generation completed for file '{}'", file.filename)
 
     # Build output filename
     stem = Path(file.filename).stem
