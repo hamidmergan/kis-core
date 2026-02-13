@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/translate-document`,
       },
       {
+        source: "/api/tts",
+        destination: `${backendUrl}/tts`,
+      },
+      {
+        source: "/api/script",
+        destination: `${backendUrl}/script`,
+      },
+      {
         source: "/docs",
         destination: `${backendUrl}/docs`,
       },

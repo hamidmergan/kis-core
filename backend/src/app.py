@@ -2,7 +2,7 @@ from fastapi import Depends, FastAPI
 
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
-from src.routes import auth, health, translate
+from src.routes import auth, health, script, translate, tts
 
 
 def create_app() -> FastAPI:
@@ -20,6 +20,8 @@ def create_app() -> FastAPI:
     application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(translate.router)
+    application.include_router(tts.router)
+    application.include_router(script.router)
 
     return application
 

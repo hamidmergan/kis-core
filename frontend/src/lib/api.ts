@@ -52,6 +52,50 @@ class ApiClient {
     return response.json();
   }
 
+  async uploadFileWithFields(
+    path: string,
+    file: File,
+    fields: Record<string, string>,
+  ): Promise<{ blob: Blob; filename: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    for (const [key, value] of Object.entries(fields)) {
+      formData.append(key, value);
+    }
+
+    const response = await this.fetch(path, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+      throw new Error(error.detail || `Fehler: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    let filename = "";
+
+    const disposition = response.headers.get("Content-Disposition");
+    if (disposition) {
+      const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
+      if (utf8Match) {
+        filename = decodeURIComponent(utf8Match[1].trim());
+      } else {
+        const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
+        if (basicMatch) {
+          filename = decodeURIComponent(basicMatch[1].trim());
+        }
+      }
+    }
+
+    if (!filename) {
+      filename = file.name;
+    }
+
+    return { blob, filename };
+  }
+
   async uploadFile(
     path: string,
     file: File,
