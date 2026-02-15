@@ -124,3 +124,52 @@ class ElevenLabsClient:
             raise RuntimeError(f"ElevenLabs API Fehler ({response.status_code}): {msg}")
 
         return response.content
+
+    def synthesize_with_timestamps(self, text: str) -> dict:
+        """Convert text to speech and return MP3 bytes with alignment data.
+
+        Args:
+            text: The text to synthesize.
+
+        Returns:
+            Dict with 'audio_bytes' (bytes) and 'alignment' (dict with
+            characters, character_start_times_seconds, character_end_times_seconds).
+
+        Raises:
+            RuntimeError: If the ElevenLabs API returns an error.
+        """
+        url = f"{_API_URL}/{_VOICE_ID}/with-timestamps"
+        headers = {
+            "xi-api-key": self._api_key,
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "text": text,
+            "model_id": _MODEL_ID,
+            "language_code": "en",
+            "voice_settings": {
+                "stability": _DEFAULT_STABILITY,
+                "similarity_boost": _DEFAULT_SIMILARITY_BOOST,
+                "style": _DEFAULT_STYLE,
+                "use_speaker_boost": _DEFAULT_SPEAKER_BOOST,
+            },
+        }
+
+        with httpx.Client(timeout=300.0) as client:
+            response = client.post(url, json=payload, headers=headers)
+
+        if response.status_code != 200:
+            try:
+                detail = response.json().get("detail", {})
+                msg = detail.get("message", response.text) if isinstance(detail, dict) else str(detail)
+            except Exception:
+                msg = response.text
+            raise RuntimeError(f"ElevenLabs API Fehler ({response.status_code}): {msg}")
+
+        data = response.json()
+
+        import base64
+        audio_bytes = base64.b64decode(data["audio_base64"])
+        alignment = data.get("alignment", {})
+
+        return {"audio_bytes": audio_bytes, "alignment": alignment}

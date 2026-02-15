@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(docker compose:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

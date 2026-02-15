@@ -1,0 +1,154 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import Header from "@/components/Header";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import TranscriptionFileUpload from "@/components/TranscriptionFileUpload";
+import TranscriptionStatus from "@/components/TranscriptionStatus";
+import { api, backendApi } from "@/lib/api";
+import type { TranscriptionState } from "@/types";
+
+const TASK_OPTIONS = [
+  { value: "transcribe", label: "Transkribieren (Originalsprache)" },
+  { value: "translate", label: "Ins Englische übersetzen" },
+];
+
+const FORMAT_OPTIONS = [
+  { value: "text", label: "Text (.txt)" },
+  { value: "srt", label: "SRT (.srt)" },
+  { value: "vtt", label: "VTT (.vtt)" },
+];
+
+export default function TranscriptionPage() {
+  const [state, setState] = useState<TranscriptionState>("idle");
+  const [selectedFile, setSelectedFile] = useState<string>("");
+  const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
+  const [downloadName, setDownloadName] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
+  const [task, setTask] = useState("transcribe");
+  const [responseFormat, setResponseFormat] = useState("text");
+
+  const isProcessing = state === "uploading" || state === "processing";
+
+  const handleFileSelected = useCallback(
+    async (file: File) => {
+      setDownloadBlob(null);
+      setDownloadName("");
+      setErrorMessage("");
+      setSelectedFile(file.name);
+      setState("uploading");
+
+      try {
+        setState("processing");
+        const { blob, filename } = await backendApi.uploadFileWithFields(
+          "/transcription",
+          file,
+          {
+            task,
+            response_format: responseFormat,
+          },
+        );
+
+        setDownloadBlob(blob);
+        setDownloadName(filename);
+        setState("done");
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
+        setState("error");
+      }
+    },
+    [task, responseFormat],
+  );
+
+  const handleDownload = () => {
+    if (!downloadBlob) return;
+    const url = URL.createObjectURL(downloadBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleReset = () => {
+    setState("idle");
+    setSelectedFile("");
+    setDownloadBlob(null);
+    setDownloadName("");
+    setErrorMessage("");
+  };
+
+  return (
+    <ProtectedRoute>
+      <Header showLogout />
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <section>
+          <h1 className="text-xl font-bold text-gray-900 mb-1">Transkription</h1>
+          <p className="text-sm text-gray-500 mb-6">
+            Laden Sie eine Audio- oder Videodatei hoch, um sie zu transkribieren oder ins Englische zu übersetzen.
+          </p>
+
+          {/* Task selection */}
+          <div className="mb-4">
+            <label htmlFor="task-select" className="block text-sm font-medium text-gray-700 mb-2">
+              Aktion
+            </label>
+            <select
+              id="task-select"
+              value={task}
+              onChange={(e) => setTask(e.target.value)}
+              disabled={isProcessing}
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {TASK_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Format selection */}
+          <div className="mb-6">
+            <label htmlFor="format-select" className="block text-sm font-medium text-gray-700 mb-2">
+              Ausgabeformat
+            </label>
+            <select
+              id="format-select"
+              value={responseFormat}
+              onChange={(e) => setResponseFormat(e.target.value)}
+              disabled={isProcessing}
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {FORMAT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <TranscriptionFileUpload
+            onFileSelected={handleFileSelected}
+            disabled={isProcessing}
+          />
+
+          {selectedFile && state !== "idle" && (
+            <p className="mt-3 text-xs text-gray-500">Datei: {selectedFile}</p>
+          )}
+
+          <TranscriptionStatus
+            state={state}
+            fileName={downloadName}
+            errorMessage={errorMessage}
+            onDownload={handleDownload}
+            onReset={handleReset}
+          />
+        </section>
+      </div>
+    </ProtectedRoute>
+  );
+}
