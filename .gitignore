@@ -6,6 +6,8 @@ output/
 *.log
 .DS_Store
 
+.claude/
+
 # Frontend
 frontend/node_modules/
 frontend/.next/

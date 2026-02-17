@@ -43,7 +43,7 @@ interface GenerateScriptsResponse {
 interface SubtitleData {
   srt: string;
   vtt: string;
-  ass: string;
+
   txt: string;
   alignment_json: string;
 }
@@ -122,9 +122,13 @@ export default function ScreencastPage() {
   const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [embedSubtitles, setEmbedSubtitles] = useState(true);
+  const [imageDpi, setImageDpi] = useState(150);
+  const [videoCrf, setVideoCrf] = useState(23);
   const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voiceId, setVoiceId] = useState("");
+  const [audioId, setAudioId] = useState<string>("");
+  const [audioCount, setAudioCount] = useState(0);
   const [demoAvailable, setDemoAvailable] = useState(false);
   const [demoHasVideo, setDemoHasVideo] = useState(false);
 
@@ -213,7 +217,11 @@ export default function ScreencastPage() {
     setCorrectedFileName(null);
     setLightboxIndex(null);
     setEmbedSubtitles(true);
+    setImageDpi(150);
+    setVideoCrf(23);
     setSubtitleData(null);
+    setAudioId("");
+    setAudioCount(0);
     setAutoState("idle");
     setAutoDownloadBlob(null);
     setAutoDownloadName("");
@@ -569,6 +577,12 @@ export default function ScreencastPage() {
       }
     }
 
+    // Audio download info from headers
+    const aId = response.headers.get("X-Audio-Id");
+    const aCount = response.headers.get("X-Audio-Count");
+    if (aId) setAudioId(aId);
+    if (aCount) setAudioCount(parseInt(aCount, 10) || 0);
+
     setDownloadBlob(blob);
     const url = URL.createObjectURL(blob);
     setVideoUrl(url);
@@ -608,13 +622,15 @@ export default function ScreencastPage() {
           speed,
           slide_pause: slidePause,
           embed_subtitles: embedSubtitles,
+          image_dpi: imageDpi,
+          video_crf: videoCrf,
         }),
       });
       await processRenderResponse(response);
     } catch (err) {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxB64, voiceId, speed, slidePause, embedSubtitles, goError, processRenderResponse]);
+  }, [slides, translatedPptxB64, voiceId, speed, slidePause, embedSubtitles, imageDpi, videoCrf, goError, processRenderResponse]);
 
   // ── Download MP4 ──
   const handleDownload = () => {
@@ -1565,6 +1581,74 @@ export default function ScreencastPage() {
               </div>
             </label>
 
+            {/* Bildqualität */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Bildqualität
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setImageDpi(150)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
+                    imageDpi === 150
+                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
+                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  Standard (150 DPI)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImageDpi(300)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
+                    imageDpi === 300
+                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
+                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  Hoch (300 DPI)
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Höhere Auflösung der Folienbilder im Video
+              </p>
+            </div>
+
+            {/* Videoqualität */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Videoqualität
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVideoCrf(23)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
+                    videoCrf === 23
+                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
+                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  Standard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVideoCrf(18)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
+                    videoCrf === 18
+                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
+                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  Hoch
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Höhere Qualität erzeugt größere Dateien
+              </p>
+            </div>
+
             {/* Summary */}
             <div className="mb-6 rounded-lg bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-700">
@@ -1690,7 +1774,6 @@ export default function ScreencastPage() {
                   {([
                     ["SRT", subtitleData.srt, "transcript.srt", "text/plain"],
                     ["VTT", subtitleData.vtt, "transcript.vtt", "text/vtt"],
-                    ["ASS", subtitleData.ass, "transcript.ass", "text/plain"],
                     ["TXT", subtitleData.txt, "transcript.txt", "text/plain"],
                   ] as [string, string, string, string][]).map(([label, content, filename, mime]) => (
                     <button
@@ -1715,7 +1798,41 @@ export default function ScreencastPage() {
               </div>
             )}
 
-            {/* Row 3: Reset */}
+            {/* Row 3: Audio downloads */}
+            {audioId && audioCount > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-gray-400 text-center mb-2">Audio pro Folie herunterladen</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {Array.from({ length: audioCount }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={async () => {
+                        try {
+                          const res = await backendApi.fetch(`/screencast/audio/${audioId}/${i}`);
+                          if (!res.ok) throw new Error("Download fehlgeschlagen");
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `slide_${String(i + 1).padStart(2, "0")}.mp3`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        } catch {
+                          console.error("Audio download failed for slide", i + 1);
+                        }
+                      }}
+                      className="px-3 py-1.5 text-xs text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                    >
+                      Folie {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Row 4: Reset */}
             <div className="flex justify-center">
               <button
                 onClick={resetAll}

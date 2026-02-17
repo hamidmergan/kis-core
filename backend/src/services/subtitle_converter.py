@@ -129,47 +129,6 @@ def segments_to_vtt(segments: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _fmt_ass_time(seconds: float) -> str:
-    """Format seconds as ASS timestamp ``H:MM:SS.cc``."""
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    cs = int(round((seconds - int(seconds)) * 100))
-    return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
-
-
-def segments_to_ass(segments: list[dict]) -> str:
-    """Convert segments to ASS subtitle format with styled appearance.
-
-    Style: white bold text on opaque dark background box.
-    """
-    header = (
-        "[Script Info]\n"
-        "ScriptType: v4.00+\n"
-        "PlayResX: 1920\n"
-        "PlayResY: 1080\n"
-        "ScaledBorderAndShadow: yes\n"
-        "\n"
-        "[V4+ Styles]\n"
-        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
-        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
-        "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
-        "Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        "Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&HC0000000,"
-        "-1,0,0,0,100,100,0,0,3,0,0,2,20,20,40,1\n"
-        "\n"
-        "[Events]\n"
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-    )
-    lines: list[str] = [header.rstrip()]
-    for seg in segments:
-        start = _fmt_ass_time(seg["start"])
-        end = _fmt_ass_time(seg["end"])
-        text = seg["text"].replace("\n", "\\N")
-        lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
-    return "\n".join(lines) + "\n"
-
-
 def segments_to_txt(segments: list[dict]) -> str:
     """Convert segments to plain-text transcript."""
     return " ".join(seg["text"] for seg in segments)
@@ -188,7 +147,7 @@ def build_subtitles(
         slide_pause: pause between slides in seconds
 
     Returns:
-        Dict with ``srt``, ``vtt``, ``ass``, ``txt``, ``alignment_json`` string values.
+        Dict with ``srt``, ``vtt``, ``txt``, ``alignment_json`` string values.
     """
     all_segments: list[dict] = []
     global_offset = 0.0
@@ -212,7 +171,6 @@ def build_subtitles(
     return {
         "srt": segments_to_srt(all_segments),
         "vtt": segments_to_vtt(all_segments),
-        "ass": segments_to_ass(all_segments),
         "txt": segments_to_txt(all_segments),
         "alignment_json": json.dumps(all_segments, ensure_ascii=False),
     }
