@@ -20,7 +20,7 @@ export default function ImpressumPage() {
           <p className="font-semibold text-gray-700 mb-2">Kontakt:</p>
           <p className="text-gray-600">
             Telefon: +49 451 160818 81<br />
-            E-Mail: hamid.mergan@gmail.com
+            E-Mail: hamid.mergan@th-luebeck.de
           </p>
         </div>
       </div>

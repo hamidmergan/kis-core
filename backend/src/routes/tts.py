@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from src.dependencies import get_settings
-from src.services.elevenlabs_client import ElevenLabsClient
+from src.services.elevenlabs_client import DEFAULT_VOICE_ID, ElevenLabsClient
 from src.utils.file_validation import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES
 from src.utils.text_extraction import EXTRACTORS
 
@@ -23,13 +23,26 @@ def _get_elevenlabs_client() -> ElevenLabsClient:
     return ElevenLabsClient(settings.elevenlabs_api_key)
 
 
-# ---------- Route ----------
+# ---------- Routes ----------
+
+
+@router.get("/voices")
+async def list_voices():
+    """Return available TTS voices."""
+    settings = get_settings()
+    voices = [
+        {"voice_id": DEFAULT_VOICE_ID, "label": "Rachel (Standard)"},
+    ]
+    if settings.elevenlabs_voice_id:
+        voices.append({"voice_id": settings.elevenlabs_voice_id, "label": "Meine Stimme"})
+    return {"voices": voices}
 
 
 @router.post("/tts")
 async def text_to_speech(
     request: Request,
     file: UploadFile = File(...),
+    voice_id: str = Form(""),
     speed: float = Form(0.9),
     stability: float = Form(0.70),
     similarity_boost: float = Form(0.60),
@@ -87,6 +100,7 @@ async def text_to_speech(
         mp3_bytes = client.synthesize(
             text,
             "EN",
+            voice_id=voice_id,
             speed=speed,
             stability=stability,
             similarity_boost=similarity_boost,

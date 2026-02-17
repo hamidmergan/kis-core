@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScreencastStatus from "@/components/ScreencastStatus";
@@ -12,6 +12,11 @@ import type {
   SlideData,
 } from "@/types";
 
+interface Voice {
+  voice_id: string;
+  label: string;
+}
+
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
 interface TranslateResponse {
@@ -19,6 +24,7 @@ interface TranslateResponse {
   slide_texts: string[];
   slide_images: string[];
   translated_pptx_b64: string;
+  user_prompt?: string;
 }
 
 interface PrepareResponse {
@@ -34,6 +40,15 @@ interface GenerateScriptsResponse {
   scripts: string[];
 }
 
+interface SubtitleData {
+  srt: string;
+  vtt: string;
+  ass: string;
+  txt: string;
+  alignment_json: string;
+}
+
+
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -45,8 +60,8 @@ function estimateDuration(words: number): number {
 const STEP_LABELS = [
   "Upload",
   "Übersetzen",
-  "Anweisungen",
   "Prüfen",
+  "Anweisungen",
   "Skripte",
   "Einstellungen",
   "Rendern",
@@ -59,9 +74,9 @@ function stepToIndex(step: ScreencastStep): number {
       return 0;
     case "translating":
       return 1;
-    case "user-prompt":
-      return 2;
     case "translation-review":
+      return 2;
+    case "user-prompt":
       return 3;
     case "generating-scripts":
     case "script-review":
@@ -106,8 +121,72 @@ export default function ScreencastPage() {
   const [editBuffer, setEditBuffer] = useState("");
   const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [embedSubtitles, setEmbedSubtitles] = useState(true);
+  const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [voiceId, setVoiceId] = useState("");
+  const [demoAvailable, setDemoAvailable] = useState(false);
+  const [demoHasVideo, setDemoHasVideo] = useState(false);
+
+  const [maxReachedIdx, setMaxReachedIdx] = useState(0);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const stepperRef = useRef<HTMLElement>(null);
+  const isDraggingRef = useRef(false);
+  const hasDraggedRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragScrollLeftRef = useRef(0);
+
+  // ── Stepper drag-to-scroll ──
+
+  const handleStepperMouseDown = useCallback((e: React.MouseEvent) => {
+    const el = stepperRef.current;
+    if (!el) return;
+    isDraggingRef.current = true;
+    hasDraggedRef.current = false;
+    dragStartXRef.current = e.pageX - el.offsetLeft;
+    dragScrollLeftRef.current = el.scrollLeft;
+    el.style.cursor = "grabbing";
+    el.style.userSelect = "none";
+  }, []);
+
+  const handleStepperMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    const el = stepperRef.current;
+    if (!el) return;
+    const x = e.pageX - el.offsetLeft;
+    if (Math.abs(x - dragStartXRef.current) > 5) {
+      hasDraggedRef.current = true;
+    }
+    const walk = (x - dragStartXRef.current) * 1.5;
+    el.scrollLeft = dragScrollLeftRef.current - walk;
+  }, []);
+
+  const handleStepperMouseUp = useCallback(() => {
+    isDraggingRef.current = false;
+    const el = stepperRef.current;
+    if (el) {
+      el.style.cursor = "";
+      el.style.userSelect = "";
+    }
+  }, []);
+
+  // ── Fetch available voices ──
+  useEffect(() => {
+    backendApi.getJson<{ voices: Voice[] }>("/voices").then((data) => {
+      setVoices(data.voices);
+      if (data.voices.length > 0) setVoiceId(data.voices[0].voice_id);
+    }).catch(() => {});
+  }, []);
+
+  // ── Check demo availability ──
+  useEffect(() => {
+    backendApi.getJson<{ available: boolean; has_video: boolean }>("/screencast/demo-available").then((data) => {
+      setDemoAvailable(data.available);
+      setDemoHasVideo(data.has_video);
+    }).catch(() => {});
+  }, []);
 
   // ── Helpers ──
 
@@ -133,12 +212,33 @@ export default function ScreencastPage() {
     setEditBuffer("");
     setCorrectedFileName(null);
     setLightboxIndex(null);
+    setEmbedSubtitles(true);
+    setSubtitleData(null);
     setAutoState("idle");
     setAutoDownloadBlob(null);
     setAutoDownloadName("");
     setAutoError("");
+    setMaxReachedIdx(0);
     if (fileRef.current) fileRef.current.value = "";
   }, [videoUrl]);
+
+  const handleStepClick = useCallback((index: number) => {
+    if (hasDraggedRef.current) return;
+    if (index > maxReachedIdx) return;
+    const targets: Record<number, ScreencastStep | null> = {
+      0: null,
+      1: null,
+      2: "translation-review",
+      3: "user-prompt",
+      4: "script-review",
+      5: "tts-settings",
+      6: null,
+      7: "done",
+    };
+    const target = targets[index];
+    if (!target) return;
+    setStep(target);
+  }, [maxReachedIdx]);
 
   const goError = useCallback((msg: string) => {
     setErrorMessage(msg);
@@ -219,7 +319,7 @@ export default function ScreencastPage() {
     setAutoState("processing");
 
     try {
-      const fields: Record<string, string> = { speed: String(speed) };
+      const fields: Record<string, string> = { speed: String(speed), voice_id: voiceId };
       const gj = glossaryToJson();
       if (gj) fields.glossary_json = gj;
 
@@ -236,7 +336,7 @@ export default function ScreencastPage() {
       setAutoError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setAutoState("error");
     }
-  }, [file, speed, glossary]);
+  }, [file, speed, voiceId, glossary]);
 
   const handleAutoDownload = () => {
     if (!autoDownloadBlob) return;
@@ -292,7 +392,7 @@ export default function ScreencastPage() {
       );
 
       setLoading(false);
-      setStep("user-prompt");
+      setStep("translation-review");
     } catch (err) {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
@@ -399,32 +499,122 @@ export default function ScreencastPage() {
     setStep("tts-settings");
   }, []);
 
+  // ── Demo handlers ──
+  const handleDemoTranslate = useCallback(async () => {
+    setStep("translating");
+    setLoading(true);
+    try {
+      const data = await backendApi.postJson<TranslateResponse>(
+        "/screencast/demo/translate",
+        {},
+      );
+      setTranslatedPptxB64(data.translated_pptx_b64);
+      setSlides(
+        data.slide_texts.map((text, i) => ({
+          index: i,
+          imageBase64: data.slide_images[i] || "",
+          extractedText: text,
+          script: "",
+        })),
+      );
+      if (data.user_prompt) setUserPrompt(data.user_prompt);
+      setLoading(false);
+      setStep("translation-review");
+    } catch (err) {
+      goError(err instanceof Error ? err.message : "Demo-Fehler");
+    }
+  }, [goError]);
+
+  const handleDemoGenerateScripts = useCallback(async () => {
+    setStep("generating-scripts");
+    setLoading(true);
+    try {
+      const data = await backendApi.postJson<GenerateScriptsResponse>(
+        "/screencast/demo/generate-scripts",
+        {},
+      );
+      setSlides((prev) =>
+        prev.map((s, i) => ({
+          ...s,
+          script: data.scripts[i] || "",
+        })),
+      );
+      setLoading(false);
+      setStep("script-review");
+    } catch (err) {
+      goError(err instanceof Error ? err.message : "Demo-Fehler");
+    }
+  }, [goError]);
+
+  // ── Shared: process render response (binary video + subtitles in header) ──
+  const processRenderResponse = useCallback(async (response: Response) => {
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: "Render-Fehler" }));
+      throw new Error(err.detail || `Fehler: ${response.status}`);
+    }
+
+    // Video comes as raw binary bytes
+    const blob = await response.blob();
+    console.log("[Screencast] Video blob size:", blob.size, "bytes");
+
+    // Subtitles come as base64-encoded JSON in X-Subtitles header
+    const subtitleHeader = response.headers.get("X-Subtitles");
+    let subs: SubtitleData | null = null;
+    if (subtitleHeader) {
+      try {
+        const decoded = atob(subtitleHeader);
+        subs = JSON.parse(decoded);
+      } catch {
+        console.warn("[Screencast] Failed to parse X-Subtitles header");
+      }
+    }
+
+    setDownloadBlob(blob);
+    const url = URL.createObjectURL(blob);
+    setVideoUrl(url);
+    if (subs) setSubtitleData(subs);
+    setLoading(false);
+    setStep("done");
+  }, []);
+
+  const handleDemoRender = useCallback(async () => {
+    setStep("rendering");
+    setLoading(true);
+    try {
+      const response = await backendApi.fetch("/screencast/demo/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      await processRenderResponse(response);
+    } catch (err) {
+      goError(err instanceof Error ? err.message : "Demo-Fehler");
+    }
+  }, [goError, processRenderResponse]);
+
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
     setStep("rendering");
     setLoading(true);
-
     try {
-      const { blob } = await backendApi.postJsonForBlob(
-        "/screencast/render",
-        {
+      const response = await backendApi.fetch("/screencast/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           scripts: slides.map((s) => s.script),
           translated_pptx_b64: translatedPptxB64,
           slide_images_b64: slides.map((s) => s.imageBase64),
+          voice_id: voiceId,
           speed,
           slide_pause: slidePause,
-        },
-      );
-
-      setDownloadBlob(blob);
-      const url = URL.createObjectURL(blob);
-      setVideoUrl(url);
-      setLoading(false);
-      setStep("done");
+          embed_subtitles: embedSubtitles,
+        }),
+      });
+      await processRenderResponse(response);
     } catch (err) {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxB64, speed, slidePause, goError]);
+  }, [slides, translatedPptxB64, voiceId, speed, slidePause, embedSubtitles, goError, processRenderResponse]);
 
   // ── Download MP4 ──
   const handleDownload = () => {
@@ -466,6 +656,37 @@ export default function ScreencastPage() {
     setStep("script-review");
   };
 
+  // ── VTT blob URL for in-browser subtitle track ──
+  const vttUrl = useMemo(() => {
+    if (!subtitleData?.vtt) return null;
+    return URL.createObjectURL(new Blob([subtitleData.vtt], { type: "text/vtt" }));
+  }, [subtitleData]);
+
+  useEffect(() => {
+    return () => {
+      if (vttUrl) URL.revokeObjectURL(vttUrl);
+    };
+  }, [vttUrl]);
+
+  // ── Track max reached step + auto-scroll active step to center ──
+  useEffect(() => {
+    const idx = stepToIndex(step);
+    setMaxReachedIdx((prev) => Math.max(prev, idx));
+
+    const container = stepperRef.current;
+    if (!container) return;
+    const activeEl = container.querySelector<HTMLElement>('[data-active="true"]');
+    if (!activeEl) return;
+    const containerRect = container.getBoundingClientRect();
+    const activeRect = activeEl.getBoundingClientRect();
+    const offset =
+      activeRect.left -
+      containerRect.left -
+      containerRect.width / 2 +
+      activeRect.width / 2;
+    container.scrollBy({ left: offset, behavior: "smooth" });
+  }, [step]);
+
   const isAutoMode =
     mode === "auto" && step === "upload" && autoState !== "idle";
   const showStepIndicator = step !== "upload" && step !== "error";
@@ -482,64 +703,99 @@ export default function ScreencastPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Step indicator */}
         {showStepIndicator && (
-          <nav aria-label="Fortschritt" className="mb-8">
-            <ol className="flex items-center gap-2">
-              {STEP_LABELS.map((label, i) => {
-                const currentIdx = stepToIndex(step);
-                const isDone = i < currentIdx;
-                const isActive = i === currentIdx;
-                return (
-                  <li key={label} className="flex items-center gap-2">
-                    <span
-                      className={`
-                        inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium transition-colors
-                        ${isActive ? "bg-[#0066cc] text-white" : ""}
-                        ${isDone ? "bg-[#0066cc]/20 text-[#0066cc]" : ""}
-                        ${!isActive && !isDone ? "bg-gray-100 text-gray-400" : ""}
-                      `}
-                      aria-current={isActive ? "step" : undefined}
-                    >
-                      {isDone ? (
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          aria-hidden="true"
+          <>
+            <nav
+              ref={stepperRef}
+              aria-label="Fortschritt"
+              className="mb-2 overflow-x-auto scrollbar-hide cursor-grab touch-pan-x"
+              onMouseDown={handleStepperMouseDown}
+              onMouseMove={handleStepperMouseMove}
+              onMouseUp={handleStepperMouseUp}
+              onMouseLeave={handleStepperMouseUp}
+            >
+              <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
+                {STEP_LABELS.map((label, i) => {
+                  const currentIdx = stepToIndex(step);
+                  const isDone = i < currentIdx;
+                  const isActive = i === currentIdx;
+                  const isReached = i <= maxReachedIdx;
+                  const isClickable = isReached && !isActive && i !== 0 && i !== 1 && i !== 6;
+                  return (
+                    <li key={label} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStepClick(i)}
+                        aria-disabled={!isClickable}
+                        className={`
+                          inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
+                          ${isClickable ? "cursor-pointer hover:bg-gray-100" : "cursor-default"}
+                        `}
+                      >
+                        <span
+                          className={`
+                            inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
+                            ${isActive ? "bg-[#0066cc] text-white" : ""}
+                            ${isDone ? "bg-[#0066cc]/20 text-[#0066cc]" : ""}
+                            ${!isActive && !isDone ? "bg-gray-100 text-gray-400" : ""}
+                          `}
+                          aria-current={isActive ? "step" : undefined}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      ) : (
-                        i + 1
+                          {isDone ? (
+                            <svg
+                              className="w-3 h-3 sm:w-4 sm:h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          ) : (
+                            i + 1
+                          )}
+                        </span>
+                        <span
+                          className={`text-[10px] sm:text-xs whitespace-nowrap ${
+                            isActive
+                              ? "text-gray-900 font-medium"
+                              : isClickable
+                                ? "text-gray-600"
+                                : "text-gray-400"
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      </button>
+                      {i < STEP_LABELS.length - 1 && (
+                        <span
+                          className={`w-3 sm:w-8 h-px flex-shrink-0 ${
+                            i < currentIdx ? "bg-[#0066cc]" : "bg-gray-200"
+                          }`}
+                          aria-hidden="true"
+                        />
                       )}
-                    </span>
-                    <span
-                      className={`text-xs hidden sm:inline ${
-                        isActive
-                          ? "text-gray-900 font-medium"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      {label}
-                    </span>
-                    {i < STEP_LABELS.length - 1 && (
-                      <span
-                        className={`w-8 h-px ${
-                          i < currentIdx ? "bg-[#0066cc]" : "bg-gray-200"
-                        }`}
-                        aria-hidden="true"
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </nav>
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
+            <div className="flex justify-start mb-6">
+              <button
+                onClick={resetAll}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-red-500 rounded transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Neu starten
+              </button>
+            </div>
+          </>
         )}
 
         {/* ── Step: Upload ── */}
@@ -628,7 +884,7 @@ export default function ScreencastPage() {
                     </span>
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Nur .pptx-Dateien
+                    Nur .pptx-Datei
                   </p>
                 </>
               )}
@@ -761,13 +1017,24 @@ export default function ScreencastPage() {
             </label>
 
             {/* Submit */}
-            <button
-              onClick={handleUploadNext}
-              disabled={!file || autoState === "processing"}
-              className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {mode === "auto" ? "Screencast erstellen" : "Weiter"}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleUploadNext}
+                disabled={!file || autoState === "processing"}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {mode === "auto" ? "Screencast erstellen" : "Weiter"}
+              </button>
+              {demoAvailable && (
+                <button
+                  onClick={handleDemoTranslate}
+                  disabled={autoState === "processing"}
+                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-50"
+                >
+                  Demo
+                </button>
+              )}
+            </div>
 
             {/* Auto mode status */}
             {isAutoMode && (
@@ -819,17 +1086,25 @@ export default function ScreencastPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setStep("translation-review")}
+                onClick={handleAcceptTranslation}
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
                 Überspringen
               </button>
               <button
-                onClick={() => setStep("translation-review")}
-                className="px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                onClick={handleAcceptTranslation}
+                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
               >
                 Weiter
               </button>
+              {demoAvailable && (
+                <button
+                  onClick={handleDemoGenerateScripts}
+                  className="px-4 py-2 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
+                >
+                  Demo
+                </button>
+              )}
             </div>
           </section>
         )}
@@ -961,13 +1236,24 @@ export default function ScreencastPage() {
               </div>
             </div>
 
-            <button
-              onClick={handleAcceptTranslation}
-              disabled={loading}
-              className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Übersetzung übernehmen und weiter
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setStep("user-prompt")}
+                disabled={loading}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Übersetzung übernehmen und weiter
+              </button>
+              {demoAvailable && (
+                <button
+                  onClick={handleDemoGenerateScripts}
+                  disabled={loading}
+                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-50"
+                >
+                  Demo
+                </button>
+              )}
+            </div>
           </section>
         )}
 
@@ -1159,13 +1445,24 @@ export default function ScreencastPage() {
               })}
             </div>
 
-            <button
-              onClick={handleAcceptScripts}
-              disabled={editingSlide !== null}
-              className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Alle Skripte übernehmen
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleAcceptScripts}
+                disabled={editingSlide !== null}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Alle Skripte übernehmen
+              </button>
+              {demoAvailable && (
+                <button
+                  onClick={handleAcceptScripts}
+                  disabled={editingSlide !== null}
+                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-50"
+                >
+                  Demo
+                </button>
+              )}
+            </div>
           </section>
         )}
 
@@ -1176,8 +1473,29 @@ export default function ScreencastPage() {
               Spracheinstellungen
             </h2>
             <p className="text-sm text-gray-500 mb-6">
-              Passen Sie Geschwindigkeit und Pausen an.
+              Passen Sie Stimme, Geschwindigkeit und Pausen an.
             </p>
+
+            {/* Stimme – Dropdown */}
+            {voices.length > 1 && (
+              <div className="mb-6">
+                <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">
+                  Stimme
+                </label>
+                <select
+                  id="sc-voice-select"
+                  value={voiceId}
+                  onChange={(e) => setVoiceId(e.target.value)}
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc]"
+                >
+                  {voices.map((v) => (
+                    <option key={v.voice_id} value={v.voice_id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="mb-6">
               <label
@@ -1229,6 +1547,24 @@ export default function ScreencastPage() {
               </div>
             </div>
 
+            {/* Subtitle checkbox */}
+            <label className="flex items-start gap-3 mb-6 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={embedSubtitles}
+                onChange={(e) => setEmbedSubtitles(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">
+                  Untertitel in MP4 einbetten
+                </span>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Soft-Subtitles als separate Spur (ein-/ausschaltbar im Player)
+                </p>
+              </div>
+            </label>
+
             {/* Summary */}
             <div className="mb-6 rounded-lg bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-700">
@@ -1253,6 +1589,14 @@ export default function ScreencastPage() {
               >
                 Screencast erstellen
               </button>
+              {demoAvailable && (
+                <button
+                  onClick={handleDemoRender}
+                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
+                >
+                  Demo
+                </button>
+              )}
             </div>
           </section>
         )}
@@ -1308,16 +1652,27 @@ export default function ScreencastPage() {
             {videoUrl && (
               <div className="mb-6 rounded-lg overflow-hidden border border-gray-200">
                 <video
+                  key={videoUrl}
                   controls
                   className="w-full"
-                  src={videoUrl}
                 >
+                  <source src={videoUrl} type="video/mp4" />
+                  {vttUrl && (
+                    <track
+                      kind="subtitles"
+                      src={vttUrl}
+                      srcLang="en"
+                      label="English"
+                      default
+                    />
+                  )}
                   Ihr Browser unterstützt kein HTML5-Video.
                 </video>
               </div>
             )}
 
-            <div className="flex justify-center gap-3">
+            {/* Row 1: MP4 Download */}
+            <div className="flex justify-center mb-4">
               <button
                 onClick={handleDownload}
                 aria-label="MP4 herunterladen"
@@ -1325,32 +1680,47 @@ export default function ScreencastPage() {
               >
                 MP4 herunterladen
               </button>
-              <button
-                onClick={() => {
-                  setStep("script-review");
-                  setDownloadBlob(null);
-                  if (videoUrl) URL.revokeObjectURL(videoUrl);
-                  setVideoUrl(null);
-                }}
-                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Skripte bearbeiten
-              </button>
-              <button
-                onClick={() => {
-                  setStep("tts-settings");
-                  setDownloadBlob(null);
-                  if (videoUrl) URL.revokeObjectURL(videoUrl);
-                  setVideoUrl(null);
-                }}
-                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Einstellungen ändern
-              </button>
+            </div>
+
+            {/* Row 2: Transcript downloads */}
+            {subtitleData && (
+              <div className="mb-4">
+                <p className="text-xs text-gray-400 text-center mb-2">Transkript herunterladen</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {([
+                    ["SRT", subtitleData.srt, "transcript.srt", "text/plain"],
+                    ["VTT", subtitleData.vtt, "transcript.vtt", "text/vtt"],
+                    ["ASS", subtitleData.ass, "transcript.ass", "text/plain"],
+                    ["TXT", subtitleData.txt, "transcript.txt", "text/plain"],
+                  ] as [string, string, string, string][]).map(([label, content, filename, mime]) => (
+                    <button
+                      key={label}
+                      onClick={() => {
+                        const blob = new Blob([content], { type: mime });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="px-3 py-1.5 text-xs text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Row 3: Reset */}
+            <div className="flex justify-center">
               <button
                 onClick={resetAll}
                 aria-label="Neue Präsentation hochladen"
-                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                className="px-6 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
               >
                 Neue Präsentation
               </button>

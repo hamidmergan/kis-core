@@ -1,19 +1,36 @@
-"""Video dubbing route: uses ElevenLabs Dubbing API for synchronized dubbing."""
+"""Video dubbing route: uses ElevenLabs Dubbing API for synchronized dubbing.
 
+Supported input formats:
+  - MP4 video → returns dubbed MP4 (with faststart)
+  - MP3 audio → returns dubbed MP3
+
+Returns a single JSON response with base64-encoded media and subtitle formats
+(SRT, VTT, TXT, JSON) derived from the ElevenLabs transcript endpoint.
+"""
+
+import base64
+import json as json_module
 import subprocess
-import time
 import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse
 from loguru import logger
 
 from src.dependencies import get_settings
+from src.services.subtitle_converter import (
+    segments_to_srt,
+    segments_to_vtt,
+    segments_to_txt,
+    words_to_segments,
+)
 from src.utils.file_validation import (
     MAX_TRANSCRIPTION_BYTES,
+    VIDEO_DUBBING_AUDIO_EXTENSIONS,
     VIDEO_DUBBING_VIDEO_EXTENSIONS,
 )
 
@@ -23,9 +40,10 @@ _ELEVENLABS_DUBBING_URL = "https://api.elevenlabs.io/v1/dubbing"
 _POLL_INTERVAL = 10   # seconds between status checks
 _MAX_ATTEMPTS = 120   # max ~20 minutes
 
+_ALL_EXTENSIONS = {**VIDEO_DUBBING_VIDEO_EXTENSIONS, **VIDEO_DUBBING_AUDIO_EXTENSIONS}
+
 
 def _validate_upload(filename: str | None, allowed: dict, label: str) -> str:
-    """Validate filename and return its lowercase extension."""
     if not filename:
         raise HTTPException(status_code=400, detail=f"{label}: filename missing")
     ext = Path(filename).suffix.lower()
@@ -44,51 +62,26 @@ def _get_api_key() -> str:
     return settings.elevenlabs_api_key
 
 
-@router.post("/video-dubbing")
-async def video_dubbing(
-    request: Request,
-    video: UploadFile = File(...),
-    source_lang: str = Form("de"),
-    target_lang: str = Form("en"),
-    drop_background_audio: bool = Form(False),
-    num_speakers: int = Form(0),
-):
-    """Dub a video using ElevenLabs Dubbing API.
-
-    Args:
-        video: Video file to dub.
-        source_lang: Source language code (e.g. 'de', 'en'). Defaults to 'de'.
-        target_lang: Target language code (e.g. 'en', 'de'). Defaults to 'en'.
-        drop_background_audio: Remove background audio for cleaner dub.
-        num_speakers: Number of speakers (0 = auto-detect).
-    """
-    # Validate file
-    video_ext = _validate_upload(video.filename, VIDEO_DUBBING_VIDEO_EXTENSIONS, "Video")
-
-    # Validate size
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > MAX_TRANSCRIPTION_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
-
-    video_bytes = await video.read()
-    if not video_bytes:
-        raise HTTPException(status_code=400, detail="Video ist leer")
-
-    api_key = _get_api_key()
-    stem = Path(video.filename).stem  # type: ignore[arg-type]
-
-    # ── Step 1: Submit dubbing job ──────────────────────────────────────────
-    logger.info(
-        "Video dubbing: submitting '{}' ({} → {})",
-        video.filename, source_lang, target_lang,
-    )
+def _submit_dubbing_job(
+    api_key: str,
+    file_bytes: bytes,
+    filename: str,
+    ext: str,
+    source_lang: str,
+    target_lang: str,
+    drop_background_audio: bool,
+    num_speakers: int,
+) -> str:
+    """Submit file to ElevenLabs Dubbing API and return dubbing_id."""
+    stem = Path(filename).stem
+    mime = _ALL_EXTENSIONS.get(ext, "application/octet-stream")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_video = Path(tmpdir) / f"input{video_ext}"
-        tmp_video.write_bytes(video_bytes)
+        tmp_file = Path(tmpdir) / f"input{ext}"
+        tmp_file.write_bytes(file_bytes)
 
         with httpx.Client(timeout=120.0) as client:
-            with open(tmp_video, "rb") as f:
+            with open(tmp_file, "rb") as f:
                 response = client.post(
                     _ELEVENLABS_DUBBING_URL,
                     headers={"xi-api-key": api_key},
@@ -101,7 +94,7 @@ async def video_dubbing(
                         "watermark": "false",
                         "highest_resolution": "false",
                     },
-                    files={"file": (video.filename, f, "video/mp4")},
+                    files={"file": (filename, f, mime)},
                 )
 
     if response.status_code != 200:
@@ -111,14 +104,11 @@ async def video_dubbing(
             detail=f"ElevenLabs Fehler ({response.status_code}): {response.text[:200]}",
         )
 
-    dubbing_id: str = response.json()["dubbing_id"]
-    expected_duration: float = response.json().get("expected_duration_sec", 0)
-    logger.info(
-        "Dubbing job submitted: id='{}', expected={:.0f}s",
-        dubbing_id, expected_duration,
-    )
+    return response.json()["dubbing_id"]
 
-    # ── Step 2: Poll until complete ─────────────────────────────────────────
+
+def _poll_dubbing_job(api_key: str, dubbing_id: str) -> None:
+    """Poll until dubbing job is complete or raise HTTPException."""
     with httpx.Client(timeout=30.0) as client:
         for attempt in range(_MAX_ATTEMPTS):
             time.sleep(_POLL_INTERVAL)
@@ -135,17 +125,17 @@ async def video_dubbing(
             logger.info("Dubbing status (attempt {}): '{}'", attempt + 1, status)
 
             if status == "dubbed":
-                break
+                return
             elif status in ("failed", "error"):
                 error_msg = status_data.get("error_message", "Unknown error")
                 logger.error("Dubbing failed: {}", error_msg)
                 raise HTTPException(status_code=502, detail=f"Dubbing fehlgeschlagen: {error_msg}")
-        else:
-            raise HTTPException(status_code=504, detail="Dubbing Timeout – bitte später erneut versuchen")
 
-    # ── Step 3: Download dubbed video ───────────────────────────────────────
-    logger.info("Dubbing complete, downloading result for id='{}'", dubbing_id)
+    raise HTTPException(status_code=504, detail="Dubbing Timeout – bitte später erneut versuchen")
 
+
+def _download_dubbed_audio(api_key: str, dubbing_id: str, target_lang: str) -> bytes:
+    """Download the dubbed audio/video from ElevenLabs."""
     with httpx.Client(timeout=300.0) as client:
         download_resp = client.get(
             f"{_ELEVENLABS_DUBBING_URL}/{dubbing_id}/audio/{target_lang}",
@@ -159,8 +149,52 @@ async def video_dubbing(
             detail=f"Download fehlgeschlagen ({download_resp.status_code})",
         )
 
-    # ── Step 4: Fix moov atom position with faststart ───────────────────
-    raw_bytes = download_resp.content
+    return download_resp.content
+
+
+def _download_transcript(api_key: str, dubbing_id: str, target_lang: str) -> dict:
+    """Download the word-level JSON transcript from ElevenLabs."""
+    url = f"{_ELEVENLABS_DUBBING_URL}/{dubbing_id}/transcript/{target_lang}"
+    with httpx.Client(timeout=120.0) as client:
+        resp = client.get(
+            url,
+            params={"format_type": "json"},
+            headers={"xi-api-key": api_key},
+        )
+
+    if resp.status_code != 200:
+        logger.warning("Transcript download failed ({}): {}", resp.status_code, resp.text[:300])
+        return {}
+
+    return resp.json()
+
+
+def _transcript_to_subtitles(transcript_json: dict) -> dict[str, str]:
+    """Convert ElevenLabs transcript JSON to SRT/VTT/TXT/JSON subtitle strings.
+
+    The transcript contains a ``words`` list with entries like
+    ``{"text": "hello", "start": 0.5, "end": 0.8, "type": "word"}``.
+    We normalise ``text`` → ``word`` and filter for ``type == "word"``.
+    """
+    raw_words = transcript_json.get("words", [])
+    words = [
+        {"word": w["text"], "start": w["start"], "end": w["end"]}
+        for w in raw_words
+        if w.get("type") == "word"
+    ]
+
+    segments = words_to_segments(words)
+
+    return {
+        "srt": segments_to_srt(segments),
+        "vtt": segments_to_vtt(segments),
+        "txt": segments_to_txt(segments),
+        "json": json_module.dumps(segments, ensure_ascii=False),
+    }
+
+
+def _apply_faststart(raw_bytes: bytes) -> bytes:
+    """Apply ffmpeg faststart fix to MP4 for browser streaming."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         raw_path = tmp / "raw.mp4"
@@ -172,27 +206,119 @@ async def video_dubbing(
             "-c", "copy", "-movflags", "+faststart",
             str(fixed_path),
         ]
-        logger.info("Running faststart fix: {}", " ".join(cmd))
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if result.returncode != 0:
-            logger.warning("faststart fix failed, returning raw file: {}", result.stderr[:200])
-            output_bytes = raw_bytes
-        else:
-            output_bytes = fixed_path.read_bytes()
+            logger.warning("faststart fix failed, returning raw: {}", result.stderr[:200])
+            return raw_bytes
+        return fixed_path.read_bytes()
 
-    output_name = f"{stem}_dubbed_{target_lang}.mp4"
-    encoded_name = quote(output_name, safe="")
-    logger.info("Video dubbing complete: '{}', size={} bytes", output_name, len(output_bytes))
 
-    return StreamingResponse(
-        iter([output_bytes]),
-        media_type="video/mp4",
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="{encoded_name}"; '
-                f"filename*=UTF-8''{encoded_name}"
-            ),
-            "Content-Length": str(len(output_bytes)),
-            "Accept-Ranges": "bytes",
-        },
+def _embed_soft_subtitles(video_bytes: bytes, srt_text: str) -> bytes:
+    """Embed SRT as a soft subtitle track into MP4 using ffmpeg."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        video_path = tmp / "input.mp4"
+        srt_path = tmp / "subs.srt"
+        out_path = tmp / "output.mp4"
+
+        video_path.write_bytes(video_bytes)
+        srt_path.write_text(srt_text, encoding="utf-8")
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", str(video_path),
+            "-i", str(srt_path),
+            "-c", "copy",
+            "-c:s", "mov_text",
+            "-movflags", "+faststart",
+            str(out_path),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            logger.warning("Subtitle embed failed, returning video without subs: {}", result.stderr[:300])
+            return video_bytes
+        return out_path.read_bytes()
+
+
+@router.post("/video-dubbing")
+async def video_dubbing(
+    request: Request,
+    file: UploadFile = File(...),
+    source_lang: str = Form("de"),
+    target_lang: str = Form("en"),
+    drop_background_audio: bool = Form(False),
+    num_speakers: int = Form(0),
+    soft_subtitles: bool = Form(False),
+):
+    """Dub a video (MP4) or audio (MP3) file using ElevenLabs Dubbing API.
+
+    Returns JSON with base64-encoded media and subtitle formats derived
+    from the ElevenLabs transcript endpoint:
+
+    - MP4 input → ``{ video_b64, srt, vtt, txt, json }``
+    - MP3 input → ``{ audio_b64, srt, vtt, txt, json }``
+    """
+    ext = _validate_upload(file.filename, _ALL_EXTENSIONS, "Datei")
+    is_video = ext in VIDEO_DUBBING_VIDEO_EXTENSIONS
+
+    content_length = request.headers.get("content-length")
+    if content_length is not None and int(content_length) > MAX_TRANSCRIPTION_BYTES:
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
+
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Datei ist leer")
+
+    api_key = _get_api_key()
+    stem = Path(file.filename).stem  # type: ignore[arg-type]
+
+    logger.info("Video dubbing: submitting '{}' ({} → {})", file.filename, source_lang, target_lang)
+
+    dubbing_id = _submit_dubbing_job(
+        api_key, file_bytes, file.filename, ext,
+        source_lang, target_lang, drop_background_audio, num_speakers,
     )
+    logger.info("Dubbing job submitted: id='{}'", dubbing_id)
+
+    _poll_dubbing_job(api_key, dubbing_id)
+
+    # ── Parallel download: audio + transcript ─────────────────────────────
+    logger.info("Dubbing complete, downloading audio + transcript for id='{}'", dubbing_id)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        audio_future = pool.submit(_download_dubbed_audio, api_key, dubbing_id, target_lang)
+        transcript_future = pool.submit(_download_transcript, api_key, dubbing_id, target_lang)
+        raw_bytes = audio_future.result()
+        transcript_json = transcript_future.result()
+
+    # ── Derive subtitles from transcript ──────────────────────────────────
+    subtitles = _transcript_to_subtitles(transcript_json) if transcript_json else {
+        "srt": "", "vtt": "", "txt": "", "json": "[]",
+    }
+
+    # ── MP3 input ─────────────────────────────────────────────────────────
+    if not is_video:
+        audio_b64 = base64.b64encode(raw_bytes).decode()
+        logger.info("Audio dubbing complete: '{}', size={} bytes", stem, len(raw_bytes))
+        return JSONResponse(content={
+            "audio_b64": audio_b64,
+            **subtitles,
+        })
+
+    # ── MP4 input → faststart + optional soft-subtitle embed ─────────────
+    video_bytes = _apply_faststart(raw_bytes)
+
+    if soft_subtitles and subtitles.get("srt"):
+        try:
+            video_bytes = _embed_soft_subtitles(video_bytes, subtitles["srt"])
+            logger.info("Soft subtitles embedded into MP4")
+        except Exception as e:
+            logger.warning("Soft subtitle embedding failed (non-fatal): {}", e)
+
+    video_b64 = base64.b64encode(video_bytes).decode()
+    logger.info("Video dubbing complete: '{}', size={} bytes", stem, len(video_bytes))
+
+    return JSONResponse(content={
+        "video_b64": video_b64,
+        **subtitles,
+    })

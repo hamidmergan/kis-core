@@ -4,6 +4,8 @@ services:
     container_name: kis-thl-backend
     env_file:
       - .env
+    volumes:
+      - ./backend/demo:/app/demo:ro
     ports:
       - "8000:8000"
     restart: unless-stopped

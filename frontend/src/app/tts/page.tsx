@@ -1,12 +1,17 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TtsFileUpload from "@/components/TtsFileUpload";
 import TtsStatus from "@/components/TtsStatus";
 import { api } from "@/lib/api";
 import type { TTSState } from "@/types";
+
+interface Voice {
+  voice_id: string;
+  label: string;
+}
 
 const SPEED_OPTIONS = [
   { value: 0.5, label: "Sehr langsam (0.5x)" },
@@ -33,6 +38,10 @@ export default function TtsPage() {
   const [ttsDownloadName, setTtsDownloadName] = useState<string>("");
   const [ttsErrorMessage, setTtsErrorMessage] = useState<string>("");
 
+  // Voice selection
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [voiceId, setVoiceId] = useState("");
+
   // Audio settings with optimized defaults
   const [speed, setSpeed] = useState(0.9);
   const [pausePreset, setPausePreset] = useState("medium");
@@ -41,6 +50,13 @@ export default function TtsPage() {
   const [similarityBoost, setSimilarityBoost] = useState(0.60);
   const [style, setStyle] = useState(0.20);
   const [useSpeakerBoost, setUseSpeakerBoost] = useState(true);
+
+  useEffect(() => {
+    api.getJson<{ voices: Voice[] }>("/api/voices").then((data) => {
+      setVoices(data.voices);
+      if (data.voices.length > 0) setVoiceId(data.voices[0].voice_id);
+    }).catch(() => {});
+  }, []);
 
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
 
@@ -58,6 +74,7 @@ export default function TtsPage() {
           "/api/tts",
           file,
           {
+            voice_id: voiceId,
             speed: String(speed),
             stability: String(stability),
             similarity_boost: String(similarityBoost),
@@ -75,7 +92,7 @@ export default function TtsPage() {
         setTtsState("error");
       }
     },
-    [speed, stability, similarityBoost, style, useSpeakerBoost, pausePreset],
+    [voiceId, speed, stability, similarityBoost, style, useSpeakerBoost, pausePreset],
   );
 
   const handleTtsDownload = () => {
@@ -107,6 +124,28 @@ export default function TtsPage() {
           <p className="text-sm text-gray-500 mb-6">
             Laden Sie ein Dokument hoch und lassen Sie den Inhalt auf Englisch als MP3-Audiodatei vorlesen.
           </p>
+
+          {/* Stimme – Dropdown */}
+          {voices.length > 1 && (
+            <div className="mb-4">
+              <label htmlFor="voice-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Stimme
+              </label>
+              <select
+                id="voice-select"
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                disabled={isProcessing}
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {voices.map((v) => (
+                  <option key={v.voice_id} value={v.voice_id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Geschwindigkeit – Dropdown */}
           <div className="mb-4">

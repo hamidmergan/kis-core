@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
@@ -20,6 +20,7 @@ from src.dependencies import get_deepl_client, get_settings
 from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.kisski_client import KisskiClient
 from src.services.glossary import GlossaryService
+from src.services.subtitle_converter import build_subtitles
 from src.services.translation import TranslationService
 from src.translators.pptx import translate_pptx
 from src.utils.file_validation import (
@@ -51,8 +52,10 @@ class RenderRequest(BaseModel):
     scripts: list[str]
     translated_pptx_b64: str
     slide_images_b64: list[str]
+    voice_id: str = ""
     speed: float = 0.9
     slide_pause: float = 0.5
+    embed_subtitles: bool = True
 
 
 # ── Shared helpers ───────────────────────────────────────────────────────────
@@ -250,18 +253,70 @@ def _concatenate_videos(video_paths: list[Path], output_path: Path) -> None:
         raise RuntimeError(f"Video-Zusammenführung fehlgeschlagen: {result.stderr[:200]}")
 
 
+def _probe_streams(file_path: Path) -> str:
+    """Return a short summary of streams in a media file via ffprobe."""
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-show_entries", "stream=index,codec_type,codec_name",
+        "-of", "csv=p=0",
+        str(file_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    return result.stdout.strip() if result.returncode == 0 else f"(ffprobe error: {result.stderr[:100]})"
+
+
 def _apply_faststart(input_path: Path, output_path: Path) -> bytes:
     """Apply faststart to MP4 for web streaming."""
+    logger.info("faststart input streams: {}", _probe_streams(input_path))
     cmd = [
         "ffmpeg", "-y", "-i", str(input_path),
+        "-map", "0",
         "-c", "copy", "-movflags", "+faststart",
         str(output_path),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:
-        logger.warning("faststart fix failed, returning raw file: {}", result.stderr[:200])
+        logger.warning("faststart fix failed (rc={}): {}", result.returncode, result.stderr[:300])
         return input_path.read_bytes()
+    logger.info("faststart output streams: {}", _probe_streams(output_path))
     return output_path.read_bytes()
+
+
+def _embed_subtitles(video_path: Path, sub_path: Path, output_path: Path) -> bool:
+    """Mux a subtitle file (SRT) as a soft-subtitle track into an MP4.
+
+    Uses mov_text codec so the subtitle track can be toggled on/off in players.
+    Returns True on success, False on failure (non-fatal).
+    """
+    sub_size = sub_path.stat().st_size if sub_path.exists() else 0
+    logger.info("Embedding soft subtitles: sub_file={}, size={} bytes", sub_path.name, sub_size)
+    if sub_size == 0:
+        logger.warning("Subtitle file is empty, skipping embedding")
+        return False
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(video_path),
+        "-sub_charenc", "UTF-8",
+        "-f", "srt",
+        "-i", str(sub_path),
+        "-map", "0:v", "-map", "0:a", "-map", "1:s",
+        "-c:v", "copy", "-c:a", "copy",
+        "-c:s", "mov_text",
+        "-metadata:s:s:0", "language=eng",
+        "-metadata:s:s:0", "handler_name=English",
+        str(output_path),
+    ]
+    logger.info("FFmpeg soft-sub cmd: {}", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        logger.error("Subtitle embedding FAILED (rc={}): {}", result.returncode, result.stderr[:500])
+        return False
+
+    out_size = output_path.stat().st_size if output_path.exists() else 0
+    logger.info("Soft subtitles embedded, output={} bytes, streams: {}",
+                out_size, _probe_streams(output_path))
+    return True
 
 
 async def _generate_all_scripts(
@@ -290,10 +345,15 @@ async def _generate_all_tts(
     tts_client: ElevenLabsClient,
     tmp: Path,
     speed: float,
-) -> list[Path]:
-    """Generate TTS audio for all slides in parallel via ElevenLabs."""
+    voice_id: str = "",
+) -> list[tuple[Path, dict | None]]:
+    """Generate TTS audio for all slides in parallel via ElevenLabs.
+
+    Returns a list of (audio_path, alignment_or_None) tuples.
+    """
     sem = asyncio.Semaphore(5)
     audio_paths: list[Path] = [tmp / f"slide_{i:03d}.mp3" for i in range(len(slide_scripts))]
+    alignments: list[dict | None] = [None] * len(slide_scripts)
 
     async def _tts(i: int, script_text: str) -> None:
         audio_path = audio_paths[i]
@@ -310,10 +370,12 @@ async def _generate_all_tts(
             return
         async with sem:
             try:
-                mp3_bytes = await asyncio.to_thread(
-                    tts_client.synthesize, script_text, "EN", speed=speed
+                result = await asyncio.to_thread(
+                    tts_client.synthesize_with_timestamps,
+                    script_text, "EN", voice_id=voice_id, speed=speed,
                 )
-                audio_path.write_bytes(mp3_bytes)
+                audio_path.write_bytes(result["audio_bytes"])
+                alignments[i] = result["alignment"]
                 logger.info("TTS for slide {}/{} done", i + 1, len(slide_scripts))
             except Exception as e:
                 logger.error("TTS failed for slide {}: {}", i + 1, e)
@@ -323,7 +385,7 @@ async def _generate_all_tts(
                 )
 
     await asyncio.gather(*[_tts(i, t) for i, t in enumerate(slide_scripts)])
-    return audio_paths
+    return list(zip(audio_paths, alignments))
 
 
 # PARALLELIZED
@@ -340,6 +402,7 @@ async def _convert_slides_to_images_async(
 async def screencast(
     request: Request,
     file: UploadFile = File(...),
+    voice_id: str = Form(""),
     speed: float = Form(0.9),
     glossary_json: str = Form(""),
 ):
@@ -409,7 +472,9 @@ async def screencast(
         # ── Step 4: TTS per slide ─────────────────────────────────────────
         logger.info("Step 4: Generating TTS audio per slide (parallel)")
         tts_client = _get_elevenlabs_client()
-        audio_paths = await _generate_all_tts(slide_scripts, tts_client, tmp, speed)
+        tts_results = await _generate_all_tts(slide_scripts, tts_client, tmp, speed, voice_id)
+        audio_paths = [r[0] for r in tts_results]
+        alignments = [r[1] for r in tts_results]
 
         # Ensure we have matching counts (use min of both)
         num_slides = min(len(slide_images), len(audio_paths))
@@ -435,6 +500,24 @@ async def screencast(
             _concatenate_videos(clip_paths, concat_path)
         except RuntimeError as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+        # ── Step 7b: Build & embed subtitles ──────────────────────────────
+        per_slide_data = []
+        for i in range(num_slides):
+            dur = _get_audio_duration(audio_paths[i])
+            per_slide_data.append({"alignment": alignments[i], "audio_duration": dur})
+        subtitle_data = build_subtitles(per_slide_data, slide_pause=0.5)
+
+        if subtitle_data["srt"]:
+            srt_path = tmp / "subtitles.srt"
+            srt_path.write_text(subtitle_data["srt"], encoding="utf-8")
+            subtitled_path = tmp / "concat_sub.mp4"
+            if _embed_subtitles(concat_path, srt_path, subtitled_path):
+                concat_path = subtitled_path
+            else:
+                logger.warning("Auto-mode: subtitle embedding failed, video has no subtitles")
+        else:
+            logger.warning("Auto-mode: no SRT data generated (empty alignment?)")
 
         # ── Step 8: Apply faststart ───────────────────────────────────────
         logger.info("Step 8: Applying faststart")
@@ -652,7 +735,9 @@ async def screencast_render(body: RenderRequest):
 
         # Generate TTS audio
         tts_client = _get_elevenlabs_client()
-        audio_paths = await _generate_all_tts(body.scripts, tts_client, tmp, body.speed)
+        tts_results = await _generate_all_tts(body.scripts, tts_client, tmp, body.speed, body.voice_id)
+        audio_paths = [r[0] for r in tts_results]
+        alignments = [r[1] for r in tts_results]
 
         # Ensure we have matching counts (use min of both)
         num_slides = min(len(slide_images), len(audio_paths))
@@ -679,6 +764,26 @@ async def screencast_render(body: RenderRequest):
         except RuntimeError as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+        # ── Build subtitles ───────────────────────────────────────────────
+        per_slide_data = []
+        for i in range(num_slides):
+            dur = _get_audio_duration(audio_paths[i])
+            per_slide_data.append({"alignment": alignments[i], "audio_duration": dur})
+        subtitle_data = build_subtitles(per_slide_data, slide_pause=body.slide_pause)
+
+        # ── Optionally embed subtitles into MP4 ──────────────────────────
+        if body.embed_subtitles and subtitle_data["srt"]:
+            srt_path = tmp / "subtitles.srt"
+            srt_path.write_text(subtitle_data["srt"], encoding="utf-8")
+            logger.info("SRT content length: {} chars", len(subtitle_data["srt"]))
+            subtitled_path = tmp / "concat_sub.mp4"
+            if _embed_subtitles(concat_path, srt_path, subtitled_path):
+                concat_path = subtitled_path
+            else:
+                logger.warning("Render: subtitle embedding failed, video has no subtitles")
+        elif body.embed_subtitles:
+            logger.warning("Render: embed_subtitles=True but no SRT data (empty alignment?)")
+
         # ── Apply faststart ───────────────────────────────────────────────
         logger.info("Applying faststart")
         final_path = tmp / "final.mp4"
@@ -692,13 +797,462 @@ async def screencast_render(body: RenderRequest):
         )
 
     logger.info("Screencast/render complete, size={} bytes", len(output_bytes))
+    logger.info("Screencast/render final streams: {}", _probe_streams(final_path if final_path.exists() else concat_path))
+
+    subtitle_json = json.dumps(subtitle_data)
+    subtitle_b64 = base64.b64encode(subtitle_json.encode("utf-8")).decode("ascii")
 
     return StreamingResponse(
         iter([output_bytes]),
         media_type="video/mp4",
         headers={
-            "Content-Disposition": 'attachment; filename="screencast_EN.mp4"',
             "Content-Length": str(len(output_bytes)),
-            "Accept-Ranges": "bytes",
+            "X-Subtitles": subtitle_b64,
+        },
+    )
+
+
+# ── Demo-mode endpoints ──────────────────────────────────────────────────────
+
+DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo"  # /app/demo in Docker
+
+
+def _load_demo_config() -> dict:
+    """Load and return demo_config.json, raising 404 if unavailable."""
+    config_path = DEMO_DIR / "demo_config.json"
+    if not config_path.exists():
+        raise HTTPException(status_code=404, detail="Demo-Daten nicht verfügbar (demo_config.json fehlt)")
+    return json.loads(config_path.read_text(encoding="utf-8"))
+
+
+def _load_demo_slide_images() -> list[str]:
+    """Load slide images from demo/slides/ as base64 strings.
+
+    Falls back to generating placeholder images via FFmpeg if no PNGs exist.
+    """
+    slides_dir = DEMO_DIR / "slides"
+    if not slides_dir.exists():
+        return []
+    images = sorted(slides_dir.glob("slide_*.png"))
+    if not images:
+        images = sorted(slides_dir.glob("*.png"))
+    if images:
+        return [base64.b64encode(img.read_bytes()).decode() for img in images]
+    return []
+
+
+_demo_images_cache: list[str] = []
+
+
+async def _get_demo_slide_images(num_slides: int) -> list[str]:
+    """Get demo slide images with PPTX extraction and caching.
+
+    Priority: 1) PNGs in demo/slides/  2) cached PPTX extraction
+    3) fresh PPTX extraction → cache in /tmp  4) placeholder generation
+    """
+    global _demo_images_cache
+
+    # 1. Check for existing PNGs
+    images = _load_demo_slide_images()
+    if images:
+        return images
+
+    # 2. Return from cache if available
+    if _demo_images_cache:
+        logger.info("Using cached PPTX images ({} slides)", len(_demo_images_cache))
+        return _demo_images_cache
+
+    # 3. Try extracting from PPTX
+    slides_dir = DEMO_DIR / "slides"
+    pptx_files = sorted(slides_dir.glob("*.pptx")) if slides_dir.exists() else []
+    if pptx_files:
+        pptx_path = pptx_files[0]
+        logger.info("Extracting images from PPTX: {}", pptx_path.name)
+        pptx_bytes = pptx_path.read_bytes()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            tmp_pptx = tmp / "demo.pptx"
+            tmp_pptx.write_bytes(pptx_bytes)
+            img_dir = tmp / "images"
+            img_dir.mkdir()
+            try:
+                image_paths = await _convert_slides_to_images_async(tmp_pptx, img_dir)
+                _demo_images_cache = [
+                    base64.b64encode(p.read_bytes()).decode() for p in image_paths
+                ]
+                logger.info("Extracted and cached {} images from PPTX", len(_demo_images_cache))
+                return _demo_images_cache
+            except RuntimeError as e:
+                logger.warning("PPTX image extraction failed: {}", e)
+
+    # 4. Fallback: generate placeholder slides
+    config = _load_demo_config()
+    slide_texts = config.get("slide_texts", [])[:num_slides]
+    logger.info("Generating {} placeholder slides", len(slide_texts))
+    return await asyncio.to_thread(_generate_placeholder_slides, slide_texts)
+
+
+def _generate_placeholder_slides(slide_texts: list[str]) -> list[str]:
+    """Generate simple placeholder slide images using FFmpeg drawtext.
+
+    Returns list of base64-encoded PNGs.
+    """
+    colors = ["#1a365d", "#2d3748", "#1e3a5f", "#2c5282", "#2b6cb0", "#3182ce"]
+    result: list[str] = []
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        for i, text in enumerate(slide_texts):
+            out = tmp / f"slide_{i:03d}.png"
+            title = text.split("\n")[0][:60]
+            color = colors[i % len(colors)]
+            cmd = [
+                "ffmpeg", "-y",
+                "-f", "lavfi", "-i", f"color=c={color}:s=1280x720:d=1",
+                "-vf", f"drawtext=text='{title}':fontcolor=white:fontsize=40"
+                        f":x=(w-text_w)/2:y=(h-text_h)/2:font=DejaVu Sans",
+                "-frames:v", "1",
+                str(out),
+            ]
+            subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            if out.exists():
+                result.append(base64.b64encode(out.read_bytes()).decode())
+    return result
+
+
+def _load_demo_subtitles() -> dict:
+    """Load subtitle data from files in demo/slides/ directory."""
+    slides_dir = DEMO_DIR / "slides"
+    subtitle_data: dict[str, str] = {
+        "srt": "",
+        "vtt": "",
+        "ass": "",
+        "txt": "",
+        "alignment_json": "[]",
+    }
+    file_map = {
+        "srt": "subtitles.srt",
+        "vtt": "subtitles.vtt",
+        "ass": "subtitles.ass",
+        "txt": "transcript.txt",
+    }
+    for key, filename in file_map.items():
+        filepath = slides_dir / filename
+        if filepath.exists():
+            subtitle_data[key] = filepath.read_text(encoding="utf-8")
+    return subtitle_data
+
+
+@router.get("/screencast/demo-available")
+async def demo_available():
+    """Check whether demo data is available."""
+    settings = get_settings()
+    config_exists = (DEMO_DIR / "demo_config.json").exists()
+    video_exists = (DEMO_DIR / "video.mp4").exists()
+    if not video_exists:
+        for search_dir in [DEMO_DIR, DEMO_DIR / "slides"]:
+            if search_dir.exists() and list(search_dir.glob("*.mp4")):
+                video_exists = True
+                break
+    return {
+        "available": settings.demo_data and config_exists,
+        "has_video": settings.demo_data and video_exists,
+        "demo_data_enabled": settings.demo_data,
+        "config_exists": config_exists,
+        "video_exists": video_exists,
+    }
+
+
+@router.post("/screencast/demo/translate")
+async def demo_translate():
+    """Return demo translation data (slide images, texts, translated PPTX).
+
+    If a PPTX file exists in demo/slides/, extract real images and texts from it.
+    Otherwise fall back to placeholders and demo_config.json texts.
+    """
+    settings = get_settings()
+    if not settings.demo_data:
+        raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
+
+    config = _load_demo_config()
+    user_prompt = config.get("user_prompt", "")
+    slides_dir = DEMO_DIR / "slides"
+
+    # Check for a real PPTX in demo/slides/
+    pptx_files = sorted(slides_dir.glob("*.pptx")) if slides_dir.exists() else []
+
+    if pptx_files:
+        pptx_path = pptx_files[0]
+        logger.info("Demo/translate: using PPTX '{}'", pptx_path.name)
+        pptx_bytes = pptx_path.read_bytes()
+        translated_pptx_b64 = base64.b64encode(pptx_bytes).decode()
+
+        # Extract real texts from PPTX
+        slide_texts = _extract_text_per_slide(pptx_bytes)
+
+        # Extract real images (cached PPTX extraction)
+        slide_images = await _get_demo_slide_images(len(slide_texts))
+
+        num = min(len(slide_images), len(slide_texts)) if slide_texts else len(slide_images)
+    else:
+        # Fallback: use demo_config.json texts + placeholders
+        slide_texts = config.get("slide_texts", [])
+        if not slide_texts:
+            raise HTTPException(status_code=404, detail="Keine PPTX und keine slide_texts in demo_config.json")
+
+        slide_images = await _get_demo_slide_images(len(slide_texts))
+
+        num = min(len(slide_images), len(slide_texts))
+
+        # Create a minimal dummy PPTX
+        from pptx.util import Inches
+        prs = Presentation()
+        for i in range(num):
+            slide_layout = prs.slide_layouts[6]
+            slide = prs.slides.add_slide(slide_layout)
+            txBox = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(8), Inches(5))
+            txBox.text_frame.text = slide_texts[i]
+        buf = BytesIO()
+        prs.save(buf)
+        translated_pptx_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    logger.info("Demo/translate: returning {} slides", num)
+    return {
+        "slide_count": num,
+        "slide_texts": slide_texts[:num],
+        "slide_images": slide_images[:num],
+        "translated_pptx_b64": translated_pptx_b64,
+        "user_prompt": user_prompt,
+    }
+
+
+@router.post("/screencast/demo/generate-scripts")
+async def demo_generate_scripts():
+    """Return demo-generated scripts."""
+    settings = get_settings()
+    if not settings.demo_data:
+        raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
+
+    config = _load_demo_config()
+    scripts = config.get("scripts", [])
+    if not scripts:
+        raise HTTPException(status_code=404, detail="Keine Demo-Skripte in demo_config.json")
+
+    logger.info("Demo/generate-scripts: returning {} scripts", len(scripts))
+    return {"scripts": scripts}
+
+
+_demo_split_dir: Path | None = None
+
+
+def _load_demo_audio_files(num_slides: int) -> list[Path]:
+    """Load per-slide MP3 audio files from demo/slides/.
+
+    If individual slide_*.mp3 files exist, return them directly.
+    If only a single combined MP3 exists, split it into equal parts in /tmp.
+    """
+    global _demo_split_dir
+
+    slides_dir = DEMO_DIR / "slides"
+    if not slides_dir.exists():
+        return []
+
+    per_slide = sorted(slides_dir.glob("slide_*.mp3"))
+    if per_slide:
+        return per_slide
+
+    # Check if we already split previously (cached in /tmp)
+    if _demo_split_dir and _demo_split_dir.exists():
+        cached = sorted(_demo_split_dir.glob("slide_*.mp3"))
+        if len(cached) == num_slides:
+            return cached
+
+    # Look for any single MP3 to split
+    all_mp3 = sorted(slides_dir.glob("*.mp3"))
+    if not all_mp3 or num_slides < 1:
+        return []
+
+    combined_mp3 = all_mp3[0]
+    logger.info("Demo: splitting combined MP3 '{}' into {} parts", combined_mp3.name, num_slides)
+
+    # Get total duration
+    dur_cmd = [
+        "ffprobe", "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        str(combined_mp3),
+    ]
+    dur_result = subprocess.run(dur_cmd, capture_output=True, text=True, timeout=15)
+    if dur_result.returncode != 0:
+        logger.error("Failed to probe MP3 duration: {}", dur_result.stderr[:200])
+        return []
+    total_duration = float(dur_result.stdout.strip())
+    segment_duration = total_duration / num_slides
+
+    # Split into /tmp (demo volume is read-only)
+    split_dir = Path("/tmp/demo_audio_split")
+    split_dir.mkdir(parents=True, exist_ok=True)
+    _demo_split_dir = split_dir
+
+    result: list[Path] = []
+    for i in range(num_slides):
+        start = i * segment_duration
+        out_path = split_dir / f"slide_{i+1:03d}.mp3"
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", str(combined_mp3),
+            "-ss", str(start),
+            "-t", str(segment_duration),
+            "-c", "copy",
+            str(out_path),
+        ]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if r.returncode == 0 and out_path.exists():
+            result.append(out_path)
+            logger.info("Demo: slide_{:03d}.mp3 (start={:.1f}s, dur={:.1f}s)", i+1, start, segment_duration)
+        else:
+            logger.error("Demo: failed slide_{:03d}.mp3: {}", i+1, r.stderr[:200])
+
+    return result
+
+
+@router.post("/screencast/demo/render")
+async def demo_render():
+    """Run the real FFmpeg pipeline with demo data (images + MP3 + SRT).
+
+    If per-slide MP3 files exist (slide_001.mp3, ...), the full pipeline runs:
+      images + audio → clips → concat → embed subtitles → faststart
+    This allows testing the subtitle embedding without burning API tokens.
+    Falls back to serving a pre-existing MP4 if no MP3 files are found.
+    """
+    settings = get_settings()
+    if not settings.demo_data:
+        raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
+
+    config = _load_demo_config()
+    subtitle_data = _load_demo_subtitles()
+    slide_texts = config.get("slide_texts", [])
+    num_slides = len(slide_texts) or 6
+    demo_audio = _load_demo_audio_files(num_slides)
+
+    # ── Mode A: Per-slide MP3 files exist → run the full FFmpeg pipeline ──
+    if demo_audio:
+        slide_images_b64 = await _get_demo_slide_images(num_slides)
+        logger.info("Demo/render: got {} slide images", len(slide_images_b64))
+
+        num_slides = min(len(slide_images_b64), len(demo_audio))
+        if num_slides == 0:
+            raise HTTPException(status_code=404, detail="Keine Demo-Slides oder Audio")
+
+        slide_pause = 0.5
+        logger.info("Demo/render: PIPELINE mode – {} slides, {} MP3s", len(slide_images_b64), len(demo_audio))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+
+            # Write slide images to temp
+            slide_image_paths: list[Path] = []
+            for i, img_b64 in enumerate(slide_images_b64[:num_slides]):
+                img_path = tmp / f"slide_{i:03d}.png"
+                img_path.write_bytes(base64.b64decode(img_b64))
+                slide_image_paths.append(img_path)
+
+            # Copy demo MP3s to temp (so paths are clean)
+            audio_paths: list[Path] = []
+            for i, src in enumerate(demo_audio[:num_slides]):
+                dst = tmp / f"audio_{i:03d}.mp3"
+                dst.write_bytes(src.read_bytes())
+                audio_paths.append(dst)
+
+            # Create video clip per slide (image + audio)
+            clip_paths: list[Path] = []
+            for i in range(num_slides):
+                clip_path = tmp / f"clip_{i:03d}.mp4"
+                try:
+                    _create_slide_video(
+                        slide_image_paths[i], audio_paths[i], clip_path, pause=slide_pause
+                    )
+                except RuntimeError as e:
+                    raise HTTPException(status_code=500, detail=str(e))
+                clip_paths.append(clip_path)
+                logger.info("Demo clip {}/{} done", i + 1, num_slides)
+
+            # Concatenate
+            concat_path = tmp / "concat.mp4"
+            _concatenate_videos(clip_paths, concat_path)
+            logger.info("Demo concat done, streams: {}", _probe_streams(concat_path))
+
+            # Build subtitles from audio durations (like the real pipeline)
+            per_slide_data = []
+            for i in range(num_slides):
+                dur = _get_audio_duration(audio_paths[i])
+                per_slide_data.append({"alignment": None, "audio_duration": dur})
+            built_subs = build_subtitles(per_slide_data, slide_pause=slide_pause)
+
+            # Prefer file-based subtitles (from demo/slides/) over built ones
+            srt_content = subtitle_data.get("srt", "") or built_subs.get("srt", "")
+            final_subtitle_data = {
+                "srt": subtitle_data.get("srt", "") or built_subs.get("srt", ""),
+                "vtt": subtitle_data.get("vtt", "") or built_subs.get("vtt", ""),
+                "ass": subtitle_data.get("ass", "") or built_subs.get("ass", ""),
+                "txt": subtitle_data.get("txt", "") or built_subs.get("txt", ""),
+                "alignment_json": built_subs.get("alignment_json", "[]"),
+            }
+
+            # Embed subtitles
+            if srt_content:
+                srt_path = tmp / "subtitles.srt"
+                srt_path.write_text(srt_content, encoding="utf-8")
+                logger.info("Demo SRT content length: {} chars", len(srt_content))
+                subtitled_path = tmp / "concat_sub.mp4"
+                if _embed_subtitles(concat_path, srt_path, subtitled_path):
+                    concat_path = subtitled_path
+                else:
+                    logger.warning("Demo: subtitle embedding FAILED")
+            else:
+                logger.warning("Demo: no SRT data, skipping subtitle embedding")
+
+            # Faststart
+            final_path = tmp / "final.mp4"
+            output_bytes = _apply_faststart(concat_path, final_path)
+
+        logger.info("Demo/render PIPELINE complete, size={} bytes", len(output_bytes))
+        subtitle_json = json.dumps(final_subtitle_data)
+        subtitle_b64 = base64.b64encode(subtitle_json.encode("utf-8")).decode("ascii")
+        return StreamingResponse(
+            iter([output_bytes]),
+            media_type="video/mp4",
+            headers={
+                "Content-Length": str(len(output_bytes)),
+                "X-Subtitles": subtitle_b64,
+            },
+        )
+
+    # ── Mode B: No MP3 files → serve pre-existing MP4 as-is ──
+    video_path = DEMO_DIR / "video.mp4"
+    if not video_path.exists():
+        for search_dir in [DEMO_DIR, DEMO_DIR / "slides"]:
+            mp4_files = sorted(search_dir.glob("*.mp4"))
+            if mp4_files:
+                video_path = mp4_files[0]
+                logger.info("Demo/render: found pre-built MP4 at {}", video_path.name)
+                break
+
+    if not video_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Keine Demo-MP3s und kein Demo-Video gefunden. "
+                   "Lege slide_001.mp3 ... in backend/demo/slides/ ab.",
+        )
+
+    video_bytes = video_path.read_bytes()
+    logger.info("Demo/render PASSTHROUGH: returning pre-built MP4 ({} bytes)", len(video_bytes))
+    subtitle_json = json.dumps(subtitle_data)
+    subtitle_b64 = base64.b64encode(subtitle_json.encode("utf-8")).decode("ascii")
+    return StreamingResponse(
+        iter([video_bytes]),
+        media_type="video/mp4",
+        headers={
+            "Content-Length": str(len(video_bytes)),
+            "X-Subtitles": subtitle_b64,
         },
     )

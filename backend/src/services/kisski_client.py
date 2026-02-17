@@ -46,6 +46,18 @@ _SYSTEM_PROMPT_EN = (
 )
 
 
+def _clean_whisper_response(raw: str) -> str:
+    """Clean Whisper API response that may be JSON-encoded (wrapped in quotes with escaped newlines)."""
+    text = raw.strip()
+    if text.startswith('"') and text.endswith('"'):
+        try:
+            text = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            text = text[1:-1]
+            text = text.replace("\\n", "\n").replace("\\r", "\r")
+    return text.strip()
+
+
 class KisskiClient:
     """Lightweight wrapper around the KISSKI (GWDG) OpenAI-compatible API."""
 
@@ -225,7 +237,7 @@ Always apply the intent, not the literal words.
                 )
             if not response:
                 raise RuntimeError("Whisper returned no output")
-            return str(response).strip()
+            return _clean_whisper_response(str(response))
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
@@ -254,7 +266,7 @@ Always apply the intent, not the literal words.
                 )
             if not response:
                 raise RuntimeError("Whisper returned no output")
-            return str(response).strip()
+            return _clean_whisper_response(str(response))
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise

@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     # ElevenLabs
     elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = ""
 
     # KISSKI LLM (OpenAI-compatible)
     kisski_api_key: str = ""
@@ -20,6 +21,9 @@ class Settings(BaseSettings):
     app_password: str = "admin"
     session_secret: str = "change-me-in-production"
     session_max_age_seconds: int = 86400  # 24h
+
+    # Demo mode: serve pre-built demo data instead of calling external APIs
+    demo_data: bool = False
 
     # Environment: set True on server, False for local dev
     production: bool = False

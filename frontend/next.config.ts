@@ -33,6 +33,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/tts`,
       },
       {
+        source: "/api/voices",
+        destination: `${backendUrl}/voices`,
+      },
+      {
         source: "/api/script",
         destination: `${backendUrl}/script`,
       },
