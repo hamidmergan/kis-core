@@ -18,13 +18,13 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pydantic import BaseModel
 
-from src.dependencies import get_deepl_client, get_settings
+from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski_client, get_settings
 from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.kisski_client import KisskiClient
 from src.services.glossary import GlossaryService
 from src.services.subtitle_converter import build_subtitles
 from src.services.translation import TranslationService
-from src.translators.pptx import translate_pptx
+from src.routes.translate import translate_pptx_content
 from src.utils.file_validation import (
     MAX_OUTPUT_VIDEO_BYTES,
     MAX_SCREENCAST_SLIDES,
@@ -47,6 +47,7 @@ class ExtractTextsRequest(BaseModel):
 class GenerateScriptsRequest(BaseModel):
     slide_texts: list[str]
     user_prompt: str | None = None
+    glossary_json: str = ""
 
 
 class PrepareRequest(BaseModel):
@@ -90,23 +91,6 @@ def _build_service(glossary_json: str = "") -> TranslationService:
             pass
     return TranslationService(deepl_client=client, glossary=glossary)
 
-
-def _get_elevenlabs_client() -> ElevenLabsClient:
-    settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        raise HTTPException(status_code=500, detail="ElevenLabs API Key fehlt")
-    return ElevenLabsClient(settings.elevenlabs_api_key)
-
-
-def _get_kisski_client() -> KisskiClient:
-    settings = get_settings()
-    if not settings.kisski_api_key:
-        raise HTTPException(status_code=500, detail="KISSKI API Key fehlt")
-    return KisskiClient(
-        api_key=settings.kisski_api_key,
-        base_url=settings.kisski_base_url,
-        model=settings.kisski_model,
-    )
 
 
 def _extract_text_per_slide(pptx_bytes: bytes) -> list[str]:
@@ -331,11 +315,12 @@ async def _generate_all_scripts(
     slide_texts: list[str],
     kisski_client: KisskiClient,
     user_prompt: str | None = None,
+    glossary: dict | None = None,
 ) -> list[str]:
     """Generate spoken scripts for all slides in a single KISSKI call."""
     try:
         scripts = await asyncio.to_thread(
-            kisski_client.generate_scripts_batch, slide_texts, user_prompt
+            kisski_client.generate_scripts_batch, slide_texts, user_prompt, glossary
         )
         logger.info("Batch script generation completed for {} slides", len(slide_texts))
         return scripts
@@ -434,12 +419,7 @@ async def screencast(
 
     # ── Step 1: Translate PPTX DE → EN ────────────────────────────────────
     logger.info("Step 1: Translating PPTX DE → EN")
-    service = _build_service(glossary_json)
-    settings = get_settings()
-    try:
-        translated_bytes = translate_pptx(pptx_bytes, settings.source_lang, settings.effective_target_lang, service)
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail=f"Übersetzungsfehler: {e}")
+    translated_bytes = translate_pptx_content(pptx_bytes, file.filename, glossary_json)
 
     # ── Step 2: Extract text per slide ────────────────────────────────────
     logger.info("Step 2: Extracting text per slide")
@@ -467,10 +447,16 @@ async def screencast(
         # PARALLELIZED
         # ── Steps 3 + 5: Generate scripts & convert slides to images concurrently
         logger.info("Steps 3+5: Generating scripts and converting slides to images (parallel)")
-        kisski_client = _get_kisski_client()
+        kisski_client = get_kisski_client()
+        glossary_dict: dict | None = None
+        if glossary_json:
+            try:
+                glossary_dict = json.loads(glossary_json)
+            except (json.JSONDecodeError, TypeError):
+                pass
         try:
             slide_scripts, slide_images = await asyncio.gather(
-                _generate_all_scripts(slide_texts, kisski_client),
+                _generate_all_scripts(slide_texts, kisski_client, glossary=glossary_dict),
                 _convert_slides_to_images_async(translated_pptx_path, img_dir),
             )
         except RuntimeError as e:
@@ -479,7 +465,7 @@ async def screencast(
         # PARALLELIZED
         # ── Step 4: TTS per slide ─────────────────────────────────────────
         logger.info("Step 4: Generating TTS audio per slide (parallel)")
-        tts_client = _get_elevenlabs_client()
+        tts_client = get_elevenlabs_client()
         tts_results = await _generate_all_tts(slide_scripts, tts_client, tmp, speed, voice_id)
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
@@ -580,14 +566,7 @@ async def screencast_translate(
 
     # ── Step 1: Translate PPTX DE → EN ────────────────────────────────────
     logger.info("Step 1: Translating PPTX DE → EN")
-    service = _build_service(glossary_json)
-    settings = get_settings()
-    try:
-        translated_bytes = translate_pptx(
-            pptx_bytes, settings.source_lang, settings.effective_target_lang, service
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail=f"Übersetzungsfehler: {e}")
+    translated_bytes = translate_pptx_content(pptx_bytes, file.filename, glossary_json)
 
     # ── Step 2: Extract text per slide ────────────────────────────────────
     logger.info("Step 2: Extracting text per slide")
@@ -707,11 +686,17 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         bool(body.user_prompt),
     )
 
-    kisski_client = _get_kisski_client()
+    kisski_client = get_kisski_client()
+    glossary_dict: dict | None = None
+    if body.glossary_json:
+        try:
+            glossary_dict = json.loads(body.glossary_json)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     # PARALLELIZED
     scripts = await _generate_all_scripts(
-        body.slide_texts, kisski_client, user_prompt=body.user_prompt
+        body.slide_texts, kisski_client, user_prompt=body.user_prompt, glossary=glossary_dict
     )
 
     return {"scripts": scripts}
@@ -753,7 +738,7 @@ async def screencast_render(body: RenderRequest):
                 slide_images.append(img_path)
 
         # Generate TTS audio
-        tts_client = _get_elevenlabs_client()
+        tts_client = get_elevenlabs_client()
         tts_results = await _generate_all_tts(body.scripts, tts_client, tmp, body.speed, body.voice_id)
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]

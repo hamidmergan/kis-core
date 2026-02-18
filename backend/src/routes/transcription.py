@@ -8,8 +8,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from src.dependencies import get_settings
-from src.services.kisski_client import KisskiClient
+from src.dependencies import get_kisski_client
 from src.utils.file_validation import MAX_TRANSCRIPTION_BYTES, TRANSCRIPTION_EXTENSIONS
 
 router = APIRouter(tags=["transcription"])
@@ -23,16 +22,6 @@ _FORMAT_MIME = {
     "vtt": "text/vtt",
 }
 
-
-def _get_kisski_client() -> KisskiClient:
-    settings = get_settings()
-    if not settings.kisski_api_key:
-        raise HTTPException(status_code=500, detail="KISSKI API Key missing")
-    return KisskiClient(
-        api_key=settings.kisski_api_key,
-        base_url=settings.kisski_base_url,
-        model=settings.kisski_model,
-    )
 
 
 @router.post("/transcription")
@@ -70,7 +59,7 @@ async def transcribe(
     if len(content) > MAX_TRANSCRIPTION_BYTES:
         raise HTTPException(status_code=413, detail="File too large (max 500 MB)")
 
-    client = _get_kisski_client()
+    client = get_kisski_client()
     stem = Path(file.filename).stem
 
     with tempfile.TemporaryDirectory() as tmpdir:

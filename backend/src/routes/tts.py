@@ -5,22 +5,12 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from src.dependencies import get_settings
-from src.services.elevenlabs_client import DEFAULT_VOICE_ID, ElevenLabsClient
+from src.dependencies import get_elevenlabs_client, get_settings
+from src.services.elevenlabs_client import DEFAULT_VOICE_ID
 from src.utils.file_validation import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES
 from src.utils.text_extraction import EXTRACTORS
 
 router = APIRouter(tags=["tts"])
-
-
-def _get_elevenlabs_client() -> ElevenLabsClient:
-    settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        raise HTTPException(
-            status_code=500,
-            detail="ElevenLabs API Key fehlt",
-        )
-    return ElevenLabsClient(settings.elevenlabs_api_key)
 
 
 # ---------- Routes ----------
@@ -95,7 +85,7 @@ async def text_to_speech(
         raise HTTPException(status_code=400, detail="Kein Text in der Datei gefunden")
 
     # Synthesize audio
-    client = _get_elevenlabs_client()
+    client = get_elevenlabs_client()
     try:
         mp3_bytes = client.synthesize(
             text,

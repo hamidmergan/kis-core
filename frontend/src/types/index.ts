@@ -42,6 +42,13 @@ export interface GlossaryEntry {
   target: string;
 }
 
+export interface Glossary {
+  id: string;
+  name: string;
+  entries: Record<string, string>;
+  createdAt: string;
+}
+
 export interface SlideData {
   index: number;
   imageBase64: string;

@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScreencastStatus from "@/components/ScreencastStatus";
+import GlossarySelector from "@/components/GlossarySelector";
+import { useGlossaries } from "@/hooks/useGlossaries";
 import { backendApi } from "@/lib/api";
 import type {
-  GlossaryEntry,
   ScreencastState,
   ScreencastStep,
   SlideData,
@@ -93,6 +94,8 @@ function stepToIndex(step: ScreencastStep): number {
 }
 
 export default function ScreencastPage() {
+  const { mergeToApiJson } = useGlossaries();
+
   // ── Auto mode state ──
   const [autoState, setAutoState] = useState<ScreencastState>("idle");
   const [autoDownloadBlob, setAutoDownloadBlob] = useState<Blob | null>(null);
@@ -108,8 +111,7 @@ export default function ScreencastPage() {
   const [speed, setSpeed] = useState(0.9);
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [userPrompt, setUserPrompt] = useState("");
-  const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
-  const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [translatedPptxB64, setTranslatedPptxB64] = useState("");
   const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
@@ -202,8 +204,7 @@ export default function ScreencastPage() {
     setSpeed(0.9);
     setSlidePause(0.5);
     setUserPrompt("");
-    setGlossary([]);
-    setGlossaryOpen(false);
+    setGlossaryIds(["", "", ""]);
     setSlides([]);
     setTranslatedPptxB64("");
     setDownloadBlob(null);
@@ -285,39 +286,6 @@ export default function ScreencastPage() {
     [handleFileSelect],
   );
 
-  // ── Glossary helpers ──
-  const addGlossaryRow = () => {
-    setGlossary((prev) => [...prev, { source: "", target: "" }]);
-  };
-
-  const updateGlossaryRow = (
-    idx: number,
-    field: "source" | "target",
-    value: string,
-  ) => {
-    setGlossary((prev) =>
-      prev.map((entry, i) =>
-        i === idx ? { ...entry, [field]: value } : entry,
-      ),
-    );
-  };
-
-  const removeGlossaryRow = (idx: number) => {
-    setGlossary((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const glossaryToJson = (): string => {
-    const entries = glossary.filter(
-      (e) => e.source.trim() && e.target.trim(),
-    );
-    if (entries.length === 0) return "";
-    const obj: Record<string, string> = {};
-    for (const e of entries) {
-      obj[e.source.trim()] = e.target.trim();
-    }
-    return JSON.stringify(obj);
-  };
-
   // ── Auto mode submit ──
   const handleAutoSubmit = useCallback(async () => {
     if (!file) return;
@@ -327,9 +295,9 @@ export default function ScreencastPage() {
     setAutoState("processing");
 
     try {
+      const glossaryJson = mergeToApiJson(glossaryIds);
       const fields: Record<string, string> = { speed: String(speed), voice_id: voiceId };
-      const gj = glossaryToJson();
-      if (gj) fields.glossary_json = gj;
+      if (glossaryJson) fields.glossary_json = glossaryJson;
 
       const { blob, filename } = await backendApi.uploadFileWithFields(
         "/screencast",
@@ -344,7 +312,7 @@ export default function ScreencastPage() {
       setAutoError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setAutoState("error");
     }
-  }, [file, speed, voiceId, glossary]);
+  }, [file, speed, voiceId, glossaryIds, mergeToApiJson]);
 
   const handleAutoDownload = () => {
     if (!autoDownloadBlob) return;
@@ -372,8 +340,8 @@ export default function ScreencastPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const gj = glossaryToJson();
-      if (gj) formData.append("glossary_json", gj);
+      const glossaryJson = mergeToApiJson(glossaryIds);
+      if (glossaryJson) formData.append("glossary_json", glossaryJson);
 
       const response = await backendApi.fetch("/screencast/translate", {
         method: "POST",
@@ -404,7 +372,7 @@ export default function ScreencastPage() {
     } catch (err) {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [file, mode, handleAutoSubmit, goError, glossary]);
+  }, [file, mode, handleAutoSubmit, goError, glossaryIds, mergeToApiJson]);
 
   // ── Download translated PPTX ──
   const handleDownloadTranslatedPptx = useCallback(() => {
@@ -485,6 +453,7 @@ export default function ScreencastPage() {
           {
             slide_texts: slides.map((s) => s.extractedText),
             user_prompt: userPrompt || null,
+            glossary_json: mergeToApiJson(glossaryIds),
           },
         );
 
@@ -500,7 +469,7 @@ export default function ScreencastPage() {
     } catch (err) {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, userPrompt, goError]);
+  }, [slides, userPrompt, glossaryIds, mergeToApiJson, goError]);
 
   // ── Accept scripts → TTS settings ──
   const handleAcceptScripts = useCallback(() => {
@@ -648,6 +617,7 @@ export default function ScreencastPage() {
 
   // ── Edit helpers ──
   const startEdit = (index: number) => {
+    setOpenAccordion(index);
     setEditingSlide(index);
     setEditBuffer(slides[index].script);
   };
@@ -912,104 +882,10 @@ export default function ScreencastPage() {
             )}
 
             {/* Glossary */}
-            <div className="mb-6">
-              <button
-                type="button"
-                onClick={() => setGlossaryOpen(!glossaryOpen)}
-                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-              >
-                <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${glossaryOpen ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-                Glossar (optional)
-              </button>
-
-              {glossaryOpen && (
-                <div className="mt-3 animate-[fadeIn_0.2s_ease-out]">
-                  <p className="text-xs text-gray-400 mb-2">
-                    Fachbegriffe, die bei der Übersetzung beibehalten oder
-                    gezielt übersetzt werden sollen.
-                  </p>
-                  {glossary.length > 0 && (
-                    <div className="space-y-2 mb-3">
-                      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-gray-500">
-                        <span>Deutsch</span>
-                        <span>Englisch</span>
-                        <span className="w-8" />
-                      </div>
-                      {glossary.map((entry, idx) => (
-                        <div
-                          key={idx}
-                          className="grid grid-cols-[1fr_1fr_auto] gap-2"
-                        >
-                          <input
-                            type="text"
-                            value={entry.source}
-                            onChange={(e) =>
-                              updateGlossaryRow(
-                                idx,
-                                "source",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Quellbegriff"
-                            className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
-                          />
-                          <input
-                            type="text"
-                            value={entry.target}
-                            onChange={(e) =>
-                              updateGlossaryRow(
-                                idx,
-                                "target",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Zielbegriff"
-                            className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
-                          />
-                          <button
-                            onClick={() => removeGlossaryRow(idx)}
-                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors"
-                            aria-label="Eintrag entfernen"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    onClick={addGlossaryRow}
-                    className="text-sm text-[#0066cc] hover:text-[#0055aa] font-medium transition-colors"
-                  >
-                    + Eintrag hinzufügen
-                  </button>
-                </div>
-              )}
-            </div>
+            <GlossarySelector
+              values={glossaryIds}
+              onChange={setGlossaryIds}
+            />
 
             {/* Mode toggle */}
             <label className="flex items-start gap-3 mb-6 cursor-pointer select-none">
@@ -1321,7 +1197,9 @@ export default function ScreencastPage() {
                     {/* Accordion header */}
                     <button
                       onClick={() => {
-                        if (isEditing) return;
+                        if (editingSlide !== null) {
+                          cancelEdit();
+                        }
                         setOpenAccordion(isOpen ? -1 : i);
                       }}
                       className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]"

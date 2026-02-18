@@ -66,7 +66,8 @@ class KisskiClient:
         self._model = model
 
     def generate_script(
-        self, text: str, language: str = "DE", user_prompt: str | None = None
+        self, text: str, language: str = "DE", user_prompt: str | None = None,
+        glossary: dict[str, str] | None = None,
     ) -> str:
         """Convert extracted document text into a spoken script.
 
@@ -82,6 +83,9 @@ class KisskiClient:
             RuntimeError: If the LLM API returns an error.
         """
         system_prompt = _SYSTEM_PROMPT_EN if language.upper() == "EN" else _SYSTEM_PROMPT_DE
+        if glossary:
+            lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
+            system_prompt = f"Use the following terminology consistently in your output:\n{lines}\n\n" + system_prompt
         if user_prompt:
             system_prompt += f"""
 
@@ -112,7 +116,8 @@ Always apply the intent, not the literal words.
             raise RuntimeError(f"KISSKI API Fehler: {e}") from e
 
     def generate_scripts_batch(
-        self, slide_texts: list[str], user_prompt: str | None = None
+        self, slide_texts: list[str], user_prompt: str | None = None,
+        glossary: dict[str, str] | None = None,
     ) -> list[str]:
         """Generate spoken scripts for all slides in a single LLM call.
 
@@ -141,7 +146,11 @@ Always apply the intent, not the literal words.
             slides_input += f"### {position}\n{text.strip() if text.strip() else '[empty slide]'}\n\n"
 
         # Build system prompt
-        system_prompt = (
+        glossary_hint = ""
+        if glossary:
+            lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
+            glossary_hint = f"Use the following terminology consistently in your output:\n{lines}\n\n"
+        system_prompt = glossary_hint + (
             "You are an expert at creating spoken narration scripts for presentation slides. "
             "You will receive all slides at once. Generate a spoken script for EACH slide. "
             "Rules:\n"

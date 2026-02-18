@@ -39,6 +39,16 @@ const tools = [
     description: "Synchronisieren Sie ein Video automatisch in eine andere Sprache.",
     href: "/video-dubbing",
   },
+  {
+    title: "Bild-KI",
+    description: "Bilder generieren, bearbeiten und analysieren mit KI.",
+    href: "/image",
+  },
+  {
+    title: "Glossare",
+    description: "Verwalten Sie Begriffslisten für konsistente Übersetzungen und Skripterstellung.",
+    href: "/glossary",
+  },
 ];
 
 export default function HomePage() {

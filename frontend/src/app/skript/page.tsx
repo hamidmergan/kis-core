@@ -5,10 +5,15 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScriptFileUpload from "@/components/ScriptFileUpload";
 import ScriptStatus from "@/components/ScriptStatus";
+import GlossarySelector from "@/components/GlossarySelector";
+import { useGlossaries } from "@/hooks/useGlossaries";
 import { api } from "@/lib/api";
 import type { ScriptState } from "@/types";
 
 export default function SkriptPage() {
+    const { mergeToApiJson } = useGlossaries();
+    const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
+
     const [state, setState] = useState<ScriptState>("idle");
     const [selectedFile, setSelectedFile] = useState<string>("");
     const [scriptText, setScriptText] = useState<string>("");
@@ -25,6 +30,8 @@ export default function SkriptPage() {
         try {
             const formData = new FormData();
             formData.append("file", file);
+            const glossaryJson = mergeToApiJson(glossaryIds);
+            if (glossaryJson) formData.append("glossary_json", glossaryJson);
 
             const response = await api.fetch("/api/script", {
                 method: "POST",
@@ -63,7 +70,7 @@ export default function SkriptPage() {
             setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
             setState("error");
         }
-    }, []);
+    }, [glossaryIds, mergeToApiJson]);
 
     const handleDownload = () => {
         if (!scriptText) return;
@@ -95,6 +102,11 @@ export default function SkriptPage() {
                     <p className="text-sm text-gray-500 mb-6">
                         Laden Sie ein Dokument hoch und lassen Sie daraus ein fließendes Vorleseskript erstellen.
                     </p>
+
+                    <GlossarySelector
+                        values={glossaryIds}
+                        onChange={setGlossaryIds}
+                    />
 
                     <ScriptFileUpload
                         onFileSelected={handleFileSelected}

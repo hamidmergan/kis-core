@@ -6,7 +6,7 @@ from loguru import logger
 
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
-from src.routes import auth, health, screencast, script, transcription, translate, tts, video_dubbing
+from src.routes import auth, health, image, screencast, script, transcription, translate, tts, video_dubbing
 
 
 def _configure_logging() -> None:
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     application.include_router(auth.router)
     application.include_router(health.router)
     application.include_router(translate.router)
+    application.include_router(image.router)
     application.include_router(tts.router)
     application.include_router(script.router)
     application.include_router(transcription.router)

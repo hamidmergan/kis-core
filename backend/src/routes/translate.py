@@ -13,10 +13,8 @@ from src.translators.docx import translate_docx
 from src.translators.pptx import translate_pptx
 from src.translators.markdown import translate_markdown_preserve_code_blocks
 from src.translators.latex import translate_latex_preserve_structure
-from src.translators.document_api import translate_document_via_deepl
 from src.utils.file_validation import (
     ALLOWED_EXTENSIONS,
-    DOC_TRANSLATION_EXTENSIONS,
     MAX_UPLOAD_BYTES,
 )
 
@@ -40,6 +38,22 @@ def _build_service(glossary_json: str = "") -> TranslationService:
         except (json.JSONDecodeError, TypeError):
             pass
     return TranslationService(deepl_client=client, glossary=glossary)
+
+
+def translate_pptx_content(
+    content: bytes,
+    filename: str,
+    glossary_json: str = "",
+) -> bytes:
+    service = _build_service(glossary_json)
+    settings = get_settings()
+    try:
+        return translate_pptx(content, settings.source_lang, settings.effective_target_lang, service)
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=f"PPTX-Übersetzungsfehler: {str(e)}")
+    except Exception as e:
+        logger.exception("PPTX processing error for file '{}'", filename)
+        raise HTTPException(status_code=500, detail=f"PPTX-Verarbeitungsfehler: {str(e)}")
 
 
 @router.post("/translate")
@@ -106,17 +120,7 @@ async def translate(
                 status_code=500, detail=f"DOCX-Verarbeitungsfehler: {str(e)}"
             )
     elif ext == ".pptx":
-        try:
-            content = translate_pptx(content, source_lang, target_lang, service)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=500, detail=f"PPTX-Übersetzungsfehler: {str(e)}"
-            )
-        except Exception as e:
-            logger.exception("PPTX processing error for file '{}'", file.filename)
-            raise HTTPException(
-                status_code=500, detail=f"PPTX-Verarbeitungsfehler: {str(e)}"
-            )
+        content = translate_pptx_content(content, file.filename, glossary)
     else:
         raise HTTPException(status_code=400, detail="Dateityp wird nicht unterstützt")
 
@@ -126,60 +130,6 @@ async def translate(
     return StreamingResponse(
         iter([content]),
         media_type=ALLOWED_EXTENSIONS[ext],
-        headers={
-            "Content-Disposition": f'attachment; filename="{encoded_filename}"; filename*=UTF-8\'\'{encoded_filename}'
-        },
-    )
-
-
-@router.post("/translate-document")
-async def translate_document(request: Request, file: UploadFile = File(...)):
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Dateiname fehlt")
-
-    ext = Path(file.filename).suffix.lower()
-    if ext not in DOC_TRANSLATION_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Nur .docx, .pptx oder .pdf erlaubt")
-
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
-
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail="Datei ist leer")
-    if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
-
-    settings = get_settings()
-    target_lang = settings.effective_target_lang
-    source_lang = settings.source_lang
-    service = _build_service()
-
-    try:
-        translated_bytes = translate_document_via_deepl(
-            content, file.filename, source_lang, target_lang, service
-        )
-        translated_filename = service.translate_filename(
-            file.filename, source_lang, target_lang
-        )
-        download_name = translated_filename
-    except ValueError as e:
-        raise HTTPException(
-            status_code=500, detail=f"Document-Übersetzungsfehler: {str(e)}"
-        )
-    except Exception as e:
-        logger.exception("Document translation error for file '{}'", file.filename)
-        raise HTTPException(
-            status_code=500, detail=f"Document-Verarbeitungsfehler: {str(e)}"
-        )
-
-    logger.info("Document translation completed: '{}' -> '{}'", file.filename, download_name)
-
-    encoded_filename = quote(download_name, safe="")
-    return StreamingResponse(
-        iter([translated_bytes]),
-        media_type=DOC_TRANSLATION_EXTENSIONS[ext],
         headers={
             "Content-Disposition": f'attachment; filename="{encoded_filename}"; filename*=UTF-8\'\'{encoded_filename}'
         },
