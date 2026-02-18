@@ -84,9 +84,43 @@ Erstellt automatisch ein Screencast-Video aus einer PPTX-Präsentation: Überset
 
 ## Glossar
 
-- Verwaltung über den Glossar-Tab im Frontend
-- Einträge leben nur im Browser-Tab (kein Server-Speicher)
-- Wird bei jeder Übersetzung automatisch mitgesendet
+Das Glossar stellt sicher, dass Fachbegriffe bei der Übersetzung konsistent mit den gewünschten Zielsprachbegriffen ersetzt werden – unabhängig davon, was das jeweilige Übersetzungs-API zurückliefern würde.
+
+### Verwaltung
+
+- Pflege über den Glossar-Tab im Frontend (Deutsch → Englisch)
+- Die Einträge leben nur im Browser (kein Server-Speicher, kein Datenbank-Speicher)
+- Beim Absenden einer Übersetzungsanfrage werden die Einträge als JSON im Request-Body mitgesendet
+
+### Technische Umsetzung: Token-Ersatz-Verfahren
+
+Das Projekt nutzt **kein** natives Glossar-Feature von DeepL oder einem anderen API-Anbieter. Stattdessen kommt ein eigenes Token-Ersatz-Verfahren zum Einsatz, das API-unabhängig funktioniert:
+
+1. **Vor** der Übersetzung: Glossar-Begriffe im Originaltext werden durch eindeutige Platzhalter ersetzt (`__GLOSSARY_0__`, `__GLOSSARY_1__`, …)
+2. Der präparierte Text (mit Platzhaltern) wird an die Übersetzungs-API gesendet – die Platzhalter bleiben dabei unberührt
+3. **Nach** der Übersetzung: Die Platzhalter werden durch die definierten Zielbegriffe ersetzt
+
+**Beispiel:**
+
+```
+Eingabe:        "Die Lehrveranstaltung beginnt pünktlich."
+Nach Schritt 1: "Die __GLOSSARY_0__ beginnt pünktlich."
+Nach DeepL:     "The __GLOSSARY_0__ starts on time."
+Ausgabe:        "The Course starts on time."
+```
+
+Längere Begriffe werden bevorzugt zuerst ersetzt, um Überschneidungen zu vermeiden.
+
+### Wo wird das Glossar angewendet?
+
+| Tool | Glossar aktiv | Hinweis |
+|------|:---:|---------|
+| Dokumentübersetzung (DOCX, PPTX, MD, TEX) | ✅ | Token-Ersatz via `GlossaryService` |
+| Screencast-Übersetzung (PPTX-Schritt) | ✅ | Gleiche Logik wie Dokumentübersetzung |
+| Transkription | ❌ | Direkter KISSKI-Whisper-Aufruf, kein Glossar |
+| Text-to-Speech | ❌ | ElevenLabs-Aufruf, kein Glossar |
+| Video-Dubbing | ❌ | ElevenLabs-Aufruf, kein Glossar |
+| Skript-Generierung | ✅ | Glossar-Einträge werden als Terminologie-Anweisung in den LLM-System-Prompt eingefügt (kein Token-Ersatz) |
 
 ## API-Endpunkte
 

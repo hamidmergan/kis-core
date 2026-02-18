@@ -5,7 +5,7 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 from src.services.translation import TranslationService
-from src.utils.text import translate_paragraph_preserve_runs
+from src.utils.text import _RunRef, apply_translations, collect_paragraph_runs
 
 
 def _iter_pptx_paragraphs(shape):
@@ -25,71 +25,45 @@ def _iter_pptx_paragraphs(shape):
 def translate_pptx(
     content: bytes, source_lang: str, target_lang: str, service: TranslationService
 ) -> bytes:
-    """Translate text in a PPTX file preserving layout."""
+    """Translate text in a PPTX file preserving layout — single batch DeepL call."""
     try:
         presentation = Presentation(BytesIO(content))
-        any_text = False
+        refs: list[_RunRef] = []
 
         # Normal slide shapes
         for slide in presentation.slides:
             for shape in slide.shapes:
                 for para in _iter_pptx_paragraphs(shape):
-                    raw_text = para.text
-                    if not raw_text or not raw_text.strip():
-                        continue
-                    any_text = True
-                    try:
-                        translate_paragraph_preserve_runs(para, source_lang, target_lang, service)
-                    except Exception as e:
-                        raise ValueError(f"Error translating PPTX paragraph: {e}")
+                    if para.text and para.text.strip():
+                        collect_paragraph_runs(para, refs)
 
             # Speaker notes
             if slide.has_notes_slide:
-                notes_slide = slide.notes_slide
-                for shape in notes_slide.shapes:
+                for shape in slide.notes_slide.shapes:
                     for para in _iter_pptx_paragraphs(shape):
-                        raw_text = para.text
-                        if not raw_text or not raw_text.strip():
-                            continue
-                        any_text = True
-                        try:
-                            translate_paragraph_preserve_runs(
-                                para, source_lang, target_lang, service
-                            )
-                        except Exception:
-                            pass
+                        if para.text and para.text.strip():
+                            collect_paragraph_runs(para, refs)
 
-        # Slide masters
+        # Slide masters + layouts
         for slide_master in presentation.slide_masters:
             for shape in slide_master.shapes:
                 for para in _iter_pptx_paragraphs(shape):
-                    raw_text = para.text
-                    if not raw_text or not raw_text.strip():
-                        continue
-                    any_text = True
-                    try:
-                        translate_paragraph_preserve_runs(para, source_lang, target_lang, service)
-                    except Exception:
-                        pass
-
+                    if para.text and para.text.strip():
+                        collect_paragraph_runs(para, refs)
             for layout in slide_master.slide_layouts:
                 for shape in layout.shapes:
                     for para in _iter_pptx_paragraphs(shape):
-                        raw_text = para.text
-                        if not raw_text or not raw_text.strip():
-                            continue
-                        any_text = True
-                        try:
-                            translate_paragraph_preserve_runs(
-                                para, source_lang, target_lang, service
-                            )
-                        except Exception:
-                            pass
+                        if para.text and para.text.strip():
+                            collect_paragraph_runs(para, refs)
+
+        if refs:
+            texts = [r.encoded for r in refs]
+            translated = service.translate_batch(texts, source_lang, target_lang)
+            apply_translations(refs, translated)
 
         output = BytesIO()
         presentation.save(output)
-        if any_text:
-            output.seek(0)
+        output.seek(0)
         return output.getvalue()
 
     except ValueError:

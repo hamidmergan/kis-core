@@ -31,5 +31,5 @@ SCREENCAST_EXTENSIONS = {
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
-MAX_SCREENCAST_SLIDES = 30
+MAX_SCREENCAST_SLIDES = 50
 MAX_OUTPUT_VIDEO_BYTES = 500 * 1024 * 1024  # 500 MB

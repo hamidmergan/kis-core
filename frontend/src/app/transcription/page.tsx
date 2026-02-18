@@ -5,12 +5,12 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TranscriptionFileUpload from "@/components/TranscriptionFileUpload";
 import TranscriptionStatus from "@/components/TranscriptionStatus";
-import { api, backendApi } from "@/lib/api";
+import { backendApi } from "@/lib/api";
 import type { TranscriptionState } from "@/types";
 
 const TASK_OPTIONS = [
-  { value: "transcribe", label: "Transkribieren (Originalsprache)" },
-  { value: "translate", label: "Ins Englische übersetzen" },
+  { value: "transcribe", label: "In Originalsprache transkribieren" },
+  { value: "translate", label: "Transkribieren und ins Englische übersetzen" },
 ];
 
 const FORMAT_OPTIONS = [
@@ -29,6 +29,11 @@ export default function TranscriptionPage() {
   const [task, setTask] = useState("transcribe");
   const [responseFormat, setResponseFormat] = useState("text");
 
+  const [transcriptText, setTranscriptText] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryError, setSummaryError] = useState("");
+
   const isProcessing = state === "uploading" || state === "processing";
 
   const handleFileSelected = useCallback(
@@ -37,6 +42,9 @@ export default function TranscriptionPage() {
       setDownloadName("");
       setErrorMessage("");
       setSelectedFile(file.name);
+      setTranscriptText(null);
+      setSummary(null);
+      setSummaryError("");
       setState("uploading");
 
       try {
@@ -44,14 +52,13 @@ export default function TranscriptionPage() {
         const { blob, filename } = await backendApi.uploadFileWithFields(
           "/transcription",
           file,
-          {
-            task,
-            response_format: responseFormat,
-          },
+          { task, response_format: responseFormat },
         );
-
         setDownloadBlob(blob);
         setDownloadName(filename);
+        if (responseFormat === "text") {
+          setTranscriptText(await blob.text());
+        }
         setState("done");
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -79,6 +86,46 @@ export default function TranscriptionPage() {
     setDownloadBlob(null);
     setDownloadName("");
     setErrorMessage("");
+    setTranscriptText(null);
+    setSummary(null);
+    setSummaryError("");
+  };
+
+  const handleSummarize = async () => {
+    if (!transcriptText) return;
+    setSummarizing(true);
+    setSummary(null);
+    setSummaryError("");
+    try {
+      const response = await backendApi.fetch("/transcription/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: transcriptText, task }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+        throw new Error(err.detail || `Fehler: ${response.status}`);
+      }
+      const data = await response.json();
+      const summaryText = data.summary ?? "";
+      setSummary(summaryText);
+
+      // Download as .txt
+      const stem = selectedFile.replace(/\.[^.]+$/, "") || "transkript";
+      const blob = new Blob([summaryText], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${stem}_zusammenfassung.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setSummaryError(err instanceof Error ? err.message : "Unbekannter Fehler");
+    } finally {
+      setSummarizing(false);
+    }
   };
 
   return (
@@ -147,6 +194,26 @@ export default function TranscriptionPage() {
             onDownload={handleDownload}
             onReset={handleReset}
           />
+
+          {/* Summarize button — only for plain text transcriptions */}
+          {transcriptText && state === "done" && (
+            <div className="mt-4">
+              <button
+                onClick={handleSummarize}
+                disabled={summarizing}
+                className="px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {summarizing && (
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
+                )}
+                {summarizing ? "Zusammenfassung wird erstellt…" : "Zusammenfassung"}
+              </button>
+            </div>
+          )}
+
+          {summaryError && (
+            <p className="mt-4 text-sm text-red-600" role="alert">{summaryError}</p>
+          )}
         </section>
       </div>
     </ProtectedRoute>

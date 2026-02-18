@@ -7,11 +7,35 @@ from urllib.parse import quote
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
+from pydantic import BaseModel
 
 from src.dependencies import get_kisski_client
 from src.utils.file_validation import MAX_TRANSCRIPTION_BYTES, TRANSCRIPTION_EXTENSIONS
 
 router = APIRouter(tags=["transcription"])
+
+
+class SummarizeRequest(BaseModel):
+    text: str
+    task: str = "transcribe"
+
+
+@router.post("/transcription/summarize")
+async def summarize_transcript(body: SummarizeRequest):
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="Text darf nicht leer sein")
+    if body.task not in {"transcribe", "translate"}:
+        raise HTTPException(status_code=400, detail="Ungültige Aufgabe")
+
+    client = get_kisski_client()
+    try:
+        summary = client.summarize(body.text, task=body.task)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    logger.info("Summarization completed: task='{}', {} chars → {} chars", body.task, len(body.text), len(summary))
+    return {"summary": summary}
+
 
 _VALID_TASKS = {"transcribe", "translate"}
 _VALID_FORMATS = {"text", "srt", "vtt"}

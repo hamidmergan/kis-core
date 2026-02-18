@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -11,9 +12,10 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
+from PIL import Image
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pydantic import BaseModel
@@ -37,6 +39,48 @@ router = APIRouter(tags=["screencast"])
 # ── Temporary audio cache (render ID → list of MP3 bytes) ────────────────────
 _audio_cache: dict[str, list[bytes]] = {}
 
+# ── Temporary PPTX file storage ──────────────────────────────────────────────
+PPTX_TMP_DIR = Path("/tmp/screencast")
+
+_cleanup_task: asyncio.Task | None = None
+
+
+async def _cleanup_old_pptx_files() -> None:
+    """Periodically delete PPTX temp files older than 1 hour."""
+    import time
+    while True:
+        await asyncio.sleep(300)  # check every 5 minutes
+        try:
+            if PPTX_TMP_DIR.exists():
+                cutoff = time.time() - 3600
+                for f in PPTX_TMP_DIR.glob("*.pptx"):
+                    try:
+                        if f.stat().st_mtime < cutoff:
+                            f.unlink(missing_ok=True)
+                            logger.info("Cleanup: deleted expired PPTX {}", f.name)
+                    except OSError:
+                        pass
+        except Exception as e:
+            logger.warning("PPTX cleanup error: {}", e)
+
+
+def _maybe_start_cleanup_task() -> None:
+    """Start the background cleanup task if not already running."""
+    global _cleanup_task
+    if _cleanup_task is None or _cleanup_task.done():
+        try:
+            _cleanup_task = asyncio.create_task(_cleanup_old_pptx_files())
+        except RuntimeError:
+            pass  # No running event loop yet
+
+
+def _save_pptx_tmp(pptx_bytes: bytes) -> str:
+    """Save PPTX bytes to PPTX_TMP_DIR/{uuid}.pptx and return the UUID."""
+    PPTX_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    file_id = uuid.uuid4().hex
+    (PPTX_TMP_DIR / f"{file_id}.pptx").write_bytes(pptx_bytes)
+    return file_id
+
 
 # ── Pydantic models for step-by-step endpoints ──────────────────────────────
 
@@ -56,8 +100,8 @@ class PrepareRequest(BaseModel):
 
 class RenderRequest(BaseModel):
     scripts: list[str]
-    translated_pptx_b64: str
-    slide_images_b64: list[str]
+    file_id: str
+    slide_images_b64: list[str] = []  # optional: empty → backend extracts from PPTX
     voice_id: str = ""
     speed: float = 0.9
     slide_pause: float = 0.5
@@ -125,22 +169,34 @@ def _collect_shape_text(shape, texts: list[str]) -> None:
 
 def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 150) -> list[Path]:
     """Convert PPTX slides to PNG images using LibreOffice."""
-    # First convert PPTX to PDF via LibreOffice
+    # Read actual slide dimensions so we can detect non-standard sizes and
+    # pass the correct aspect ratio to the post-processing step.
+    prs = Presentation(str(pptx_path))
+    slide_width = prs.slide_width   # EMU (1 cm = 360000 EMU)
+    slide_height = prs.slide_height
+    width_cm = slide_width / 360000
+    height_cm = slide_height / 360000
+    slide_ratio = slide_width / slide_height
+    logger.info("PPTX slide size: {:.2f}x{:.2f} cm (ratio {:.4f})", width_cm, height_cm, slide_ratio)
+
     cmd = [
-        "libreoffice", "--headless", "--convert-to", "pdf",
+        "libreoffice", "--headless", "--norestore",
+        "--convert-to", "pdf",
         "--outdir", str(output_dir), str(pptx_path),
     ]
     logger.info("Converting PPTX to PDF: {}", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    if result.returncode != 0:
-        logger.error("LibreOffice conversion failed: {}", result.stderr[:300])
-        raise RuntimeError(f"LibreOffice Konvertierung fehlgeschlagen: {result.stderr[:200]}")
 
     pdf_path = output_dir / f"{pptx_path.stem}.pdf"
     if not pdf_path.exists():
-        raise RuntimeError("LibreOffice hat keine PDF-Datei erstellt")
+        # PDF was not created — this is a real failure regardless of exit code
+        logger.error("LibreOffice conversion failed (rc={}): {}", result.returncode, result.stderr[:300])
+        raise RuntimeError(f"LibreOffice Konvertierung fehlgeschlagen: {result.stderr[:200]}")
+    if result.returncode != 0:
+        # PDF exists despite non-zero exit — treat javaldx / Java warnings as non-fatal
+        logger.warning("LibreOffice exited with rc={} but PDF was created (non-fatal): {}", result.returncode, result.stderr[:200])
 
-    # Convert PDF pages to individual PNG images using pdftoppm (poppler-utils)
+    # Convert PDF pages to individual PNG images using pdftoppm (poppler-utils).
     slide_prefix = str(output_dir / "slide")
     cmd = [
         "pdftoppm", "-png", "-r", str(dpi),
@@ -158,11 +214,45 @@ def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 150) -> list[P
         raise RuntimeError("Keine Slide-Bilder erstellt")
 
     logger.info("Generated {} slide images", len(images))
+    logger.info("Slide image sizes: {}", [(p.name, p.stat().st_size) for p in images[:3]])
+
+    for img_path in images:
+        _fix_aspect_ratio(img_path, target_ratio=slide_ratio)
+
     return images
 
 
-def _get_audio_duration(audio_path: Path) -> float:
-    """Get the exact duration of an audio file in seconds using ffprobe."""
+def _fix_aspect_ratio(image_path: Path, target_ratio: float = 16 / 9) -> None:
+    """Ensure image matches target_ratio by adding white padding if needed."""
+    with Image.open(image_path) as img:
+        w, h = img.size
+        current_ratio = w / h
+
+        if abs(current_ratio - target_ratio) < 0.01:
+            return  # already correct
+
+        if current_ratio < target_ratio:
+            # too tall → add padding left/right
+            new_w = int(h * target_ratio)
+            new_img = Image.new("RGB", (new_w, h), (255, 255, 255))
+            new_img.paste(img, ((new_w - w) // 2, 0))
+        else:
+            # too wide → add padding top/bottom
+            new_h = int(w / target_ratio)
+            new_img = Image.new("RGB", (w, new_h), (255, 255, 255))
+            new_img.paste(img, (0, (new_h - h) // 2))
+
+        logger.info("Fixed aspect ratio for {}: {}x{} → {}x{}", image_path.name, w, h, new_img.width, new_img.height)
+        new_img.save(image_path)
+
+
+def _get_audio_duration(audio_path: Path | None) -> float:
+    """Get the exact duration of an audio file in seconds using ffprobe.
+
+    Returns 3.0 for silent slides (audio_path is None).
+    """
+    if audio_path is None:
+        return 3.0
     cmd = [
         "ffprobe", "-v", "error",
         "-show_entries", "format=duration",
@@ -175,8 +265,44 @@ def _get_audio_duration(audio_path: Path) -> float:
     return float(result.stdout.strip())
 
 
-def _create_slide_video(image_path: Path, audio_path: Path, output_path: Path, pause: float = 0.0, crf: int = 23) -> None:
-    """Combine a single slide image with its audio into a video clip."""
+def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: Path, pause: float = 0.0, crf: int = 23) -> None:
+    """Combine a single slide image with its audio into a video clip.
+
+    If audio_path is None (silent/empty slide), produces a video-only clip
+    with a fixed 3-second duration and no audio track.
+    """
+    # Normalise: treat missing or empty audio files the same as None (silent slide)
+    if audio_path is not None and (not audio_path.exists() or audio_path.stat().st_size == 0):
+        logger.warning("Audio file is empty/missing ({}), falling back to silent slide", audio_path)
+        audio_path = None
+
+    logger.info(
+        "Creating clip {}: image={} ({}b), audio={} ({}b)",
+        output_path.name,
+        image_path,
+        image_path.stat().st_size if image_path.exists() else "MISSING",
+        audio_path,
+        audio_path.stat().st_size if audio_path and audio_path.exists() else "MISSING/None",
+    )
+    with Image.open(image_path) as img:
+        logger.info("Image dimensions: {}x{}", img.width, img.height)
+    if audio_path is None:
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1", "-i", str(image_path),
+            "-t", "3",
+            "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+            "-c:v", "libx264", "-tune", "stillimage",
+            "-crf", str(crf),
+            "-pix_fmt", "yuv420p",
+            str(output_path),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            logger.error("Slide video creation failed (rc={}):\nSTDOUT: {}\nSTDERR: {}", result.returncode, result.stdout[-500:], result.stderr[-500:])
+            raise RuntimeError(f"Video-Erstellung fehlgeschlagen (kein Audio): {result.stderr[-300:]}")
+        return
+
     duration = _get_audio_duration(audio_path)
 
     if pause > 0:
@@ -213,17 +339,17 @@ def _create_slide_video(image_path: Path, audio_path: Path, output_path: Path, p
         "-loop", "1", "-i", str(image_path),
         "-i", str(final_audio),
         "-t", str(total_duration),
+        "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
         "-c:v", "libx264", "-tune", "stillimage",
         "-c:a", "aac", "-b:a", "192k",
         "-crf", str(crf),
         "-pix_fmt", "yuv420p",
-        "-shortest",
         str(output_path),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     if result.returncode != 0:
-        logger.error("Slide video creation failed: {}", result.stderr[:300])
-        raise RuntimeError(f"Video-Erstellung fehlgeschlagen: {result.stderr[:200]}")
+        logger.error("Slide video creation failed (rc={}):\nSTDOUT: {}\nSTDERR: {}", result.returncode, result.stdout[-500:], result.stderr[-500:])
+        raise RuntimeError(f"Video-Erstellung fehlgeschlagen: {result.stderr[-300:]}")
 
 
 def _concatenate_videos(video_paths: list[Path], output_path: Path) -> None:
@@ -345,21 +471,14 @@ async def _generate_all_tts(
     Returns a list of (audio_path, alignment_or_None) tuples.
     """
     sem = asyncio.Semaphore(5)
-    audio_paths: list[Path] = [tmp / f"slide_{i:03d}.mp3" for i in range(len(slide_scripts))]
+    audio_paths: list[Path | None] = [tmp / f"slide_{i:03d}.mp3" for i in range(len(slide_scripts))]
     alignments: list[dict | None] = [None] * len(slide_scripts)
 
     async def _tts(i: int, script_text: str) -> None:
-        audio_path = audio_paths[i]
         if not script_text.strip():
-            # Empty slide: create 2 seconds of silence
-            cmd = [
-                "ffmpeg", "-y", "-f", "lavfi", "-i",
-                "anullsrc=r=44100:cl=mono", "-t", "2",
-                "-c:a", "libmp3lame", str(audio_path),
-            ]
-            await asyncio.to_thread(
-                subprocess.run, cmd, capture_output=True, text=True, timeout=30
-            )
+            # Empty slide: no audio file — _create_slide_video handles None as video-only
+            audio_paths[i] = None
+            logger.info("Slide {}/{}: empty script, audio_path set to None", i + 1, len(slide_scripts))
             return
         async with sem:
             try:
@@ -367,7 +486,7 @@ async def _generate_all_tts(
                     tts_client.synthesize_with_timestamps,
                     script_text, "EN", voice_id=voice_id, speed=speed,
                 )
-                audio_path.write_bytes(result["audio_bytes"])
+                audio_paths[i].write_bytes(result["audio_bytes"])
                 alignments[i] = result["alignment"]
                 logger.info("TTS for slide {}/{} done", i + 1, len(slide_scripts))
             except Exception as e:
@@ -551,8 +670,9 @@ async def screencast_translate(
     file: UploadFile = File(...),
     glossary_json: str = Form(""),
 ):
-    """Translate PPTX DE→EN and extract slide texts."""
+    """Translate PPTX DE→EN, save to temp file, and extract slide texts."""
     _validate_upload(file.filename)
+    _maybe_start_cleanup_task()
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
@@ -582,6 +702,10 @@ async def screencast_translate(
             detail=f"Zu viele Folien ({len(slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
         )
 
+    # ── Save translated PPTX to temp file ────────────────────────────────
+    file_id = _save_pptx_tmp(translated_bytes)
+    logger.info("Saved translated PPTX as file_id={}", file_id)
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         translated_pptx_path = tmp / "translated.pptx"
@@ -600,13 +724,11 @@ async def screencast_translate(
         for img_path in slide_image_paths:
             slide_images_b64.append(base64.b64encode(img_path.read_bytes()).decode())
 
-    translated_pptx_b64 = base64.b64encode(translated_bytes).decode()
-
     return {
         "slide_count": len(slide_texts),
         "slide_texts": slide_texts,
         "slide_images": slide_images_b64,
-        "translated_pptx_b64": translated_pptx_b64,
+        "file_id": file_id,
     }
 
 
@@ -668,6 +790,74 @@ async def screencast_prepare(body: PrepareRequest):
     }
 
 
+@router.get("/screencast/file/{file_id}")
+async def download_pptx_file(file_id: str, background_tasks: BackgroundTasks):
+    """Download translated PPTX from temp storage and delete it afterward."""
+    if not re.match(r"^[a-f0-9]{32}$", file_id):
+        raise HTTPException(status_code=400, detail="Ungültige file_id")
+    pptx_path = PPTX_TMP_DIR / f"{file_id}.pptx"
+    if not pptx_path.exists():
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden (abgelaufen oder ungültige ID)")
+    data = pptx_path.read_bytes()
+    background_tasks.add_task(pptx_path.unlink, missing_ok=True)
+    logger.info("Serving PPTX file_id={} ({} bytes), will delete after send", file_id, len(data))
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={
+            "Content-Length": str(len(data)),
+            "Content-Disposition": 'attachment; filename="translated.pptx"',
+        },
+    )
+
+
+@router.post("/screencast/upload-corrected")
+async def screencast_upload_corrected(
+    request: Request,
+    file: UploadFile = File(...),
+):
+    """Upload a corrected PPTX, save to temp storage, extract texts and slide images."""
+    _validate_upload(file.filename)
+    _maybe_start_cleanup_task()
+
+    pptx_bytes = await file.read()
+    if not pptx_bytes:
+        raise HTTPException(status_code=400, detail="Datei ist leer")
+
+    logger.info("Screencast/upload-corrected: '{}' ({} bytes)", file.filename, len(pptx_bytes))
+
+    slide_texts = _extract_text_per_slide(pptx_bytes)
+    if not slide_texts:
+        raise HTTPException(status_code=400, detail="Keine Slides in der Präsentation gefunden")
+
+    if len(slide_texts) > MAX_SCREENCAST_SLIDES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Zu viele Folien ({len(slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
+        )
+
+    file_id = _save_pptx_tmp(pptx_bytes)
+    logger.info("Saved corrected PPTX as file_id={}", file_id)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        pptx_path = tmp / "corrected.pptx"
+        pptx_path.write_bytes(pptx_bytes)
+        img_dir = tmp / "images"
+        img_dir.mkdir()
+        try:
+            slide_image_paths = await _convert_slides_to_images_async(pptx_path, img_dir)
+        except RuntimeError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
+
+    return {
+        "file_id": file_id,
+        "slide_texts": slide_texts,
+        "slide_images": slide_images_b64,
+    }
+
+
 @router.post("/screencast/generate-scripts")
 async def screencast_generate_scripts(body: GenerateScriptsRequest):
     """Generate spoken scripts for each slide via KISSKI LLM."""
@@ -716,23 +906,39 @@ async def screencast_render(body: RenderRequest):
 
     logger.info("Screencast/render: {} slides, speed={}", len(body.scripts), body.speed)
 
+    # Determine whether we have usable client-side images
+    valid_images_b64 = [b for b in body.slide_images_b64 if b]
+    use_pptx = body.image_dpi != 150 or not valid_images_b64
+    logger.info(
+        "Screencast/render: {} slide_images_b64 received ({} non-empty), use_pptx={}",
+        len(body.slide_images_b64),
+        len(valid_images_b64),
+        use_pptx,
+    )
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
 
-        # Decode slide images — re-extract at higher DPI if requested
-        if body.image_dpi != 150:
-            logger.info("Re-extracting slide images at {} DPI", body.image_dpi)
-            pptx_bytes = base64.b64decode(body.translated_pptx_b64)
-            hi_pptx_path = tmp / "translated.pptx"
-            hi_pptx_path.write_bytes(pptx_bytes)
+        # Extract slide images: from PPTX if none provided or higher DPI requested,
+        # otherwise decode the base64 images sent by the frontend.
+        if use_pptx:
+            logger.info("Extracting slide images from PPTX (file_id={}, dpi={})", body.file_id, body.image_dpi)
+            pptx_src = PPTX_TMP_DIR / f"{body.file_id}.pptx"
+            if not pptx_src.exists():
+                raise HTTPException(
+                    status_code=404,
+                    detail="PPTX nicht gefunden (abgelaufen oder ungültige ID). Bitte neu hochladen.",
+                )
+            pptx_path = tmp / "translated.pptx"
+            pptx_path.write_bytes(pptx_src.read_bytes())
             img_dir = tmp / "images"
             img_dir.mkdir()
             slide_images = await asyncio.to_thread(
-                _pptx_to_images, hi_pptx_path, img_dir, body.image_dpi
+                _pptx_to_images, pptx_path, img_dir, body.image_dpi
             )
         else:
             slide_images: list[Path] = []
-            for i, img_b64 in enumerate(body.slide_images_b64):
+            for i, img_b64 in enumerate(valid_images_b64):
                 img_path = tmp / f"slide_{i:03d}.png"
                 img_path.write_bytes(base64.b64decode(img_b64))
                 slide_images.append(img_path)
@@ -790,7 +996,7 @@ async def screencast_render(body: RenderRequest):
 
         # ── Cache per-slide MP3 audio bytes ──────────────────────────────
         audio_id = uuid.uuid4().hex
-        _audio_cache[audio_id] = [ap.read_bytes() for ap in audio_paths[:num_slides]]
+        _audio_cache[audio_id] = [ap.read_bytes() if ap is not None else b"" for ap in audio_paths[:num_slides]]
         logger.info("Cached {} audio files under id={}", num_slides, audio_id)
 
         # ── Apply faststart ───────────────────────────────────────────────
@@ -865,7 +1071,7 @@ def _load_demo_scripts() -> list[str]:
     Detects slide boundaries by finding gaps > 0.3s between consecutive
     subtitle entries, then joins each group's text into one script string.
     """
-    srt_path = DEMO_DIR / "slides" / "transcript.srt"
+    srt_path = DEMO_DIR / "slides" / "subtitles.srt"
     if not srt_path.exists():
         return []
 
@@ -1015,9 +1221,9 @@ def _load_demo_subtitles() -> dict:
         "alignment_json": "[]",
     }
     file_map = {
-        "srt": "transcript.srt",
-        "vtt": "transcript.vtt",
-        "txt": "transcript.txt",
+        "srt": "subtitles.srt",
+        "vtt": "subtitles.vtt",
+        "txt": "subtitles.txt",
     }
     for key, filename in file_map.items():
         filepath = slides_dir / filename
@@ -1057,6 +1263,8 @@ async def demo_translate():
 
     Requires a PPTX file in demo/slides/. Reads user prompt from Anweisung.txt.
     """
+    global _demo_images_cache
+
     settings = get_settings()
     if not settings.demo_data:
         raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
@@ -1066,22 +1274,47 @@ async def demo_translate():
         raise HTTPException(status_code=404, detail="Keine PPTX in demo/slides/ gefunden")
 
     user_prompt = _load_demo_user_prompt()
+    _maybe_start_cleanup_task()
 
     logger.info("Demo/translate: using PPTX '{}'", pptx_path.name)
     pptx_bytes = pptx_path.read_bytes()
-    translated_pptx_b64 = base64.b64encode(pptx_bytes).decode()
 
+    # Save to temp storage so file_id can be used for download/render
+    file_id = _save_pptx_tmp(pptx_bytes)
+    logger.info("Demo/translate: saved PPTX as file_id={}", file_id)
+
+    # Extract slide texts
     slide_texts = _extract_text_per_slide(pptx_bytes)
-    slide_images = await _get_demo_slide_images(len(slide_texts))
+    if not slide_texts:
+        raise HTTPException(status_code=400, detail="Keine Slides in der Präsentation gefunden")
 
-    num = min(len(slide_images), len(slide_texts)) if slide_texts else len(slide_images)
+    # Extract images via the same pipeline as screencast/translate (no placeholder fallback)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        pptx_tmp_path = tmp / "demo.pptx"
+        pptx_tmp_path.write_bytes(pptx_bytes)
+        img_dir = tmp / "images"
+        img_dir.mkdir()
+        try:
+            slide_image_paths = await _convert_slides_to_images_async(pptx_tmp_path, img_dir)
+            slide_images_b64 = [
+                base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths
+            ]
+            # Keep cache in sync so demo_render uses the same images
+            _demo_images_cache = slide_images_b64
+            logger.info("Demo/translate: extracted {} slide images", len(slide_images_b64))
+        except RuntimeError as e:
+            logger.warning("Demo/translate: image extraction failed ({}), falling back to _get_demo_slide_images", e)
+            slide_images_b64 = await _get_demo_slide_images(len(slide_texts))
 
-    logger.info("Demo/translate: returning {} slides", num)
+    num = min(len(slide_images_b64), len(slide_texts))
+    first_size = len(slide_images_b64[0]) if slide_images_b64 else 0
+    logger.info("Demo/translate returning: slide_images count={}, first_size={}", num, first_size)
     return {
         "slide_count": num,
         "slide_texts": slide_texts[:num],
-        "slide_images": slide_images[:num],
-        "translated_pptx_b64": translated_pptx_b64,
+        "slide_images": slide_images_b64[:num],
+        "file_id": file_id,
         "user_prompt": user_prompt,
     }
 

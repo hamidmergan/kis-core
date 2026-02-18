@@ -24,7 +24,7 @@ interface TranslateResponse {
   slide_count: number;
   slide_texts: string[];
   slide_images: string[];
-  translated_pptx_b64: string;
+  file_id: string;
   user_prompt?: string;
 }
 
@@ -113,7 +113,7 @@ export default function ScreencastPage() {
   const [userPrompt, setUserPrompt] = useState("");
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const [slides, setSlides] = useState<SlideData[]>([]);
-  const [translatedPptxB64, setTranslatedPptxB64] = useState("");
+  const [translatedPptxFileId, setTranslatedPptxFileId] = useState("");
   const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -133,6 +133,7 @@ export default function ScreencastPage() {
   const [audioCount, setAudioCount] = useState(0);
   const [demoAvailable, setDemoAvailable] = useState(false);
   const [demoHasVideo, setDemoHasVideo] = useState(false);
+  const [sourceLang, setSourceLang] = useState<"DE" | "EN">("DE");
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
 
@@ -206,7 +207,7 @@ export default function ScreencastPage() {
     setUserPrompt("");
     setGlossaryIds(["", "", ""]);
     setSlides([]);
-    setTranslatedPptxB64("");
+    setTranslatedPptxFileId("");
     setDownloadBlob(null);
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoUrl(null);
@@ -228,6 +229,7 @@ export default function ScreencastPage() {
     setAutoDownloadName("");
     setAutoError("");
     setMaxReachedIdx(0);
+    setSourceLang("DE");
     if (fileRef.current) fileRef.current.value = "";
   }, [videoUrl]);
 
@@ -333,10 +335,50 @@ export default function ScreencastPage() {
       handleAutoSubmit();
       return;
     }
-    // Start translation
+
     setStep("translating");
     setLoading(true);
 
+    // ── EN path: skip DeepL, upload as-is, go directly to user-prompt ──
+    if (sourceLang === "EN") {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await backendApi.fetch("/screencast/upload-corrected", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const error = await response
+            .json()
+            .catch(() => ({ detail: "Unbekannter Fehler" }));
+          throw new Error(error.detail || `Fehler: ${response.status}`);
+        }
+
+        const data: { file_id: string; slide_texts: string[]; slide_images: string[] } =
+          await response.json();
+
+        setTranslatedPptxFileId(data.file_id);
+        setSlides(
+          data.slide_texts.map((text, i) => ({
+            index: i,
+            imageBase64: data.slide_images[i] || "",
+            extractedText: text,
+            script: "",
+          })),
+        );
+
+        setLoading(false);
+        setStep("user-prompt");
+      } catch (err) {
+        goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      }
+      return;
+    }
+
+    // ── DE path: translate via DeepL, show translation review ──
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -357,7 +399,7 @@ export default function ScreencastPage() {
 
       const data: TranslateResponse = await response.json();
 
-      setTranslatedPptxB64(data.translated_pptx_b64);
+      setTranslatedPptxFileId(data.file_id);
       setSlides(
         data.slide_texts.map((text, i) => ({
           index: i,
@@ -372,27 +414,28 @@ export default function ScreencastPage() {
     } catch (err) {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [file, mode, handleAutoSubmit, goError, glossaryIds, mergeToApiJson]);
+  }, [file, mode, sourceLang, handleAutoSubmit, goError, glossaryIds, mergeToApiJson]);
 
   // ── Download translated PPTX ──
-  const handleDownloadTranslatedPptx = useCallback(() => {
-    if (!translatedPptxB64) return;
-    const bytes = Uint8Array.from(atob(translatedPptxB64), (c) =>
-      c.charCodeAt(0),
-    );
-    const blob = new Blob([bytes], {
-      type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const stem = file?.name?.replace(/\.pptx$/i, "") || "presentation";
-    a.download = `${stem}_EN.pptx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [translatedPptxB64, file]);
+  const handleDownloadTranslatedPptx = useCallback(async () => {
+    if (!translatedPptxFileId) return;
+    try {
+      const res = await backendApi.fetch(`/screencast/file/${translatedPptxFileId}`);
+      if (!res.ok) throw new Error("Download fehlgeschlagen");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const stem = file?.name?.replace(/\.pptx$/i, "") || "presentation";
+      a.download = `${stem}_EN.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PPTX download failed:", err);
+    }
+  }, [translatedPptxFileId, file]);
 
   // ── Upload corrected PPTX ──
   const handleUploadCorrectedPptx = useCallback(
@@ -400,33 +443,27 @@ export default function ScreencastPage() {
       setLoading(true);
 
       try {
-        const b64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const dataUrl = reader.result as string;
-            resolve(dataUrl.split(",")[1]);
-          };
-          reader.onerror = () => reject(new Error("Datei konnte nicht gelesen werden"));
-          reader.readAsDataURL(correctedFile);
+        const formData = new FormData();
+        formData.append("file", correctedFile);
+
+        const response = await backendApi.fetch("/screencast/upload-corrected", {
+          method: "POST",
+          body: formData,
         });
 
-        setTranslatedPptxB64(b64);
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ detail: "Fehler beim Hochladen" }));
+          throw new Error(err.detail || `Fehler: ${response.status}`);
+        }
 
-        const [textsData, prepareData] = await Promise.all([
-          backendApi.postJson<ExtractTextsResponse>(
-            "/screencast/extract-texts",
-            { pptx_b64: b64 },
-          ),
-          backendApi.postJson<PrepareResponse>(
-            "/screencast/prepare",
-            { translated_pptx_b64: b64 },
-          ),
-        ]);
+        const data: { file_id: string; slide_texts: string[]; slide_images: string[] } =
+          await response.json();
 
+        setTranslatedPptxFileId(data.file_id);
         setSlides(
-          textsData.slide_texts.map((text, i) => ({
+          data.slide_texts.map((text, i) => ({
             index: i,
-            imageBase64: prepareData.slide_images[i] || "",
+            imageBase64: data.slide_images[i] || "",
             extractedText: text,
             script: "",
           })),
@@ -485,7 +522,7 @@ export default function ScreencastPage() {
         "/screencast/demo/translate",
         {},
       );
-      setTranslatedPptxB64(data.translated_pptx_b64);
+      setTranslatedPptxFileId(data.file_id);
       setSlides(
         data.slide_texts.map((text, i) => ({
           index: i,
@@ -580,13 +617,16 @@ export default function ScreencastPage() {
     setStep("rendering");
     setLoading(true);
     try {
+      // Only send images if every slide has a non-empty base64 string.
+      // If any are missing the backend will re-extract from the stored PPTX.
+      const allImagesAvailable = slides.every((s) => s.imageBase64);
       const response = await backendApi.fetch("/screencast/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           scripts: slides.map((s) => s.script),
-          translated_pptx_b64: translatedPptxB64,
-          slide_images_b64: slides.map((s) => s.imageBase64),
+          file_id: translatedPptxFileId,
+          slide_images_b64: allImagesAvailable ? slides.map((s) => s.imageBase64) : [],
           voice_id: voiceId,
           speed,
           slide_pause: slidePause,
@@ -599,7 +639,7 @@ export default function ScreencastPage() {
     } catch (err) {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxB64, voiceId, speed, slidePause, embedSubtitles, imageDpi, videoCrf, goError, processRenderResponse]);
+  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, imageDpi, videoCrf, goError, processRenderResponse]);
 
   // ── Download MP4 ──
   const handleDownload = () => {
@@ -702,10 +742,11 @@ export default function ScreencastPage() {
               <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
                 {STEP_LABELS.map((label, i) => {
                   const currentIdx = stepToIndex(step);
-                  const isDone = i < currentIdx;
+                  const isSkipped = sourceLang === "EN" && (i === 1 || i === 2);
+                  const isDone = !isSkipped && i < currentIdx;
                   const isActive = i === currentIdx;
                   const isReached = i <= maxReachedIdx;
-                  const isClickable = isReached && !isActive && i !== 0 && i !== 1 && i !== 6;
+                  const isClickable = !isSkipped && isReached && !isActive && i !== 0 && i !== 1 && i !== 6;
                   return (
                     <li key={label} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
                       <button
@@ -722,11 +763,16 @@ export default function ScreencastPage() {
                             inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
                             ${isActive ? "bg-[#0066cc] text-white" : ""}
                             ${isDone ? "bg-[#0066cc]/20 text-[#0066cc]" : ""}
-                            ${!isActive && !isDone ? "bg-gray-100 text-gray-400" : ""}
+                            ${isSkipped ? "bg-gray-100 text-gray-300" : ""}
+                            ${!isActive && !isDone && !isSkipped ? "bg-gray-100 text-gray-400" : ""}
                           `}
                           aria-current={isActive ? "step" : undefined}
                         >
-                          {isDone ? (
+                          {isSkipped ? (
+                            <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12h12" />
+                            </svg>
+                          ) : isDone ? (
                             <svg
                               className="w-3 h-3 sm:w-4 sm:h-4"
                               fill="none"
@@ -747,11 +793,13 @@ export default function ScreencastPage() {
                         </span>
                         <span
                           className={`text-[10px] sm:text-xs whitespace-nowrap ${
-                            isActive
-                              ? "text-gray-900 font-medium"
-                              : isClickable
-                                ? "text-gray-600"
-                                : "text-gray-400"
+                            isSkipped
+                              ? "text-gray-300 line-through"
+                              : isActive
+                                ? "text-gray-900 font-medium"
+                                : isClickable
+                                  ? "text-gray-600"
+                                  : "text-gray-400"
                           }`}
                         >
                           {label}
@@ -760,7 +808,7 @@ export default function ScreencastPage() {
                       {i < STEP_LABELS.length - 1 && (
                         <span
                           className={`w-3 sm:w-8 h-px flex-shrink-0 ${
-                            i < currentIdx ? "bg-[#0066cc]" : "bg-gray-200"
+                            i < currentIdx && !isSkipped ? "bg-[#0066cc]" : "bg-gray-200"
                           }`}
                           aria-hidden="true"
                         />
@@ -875,17 +923,33 @@ export default function ScreencastPage() {
                 </>
               )}
             </div>
+            {/* English PPTX checkbox */}
+            <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={sourceLang === "EN"}
+                onChange={(e) => setSourceLang(e.target.checked ? "EN" : "DE")}
+                disabled={autoState === "processing"}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Präsentation ist bereits auf Englisch (Übersetzung überspringen)
+              </span>
+            </label>
+
             {fileError && (
               <p className="mb-4 text-sm text-red-600" role="alert">
                 {fileError}
               </p>
             )}
 
-            {/* Glossary */}
-            <GlossarySelector
-              values={glossaryIds}
-              onChange={setGlossaryIds}
-            />
+            {/* Glossary — hidden for EN presentations (no translation needed) */}
+            {sourceLang === "DE" && (
+              <GlossarySelector
+                values={glossaryIds}
+                onChange={setGlossaryIds}
+              />
+            )}
 
             {/* Mode toggle */}
             <label className="flex items-start gap-3 mb-6 cursor-pointer select-none">
@@ -950,7 +1014,9 @@ export default function ScreencastPage() {
           >
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
             <p className="text-sm text-gray-700 animate-pulse">
-              Präsentation wird übersetzt...
+              {sourceLang === "EN"
+                ? "Präsentation wird vorbereitet..."
+                : "Präsentation wird übersetzt..."}
             </p>
             <p className="text-xs text-gray-400 mt-2">
               Das kann je nach Dateigröße einige Sekunden dauern.
