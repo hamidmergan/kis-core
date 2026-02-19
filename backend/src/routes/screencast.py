@@ -266,34 +266,7 @@ def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 150) -> list[P
     with Image.open(images[0]) as img:
         logger.info("First slide dimensions: {}x{} px (ratio {:.4f})", img.width, img.height, img.width / img.height)
 
-    for img_path in images:
-        _fix_aspect_ratio(img_path)  # pad to 16:9
-
     return images
-
-
-def _fix_aspect_ratio(image_path: Path, target_ratio: float = 16 / 9) -> None:
-    """Ensure image matches target_ratio by adding white padding if needed."""
-    with Image.open(image_path) as img:
-        w, h = img.size
-        current_ratio = w / h
-
-        if abs(current_ratio - target_ratio) < 0.01:
-            return  # already correct
-
-        if current_ratio < target_ratio:
-            # too tall → add padding left/right
-            new_w = int(h * target_ratio)
-            new_img = Image.new("RGB", (new_w, h), (255, 255, 255))
-            new_img.paste(img, ((new_w - w) // 2, 0))
-        else:
-            # too wide → add padding top/bottom
-            new_h = int(w / target_ratio)
-            new_img = Image.new("RGB", (w, new_h), (255, 255, 255))
-            new_img.paste(img, (0, (new_h - h) // 2))
-
-        logger.info("Fixed aspect ratio for {}: {}x{} → {}x{}", image_path.name, w, h, new_img.width, new_img.height)
-        new_img.save(image_path)
 
 
 def _get_audio_duration(audio_path: Path | None) -> float:
@@ -341,7 +314,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
             "ffmpeg", "-y",
             "-loop", "1", "-i", str(image_path),
             "-t", "3",
-            "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+            "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-c:v", "libx264", "-tune", "stillimage",
             "-crf", str(crf),
             "-pix_fmt", "yuv420p",
@@ -389,7 +362,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         "-loop", "1", "-i", str(image_path),
         "-i", str(final_audio),
         "-t", str(total_duration),
-        "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-tune", "stillimage",
         "-c:a", "aac", "-b:a", "192k",
         "-crf", str(crf),
