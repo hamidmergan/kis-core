@@ -520,7 +520,7 @@ async def _generate_all_tts(
 
     Returns a list of (audio_path, alignment_or_None) tuples.
     """
-    sem = asyncio.Semaphore(5)
+    sem = asyncio.Semaphore(10)
     audio_paths: list[Path | None] = [tmp / f"slide_{i:03d}.mp3" for i in range(len(slide_scripts))]
     alignments: list[dict | None] = [None] * len(slide_scripts)
 

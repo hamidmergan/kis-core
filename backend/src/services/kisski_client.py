@@ -295,7 +295,7 @@ Always apply the intent, not the literal words.
         self, slide_texts: list[str], user_prompt: str | None = None,
         glossary: dict[str, str] | None = None,
         batch_size: int = 3,
-        max_workers: int = 3,
+        max_workers: int = 10,
     ) -> list[str]:
         """Generate spoken scripts for all slides, split into parallel batches.
 

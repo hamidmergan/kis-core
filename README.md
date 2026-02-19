@@ -14,6 +14,14 @@ cp env.example .env   # .env anpassen (siehe Konfiguration)
 docker-compose up -d --build
 ```
 
+## Development Setup
+
+Nach dem Klonen einmalig ausführen damit die IDE (VSCode, WebStorm, Cursor etc.) TypeScript-Typen kennt:
+
+```bash
+cd frontend && npm install
+```
+
 - Frontend: `http://localhost:3000`
 - API-Docs: `http://localhost:8000/docs`
 
