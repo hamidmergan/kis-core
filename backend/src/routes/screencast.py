@@ -18,6 +18,7 @@ from loguru import logger
 from PIL import Image
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.oxml.ns import qn
 from pydantic import BaseModel
 
 from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski_client, get_settings
@@ -167,6 +168,50 @@ def _collect_shape_text(shape, texts: list[str]) -> None:
             _collect_shape_text(subshape, texts)
 
 
+def _apply_autofit_for_rendering(pptx_path: Path) -> Path:
+    """Return a temp copy of the PPTX with AutoFit text shrunk by 20%.
+    Works at XML level so inherited/theme font sizes are also captured.
+    The original file is never modified."""
+    prs = Presentation(str(pptx_path))
+    changed = False
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            if not shape.has_text_frame:
+                continue
+            tf = shape.text_frame
+            body_pr = tf._txBody.find(qn('a:bodyPr'))
+            if body_pr is None:
+                continue
+            has_autofit = (
+                body_pr.find(qn('a:normAutofit')) is not None or
+                body_pr.find(qn('a:spAutoFit')) is not None
+            )
+            if not has_autofit:
+                continue
+            # Work directly on XML — shrink sz on all <a:rPr> elements
+            for r_pr in tf._txBody.iter(qn('a:rPr')):
+                sz = r_pr.get('sz')
+                if sz:
+                    r_pr.set('sz', str(int(int(sz) * 0.80)))
+                else:
+                    # No explicit size — set one based on default 1800 (18pt)
+                    r_pr.set('sz', str(int(1800 * 0.80)))
+                changed = True
+            # Also shrink defRPr inside <a:pPr> (paragraph-level default)
+            for p_pr in tf._txBody.iter(qn('a:pPr')):
+                def_r_pr = p_pr.find(qn('a:defRPr'))
+                if def_r_pr is not None:
+                    sz = def_r_pr.get('sz')
+                    if sz:
+                        def_r_pr.set('sz', str(int(int(sz) * 0.80)))
+                        changed = True
+
+    render_path = pptx_path.parent / f"_render_{pptx_path.name}"
+    prs.save(str(render_path))
+    logger.info("AutoFit XML-level applied: changed={}", changed)
+    return render_path
+
+
 def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 150) -> list[Path]:
     """Convert PPTX slides to PNG images using LibreOffice."""
     # Read actual slide dimensions so we can detect non-standard sizes and
@@ -179,15 +224,17 @@ def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 150) -> list[P
     slide_ratio = slide_width / slide_height
     logger.info("PPTX slide size: {:.2f}x{:.2f} cm (ratio {:.4f})", width_cm, height_cm, slide_ratio)
 
+    render_pptx = _apply_autofit_for_rendering(pptx_path)
+
     cmd = [
         "libreoffice", "--headless", "--norestore",
         "--convert-to", "pdf",
-        "--outdir", str(output_dir), str(pptx_path),
+        "--outdir", str(output_dir), str(render_pptx),
     ]
     logger.info("Converting PPTX to PDF: {}", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
-    pdf_path = output_dir / f"{pptx_path.stem}.pdf"
+    pdf_path = output_dir / f"{render_pptx.stem}.pdf"
     if not pdf_path.exists():
         # PDF was not created — this is a real failure regardless of exit code
         logger.error("LibreOffice conversion failed (rc={}): {}", result.returncode, result.stderr[:300])
@@ -216,8 +263,11 @@ def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 150) -> list[P
     logger.info("Generated {} slide images", len(images))
     logger.info("Slide image sizes: {}", [(p.name, p.stat().st_size) for p in images[:3]])
 
+    with Image.open(images[0]) as img:
+        logger.info("First slide dimensions: {}x{} px (ratio {:.4f})", img.width, img.height, img.width / img.height)
+
     for img_path in images:
-        _fix_aspect_ratio(img_path, target_ratio=slide_ratio)
+        _fix_aspect_ratio(img_path)  # pad to 16:9
 
     return images
 
