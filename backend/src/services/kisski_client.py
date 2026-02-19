@@ -393,6 +393,62 @@ Always apply the intent, not the literal words.
                 raise
             raise RuntimeError(f"KISSKI API Fehler: {e}") from e
 
+    def generate_summary(
+        self,
+        text: str,
+        user_prompt: str | None = None,
+        output_format: str = "txt",
+    ) -> str:
+        """Generate a summary of the given text using KISSKI LLM.
+
+        Args:
+            text: The extracted text to summarize.
+            user_prompt: Optional additional instructions appended below the base prompt.
+            output_format: "txt" (plain text), "md" (Markdown), or "html" (HTML fragment).
+
+        Returns:
+            A summary in the requested format.
+
+        Raises:
+            RuntimeError: If the LLM API returns an error.
+        """
+        format_instructions = {
+            "md": "Formatiere die Zusammenfassung als Markdown (Überschriften, Aufzählungen etc. wo sinnvoll).",
+            "html": (
+                "Formatiere die Zusammenfassung als HTML-Fragment "
+                "(nur Inhalt, kein <html>/<head>/<body>-Tag)."
+            ),
+            "txt": "Formatiere die Zusammenfassung als reinen, gut lesbaren Text.",
+        }
+
+        system_prompt = (
+            "Erstelle eine Zusammenfassung ausschließlich basierend auf dem folgenden Inhalt. "
+            "Erfinde nichts, ergänze nichts, interpretiere nichts was nicht explizit im Text steht. "
+            f"{format_instructions.get(output_format, format_instructions['txt'])} "
+            "Antworte nur mit der Zusammenfassung, ohne einleitende oder abschließende Erklärung."
+        )
+
+        if user_prompt:
+            system_prompt += f"\n\nZusätzliche Anweisungen:\n{user_prompt}"
+
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text},
+                ],
+                temperature=0.3,
+            )
+            content = response.choices[0].message.content
+            if content is None:
+                raise RuntimeError("LLM hat keine Antwort generiert")
+            return content.strip()
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise
+            raise RuntimeError(f"KISSKI API Fehler: {e}") from e
+
     def transcribe(self, file_path: str, response_format: str = "text") -> str:
         """Transcribe audio in its original language using KISSKI Whisper.
 

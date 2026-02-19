@@ -108,9 +108,44 @@ def _collect_shape_text(shape, texts: list) -> None:
             _collect_shape_text(subshape, texts)
 
 
+def extract_text_txt(content: bytes) -> str:
+    return content.decode("utf-8", errors="replace")
+
+
+def extract_text_srt(content: bytes) -> str:
+    lines = []
+    for line in content.decode("utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if re.match(r"^\d+$", stripped):
+            continue
+        if re.match(r"\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,.]\d{3}", stripped):
+            continue
+        lines.append(stripped)
+    return " ".join(lines)
+
+
+def extract_text_vtt(content: bytes) -> str:
+    lines = []
+    for line in content.decode("utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("WEBVTT") or stripped.startswith("NOTE"):
+            continue
+        if re.match(r"^\d+$", stripped):
+            continue
+        if re.match(r"[\d:]+\.\d{3}\s*-->\s*[\d:]+\.\d{3}", stripped):
+            continue
+        lines.append(stripped)
+    return " ".join(lines)
+
+
 EXTRACTORS = {
+    ".txt": extract_text_txt,
     ".md": extract_text_md,
     ".tex": extract_text_tex,
+    ".srt": extract_text_srt,
+    ".vtt": extract_text_vtt,
     ".docx": extract_text_docx,
     ".pptx": extract_text_pptx,
 }

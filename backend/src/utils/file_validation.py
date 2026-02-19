@@ -33,3 +33,13 @@ SCREENCAST_EXTENSIONS = {
 
 MAX_SCREENCAST_SLIDES = 50
 MAX_OUTPUT_VIDEO_BYTES = 500 * 1024 * 1024  # 500 MB
+
+SUMMARY_EXTENSIONS = {
+    ".mp3": "audio/mpeg",
+    ".srt": "application/x-subrip",
+    ".vtt": "text/vtt",
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}

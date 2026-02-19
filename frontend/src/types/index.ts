@@ -22,6 +22,10 @@ export type VideoDubbingState = "idle" | "uploading" | "processing" | "done" | "
 
 export type ScreencastState = "idle" | "uploading" | "processing" | "done" | "error";
 
+export type SummaryState = "idle" | "processing" | "done" | "error";
+
+export type AltTextState = "idle" | "processing" | "done" | "error";
+
 export type ScreencastMode = "auto" | "manual";
 
 export type ScreencastStep =

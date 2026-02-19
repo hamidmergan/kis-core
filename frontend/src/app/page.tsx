@@ -49,6 +49,11 @@ const tools = [
     description: "Verwalten Sie Begriffslisten für konsistente Übersetzungen und Skripterstellung.",
     href: "/glossary",
   },
+  {
+    title: "Zusammenfassung",
+    description: "Fassen Sie Dokumente, Audio- und Untertiteldateien automatisch zusammen.",
+    href: "/zusammenfassung",
+  },
 ];
 
 export default function HomePage() {

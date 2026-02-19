@@ -6,7 +6,7 @@ from loguru import logger
 
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
-from src.routes import auth, health, image, screencast, script, transcription, translate, tts, video_dubbing
+from src.routes import auth, health, image, screencast, script, summary, transcription, translate, tts, video_dubbing
 
 
 def _configure_logging() -> None:
@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
     application.include_router(transcription.router)
     application.include_router(video_dubbing.router)
     application.include_router(screencast.router)
+    application.include_router(summary.router)
 
     logger.info("KIS-THL application started")
 
