@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import PromptChips from "@/components/PromptChips";
 import { backendApi } from "@/lib/api";
 import type { SummaryState } from "@/types";
 
@@ -13,15 +14,6 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 const FORMAT_OPTIONS = [
   { value: "txt", label: "Nur Text (.txt)" },
   { value: "md", label: "Markdown (.md)" },
-];
-
-const CHIPS = [
-  "Fokussiere auf technische Aspekte",
-  "Maximal 5 Sätze",
-  "Auf Deutsch zusammenfassen",
-  "Für Studierende verständlich formulieren",
-  "Nur Kernaussagen, keine Details",
-  "Zusammenfassung als Stichpunkte",
 ];
 
 export default function ZusammenfassungPage() {
@@ -209,19 +201,7 @@ export default function ZusammenfassungPage() {
               placeholder="z. B. Auf Deutsch, maximal 5 Sätze …"
               className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed resize-y"
             />
-            <div className="flex flex-wrap gap-2 mt-3" aria-label="Schnellauswahl">
-              {CHIPS.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => appendChip(chip)}
-                  disabled={isProcessing}
-                  className="px-3 py-1 text-xs rounded-full border border-[#0066cc] text-[#0066cc] hover:bg-[#e8f0fb] transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
+            <PromptChips onChipClick={appendChip} disabled={isProcessing} />
           </div>
 
           {/* Output format */}

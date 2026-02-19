@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScreencastStatus from "@/components/ScreencastStatus";
 import GlossarySelector from "@/components/GlossarySelector";
+import PromptChips from "@/components/PromptChips";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { backendApi } from "@/lib/api";
 import type {
@@ -1039,10 +1040,17 @@ export default function ScreencastPage() {
               onChange={(e) => setUserPrompt(e.target.value)}
               rows={4}
               placeholder="z.B. Beende das Skript der letzten Folie mit: Vielen Dank fürs Zuhören."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none mb-4"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+            />
+            <PromptChips
+              onChipClick={(chip) =>
+                setUserPrompt((prev) =>
+                  prev.trim() ? `${prev.trimEnd()}\n- ${chip}` : `- ${chip}`,
+                )
+              }
             />
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-4">
               <button
                 onClick={handleAcceptTranslation}
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"

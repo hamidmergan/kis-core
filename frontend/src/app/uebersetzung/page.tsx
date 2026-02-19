@@ -15,40 +15,44 @@ export default function UebersetzungPage() {
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
 
   const [state, setState] = useState<TranslationState>("idle");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [selectedFile, setSelectedFile] = useState<string>("");
   const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
   const [downloadName, setDownloadName] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  const handleFileSelected = useCallback(
-    async (file: File) => {
-      setDownloadBlob(null);
-      setDownloadName("");
-      setErrorMessage("");
-      setSelectedFile(file.name);
-      setState("uploading");
+  const isProcessing = state === "uploading" || state === "translating";
 
-      try {
-        setState("translating");
-        const glossaryJson = mergeToApiJson(glossaryIds);
-        const fields: Record<string, string> = {};
-        if (glossaryJson) fields.glossary = glossaryJson;
-        const { blob, filename } = await api.uploadFileWithFields(
-          "/translate",
-          file,
-          fields,
-        );
+  const handleFileSelected = useCallback((file: File) => {
+    setPendingFile(file);
+    setSelectedFile(file.name);
+    setDownloadBlob(null);
+    setDownloadName("");
+    setErrorMessage("");
+    setState("idle");
+  }, []);
 
-        setDownloadBlob(blob);
-        setDownloadName(filename);
-        setState("done");
-      } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
-        setState("error");
-      }
-    },
-    [glossaryIds, mergeToApiJson],
-  );
+  const handleSubmit = async () => {
+    if (!pendingFile || isProcessing) return;
+    setState("uploading");
+    try {
+      setState("translating");
+      const glossaryJson = mergeToApiJson(glossaryIds);
+      const fields: Record<string, string> = {};
+      if (glossaryJson) fields.glossary = glossaryJson;
+      const { blob, filename } = await api.uploadFileWithFields(
+        "/translate",
+        pendingFile,
+        fields,
+      );
+      setDownloadBlob(blob);
+      setDownloadName(filename);
+      setState("done");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setState("error");
+    }
+  };
 
   const handleDownload = () => {
     if (!downloadBlob) return;
@@ -64,6 +68,7 @@ export default function UebersetzungPage() {
 
   const handleReset = () => {
     setState("idle");
+    setPendingFile(null);
     setSelectedFile("");
     setDownloadBlob(null);
     setDownloadName("");
@@ -80,24 +85,33 @@ export default function UebersetzungPage() {
             Übersetzen Sie Dokumente automatisch von Deutsch nach Englisch.
           </p>
 
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Dokument übersetzen</h2>
-          <p className="text-sm text-gray-500 mb-6">
-            Laden Sie ein Dokument hoch, um es automatisch übersetzen zu lassen.
-          </p>
-
-          <GlossarySelector
-            values={glossaryIds}
-            onChange={setGlossaryIds}
-          />
-
           <FileUpload
             onFileSelected={handleFileSelected}
-            disabled={state === "uploading" || state === "translating"}
+            disabled={isProcessing}
           />
-
-          {selectedFile && state !== "idle" && (
-            <p className="mt-3 text-xs text-gray-500">Datei: {selectedFile}</p>
+          {selectedFile && (
+            <p className="mt-2 text-sm font-medium text-gray-700">{selectedFile}</p>
           )}
+
+          <div className="mt-6">
+            <GlossarySelector
+              values={glossaryIds}
+              onChange={setGlossaryIds}
+            />
+          </div>
+
+          <div className="mb-6">
+            <button
+              onClick={handleSubmit}
+              disabled={!pendingFile || isProcessing}
+              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isProcessing && (
+                <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
+              )}
+              {isProcessing ? "Übersetzung läuft…" : "Übersetzen"}
+            </button>
+          </div>
 
           <TranslationStatus
             state={state}
