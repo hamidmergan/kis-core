@@ -87,7 +87,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
         : `${selectedIds.length} Glossare gewählt`;
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 mt-6">
       {/* Dropdown trigger */}
       <div ref={containerRef} className="relative">
         <button

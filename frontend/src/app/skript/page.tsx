@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScriptFileUpload from "@/components/ScriptFileUpload";
@@ -14,6 +14,12 @@ import type { ScriptState } from "@/types";
 export default function SkriptPage() {
     const { mergeToApiJson } = useGlossaries();
     const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
+
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    useEffect(() => {
+        return () => { abortControllerRef.current?.abort(); setState("idle"); };
+    }, []);
 
     const [state, setState] = useState<ScriptState>("idle");
     const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -34,6 +40,9 @@ export default function SkriptPage() {
 
     const handleSubmit = async () => {
         if (!pendingFile || state === "processing") return;
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
         setState("processing");
 
         try {
@@ -46,6 +55,7 @@ export default function SkriptPage() {
             const response = await api.fetch("/api/script", {
                 method: "POST",
                 body: formData,
+                signal,
             });
 
             if (!response.ok) {
@@ -76,6 +86,7 @@ export default function SkriptPage() {
             setDownloadName(filename);
             setState("done");
         } catch (err) {
+            if (err instanceof Error && err.name === "AbortError") return;
             setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
             setState("error");
         }
@@ -151,7 +162,7 @@ export default function SkriptPage() {
                         />
                     </div>
 
-                    <div className="mb-6">
+                    <div className="mb-6 flex items-center gap-3">
                         <button
                             onClick={handleSubmit}
                             disabled={!pendingFile || state === "processing"}
@@ -162,6 +173,17 @@ export default function SkriptPage() {
                             )}
                             {state === "processing" ? "Skript wird erstellt…" : "Skript erstellen"}
                         </button>
+                        {state === "processing" && (
+                            <button
+                                onClick={() => { abortControllerRef.current?.abort(); setState("idle"); }}
+                                className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Abbrechen
+                            </button>
+                        )}
                     </div>
 
                     <ScriptStatus

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { backendApi } from "@/lib/api";
@@ -36,6 +36,11 @@ export default function VideoDubbingPage() {
   const [subtitles, setSubtitles] = useState<SubtitleResult | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => { abortControllerRef.current?.abort(); setState("idle"); };
+  }, []);
 
   const isProcessing = state === "uploading" || state === "processing";
   const isVideo = (f: File | null) => f?.name.toLowerCase().endsWith(".mp4") ?? false;
@@ -66,6 +71,10 @@ export default function VideoDubbingPage() {
   const handleSubmit = useCallback(async () => {
     if (!file) return;
 
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     setVideoBlob(null);
     setAudioBlob(null);
     setOutputName("");
@@ -87,6 +96,7 @@ export default function VideoDubbingPage() {
       const response = await backendApi.fetch("/video-dubbing", {
         method: "POST",
         body: formData,
+        signal,
       });
 
       if (!response.ok) {
@@ -114,6 +124,7 @@ export default function VideoDubbingPage() {
       setSubtitles({ srt: data.srt, vtt: data.vtt, txt: data.txt, json: data.json });
       setState("done");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
       setState("error");
     }
@@ -263,13 +274,26 @@ export default function VideoDubbingPage() {
           </div>
 
           {/* Submit */}
-          <button
-            onClick={handleSubmit}
-            disabled={!file || isProcessing}
-            className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Dubbing starten
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSubmit}
+              disabled={!file || isProcessing}
+              className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Dubbing starten
+            </button>
+            {isProcessing && (
+              <button
+                onClick={() => { abortControllerRef.current?.abort(); setState("idle"); }}
+                className="px-4 py-3 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2 shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Abbrechen
+              </button>
+            )}
+          </div>
 
           {/* ── Status & Results ── */}
           {state !== "idle" && (

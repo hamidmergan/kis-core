@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TranscriptionFileUpload from "@/components/TranscriptionFileUpload";
@@ -35,6 +35,12 @@ export default function TranscriptionPage() {
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState("");
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => { abortControllerRef.current?.abort(); setState("idle"); };
+  }, []);
+
   const isProcessing = state === "uploading" || state === "processing";
 
   const handleFileSelected = useCallback((file: File) => {
@@ -51,6 +57,9 @@ export default function TranscriptionPage() {
 
   const handleSubmit = async () => {
     if (!pendingFile || isProcessing) return;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     setState("uploading");
     try {
       setState("processing");
@@ -58,6 +67,8 @@ export default function TranscriptionPage() {
         "/transcription",
         pendingFile,
         { task, response_format: responseFormat },
+        "file",
+        signal,
       );
       setDownloadBlob(blob);
       setDownloadName(filename);
@@ -66,6 +77,7 @@ export default function TranscriptionPage() {
       }
       setState("done");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
       setState("error");
     }
@@ -97,6 +109,9 @@ export default function TranscriptionPage() {
 
   const handleSummarize = async () => {
     if (!transcriptText) return;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     setSummarizing(true);
     setSummary(null);
     setSummaryError("");
@@ -105,6 +120,7 @@ export default function TranscriptionPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: transcriptText, task }),
+        signal,
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
@@ -125,6 +141,7 @@ export default function TranscriptionPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") { setSummarizing(false); return; }
       setSummaryError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setSummarizing(false);
@@ -190,7 +207,7 @@ export default function TranscriptionPage() {
             </div>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-6 flex items-center gap-3">
             <button
               onClick={handleSubmit}
               disabled={!pendingFile || isProcessing}
@@ -201,6 +218,17 @@ export default function TranscriptionPage() {
               )}
               {isProcessing ? "Transkription läuft…" : "Transkription starten"}
             </button>
+            {isProcessing && (
+              <button
+                onClick={() => { abortControllerRef.current?.abort(); setState("idle"); }}
+                className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Abbrechen
+              </button>
+            )}
           </div>
 
           <TranscriptionStatus

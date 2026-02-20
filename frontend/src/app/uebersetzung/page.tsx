@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import FileUpload from "@/components/FileUpload";
@@ -21,6 +21,12 @@ export default function UebersetzungPage() {
   const [downloadName, setDownloadName] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => { abortControllerRef.current?.abort(); setState("idle"); };
+  }, []);
+
   const isProcessing = state === "uploading" || state === "translating";
 
   const handleFileSelected = useCallback((file: File) => {
@@ -34,6 +40,9 @@ export default function UebersetzungPage() {
 
   const handleSubmit = async () => {
     if (!pendingFile || isProcessing) return;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     setState("uploading");
     try {
       setState("translating");
@@ -44,11 +53,14 @@ export default function UebersetzungPage() {
         "/translate",
         pendingFile,
         fields,
+        "file",
+        signal,
       );
       setDownloadBlob(blob);
       setDownloadName(filename);
       setState("done");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
       setState("error");
     }
@@ -100,7 +112,7 @@ export default function UebersetzungPage() {
             />
           </div>
 
-          <div className="mb-6">
+          <div className="mb-6 flex items-center gap-3">
             <button
               onClick={handleSubmit}
               disabled={!pendingFile || isProcessing}
@@ -111,6 +123,17 @@ export default function UebersetzungPage() {
               )}
               {isProcessing ? "Übersetzung läuft…" : "Übersetzen"}
             </button>
+            {isProcessing && (
+              <button
+                onClick={() => { abortControllerRef.current?.abort(); setState("idle"); }}
+                className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Abbrechen
+              </button>
+            )}
           </div>
 
           <TranslationStatus

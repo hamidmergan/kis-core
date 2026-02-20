@@ -27,11 +27,12 @@ class ApiClient {
     return response;
   }
 
-  async postJson<T>(path: string, body: unknown): Promise<T> {
+  async postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
     const response = await this.fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal,
     });
 
     if (!response.ok) {
@@ -58,6 +59,7 @@ class ApiClient {
     file: File,
     fields: Record<string, string>,
     fileFieldName: string = "file",
+    signal?: AbortSignal,
   ): Promise<{ blob: Blob; filename: string }> {
     const formData = new FormData();
     formData.append(fileFieldName, file);
@@ -68,6 +70,7 @@ class ApiClient {
     const response = await this.fetch(path, {
       method: "POST",
       body: formData,
+      signal,
     });
 
     if (!response.ok) {

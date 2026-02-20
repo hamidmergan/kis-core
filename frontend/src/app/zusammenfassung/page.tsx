@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PromptChips from "@/components/PromptChips";
@@ -30,6 +30,12 @@ export default function ZusammenfassungPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => { abortControllerRef.current?.abort(); setState("idle"); };
+  }, []);
+
   const isProcessing = state === "processing";
 
   const validateFile = (file: File): string | null => {
@@ -73,6 +79,9 @@ export default function ZusammenfassungPage() {
 
   const handleSubmit = async () => {
     if (!selectedFile || isProcessing) return;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     setState("processing");
     setErrorMessage("");
     setDownloadBlob(null);
@@ -82,11 +91,14 @@ export default function ZusammenfassungPage() {
         "/summary",
         selectedFile,
         { user_prompt: userPrompt, output_format: outputFormat },
+        "file",
+        signal,
       );
       setDownloadBlob(blob);
       setDownloadName(filename);
       setState("done");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
       setState("error");
     }
@@ -227,16 +239,29 @@ export default function ZusammenfassungPage() {
 
           {/* Submit + result */}
           <div className="mt-6 flex flex-col gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={!selectedFile || isProcessing}
-              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSubmit}
+                disabled={!selectedFile || isProcessing}
+                className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isProcessing && (
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
+                )}
+                {isProcessing ? "Zusammenfassung wird erstellt…" : "Zusammenfassung erstellen"}
+              </button>
               {isProcessing && (
-                <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
+                <button
+                  onClick={() => { abortControllerRef.current?.abort(); setState("idle"); }}
+                  className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Abbrechen
+                </button>
               )}
-              {isProcessing ? "Zusammenfassung wird erstellt…" : "Zusammenfassung erstellen"}
-            </button>
+            </div>
 
             {state === "done" && (
               <div className="rounded-lg border border-gray-200 bg-white p-6" role="status" aria-live="polite">

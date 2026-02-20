@@ -140,6 +140,7 @@ export default function ScreencastPage() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const stepperRef = useRef<HTMLElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const isDraggingRef = useRef(false);
   const hasDraggedRef = useRef(false);
   const dragStartXRef = useRef(0);
@@ -178,6 +179,11 @@ export default function ScreencastPage() {
       el.style.cursor = "";
       el.style.userSelect = "";
     }
+  }, []);
+
+  // ── Abort on unmount ──
+  useEffect(() => {
+    return () => { abortControllerRef.current?.abort(); };
   }, []);
 
   // ── Fetch available voices ──
@@ -252,6 +258,12 @@ export default function ScreencastPage() {
     setStep(target);
   }, [maxReachedIdx]);
 
+  const newSignal = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    return abortControllerRef.current.signal;
+  };
+
   const goError = useCallback((msg: string) => {
     setErrorMessage(msg);
     setStep("error");
@@ -292,6 +304,7 @@ export default function ScreencastPage() {
   // ── Auto mode submit ──
   const handleAutoSubmit = useCallback(async () => {
     if (!file) return;
+    const signal = newSignal();
     setAutoDownloadBlob(null);
     setAutoDownloadName("");
     setAutoError("");
@@ -307,11 +320,13 @@ export default function ScreencastPage() {
         file,
         fields,
         "file",
+        signal,
       );
       setAutoDownloadBlob(blob);
       setAutoDownloadName(filename);
       setAutoState("done");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setAutoError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setAutoState("error");
     }
@@ -339,6 +354,7 @@ export default function ScreencastPage() {
 
     setStep("translating");
     setLoading(true);
+    const signal = newSignal();
 
     // ── EN path: skip DeepL, upload as-is, go directly to user-prompt ──
     if (sourceLang === "EN") {
@@ -349,6 +365,7 @@ export default function ScreencastPage() {
         const response = await backendApi.fetch("/screencast/upload-corrected", {
           method: "POST",
           body: formData,
+          signal,
         });
 
         if (!response.ok) {
@@ -374,6 +391,7 @@ export default function ScreencastPage() {
         setLoading(false);
         setStep("user-prompt");
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
         goError(err instanceof Error ? err.message : "Unbekannter Fehler");
       }
       return;
@@ -389,6 +407,7 @@ export default function ScreencastPage() {
       const response = await backendApi.fetch("/screencast/translate", {
         method: "POST",
         body: formData,
+        signal,
       });
 
       if (!response.ok) {
@@ -413,6 +432,7 @@ export default function ScreencastPage() {
       setLoading(false);
       setStep("translation-review");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [file, mode, sourceLang, handleAutoSubmit, goError, glossaryIds, mergeToApiJson]);
@@ -442,6 +462,7 @@ export default function ScreencastPage() {
   const handleUploadCorrectedPptx = useCallback(
     async (correctedFile: File) => {
       setLoading(true);
+      const signal = newSignal();
 
       try {
         const formData = new FormData();
@@ -450,6 +471,7 @@ export default function ScreencastPage() {
         const response = await backendApi.fetch("/screencast/upload-corrected", {
           method: "POST",
           body: formData,
+          signal,
         });
 
         if (!response.ok) {
@@ -473,6 +495,7 @@ export default function ScreencastPage() {
         setCorrectedFileName(correctedFile.name);
         setLoading(false);
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
         goError(err instanceof Error ? err.message : "Unbekannter Fehler");
       }
     },
@@ -483,6 +506,7 @@ export default function ScreencastPage() {
   const handleAcceptTranslation = useCallback(async () => {
     setStep("generating-scripts");
     setLoading(true);
+    const signal = newSignal();
 
     try {
       const scriptsData =
@@ -493,6 +517,7 @@ export default function ScreencastPage() {
             user_prompt: userPrompt || null,
             glossary_json: mergeToApiJson(glossaryIds),
           },
+          signal,
         );
 
       setSlides((prev) =>
@@ -505,6 +530,7 @@ export default function ScreencastPage() {
       setLoading(false);
       setStep("script-review");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [slides, userPrompt, glossaryIds, mergeToApiJson, goError]);
@@ -518,10 +544,12 @@ export default function ScreencastPage() {
   const handleDemoTranslate = useCallback(async () => {
     setStep("translating");
     setLoading(true);
+    const signal = newSignal();
     try {
       const data = await backendApi.postJson<TranslateResponse>(
         "/screencast/demo/translate",
         {},
+        signal,
       );
       setTranslatedPptxFileId(data.file_id);
       setSlides(
@@ -536,6 +564,7 @@ export default function ScreencastPage() {
       setLoading(false);
       setStep("translation-review");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
   }, [goError]);
@@ -543,10 +572,12 @@ export default function ScreencastPage() {
   const handleDemoGenerateScripts = useCallback(async () => {
     setStep("generating-scripts");
     setLoading(true);
+    const signal = newSignal();
     try {
       const data = await backendApi.postJson<GenerateScriptsResponse>(
         "/screencast/demo/generate-scripts",
         {},
+        signal,
       );
       setSlides((prev) =>
         prev.map((s, i) => ({
@@ -557,6 +588,7 @@ export default function ScreencastPage() {
       setLoading(false);
       setStep("script-review");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
   }, [goError]);
@@ -601,14 +633,17 @@ export default function ScreencastPage() {
   const handleDemoRender = useCallback(async () => {
     setStep("rendering");
     setLoading(true);
+    const signal = newSignal();
     try {
       const response = await backendApi.fetch("/screencast/demo/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
+        signal,
       });
       await processRenderResponse(response);
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
   }, [goError, processRenderResponse]);
@@ -617,6 +652,7 @@ export default function ScreencastPage() {
   const handleStartRender = useCallback(async () => {
     setStep("rendering");
     setLoading(true);
+    const signal = newSignal();
     try {
       // Only send images if every slide has a non-empty base64 string.
       // If any are missing the backend will re-extract from the stored PPTX.
@@ -635,9 +671,11 @@ export default function ScreencastPage() {
           image_dpi: imageDpi,
           video_crf: videoCrf,
         }),
+        signal,
       });
       await processRenderResponse(response);
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, imageDpi, videoCrf, goError, processRenderResponse]);
@@ -1022,6 +1060,15 @@ export default function ScreencastPage() {
             <p className="text-xs text-gray-400 mt-2">
               Das kann je nach Dateigröße einige Sekunden dauern.
             </p>
+            <button
+              onClick={() => { abortControllerRef.current?.abort(); setStep("upload"); setLoading(false); }}
+              className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Abbrechen
+            </button>
           </section>
         )}
 
@@ -1237,6 +1284,15 @@ export default function ScreencastPage() {
             <p className="text-xs text-gray-400 mt-2">
               Die KI erstellt Skripte für {slides.length} Folien.
             </p>
+            <button
+              onClick={() => { abortControllerRef.current?.abort(); setStep("translation-review"); setLoading(false); }}
+              className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Abbrechen
+            </button>
           </section>
         )}
 
@@ -1652,6 +1708,15 @@ export default function ScreencastPage() {
               Vertonung und Videoproduktion – das kann 1-3 Minuten
               dauern.
             </p>
+            <button
+              onClick={() => { abortControllerRef.current?.abort(); setStep("tts-settings"); setLoading(false); }}
+              className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Abbrechen
+            </button>
           </section>
         )}
 

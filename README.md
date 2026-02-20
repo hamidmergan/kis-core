@@ -14,6 +14,27 @@ cp env.example .env   # .env anpassen (siehe Konfiguration)
 docker-compose up -d --build
 ```
 
+## Lokale Entwicklung
+
+Backend in Docker starten:
+```bash
+docker compose up backend
+```
+
+Frontend lokal starten (Hot Reload – kein Rebuild nötig):
+```bash
+cd frontend && npm run dev
+```
+
+Frontend läuft auf http://localhost:3001 (oder 3000 falls Port frei).
+Frontend-Änderungen sind sofort im Browser sichtbar.
+Backend-Änderungen werden automatisch neu geladen.
+
+## Deployment (Server)
+```bash
+docker compose up --build
+```
+
 ## Development Setup
 
 Nach dem Klonen einmalig ausführen damit die IDE (VSCode, WebStorm, Cursor etc.) TypeScript-Typen kennt:

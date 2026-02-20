@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TtsFileUpload from "@/components/TtsFileUpload";
@@ -43,6 +43,12 @@ export default function TtsPage() {
     }).catch(() => {});
   }, []);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => { abortControllerRef.current?.abort(); setTtsState("idle"); };
+  }, []);
+
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
 
   const handleTtsFileSelected = useCallback((file: File) => {
@@ -56,6 +62,9 @@ export default function TtsPage() {
 
   const handleSubmit = async () => {
     if (!pendingFile || isProcessing) return;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     setTtsState("uploading");
     try {
       setTtsState("processing");
@@ -67,11 +76,14 @@ export default function TtsPage() {
           speed: String(speed),
           pause_preset: pausePreset,
         },
+        "file",
+        signal,
       );
       setTtsDownloadBlob(blob);
       setTtsDownloadName(filename);
       setTtsState("done");
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setTtsErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
       setTtsState("error");
     }
@@ -183,7 +195,7 @@ export default function TtsPage() {
             </select>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-6 flex items-center gap-3">
             <button
               onClick={handleSubmit}
               disabled={!pendingFile || isProcessing}
@@ -194,6 +206,17 @@ export default function TtsPage() {
               )}
               {isProcessing ? "MP3 wird erstellt…" : "MP3 erstellen"}
             </button>
+            {isProcessing && (
+              <button
+                onClick={() => { abortControllerRef.current?.abort(); setTtsState("idle"); }}
+                className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Abbrechen
+              </button>
+            )}
           </div>
 
           <TtsStatus
