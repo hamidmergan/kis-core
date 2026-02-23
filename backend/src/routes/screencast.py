@@ -5,8 +5,10 @@ import base64
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
+import time
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -40,20 +42,20 @@ router = APIRouter(tags=["screencast"])
 # ── Temporary audio cache (render ID → list of MP3 bytes) ────────────────────
 _audio_cache: dict[str, list[bytes]] = {}
 
-# ── Temporary PPTX file storage ──────────────────────────────────────────────
+# ── Temporary file storage ───────────────────────────────────────────────────
 PPTX_TMP_DIR = Path("/tmp/screencast")
+IMAGE_TMP_DIR = Path("/tmp/screencast/images")
 
 _cleanup_task: asyncio.Task | None = None
 
 
 async def _cleanup_old_pptx_files() -> None:
-    """Periodically delete PPTX temp files older than 1 hour."""
-    import time
+    """Periodically delete PPTX temp files and pre-rendered image dirs older than 1 hour."""
     while True:
         await asyncio.sleep(300)  # check every 5 minutes
         try:
+            cutoff = time.time() - 3600
             if PPTX_TMP_DIR.exists():
-                cutoff = time.time() - 3600
                 for f in PPTX_TMP_DIR.glob("*.pptx"):
                     try:
                         if f.stat().st_mtime < cutoff:
@@ -61,8 +63,17 @@ async def _cleanup_old_pptx_files() -> None:
                             logger.info("Cleanup: deleted expired PPTX {}", f.name)
                     except OSError:
                         pass
+            if IMAGE_TMP_DIR.exists():
+                for d in IMAGE_TMP_DIR.iterdir():
+                    if d.is_dir():
+                        try:
+                            if d.stat().st_mtime < cutoff:
+                                shutil.rmtree(d, ignore_errors=True)
+                                logger.info("Cleanup: deleted expired image dir {}", d.name)
+                        except OSError:
+                            pass
         except Exception as e:
-            logger.warning("PPTX cleanup error: {}", e)
+            logger.warning("Cleanup error: {}", e)
 
 
 def _maybe_start_cleanup_task() -> None:
@@ -102,13 +113,38 @@ class PrepareRequest(BaseModel):
 class RenderRequest(BaseModel):
     scripts: list[str]
     file_id: str
-    slide_images_b64: list[str] = []  # optional: empty → backend extracts from PPTX
+    slide_images_b64: list[str] = []
     voice_id: str = ""
     speed: float = 0.9
     slide_pause: float = 0.5
     embed_subtitles: bool = True
-    image_dpi: int = 150
-    video_crf: int = 23
+
+
+class PrerenderRequest(BaseModel):
+    file_id: str
+
+
+class DemoRenderRequest(BaseModel):
+    file_id: str = ""
+
+
+class DemoTranslateRequest(BaseModel):
+    fast_mode: bool = False
+
+
+async def _prerender_images_task(file_id: str) -> None:
+    """Background task: render slide images at 300 DPI and cache them in IMAGE_TMP_DIR."""
+    pptx_src = PPTX_TMP_DIR / f"{file_id}.pptx"
+    if not pptx_src.exists():
+        logger.warning("Pre-render: PPTX not found for file_id={}", file_id)
+        return
+    out_dir = IMAGE_TMP_DIR / file_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        await asyncio.to_thread(_pptx_to_images, pptx_src, out_dir, 300)
+        logger.info("Pre-rendering complete for file_id={}", file_id)
+    except Exception as e:
+        logger.warning("Pre-rendering failed for file_id={}: {}", file_id, e)
 
 
 # ── Shared helpers ───────────────────────────────────────────────────────────
@@ -692,6 +728,7 @@ async def screencast_translate(
     request: Request,
     file: UploadFile = File(...),
     glossary_json: str = Form(""),
+    fast_mode: bool = Form(False),
 ):
     """Translate PPTX DE→EN, save to temp file, and extract slide texts."""
     _validate_upload(file.filename)
@@ -727,7 +764,15 @@ async def screencast_translate(
 
     # ── Save translated PPTX to temp file ────────────────────────────────
     file_id = _save_pptx_tmp(translated_bytes)
-    logger.info("Saved translated PPTX as file_id={}", file_id)
+    logger.info("Saved translated PPTX as file_id={}, fast_mode={}", file_id, fast_mode)
+
+    if fast_mode:
+        return {
+            "slide_count": len(slide_texts),
+            "slide_texts": slide_texts,
+            "slide_images": [],
+            "file_id": file_id,
+        }
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
@@ -814,16 +859,15 @@ async def screencast_prepare(body: PrepareRequest):
 
 
 @router.get("/screencast/file/{file_id}")
-async def download_pptx_file(file_id: str, background_tasks: BackgroundTasks):
-    """Download translated PPTX from temp storage and delete it afterward."""
+async def download_pptx_file(file_id: str):
+    """Download translated PPTX from temp storage (file kept for render)."""
     if not re.match(r"^[a-f0-9]{32}$", file_id):
         raise HTTPException(status_code=400, detail="Ungültige file_id")
     pptx_path = PPTX_TMP_DIR / f"{file_id}.pptx"
     if not pptx_path.exists():
         raise HTTPException(status_code=404, detail="Datei nicht gefunden (abgelaufen oder ungültige ID)")
     data = pptx_path.read_bytes()
-    background_tasks.add_task(pptx_path.unlink, missing_ok=True)
-    logger.info("Serving PPTX file_id={} ({} bytes), will delete after send", file_id, len(data))
+    logger.info("Serving PPTX file_id={} ({} bytes)", file_id, len(data))
     return StreamingResponse(
         iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -915,6 +959,20 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
     return {"scripts": scripts}
 
 
+@router.post("/screencast/prerender-images")
+async def prerender_images(body: PrerenderRequest, background_tasks: BackgroundTasks):
+    """Start background pre-rendering of slide images at 300 DPI.
+
+    Call this after the user confirms scripts so images are ready when /render is called.
+    Fire-and-forget: always returns immediately.
+    """
+    if not re.match(r"^[a-f0-9]{32}$", body.file_id):
+        raise HTTPException(status_code=400, detail="Ungültige file_id")
+    background_tasks.add_task(_prerender_images_task, body.file_id)
+    logger.info("Pre-render started for file_id={}", body.file_id)
+    return {"status": "started"}
+
+
 @router.post("/screencast/render")
 async def screencast_render(body: RenderRequest):
     """Render final MP4 from edited scripts and translated PPTX."""
@@ -928,24 +986,23 @@ async def screencast_render(body: RenderRequest):
         )
 
     logger.info("Screencast/render: {} slides, speed={}", len(body.scripts), body.speed)
+    t_total = time.perf_counter()
 
-    # Determine whether we have usable client-side images
-    valid_images_b64 = [b for b in body.slide_images_b64 if b]
-    use_pptx = body.image_dpi != 150 or not valid_images_b64
-    logger.info(
-        "Screencast/render: {} slide_images_b64 received ({} non-empty), use_pptx={}",
-        len(body.slide_images_b64),
-        len(valid_images_b64),
-        use_pptx,
-    )
+    t0 = time.perf_counter()
+    prerendered_dir = IMAGE_TMP_DIR / body.file_id
+    prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir.exists() else []
+    logger.info("Pre-render cache check: {:.3f}s ({} images found)", time.perf_counter() - t0, len(prerendered_images))
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
 
-        # Extract slide images: from PPTX if none provided or higher DPI requested,
-        # otherwise decode the base64 images sent by the frontend.
-        if use_pptx:
-            logger.info("Extracting slide images from PPTX (file_id={}, dpi={})", body.file_id, body.image_dpi)
+        # Use pre-rendered images if available, otherwise generate from PPTX at 300 DPI.
+        t0 = time.perf_counter()
+        if prerendered_images:
+            logger.info("Using {} pre-rendered images for file_id={}", len(prerendered_images), body.file_id)
+            slide_images = prerendered_images
+        else:
+            logger.info("No pre-rendered images, generating from PPTX (file_id={}, dpi=300)", body.file_id)
             pptx_src = PPTX_TMP_DIR / f"{body.file_id}.pptx"
             if not pptx_src.exists():
                 raise HTTPException(
@@ -956,21 +1013,16 @@ async def screencast_render(body: RenderRequest):
             pptx_path.write_bytes(pptx_src.read_bytes())
             img_dir = tmp / "images"
             img_dir.mkdir()
-            slide_images = await asyncio.to_thread(
-                _pptx_to_images, pptx_path, img_dir, body.image_dpi
-            )
-        else:
-            slide_images: list[Path] = []
-            for i, img_b64 in enumerate(valid_images_b64):
-                img_path = tmp / f"slide_{i:03d}.png"
-                img_path.write_bytes(base64.b64decode(img_b64))
-                slide_images.append(img_path)
+            slide_images = await asyncio.to_thread(_pptx_to_images, pptx_path, img_dir, 300)
+        logger.info("Bildgenerierung (Cache oder PPTX): {:.2f}s", time.perf_counter() - t0)
 
         # Generate TTS audio
+        t0 = time.perf_counter()
         tts_client = get_elevenlabs_client()
         tts_results = await _generate_all_tts(body.scripts, tts_client, tmp, body.speed, body.voice_id)
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
+        logger.info("TTS Generierung gesamt: {:.2f}s", time.perf_counter() - t0)
 
         # Ensure we have matching counts (use min of both)
         num_slides = min(len(slide_images), len(audio_paths))
@@ -978,24 +1030,25 @@ async def screencast_render(body: RenderRequest):
             raise HTTPException(status_code=500, detail="Keine Slides verarbeitet")
 
         # ── Create video per slide ────────────────────────────────────────
-        logger.info("Creating video clips per slide")
+        t0 = time.perf_counter()
         clip_paths: list[Path] = []
         for i in range(num_slides):
             clip_path = tmp / f"clip_{i:03d}.mp4"
             try:
-                _create_slide_video(slide_images[i], audio_paths[i], clip_path, pause=body.slide_pause, crf=body.video_crf)
+                _create_slide_video(slide_images[i], audio_paths[i], clip_path, pause=body.slide_pause, crf=23)
             except RuntimeError as e:
                 raise HTTPException(status_code=500, detail=str(e))
             clip_paths.append(clip_path)
-            logger.info("Clip {}/{} done", i + 1, num_slides)
+        logger.info("Video-Clips erstellen gesamt: {:.2f}s", time.perf_counter() - t0)
 
         # ── Concatenate all clips ─────────────────────────────────────────
-        logger.info("Concatenating clips")
+        t0 = time.perf_counter()
         concat_path = tmp / "concat.mp4"
         try:
             _concatenate_videos(clip_paths, concat_path)
         except RuntimeError as e:
             raise HTTPException(status_code=500, detail=str(e))
+        logger.info("Concatenation: {:.2f}s", time.perf_counter() - t0)
 
         # ── Build subtitles ───────────────────────────────────────────────
         per_slide_data = []
@@ -1005,6 +1058,7 @@ async def screencast_render(body: RenderRequest):
         subtitle_data = build_subtitles(per_slide_data, slide_pause=body.slide_pause)
 
         # ── Optionally embed subtitles into MP4 ──────────────────────────
+        t0 = time.perf_counter()
         if body.embed_subtitles and subtitle_data["srt"]:
             srt_path = tmp / "subtitles.srt"
             srt_path.write_text(subtitle_data["srt"], encoding="utf-8")
@@ -1016,6 +1070,7 @@ async def screencast_render(body: RenderRequest):
                 logger.warning("Render: subtitle embedding failed, video has no subtitles")
         elif body.embed_subtitles:
             logger.warning("Render: embed_subtitles=True but no SRT data (empty alignment?)")
+        logger.info("Subtitle Embedding: {:.2f}s", time.perf_counter() - t0)
 
         # ── Cache per-slide MP3 audio bytes ──────────────────────────────
         audio_id = uuid.uuid4().hex
@@ -1023,9 +1078,15 @@ async def screencast_render(body: RenderRequest):
         logger.info("Cached {} audio files under id={}", num_slides, audio_id)
 
         # ── Apply faststart ───────────────────────────────────────────────
-        logger.info("Applying faststart")
+        t0 = time.perf_counter()
         final_path = tmp / "final.mp4"
         output_bytes = _apply_faststart(concat_path, final_path)
+        logger.info("Faststart: {:.2f}s", time.perf_counter() - t0)
+
+    # ── Clean up pre-rendered images after successful render ──────────────
+    if prerendered_dir.exists():
+        shutil.rmtree(prerendered_dir, ignore_errors=True)
+        logger.info("Cleaned up pre-rendered images for file_id={}", body.file_id)
 
     # ── Validate output video size ────────────────────────────────────────
     if len(output_bytes) > MAX_OUTPUT_VIDEO_BYTES:
@@ -1036,6 +1097,7 @@ async def screencast_render(body: RenderRequest):
 
     logger.info("Screencast/render complete, size={} bytes", len(output_bytes))
     logger.info("Screencast/render final streams: {}", _probe_streams(final_path if final_path.exists() else concat_path))
+    logger.info("Screencast/render Gesamt: {:.2f}s", time.perf_counter() - t_total)
 
     subtitle_json = json.dumps(subtitle_data)
     subtitle_b64 = base64.b64encode(subtitle_json.encode("utf-8")).decode("ascii")
@@ -1281,7 +1343,7 @@ async def demo_available():
 
 
 @router.post("/screencast/demo/translate")
-async def demo_translate():
+async def demo_translate(body: DemoTranslateRequest):
     """Return demo translation data (slide images, texts, translated PPTX).
 
     Requires a PPTX file in demo/slides/. Reads user prompt from Anweisung.txt.
@@ -1299,7 +1361,7 @@ async def demo_translate():
     user_prompt = _load_demo_user_prompt()
     _maybe_start_cleanup_task()
 
-    logger.info("Demo/translate: using PPTX '{}'", pptx_path.name)
+    logger.info("Demo/translate: using PPTX '{}', fast_mode={}", pptx_path.name, body.fast_mode)
     pptx_bytes = pptx_path.read_bytes()
 
     # Save to temp storage so file_id can be used for download/render
@@ -1310,6 +1372,15 @@ async def demo_translate():
     slide_texts = _extract_text_per_slide(pptx_bytes)
     if not slide_texts:
         raise HTTPException(status_code=400, detail="Keine Slides in der Präsentation gefunden")
+
+    if body.fast_mode:
+        return {
+            "slide_count": len(slide_texts),
+            "slide_texts": slide_texts,
+            "slide_images": [],
+            "file_id": file_id,
+            "user_prompt": user_prompt,
+        }
 
     # Extract images via the same pipeline as screencast/translate (no placeholder fallback)
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1434,7 +1505,7 @@ def _load_demo_audio_files(num_slides: int) -> list[Path]:
 
 
 @router.post("/screencast/demo/render")
-async def demo_render():
+async def demo_render(body: DemoRenderRequest):
     """Run the real FFmpeg pipeline with demo data (images + MP3 + SRT).
 
     If per-slide MP3 files exist (slide_001.mp3, ...), the full pipeline runs:
@@ -1457,7 +1528,20 @@ async def demo_render():
 
     # ── Mode A: Per-slide MP3 files exist → run the full FFmpeg pipeline ──
     if demo_audio:
-        slide_images_b64 = await _get_demo_slide_images(num_slides)
+        t_total = time.perf_counter()
+
+        t0 = time.perf_counter()
+        prerendered_dir = IMAGE_TMP_DIR / body.file_id if body.file_id else None
+        prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir and prerendered_dir.exists() else []
+        logger.info("Demo/render: pre-render cache check: {:.3f}s ({} images)", time.perf_counter() - t0, len(prerendered_images))
+
+        t0 = time.perf_counter()
+        if prerendered_images:
+            logger.info("Demo/render: using {} pre-rendered images", len(prerendered_images))
+            slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in prerendered_images]
+        else:
+            slide_images_b64 = await _get_demo_slide_images(num_slides)
+        logger.info("Demo/render: Bildgenerierung: {:.2f}s ({} images)", time.perf_counter() - t0, len(slide_images_b64))
         logger.info("Demo/render: got {} slide images", len(slide_images_b64))
 
         num_slides = min(len(slide_images_b64), len(demo_audio))
@@ -1485,6 +1569,7 @@ async def demo_render():
                 audio_paths.append(dst)
 
             # Create video clip per slide (image + audio)
+            t0 = time.perf_counter()
             clip_paths: list[Path] = []
             for i in range(num_slides):
                 clip_path = tmp / f"clip_{i:03d}.mp4"
@@ -1495,12 +1580,13 @@ async def demo_render():
                 except RuntimeError as e:
                     raise HTTPException(status_code=500, detail=str(e))
                 clip_paths.append(clip_path)
-                logger.info("Demo clip {}/{} done", i + 1, num_slides)
+            logger.info("Demo/render: Video-Clips erstellen gesamt: {:.2f}s", time.perf_counter() - t0)
 
             # Concatenate
+            t0 = time.perf_counter()
             concat_path = tmp / "concat.mp4"
             _concatenate_videos(clip_paths, concat_path)
-            logger.info("Demo concat done, streams: {}", _probe_streams(concat_path))
+            logger.info("Demo/render: Concatenation: {:.2f}s", time.perf_counter() - t0)
 
             # Build subtitles from audio durations (like the real pipeline)
             per_slide_data = []
@@ -1519,6 +1605,7 @@ async def demo_render():
             }
 
             # Embed subtitles
+            t0 = time.perf_counter()
             if srt_content:
                 srt_path = tmp / "subtitles.srt"
                 srt_path.write_text(srt_content, encoding="utf-8")
@@ -1530,6 +1617,7 @@ async def demo_render():
                     logger.warning("Demo: subtitle embedding FAILED")
             else:
                 logger.warning("Demo: no SRT data, skipping subtitle embedding")
+            logger.info("Demo/render: Subtitle Embedding: {:.2f}s", time.perf_counter() - t0)
 
             # Cache per-slide MP3 audio bytes
             audio_id = uuid.uuid4().hex
@@ -1537,10 +1625,13 @@ async def demo_render():
             logger.info("Demo: cached {} audio files under id={}", num_slides, audio_id)
 
             # Faststart
+            t0 = time.perf_counter()
             final_path = tmp / "final.mp4"
             output_bytes = _apply_faststart(concat_path, final_path)
+            logger.info("Demo/render: Faststart: {:.2f}s", time.perf_counter() - t0)
 
         logger.info("Demo/render PIPELINE complete, size={} bytes", len(output_bytes))
+        logger.info("Demo/render Gesamt: {:.2f}s", time.perf_counter() - t_total)
         subtitle_json = json.dumps(final_subtitle_data)
         subtitle_b64 = base64.b64encode(subtitle_json.encode("utf-8")).decode("ascii")
         return StreamingResponse(

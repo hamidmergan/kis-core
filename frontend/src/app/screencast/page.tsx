@@ -125,8 +125,6 @@ export default function ScreencastPage() {
   const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [embedSubtitles, setEmbedSubtitles] = useState(true);
-  const [imageDpi, setImageDpi] = useState(150);
-  const [videoCrf, setVideoCrf] = useState(23);
   const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voiceId, setVoiceId] = useState("");
@@ -135,6 +133,7 @@ export default function ScreencastPage() {
   const [demoAvailable, setDemoAvailable] = useState(false);
   const [demoHasVideo, setDemoHasVideo] = useState(false);
   const [sourceLang, setSourceLang] = useState<"DE" | "EN">("DE");
+  const [fastMode, setFastMode] = useState(true);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
 
@@ -226,8 +225,6 @@ export default function ScreencastPage() {
     setCorrectedFileName(null);
     setLightboxIndex(null);
     setEmbedSubtitles(true);
-    setImageDpi(150);
-    setVideoCrf(23);
     setSubtitleData(null);
     setAudioId("");
     setAudioCount(0);
@@ -403,6 +400,7 @@ export default function ScreencastPage() {
       formData.append("file", file);
       const glossaryJson = mergeToApiJson(glossaryIds);
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
+      formData.append("fast_mode", String(fastMode));
 
       const response = await backendApi.fetch("/screencast/translate", {
         method: "POST",
@@ -435,7 +433,7 @@ export default function ScreencastPage() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [file, mode, sourceLang, handleAutoSubmit, goError, glossaryIds, mergeToApiJson]);
+  }, [file, mode, sourceLang, fastMode, handleAutoSubmit, goError, glossaryIds, mergeToApiJson]);
 
   // ── Download translated PPTX ──
   const handleDownloadTranslatedPptx = useCallback(async () => {
@@ -535,10 +533,17 @@ export default function ScreencastPage() {
     }
   }, [slides, userPrompt, glossaryIds, mergeToApiJson, goError]);
 
-  // ── Accept scripts → TTS settings ──
+  // ── Accept scripts → TTS settings + fire-and-forget prerender ──
   const handleAcceptScripts = useCallback(() => {
     setStep("tts-settings");
-  }, []);
+    if (translatedPptxFileId) {
+      backendApi.fetch("/screencast/prerender-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_id: translatedPptxFileId }),
+      }).catch(() => {}); // fire and forget
+    }
+  }, [translatedPptxFileId]);
 
   // ── Demo handlers ──
   const handleDemoTranslate = useCallback(async () => {
@@ -548,7 +553,7 @@ export default function ScreencastPage() {
     try {
       const data = await backendApi.postJson<TranslateResponse>(
         "/screencast/demo/translate",
-        {},
+        { fast_mode: fastMode },
         signal,
       );
       setTranslatedPptxFileId(data.file_id);
@@ -567,7 +572,7 @@ export default function ScreencastPage() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [goError]);
+  }, [fastMode, goError]);
 
   const handleDemoGenerateScripts = useCallback(async () => {
     setStep("generating-scripts");
@@ -638,7 +643,7 @@ export default function ScreencastPage() {
       const response = await backendApi.fetch("/screencast/demo/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ file_id: translatedPptxFileId }),
         signal,
       });
       await processRenderResponse(response);
@@ -646,7 +651,7 @@ export default function ScreencastPage() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [goError, processRenderResponse]);
+  }, [translatedPptxFileId, goError, processRenderResponse]);
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
@@ -654,22 +659,16 @@ export default function ScreencastPage() {
     setLoading(true);
     const signal = newSignal();
     try {
-      // Only send images if every slide has a non-empty base64 string.
-      // If any are missing the backend will re-extract from the stored PPTX.
-      const allImagesAvailable = slides.every((s) => s.imageBase64);
       const response = await backendApi.fetch("/screencast/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           scripts: slides.map((s) => s.script),
           file_id: translatedPptxFileId,
-          slide_images_b64: allImagesAvailable ? slides.map((s) => s.imageBase64) : [],
           voice_id: voiceId,
           speed,
           slide_pause: slidePause,
           embed_subtitles: embedSubtitles,
-          image_dpi: imageDpi,
-          video_crf: videoCrf,
         }),
         signal,
       });
@@ -678,7 +677,7 @@ export default function ScreencastPage() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, imageDpi, videoCrf, goError, processRenderResponse]);
+  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, goError, processRenderResponse]);
 
   // ── Download MP4 ──
   const handleDownload = () => {
@@ -991,7 +990,7 @@ export default function ScreencastPage() {
             )}
 
             {/* Mode toggle */}
-            <label className="flex items-start gap-3 mb-6 cursor-pointer select-none">
+            <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={mode === "manual"}
@@ -1010,6 +1009,22 @@ export default function ScreencastPage() {
                 </p>
               </div>
             </label>
+
+            {/* Fast mode — only relevant in manual mode */}
+            {mode === "manual" && (
+              <label className="flex items-center gap-2 cursor-pointer select-none mt-4 mb-6">
+                <input
+                  type="checkbox"
+                  checked={fastMode}
+                  onChange={(e) => setFastMode(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Schnellmodus</span>
+                  <p className="text-xs text-gray-400 mt-0.5">Folienvorschau wird übersprungen – schnellere Verarbeitung.</p>
+                </div>
+              </label>
+            )}
 
             {/* Submit */}
             <div className="flex gap-3">
@@ -1134,37 +1149,40 @@ export default function ScreencastPage() {
               Version hochladen.
             </p>
 
-            {/* Thumbnail grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-              {slides.map((slide, i) => (
-                <button
-                  key={i}
-                  onClick={() => setLightboxIndex(i)}
-                  className="relative rounded-lg overflow-hidden border border-gray-200 hover:border-[#0066cc] transition-colors focus-visible:outline-2 focus-visible:outline-[#0066cc] group"
-                  aria-label={`Folie ${i + 1} vergrößern`}
-                >
-                  {slide.imageBase64 ? (
-                    <img
-                      src={`data:image/png;base64,${slide.imageBase64}`}
-                      alt={`Folie ${i + 1}`}
-                      className="w-full object-cover"
-                    />
-                  ) : (
-                    <div className="aspect-video bg-gray-100 flex items-center justify-center text-xs text-gray-400">
-                      Wird geladen...
+            {/* Thumbnail grid — hidden in fast mode */}
+            {!fastMode && (
+              <div className="flex flex-wrap gap-2 mb-6">
+                {slides.map((slide, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLightboxIndex(i)}
+                    style={{ width: "100px" }}
+                    className="relative rounded-lg overflow-hidden border border-gray-200 hover:border-[#0066cc] transition-colors focus-visible:outline-2 focus-visible:outline-[#0066cc] group flex-shrink-0"
+                    aria-label={`Folie ${i + 1} vergrößern`}
+                  >
+                    {slide.imageBase64 ? (
+                      <img
+                        src={`data:image/png;base64,${slide.imageBase64}`}
+                        alt={`Folie ${i + 1}`}
+                        className="w-full object-cover"
+                      />
+                    ) : (
+                      <div className="aspect-video bg-gray-100 flex items-center justify-center text-xs text-gray-400">
+                        Wird geladen...
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-gray-700 px-2 py-1 rounded transition-opacity">
+                        Folie {i + 1}
+                      </span>
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                    <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-gray-700 px-2 py-1 rounded transition-opacity">
-                      Folie {i + 1}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {/* Lightbox modal */}
-            {lightboxIndex !== null && (
+            {/* Lightbox modal — only when thumbnails are visible */}
+            {!fastMode && lightboxIndex !== null && (
               <div
                 className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
                 onClick={() => setLightboxIndex(null)}
@@ -1369,23 +1387,25 @@ export default function ScreencastPage() {
                         className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]"
                       >
                         <div className="flex flex-col md:flex-row gap-4">
-                          {/* Slide image */}
-                          <div className="md:w-2/5 flex-shrink-0">
-                            {slide.imageBase64 ? (
-                              <img
-                                src={`data:image/png;base64,${slide.imageBase64}`}
-                                alt={`Folie ${i + 1}`}
-                                className="w-full rounded border border-gray-200"
-                              />
-                            ) : (
-                              <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">
-                                Kein Bild
-                              </div>
-                            )}
-                          </div>
+                          {/* Slide image — hidden in fast mode */}
+                          {!fastMode && (
+                            <div className="flex-shrink-0" style={{ width: "100px" }}>
+                              {slide.imageBase64 ? (
+                                <img
+                                  src={`data:image/png;base64,${slide.imageBase64}`}
+                                  alt={`Folie ${i + 1}`}
+                                  className="w-full rounded border border-gray-200"
+                                />
+                              ) : (
+                                <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">
+                                  Kein Bild
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Script */}
-                          <div className="md:w-3/5 flex flex-col">
+                          <div className={`${fastMode ? "w-full" : "md:w-3/5"} flex flex-col`}>
                             {isEditing ? (
                               <>
                                 <textarea
@@ -1588,74 +1608,6 @@ export default function ScreencastPage() {
                 </p>
               </div>
             </label>
-
-            {/* Bildqualität */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bildqualität
-              </label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setImageDpi(150)}
-                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
-                    imageDpi === 150
-                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Standard (150 DPI)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImageDpi(300)}
-                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
-                    imageDpi === 300
-                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Hoch (300 DPI)
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Höhere Auflösung der Folienbilder im Video
-              </p>
-            </div>
-
-            {/* Videoqualität */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Videoqualität
-              </label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setVideoCrf(23)}
-                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
-                    videoCrf === 23
-                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Standard
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVideoCrf(18)}
-                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-md border transition-colors ${
-                    videoCrf === 18
-                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Hoch
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Höhere Qualität erzeugt größere Dateien
-              </p>
-            </div>
 
             {/* Summary */}
             <div className="mb-6 rounded-lg bg-gray-50 px-4 py-3">
