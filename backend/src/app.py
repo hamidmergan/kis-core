@@ -1,9 +1,11 @@
 import sys
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
+from src.database import init_db
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
 from src.routes import auth, health, image, screencast, script, summary, transcription, translate, tts, video_dubbing
@@ -25,6 +27,13 @@ def _configure_logging() -> None:
     )
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    logger.info("Database initialised")
+    yield
+
+
 def create_app() -> FastAPI:
     _configure_logging()
 
@@ -32,6 +41,7 @@ def create_app() -> FastAPI:
 
     application = FastAPI(
         title="KIS-THL",
+        lifespan=lifespan,
         dependencies=[Depends(verify_auth)],
         docs_url="/docs" if not settings.production else None,
         redoc_url="/redoc" if not settings.production else None,
@@ -59,8 +69,6 @@ def create_app() -> FastAPI:
     application.include_router(video_dubbing.router)
     application.include_router(screencast.router)
     application.include_router(summary.router)
-
-    logger.info("KIS-THL application started")
 
     return application
 

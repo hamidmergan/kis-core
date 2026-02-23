@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # Demo mode: serve pre-built demo data instead of calling external APIs
     demo_data: bool = False
 
+    # Encryption key for sensitive DB values (Fernet, base64url-encoded 32 bytes)
+    encryption_key: str = ""
+
     # Environment: set True on server, False for local dev
     production: bool = False
 

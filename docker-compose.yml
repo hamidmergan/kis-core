@@ -6,6 +6,8 @@ services:
       - .env
     volumes:
       - ./backend/demo:/app/demo:ro
+      - kis-thl-db:/app/data
+      - kis-thl-storage:/app/storage
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -28,6 +30,7 @@ services:
     restart: unless-stopped
 
   nginx:
+    profiles: ["hetzner"]
     image: nginx:alpine
     container_name: kis-thl-nginx
     ports:
@@ -45,3 +48,7 @@ services:
       options:
         max-size: "10m"
         max-file: "7"
+
+volumes:
+  kis-thl-db:
+  kis-thl-storage:
