@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from loguru import logger
+
 from src.services.deepl_client import DeepLClient
 from src.services.glossary import GlossaryService
 
@@ -24,6 +26,22 @@ class TranslationService:
         translated = self._deepl.translate_text(prepared_text, source_lang, target_lang)
         return self._glossary.restore_text(translated, replacements)
 
+    def translate_batch(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
+        """Translate a list of strings in a single DeepL API call, with glossary support."""
+        if not texts:
+            return []
+        prepared: list[str] = []
+        replacements_list: list[dict] = []
+        for text in texts:
+            p, r = self._glossary.apply_to_text(text)
+            prepared.append(p)
+            replacements_list.append(r)
+        translated = self._deepl.translate_batch(prepared, source_lang, target_lang)
+        return [
+            self._glossary.restore_text(t, r)
+            for t, r in zip(translated, replacements_list)
+        ]
+
     def translate_filename(self, filename: str, source_lang: str, target_lang: str) -> str:
         stem = Path(filename).stem
         ext = Path(filename).suffix
@@ -47,5 +65,5 @@ class TranslationService:
                 return filename
             return f"{translated}{ext}"
         except Exception as e:
-            print(f"Dateinamen-Übersetzung fehlgeschlagen für '{filename}': {e}")
+            logger.warning("Filename translation failed for '{}': {}", filename, e)
             return filename

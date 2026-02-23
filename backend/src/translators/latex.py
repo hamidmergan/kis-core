@@ -106,13 +106,25 @@ def _latex_find_environment_end(text: str, start_idx: int, env_name: str):
     return pos + len(end_tag)
 
 
-def translate_latex_preserve_structure(
-    text: str, source_lang: str, target_lang: str, service: TranslationService
-) -> str:
-    if not text or not text.strip():
-        return text
+# ── Batch-aware parser ────────────────────────────────────────────────────────
+# Instead of translating immediately, we collect (index, chunk) pairs into
+# `translate_slots` and emit a placeholder "__TX_n__" into `out`.
+# After parsing, all chunks are translated in one batch call and placeholders
+# are replaced with the results.
 
-    out: List[str] = []
+_SLOT_RE = re.compile(r"__TX_(\d+)__")
+
+
+def _parse_latex(
+    text: str,
+    source_lang: str,
+    target_lang: str,
+    service: TranslationService,
+    translate_slots: list,
+    out: list,
+) -> None:
+    """Recursive parser. Emits __TX_n__ placeholders for translatable text."""
+
     buffer: List[str] = []
 
     def flush_buffer():
@@ -120,9 +132,9 @@ def translate_latex_preserve_structure(
             return
         chunk = "".join(buffer)
         if chunk.strip():
-            out.append(
-                translate_text_preserve_linebreaks(chunk, source_lang, target_lang, service)
-            )
+            idx = len(translate_slots)
+            translate_slots.append(chunk)
+            out.append(f"__TX_{idx}__")
         else:
             out.append(chunk)
         buffer.clear()
@@ -137,12 +149,12 @@ def translate_latex_preserve_structure(
             end = text.find("\n", i)
             if end == -1:
                 out.append(text[i:])
-                return "".join(out)
+                return
             out.append(text[i : end + 1])
             i = end + 1
             continue
 
-        # Inline/display math with $...$ or $$...$$
+        # Inline/display math $$...$$ or $...$
         if ch == "$" and not _latex_is_escaped(text, i):
             flush_buffer()
             if i + 1 < len(text) and text[i + 1] == "$":
@@ -162,12 +174,12 @@ def translate_latex_preserve_structure(
             end = text.find(closing, i + 2)
             if end == -1:
                 out.append(text[i:])
-                return "".join(out)
+                return
             out.append(text[i : end + 2])
             i = end + 2
             continue
 
-        # Braces are kept as structural tokens
+        # Braces
         if ch in "{}":
             flush_buffer()
             out.append(ch)
@@ -203,7 +215,7 @@ def translate_latex_preserve_structure(
                     end = text.find(delim, k + 1)
                     if end == -1:
                         out.append(text[cmd_start:])
-                        return "".join(out)
+                        return
                     out.append(text[cmd_start : end + 1])
                     i = end + 1
                     continue
@@ -228,7 +240,7 @@ def translate_latex_preserve_structure(
                             i = end_env
                     continue
 
-                # Other commands with argument rules
+                # Commands with argument rules
                 rule = LATEX_COMMAND_RULES.get(cmd_name)
                 out.append(cmd_token)
                 i = j
@@ -246,10 +258,9 @@ def translate_latex_preserve_structure(
                                 out.append(group)
                             else:
                                 inner = group[1:-1]
-                                translated = translate_latex_preserve_structure(
-                                    inner, source_lang, target_lang, service
-                                )
-                                out.append("[" + translated + "]")
+                                inner_out: list = []
+                                _parse_latex(inner, source_lang, target_lang, service, translate_slots, inner_out)
+                                out.append("[" + "".join(inner_out) + "]")
                             i = end_pos
                             continue
                         break
@@ -268,16 +279,15 @@ def translate_latex_preserve_structure(
                                 out.append(group)
                             else:
                                 inner = group[1:-1]
-                                translated = translate_latex_preserve_structure(
-                                    inner, source_lang, target_lang, service
-                                )
-                                out.append("{" + translated + "}")
+                                inner_out = []
+                                _parse_latex(inner, source_lang, target_lang, service, translate_slots, inner_out)
+                                out.append("{" + "".join(inner_out) + "}")
                             i = end_pos
                         else:
                             break
                 continue
 
-            # Single-character command like \%, \_, \{, \}
+            # Single-character command
             out.append(text[cmd_start : i + 1])
             i += 1
             continue
@@ -286,4 +296,34 @@ def translate_latex_preserve_structure(
         i += 1
 
     flush_buffer()
-    return "".join(out)
+
+
+def translate_latex_preserve_structure(
+    text: str, source_lang: str, target_lang: str, service: TranslationService
+) -> str:
+    if not text or not text.strip():
+        return text
+
+    translate_slots: list = []
+    out: list = []
+
+    _parse_latex(text, source_lang, target_lang, service, translate_slots, out)
+
+    if not translate_slots:
+        return "".join(out)
+
+    # Single batch call for all collected text chunks
+    translated_chunks = service.translate_batch(translate_slots, source_lang, target_lang)
+
+    # Rebuild: replace __TX_n__ placeholders with translated text
+    result = "".join(out)
+    def _replace(m):
+        idx = int(m.group(1))
+        chunk = translated_chunks[idx]
+        # Preserve linebreaks that were in the original chunk
+        original = translate_slots[idx]
+        leading = original[: len(original) - len(original.lstrip())]
+        trailing = original[len(original.rstrip()) :]
+        return leading + chunk.strip() + trailing
+
+    return _SLOT_RE.sub(_replace, result)

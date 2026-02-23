@@ -1,9 +1,10 @@
 from io import BytesIO
 
 from docx import Document
+from loguru import logger
 
 from src.services.translation import TranslationService
-from src.utils.text import translate_paragraph_preserve_runs
+from src.utils.text import _RunRef, apply_translations, collect_paragraph_runs
 
 
 def _iter_docx_paragraphs(container):
@@ -27,35 +28,31 @@ def _iter_docx_paragraphs_with_header_footer(doc):
 def translate_docx(
     content: bytes, source_lang: str, target_lang: str, service: TranslationService
 ) -> bytes:
-    """Translate text in a DOCX file preserving layout, formatting and structure."""
+    """Translate text in a DOCX file preserving layout — single batch DeepL call."""
     try:
         doc = Document(BytesIO(content))
+        refs: list[_RunRef] = []
 
-        any_text = False
         seen_paragraphs = set()
         for para in _iter_docx_paragraphs_with_header_footer(doc):
             if id(para) in seen_paragraphs:
                 continue
             seen_paragraphs.add(id(para))
-            text = para.text
-            if not text or not text.strip():
-                continue
-            any_text = True
-            try:
-                translate_paragraph_preserve_runs(para, source_lang, target_lang, service)
-            except Exception as e:
-                raise ValueError(f"Fehler beim Übersetzen eines Absatzes: {str(e)}")
+            if para.text and para.text.strip():
+                collect_paragraph_runs(para, refs)
+
+        if refs:
+            texts = [r.encoded for r in refs]
+            translated = service.translate_batch(texts, source_lang, target_lang)
+            apply_translations(refs, translated)
 
         output = BytesIO()
         doc.save(output)
-        if any_text:
-            output.seek(0)
+        output.seek(0)
         return output.getvalue()
 
     except ValueError:
         raise
     except Exception as e:
-        import traceback
-        raise ValueError(
-            f"Fehler beim Verarbeiten der DOCX-Datei: {str(e)}\n{traceback.format_exc()}"
-        )
+        logger.exception("Error processing DOCX file")
+        raise ValueError(f"Error processing DOCX file: {e}")

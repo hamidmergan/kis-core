@@ -38,6 +38,8 @@ Thumbs.db
 .git/
 .gitignore
 
+.claude/
+
 # Docker
 Dockerfile
 .dockerignore

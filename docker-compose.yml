@@ -4,9 +4,16 @@ services:
     container_name: kis-thl-backend
     env_file:
       - .env
+    volumes:
+      - ./backend/demo:/app/demo:ro
     ports:
       - "8000:8000"
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
 
   frontend:
     build:
@@ -33,3 +40,8 @@ services:
       - backend
       - frontend
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"

@@ -14,7 +14,7 @@ export default function DatenschutzPage() {
               Hamid Mergan<br />
               Mönkhofer Weg 239<br />
               23562 Lübeck<br />
-              E-Mail: hamid.mergan@gmail.com<br />
+              E-Mail: hamid.mergan@th-luebeck.de<br />
               Telefon: +49 451 160818 81
             </p>
           </section>

@@ -9,7 +9,16 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     zlib1g-dev \
     libpng-dev \
+    ffmpeg \
+    libreoffice-impress \
+    poppler-utils \
+    fonts-crosextra-carlito \
+    fonts-crosextra-caladea \
     && rm -rf /var/lib/apt/lists/*
+
+# Register Calibri → Carlito font substitution for LibreOffice
+RUN mkdir -p /usr/lib/libreoffice/share/registry && \
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n<oor:component-data xmlns:oor="http://openoffice.org/2001/registry" oor:name="Substitutions" oor:package="org.openoffice.VCL">\n<node oor:name="FontSubstitutions">\n<node oor:name="Calibri" oor:op="fuse">\n<prop oor:name="FontSubstitutes"><value>Carlito;Liberation Sans</value></prop>\n</node>\n</node>\n</oor:component-data>' > /usr/lib/libreoffice/share/registry/calibri-substitution.xcu
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

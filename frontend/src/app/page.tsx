@@ -1,144 +1,103 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import Link from "next/link";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import FileUpload from "@/components/FileUpload";
-import TranslationStatus from "@/components/TranslationStatus";
-import GlossaryPanel from "@/components/GlossaryPanel";
-import type { GlossaryEntry } from "@/components/GlossaryPanel";
-import { api } from "@/lib/api";
-import type { TranslationState } from "@/types";
 
-type Tab = "translate" | "glossary";
+const workflows = [
+  {
+    title: "Screencast",
+    description:
+      "Laden Sie eine deutsche PowerPoint-Präsentation hoch und erhalten Sie ein englischsprachiges Video mit übersetzten Folien und Sprachausgabe.",
+    href: "/screencast",
+  },
+];
+
+const tools = [
+  {
+    title: "Dokumentenübersetzung",
+    description: "Übersetzen Sie Dokumente automatisch von Deutsch nach Englisch.",
+    href: "/uebersetzung",
+  },
+  {
+    title: "Text-to-Speech",
+    description: "Lassen Sie Dokumente als MP3-Audiodatei vorlesen.",
+    href: "/tts",
+  },
+  {
+    title: "Skript erstellen",
+    description: "Erstellen Sie aus Dokumenten ein fließendes Vorleseskript.",
+    href: "/skript",
+  },
+  {
+    title: "Transkription",
+    description: "Transkribieren oder übersetzen Sie Audio- und Videodateien zu Text, SRT oder VTT.",
+    href: "/transcription",
+  },
+  {
+    title: "Video-Dubbing",
+    description: "Synchronisieren Sie ein Video automatisch in eine andere Sprache.",
+    href: "/video-dubbing",
+  },
+  {
+    title: "Bild-KI",
+    description: "Bilder generieren, bearbeiten und analysieren mit KI.",
+    href: "/image",
+  },
+  {
+    title: "Glossare",
+    description: "Verwalten Sie Begriffslisten für konsistente Übersetzungen und Skripterstellung.",
+    href: "/glossary",
+  },
+  {
+    title: "Zusammenfassung",
+    description: "Fassen Sie Dokumente, Audio- und Untertiteldateien automatisch zusammen.",
+    href: "/zusammenfassung",
+  },
+];
 
 export default function HomePage() {
-  const [tab, setTab] = useState<Tab>("translate");
-
-  // Glossary state (lives only in this tab)
-  const [glossaryEntries, setGlossaryEntries] = useState<GlossaryEntry[]>([]);
-
-  // Translation state
-  const [state, setState] = useState<TranslationState>("idle");
-  const [selectedFile, setSelectedFile] = useState<string>("");
-  const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
-  const [downloadName, setDownloadName] = useState<string>("");
-  const [errorMessage, setErrorMessage] = useState<string>("");
-
-  const glossaryAsRecord = (): Record<string, string> => {
-    const map: Record<string, string> = {};
-    for (const entry of glossaryEntries) {
-      if (entry.source.trim() && entry.target.trim()) {
-        map[entry.source.trim()] = entry.target.trim();
-      }
-    }
-    return map;
-  };
-
-  const handleFileSelected = useCallback(
-    async (file: File) => {
-      setDownloadBlob(null);
-      setDownloadName("");
-      setErrorMessage("");
-      setSelectedFile(file.name);
-      setState("uploading");
-
-      try {
-        setState("translating");
-        const { blob, filename } = await api.uploadFile(
-          "/translate",
-          file,
-          glossaryAsRecord(),
-        );
-
-        setDownloadBlob(blob);
-        setDownloadName(filename);
-        setState("done");
-      } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
-        setState("error");
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [glossaryEntries],
-  );
-
-  const handleDownload = () => {
-    if (!downloadBlob) return;
-    const url = URL.createObjectURL(downloadBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = downloadName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleReset = () => {
-    setState("idle");
-    setSelectedFile("");
-    setDownloadBlob(null);
-    setDownloadName("");
-    setErrorMessage("");
-  };
-
-  const tabs = [
-    { id: "translate" as Tab, label: "Übersetzen" },
-    { id: "glossary" as Tab, label: `Glossar${glossaryEntries.length > 0 ? ` (${glossaryEntries.length})` : ""}` },
-  ];
-
   return (
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-gray-200 mb-8">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                tab === t.id
-                  ? "border-[#0066cc] text-[#0066cc]"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
+        {/* Workflows section */}
+        <h1 className="text-xl font-bold text-gray-900 mb-1">Workflows</h1>
+        <p className="text-sm text-gray-500 mb-4">
+          Mehrstufige Abläufe, die mehrere Tools kombinieren.
+        </p>
+
+        <div className="grid gap-4 mb-10">
+          {workflows.map((wf) => (
+            <Link
+              key={wf.href}
+              href={wf.href}
+              className="block rounded-lg border border-[#b3d4f0] bg-[#e8f0fb] p-8 shadow-sm transition-shadow hover:shadow-md"
             >
-              {t.label}
-            </button>
+              <h2 className="text-lg font-semibold text-[#0066cc] mb-2">{wf.title}</h2>
+              <p className="text-sm text-gray-700">{wf.description}</p>
+            </Link>
           ))}
         </div>
 
-        {/* Tab Content */}
-        {tab === "translate" && (
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Dokument übersetzen</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              Laden Sie ein Dokument hoch, um es automatisch übersetzen zu lassen.
-            </p>
+        {/* Tools section */}
+        <h2 className="text-xl font-bold text-gray-900 mb-1">Tools</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Einzelne Tools für spezifische Aufgaben.
+        </p>
 
-            <FileUpload
-              onFileSelected={handleFileSelected}
-              disabled={state === "uploading" || state === "translating"}
-            />
-
-            {selectedFile && state !== "idle" && (
-              <p className="mt-3 text-xs text-gray-500">Datei: {selectedFile}</p>
-            )}
-
-            <TranslationStatus
-              state={state}
-              fileName={downloadName}
-              errorMessage={errorMessage}
-              onDownload={handleDownload}
-              onReset={handleReset}
-            />
-          </div>
-        )}
-
-        {tab === "glossary" && (
-          <GlossaryPanel entries={glossaryEntries} onChange={setGlossaryEntries} />
-        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {tools.map((tool) => (
+            <Link
+              key={tool.href}
+              href={tool.href}
+              className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <h2 className="text-lg font-semibold text-[#0066cc] mb-2">{tool.title}</h2>
+              <p className="text-sm text-gray-600">{tool.description}</p>
+            </Link>
+          ))}
+        </div>
       </div>
     </ProtectedRoute>
   );
