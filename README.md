@@ -30,10 +30,6 @@ Frontend läuft auf http://localhost:3001 (oder 3000 falls Port frei).
 Frontend-Änderungen sind sofort im Browser sichtbar.
 Backend-Änderungen werden automatisch neu geladen.
 
-## Deployment (Server)
-```bash
-docker compose up --build
-```
 
 ## Development Setup
 
@@ -186,7 +182,6 @@ Längere Begriffe werden bevorzugt zuerst ersetzt, um Überschneidungen zu verme
 | `APP_PASSWORD` | Login-Passwort | `admin` |
 | `SESSION_SECRET` | Secret für Session-Tokens | – |
 | `SESSION_MAX_AGE_SECONDS` | Session-Dauer in Sekunden | `86400` |
-| `PRODUCTION` | Produktionsmodus (Swagger UI aus, Secure Cookies) | `false` |
 
 ## Systemabhängigkeiten (Backend-Container)
 

@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   nginx:
-    profiles: ["hetzner"]
+    profiles: ["nginx"]
     image: nginx:alpine
     container_name: kis-thl-nginx
     ports:
