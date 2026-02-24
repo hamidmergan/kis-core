@@ -40,7 +40,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     application = FastAPI(
-        title="KIS-THL",
+        title="KIS",
         lifespan=lifespan,
         dependencies=[Depends(verify_auth)],
         docs_url="/docs" if not settings.production else None,

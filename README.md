@@ -1,4 +1,4 @@
-# KIS-THL
+# KIS
 
 Webbasierter Übersetzungs- und Medienservice für Dokumente der TH Lübeck. Übersetzt DOCX, PPTX, MD, TEX und PDF automatisch von Deutsch nach Englisch – mit Glossar für konsistente Fachbegriffe. Zusätzlich: Text-to-Speech, Skript-Generierung, Transkription, Video-Dubbing und automatische Screencast-Erstellung aus PPTX-Dateien.
 

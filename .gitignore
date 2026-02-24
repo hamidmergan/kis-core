@@ -8,6 +8,7 @@ output/
 
 .claude/
 database.db
+local-notes.md
 
 # Frontend
 frontend/node_modules/

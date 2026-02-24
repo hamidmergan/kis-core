@@ -23,7 +23,7 @@ export default function LoginPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {
-        setError("Ihr Konto ist noch nicht freigeschaltet. Bitte wenden Sie sich an den Administrator.");
+        setError("KIS befindet sich derzeit in der Testphase. Ihr Konto wurde noch nicht freigeschaltet. Bei Interesse wenden Sie sich bitte an: [KONTAKT_EMAIL]");
       } else {
         setError("Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.");
       }
@@ -38,7 +38,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <h1 className="text-2xl font-bold text-[#0066cc] text-center mb-6">
             <Link href="/" aria-label="Zur Startseite">
-              KIS-THL
+              KIS
             </Link>
           </h1>
 

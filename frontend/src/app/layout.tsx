@@ -3,8 +3,8 @@ import "./globals.css";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "KIS-THL",
-  description: "KIS-THL – Services der TH Lübeck",
+  title: "KIS",
+  description: "KIS – Services der TH Lübeck",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

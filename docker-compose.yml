@@ -1,13 +1,13 @@
 services:
   backend:
     build: ./backend
-    container_name: kis-thl-backend
+    container_name: kis-backend
     env_file:
       - .env
     volumes:
       - ./backend/demo:/app/demo:ro
-      - kis-thl-db:/app/data
-      - kis-thl-storage:/app/storage
+      - kis-db:/app/data
+      - kis-storage:/app/storage
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -22,7 +22,7 @@ services:
       context: ./frontend
       args:
         BACKEND_URL: http://backend:8000
-    container_name: kis-thl-frontend
+    container_name: kis-frontend
     ports:
       - "3000:3000"
     depends_on:
@@ -32,7 +32,7 @@ services:
   nginx:
     profiles: ["nginx"]
     image: nginx:alpine
-    container_name: kis-thl-nginx
+    container_name: kis-nginx
     ports:
       - "80:80"
       - "443:443"
@@ -52,7 +52,7 @@ services:
   openldap:
     profiles: ["ldap"]
     image: tiredofit/openldap:latest
-    container_name: kis-thl-openldap
+    container_name: kis-openldap
     environment:
       HOSTNAME: openldap
       ORGANIZATION: TH Luebeck
@@ -64,12 +64,12 @@ services:
       - "389:389"
     volumes:
       - ./ldap/seed.ldif:/assets/slapd/bootstrap/ldif/seed.ldif
-      - kis-thl-openldap-data:/var/lib/ldap
-      - kis-thl-openldap-config:/etc/ldap/slapd.d
+      - kis-openldap-data:/var/lib/ldap
+      - kis-openldap-config:/etc/ldap/slapd.d
     restart: unless-stopped
 
 volumes:
-  kis-thl-db:
-  kis-thl-storage:
-  kis-thl-openldap-data:
-  kis-thl-openldap-config:
+  kis-db:
+  kis-storage:
+  kis-openldap-data:
+  kis-openldap-config:
