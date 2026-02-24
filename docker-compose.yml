@@ -1,4 +1,10 @@
 services:
+  redis:
+    image: redis:alpine
+    container_name: kis-redis
+    restart: unless-stopped
+    # No ports exposed - only accessible via internal Docker network
+
   backend:
     build: ./backend
     container_name: kis-backend
@@ -10,6 +16,27 @@ services:
       - kis-storage:/app/storage
     ports:
       - "8000:8000"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+  celery-worker:
+    build: ./backend
+    container_name: kis-celery-worker
+    command: celery -A src.celery_app worker --concurrency=2 --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - ./backend/demo:/app/demo:ro
+      - kis-db:/app/data
+      - kis-storage:/app/storage
+    depends_on:
+      - redis
     restart: unless-stopped
     logging:
       driver: json-file

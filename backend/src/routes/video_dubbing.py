@@ -13,15 +13,18 @@ import json as json_module
 import subprocess
 import tempfile
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from src.dependencies import get_settings
+from src.dependencies import get_settings, get_current_user
+from src import database as db
+from src.storage import save_queue_file
 from src.services.subtitle_converter import (
     segments_to_srt,
     segments_to_vtt,
@@ -249,17 +252,15 @@ async def video_dubbing(
     drop_background_audio: bool = Form(False),
     num_speakers: int = Form(0),
     soft_subtitles: bool = Form(False),
+    current_user: dict = Depends(get_current_user),
 ):
-    """Dub a video (MP4) or audio (MP3) file using ElevenLabs Dubbing API.
+    """Queue a video dubbing job using ElevenLabs Dubbing API.
 
-    Returns JSON with base64-encoded media and subtitle formats derived
-    from the ElevenLabs transcript endpoint:
-
-    - MP4 input → ``{ video_b64, srt, vtt, txt, json }``
-    - MP3 input → ``{ audio_b64, srt, vtt, txt, json }``
+    Returns ``{ job_uuid }`` immediately. Poll ``GET /jobs/{job_uuid}`` for status.
+    On success the result contains ``download_url`` (dubbed media) and subtitle
+    data (srt/vtt/txt/json) in the ``meta`` field.
     """
     ext = _validate_upload(file.filename, _ALL_EXTENSIONS, "Datei")
-    is_video = ext in VIDEO_DUBBING_VIDEO_EXTENSIONS
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_TRANSCRIPTION_BYTES:
@@ -269,56 +270,25 @@ async def video_dubbing(
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Datei ist leer")
 
-    api_key = _get_api_key()
-    stem = Path(file.filename).stem  # type: ignore[arg-type]
+    # Validate API key before queuing
+    _get_api_key()
 
-    logger.info("Video dubbing: submitting '{}' ({} → {})", file.filename, source_lang, target_lang)
+    job_uuid = uuid.uuid4().hex
+    user_id = current_user.get("user_id", 0)
+    input_path = save_queue_file(job_uuid, ext, file_bytes)
+    db.create_job(job_uuid, user_id, "video_dubbing", file.filename or f"input{ext}", input_path)
 
-    dubbing_id = _submit_dubbing_job(
-        api_key, file_bytes, file.filename, ext,
-        source_lang, target_lang, drop_background_audio, num_speakers,
-    )
-    logger.info("Dubbing job submitted: id='{}'", dubbing_id)
+    from src.tasks.video_dubbing_tasks import run_video_dubbing
+    run_video_dubbing.apply_async(args=[
+        job_uuid,
+        input_path,
+        file.filename or f"input{ext}",
+        source_lang,
+        target_lang,
+        drop_background_audio,
+        num_speakers,
+        soft_subtitles,
+    ])
 
-    _poll_dubbing_job(api_key, dubbing_id)
-
-    # ── Parallel download: audio + transcript ─────────────────────────────
-    logger.info("Dubbing complete, downloading audio + transcript for id='{}'", dubbing_id)
-
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        audio_future = pool.submit(_download_dubbed_audio, api_key, dubbing_id, target_lang)
-        transcript_future = pool.submit(_download_transcript, api_key, dubbing_id, target_lang)
-        raw_bytes = audio_future.result()
-        transcript_json = transcript_future.result()
-
-    # ── Derive subtitles from transcript ──────────────────────────────────
-    subtitles = _transcript_to_subtitles(transcript_json) if transcript_json else {
-        "srt": "", "vtt": "", "txt": "", "json": "[]",
-    }
-
-    # ── MP3 input ─────────────────────────────────────────────────────────
-    if not is_video:
-        audio_b64 = base64.b64encode(raw_bytes).decode()
-        logger.info("Audio dubbing complete: '{}', size={} bytes", stem, len(raw_bytes))
-        return JSONResponse(content={
-            "audio_b64": audio_b64,
-            **subtitles,
-        })
-
-    # ── MP4 input → faststart + optional soft-subtitle embed ─────────────
-    video_bytes = _apply_faststart(raw_bytes)
-
-    if soft_subtitles and subtitles.get("srt"):
-        try:
-            video_bytes = _embed_soft_subtitles(video_bytes, subtitles["srt"])
-            logger.info("Soft subtitles embedded into MP4")
-        except Exception as e:
-            logger.warning("Soft subtitle embedding failed (non-fatal): {}", e)
-
-    video_b64 = base64.b64encode(video_bytes).decode()
-    logger.info("Video dubbing complete: '{}', size={} bytes", stem, len(video_bytes))
-
-    return JSONResponse(content={
-        "video_b64": video_b64,
-        **subtitles,
-    })
+    logger.info("Video dubbing job queued: job_uuid={}, file={} ({} → {})", job_uuid, file.filename, source_lang, target_lang)
+    return JSONResponse(content={"job_uuid": job_uuid})

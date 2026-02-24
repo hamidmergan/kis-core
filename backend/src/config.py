@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     session_secret: str = "change-me-in-production"
     session_max_age_seconds: int = 86400  # 24h
 
+    # Admin: email must match the LDAP account email of the admin user.
+    # Auto-whitelisted on startup so first login works without manual DB edits.
+    admin_email: str = ""
+
     # Demo mode: serve pre-built demo data instead of calling external APIs
     demo_data: bool = False
 

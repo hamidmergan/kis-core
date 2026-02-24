@@ -14,7 +14,7 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 from PIL import Image
@@ -23,7 +23,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml.ns import qn
 from pydantic import BaseModel
 
-from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski_client, get_settings
+from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski_client, get_settings, get_current_user
 from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.kisski_client import KisskiClient
 from src.services.glossary import GlossaryService
@@ -36,15 +36,14 @@ from src.utils.file_validation import (
     MAX_UPLOAD_BYTES,
     SCREENCAST_EXTENSIONS,
 )
+from src import database as db
+from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count
 
 router = APIRouter(tags=["screencast"])
 
-# ── Temporary audio cache (render ID → list of MP3 bytes) ────────────────────
-_audio_cache: dict[str, list[bytes]] = {}
-
-# ── Temporary file storage ───────────────────────────────────────────────────
-PPTX_TMP_DIR = Path("/tmp/screencast")
-IMAGE_TMP_DIR = Path("/tmp/screencast/images")
+# ── Temporary file storage (shared volume — accessible by celery-worker) ─────
+PPTX_TMP_DIR = Path("/app/storage/screencast_tmp")
+IMAGE_TMP_DIR = Path("/app/storage/screencast_tmp/images")
 
 _cleanup_task: asyncio.Task | None = None
 
@@ -576,12 +575,9 @@ async def screencast(
     voice_id: str = Form(""),
     speed: float = Form(0.9),
     glossary_json: str = Form(""),
+    current_user: dict = Depends(get_current_user),
 ):
-    """Create a screencast video from a German PPTX presentation.
-
-    Translates DE→EN, generates TTS per slide, converts slides to images,
-    and combines everything into a single MP4 video.
-    """
+    """Queue a screencast job: translate DE PPTX → EN, generate scripts, TTS, render MP4."""
     _validate_upload(file.filename)
 
     content_length = request.headers.get("content-length")
@@ -592,133 +588,23 @@ async def screencast(
     if not pptx_bytes:
         raise HTTPException(status_code=400, detail="Datei ist leer")
 
-    stem = Path(file.filename).stem  # type: ignore[arg-type]
-    logger.info("Screencast: processing '{}' ({} bytes)", file.filename, len(pptx_bytes))
+    job_uuid = uuid.uuid4().hex
+    user_id = current_user.get("user_id", 0)
+    input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
+    db.create_job(job_uuid, user_id, "screencast_auto", file.filename or "screencast.pptx", input_path)
 
-    # ── Step 1: Translate PPTX DE → EN ────────────────────────────────────
-    logger.info("Step 1: Translating PPTX DE → EN")
-    translated_bytes = translate_pptx_content(pptx_bytes, file.filename, glossary_json)
+    from src.tasks.screencast_tasks import run_screencast_auto
+    run_screencast_auto.apply_async(args=[
+        job_uuid,
+        input_path,
+        file.filename or "screencast.pptx",
+        voice_id,
+        speed,
+        glossary_json,
+    ])
 
-    # ── Step 2: Extract text per slide ────────────────────────────────────
-    logger.info("Step 2: Extracting text per slide")
-    slide_texts = _extract_text_per_slide(translated_bytes)
-    if not slide_texts:
-        raise HTTPException(status_code=400, detail="Keine Slides in der Präsentation gefunden")
-    logger.info("Found {} slides", len(slide_texts))
-
-    # ── Validate slide count ──────────────────────────────────────────────
-    if len(slide_texts) > MAX_SCREENCAST_SLIDES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Zu viele Folien ({len(slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
-        )
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-
-        # Save translated PPTX for image conversion
-        translated_pptx_path = tmp / "translated.pptx"
-        translated_pptx_path.write_bytes(translated_bytes)
-        img_dir = tmp / "images"
-        img_dir.mkdir()
-
-        # PARALLELIZED
-        # ── Steps 3 + 5: Generate scripts & convert slides to images concurrently
-        logger.info("Steps 3+5: Generating scripts and converting slides to images (parallel)")
-        kisski_client = get_kisski_client()
-        glossary_dict: dict | None = None
-        if glossary_json:
-            try:
-                glossary_dict = json.loads(glossary_json)
-            except (json.JSONDecodeError, TypeError):
-                pass
-        try:
-            slide_scripts, slide_images = await asyncio.gather(
-                _generate_all_scripts(slide_texts, kisski_client, glossary=glossary_dict),
-                _convert_slides_to_images_async(translated_pptx_path, img_dir),
-            )
-        except RuntimeError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-        # PARALLELIZED
-        # ── Step 4: TTS per slide ─────────────────────────────────────────
-        logger.info("Step 4: Generating TTS audio per slide (parallel)")
-        tts_client = get_elevenlabs_client()
-        tts_results = await _generate_all_tts(slide_scripts, tts_client, tmp, speed, voice_id)
-        audio_paths = [r[0] for r in tts_results]
-        alignments = [r[1] for r in tts_results]
-
-        # Ensure we have matching counts (use min of both)
-        num_slides = min(len(slide_images), len(audio_paths))
-        if num_slides == 0:
-            raise HTTPException(status_code=500, detail="Keine Slides verarbeitet")
-
-        # ── Step 6: Create video per slide ────────────────────────────────
-        logger.info("Step 6: Creating video clips per slide")
-        clip_paths: list[Path] = []
-        for i in range(num_slides):
-            clip_path = tmp / f"clip_{i:03d}.mp4"
-            try:
-                _create_slide_video(slide_images[i], audio_paths[i], clip_path, pause=0.5)
-            except RuntimeError as e:
-                raise HTTPException(status_code=500, detail=str(e))
-            clip_paths.append(clip_path)
-            logger.info("Clip {}/{} done", i + 1, num_slides)
-
-        # ── Step 7: Concatenate all clips ─────────────────────────────────
-        logger.info("Step 7: Concatenating clips")
-        concat_path = tmp / "concat.mp4"
-        try:
-            _concatenate_videos(clip_paths, concat_path)
-        except RuntimeError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-        # ── Step 7b: Build & embed subtitles ──────────────────────────────
-        per_slide_data = []
-        for i in range(num_slides):
-            dur = _get_audio_duration(audio_paths[i])
-            per_slide_data.append({"alignment": alignments[i], "audio_duration": dur})
-        subtitle_data = build_subtitles(per_slide_data, slide_pause=0.5)
-
-        if subtitle_data["srt"]:
-            srt_path = tmp / "subtitles.srt"
-            srt_path.write_text(subtitle_data["srt"], encoding="utf-8")
-            subtitled_path = tmp / "concat_sub.mp4"
-            if _embed_subtitles(concat_path, srt_path, subtitled_path):
-                concat_path = subtitled_path
-            else:
-                logger.warning("Auto-mode: subtitle embedding failed, video has no subtitles")
-        else:
-            logger.warning("Auto-mode: no SRT data generated (empty alignment?)")
-
-        # ── Step 8: Apply faststart ───────────────────────────────────────
-        logger.info("Step 8: Applying faststart")
-        final_path = tmp / "final.mp4"
-        output_bytes = _apply_faststart(concat_path, final_path)
-
-    # ── Validate output video size ────────────────────────────────────────
-    if len(output_bytes) > MAX_OUTPUT_VIDEO_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Das generierte Video ist zu groß ({len(output_bytes) // (1024*1024)} MB). Maximum: 500 MB. Bitte verwenden Sie eine Präsentation mit weniger Folien.",
-        )
-
-    output_name = f"{stem}_screencast_EN.mp4"
-    encoded_name = quote(output_name, safe="")
-    logger.info("Screencast complete: '{}', size={} bytes", output_name, len(output_bytes))
-
-    return StreamingResponse(
-        iter([output_bytes]),
-        media_type="video/mp4",
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="{encoded_name}"; '
-                f"filename*=UTF-8''{encoded_name}"
-            ),
-            "Content-Length": str(len(output_bytes)),
-            "Accept-Ranges": "bytes",
-        },
-    )
+    logger.info("Screencast auto job queued: job_uuid={}, file={}", job_uuid, file.filename)
+    return {"job_uuid": job_uuid}
 
 
 # ── Step-by-step endpoints ───────────────────────────────────────────────────
@@ -729,8 +615,9 @@ async def screencast_translate(
     file: UploadFile = File(...),
     glossary_json: str = Form(""),
     fast_mode: bool = Form(False),
+    current_user: dict = Depends(get_current_user),
 ):
-    """Translate PPTX DE→EN, save to temp file, and extract slide texts."""
+    """Queue a translate job: translate PPTX DE→EN, extract slide texts (+ images)."""
     _validate_upload(file.filename)
     _maybe_start_cleanup_task()
 
@@ -742,62 +629,22 @@ async def screencast_translate(
     if not pptx_bytes:
         raise HTTPException(status_code=400, detail="Datei ist leer")
 
-    logger.info("Screencast/translate: processing '{}' ({} bytes)", file.filename, len(pptx_bytes))
+    job_uuid = uuid.uuid4().hex
+    user_id = current_user.get("user_id", 0)
+    input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
+    db.create_job(job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", input_path)
 
-    # ── Step 1: Translate PPTX DE → EN ────────────────────────────────────
-    logger.info("Step 1: Translating PPTX DE → EN")
-    translated_bytes = translate_pptx_content(pptx_bytes, file.filename, glossary_json)
+    from src.tasks.screencast_tasks import run_screencast_translate
+    run_screencast_translate.apply_async(args=[
+        job_uuid,
+        input_path,
+        file.filename or "screencast.pptx",
+        glossary_json,
+        fast_mode,
+    ])
 
-    # ── Step 2: Extract text per slide ────────────────────────────────────
-    logger.info("Step 2: Extracting text per slide")
-    slide_texts = _extract_text_per_slide(translated_bytes)
-    if not slide_texts:
-        raise HTTPException(status_code=400, detail="Keine Slides in der Präsentation gefunden")
-    logger.info("Found {} slides", len(slide_texts))
-
-    # ── Validate slide count ──────────────────────────────────────────────
-    if len(slide_texts) > MAX_SCREENCAST_SLIDES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Zu viele Folien ({len(slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
-        )
-
-    # ── Save translated PPTX to temp file ────────────────────────────────
-    file_id = _save_pptx_tmp(translated_bytes)
-    logger.info("Saved translated PPTX as file_id={}, fast_mode={}", file_id, fast_mode)
-
-    if fast_mode:
-        return {
-            "slide_count": len(slide_texts),
-            "slide_texts": slide_texts,
-            "slide_images": [],
-            "file_id": file_id,
-        }
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-        translated_pptx_path = tmp / "translated.pptx"
-        translated_pptx_path.write_bytes(translated_bytes)
-        img_dir = tmp / "images"
-        img_dir.mkdir()
-
-        try:
-            slide_image_paths = await _convert_slides_to_images_async(
-                translated_pptx_path, img_dir
-            )
-        except RuntimeError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-        slide_images_b64: list[str] = []
-        for img_path in slide_image_paths:
-            slide_images_b64.append(base64.b64encode(img_path.read_bytes()).decode())
-
-    return {
-        "slide_count": len(slide_texts),
-        "slide_texts": slide_texts,
-        "slide_images": slide_images_b64,
-        "file_id": file_id,
-    }
+    logger.info("Screencast translate job queued: job_uuid={}, file={}, fast_mode={}", job_uuid, file.filename, fast_mode)
+    return {"job_uuid": job_uuid}
 
 
 @router.post("/screencast/extract-texts")
@@ -974,8 +821,11 @@ async def prerender_images(body: PrerenderRequest, background_tasks: BackgroundT
 
 
 @router.post("/screencast/render")
-async def screencast_render(body: RenderRequest):
-    """Render final MP4 from edited scripts and translated PPTX."""
+async def screencast_render(
+    body: RenderRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Queue a render job: final MP4 from edited scripts and stored PPTX."""
     if not body.scripts:
         raise HTTPException(status_code=400, detail="Keine Skripte übergeben")
 
@@ -985,147 +835,41 @@ async def screencast_render(body: RenderRequest):
             detail=f"Zu viele Folien ({len(body.scripts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
         )
 
-    logger.info("Screencast/render: {} slides, speed={}", len(body.scripts), body.speed)
-    t_total = time.perf_counter()
+    job_uuid = uuid.uuid4().hex
+    user_id = current_user.get("user_id", 0)
+    db.create_job(job_uuid, user_id, "screencast_render", "screencast.pptx")
 
-    t0 = time.perf_counter()
-    prerendered_dir = IMAGE_TMP_DIR / body.file_id
-    prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir.exists() else []
-    logger.info("Pre-render cache check: {:.3f}s ({} images found)", time.perf_counter() - t0, len(prerendered_images))
+    from src.tasks.screencast_tasks import run_screencast_render
+    run_screencast_render.apply_async(args=[
+        job_uuid,
+        body.file_id,
+        body.scripts,
+        body.voice_id,
+        body.speed,
+        body.slide_pause,
+        body.embed_subtitles,
+        "screencast.pptx",
+    ])
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-
-        # Use pre-rendered images if available, otherwise generate from PPTX at 300 DPI.
-        t0 = time.perf_counter()
-        if prerendered_images:
-            logger.info("Using {} pre-rendered images for file_id={}", len(prerendered_images), body.file_id)
-            slide_images = prerendered_images
-        else:
-            logger.info("No pre-rendered images, generating from PPTX (file_id={}, dpi=300)", body.file_id)
-            pptx_src = PPTX_TMP_DIR / f"{body.file_id}.pptx"
-            if not pptx_src.exists():
-                raise HTTPException(
-                    status_code=404,
-                    detail="PPTX nicht gefunden (abgelaufen oder ungültige ID). Bitte neu hochladen.",
-                )
-            pptx_path = tmp / "translated.pptx"
-            pptx_path.write_bytes(pptx_src.read_bytes())
-            img_dir = tmp / "images"
-            img_dir.mkdir()
-            slide_images = await asyncio.to_thread(_pptx_to_images, pptx_path, img_dir, 300)
-        logger.info("Bildgenerierung (Cache oder PPTX): {:.2f}s", time.perf_counter() - t0)
-
-        # Generate TTS audio
-        t0 = time.perf_counter()
-        tts_client = get_elevenlabs_client()
-        tts_results = await _generate_all_tts(body.scripts, tts_client, tmp, body.speed, body.voice_id)
-        audio_paths = [r[0] for r in tts_results]
-        alignments = [r[1] for r in tts_results]
-        logger.info("TTS Generierung gesamt: {:.2f}s", time.perf_counter() - t0)
-
-        # Ensure we have matching counts (use min of both)
-        num_slides = min(len(slide_images), len(audio_paths))
-        if num_slides == 0:
-            raise HTTPException(status_code=500, detail="Keine Slides verarbeitet")
-
-        # ── Create video per slide ────────────────────────────────────────
-        t0 = time.perf_counter()
-        clip_paths: list[Path] = []
-        for i in range(num_slides):
-            clip_path = tmp / f"clip_{i:03d}.mp4"
-            try:
-                _create_slide_video(slide_images[i], audio_paths[i], clip_path, pause=body.slide_pause, crf=23)
-            except RuntimeError as e:
-                raise HTTPException(status_code=500, detail=str(e))
-            clip_paths.append(clip_path)
-        logger.info("Video-Clips erstellen gesamt: {:.2f}s", time.perf_counter() - t0)
-
-        # ── Concatenate all clips ─────────────────────────────────────────
-        t0 = time.perf_counter()
-        concat_path = tmp / "concat.mp4"
-        try:
-            _concatenate_videos(clip_paths, concat_path)
-        except RuntimeError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-        logger.info("Concatenation: {:.2f}s", time.perf_counter() - t0)
-
-        # ── Build subtitles ───────────────────────────────────────────────
-        per_slide_data = []
-        for i in range(num_slides):
-            dur = _get_audio_duration(audio_paths[i])
-            per_slide_data.append({"alignment": alignments[i], "audio_duration": dur})
-        subtitle_data = build_subtitles(per_slide_data, slide_pause=body.slide_pause)
-
-        # ── Optionally embed subtitles into MP4 ──────────────────────────
-        t0 = time.perf_counter()
-        if body.embed_subtitles and subtitle_data["srt"]:
-            srt_path = tmp / "subtitles.srt"
-            srt_path.write_text(subtitle_data["srt"], encoding="utf-8")
-            logger.info("SRT content length: {} chars", len(subtitle_data["srt"]))
-            subtitled_path = tmp / "concat_sub.mp4"
-            if _embed_subtitles(concat_path, srt_path, subtitled_path):
-                concat_path = subtitled_path
-            else:
-                logger.warning("Render: subtitle embedding failed, video has no subtitles")
-        elif body.embed_subtitles:
-            logger.warning("Render: embed_subtitles=True but no SRT data (empty alignment?)")
-        logger.info("Subtitle Embedding: {:.2f}s", time.perf_counter() - t0)
-
-        # ── Cache per-slide MP3 audio bytes ──────────────────────────────
-        audio_id = uuid.uuid4().hex
-        _audio_cache[audio_id] = [ap.read_bytes() if ap is not None else b"" for ap in audio_paths[:num_slides]]
-        logger.info("Cached {} audio files under id={}", num_slides, audio_id)
-
-        # ── Apply faststart ───────────────────────────────────────────────
-        t0 = time.perf_counter()
-        final_path = tmp / "final.mp4"
-        output_bytes = _apply_faststart(concat_path, final_path)
-        logger.info("Faststart: {:.2f}s", time.perf_counter() - t0)
-
-    # ── Clean up pre-rendered images after successful render ──────────────
-    if prerendered_dir.exists():
-        shutil.rmtree(prerendered_dir, ignore_errors=True)
-        logger.info("Cleaned up pre-rendered images for file_id={}", body.file_id)
-
-    # ── Validate output video size ────────────────────────────────────────
-    if len(output_bytes) > MAX_OUTPUT_VIDEO_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Das generierte Video ist zu groß ({len(output_bytes) // (1024*1024)} MB). Maximum: 500 MB. Bitte verwenden Sie eine Präsentation mit weniger Folien.",
-        )
-
-    logger.info("Screencast/render complete, size={} bytes", len(output_bytes))
-    logger.info("Screencast/render final streams: {}", _probe_streams(final_path if final_path.exists() else concat_path))
-    logger.info("Screencast/render Gesamt: {:.2f}s", time.perf_counter() - t_total)
-
-    subtitle_json = json.dumps(subtitle_data)
-    subtitle_b64 = base64.b64encode(subtitle_json.encode("utf-8")).decode("ascii")
-
-    return StreamingResponse(
-        iter([output_bytes]),
-        media_type="video/mp4",
-        headers={
-            "Content-Length": str(len(output_bytes)),
-            "X-Subtitles": subtitle_b64,
-            "X-Audio-Id": audio_id,
-            "X-Audio-Count": str(num_slides),
-        },
-    )
+    logger.info("Screencast render job queued: job_uuid={}, file_id={}", job_uuid, body.file_id)
+    return {"job_uuid": job_uuid}
 
 
 # ── Audio download endpoint ──────────────────────────────────────────────────
 
 @router.get("/screencast/audio/{audio_id}/{slide_index}")
 async def download_slide_audio(audio_id: str, slide_index: int):
-    """Download a single per-slide MP3 from the render audio cache."""
-    files = _audio_cache.get(audio_id)
-    if not files:
+    """Download a single per-slide MP3 from the render audio cache (file-based)."""
+    count = get_audio_slide_count(audio_id)
+    if count == 0:
         raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
-    if slide_index < 0 or slide_index >= len(files):
+    if slide_index < 0 or slide_index >= count:
         raise HTTPException(status_code=404, detail=f"Folie {slide_index + 1} nicht gefunden")
 
-    audio_bytes = files[slide_index]
+    audio_bytes = get_audio_slide(audio_id, slide_index)
+    if audio_bytes is None:
+        raise HTTPException(status_code=404, detail=f"Folie {slide_index + 1} nicht gefunden")
+
     filename = f"slide_{slide_index + 1:02d}.mp3"
     return StreamingResponse(
         iter([audio_bytes]),
@@ -1294,6 +1038,47 @@ def _generate_placeholder_slides(slide_texts: list[str]) -> list[str]:
             if out.exists():
                 result.append(base64.b64encode(out.read_bytes()).decode())
     return result
+
+
+def _get_demo_slide_images_sync(num_slides: int = 6) -> list[str]:
+    """Synchronous version of _get_demo_slide_images for use in Celery tasks."""
+    global _demo_images_cache
+
+    images = _load_demo_slide_images()
+    if images:
+        return images
+
+    if _demo_images_cache:
+        return _demo_images_cache
+
+    slides_dir = DEMO_DIR / "slides"
+    pptx_files = sorted(slides_dir.glob("*.pptx")) if slides_dir.exists() else []
+    if pptx_files:
+        pptx_path = pptx_files[0]
+        logger.info("Extracting images from PPTX (sync): {}", pptx_path.name)
+        pptx_bytes = pptx_path.read_bytes()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            tmp_pptx = tmp / "demo.pptx"
+            tmp_pptx.write_bytes(pptx_bytes)
+            img_dir = tmp / "images"
+            img_dir.mkdir()
+            try:
+                image_paths = _pptx_to_images(tmp_pptx, img_dir)
+                _demo_images_cache = [
+                    base64.b64encode(p.read_bytes()).decode() for p in image_paths
+                ]
+                logger.info("Extracted and cached {} images from PPTX (sync)", len(_demo_images_cache))
+                return _demo_images_cache
+            except RuntimeError as e:
+                logger.warning("PPTX image extraction failed (sync): {}", e)
+
+    pptx_path = _find_demo_pptx()
+    if pptx_path:
+        slide_texts_local = _extract_text_per_slide(pptx_path.read_bytes())[:num_slides]
+    else:
+        slide_texts_local = [f"Slide {i+1}" for i in range(num_slides)]
+    return _generate_placeholder_slides(slide_texts_local)
 
 
 def _load_demo_subtitles() -> dict:
@@ -1505,147 +1290,41 @@ def _load_demo_audio_files(num_slides: int) -> list[Path]:
 
 
 @router.post("/screencast/demo/render")
-async def demo_render(body: DemoRenderRequest):
-    """Run the real FFmpeg pipeline with demo data (images + MP3 + SRT).
+async def demo_render(
+    body: DemoRenderRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Queue a demo render job (Mode A: MP3 files exist) or serve pre-existing MP4 (Mode B).
 
-    If per-slide MP3 files exist (slide_001.mp3, ...), the full pipeline runs:
-      images + audio → clips → concat → embed subtitles → faststart
-    This allows testing the subtitle embedding without burning API tokens.
-    Falls back to serving a pre-existing MP4 if no MP3 files are found.
+    Mode A: per-slide MP3 files exist → full FFmpeg pipeline runs in Celery worker
+    Mode B: no MP3 files → serve pre-existing MP4 immediately (no queue)
     """
     settings = get_settings()
     if not settings.demo_data:
         raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
 
-    subtitle_data = _load_demo_subtitles()
     pptx_path = _find_demo_pptx()
     if pptx_path:
         slide_texts = _extract_text_per_slide(pptx_path.read_bytes())
     else:
         slide_texts = _load_demo_scripts()
-    num_slides = len(slide_texts) or 6
-    demo_audio = _load_demo_audio_files(num_slides)
+    num_slides_hint = len(slide_texts) or 6
+    demo_audio = _load_demo_audio_files(num_slides_hint)
 
-    # ── Mode A: Per-slide MP3 files exist → run the full FFmpeg pipeline ──
+    # ── Mode A: MP3 files exist → queue Celery task ───────────────────────
     if demo_audio:
-        t_total = time.perf_counter()
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        db.create_job(job_uuid, user_id, "screencast_demo_render", "demo_screencast.pptx")
 
-        t0 = time.perf_counter()
-        prerendered_dir = IMAGE_TMP_DIR / body.file_id if body.file_id else None
-        prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir and prerendered_dir.exists() else []
-        logger.info("Demo/render: pre-render cache check: {:.3f}s ({} images)", time.perf_counter() - t0, len(prerendered_images))
+        from src.tasks.screencast_tasks import run_screencast_demo_render
+        run_screencast_demo_render.apply_async(args=[job_uuid, body.file_id])
 
-        t0 = time.perf_counter()
-        if prerendered_images:
-            logger.info("Demo/render: using {} pre-rendered images", len(prerendered_images))
-            slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in prerendered_images]
-        else:
-            slide_images_b64 = await _get_demo_slide_images(num_slides)
-        logger.info("Demo/render: Bildgenerierung: {:.2f}s ({} images)", time.perf_counter() - t0, len(slide_images_b64))
-        logger.info("Demo/render: got {} slide images", len(slide_images_b64))
+        logger.info("Demo render job queued: job_uuid={}", job_uuid)
+        return {"job_uuid": job_uuid}
 
-        num_slides = min(len(slide_images_b64), len(demo_audio))
-        if num_slides == 0:
-            raise HTTPException(status_code=404, detail="Keine Demo-Slides oder Audio")
-
-        slide_pause = 0.5
-        logger.info("Demo/render: PIPELINE mode – {} slides, {} MP3s", len(slide_images_b64), len(demo_audio))
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp = Path(tmpdir)
-
-            # Write slide images to temp
-            slide_image_paths: list[Path] = []
-            for i, img_b64 in enumerate(slide_images_b64[:num_slides]):
-                img_path = tmp / f"slide_{i:03d}.png"
-                img_path.write_bytes(base64.b64decode(img_b64))
-                slide_image_paths.append(img_path)
-
-            # Copy demo MP3s to temp (so paths are clean)
-            audio_paths: list[Path] = []
-            for i, src in enumerate(demo_audio[:num_slides]):
-                dst = tmp / f"audio_{i:03d}.mp3"
-                dst.write_bytes(src.read_bytes())
-                audio_paths.append(dst)
-
-            # Create video clip per slide (image + audio)
-            t0 = time.perf_counter()
-            clip_paths: list[Path] = []
-            for i in range(num_slides):
-                clip_path = tmp / f"clip_{i:03d}.mp4"
-                try:
-                    _create_slide_video(
-                        slide_image_paths[i], audio_paths[i], clip_path, pause=slide_pause
-                    )
-                except RuntimeError as e:
-                    raise HTTPException(status_code=500, detail=str(e))
-                clip_paths.append(clip_path)
-            logger.info("Demo/render: Video-Clips erstellen gesamt: {:.2f}s", time.perf_counter() - t0)
-
-            # Concatenate
-            t0 = time.perf_counter()
-            concat_path = tmp / "concat.mp4"
-            _concatenate_videos(clip_paths, concat_path)
-            logger.info("Demo/render: Concatenation: {:.2f}s", time.perf_counter() - t0)
-
-            # Build subtitles from audio durations (like the real pipeline)
-            per_slide_data = []
-            for i in range(num_slides):
-                dur = _get_audio_duration(audio_paths[i])
-                per_slide_data.append({"alignment": None, "audio_duration": dur})
-            built_subs = build_subtitles(per_slide_data, slide_pause=slide_pause)
-
-            # Prefer file-based subtitles (from demo/slides/) over built ones
-            srt_content = subtitle_data.get("srt", "") or built_subs.get("srt", "")
-            final_subtitle_data = {
-                "srt": subtitle_data.get("srt", "") or built_subs.get("srt", ""),
-                "vtt": subtitle_data.get("vtt", "") or built_subs.get("vtt", ""),
-                "txt": subtitle_data.get("txt", "") or built_subs.get("txt", ""),
-                "alignment_json": built_subs.get("alignment_json", "[]"),
-            }
-
-            # Embed subtitles
-            t0 = time.perf_counter()
-            if srt_content:
-                srt_path = tmp / "subtitles.srt"
-                srt_path.write_text(srt_content, encoding="utf-8")
-                logger.info("Demo SRT content length: {} chars", len(srt_content))
-                subtitled_path = tmp / "concat_sub.mp4"
-                if _embed_subtitles(concat_path, srt_path, subtitled_path):
-                    concat_path = subtitled_path
-                else:
-                    logger.warning("Demo: subtitle embedding FAILED")
-            else:
-                logger.warning("Demo: no SRT data, skipping subtitle embedding")
-            logger.info("Demo/render: Subtitle Embedding: {:.2f}s", time.perf_counter() - t0)
-
-            # Cache per-slide MP3 audio bytes
-            audio_id = uuid.uuid4().hex
-            _audio_cache[audio_id] = [ap.read_bytes() for ap in audio_paths[:num_slides]]
-            logger.info("Demo: cached {} audio files under id={}", num_slides, audio_id)
-
-            # Faststart
-            t0 = time.perf_counter()
-            final_path = tmp / "final.mp4"
-            output_bytes = _apply_faststart(concat_path, final_path)
-            logger.info("Demo/render: Faststart: {:.2f}s", time.perf_counter() - t0)
-
-        logger.info("Demo/render PIPELINE complete, size={} bytes", len(output_bytes))
-        logger.info("Demo/render Gesamt: {:.2f}s", time.perf_counter() - t_total)
-        subtitle_json = json.dumps(final_subtitle_data)
-        subtitle_b64 = base64.b64encode(subtitle_json.encode("utf-8")).decode("ascii")
-        return StreamingResponse(
-            iter([output_bytes]),
-            media_type="video/mp4",
-            headers={
-                "Content-Length": str(len(output_bytes)),
-                "X-Subtitles": subtitle_b64,
-                "X-Audio-Id": audio_id,
-                "X-Audio-Count": str(num_slides),
-            },
-        )
-
-    # ── Mode B: No MP3 files → serve pre-existing MP4 as-is ──
+    # ── Mode B: No MP3 files → serve pre-existing MP4 as-is ─────────────
+    subtitle_data = _load_demo_subtitles()
     video_path = DEMO_DIR / "video.mp4"
     if not video_path.exists():
         for search_dir in [DEMO_DIR, DEMO_DIR / "slides"]:

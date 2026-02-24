@@ -8,7 +8,7 @@ from loguru import logger
 from src.database import init_db
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
-from src.routes import auth, health, image, screencast, script, summary, transcription, translate, tts, video_dubbing
+from src.routes import auth, health, image, jobs, screencast, script, summary, transcription, translate, tts, video_dubbing
 
 
 def _configure_logging() -> None:
@@ -29,8 +29,11 @@ def _configure_logging() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    settings = get_settings()
+    init_db(admin_email=settings.admin_email or None)
     logger.info("Database initialised")
+    if settings.admin_email:
+        logger.info("Admin email auto-whitelisted: {}", settings.admin_email)
     yield
 
 
@@ -69,6 +72,7 @@ def create_app() -> FastAPI:
     application.include_router(video_dubbing.router)
     application.include_router(screencast.router)
     application.include_router(summary.router)
+    application.include_router(jobs.router)
 
     return application
 

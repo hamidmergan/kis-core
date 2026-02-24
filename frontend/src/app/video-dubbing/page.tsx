@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { backendApi } from "@/lib/api";
+import { pollJob, downloadJobAsBlob } from "@/lib/api";
 import type { VideoDubbingState } from "@/types";
 
 const ACCEPTED_EXTENSIONS = [".mp4", ".mp3"];
@@ -28,6 +28,7 @@ export default function VideoDubbingPage() {
   const [dropBackground, setDropBackground] = useState(false);
   const [softSubtitles, setSoftSubtitles] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [progressLabel, setProgressLabel] = useState("");
 
   // Result state
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
@@ -80,11 +81,11 @@ export default function VideoDubbingPage() {
     setOutputName("");
     setSubtitles(null);
     setErrorMessage("");
+    setProgressLabel("Wird hochgeladen…");
     setState("uploading");
 
     try {
-      setState("processing");
-
+      // Upload file → get job_uuid
       const formData = new FormData();
       formData.append("file", file);
       formData.append("source_lang", "de");
@@ -93,35 +94,57 @@ export default function VideoDubbingPage() {
       formData.append("num_speakers", "0");
       formData.append("soft_subtitles", String(softSubtitles && isVideo(file)));
 
-      const response = await backendApi.fetch("/video-dubbing", {
+      const uploadRes = await fetch("/api/video-dubbing", {
         method: "POST",
         body: formData,
+        credentials: "include",
         signal,
       });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
+        throw new Error(err.detail ?? `Fehler ${uploadRes.status}`);
+      }
+      const { job_uuid } = await uploadRes.json();
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(err.detail ?? `Fehler ${response.status}`);
+      setState("processing");
+      setProgressLabel("In der Warteschlange…");
+
+      // Poll until done
+      const jobResult = await pollJob(
+        job_uuid,
+        (status) => {
+          const step = (status.progress as { step?: string; dubbing_id?: string } | null)?.step;
+          if (step === "submit") setProgressLabel("Wird bei ElevenLabs eingereicht…");
+          else if (step === "dubbing") setProgressLabel("Dubbing läuft (kann 5–20 Min. dauern)…");
+          else if (step === "download") setProgressLabel("Ergebnis wird heruntergeladen…");
+          else setProgressLabel("In der Warteschlange…");
+        },
+        5000,
+        signal,
+      );
+
+      // Get subtitle meta
+      const meta = jobResult.meta as SubtitleResult | null;
+      if (meta) {
+        setSubtitles({ srt: meta.srt || "", vtt: meta.vtt || "", txt: meta.txt || "", json: meta.json || "" });
       }
 
-      const data: DubbingResponse = await response.json();
+      // Download media result
+      setProgressLabel("Datei wird heruntergeladen…");
+      const fileIsVideo = isVideo(file);
+      const { blob, filename } = await downloadJobAsBlob(
+        jobResult.job_uuid,
+        fileIsVideo ? `${stem}_dubbed_en.mp4` : `${stem}_dubbed_en.mp3`,
+      );
 
-      // Decode base64 media
-      if (data.video_b64) {
-        const raw = atob(data.video_b64);
-        const bytes = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-        setVideoBlob(new Blob([bytes], { type: "video/mp4" }));
-        setOutputName(`${stem}_dubbed_en.mp4`);
-      } else if (data.audio_b64) {
-        const raw = atob(data.audio_b64);
-        const bytes = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-        setAudioBlob(new Blob([bytes], { type: "audio/mpeg" }));
-        setOutputName(`${stem}_dubbed_en.mp3`);
+      if (fileIsVideo) {
+        setVideoBlob(blob);
+        setOutputName(filename || `${stem}_dubbed_en.mp4`);
+      } else {
+        setAudioBlob(blob);
+        setOutputName(filename || `${stem}_dubbed_en.mp3`);
       }
 
-      setSubtitles({ srt: data.srt, vtt: data.vtt, txt: data.txt, json: data.json });
       setState("done");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
@@ -154,6 +177,7 @@ export default function VideoDubbingPage() {
     setOutputName("");
     setSubtitles(null);
     setErrorMessage("");
+    setProgressLabel("");
     setFileError(null);
     setSoftSubtitles(false);
     if (fileRef.current) fileRef.current.value = "";
@@ -304,11 +328,9 @@ export default function VideoDubbingPage() {
                 <div className="flex items-center gap-3">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0066cc] flex-shrink-0" />
                   <div>
-                    <p className="text-sm text-gray-700">
-                      {state === "uploading" ? "Datei wird hochgeladen..." : "Dubbing läuft..."}
-                    </p>
+                    <p className="text-sm text-gray-700">{progressLabel || "Dubbing läuft..."}</p>
                     {state === "processing" && (
-                      <p className="text-xs text-gray-400 mt-1">Das kann einige Minuten dauern.</p>
+                      <p className="text-xs text-gray-400 mt-1">Das kann 5–20 Minuten dauern.</p>
                     )}
                   </div>
                 </div>

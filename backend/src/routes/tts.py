@@ -1,11 +1,14 @@
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from src.dependencies import get_elevenlabs_client, get_settings
+from src.dependencies import get_elevenlabs_client, get_settings, get_current_user
+from src import database as db
+from src.storage import save_queue_file
 from src.services.elevenlabs_client import DEFAULT_VOICE_ID
 from src.utils.file_validation import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES
 from src.utils.text_extraction import EXTRACTORS
@@ -39,8 +42,13 @@ async def text_to_speech(
     style: float = Form(0.20),
     use_speaker_boost: bool = Form(True),
     pause_preset: str = Form("medium"),
+    current_user: dict = Depends(get_current_user),
 ):
-    # Validate filename
+    """Queue a TTS job: synthesize uploaded document to MP3 via ElevenLabs.
+
+    Returns ``{ job_uuid }`` immediately. Poll ``GET /jobs/{job_uuid}`` for status.
+    On success the result contains ``download_url`` for the MP3.
+    """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Dateiname fehlt")
 
@@ -50,14 +58,10 @@ async def text_to_speech(
             status_code=400, detail="Nur .docx, .pptx, .md oder .tex erlaubt"
         )
 
-    # Validate pause preset
     valid_presets = {"short", "medium", "long", "very_long"}
     if pause_preset not in valid_presets:
-        raise HTTPException(
-            status_code=400, detail="Ungültiges Pausen-Preset"
-        )
+        raise HTTPException(status_code=400, detail="Ungültiges Pausen-Preset")
 
-    # Validate file size
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
@@ -68,57 +72,32 @@ async def text_to_speech(
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
 
-    # Extract text
+    # Validate file type and that text can be extracted (fast check before queuing)
     extractor = EXTRACTORS.get(ext)
     if extractor is None:
         raise HTTPException(status_code=400, detail="Dateityp wird nicht unterstützt")
 
-    try:
-        text = extractor(content)
-    except Exception as e:
-        logger.exception("Text extraction error for file '{}'", file.filename)
-        raise HTTPException(
-            status_code=500, detail=f"Fehler beim Lesen der Datei: {str(e)}"
-        )
+    # Validate ElevenLabs client is configured
+    get_elevenlabs_client()
 
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="Kein Text in der Datei gefunden")
+    job_uuid = uuid.uuid4().hex
+    user_id = current_user.get("user_id", 0)
+    input_path = save_queue_file(job_uuid, ext, content)
+    db.create_job(job_uuid, user_id, "tts", file.filename, input_path)
 
-    # Synthesize audio
-    client = get_elevenlabs_client()
-    try:
-        mp3_bytes = client.synthesize(
-            text,
-            "EN",
-            voice_id=voice_id,
-            speed=speed,
-            stability=stability,
-            similarity_boost=similarity_boost,
-            style=style,
-            use_speaker_boost=use_speaker_boost,
-            pause_preset=pause_preset,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=str(e))
-    except Exception as e:
-        logger.exception("TTS synthesis error for file '{}'", file.filename)
-        raise HTTPException(
-            status_code=500, detail=f"Fehler bei der Audiogenerierung: {str(e)}"
-        )
+    from src.tasks.tts_tasks import run_tts
+    run_tts.apply_async(args=[
+        job_uuid,
+        input_path,
+        file.filename,
+        voice_id,
+        speed,
+        stability,
+        similarity_boost,
+        style,
+        use_speaker_boost,
+        pause_preset,
+    ])
 
-    logger.info("TTS synthesis completed for file '{}'", file.filename)
-
-    # Build output filename
-    stem = Path(file.filename).stem
-    output_name = f"{stem}_EN.mp3"
-    encoded_name = quote(output_name, safe="")
-
-    return StreamingResponse(
-        iter([mp3_bytes]),
-        media_type="audio/mpeg",
-        headers={
-            "Content-Disposition": f"attachment; filename=\"{encoded_name}\"; filename*=UTF-8''{encoded_name}"
-        },
-    )
+    logger.info("TTS job queued: job_uuid={}, file={}", job_uuid, file.filename)
+    return {"job_uuid": job_uuid}

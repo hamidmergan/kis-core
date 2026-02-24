@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from src.config import Settings
 from src.services.elevenlabs_client import ElevenLabsClient
@@ -10,6 +10,21 @@ from src.services.kisski_client import KisskiClient
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+async def get_current_user(request: Request) -> dict:
+    """Return session data for the authenticated user.
+
+    verify_auth already confirmed the session is valid, so this just
+    reads the data. Falls back to defaults if something unexpected happens.
+    """
+    token = request.cookies.get("session")
+    if token:
+        store = get_session_store()
+        data = store.get_data(token)
+        if data:
+            return data
+    return {"user_id": 0, "username": "unknown", "display_name": "Unknown"}
 
 
 @lru_cache

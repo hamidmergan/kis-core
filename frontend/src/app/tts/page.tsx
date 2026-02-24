@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TtsFileUpload from "@/components/TtsFileUpload";
 import TtsStatus from "@/components/TtsStatus";
-import { api } from "@/lib/api";
+import { api, pollJob, downloadJobAsBlob } from "@/lib/api";
 import type { TTSState } from "@/types";
 
 interface Voice {
@@ -27,6 +27,7 @@ export default function TtsPage() {
   const [ttsDownloadBlob, setTtsDownloadBlob] = useState<Blob | null>(null);
   const [ttsDownloadName, setTtsDownloadName] = useState<string>("");
   const [ttsErrorMessage, setTtsErrorMessage] = useState<string>("");
+  const [ttsProgressLabel, setTtsProgressLabel] = useState<string>("");
 
   // Voice selection
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -66,18 +67,48 @@ export default function TtsPage() {
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
     setTtsState("uploading");
+    setTtsProgressLabel("Wird hochgeladen…");
     try {
-      setTtsState("processing");
-      const { blob, filename } = await api.uploadFileWithFields(
-        "/api/tts",
-        pendingFile,
-        {
-          voice_id: voiceId,
-          speed: String(speed),
-          pause_preset: pausePreset,
-        },
-        "file",
+      // Upload file → get job_uuid
+      const formData = new FormData();
+      formData.append("file", pendingFile);
+      formData.append("voice_id", voiceId);
+      formData.append("speed", String(speed));
+      formData.append("pause_preset", pausePreset);
+
+      const uploadRes = await fetch("/api/tts", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
         signal,
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
+        throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
+      }
+      const { job_uuid } = await uploadRes.json();
+
+      setTtsState("processing");
+      setTtsProgressLabel("In der Warteschlange…");
+
+      // Poll until done
+      const jobResult = await pollJob(
+        job_uuid,
+        (status) => {
+          const step = (status.progress as { step?: string } | null)?.step;
+          if (step === "extract") setTtsProgressLabel("Text wird extrahiert…");
+          else if (step === "synthesize") setTtsProgressLabel("Audio wird generiert…");
+          else setTtsProgressLabel("In der Warteschlange…");
+        },
+        3000,
+        signal,
+      );
+
+      // Download result
+      setTtsProgressLabel("Wird heruntergeladen…");
+      const { blob, filename } = await downloadJobAsBlob(
+        jobResult.job_uuid,
+        `${pendingFile.name.replace(/\.[^.]+$/, "")}_EN.mp3`,
       );
       setTtsDownloadBlob(blob);
       setTtsDownloadName(filename);
@@ -108,6 +139,7 @@ export default function TtsPage() {
     setTtsDownloadBlob(null);
     setTtsDownloadName("");
     setTtsErrorMessage("");
+    setTtsProgressLabel("");
   };
 
   return (
@@ -204,7 +236,7 @@ export default function TtsPage() {
               {isProcessing && (
                 <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
               )}
-              {isProcessing ? "MP3 wird erstellt…" : "MP3 erstellen"}
+              {isProcessing ? (ttsProgressLabel || "MP3 wird erstellt…") : "MP3 erstellen"}
             </button>
             {isProcessing && (
               <button

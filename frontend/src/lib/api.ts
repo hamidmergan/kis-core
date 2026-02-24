@@ -234,3 +234,78 @@ class ApiClient {
 
 export const api = new ApiClient(API_BASE);
 export const backendApi = new ApiClient(BACKEND_BASE);
+
+// ── Job polling helpers ────────────────────────────────────────────────────
+
+export interface JobStatus {
+  job_uuid: string;
+  status: "pending" | "running" | "success" | "failed";
+  tool: string;
+  original_filename: string;
+  progress: Record<string, unknown> | null;
+  error: string | null;
+  download_url: string | null;
+  result: Record<string, unknown> | null;
+  meta: Record<string, unknown> | null;
+}
+
+/**
+ * Poll a job until it reaches a terminal state (success or failed).
+ * Calls onProgress on every status update.
+ * Throws on failure or if signal is aborted.
+ */
+export async function pollJob(
+  jobUuid: string,
+  onProgress?: (status: JobStatus) => void,
+  intervalMs = 3000,
+  signal?: AbortSignal,
+): Promise<JobStatus> {
+  while (true) {
+    if (signal?.aborted) throw new Error("Abgebrochen");
+
+    const res = await fetch(`/api/jobs/${jobUuid}`, { credentials: "include", signal });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Fehler beim Abrufen des Job-Status" }));
+      throw new Error(err.detail || `Fehler: ${res.status}`);
+    }
+
+    const status: JobStatus = await res.json();
+    onProgress?.(status);
+
+    if (status.status === "success") return status;
+    if (status.status === "failed") throw new Error(status.error || "Job fehlgeschlagen");
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, intervalMs);
+      signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new Error("Abgebrochen")); }, { once: true });
+    });
+  }
+}
+
+/**
+ * Download the result file from a completed job as a Blob.
+ */
+export async function downloadJobAsBlob(
+  jobUuid: string,
+  fallbackFilename = "output",
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(`/api/jobs/${jobUuid}/download`, { credentials: "include" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Download fehlgeschlagen" }));
+    throw new Error(err.detail || `Download-Fehler: ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  let filename = fallbackFilename;
+  const disposition = res.headers.get("Content-Disposition");
+  if (disposition) {
+    const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
+    if (utf8Match) {
+      filename = decodeURIComponent(utf8Match[1].trim());
+    } else {
+      const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
+      if (basicMatch) filename = decodeURIComponent(basicMatch[1].trim());
+    }
+  }
+  return { blob, filename };
+}

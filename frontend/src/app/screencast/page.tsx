@@ -7,7 +7,7 @@ import ScreencastStatus from "@/components/ScreencastStatus";
 import GlossarySelector from "@/components/GlossarySelector";
 import PromptChips from "@/components/PromptChips";
 import { useGlossaries } from "@/hooks/useGlossaries";
-import { backendApi } from "@/lib/api";
+import { api, pollJob, downloadJobAsBlob, type JobStatus } from "@/lib/api";
 import type {
   ScreencastState,
   ScreencastStep,
@@ -187,7 +187,7 @@ export default function ScreencastPage() {
 
   // ── Fetch available voices ──
   useEffect(() => {
-    backendApi.getJson<{ voices: Voice[] }>("/voices").then((data) => {
+    api.getJson<{ voices: Voice[] }>("/api/voices").then((data) => {
       setVoices(data.voices);
       if (data.voices.length > 0) setVoiceId(data.voices[0].voice_id);
     }).catch(() => {});
@@ -195,7 +195,7 @@ export default function ScreencastPage() {
 
   // ── Check demo availability ──
   useEffect(() => {
-    backendApi.getJson<{ available: boolean; has_video: boolean }>("/screencast/demo-available").then((data) => {
+    api.getJson<{ available: boolean; has_video: boolean }>("/api/screencast/demo-available").then((data) => {
       setDemoAvailable(data.available);
       setDemoHasVideo(data.has_video);
     }).catch(() => {});
@@ -309,16 +309,23 @@ export default function ScreencastPage() {
 
     try {
       const glossaryJson = mergeToApiJson(glossaryIds);
-      const fields: Record<string, string> = { speed: String(speed), voice_id: voiceId };
-      if (glossaryJson) fields.glossary_json = glossaryJson;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("speed", String(speed));
+      formData.append("voice_id", voiceId);
+      if (glossaryJson) formData.append("glossary_json", glossaryJson);
 
-      const { blob, filename } = await backendApi.uploadFileWithFields(
-        "/screencast",
-        file,
-        fields,
-        "file",
-        signal,
-      );
+      const uploadRes = await fetch("/api/screencast", { method: "POST", body: formData, credentials: "include", signal });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
+        throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
+      }
+      const { job_uuid } = await uploadRes.json();
+
+      const jobResult = await pollJob(job_uuid, undefined, 5000, signal);
+
+      const stem = file.name.replace(/\.pptx$/i, "");
+      const { blob, filename } = await downloadJobAsBlob(jobResult.job_uuid, `${stem}_screencast_EN.mp4`);
       setAutoDownloadBlob(blob);
       setAutoDownloadName(filename);
       setAutoState("done");
@@ -359,16 +366,15 @@ export default function ScreencastPage() {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await backendApi.fetch("/screencast/upload-corrected", {
+        const response = await fetch("/api/screencast/upload-corrected", {
           method: "POST",
           body: formData,
+          credentials: "include",
           signal,
         });
 
         if (!response.ok) {
-          const error = await response
-            .json()
-            .catch(() => ({ detail: "Unbekannter Fehler" }));
+          const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
           throw new Error(error.detail || `Fehler: ${response.status}`);
         }
 
@@ -394,7 +400,7 @@ export default function ScreencastPage() {
       return;
     }
 
-    // ── DE path: translate via DeepL, show translation review ──
+    // ── DE path: translate via DeepL → queue job, poll, then show review ──
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -402,26 +408,31 @@ export default function ScreencastPage() {
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
       formData.append("fast_mode", String(fastMode));
 
-      const response = await backendApi.fetch("/screencast/translate", {
+      const uploadRes = await fetch("/api/screencast/translate", {
         method: "POST",
         body: formData,
+        credentials: "include",
         signal,
       });
 
-      if (!response.ok) {
-        const error = await response
-          .json()
-          .catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(error.detail || `Fehler: ${response.status}`);
+      if (!uploadRes.ok) {
+        const error = await uploadRes.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+        throw new Error(error.detail || `Fehler: ${uploadRes.status}`);
       }
 
-      const data: TranslateResponse = await response.json();
+      const { job_uuid } = await uploadRes.json();
 
-      setTranslatedPptxFileId(data.file_id);
+      // Poll until translation job completes
+      const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
+
+      // Result comes inline from the jobs endpoint for JSON-result jobs
+      const data = (jobResult.result ?? {}) as unknown as TranslateResponse;
+
+      setTranslatedPptxFileId(data.file_id || "");
       setSlides(
-        data.slide_texts.map((text, i) => ({
+        (data.slide_texts || []).map((text, i) => ({
           index: i,
-          imageBase64: data.slide_images[i] || "",
+          imageBase64: (data.slide_images || [])[i] || "",
           extractedText: text,
           script: "",
         })),
@@ -439,7 +450,7 @@ export default function ScreencastPage() {
   const handleDownloadTranslatedPptx = useCallback(async () => {
     if (!translatedPptxFileId) return;
     try {
-      const res = await backendApi.fetch(`/screencast/file/${translatedPptxFileId}`);
+      const res = await fetch(`/api/screencast/file/${translatedPptxFileId}`, { credentials: "include" });
       if (!res.ok) throw new Error("Download fehlgeschlagen");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -466,9 +477,10 @@ export default function ScreencastPage() {
         const formData = new FormData();
         formData.append("file", correctedFile);
 
-        const response = await backendApi.fetch("/screencast/upload-corrected", {
+        const response = await fetch("/api/screencast/upload-corrected", {
           method: "POST",
           body: formData,
+          credentials: "include",
           signal,
         });
 
@@ -507,16 +519,15 @@ export default function ScreencastPage() {
     const signal = newSignal();
 
     try {
-      const scriptsData =
-        await backendApi.postJson<GenerateScriptsResponse>(
-          "/screencast/generate-scripts",
-          {
-            slide_texts: slides.map((s) => s.extractedText),
-            user_prompt: userPrompt || null,
-            glossary_json: mergeToApiJson(glossaryIds),
-          },
-          signal,
-        );
+      const scriptsData = await api.postJson<GenerateScriptsResponse>(
+        "/api/screencast/generate-scripts",
+        {
+          slide_texts: slides.map((s) => s.extractedText),
+          user_prompt: userPrompt || null,
+          glossary_json: mergeToApiJson(glossaryIds),
+        },
+        signal,
+      );
 
       setSlides((prev) =>
         prev.map((s, i) => ({
@@ -537,10 +548,11 @@ export default function ScreencastPage() {
   const handleAcceptScripts = useCallback(() => {
     setStep("tts-settings");
     if (translatedPptxFileId) {
-      backendApi.fetch("/screencast/prerender-images", {
+      fetch("/api/screencast/prerender-images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ file_id: translatedPptxFileId }),
+        credentials: "include",
       }).catch(() => {}); // fire and forget
     }
   }, [translatedPptxFileId]);
@@ -551,8 +563,8 @@ export default function ScreencastPage() {
     setLoading(true);
     const signal = newSignal();
     try {
-      const data = await backendApi.postJson<TranslateResponse>(
-        "/screencast/demo/translate",
+      const data = await api.postJson<TranslateResponse>(
+        "/api/screencast/demo/translate",
         { fast_mode: fastMode },
         signal,
       );
@@ -579,8 +591,8 @@ export default function ScreencastPage() {
     setLoading(true);
     const signal = newSignal();
     try {
-      const data = await backendApi.postJson<GenerateScriptsResponse>(
-        "/screencast/demo/generate-scripts",
+      const data = await api.postJson<GenerateScriptsResponse>(
+        "/api/screencast/demo/generate-scripts",
         {},
         signal,
       );
@@ -635,23 +647,65 @@ export default function ScreencastPage() {
     setStep("done");
   }, []);
 
+  // ── Parse job result for render jobs (meta: subtitle_b64, audio_id, audio_count) ──
+  const processRenderResultFromJob = useCallback(async (jobResult: JobStatus) => {
+    const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
+
+    const meta = jobResult.meta ?? {};
+    const subtitleB64 = meta.subtitle_b64 as string | undefined;
+    const aId = meta.audio_id as string | undefined;
+    const aCount = meta.audio_count as number | undefined;
+
+    let subs: SubtitleData | null = null;
+    if (subtitleB64) {
+      try {
+        subs = JSON.parse(atob(subtitleB64));
+      } catch {
+        console.warn("[Screencast] Failed to parse subtitle_b64");
+      }
+    }
+
+    if (aId) setAudioId(aId);
+    if (aCount !== undefined) setAudioCount(aCount);
+    setDownloadBlob(blob);
+    const url = URL.createObjectURL(blob);
+    setVideoUrl(url);
+    if (subs) setSubtitleData(subs);
+    setLoading(false);
+    setStep("done");
+  }, []);
+
   const handleDemoRender = useCallback(async () => {
     setStep("rendering");
     setLoading(true);
     const signal = newSignal();
     try {
-      const response = await backendApi.fetch("/screencast/demo/render", {
+      const response = await fetch("/api/screencast/demo/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ file_id: translatedPptxFileId }),
+        credentials: "include",
         signal,
       });
-      await processRenderResponse(response);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: "Demo-Fehler" }));
+        throw new Error(err.detail || `Fehler: ${response.status}`);
+      }
+      const contentType = response.headers.get("Content-Type") ?? "";
+      if (contentType.includes("application/json")) {
+        // Mode A: Celery task submitted → poll for result
+        const { job_uuid } = await response.json();
+        const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
+        await processRenderResultFromJob(jobResult);
+      } else {
+        // Mode B: synchronous binary MP4 (pre-existing video)
+        await processRenderResponse(response);
+      }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [translatedPptxFileId, goError, processRenderResponse]);
+  }, [translatedPptxFileId, goError, processRenderResponse, processRenderResultFromJob]);
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
@@ -659,7 +713,7 @@ export default function ScreencastPage() {
     setLoading(true);
     const signal = newSignal();
     try {
-      const response = await backendApi.fetch("/screencast/render", {
+      const uploadRes = await fetch("/api/screencast/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -670,14 +724,21 @@ export default function ScreencastPage() {
           slide_pause: slidePause,
           embed_subtitles: embedSubtitles,
         }),
+        credentials: "include",
         signal,
       });
-      await processRenderResponse(response);
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({ detail: "Render-Fehler" }));
+        throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
+      }
+      const { job_uuid } = await uploadRes.json();
+      const jobResult = await pollJob(job_uuid, undefined, 5000, signal);
+      await processRenderResultFromJob(jobResult);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, goError, processRenderResponse]);
+  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, goError, processRenderResultFromJob]);
 
   // ── Download MP4 ──
   const handleDownload = () => {
@@ -1777,7 +1838,7 @@ export default function ScreencastPage() {
                       key={i}
                       onClick={async () => {
                         try {
-                          const res = await backendApi.fetch(`/screencast/audio/${audioId}/${i}`);
+                          const res = await fetch(`/api/screencast/audio/${audioId}/${i}`, { credentials: "include" });
                           if (!res.ok) throw new Error("Download fehlgeschlagen");
                           const blob = await res.blob();
                           const url = URL.createObjectURL(blob);

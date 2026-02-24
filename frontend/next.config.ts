@@ -37,8 +37,28 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/voices`,
       },
       {
+        source: "/api/jobs/:job_uuid",
+        destination: `${backendUrl}/jobs/:job_uuid`,
+      },
+      {
+        source: "/api/jobs/:job_uuid/download",
+        destination: `${backendUrl}/jobs/:job_uuid/download`,
+      },
+      {
         source: "/api/script",
         destination: `${backendUrl}/script`,
+      },
+      {
+        source: "/api/video-dubbing",
+        destination: `${backendUrl}/video-dubbing`,
+      },
+      {
+        source: "/api/screencast",
+        destination: `${backendUrl}/screencast`,
+      },
+      {
+        source: "/api/screencast/:path*",
+        destination: `${backendUrl}/screencast/:path*`,
       },
       {
         source: "/docs",

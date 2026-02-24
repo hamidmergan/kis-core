@@ -23,7 +23,7 @@ export default function LoginPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {
-        setError("KIS befindet sich derzeit in der Testphase. Ihr Konto wurde noch nicht freigeschaltet. Bei Interesse wenden Sie sich bitte an: [KONTAKT_EMAIL]");
+        router.push("/testphase");
       } else {
         setError("Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.");
       }
