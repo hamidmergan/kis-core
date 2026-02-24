@@ -1,23 +1,57 @@
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from src import database
 from src.dependencies import get_settings, get_session_store
+from src.ldap_auth import authenticate_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class LoginRequest(BaseModel):
+    username: str
     password: str
 
 
 @router.post("/login")
 async def login(body: LoginRequest, response: Response):
     settings = get_settings()
-    if body.password != settings.app_password:
-        raise HTTPException(status_code=401, detail="Falsches Passwort")
 
+    # Step 1: LDAP authentication
+    try:
+        ldap_user = authenticate_user(body.username, body.password)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if ldap_user is None:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Step 2: Determine active status via email whitelist
+    ldap_username = ldap_user["username"]  # confirmed by LDAP, not from body
+    display_name = ldap_user["fullname"] or ldap_username
+    email = ldap_user["email"] or None  # store NULL instead of empty string
+
+    active = 1 if (email and database.is_email_whitelisted(email)) else 0
+
+    # Step 3: Sync user with SQLite (create or update)
+    db_user = database.get_user_by_username(ldap_username)
+    if db_user is None:
+        user_id = database.create_user(ldap_username, display_name, email, active)
+    else:
+        user_id = db_user["id"]
+        database.update_user(user_id, display_name, email, active)
+
+    # Step 4: Check whitelist
+    if not active:
+        raise HTTPException(status_code=403, detail="account_not_activated")
+
+    # Step 5: Create session
     store = get_session_store()
-    token = store.create()
+    token = store.create(data={
+        "user_id": user_id,
+        "username": ldap_username,
+        "display_name": display_name,
+    })
     response.set_cookie(
         key="session",
         value=token,
@@ -26,7 +60,7 @@ async def login(body: LoginRequest, response: Response):
         max_age=settings.session_max_age_seconds,
         secure=settings.production,
     )
-    return {"status": "ok"}
+    return {"status": "ok", "username": ldap_username, "display_name": display_name}
 
 
 @router.post("/logout")
@@ -45,4 +79,7 @@ async def auth_status(request: Request):
     if not token:
         return {"authenticated": False}
     store = get_session_store()
-    return {"authenticated": store.validate(token)}
+    if not store.validate(token):
+        return {"authenticated": False}
+    data = store.get_data(token)
+    return {"authenticated": True, **(data or {})}

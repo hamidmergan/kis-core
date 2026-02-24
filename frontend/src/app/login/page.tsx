@@ -7,6 +7,7 @@ import { login } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,10 +18,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(password);
+      await login(username, password);
       router.push("/");
-    } catch {
-      setError("Falsches Passwort");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message === "account_not_activated") {
+        setError("Ihr Konto ist noch nicht freigeschaltet. Bitte wenden Sie sich an den Administrator.");
+      } else {
+        setError("Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.");
+      }
     } finally {
       setLoading(false);
     }
@@ -30,40 +36,57 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-[80vh] px-4">
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h1 className="text-2xl font-bold text-[#0066cc] text-center mb-2">
+          <h1 className="text-2xl font-bold text-[#0066cc] text-center mb-6">
             <Link href="/" aria-label="Zur Startseite">
               KIS-THL
             </Link>
           </h1>
 
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                Benutzername
+              </label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                required
+                disabled={loading}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc] focus:border-transparent disabled:opacity-50"
+              />
+            </div>
 
-          <form onSubmit={handleSubmit}>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Passwort
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              disabled={loading}
-              aria-describedby={error ? "login-error" : undefined}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc] focus:border-transparent disabled:opacity-50"
-            />
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Passwort
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+                disabled={loading}
+                aria-describedby={error ? "login-error" : undefined}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc] focus:border-transparent disabled:opacity-50"
+              />
+            </div>
 
             {error && (
-              <p id="login-error" className="mt-2 text-sm text-red-600" role="alert">
+              <p id="login-error" className="text-sm text-red-600" role="alert">
                 {error}
               </p>
             )}
 
             <button
               type="submit"
-              disabled={loading || !password}
+              disabled={loading || !username || !password}
               aria-label="Anmelden"
-              className="mt-4 w-full px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+              className="w-full px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
             >
               {loading ? "Wird angemeldet..." : "Anmelden"}
             </button>

@@ -8,8 +8,8 @@ export function clearAuthCache() {
   cachedAuth = null;
 }
 
-export async function login(password: string): Promise<LoginResponse> {
-  return api.postJson<LoginResponse>("/auth/login", { password });
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  return api.postJson<LoginResponse>("/auth/login", { username, password });
 }
 
 export async function logout(): Promise<void> {

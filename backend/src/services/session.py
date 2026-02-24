@@ -10,6 +10,7 @@ class SessionStore:
         self._secret = secret.encode()
         self._max_age = max_age
         self._sessions: dict[str, float] = {}  # session_id -> expiry timestamp
+        self._data: dict[str, dict] = {}        # session_id -> user data
         self._lock = threading.Lock()
 
     def _sign(self, data: str) -> str:
@@ -26,12 +27,21 @@ class SessionStore:
             return None
         return data
 
-    def create(self) -> str:
+    def create(self, data: dict | None = None) -> str:
         raw_id = secrets.token_hex(32)
         token = self._sign(raw_id)
         with self._lock:
             self._sessions[raw_id] = time.time() + self._max_age
+            if data is not None:
+                self._data[raw_id] = data
         return token
+
+    def get_data(self, token: str) -> dict | None:
+        raw_id = self._verify(token)
+        if raw_id is None:
+            return None
+        with self._lock:
+            return self._data.get(raw_id)
 
     def validate(self, token: str) -> bool:
         raw_id = self._verify(token)
@@ -52,6 +62,7 @@ class SessionStore:
             return
         with self._lock:
             self._sessions.pop(raw_id, None)
+            self._data.pop(raw_id, None)
 
     def cleanup_expired(self) -> int:
         now = time.time()
@@ -59,4 +70,5 @@ class SessionStore:
             expired = [k for k, v in self._sessions.items() if now > v]
             for k in expired:
                 del self._sessions[k]
+                self._data.pop(k, None)
             return len(expired)

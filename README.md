@@ -10,7 +10,7 @@ Webbasierter Übersetzungs- und Medienservice für Dokumente der TH Lübeck. Üb
 ## Quick Start
 
 ```bash
-cp env.example .env   # .env anpassen (siehe Konfiguration)
+cp .env.example .env   # .env anpassen (siehe Konfiguration)
 docker-compose up -d --build
 ```
 

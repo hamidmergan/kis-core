@@ -4,7 +4,7 @@
 
 ### Lokal
 ```bash
-docker-compose up -d --build
+docker-compose --profile ldap up -d --build
 ```
 
 ### TH-Server
@@ -12,9 +12,24 @@ docker-compose up -d --build
 ./start-th.sh
 ```
 
-### Nginx-Server (Hetzner)
+### Hetzner/Nginx-Server
 ```bash
 ./start-nginx.sh
+```
+
+## LDAP User verwalten
+
+### User hinzufügen oder ändern
+1. `ldap/seed.ldif` anpassen (neuen User eintragen)
+2. Dann einmalig ausführen:
+```bash
+docker cp ldap/seed.ldif kis-thl-openldap:/tmp/seed.ldif
+docker exec kis-thl-openldap ldapadd -x -D "cn=admin,dc=th-luebeck,dc=de" -w admin -f /tmp/seed.ldif
+```
+
+### LDAP testen
+```bash
+docker exec kis-thl-backend python -c "from src.ldap_auth import authenticate_user; print(authenticate_user('hmueller', 'test123'))"
 ```
 
 ## TablePlus - DB live anschauen

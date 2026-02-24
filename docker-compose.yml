@@ -49,6 +49,27 @@ services:
         max-size: "10m"
         max-file: "7"
 
+  openldap:
+    profiles: ["ldap"]
+    image: tiredofit/openldap:latest
+    container_name: kis-thl-openldap
+    environment:
+      HOSTNAME: openldap
+      ORGANIZATION: TH Luebeck
+      DOMAIN: th-luebeck.de
+      ADMIN_PASS: admin
+      ENABLE_TLS: "FALSE"
+      LOG_LEVEL: 256
+    ports:
+      - "389:389"
+    volumes:
+      - ./ldap/seed.ldif:/assets/slapd/bootstrap/ldif/seed.ldif
+      - kis-thl-openldap-data:/var/lib/ldap
+      - kis-thl-openldap-config:/etc/ldap/slapd.d
+    restart: unless-stopped
+
 volumes:
   kis-thl-db:
   kis-thl-storage:
+  kis-thl-openldap-data:
+  kis-thl-openldap-config:

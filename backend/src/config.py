@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     kisski_model: str = "qwen3-30b-a3b-instruct-2507"
 
     # Security
-    app_password: str = "admin"
     session_secret: str = "change-me-in-production"
     session_max_age_seconds: int = 86400  # 24h
 
@@ -28,8 +27,19 @@ class Settings(BaseSettings):
     # Encryption key for sensitive DB values (Fernet, base64url-encoded 32 bytes)
     encryption_key: str = ""
 
-    # Environment: set True on server, False for local dev
+    # Set via start-nginx.sh / start-th.sh, never in .env
     production: bool = False
+
+    # LDAP
+    ldap_server: str = ""
+    ldap_port: int = 389
+    ldap_base_dn: str = ""
+    ldap_bind_dn: str = ""
+    ldap_bind_password: str = ""
+    ldap_attr_username: str = "uid"
+    ldap_attr_fullname: str = "cn"
+    ldap_attr_email: str = "mail"
+    ldap_use_ssl: bool = False
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

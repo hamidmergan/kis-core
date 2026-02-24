@@ -1,9 +1,14 @@
 export interface AuthStatus {
   authenticated: boolean;
+  user_id?: number;
+  username?: string;
+  display_name?: string;
 }
 
 export interface LoginResponse {
   status: string;
+  username: string;
+  display_name: string;
 }
 
 export interface ApiError {
