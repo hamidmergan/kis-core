@@ -279,7 +279,7 @@ async def video_dubbing(
     db.create_job(job_uuid, user_id, "video_dubbing", file.filename or f"input{ext}", input_path)
 
     from src.tasks.video_dubbing_tasks import run_video_dubbing
-    run_video_dubbing.apply_async(args=[
+    task = run_video_dubbing.apply_async(args=[
         job_uuid,
         input_path,
         file.filename or f"input{ext}",
@@ -289,6 +289,7 @@ async def video_dubbing(
         num_speakers,
         soft_subtitles,
     ])
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Video dubbing job queued: job_uuid={}, file={} ({} → {})", job_uuid, file.filename, source_lang, target_lang)
     return JSONResponse(content={"job_uuid": job_uuid})

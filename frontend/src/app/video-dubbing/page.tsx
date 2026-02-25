@@ -38,6 +38,7 @@ export default function VideoDubbingPage() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const currentJobUuidRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => { abortControllerRef.current?.abort(); setState("idle"); };
@@ -105,6 +106,8 @@ export default function VideoDubbingPage() {
         throw new Error(err.detail ?? `Fehler ${uploadRes.status}`);
       }
       const { job_uuid } = await uploadRes.json();
+      currentJobUuidRef.current = job_uuid;
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
       setState("processing");
       setProgressLabel("In der Warteschlange…");
@@ -145,9 +148,11 @@ export default function VideoDubbingPage() {
         setOutputName(filename || `${stem}_dubbed_en.mp3`);
       }
 
+      currentJobUuidRef.current = null;
       setState("done");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
+      currentJobUuidRef.current = null;
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
       setState("error");
     }
@@ -308,7 +313,13 @@ export default function VideoDubbingPage() {
             </button>
             {isProcessing && (
               <button
-                onClick={() => { abortControllerRef.current?.abort(); setState("idle"); }}
+                onClick={() => {
+                  const uuid = currentJobUuidRef.current;
+                  currentJobUuidRef.current = null;
+                  abortControllerRef.current?.abort();
+                  if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                  setState("idle");
+                }}
                 className="px-4 py-3 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2 shrink-0"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -2,13 +2,14 @@
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from src import database as db
+from src.celery_app import celery_app
 from src.dependencies import get_current_user
-from src.storage import load_result_json
+from src.storage import delete_file, load_result_json
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -16,6 +17,76 @@ _CONTENT_TYPES = {
     ".mp4": "video/mp4",
     ".mp3": "audio/mpeg",
 }
+
+
+_TOOL_LABELS = {
+    "screencast_demo_render": "Demo-Screencast",
+    "screencast_render": "Screencast",
+    "screencast_translate": "Screencast-Übersetzung",
+    "screencast_auto": "Screencast (Auto)",
+    "tts": "Text-to-Speech",
+    "video_dubbing": "Video-Dubbing",
+    "transcription": "Transkription",
+    "summary": "Zusammenfassung",
+}
+
+
+@router.get("/my")
+async def get_my_jobs(
+    current_user: dict = Depends(get_current_user),
+    limit: int = Query(default=20, le=200),
+):
+    """Return the most recent jobs for the current user (default 20, max 200)."""
+    user_id = current_user.get("user_id", 0)
+    jobs = db.get_jobs_by_user(user_id, limit=limit)
+    result = []
+    for job in jobs:
+        has_download = (
+            job["status"] == "success"
+            and job["result_path"]
+            and Path(job["result_path"]).exists()
+        )
+        result.append({
+            "job_uuid": job["job_uuid"],
+            "tool": job["tool"],
+            "tool_label": _TOOL_LABELS.get(job["tool"], job["tool"]),
+            "original_filename": job["original_filename"],
+            "status": job["status"],
+            "error": job["error_message"],
+            "created_at": job["created_at"],
+            "expires_at": job["expires_at"],
+            "has_download": has_download,
+            "result_filename": job["result_filename"],
+        })
+    return {"jobs": result}
+
+
+@router.delete("/{job_uuid}")
+async def cancel_job(
+    job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Cancel and delete a job. Revokes the Celery task if still running."""
+    job = db.get_job(job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+
+    # Revoke the Celery task (terminate=True sends SIGTERM to the worker process)
+    if job["celery_task_id"]:
+        try:
+            celery_app.control.revoke(job["celery_task_id"], terminate=True)
+        except Exception as e:
+            logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
+
+    # Delete files and DB record
+    deleted = db.delete_job(job_uuid)
+    if deleted:
+        for path in (deleted.get("input_path"), deleted.get("result_path")):
+            if path:
+                delete_file(path)
+
+    logger.info("Job cancelled: {}", job_uuid)
+    return {"ok": True}
 
 
 @router.get("/{job_uuid}")

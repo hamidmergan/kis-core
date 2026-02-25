@@ -1,3 +1,4 @@
+import asyncio
 import sys
 from contextlib import asynccontextmanager
 
@@ -8,6 +9,7 @@ from loguru import logger
 from src.database import init_db
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
+from src.storage import cleanup_expired_files
 from src.routes import auth, health, image, jobs, screencast, script, summary, transcription, translate, tts, video_dubbing
 
 
@@ -27,6 +29,18 @@ def _configure_logging() -> None:
     )
 
 
+async def _periodic_cleanup() -> None:
+    """Delete expired job files every hour."""
+    while True:
+        await asyncio.sleep(3600)
+        try:
+            deleted = await asyncio.to_thread(cleanup_expired_files)
+            if deleted:
+                logger.info("Cleanup: {} expired job(s) deleted", deleted)
+        except Exception as e:
+            logger.warning("Cleanup error: {}", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -34,7 +48,9 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialised")
     if settings.admin_email:
         logger.info("Admin email auto-whitelisted: {}", settings.admin_email)
+    cleanup_task = asyncio.create_task(_periodic_cleanup())
     yield
+    cleanup_task.cancel()
 
 
 def create_app() -> FastAPI:

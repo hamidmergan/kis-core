@@ -4,6 +4,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+# How many completed result files (MP4/MP3/JSON) are kept per user.
+# When a new result is saved and the user exceeds this limit,
+# the oldest file is deleted from disk (DB record is kept).
+MAX_RESULT_FILES_PER_USER = 5
+
 DB_PATH = Path("/app/data/database.db")
 
 
@@ -58,10 +63,16 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 status            TEXT NOT NULL DEFAULT 'pending',
                 error_message     TEXT,
                 progress          TEXT,
+                celery_task_id    TEXT,
                 created_at        TEXT NOT NULL DEFAULT (datetime('now')),
                 expires_at        TEXT
             )
         """)
+        # Migration: add celery_task_id column to existing databases
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN celery_task_id TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -172,6 +183,38 @@ def get_job(job_uuid: str):
         ).fetchone()
 
 
+def get_jobs_by_user(user_id: int, limit: int = 20) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def set_job_celery_task_id(job_uuid: str, celery_task_id: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE jobs SET celery_task_id = ? WHERE job_uuid = ?",
+            (celery_task_id, job_uuid),
+        )
+        conn.commit()
+
+
+def delete_job(job_uuid: str) -> dict | None:
+    """Delete a job record and return its file paths for cleanup."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT input_path, result_path, celery_task_id FROM jobs WHERE job_uuid = ?",
+            (job_uuid,),
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute("DELETE FROM jobs WHERE job_uuid = ?", (job_uuid,))
+        conn.commit()
+        return dict(row)
+
+
 def update_job_status(
     job_uuid: str,
     status: str,
@@ -202,3 +245,29 @@ def update_job_result(
             (result_path, result_filename, job_uuid),
         )
         conn.commit()
+
+    # Evict oldest result files if user exceeds MAX_RESULT_FILES_PER_USER
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT user_id FROM jobs WHERE job_uuid = ?", (job_uuid,)
+        ).fetchone()
+        if not row:
+            return
+        user_id = row["user_id"]
+        old_jobs = conn.execute(
+            """SELECT id, result_path FROM jobs
+               WHERE user_id = ? AND result_path IS NOT NULL
+               ORDER BY created_at ASC""",
+            (user_id,),
+        ).fetchall()
+        excess = len(old_jobs) - MAX_RESULT_FILES_PER_USER
+        for i in range(excess):
+            old_path = old_jobs[i]["result_path"]
+            if old_path:
+                Path(old_path).unlink(missing_ok=True)
+            conn.execute(
+                "UPDATE jobs SET result_path = NULL, result_filename = NULL WHERE id = ?",
+                (old_jobs[i]["id"],),
+            )
+        if excess > 0:
+            conn.commit()

@@ -45,6 +45,7 @@ export default function TtsPage() {
   }, []);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const currentJobUuidRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => { abortControllerRef.current?.abort(); setTtsState("idle"); };
@@ -87,6 +88,8 @@ export default function TtsPage() {
         throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
       }
       const { job_uuid } = await uploadRes.json();
+      currentJobUuidRef.current = job_uuid;
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
       setTtsState("processing");
       setTtsProgressLabel("In der Warteschlange…");
@@ -112,9 +115,11 @@ export default function TtsPage() {
       );
       setTtsDownloadBlob(blob);
       setTtsDownloadName(filename);
+      currentJobUuidRef.current = null;
       setTtsState("done");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
+      currentJobUuidRef.current = null;
       setTtsErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
       setTtsState("error");
     }
@@ -240,7 +245,13 @@ export default function TtsPage() {
             </button>
             {isProcessing && (
               <button
-                onClick={() => { abortControllerRef.current?.abort(); setTtsState("idle"); }}
+                onClick={() => {
+                  const uuid = currentJobUuidRef.current;
+                  currentJobUuidRef.current = null;
+                  abortControllerRef.current?.abort();
+                  if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                  setTtsState("idle");
+                }}
                 className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

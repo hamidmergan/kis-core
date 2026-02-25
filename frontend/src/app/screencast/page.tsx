@@ -140,6 +140,7 @@ export default function ScreencastPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const stepperRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const currentJobUuidRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
   const hasDraggedRef = useRef(false);
   const dragStartXRef = useRef(0);
@@ -321,8 +322,11 @@ export default function ScreencastPage() {
         throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
       }
       const { job_uuid } = await uploadRes.json();
+      currentJobUuidRef.current = job_uuid;
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
       const jobResult = await pollJob(job_uuid, undefined, 5000, signal);
+      currentJobUuidRef.current = null;
 
       const stem = file.name.replace(/\.pptx$/i, "");
       const { blob, filename } = await downloadJobAsBlob(jobResult.job_uuid, `${stem}_screencast_EN.mp4`);
@@ -421,9 +425,12 @@ export default function ScreencastPage() {
       }
 
       const { job_uuid } = await uploadRes.json();
+      currentJobUuidRef.current = job_uuid;
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
       // Poll until translation job completes
       const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
+      currentJobUuidRef.current = null;
 
       // Result comes inline from the jobs endpoint for JSON-result jobs
       const data = (jobResult.result ?? {}) as unknown as TranslateResponse;
@@ -695,7 +702,10 @@ export default function ScreencastPage() {
       if (contentType.includes("application/json")) {
         // Mode A: Celery task submitted → poll for result
         const { job_uuid } = await response.json();
+        currentJobUuidRef.current = job_uuid;
+        window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
         const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
+        currentJobUuidRef.current = null;
         await processRenderResultFromJob(jobResult);
       } else {
         // Mode B: synchronous binary MP4 (pre-existing video)
@@ -732,7 +742,10 @@ export default function ScreencastPage() {
         throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
       }
       const { job_uuid } = await uploadRes.json();
+      currentJobUuidRef.current = job_uuid;
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
       const jobResult = await pollJob(job_uuid, undefined, 5000, signal);
+      currentJobUuidRef.current = null;
       await processRenderResultFromJob(jobResult);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
@@ -1137,7 +1150,13 @@ export default function ScreencastPage() {
               Das kann je nach Dateigröße einige Sekunden dauern.
             </p>
             <button
-              onClick={() => { abortControllerRef.current?.abort(); setStep("upload"); setLoading(false); }}
+              onClick={() => {
+                const uuid = currentJobUuidRef.current;
+                currentJobUuidRef.current = null;
+                abortControllerRef.current?.abort();
+                if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                setStep("upload"); setLoading(false);
+              }}
               className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1364,7 +1383,13 @@ export default function ScreencastPage() {
               Die KI erstellt Skripte für {slides.length} Folien.
             </p>
             <button
-              onClick={() => { abortControllerRef.current?.abort(); setStep("translation-review"); setLoading(false); }}
+              onClick={() => {
+                const uuid = currentJobUuidRef.current;
+                currentJobUuidRef.current = null;
+                abortControllerRef.current?.abort();
+                if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                setStep("translation-review"); setLoading(false);
+              }}
               className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1722,7 +1747,13 @@ export default function ScreencastPage() {
               dauern.
             </p>
             <button
-              onClick={() => { abortControllerRef.current?.abort(); setStep("tts-settings"); setLoading(false); }}
+              onClick={() => {
+                const uuid = currentJobUuidRef.current;
+                currentJobUuidRef.current = null;
+                abortControllerRef.current?.abort();
+                if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                setStep("tts-settings"); setLoading(false);
+              }}
               className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

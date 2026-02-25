@@ -37,6 +37,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/voices`,
       },
       {
+        source: "/api/jobs/my",
+        destination: `${backendUrl}/jobs/my`,
+      },
+      {
         source: "/api/jobs/:job_uuid",
         destination: `${backendUrl}/jobs/:job_uuid`,
       },

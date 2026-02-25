@@ -350,7 +350,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
             "-loop", "1", "-i", str(image_path),
             "-t", "3",
             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-            "-c:v", "libx264", "-tune", "stillimage",
+            "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
             "-crf", str(crf),
             "-pix_fmt", "yuv420p",
             str(output_path),
@@ -398,7 +398,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         "-i", str(final_audio),
         "-t", str(total_duration),
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        "-c:v", "libx264", "-tune", "stillimage",
+        "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
         "-c:a", "aac", "-b:a", "192k",
         "-crf", str(crf),
         "-pix_fmt", "yuv420p",
@@ -594,7 +594,7 @@ async def screencast(
     db.create_job(job_uuid, user_id, "screencast_auto", file.filename or "screencast.pptx", input_path)
 
     from src.tasks.screencast_tasks import run_screencast_auto
-    run_screencast_auto.apply_async(args=[
+    task = run_screencast_auto.apply_async(args=[
         job_uuid,
         input_path,
         file.filename or "screencast.pptx",
@@ -602,6 +602,7 @@ async def screencast(
         speed,
         glossary_json,
     ])
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Screencast auto job queued: job_uuid={}, file={}", job_uuid, file.filename)
     return {"job_uuid": job_uuid}
@@ -635,13 +636,14 @@ async def screencast_translate(
     db.create_job(job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", input_path)
 
     from src.tasks.screencast_tasks import run_screencast_translate
-    run_screencast_translate.apply_async(args=[
+    task = run_screencast_translate.apply_async(args=[
         job_uuid,
         input_path,
         file.filename or "screencast.pptx",
         glossary_json,
         fast_mode,
     ])
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Screencast translate job queued: job_uuid={}, file={}, fast_mode={}", job_uuid, file.filename, fast_mode)
     return {"job_uuid": job_uuid}
@@ -840,7 +842,7 @@ async def screencast_render(
     db.create_job(job_uuid, user_id, "screencast_render", "screencast.pptx")
 
     from src.tasks.screencast_tasks import run_screencast_render
-    run_screencast_render.apply_async(args=[
+    task = run_screencast_render.apply_async(args=[
         job_uuid,
         body.file_id,
         body.scripts,
@@ -850,6 +852,7 @@ async def screencast_render(
         body.embed_subtitles,
         "screencast.pptx",
     ])
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("Screencast render job queued: job_uuid={}, file_id={}", job_uuid, body.file_id)
     return {"job_uuid": job_uuid}
@@ -1318,7 +1321,8 @@ async def demo_render(
         db.create_job(job_uuid, user_id, "screencast_demo_render", "demo_screencast.pptx")
 
         from src.tasks.screencast_tasks import run_screencast_demo_render
-        run_screencast_demo_render.apply_async(args=[job_uuid, body.file_id])
+        task = run_screencast_demo_render.apply_async(args=[job_uuid, body.file_id])
+        db.set_job_celery_task_id(job_uuid, task.id)
 
         logger.info("Demo render job queued: job_uuid={}", job_uuid)
         return {"job_uuid": job_uuid}

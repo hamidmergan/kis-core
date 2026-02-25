@@ -86,7 +86,7 @@ async def text_to_speech(
     db.create_job(job_uuid, user_id, "tts", file.filename, input_path)
 
     from src.tasks.tts_tasks import run_tts
-    run_tts.apply_async(args=[
+    task = run_tts.apply_async(args=[
         job_uuid,
         input_path,
         file.filename,
@@ -98,6 +98,7 @@ async def text_to_speech(
         use_speaker_boost,
         pause_preset,
     ])
+    db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("TTS job queued: job_uuid={}, file={}", job_uuid, file.filename)
     return {"job_uuid": job_uuid}

@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src.database import get_connection
@@ -99,27 +99,42 @@ def get_audio_slide_count(audio_id: str) -> int:
 
 # --- Cleanup ---
 
-def cleanup_expired_files() -> int:
-    """Delete files whose job's expires_at has passed.
+JOB_HISTORY_DAYS = 7  # How long to keep DB records (for history page)
 
-    Returns the number of files deleted.
+
+def cleanup_expired_files() -> int:
+    """Phase 1: delete files for expired jobs (24 h) but keep the DB record.
+    Phase 2: purge DB records older than JOB_HISTORY_DAYS.
+
+    Returns the total number of jobs affected.
     """
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    deleted = 0
+    now = datetime.now(timezone.utc)
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    cutoff_str = (now - timedelta(days=JOB_HISTORY_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+    affected = 0
 
     with get_connection() as conn:
+        # Phase 1: delete files for jobs whose expires_at has passed
         rows = conn.execute(
             "SELECT id, input_path, result_path FROM jobs WHERE expires_at IS NOT NULL AND expires_at <= ?",
-            (now,),
+            (now_str,),
         ).fetchall()
-
         for row in rows:
             for path_col in (row["input_path"], row["result_path"]):
                 if path_col:
                     delete_file(path_col)
-            conn.execute("DELETE FROM jobs WHERE id = ?", (row["id"],))
-            deleted += 1
+            conn.execute(
+                "UPDATE jobs SET input_path = NULL, result_path = NULL, result_filename = NULL WHERE id = ?",
+                (row["id"],),
+            )
+            affected += 1
+
+        # Phase 2: purge DB records older than JOB_HISTORY_DAYS
+        conn.execute(
+            "DELETE FROM jobs WHERE created_at <= ?",
+            (cutoff_str,),
+        )
 
         conn.commit()
 
-    return deleted
+    return affected
