@@ -27,6 +27,16 @@ async def get_current_user(request: Request) -> dict:
     return {"user_id": 0, "username": "unknown", "display_name": "Unknown"}
 
 
+async def get_admin_user(request: Request) -> dict:
+    """Like get_current_user, but raises 403 if the user is not the admin."""
+    user = await get_current_user(request)
+    settings = get_settings()
+    email = user.get("email", "")
+    if not email or email.lower() != settings.admin_email.lower():
+        raise HTTPException(status_code=403, detail="Admin-Zugriff erforderlich")
+    return user
+
+
 @lru_cache
 def get_session_store():
     from src.services.session import SessionStore

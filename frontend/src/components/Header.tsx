@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { logout } from "@/lib/auth";
+import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/JobsPanel";
 
 interface HeaderProps {
@@ -11,6 +12,12 @@ interface HeaderProps {
 
 export default function Header({ showLogout = false }: HeaderProps) {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!showLogout) return;
+    checkAuthStatus().then((s) => setIsAdmin(s.is_admin ?? false));
+  }, [showLogout]);
 
   const handleLogout = async () => {
     await logout();
@@ -27,6 +34,14 @@ export default function Header({ showLogout = false }: HeaderProps) {
       {showLogout && (
         <div className="flex items-center gap-2">
           <JobsPanel />
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              Admin
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             aria-label="Abmelden"

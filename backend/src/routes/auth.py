@@ -51,6 +51,7 @@ async def login(body: LoginRequest, response: Response):
         "user_id": user_id,
         "username": ldap_username,
         "display_name": display_name,
+        "email": email or "",
     })
     response.set_cookie(
         key="session",
@@ -81,5 +82,8 @@ async def auth_status(request: Request):
     store = get_session_store()
     if not store.validate(token):
         return {"authenticated": False}
-    data = store.get_data(token)
-    return {"authenticated": True, **(data or {})}
+    data = store.get_data(token) or {}
+    settings = get_settings()
+    email = data.get("email", "")
+    is_admin = bool(email and email.lower() == settings.admin_email.lower())
+    return {"authenticated": True, "is_admin": is_admin, **data}

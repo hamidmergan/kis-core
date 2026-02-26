@@ -3,6 +3,22 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
+
+_TZ_BERLIN = ZoneInfo("Europe/Berlin")
+
+
+def _de_date_to_utc(date_str: str, end_of_day: bool = False) -> str:
+    """Convert a YYYY-MM-DD German local date to a UTC datetime string for DB comparison.
+
+    DB timestamps are stored in UTC. The user picks a date in German local time,
+    so 'date_to=2026-02-26' means up to 2026-02-26 23:59:59 Europe/Berlin,
+    which is 2026-02-26 22:59:59 UTC in winter (UTC+1).
+    """
+    year, month, day = int(date_str[:4]), int(date_str[5:7]), int(date_str[8:10])
+    hour, minute, second = (23, 59, 59) if end_of_day else (0, 0, 0)
+    local_dt = datetime(year, month, day, hour, minute, second, tzinfo=_TZ_BERLIN)
+    return local_dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 # Per-tool-group limits for stored result files per user.
 # When a new result is saved and the group limit is exceeded,
@@ -120,6 +136,13 @@ def get_user_by_username(ldap_username: str):
     with get_connection() as conn:
         return conn.execute(
             "SELECT * FROM users WHERE ldap_username = ?", (ldap_username,)
+        ).fetchone()
+
+
+def get_user_by_id(user_id: int):
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
         ).fetchone()
 
 
@@ -265,6 +288,111 @@ def get_results_for_tool_group(user_id: int, group: str) -> list[dict]:
             (user_id, *tools),
         ).fetchall()
         return [dict(row) for row in rows]
+
+
+def get_all_users(
+    limit: int = 50, offset: int = 0, q: str = "",
+    date_from: str = "", date_to: str = "",
+) -> tuple[list[dict], int]:
+    """All users, newest first. Returns (users, total_count).
+
+    Filters: q (name/username/email), date_from/date_to (YYYY-MM-DD).
+    """
+    conditions = []
+    params: list = []
+
+    if q:
+        like = f"%{q}%"
+        conditions.append("(display_name LIKE ? OR ldap_username LIKE ? OR email LIKE ?)")
+        params += [like, like, like]
+    if date_from:
+        conditions.append("created_at >= ?")
+        params.append(_de_date_to_utc(date_from))
+    if date_to:
+        conditions.append("created_at <= ?")
+        params.append(_de_date_to_utc(date_to, end_of_day=True))
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM users {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            params + [limit, offset],
+        ).fetchall()
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM users {where}",
+            params,
+        ).fetchone()[0]
+    return [dict(row) for row in rows], total
+
+
+def get_pending_users() -> list[dict]:
+    """Users with active=0 (passed LDAP auth but not yet whitelisted)."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM users WHERE active = 0 ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def activate_user(user_id: int) -> None:
+    """Set active=1 for the given user."""
+    with get_connection() as conn:
+        conn.execute("UPDATE users SET active = 1 WHERE id = ?", (user_id,))
+        conn.commit()
+
+
+def deactivate_user_by_email(email: str) -> None:
+    """Set active=0 for any user with the given email."""
+    with get_connection() as conn:
+        conn.execute("UPDATE users SET active = 0 WHERE LOWER(email) = LOWER(?)", (email.strip(),))
+        conn.commit()
+
+
+def get_all_jobs(
+    limit: int = 50, offset: int = 0, q: str = "",
+    date_from: str = "", date_to: str = "",
+) -> tuple[list[dict], int]:
+    """All jobs across all users, with display_name via JOIN, newest first.
+
+    Returns (jobs, total_count).
+    Filters: q (user/tool/filename), date_from/date_to (YYYY-MM-DD).
+    """
+    conditions = []
+    params: list = []
+
+    if q:
+        like = f"%{q}%"
+        conditions.append(
+            "(u.display_name LIKE ? OR u.ldap_username LIKE ? OR j.tool LIKE ? OR j.original_filename LIKE ?)"
+        )
+        params += [like, like, like, like]
+    if date_from:
+        conditions.append("j.created_at >= ?")
+        params.append(_de_date_to_utc(date_from))
+    if date_to:
+        conditions.append("j.created_at <= ?")
+        params.append(_de_date_to_utc(date_to, end_of_day=True))
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"""SELECT j.*, u.display_name AS user_display_name, u.ldap_username
+               FROM jobs j
+               LEFT JOIN users u ON j.user_id = u.id
+               {where}
+               ORDER BY j.created_at DESC
+               LIMIT ? OFFSET ?""",
+            params + [limit, offset],
+        ).fetchall()
+        total = conn.execute(
+            f"""SELECT COUNT(*) FROM jobs j
+               LEFT JOIN users u ON j.user_id = u.id
+               {where}""",
+            params,
+        ).fetchone()[0]
+    return [dict(row) for row in rows], total
 
 
 def get_pending_dubbing_jobs() -> list[dict]:

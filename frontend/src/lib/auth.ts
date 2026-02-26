@@ -1,7 +1,7 @@
 import { api } from "./api";
 import type { AuthStatus, LoginResponse } from "@/types";
 
-let cachedAuth: { authenticated: boolean; timestamp: number } | null = null;
+let cachedAuth: { result: AuthStatus; timestamp: number } | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 Minuten
 
 export function clearAuthCache() {
@@ -19,11 +19,11 @@ export async function logout(): Promise<void> {
 
 export async function checkAuthStatus(): Promise<AuthStatus> {
   if (cachedAuth && Date.now() - cachedAuth.timestamp < CACHE_TTL_MS) {
-    return { authenticated: cachedAuth.authenticated };
+    return cachedAuth.result;
   }
   try {
     const result = await api.getJson<AuthStatus>("/auth/status");
-    cachedAuth = { authenticated: result.authenticated, timestamp: Date.now() };
+    cachedAuth = { result, timestamp: Date.now() };
     return result;
   } catch {
     return { authenticated: false };
