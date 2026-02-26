@@ -11,6 +11,8 @@ interface MyJob {
   status: "pending" | "running" | "success" | "failed";
   error: string | null;
   created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
   expires_at: string | null;
   has_download: boolean;
   result_filename: string | null;
@@ -25,6 +27,20 @@ function timeAgo(dateStr: string): string {
   if (diff < 3600) return `vor ${Math.floor(diff / 60)} Min.`;
   if (diff < 86400) return `vor ${Math.floor(diff / 3600)} Std.`;
   return `vor ${Math.floor(diff / 86400)} Tagen`;
+}
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function toMs(dateStr: string): number {
+  return new Date(dateStr + "Z").getTime();
 }
 
 function StatusBadge({ status, expired }: { status: MyJob["status"]; expired: boolean }) {
@@ -180,6 +196,16 @@ export default function JobsPanel() {
                           <p className="text-xs font-medium text-gray-800 truncate">{job.tool_label}</p>
                           <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{timeAgo(job.created_at)}</p>
+                          {(job.started_at || job.completed_at) && (
+                            <p className="text-xs text-gray-300 mt-0.5">
+                              {job.started_at && (
+                                <>Warte: {formatDuration(toMs(job.started_at) - toMs(job.created_at))}</>
+                              )}
+                              {job.started_at && job.completed_at && (
+                                <> · Arbeit: {formatDuration(toMs(job.completed_at) - toMs(job.started_at))}</>
+                              )}
+                            </p>
+                          )}
                           {job.status === "failed" && job.error && (
                             <p className="text-xs text-red-500 mt-1 line-clamp-2">{job.error}</p>
                           )}

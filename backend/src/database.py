@@ -65,12 +65,22 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 progress          TEXT,
                 celery_task_id    TEXT,
                 created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+                started_at        TEXT,
+                completed_at      TEXT,
                 expires_at        TEXT
             )
         """)
         # Migration: add celery_task_id column to existing databases
         try:
             conn.execute("ALTER TABLE jobs ADD COLUMN celery_task_id TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN started_at TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN completed_at TEXT")
         except sqlite3.OperationalError:
             pass  # column already exists
         conn.execute("""
@@ -215,6 +225,18 @@ def delete_job(job_uuid: str) -> dict | None:
         return dict(row)
 
 
+def get_pending_dubbing_jobs() -> list[dict]:
+    """Return all running dubbing jobs waiting for ElevenLabs (step='dubbing')."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT job_uuid, progress FROM jobs
+               WHERE tool = 'video_dubbing'
+               AND status = 'running'
+               AND progress LIKE '%"step": "dubbing"%'"""
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
 def update_job_status(
     job_uuid: str,
     status: str,
@@ -222,15 +244,31 @@ def update_job_status(
     progress: dict | None = None,
 ) -> None:
     progress_json = json.dumps(progress) if progress is not None else None
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
-        conn.execute(
-            """
-            UPDATE jobs
-            SET status = ?, error_message = ?, progress = ?
-            WHERE job_uuid = ?
-            """,
-            (status, error_message, progress_json, job_uuid),
-        )
+        if status == "running":
+            conn.execute(
+                """UPDATE jobs
+                   SET status = ?, error_message = ?, progress = ?,
+                       started_at = COALESCE(started_at, ?)
+                   WHERE job_uuid = ?""",
+                (status, error_message, progress_json, now, job_uuid),
+            )
+        elif status in ("success", "failed"):
+            conn.execute(
+                """UPDATE jobs
+                   SET status = ?, error_message = ?, progress = ?,
+                       completed_at = ?
+                   WHERE job_uuid = ?""",
+                (status, error_message, progress_json, now, job_uuid),
+            )
+        else:
+            conn.execute(
+                """UPDATE jobs
+                   SET status = ?, error_message = ?, progress = ?
+                   WHERE job_uuid = ?""",
+                (status, error_message, progress_json, job_uuid),
+            )
         conn.commit()
 
 

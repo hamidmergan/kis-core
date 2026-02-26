@@ -59,6 +59,7 @@ def _run_render_pipeline(
     slide_pause: float,
     embed_subtitles: bool,
     slide_images_override: list[Path] | None = None,
+    dpi: int = 100,
 ) -> dict:
     """
     Core render pipeline shared by screencast_render and screencast_auto tasks.
@@ -88,8 +89,8 @@ def _run_render_pipeline(
             prerendered_dir = IMAGE_TMP_DIR / file_id
             prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir.exists() else []
 
-            if prerendered_images:
-                logger.info("Render {}: using {} pre-rendered images", job_uuid, len(prerendered_images))
+            if prerendered_images and dpi == 100:
+                logger.info("Render {}: using {} pre-rendered images (100 DPI)", job_uuid, len(prerendered_images))
                 slide_images = prerendered_images
             else:
                 pptx_src = PPTX_TMP_DIR / f"{file_id}.pptx"
@@ -99,7 +100,7 @@ def _run_render_pipeline(
                 pptx_path.write_bytes(pptx_src.read_bytes())
                 img_dir = tmp / "images"
                 img_dir.mkdir()
-                slide_images = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir))
+                slide_images = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir, dpi))
 
         # ── TTS ───────────────────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": 0, "total": len(scripts)})
@@ -178,7 +179,7 @@ def _run_render_pipeline(
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
 
-@celery_app.task(bind=True, name="screencast.translate")
+@celery_app.task(bind=True, name="screencast.translate", queue="screencast")
 def run_screencast_translate(
     self,
     job_uuid: str,
@@ -253,7 +254,7 @@ def run_screencast_translate(
         raise
 
 
-@celery_app.task(bind=True, name="screencast.render")
+@celery_app.task(bind=True, name="screencast.render", queue="screencast")
 def run_screencast_render(
     self,
     job_uuid: str,
@@ -264,6 +265,7 @@ def run_screencast_render(
     slide_pause: float,
     embed_subtitles: bool,
     original_filename: str = "screencast",
+    dpi: int = 100,
 ):
     """Render final MP4 from edited scripts and stored PPTX."""
     try:
@@ -275,6 +277,7 @@ def run_screencast_render(
             speed=speed,
             slide_pause=slide_pause,
             embed_subtitles=embed_subtitles,
+            dpi=dpi,
         )
 
         stem = Path(original_filename).stem if original_filename else "screencast"
@@ -290,7 +293,7 @@ def run_screencast_render(
         raise
 
 
-@celery_app.task(bind=True, name="screencast.auto")
+@celery_app.task(bind=True, name="screencast.auto", queue="screencast")
 def run_screencast_auto(
     self,
     job_uuid: str,
@@ -374,19 +377,27 @@ def run_screencast_auto(
         raise
 
 
-@celery_app.task(bind=True, name="screencast.demo_render")
+@celery_app.task(bind=True, name="screencast.demo_render", queue="screencast")
 def run_screencast_demo_render(
     self,
     job_uuid: str,
     file_id: str,
+    dpi: int = 100,
 ):
     """Demo render: FFmpeg pipeline with pre-existing demo audio files."""
+    import time
+    t_start = time.time()
+
+    def _elapsed(since=None):
+        return f"{time.time() - (since or t_start):.2f}s"
+
     try:
         db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
         from src.routes.screencast import (
             PPTX_TMP_DIR,
             IMAGE_TMP_DIR,
+            _pptx_to_images,
             _get_demo_slide_images_sync,
             _load_demo_audio_files,
             _load_demo_subtitles,
@@ -400,17 +411,33 @@ def run_screencast_demo_render(
         )
         from src.services.subtitle_converter import build_subtitles
 
+        logger.info("TIMING [{}] start", job_uuid[:8])
+
         # Get slide images
+        import base64
+        t0 = time.time()
         prerendered_dir = IMAGE_TMP_DIR / file_id if file_id else None
         prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir and prerendered_dir.exists() else []
 
-        if prerendered_images:
-            import base64
+        if prerendered_images and dpi == 100:
             slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in prerendered_images]
+            logger.info("TIMING [{}] images: pre-rendered 100dpi ({} slides) in {}", job_uuid[:8], len(slide_images_b64), _elapsed(t0))
+        elif file_id and (PPTX_TMP_DIR / f"{file_id}.pptx").exists():
+            pptx_src = PPTX_TMP_DIR / f"{file_id}.pptx"
+            with tempfile.TemporaryDirectory() as tmpdir_img:
+                img_dir = Path(tmpdir_img) / "images"
+                img_dir.mkdir()
+                pptx_copy = Path(tmpdir_img) / "render.pptx"
+                pptx_copy.write_bytes(pptx_src.read_bytes())
+                image_paths = _pptx_to_images(pptx_copy, img_dir, dpi)
+                slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in image_paths]
+            logger.info("TIMING [{}] images: re-rendered {}dpi ({} slides) in {}", job_uuid[:8], dpi, len(slide_images_b64), _elapsed(t0))
         else:
             slide_images_b64 = _get_demo_slide_images_sync()
+            logger.info("TIMING [{}] images: demo ({} slides) in {}", job_uuid[:8], len(slide_images_b64), _elapsed(t0))
 
         # Load demo audio
+        t0 = time.time()
         pptx_path = _find_demo_pptx()
         if pptx_path:
             slide_texts = _extract_text_per_slide(pptx_path.read_bytes())
@@ -418,6 +445,7 @@ def run_screencast_demo_render(
             slide_texts = []
         num_slides_hint = len(slide_texts) or 6
         demo_audio = _load_demo_audio_files(num_slides_hint)
+        logger.info("TIMING [{}] load audio: {} files in {}", job_uuid[:8], len(demo_audio), _elapsed(t0))
 
         if not demo_audio:
             raise RuntimeError("Keine Demo-MP3s gefunden. Lege slide_001.mp3 in backend/demo/slides/ ab.")
@@ -434,7 +462,7 @@ def run_screencast_demo_render(
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
 
-            import base64
+            t0 = time.time()
             slide_image_paths: list[Path] = []
             for i, img_b64 in enumerate(slide_images_b64[:num_slides]):
                 img_path = tmp / f"slide_{i:03d}.png"
@@ -446,16 +474,23 @@ def run_screencast_demo_render(
                 dst = tmp / f"audio_{i:03d}.mp3"
                 dst.write_bytes(src.read_bytes())
                 audio_paths.append(dst)
+            logger.info("TIMING [{}] write tmp files in {}", job_uuid[:8], _elapsed(t0))
 
+            t0 = time.time()
             clip_paths: list[Path] = []
             for i in range(num_slides):
+                t_clip = time.time()
                 clip_path = tmp / f"clip_{i:03d}.mp4"
                 _create_slide_video(slide_image_paths[i], audio_paths[i], clip_path, pause=slide_pause)
                 clip_paths.append(clip_path)
+                logger.info("TIMING [{}] clip {}/{} in {}", job_uuid[:8], i + 1, num_slides, _elapsed(t_clip))
+            logger.info("TIMING [{}] all clips in {}", job_uuid[:8], _elapsed(t0))
 
+            t0 = time.time()
             db.update_job_status(job_uuid, "running", progress={"step": "concat"})
             concat_path = tmp / "concat.mp4"
             _concatenate_videos(clip_paths, concat_path)
+            logger.info("TIMING [{}] concat in {}", job_uuid[:8], _elapsed(t0))
 
             # Build subtitles from durations
             per_slide_data = [{"alignment": None, "audio_duration": _get_audio_duration(ap)} for ap in audio_paths]
@@ -470,26 +505,30 @@ def run_screencast_demo_render(
 
             srt_content = final_subs.get("srt", "")
             if srt_content:
+                t0 = time.time()
                 db.update_job_status(job_uuid, "running", progress={"step": "subtitles"})
                 srt_path = tmp / "subtitles.srt"
                 srt_path.write_text(srt_content, encoding="utf-8")
                 subtitled_path = tmp / "concat_sub.mp4"
                 if _embed_subs(concat_path, srt_path, subtitled_path):
                     concat_path = subtitled_path
+                logger.info("TIMING [{}] subtitles in {}", job_uuid[:8], _elapsed(t0))
 
+            t0 = time.time()
             final_path = tmp / "final.mp4"
             output_bytes = _apply_faststart(concat_path, final_path)
+            logger.info("TIMING [{}] faststart in {}", job_uuid[:8], _elapsed(t0))
 
-            # Save audio cache
+            t0 = time.time()
             audio_id = uuid.uuid4().hex
             audio_bytes_list = [ap.read_bytes() for ap in audio_paths[:num_slides]]
             save_audio_cache(audio_id, audio_bytes_list)
 
             result_path = save_result_file(job_uuid, ".mp4", output_bytes)
+            logger.info("TIMING [{}] save result in {}", job_uuid[:8], _elapsed(t0))
 
-            import base64 as _b64
             meta = {
-                "subtitle_b64": _b64.b64encode(
+                "subtitle_b64": base64.b64encode(
                     json.dumps(final_subs).encode("utf-8")
                 ).decode("ascii"),
                 "audio_id": audio_id,
@@ -500,6 +539,7 @@ def run_screencast_demo_render(
         db.update_job_result(job_uuid, result_path, "demo_screencast.mp4")
         db.update_job_status(job_uuid, "success")
 
+        logger.info("TIMING [{}] TOTAL: {}", job_uuid[:8], _elapsed())
         logger.info("Demo render task {} completed", job_uuid)
 
     except Exception as e:

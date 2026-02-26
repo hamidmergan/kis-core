@@ -25,16 +25,69 @@ services:
         max-size: "10m"
         max-file: "7"
 
-  celery-worker:
+  celery-worker-screencast:
     build: ./backend
-    container_name: kis-celery-worker
-    command: celery -A src.celery_app worker --concurrency=2 --loglevel=info
+    container_name: kis-celery-screencast
+    command: celery -A src.celery_app worker --queues=screencast --autoscale=2,1 --loglevel=info
     env_file:
       - .env
     volumes:
       - ./backend/demo:/app/demo:ro
       - kis-db:/app/data
       - kis-storage:/app/storage
+    depends_on:
+      - redis
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+  celery-worker-tts:
+    build: ./backend
+    container_name: kis-celery-tts
+    command: celery -A src.celery_app worker --queues=tts --autoscale=6,1 --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - kis-db:/app/data
+      - kis-storage:/app/storage
+    depends_on:
+      - redis
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+  celery-worker-dubbing:
+    build: ./backend
+    container_name: kis-celery-dubbing
+    command: celery -A src.celery_app worker --queues=dubbing --autoscale=4,1 --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - kis-db:/app/data
+      - kis-storage:/app/storage
+    depends_on:
+      - redis
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+  celery-beat:
+    build: ./backend
+    container_name: kis-celery-beat
+    command: celery -A src.celery_app beat --loglevel=info --schedule=/app/data/celerybeat-schedule
+    env_file:
+      - .env
+    volumes:
+      - kis-db:/app/data
     depends_on:
       - redis
     restart: unless-stopped

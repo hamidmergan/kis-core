@@ -137,6 +137,19 @@ def _poll_dubbing_job(api_key: str, dubbing_id: str) -> None:
     raise HTTPException(status_code=504, detail="Dubbing Timeout – bitte später erneut versuchen")
 
 
+def _check_dubbing_status_once(api_key: str, dubbing_id: str) -> str:
+    """Single status check — returns ElevenLabs status string (e.g. 'dubbed', 'dubbing', 'failed')."""
+    with httpx.Client(timeout=30.0) as client:
+        resp = client.get(
+            f"{_ELEVENLABS_DUBBING_URL}/{dubbing_id}",
+            headers={"xi-api-key": api_key},
+        )
+    if resp.status_code != 200:
+        logger.warning("Status check failed for {}: {}", dubbing_id, resp.text[:200])
+        return "pending"
+    return resp.json().get("status", "pending")
+
+
 def _download_dubbed_audio(api_key: str, dubbing_id: str, target_lang: str) -> bytes:
     """Download the dubbed audio/video from ElevenLabs."""
     with httpx.Client(timeout=300.0) as client:
@@ -278,8 +291,8 @@ async def video_dubbing(
     input_path = save_queue_file(job_uuid, ext, file_bytes)
     db.create_job(job_uuid, user_id, "video_dubbing", file.filename or f"input{ext}", input_path)
 
-    from src.tasks.video_dubbing_tasks import run_video_dubbing
-    task = run_video_dubbing.apply_async(args=[
+    from src.tasks.video_dubbing_tasks import submit_dubbing
+    task = submit_dubbing.apply_async(args=[
         job_uuid,
         input_path,
         file.filename or f"input{ext}",

@@ -111,6 +111,7 @@ export default function ScreencastPage() {
   const [dragOver, setDragOver] = useState(false);
   const [speed, setSpeed] = useState(0.9);
   const [slidePause, setSlidePause] = useState<number>(0.5);
+  const [dpi, setDpi] = useState(100);
   const [userPrompt, setUserPrompt] = useState("");
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const [slides, setSlides] = useState<SlideData[]>([]);
@@ -690,7 +691,7 @@ export default function ScreencastPage() {
       const response = await fetch("/api/screencast/demo/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_id: translatedPptxFileId }),
+        body: JSON.stringify({ file_id: translatedPptxFileId, dpi }),
         credentials: "include",
         signal,
       });
@@ -715,7 +716,7 @@ export default function ScreencastPage() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [translatedPptxFileId, goError, processRenderResponse, processRenderResultFromJob]);
+  }, [translatedPptxFileId, dpi, goError, processRenderResponse, processRenderResultFromJob]);
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
@@ -733,6 +734,7 @@ export default function ScreencastPage() {
           speed,
           slide_pause: slidePause,
           embed_subtitles: embedSubtitles,
+          dpi,
         }),
         credentials: "include",
         signal,
@@ -751,7 +753,7 @@ export default function ScreencastPage() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, goError, processRenderResultFromJob]);
+  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, dpi, goError, processRenderResultFromJob]);
 
   // ── Download MP4 ──
   const handleDownload = () => {
@@ -1694,6 +1696,41 @@ export default function ScreencastPage() {
                 </p>
               </div>
             </label>
+
+            {/* DPI / Bildqualität */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Bildqualität</p>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="dpi"
+                    value={100}
+                    checked={dpi === 100}
+                    onChange={() => setDpi(100)}
+                    className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">100 DPI – Standard</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Moodle-Standard (~720p), empfohlen</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="dpi"
+                    value={150}
+                    checked={dpi === 150}
+                    onChange={() => setDpi(150)}
+                    className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">150 DPI – Bessere Qualität</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Schärfere Bilder, ca. doppelte Bearbeitungszeit</p>
+                  </div>
+                </label>
+              </div>
+            </div>
 
             {/* Summary */}
             <div className="mb-6 rounded-lg bg-gray-50 px-4 py-3">

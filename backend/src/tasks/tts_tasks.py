@@ -9,7 +9,7 @@ from src import database as db
 from src.storage import save_queue_file, save_result_file
 
 
-@celery_app.task(bind=True, name="tts.run")
+@celery_app.task(bind=True, name="tts.run", queue="tts")
 def run_tts(
     self,
     job_uuid: str,

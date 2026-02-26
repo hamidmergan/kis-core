@@ -117,6 +117,7 @@ class RenderRequest(BaseModel):
     speed: float = 0.9
     slide_pause: float = 0.5
     embed_subtitles: bool = True
+    dpi: int = 100
 
 
 class PrerenderRequest(BaseModel):
@@ -125,6 +126,7 @@ class PrerenderRequest(BaseModel):
 
 class DemoRenderRequest(BaseModel):
     file_id: str = ""
+    dpi: int = 100
 
 
 class DemoTranslateRequest(BaseModel):
@@ -132,7 +134,7 @@ class DemoTranslateRequest(BaseModel):
 
 
 async def _prerender_images_task(file_id: str) -> None:
-    """Background task: render slide images at 300 DPI and cache them in IMAGE_TMP_DIR."""
+    """Background task: render slide images at 100 DPI and cache them in IMAGE_TMP_DIR."""
     pptx_src = PPTX_TMP_DIR / f"{file_id}.pptx"
     if not pptx_src.exists():
         logger.warning("Pre-render: PPTX not found for file_id={}", file_id)
@@ -140,7 +142,7 @@ async def _prerender_images_task(file_id: str) -> None:
     out_dir = IMAGE_TMP_DIR / file_id
     out_dir.mkdir(parents=True, exist_ok=True)
     try:
-        await asyncio.to_thread(_pptx_to_images, pptx_src, out_dir, 300)
+        await asyncio.to_thread(_pptx_to_images, pptx_src, out_dir, 100)
         logger.info("Pre-rendering complete for file_id={}", file_id)
     except Exception as e:
         logger.warning("Pre-rendering failed for file_id={}: {}", file_id, e)
@@ -247,7 +249,7 @@ def _apply_autofit_for_rendering(pptx_path: Path) -> Path:
     return render_path
 
 
-def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 150) -> list[Path]:
+def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[Path]:
     """Convert PPTX slides to PNG images using LibreOffice."""
     # Read actual slide dimensions so we can detect non-standard sizes and
     # pass the correct aspect ratio to the post-processing step.
@@ -351,6 +353,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
             "-t", "3",
             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
+            "-threads", "2",
             "-crf", str(crf),
             "-pix_fmt", "yuv420p",
             str(output_path),
@@ -399,6 +402,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         "-t", str(total_duration),
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
+        "-threads", "2",
         "-c:a", "aac", "-b:a", "192k",
         "-crf", str(crf),
         "-pix_fmt", "yuv420p",
@@ -560,10 +564,10 @@ async def _generate_all_tts(
 
 # PARALLELIZED
 async def _convert_slides_to_images_async(
-    pptx_path: Path, img_dir: Path
+    pptx_path: Path, img_dir: Path, dpi: int = 100
 ) -> list[Path]:
     """Run LibreOffice image conversion in a thread."""
-    return await asyncio.to_thread(_pptx_to_images, pptx_path, img_dir)
+    return await asyncio.to_thread(_pptx_to_images, pptx_path, img_dir, dpi)
 
 
 # ── Auto-mode endpoint (unchanged) ──────────────────────────────────────────
@@ -851,6 +855,7 @@ async def screencast_render(
         body.slide_pause,
         body.embed_subtitles,
         "screencast.pptx",
+        body.dpi,
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 
@@ -1321,7 +1326,7 @@ async def demo_render(
         db.create_job(job_uuid, user_id, "screencast_demo_render", "demo_screencast.pptx")
 
         from src.tasks.screencast_tasks import run_screencast_demo_render
-        task = run_screencast_demo_render.apply_async(args=[job_uuid, body.file_id])
+        task = run_screencast_demo_render.apply_async(args=[job_uuid, body.file_id, body.dpi])
         db.set_job_celery_task_id(job_uuid, task.id)
 
         logger.info("Demo render job queued: job_uuid={}", job_uuid)

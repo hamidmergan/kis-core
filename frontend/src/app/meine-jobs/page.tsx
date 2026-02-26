@@ -11,6 +11,8 @@ interface MyJob {
   status: "pending" | "running" | "success" | "failed";
   error: string | null;
   created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
   has_download: boolean;
   result_filename: string | null;
 }
@@ -37,6 +39,40 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function formatDuration(ms: number): string {
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec} Sek.`;
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")} Std.`;
+  return `${m}:${String(s).padStart(2, "0")} Min.`;
+}
+
+function toMs(dateStr: string): number {
+  return new Date(dateStr + "Z").getTime();
+}
+
+function TimingInfo({ job }: { job: MyJob }) {
+  const waitMs = job.started_at ? toMs(job.started_at) - toMs(job.created_at) : null;
+  const workMs = job.started_at && job.completed_at ? toMs(job.completed_at) - toMs(job.started_at) : null;
+
+  return (
+    <div className="mt-1.5 text-xs text-gray-400 space-y-0.5">
+      <p>Eingereicht: {formatDate(job.created_at)}</p>
+      {waitMs !== null && (
+        <p>Wartezeit: <span className="text-gray-500">{formatDuration(waitMs)}</span></p>
+      )}
+      {workMs !== null && (
+        <p>Bearbeitungszeit: <span className="text-gray-500">{formatDuration(workMs)}</span></p>
+      )}
+      {job.completed_at && (
+        <p>Fertig: {formatDate(job.completed_at)}</p>
+      )}
+    </div>
+  );
+}
+
 export default function MeineJobsPage() {
   const [jobs, setJobs] = useState<MyJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +87,6 @@ export default function MeineJobsPage() {
       })
       .then((data) => {
         if (!data) return;
-        // Only show jobs from the last 24 hours
         const cutoff = Date.now() - 24 * 60 * 60 * 1000;
         const recent = (data.jobs ?? []).filter(
           (j: MyJob) => new Date(j.created_at + "Z").getTime() >= cutoff
@@ -103,7 +138,7 @@ export default function MeineJobsPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-800">{job.tool_label}</p>
                       <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{formatDate(job.created_at)}</p>
+                      <TimingInfo job={job} />
                       {job.status === "failed" && job.error && (
                         <p className="text-xs text-red-500 mt-1">{job.error}</p>
                       )}

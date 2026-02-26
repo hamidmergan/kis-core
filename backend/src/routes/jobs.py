@@ -54,6 +54,8 @@ async def get_my_jobs(
             "status": job["status"],
             "error": job["error_message"],
             "created_at": job["created_at"],
+            "started_at": job["started_at"],
+            "completed_at": job["completed_at"],
             "expires_at": job["expires_at"],
             "has_download": has_download,
             "result_filename": job["result_filename"],
