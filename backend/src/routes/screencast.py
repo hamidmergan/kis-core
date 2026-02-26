@@ -350,11 +350,13 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         cmd = [
             "ffmpeg", "-y",
             "-loop", "1", "-i", str(image_path),
+            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
             "-t", "3",
             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
             "-threads", "2",
             "-crf", str(crf),
+            "-c:a", "aac",
             "-pix_fmt", "yuv420p",
             str(output_path),
         ]

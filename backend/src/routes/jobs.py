@@ -38,9 +38,12 @@ async def get_my_jobs(
 ):
     """Return the most recent jobs for the current user (default 20, max 200)."""
     user_id = current_user.get("user_id", 0)
+    _HIDDEN_TOOLS = {"screencast_translate"}
     jobs = db.get_jobs_by_user(user_id, limit=limit)
     result = []
     for job in jobs:
+        if job["tool"] in _HIDDEN_TOOLS:
+            continue
         has_download = (
             job["status"] == "success"
             and job["result_path"]

@@ -1577,6 +1577,12 @@ export default function ScreencastPage() {
               })}
             </div>
 
+            {slides.filter((s) => !s.script.trim()).length > 0 && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
+                {slides.filter((s) => !s.script.trim()).length} Folie(n) haben kein Skript — bitte ausfüllen bevor du weitergehst.
+              </p>
+            )}
+
             <div className="flex gap-3">
               <button
                 onClick={handleAcceptScripts}

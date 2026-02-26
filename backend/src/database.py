@@ -295,6 +295,7 @@ def update_job_result(
         old_jobs = conn.execute(
             """SELECT id, result_path FROM jobs
                WHERE user_id = ? AND result_path IS NOT NULL
+               AND tool NOT IN ('screencast_translate')
                ORDER BY created_at ASC""",
             (user_id,),
         ).fetchall()

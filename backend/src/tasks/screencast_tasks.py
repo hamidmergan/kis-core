@@ -229,9 +229,9 @@ def run_screencast_translate(
                 img_dir = tmp / "images"
                 img_dir.mkdir()
                 slide_image_paths = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir))
+                import base64
+                slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
 
-            import base64
-            slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
             result = {
                 "slide_count": len(slide_texts),
                 "slide_texts": slide_texts,

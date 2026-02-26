@@ -25,7 +25,7 @@ _SYSTEM_PROMPT_DE = (
     "- Sprich die Zuhörer direkt an mit 'Sie'.\n"
     "- Beginne NICHT jede Folie mit einer Begrüßung – nur auf der Titelfolie.\n"
     "- Beende das Skript NICHT mit Füllphrasen wie 'Lassen Sie uns beginnen'.\n"
-    "- Halte das Skript prägnant: zwischen 20 und 200 Wörter. Nicht kürzer, nicht länger."
+    "- Halte das Skript prägnant: zwischen 20 und 100 Wörter. Nicht kürzer, nicht länger."
 )
 
 _SYSTEM_PROMPT_EN = (
@@ -44,7 +44,7 @@ _SYSTEM_PROMPT_EN = (
     "- Natural, conversational tone – like a university lecturer speaking.\n"
     "- Do NOT start with 'Welcome' or greetings on every slide – only on the title slide.\n"
     "- Do NOT end with filler phrases like 'Let us dive in' or 'Let us get started'.\n"
-    "- Keep the script concise: between 20 and 200 words. Not shorter, not longer."
+    "- Keep the script concise: between 20 and 100 words. Not shorter, not longer."
 )
 
 
@@ -88,25 +88,22 @@ class KisskiClient:
         if glossary:
             lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
             system_prompt = f"Use the following terminology consistently in your output:\n{lines}\n\n" + system_prompt
-        if user_prompt:
-            system_prompt += f"""
-
-Additional instructions from the user (written in German – interpret them semantically and apply them to the English output):
-{user_prompt}
-
-Important: Do NOT translate German words literally into the script.
-Example: "Sprich die Zuhörer direkt an mit Sie" means use a formal, direct tone addressing the audience as "you" in English – not the word "Sie".
-Example: "Kurze Sätze" means write short sentences in English.
-Always apply the intent, not the literal words.
-"""
+        # user_prompt goes in the user message (not system) to keep the system prompt English-only
+        user_message = text
+        if user_prompt and user_prompt.strip():
+            user_message += (
+                f"\n\nAdditional instructions to apply "
+                f"(apply semantically, output must remain in English):\n{user_prompt.strip()}"
+            )
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": text},
+                    {"role": "user", "content": user_message},
                 ],
                 temperature=0.3,
+                max_tokens=300,
             )
             content = response.choices[0].message.content
             if content is None:
@@ -129,17 +126,8 @@ Always apply the intent, not the literal words.
     ) -> list[str]:
         """Run one LLM call for a slice of slides and return scripts for that slice.
 
-        Args:
-            batch_texts: Slide texts for this batch only.
-            batch_index: 0-based index of this batch.
-            batch_count: Total number of batches.
-            global_start: 0-based index of the first slide in this batch (across all slides).
-            total_slides: Total number of slides in the full presentation.
-            user_prompt: Optional additional instructions from the user.
-            glossary: Optional term mapping to enforce in the output.
-
-        Returns:
-            List of scripts with the same length as batch_texts.
+        Uses a plain-text separator (|||) instead of JSON so response truncation
+        never causes a parse failure – whatever the LLM writes is usable.
         """
         batch_size = len(batch_texts)
         global_end = global_start + batch_size  # exclusive
@@ -148,15 +136,12 @@ Always apply the intent, not the literal words.
         slides_input = ""
         for local_i, text in enumerate(batch_texts):
             global_i = global_start + local_i
+            position = f"Slide {global_i + 1} of {total_slides}"
             if global_i == 0:
-                position = f"Slide {global_i + 1} of {total_slides} (first slide)"
-            elif global_i == total_slides - 1:
-                position = f"Slide {global_i + 1} of {total_slides} (last slide)"
-            else:
-                position = f"Slide {global_i + 1} of {total_slides}"
+                position += " (first slide)"
             slides_input += f"### {position}\n{text.strip() if text.strip() else '[empty slide]'}\n\n"
 
-        # Build system prompt
+        # Build system prompt (English-only – no German text here)
         glossary_hint = ""
         if glossary:
             lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
@@ -164,14 +149,13 @@ Always apply the intent, not the literal words.
 
         system_prompt = glossary_hint + (
             "You are an expert at creating spoken narration scripts for presentation slides. "
-            f"You are processing Batch {batch_index + 1} of {batch_count}, "
-            f"slides {global_start + 1} to {global_end} of {total_slides} total. "
-            f"Generate a spoken script for EACH of the {batch_size} slides in this batch. "
+            f"Generate a spoken script for EACH of the {batch_size} slides below "
+            f"(slides {global_start + 1} to {global_end} of {total_slides} total). "
             "Rules:\n"
             "- Do NOT add any new information.\n"
             "- Do NOT hallucinate.\n"
             "- Keep all facts, numbers, names, and dates exactly as they are.\n"
-            "- The output MUST be in English.\n"
+            "- Output MUST be in English.\n"
             "- Convert bullet points, tables, and lists into flowing text.\n"
             "- Remove citations, footnotes, and formatting artifacts.\n"
             "- NO semicolons, NO dashes – use only periods and commas.\n"
@@ -179,117 +163,59 @@ Always apply the intent, not the literal words.
             "- Natural, conversational tone – like a university lecturer speaking.\n"
             "- Only use a greeting on slide 1 of the full presentation if the content clearly indicates a title or introduction.\n"
             "- Never use greetings on any other slide.\n"
-            "- Keep each script between 20 and 200 words.\n"
-            "- For empty slides, return an empty string.\n"
-            "- Do NOT add closing statements like 'thank you', 'thank you for your attention', "
-            "  'any questions', 'that concludes' on ANY slide – not even the last slide – "
-            "  unless the user explicitly requests it in the additional instructions below.\n"
+            "- Keep each script between 20 and 100 words.\n"
+            "- For empty slides, output nothing (just write the ||| delimiter).\n"
+            "- Do NOT add closing statements like 'thank you', 'any questions', or 'that concludes' on any slide.\n"
             "\n"
-            "Return ONLY a valid JSON object with this exact structure. "
-            "No markdown, no code blocks, no explanation, no text before or after:\n"
-            '{"scripts": ["script for slide 1", "script for slide 2", ...]}\n'
-            f"The array must contain exactly {batch_size} entries in the same order as the input slides."
+            f"Separate the {batch_size} scripts using the delimiter ||| on its own line. "
+            "No other text before, between, or after. Example format for 3 slides:\n"
+            "Script text for slide one.\n"
+            "|||\n"
+            "Script text for slide two.\n"
+            "|||\n"
+            "Script text for slide three."
         )
 
+        # user_prompt goes in the user message (not system) to keep system prompt English-only
+        user_message = slides_input
         if user_prompt and user_prompt.strip():
-            system_prompt += (
-                f"\n\nAdditional instructions from the user:\n{user_prompt.strip()}\n\n"
-                "IMPORTANT: Apply these instructions semantically to the English output. "
-                "Example: 'Sprich die Zuhörer mit Sie an' means use formal 'you' in English. "
-                f"Instructions mentioning 'last slide' or 'final slide' apply ONLY to slide {total_slides} of the full presentation."
+            user_message += (
+                f"\n\nAdditional instructions to apply to each script "
+                f"(apply semantically, output must remain in English):\n{user_prompt.strip()}\n"
+                f"Note: instructions mentioning 'last slide' apply only to slide {total_slides}."
             )
 
-        content = ""
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": slides_input},
+                    {"role": "user", "content": user_message},
                 ],
                 temperature=0.3,
+                max_tokens=batch_size * 350,
             )
             content = response.choices[0].message.content or ""
             if not content:
-                raise RuntimeError("LLM hat keine Antwort generiert")
+                raise RuntimeError(f"Batch {batch_index + 1}/{batch_count}: LLM returned empty response")
 
-            # Strip markdown code blocks robustly
-            content = re.sub(r"```(?:json)?\s*", "", content).strip()
-            content = content.strip("`").strip()
-
-            data = json.loads(content)
-            scripts = data.get("scripts", [])
+            # Parse separator-delimited output – truncation just means a shorter last script
+            parts = re.split(r"\|\|\|", content)
+            scripts = [p.strip() for p in parts]
 
             if len(scripts) != batch_size:
                 logger.warning(
-                    "Batch {}/{}: LLM returned {} scripts but expected {}, padding/trimming",
-                    batch_index + 1, batch_count, len(scripts), batch_size,
+                    "Batch {}/{}: expected {} scripts, got {} – padding/trimming",
+                    batch_index + 1, batch_count, batch_size, len(scripts),
                 )
                 scripts = (scripts + [""] * batch_size)[:batch_size]
 
-            return [str(s).strip() for s in scripts]
+            return scripts
 
-        except json.JSONDecodeError as e:
-            raise RuntimeError(
-                f"Batch {batch_index + 1}/{batch_count}: LLM returned invalid JSON: {e}. "
-                f"Raw response was: {content[:200]}"
-            ) from e
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
             raise RuntimeError(f"KISSKI API Fehler (Batch {batch_index + 1}): {e}") from e
-
-    def _generate_scripts_with_retry(
-        self,
-        batch_texts: list[str],
-        batch_index: int,
-        batch_count: int,
-        global_start: int,
-        total_slides: int,
-        user_prompt: str | None,
-        glossary: dict[str, str] | None,
-    ) -> list[str]:
-        """Wrap _generate_scripts_single_batch with JSON-error retry at decreasing batch sizes.
-
-        On a JSON parse failure the batch is split into sub-batches of (batch_size - 1)
-        and each sub-batch is retried recursively: 3 → 2 → 1.
-        At batch_size=1 a failure yields an empty string and a warning instead of raising.
-        """
-        try:
-            return self._generate_scripts_single_batch(
-                batch_texts, batch_index, batch_count, global_start, total_slides,
-                user_prompt, glossary,
-            )
-        except RuntimeError as e:
-            if "invalid JSON" not in str(e):
-                raise  # non-JSON errors propagate normally
-
-            batch_size = len(batch_texts)
-
-            if batch_size == 1:
-                logger.warning(
-                    "Batch {}: slide {} failed with JSON error at batch_size=1, "
-                    "returning empty string for this slide",
-                    batch_index + 1, global_start + 1,
-                )
-                return [""]
-
-            next_size = batch_size - 1  # 3→2→1
-            logger.info(
-                "Batch {} failed with JSON error, retrying with batch_size={}",
-                batch_index + 1, next_size,
-            )
-
-            results: list[str] = []
-            for sub_offset in range(0, batch_size, next_size):
-                sub_texts = batch_texts[sub_offset:sub_offset + next_size]
-                sub_scripts = self._generate_scripts_with_retry(
-                    sub_texts, batch_index, batch_count,
-                    global_start + sub_offset, total_slides,
-                    user_prompt, glossary,
-                )
-                results.extend(sub_scripts)
-            return results
 
     def generate_scripts_batch(
         self, slide_texts: list[str], user_prompt: str | None = None,
@@ -301,20 +227,18 @@ Always apply the intent, not the literal words.
 
         Slides are divided into groups of up to `batch_size` and all batches are
         submitted concurrently via ThreadPoolExecutor. Results are reassembled in
-        the original slide order.
+        the original slide order. Batches that fail return empty strings instead
+        of raising so partial results are always delivered.
 
         Args:
             slide_texts: List of extracted text per slide.
             user_prompt: Optional additional instructions from the user.
             glossary: Optional term mapping to enforce in the output.
-            batch_size: Maximum number of slides per LLM call (default 5).
-            max_workers: Maximum parallel LLM threads (default 3).
+            batch_size: Maximum number of slides per LLM call (default 3).
+            max_workers: Maximum parallel LLM threads (default 10).
 
         Returns:
             List of scripts in the same order as slide_texts.
-
-        Raises:
-            RuntimeError: If any LLM batch call returns an error or invalid JSON.
         """
         total_slides = len(slide_texts)
 
@@ -334,16 +258,23 @@ Always apply the intent, not the literal words.
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
                 executor.submit(
-                    self._generate_scripts_with_retry,
+                    self._generate_scripts_single_batch,
                     texts, idx, batch_count, global_start, total_slides,
                     user_prompt, glossary,
-                ): idx
+                ): (idx, len(texts))
                 for idx, (global_start, texts) in enumerate(batches)
             }
             for future in as_completed(futures):
-                idx = futures[future]
-                results[idx] = future.result()  # re-raises on non-JSON errors
-                logger.info("Batch {}/{} completed", idx + 1, batch_count)
+                idx, n = futures[future]
+                try:
+                    results[idx] = future.result()
+                    logger.info("Batch {}/{} completed", idx + 1, batch_count)
+                except RuntimeError as e:
+                    logger.warning(
+                        "Batch {}/{} failed: {} – returning empty strings for {} slide(s)",
+                        idx + 1, batch_count, e, n,
+                    )
+                    results[idx] = [""] * n
 
         # Reassemble in slide order
         ordered: list[str] = []
