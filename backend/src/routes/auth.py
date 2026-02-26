@@ -26,12 +26,16 @@ async def login(body: LoginRequest, response: Response):
     if ldap_user is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # Step 2: Determine active status via email whitelist
+    # Step 2: Determine active status via email whitelist (if enabled)
     ldap_username = ldap_user["username"]  # confirmed by LDAP, not from body
     display_name = ldap_user["fullname"] or ldap_username
     email = ldap_user["email"] or None  # store NULL instead of empty string
 
-    active = 1 if (email and database.is_email_whitelisted(email)) else 0
+    whitelist_enabled = database.get_setting("whitelist_enabled", "true").lower() == "true"
+    if whitelist_enabled:
+        active = 1 if (email and database.is_email_whitelisted(email)) else 0
+    else:
+        active = 1  # whitelist disabled — all LDAP-authenticated users are allowed
 
     # Step 3: Sync user with SQLite (create or update)
     db_user = database.get_user_by_username(ldap_username)

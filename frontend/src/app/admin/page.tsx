@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import { checkAuthStatus } from "@/lib/auth";
 
-type Tab = "pending" | "whitelist" | "users" | "jobs";
+type Tab = "pending" | "whitelist" | "users" | "jobs" | "settings";
 
 interface PendingUser {
   id: number;
@@ -506,6 +506,71 @@ function JobsTab() {
   );
 }
 
+// --- Tab: Settings ---
+function SettingsTab() {
+  const [whitelistEnabled, setWhitelistEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setWhitelistEnabled(d.whitelist_enabled ?? true));
+  }, []);
+
+  const toggle = async (value: boolean) => {
+    setSaving(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whitelist_enabled: value }),
+      });
+      setWhitelistEnabled(value);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (whitelistEnabled === null) return <Spinner />;
+
+  return (
+    <div className="space-y-6">
+      <div className="border border-gray-200 rounded-xl bg-white p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Whitelist-Modus</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {whitelistEnabled
+                ? "Aktiv — nur freigeschaltete E-Mail-Adressen dürfen sich einloggen."
+                : "Deaktiviert — alle authentifizierten TH-Accounts haben Zugang."}
+            </p>
+          </div>
+          <button
+            onClick={() => toggle(!whitelistEnabled)}
+            disabled={saving}
+            className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+              whitelistEnabled ? "bg-[#0066cc]" : "bg-gray-300"
+            } disabled:opacity-50`}
+            aria-label="Whitelist umschalten"
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                whitelistEnabled ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
+        {!whitelistEnabled && (
+          <p className="mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            Achtung: Alle TH-Mitarbeiter mit gültigem LDAP-Account können sich einloggen.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Spinner() {
   return (
     <div className="flex justify-center py-12">
@@ -534,6 +599,7 @@ export default function AdminPage() {
     { key: "whitelist", label: "Whitelist" },
     { key: "users", label: "Alle User" },
     { key: "jobs", label: "Alle Jobs" },
+    { key: "settings", label: "Einstellungen" },
   ];
 
   return (
@@ -562,6 +628,7 @@ export default function AdminPage() {
         {tab === "whitelist" && <WhitelistTab />}
         {tab === "users" && <UsersTab />}
         {tab === "jobs" && <JobsTab />}
+        {tab === "settings" && <SettingsTab />}
       </main>
     </>
   );

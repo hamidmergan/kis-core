@@ -8,6 +8,7 @@ celery_app = Celery(
         "src.tasks.tts_tasks",
         "src.tasks.screencast_tasks",
         "src.tasks.video_dubbing_tasks",
+        "src.tasks.watchdog_tasks",
     ],
 )
 
@@ -33,6 +34,10 @@ celery_app.conf.update(
         "poll-dubbing-jobs": {
             "task": "video_dubbing.poll",
             "schedule": 15.0,  # every 15 seconds
+        },
+        "watchdog-stuck-jobs": {
+            "task": "watchdog.check",
+            "schedule": 300.0,  # every 5 minutes
         },
     },
 )

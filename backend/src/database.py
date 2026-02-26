@@ -111,6 +111,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             conn.execute("ALTER TABLE jobs ADD COLUMN completed_at TEXT")
         except sqlite3.OperationalError:
             pass  # column already exists
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN progress_updated_at TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -193,6 +197,29 @@ def is_email_whitelisted(email: str) -> bool:
             "SELECT 1 FROM whitelist WHERE LOWER(email) = LOWER(?)", (email.strip(),)
         ).fetchone()
         return row is not None
+
+
+# --- Settings (key/value store) ---
+
+def get_setting(key: str, default: str = "") -> str:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = ?", (key,)
+        ).fetchone()
+        return row["value"] if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT INTO settings (key, value)
+               VALUES (?, ?)
+               ON CONFLICT(key) DO UPDATE
+               SET value = excluded.value,
+                   updated_at = datetime('now')""",
+            (key, value),
+        )
+        conn.commit()
 
 
 # --- Jobs ---
@@ -420,24 +447,26 @@ def update_job_status(
             conn.execute(
                 """UPDATE jobs
                    SET status = ?, error_message = ?, progress = ?,
+                       progress_updated_at = ?,
                        started_at = COALESCE(started_at, ?)
                    WHERE job_uuid = ?""",
-                (status, error_message, progress_json, now, job_uuid),
+                (status, error_message, progress_json, now, now, job_uuid),
             )
         elif status in ("success", "failed"):
             conn.execute(
                 """UPDATE jobs
                    SET status = ?, error_message = ?, progress = ?,
-                       completed_at = ?
+                       progress_updated_at = ?, completed_at = ?
                    WHERE job_uuid = ?""",
-                (status, error_message, progress_json, now, job_uuid),
+                (status, error_message, progress_json, now, now, job_uuid),
             )
         else:
             conn.execute(
                 """UPDATE jobs
-                   SET status = ?, error_message = ?, progress = ?
+                   SET status = ?, error_message = ?, progress = ?,
+                       progress_updated_at = ?
                    WHERE job_uuid = ?""",
-                (status, error_message, progress_json, job_uuid),
+                (status, error_message, progress_json, now, job_uuid),
             )
         conn.commit()
 
@@ -494,3 +523,22 @@ def update_job_result(
                     (old_jobs[i]["id"],),
                 )
             conn.commit()
+
+
+def get_stuck_running_jobs(threshold_minutes: int = 20) -> list[dict]:
+    """Return running jobs whose progress_updated_at is older than threshold_minutes.
+
+    These are candidates for being stuck (e.g. FFmpeg hung mid-render).
+    """
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(minutes=threshold_minutes)
+    ).strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT job_uuid, tool, progress, progress_updated_at FROM jobs
+               WHERE status = 'running'
+               AND progress_updated_at IS NOT NULL
+               AND progress_updated_at <= ?""",
+            (cutoff,),
+        ).fetchall()
+        return [dict(row) for row in rows]

@@ -13,6 +13,25 @@ class AddWhitelistRequest(BaseModel):
     email: str
 
 
+class UpdateSettingsRequest(BaseModel):
+    whitelist_enabled: bool
+
+
+# --- Settings ---
+
+@router.get("/settings")
+async def get_settings(_admin=Depends(get_admin_user)):
+    return {
+        "whitelist_enabled": db.get_setting("whitelist_enabled", "true").lower() == "true",
+    }
+
+
+@router.patch("/settings")
+async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_user)):
+    db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
+    return {"ok": True}
+
+
 # --- Users ---
 
 @router.get("/users")

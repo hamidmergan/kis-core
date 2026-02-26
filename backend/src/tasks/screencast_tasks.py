@@ -119,6 +119,7 @@ def _run_render_pipeline(
             clip_path = tmp / f"clip_{i:03d}.mp4"
             _create_slide_video(slide_images[i], audio_paths[i], clip_path, pause=slide_pause, crf=23)
             clip_paths.append(clip_path)
+            db.update_job_status(job_uuid, "running", progress={"step": "video", "current": i + 1, "total": num_slides})
 
         # ── Concatenate ───────────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "concat"})
@@ -484,6 +485,7 @@ def run_screencast_demo_render(
                 clip_path = tmp / f"clip_{i:03d}.mp4"
                 _create_slide_video(slide_image_paths[i], audio_paths[i], clip_path, pause=slide_pause)
                 clip_paths.append(clip_path)
+                db.update_job_status(job_uuid, "running", progress={"step": "video", "current": i + 1, "total": num_slides})
                 logger.info("TIMING [{}] clip {}/{} in {}", job_uuid[:8], i + 1, num_slides, _elapsed(t_clip))
             logger.info("TIMING [{}] all clips in {}", job_uuid[:8], _elapsed(t0))
 

@@ -169,7 +169,7 @@ export default function JobsPanel() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-1rem))] bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+        <div className="fixed right-4 top-[4.5rem] w-[min(20rem,calc(100vw-2rem))] bg-white border border-gray-200 rounded-xl shadow-lg z-50">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-800">Meine Jobs</span>
             {loading && (
