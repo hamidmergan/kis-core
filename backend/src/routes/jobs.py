@@ -31,6 +31,48 @@ _TOOL_LABELS = {
 }
 
 
+@router.get("/check/{tool_group}")
+async def check_job_limit(
+    tool_group: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Check if user can start a new job: active job exists? Storage limit reached?"""
+    user_id = current_user.get("user_id", 0)
+
+    _TOOL_GROUP_TOOLS = {
+        "screencast": ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"],
+        "tts": ["tts"],
+        "video_dubbing": ["video_dubbing"],
+    }
+
+    tools = _TOOL_GROUP_TOOLS.get(tool_group, [])
+    has_active = db.has_active_job_for_tool(user_id, tools) if tools else False
+
+    # Check storage limit for result group
+    from src.database import TOOL_RESULT_GROUP, MAX_RESULT_FILES
+    result_group = {
+        "screencast": "video",
+        "tts": "tts",
+        "video_dubbing": "video",
+    }.get(tool_group)
+
+    at_storage_limit = False
+    evict_filename = None
+
+    if result_group:
+        existing = db.get_results_for_tool_group(user_id, result_group)
+        limit = MAX_RESULT_FILES.get(result_group, MAX_RESULT_FILES["other"])
+        if len(existing) >= limit:
+            at_storage_limit = True
+            evict_filename = existing[0].get("original_filename") or existing[0].get("result_filename")
+
+    return {
+        "has_active_job": has_active,
+        "at_storage_limit": at_storage_limit,
+        "evict_filename": evict_filename,
+    }
+
+
 @router.get("/my")
 async def get_my_jobs(
     current_user: dict = Depends(get_current_user),
@@ -38,12 +80,9 @@ async def get_my_jobs(
 ):
     """Return the most recent jobs for the current user (default 20, max 200)."""
     user_id = current_user.get("user_id", 0)
-    _HIDDEN_TOOLS = {"screencast_translate"}
     jobs = db.get_jobs_by_user(user_id, limit=limit)
     result = []
     for job in jobs:
-        if job["tool"] in _HIDDEN_TOOLS:
-            continue
         has_download = (
             job["status"] == "success"
             and job["result_path"]
@@ -123,7 +162,7 @@ async def get_job_status(
         except Exception:
             pass
 
-    if job["status"] == "success" and job["result_path"]:
+    if job["status"] in ("success", "awaiting_user") and job["result_path"]:
         result_path = Path(job["result_path"])
 
         if result_path.suffix == ".json":

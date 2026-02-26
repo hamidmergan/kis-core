@@ -37,7 +37,7 @@ from src.utils.file_validation import (
     SCREENCAST_EXTENSIONS,
 )
 from src import database as db
-from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count
+from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json
 
 router = APIRouter(tags=["screencast"])
 
@@ -594,8 +594,12 @@ async def screencast(
     if not pptx_bytes:
         raise HTTPException(status_code=400, detail="Datei ist leer")
 
-    job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
+    if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
+        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
+
+    job_uuid = uuid.uuid4().hex
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
     db.create_job(job_uuid, user_id, "screencast_auto", file.filename or "screencast.pptx", input_path)
 
@@ -636,8 +640,12 @@ async def screencast_translate(
     if not pptx_bytes:
         raise HTTPException(status_code=400, detail="Datei ist leer")
 
-    job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
+    if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
+        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
+
+    job_uuid = uuid.uuid4().hex
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
     db.create_job(job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", input_path)
 
@@ -731,6 +739,43 @@ async def download_pptx_file(file_id: str):
             "Content-Disposition": 'attachment; filename="translated.pptx"',
         },
     )
+
+
+@router.patch("/screencast/scripts/{job_uuid}")
+async def save_screencast_scripts(
+    job_uuid: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """Autosave edited scripts + user_prompt back into the translate result JSON."""
+    job = db.get_job(job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job["user_id"] != current_user.get("user_id"):
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
+    if job["tool"] != "screencast_translate":
+        raise HTTPException(status_code=400, detail="Nur für Screencast-Übersetzungs-Jobs")
+    if not job["result_path"]:
+        raise HTTPException(status_code=404, detail="Kein Ergebnis vorhanden")
+
+    try:
+        data = load_result_json(job["result_path"])
+    except Exception:
+        raise HTTPException(status_code=500, detail="Ergebnis konnte nicht geladen werden")
+
+    scripts = body.get("scripts")
+    if scripts is not None:
+        data["scripts"] = scripts
+    user_prompt = body.get("user_prompt")
+    if user_prompt is not None:
+        data["user_prompt"] = user_prompt
+
+    try:
+        save_result_json(job_uuid, data)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Speichern fehlgeschlagen")
+
+    return {"ok": True}
 
 
 @router.post("/screencast/upload-corrected")
@@ -843,8 +888,12 @@ async def screencast_render(
             detail=f"Zu viele Folien ({len(body.scripts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
         )
 
-    job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    # Only block if a render/auto job is already running — translate in awaiting_user is fine
+    if db.has_active_job_for_tool(user_id, ["screencast_render", "screencast_auto", "screencast_demo_render"]):
+        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Render-Job.")
+
+    job_uuid = uuid.uuid4().hex
     db.create_job(job_uuid, user_id, "screencast_render", "screencast.pptx")
 
     from src.tasks.screencast_tasks import run_screencast_render
@@ -1312,6 +1361,10 @@ async def demo_render(
     settings = get_settings()
     if not settings.demo_data:
         raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
+
+    user_id = current_user.get("user_id", 0)
+    if db.has_active_job_for_tool(user_id, ["screencast_render", "screencast_auto", "screencast_demo_render"]):
+        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Render-Job.")
 
     pptx_path = _find_demo_pptx()
     if pptx_path:

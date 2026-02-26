@@ -277,7 +277,7 @@ async def video_dubbing(
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_TRANSCRIPTION_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
 
     file_bytes = await file.read()
     if not file_bytes:
@@ -286,8 +286,11 @@ async def video_dubbing(
     # Validate API key before queuing
     _get_api_key()
 
-    job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    if db.has_active_job_for_tool(user_id, ["video_dubbing"]):
+        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Dubbing-Job.")
+
+    job_uuid = uuid.uuid4().hex
     input_path = save_queue_file(job_uuid, ext, file_bytes)
     db.create_job(job_uuid, user_id, "video_dubbing", file.filename or f"input{ext}", input_path)
 

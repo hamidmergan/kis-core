@@ -159,6 +159,7 @@ def _run_render_pipeline(
             ).decode("ascii"),
             "audio_id": audio_id,
             "audio_count": num_slides,
+            "file_id": file_id,
         }
         meta_path = Path(result_path).with_suffix(".meta.json")
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
@@ -241,7 +242,7 @@ def run_screencast_translate(
 
         result_path = save_result_json(job_uuid, result)
         db.update_job_result(job_uuid, result_path, f"{Path(filename).stem}_translate.json")
-        db.update_job_status(job_uuid, "success")
+        db.update_job_status(job_uuid, "awaiting_user")
 
         # Clean up input file
         Path(input_path).unlink(missing_ok=True)
@@ -533,6 +534,7 @@ def run_screencast_demo_render(
                 ).decode("ascii"),
                 "audio_id": audio_id,
                 "audio_count": num_slides,
+                "file_id": file_id,
             }
             Path(result_path).with_suffix(".meta.json").write_text(json.dumps(meta), encoding="utf-8")
 

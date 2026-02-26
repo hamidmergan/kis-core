@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface MyJob {
   job_uuid: string;
   tool: string;
   tool_label: string;
   original_filename: string;
-  status: "pending" | "running" | "success" | "failed";
+  status: "pending" | "running" | "success" | "failed" | "awaiting_user";
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -19,6 +20,7 @@ interface MyJob {
 }
 
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running";
+const needsAttention = (s: MyJob["status"]) => isActive(s) || s === "awaiting_user";
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
 function timeAgo(dateStr: string): string {
@@ -52,6 +54,8 @@ function StatusBadge({ status, expired }: { status: MyJob["status"]; expired: bo
     return <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Fehler</span>;
   if (status === "running")
     return <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
+  if (status === "awaiting_user")
+    return <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
   return <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Wartend</span>;
 }
 
@@ -63,10 +67,11 @@ export default function JobsPanel() {
   const panelRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const router = useRouter();
 
   const fetchJobs = useCallback(async () => {
     try {
-      const res = await fetch("/api/jobs/my?limit=6", { credentials: "include" });
+      const res = await fetch("/api/jobs/my?limit=10", { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       setJobs(data.jobs ?? []);
@@ -126,16 +131,10 @@ export default function JobsPanel() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const activeCount = jobs.filter((j) => isActive(j.status)).length;
+  const attentionCount = jobs.filter((j) => needsAttention(j.status)).length;
 
-  const handleDownload = (job: MyJob) => {
-    const a = document.createElement("a");
-    a.href = `/api/jobs/${job.job_uuid}/download`;
-    a.download = job.result_filename || "download";
-    a.click();
-  };
-
-  const handleCancel = async (job: MyJob) => {
+  const handleCancel = async (e: React.MouseEvent, job: MyJob) => {
+    e.stopPropagation();
     setCancelling(job.job_uuid);
     try {
       await fetch(`/api/jobs/${job.job_uuid}`, { method: "DELETE", credentials: "include" });
@@ -145,6 +144,11 @@ export default function JobsPanel() {
     } finally {
       setCancelling(null);
     }
+  };
+
+  const handleJobClick = (job: MyJob) => {
+    setOpen(false);
+    router.push("/meine-jobs");
   };
 
   return (
@@ -159,9 +163,9 @@ export default function JobsPanel() {
             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
         <span>Jobs</span>
-        {activeCount > 0 && (
+        {attentionCount > 0 && (
           <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-            {activeCount}
+            {attentionCount}
           </span>
         )}
       </button>
@@ -177,8 +181,7 @@ export default function JobsPanel() {
 
           <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
             <p className="text-xs text-blue-700">
-              Fertige Jobs können hier heruntergeladen werden — auch nach dem Schließen des Tabs.
-              Es werden max. 5 Downloads gespeichert.
+              Klicke auf einen Job für Details und Downloads. Downloads sind 12 Stunden verfügbar.
             </p>
           </div>
 
@@ -190,7 +193,11 @@ export default function JobsPanel() {
                 {jobs.map((job) => {
                   const expired = isExpired(job);
                   return (
-                    <li key={job.job_uuid} className={`px-4 py-3 ${expired ? "opacity-50" : ""}`}>
+                    <li
+                      key={job.job_uuid}
+                      onClick={() => handleJobClick(job)}
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${expired ? "opacity-50" : ""}`}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-gray-800 truncate">{job.tool_label}</p>
@@ -212,17 +219,9 @@ export default function JobsPanel() {
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <StatusBadge status={job.status} expired={expired} />
-                          {job.has_download && (
-                            <button
-                              onClick={() => handleDownload(job)}
-                              className="text-xs text-[#0066cc] hover:underline"
-                            >
-                              Download
-                            </button>
-                          )}
                           {isActive(job.status) && (
                             <button
-                              onClick={() => handleCancel(job)}
+                              onClick={(e) => handleCancel(e, job)}
                               disabled={cancelling === job.job_uuid}
                               className="text-xs text-red-500 hover:underline disabled:opacity-50"
                             >
@@ -244,7 +243,7 @@ export default function JobsPanel() {
               onClick={() => setOpen(false)}
               className="text-xs text-[#0066cc] hover:underline"
             >
-              Alle Jobs der letzten 24 Stunden
+              Alle Jobs der letzten 12 Stunden
             </Link>
           </div>
         </div>

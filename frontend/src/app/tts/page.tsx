@@ -64,6 +64,23 @@ export default function TtsPage() {
 
   const handleSubmit = async () => {
     if (!pendingFile || isProcessing) return;
+
+    // Check job limit + storage limit before submitting
+    try {
+      const res = await fetch("/api/jobs/check/tts", { credentials: "include" });
+      const data = await res.json();
+      if (data.has_active_job) {
+        setTtsErrorMessage("Du hast bereits einen laufenden TTS-Job. Bitte warte bis er fertig ist.");
+        return;
+      }
+      if (data.at_storage_limit) {
+        const ok = window.confirm(
+          `Wenn du fortfährst, wird "${data.evict_filename || "deine älteste TTS-Datei"}" gelöscht. Fortfahren?`
+        );
+        if (!ok) return;
+      }
+    } catch { /* ignore, backend handles it */ }
+
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;

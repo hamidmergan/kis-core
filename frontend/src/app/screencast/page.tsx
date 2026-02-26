@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScreencastStatus from "@/components/ScreencastStatus";
@@ -94,8 +95,9 @@ function stepToIndex(step: ScreencastStep): number {
   }
 }
 
-export default function ScreencastPage() {
+function ScreencastPageInner() {
   const { mergeToApiJson } = useGlossaries();
+  const searchParams = useSearchParams();
 
   // ── Auto mode state ──
   const [autoState, setAutoState] = useState<ScreencastState>("idle");
@@ -137,8 +139,14 @@ export default function ScreencastPage() {
   const [fastMode, setFastMode] = useState(true);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
+  const [currentTranslateJobUuid, setCurrentTranslateJobUuid] = useState<string | null>(null);
+  const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
+  const [atStorageLimit, setAtStorageLimit] = useState(false);
+  const [evictFilename, setEvictFilename] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepperRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
@@ -203,6 +211,81 @@ export default function ScreencastPage() {
     }).catch(() => {});
   }, []);
 
+  // ── Check for active job on mount (blocks upload if already running) ──
+  useEffect(() => {
+    if (searchParams.get("resume")) return; // resume flow bypasses this check
+    fetch("/api/jobs/check/screencast", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        setHasActiveJob(!!data.has_active_job);
+        setAtStorageLimit(!!data.at_storage_limit);
+        setEvictFilename(data.evict_filename ?? null);
+      })
+      .catch(() => setHasActiveJob(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Resume from job (URL param ?resume={translate_job_uuid}) ──
+  useEffect(() => {
+    const resumeUuid = searchParams.get("resume");
+    if (!resumeUuid) return;
+    fetch(`/api/jobs/${resumeUuid}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((job) => {
+        if (job.tool !== "screencast_translate" || job.status !== "awaiting_user") return;
+        const data = job.result as TranslateResponse & { scripts?: string[] };
+        if (!data) return;
+        setTranslatedPptxFileId(data.file_id || "");
+        setUserPrompt(data.user_prompt || "");
+        setSlides(
+          (data.slide_texts || []).map((text: string, i: number) => ({
+            index: i,
+            imageBase64: (data.slide_images || [])[i] || "",
+            extractedText: text,
+            script: data.scripts?.[i] || "",
+          })),
+        );
+        setCurrentTranslateJobUuid(resumeUuid);
+        setStep(data.scripts?.length ? "script-review" : "user-prompt");
+        setMaxReachedIdx(data.scripts?.length ? 4 : 3);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Submit guard: check active jobs + storage limit ──
+  const checkBeforeSubmit = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/jobs/check/screencast", { credentials: "include" });
+      const data = await res.json();
+      if (data.has_active_job) {
+        setErrorMessage("Du hast bereits einen laufenden Screencast-Job. Bitte warte bis er fertig ist.");
+        return false;
+      }
+      // at_storage_limit: user is already warned by the banner — just proceed
+    } catch {
+      // Ignore network errors, let backend handle it
+    }
+    return true;
+  }, []);
+
+  // ── Autosave script edits ──
+  const triggerAutosave = useCallback((updatedSlides: SlideData[], prompt: string) => {
+    if (!currentTranslateJobUuid) return;
+    if (autosaveRef.current) clearTimeout(autosaveRef.current);
+    autosaveRef.current = setTimeout(() => {
+      fetch(`/api/screencast/scripts/${currentTranslateJobUuid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          scripts: updatedSlides.map((s) => s.script),
+          user_prompt: prompt,
+        }),
+      }).catch(() => {});
+    }, 1500);
+  }, [currentTranslateJobUuid]);
+
   // ── Helpers ──
 
   const resetAll = useCallback(() => {
@@ -236,6 +319,9 @@ export default function ScreencastPage() {
     setAutoError("");
     setMaxReachedIdx(0);
     setSourceLang("DE");
+    setCurrentTranslateJobUuid(null);
+    setIsDemoMode(false);
+    if (autosaveRef.current) clearTimeout(autosaveRef.current);
     if (fileRef.current) fileRef.current.value = "";
   }, [videoUrl]);
 
@@ -303,6 +389,8 @@ export default function ScreencastPage() {
   // ── Auto mode submit ──
   const handleAutoSubmit = useCallback(async () => {
     if (!file) return;
+    const ok = await checkBeforeSubmit();
+    if (!ok) return;
     const signal = newSignal();
     setAutoDownloadBlob(null);
     setAutoDownloadName("");
@@ -339,7 +427,7 @@ export default function ScreencastPage() {
       setAutoError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setAutoState("error");
     }
-  }, [file, speed, voiceId, glossaryIds, mergeToApiJson]);
+  }, [file, speed, voiceId, glossaryIds, mergeToApiJson, checkBeforeSubmit]);
 
   const handleAutoDownload = () => {
     if (!autoDownloadBlob) return;
@@ -360,6 +448,9 @@ export default function ScreencastPage() {
       handleAutoSubmit();
       return;
     }
+
+    const ok = await checkBeforeSubmit();
+    if (!ok) return;
 
     setStep("translating");
     setLoading(true);
@@ -432,6 +523,7 @@ export default function ScreencastPage() {
       // Poll until translation job completes
       const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
       currentJobUuidRef.current = null;
+      setCurrentTranslateJobUuid(job_uuid);
 
       // Result comes inline from the jobs endpoint for JSON-result jobs
       const data = (jobResult.result ?? {}) as unknown as TranslateResponse;
@@ -452,7 +544,7 @@ export default function ScreencastPage() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [file, mode, sourceLang, fastMode, handleAutoSubmit, goError, glossaryIds, mergeToApiJson]);
+  }, [file, mode, sourceLang, fastMode, handleAutoSubmit, checkBeforeSubmit, goError, glossaryIds, mergeToApiJson]);
 
   // ── Download translated PPTX ──
   const handleDownloadTranslatedPptx = useCallback(async () => {
@@ -567,6 +659,7 @@ export default function ScreencastPage() {
 
   // ── Demo handlers ──
   const handleDemoTranslate = useCallback(async () => {
+    setIsDemoMode(true);
     setStep("translating");
     setLoading(true);
     const signal = newSignal();
@@ -684,6 +777,8 @@ export default function ScreencastPage() {
   }, []);
 
   const handleDemoRender = useCallback(async () => {
+    const ok = await checkBeforeSubmit();
+    if (!ok) return;
     setStep("rendering");
     setLoading(true);
     const signal = newSignal();
@@ -716,7 +811,7 @@ export default function ScreencastPage() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [translatedPptxFileId, dpi, goError, processRenderResponse, processRenderResultFromJob]);
+  }, [translatedPptxFileId, dpi, goError, processRenderResponse, processRenderResultFromJob, checkBeforeSubmit]);
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
@@ -777,13 +872,11 @@ export default function ScreencastPage() {
   };
 
   const saveEdit = (index: number) => {
-    setSlides((prev) =>
-      prev.map((s, i) =>
-        i === index ? { ...s, script: editBuffer } : s,
-      ),
-    );
+    const updated = slides.map((s, i) => i === index ? { ...s, script: editBuffer } : s);
+    setSlides(updated);
     setEditingSlide(null);
     setEditBuffer("");
+    triggerAutosave(updated, userPrompt);
   };
 
   const cancelEdit = () => {
@@ -958,23 +1051,43 @@ export default function ScreencastPage() {
               vertontes Video exportiert.
             </p>
 
+            {/* Banner: active job → hard block */}
+            {hasActiveJob === true && (
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-4">
+                <p className="text-sm font-semibold text-red-800">
+                  Ein Screencast-Job läuft bereits — kein weiterer möglich.
+                </p>
+                <p className="mt-1 text-sm text-red-700">
+                  Um einen neuen Screencast zu starten, brich den laufenden Job zuerst in der{" "}
+                  <a href="/meine-jobs" className="underline hover:text-red-900 font-medium">
+                    Jobliste
+                  </a>{" "}
+                  ab.
+                </p>
+              </div>
+            )}
+
             {/* Drag & Drop zone */}
             <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileRef.current?.click()}
+              onDragOver={hasActiveJob ? undefined : handleDragOver}
+              onDragLeave={hasActiveJob ? undefined : handleDragLeave}
+              onDrop={hasActiveJob ? undefined : handleDrop}
+              onClick={hasActiveJob ? undefined : () => fileRef.current?.click()}
               className={`
                 relative mb-4 flex flex-col items-center justify-center
-                rounded-lg border-2 border-dashed px-6 py-10 cursor-pointer
+                rounded-lg border-2 border-dashed px-6 py-10
                 transition-colors
-                ${
+                ${hasActiveJob
+                  ? "border-gray-200 bg-gray-50 opacity-40 cursor-not-allowed"
+                  : "cursor-pointer"
+                }
+                ${!hasActiveJob && (
                   dragOver
                     ? "border-[#0066cc] bg-[#0066cc]/5"
                     : file
                       ? "border-green-400 bg-green-50"
                       : "border-gray-300 hover:border-gray-400"
-                }
+                )}
                 ${autoState === "processing" ? "opacity-50 pointer-events-none" : ""}
               `}
             >
@@ -983,6 +1096,7 @@ export default function ScreencastPage() {
                 type="file"
                 accept={ACCEPTED_EXTENSIONS.join(",")}
                 className="hidden"
+                disabled={!!hasActiveJob}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) handleFileSelect(f);
@@ -1102,6 +1216,22 @@ export default function ScreencastPage() {
               </label>
             )}
 
+            {/* Storage limit warning — shown between Schnellmodus and submit */}
+            {!hasActiveJob && atStorageLimit && (
+              <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3">
+                <p className="text-sm font-medium text-yellow-800">
+                  Du hast bereits einen fertigen Screencast gespeichert
+                  {evictFilename ? ` (${evictFilename})` : ""}.
+                </p>
+                <p className="mt-0.5 text-sm text-yellow-700">
+                  Wenn du einen neuen startest, wird der alte automatisch gelöscht — lade ihn vorher herunter.{" "}
+                  <a href="/meine-jobs" className="underline hover:text-yellow-900">
+                    Zur Jobliste →
+                  </a>
+                </p>
+              </div>
+            )}
+
             {/* Submit */}
             <div className="flex gap-3">
               <button
@@ -1197,13 +1327,15 @@ export default function ScreencastPage() {
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleAcceptTranslation}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                disabled={isDemoMode}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Überspringen
               </button>
               <button
                 onClick={handleAcceptTranslation}
-                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                disabled={isDemoMode}
+                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Weiter
               </button>
@@ -1352,8 +1484,8 @@ export default function ScreencastPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setStep("user-prompt")}
-                disabled={loading}
-                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading || isDemoMode}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Übersetzung übernehmen und weiter
               </button>
@@ -1586,8 +1718,8 @@ export default function ScreencastPage() {
             <div className="flex gap-3">
               <button
                 onClick={handleAcceptScripts}
-                disabled={editingSlide !== null}
-                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={editingSlide !== null || isDemoMode}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Alle Skripte übernehmen
               </button>
@@ -1758,7 +1890,8 @@ export default function ScreencastPage() {
               </button>
               <button
                 onClick={handleStartRender}
-                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                disabled={isDemoMode}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Screencast erstellen
               </button>
@@ -1989,5 +2122,13 @@ export default function ScreencastPage() {
         )}
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ScreencastPage() {
+  return (
+    <Suspense>
+      <ScreencastPageInner />
+    </Suspense>
   );
 }

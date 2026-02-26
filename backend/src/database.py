@@ -4,10 +4,22 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-# How many completed result files (MP4/MP3/JSON) are kept per user.
-# When a new result is saved and the user exceeds this limit,
-# the oldest file is deleted from disk (DB record is kept).
-MAX_RESULT_FILES_PER_USER = 5
+# Per-tool-group limits for stored result files per user.
+# When a new result is saved and the group limit is exceeded,
+# the oldest file in that group is deleted from disk (DB record is kept).
+MAX_RESULT_FILES = {
+    "video": 1,   # video_dubbing, screencast_render, screencast_auto, screencast_demo_render
+    "tts": 5,
+    "other": 10,  # screencast_translate JSONs etc.
+}
+
+TOOL_RESULT_GROUP = {
+    "video_dubbing": "video",
+    "screencast_render": "video",
+    "screencast_auto": "video",
+    "screencast_demo_render": "video",
+    "tts": "tts",
+}
 
 DB_PATH = Path("/app/data/database.db")
 
@@ -162,7 +174,7 @@ def is_email_whitelisted(email: str) -> bool:
 
 # --- Jobs ---
 
-JOB_RETENTION_HOURS = 24
+JOB_RETENTION_HOURS = 12
 
 
 def create_job(
@@ -225,6 +237,36 @@ def delete_job(job_uuid: str) -> dict | None:
         return dict(row)
 
 
+def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
+    """Return True if the user has a pending/running/awaiting_user job for any of the given tools."""
+    placeholders = ",".join("?" * len(tools))
+    with get_connection() as conn:
+        row = conn.execute(
+            f"""SELECT 1 FROM jobs
+               WHERE user_id = ? AND tool IN ({placeholders})
+               AND status IN ('pending', 'running', 'awaiting_user')
+               LIMIT 1""",
+            (user_id, *tools),
+        ).fetchone()
+        return row is not None
+
+
+def get_results_for_tool_group(user_id: int, group: str) -> list[dict]:
+    """Return all jobs with a result_path for the given tool group, ordered oldest first."""
+    tools = [t for t, g in TOOL_RESULT_GROUP.items() if g == group]
+    if not tools:
+        return []
+    placeholders = ",".join("?" * len(tools))
+    with get_connection() as conn:
+        rows = conn.execute(
+            f"""SELECT id, result_path, result_filename, original_filename FROM jobs
+               WHERE user_id = ? AND tool IN ({placeholders}) AND result_path IS NOT NULL
+               ORDER BY created_at ASC""",
+            (user_id, *tools),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
 def get_pending_dubbing_jobs() -> list[dict]:
     """Return all running dubbing jobs waiting for ElevenLabs (step='dubbing')."""
     with get_connection() as conn:
@@ -284,29 +326,43 @@ def update_job_result(
         )
         conn.commit()
 
-    # Evict oldest result files if user exceeds MAX_RESULT_FILES_PER_USER
+    # Evict oldest result files per tool group if user exceeds the group limit
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT user_id FROM jobs WHERE job_uuid = ?", (job_uuid,)
+            "SELECT user_id, tool FROM jobs WHERE job_uuid = ?", (job_uuid,)
         ).fetchone()
         if not row:
             return
         user_id = row["user_id"]
-        old_jobs = conn.execute(
-            """SELECT id, result_path FROM jobs
-               WHERE user_id = ? AND result_path IS NOT NULL
-               AND tool NOT IN ('screencast_translate')
-               ORDER BY created_at ASC""",
-            (user_id,),
-        ).fetchall()
-        excess = len(old_jobs) - MAX_RESULT_FILES_PER_USER
-        for i in range(excess):
-            old_path = old_jobs[i]["result_path"]
-            if old_path:
-                Path(old_path).unlink(missing_ok=True)
-            conn.execute(
-                "UPDATE jobs SET result_path = NULL, result_filename = NULL WHERE id = ?",
-                (old_jobs[i]["id"],),
-            )
-        if excess > 0:
+        tool = row["tool"]
+
+    group = TOOL_RESULT_GROUP.get(tool, "other")
+    limit = MAX_RESULT_FILES.get(group, MAX_RESULT_FILES["other"])
+    old_jobs = get_results_for_tool_group(user_id, group) if group != "other" else []
+
+    if group == "other":
+        # For "other" (e.g. screencast_translate JSONs), use a simple global check
+        with get_connection() as conn:
+            other_tools = [t for t in TOOL_RESULT_GROUP] + ["screencast_translate"]
+            placeholders = ",".join("?" * len(other_tools))
+            old_jobs = conn.execute(
+                f"""SELECT id, result_path FROM jobs
+                   WHERE user_id = ? AND tool NOT IN ({placeholders})
+                   AND result_path IS NOT NULL
+                   ORDER BY created_at ASC""",
+                (user_id, *other_tools),
+            ).fetchall()
+            old_jobs = [dict(r) for r in old_jobs]
+
+    excess = len(old_jobs) - limit
+    if excess > 0:
+        with get_connection() as conn:
+            for i in range(excess):
+                old_path = old_jobs[i]["result_path"]
+                if old_path:
+                    Path(old_path).unlink(missing_ok=True)
+                conn.execute(
+                    "UPDATE jobs SET result_path = NULL, result_filename = NULL WHERE id = ?",
+                    (old_jobs[i]["id"],),
+                )
             conn.commit()
