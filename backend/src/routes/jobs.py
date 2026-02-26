@@ -162,7 +162,7 @@ async def get_job_status(
         except Exception:
             pass
 
-    if job["status"] in ("success", "awaiting_user") and job["result_path"]:
+    if job["status"] == "success" and job["result_path"]:
         result_path = Path(job["result_path"])
 
         if result_path.suffix == ".json":

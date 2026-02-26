@@ -78,12 +78,12 @@ export default function VideoDubbingPage() {
       const res = await fetch("/api/jobs/check/video_dubbing", { credentials: "include" });
       const data = await res.json();
       if (data.has_active_job) {
-        setErrorMessage("Du hast bereits einen laufenden Dubbing-Job. Bitte warte bis er fertig ist.");
+        setErrorMessage("Sie haben bereits einen laufenden Dubbing-Job. Bitte warten Sie, bis er fertig ist.");
         return;
       }
       if (data.at_storage_limit) {
         const ok = window.confirm(
-          `Wenn du fortfährst, wird "${data.evict_filename || "dein letztes Dubbing-Video"}" gelöscht. Fortfahren?`
+          `Wenn Sie fortfahren, wird "${data.evict_filename || "Ihr letztes Dubbing-Video"}" gelöscht. Fortfahren?`
         );
         if (!ok) return;
       }
@@ -134,7 +134,7 @@ export default function VideoDubbingPage() {
         (status) => {
           const step = (status.progress as { step?: string; dubbing_id?: string } | null)?.step;
           if (step === "submit") setProgressLabel("Wird bei ElevenLabs eingereicht…");
-          else if (step === "dubbing") setProgressLabel("Dubbing läuft (kann 5–20 Min. dauern)…");
+          else if (step === "dubbing") setProgressLabel("Dubbing läuft (kann 5-20 Min. dauern)…");
           else if (step === "download") setProgressLabel("Ergebnis wird heruntergeladen…");
           else setProgressLabel("In der Warteschlange…");
         },
@@ -357,7 +357,7 @@ export default function VideoDubbingPage() {
                   <div>
                     <p className="text-sm text-gray-700">{progressLabel || "Dubbing läuft..."}</p>
                     {state === "processing" && (
-                      <p className="text-xs text-gray-400 mt-1">Das kann 5–20 Minuten dauern.</p>
+                      <p className="text-xs text-gray-400 mt-1">Das kann 5-20 Minuten dauern.</p>
                     )}
                   </div>
                 </div>

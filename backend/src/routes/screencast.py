@@ -741,43 +741,6 @@ async def download_pptx_file(file_id: str):
     )
 
 
-@router.patch("/screencast/scripts/{job_uuid}")
-async def save_screencast_scripts(
-    job_uuid: str,
-    body: dict,
-    current_user: dict = Depends(get_current_user),
-):
-    """Autosave edited scripts + user_prompt back into the translate result JSON."""
-    job = db.get_job(job_uuid)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
-    if job["user_id"] != current_user.get("user_id"):
-        raise HTTPException(status_code=403, detail="Zugriff verweigert")
-    if job["tool"] != "screencast_translate":
-        raise HTTPException(status_code=400, detail="Nur für Screencast-Übersetzungs-Jobs")
-    if not job["result_path"]:
-        raise HTTPException(status_code=404, detail="Kein Ergebnis vorhanden")
-
-    try:
-        data = load_result_json(job["result_path"])
-    except Exception:
-        raise HTTPException(status_code=500, detail="Ergebnis konnte nicht geladen werden")
-
-    scripts = body.get("scripts")
-    if scripts is not None:
-        data["scripts"] = scripts
-    user_prompt = body.get("user_prompt")
-    if user_prompt is not None:
-        data["user_prompt"] = user_prompt
-
-    try:
-        save_result_json(job_uuid, data)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Speichern fehlgeschlagen")
-
-    return {"ok": True}
-
-
 @router.post("/screencast/upload-corrected")
 async def screencast_upload_corrected(
     request: Request,
@@ -889,7 +852,7 @@ async def screencast_render(
         )
 
     user_id = current_user.get("user_id", 0)
-    # Only block if a render/auto job is already running — translate in awaiting_user is fine
+    # Only block if a render/auto job is already running (translate jobs are short and non-blocking)
     if db.has_active_job_for_tool(user_id, ["screencast_render", "screencast_auto", "screencast_demo_render"]):
         raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Render-Job.")
 

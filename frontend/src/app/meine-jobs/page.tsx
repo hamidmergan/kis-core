@@ -9,7 +9,7 @@ interface MyJob {
   tool: string;
   tool_label: string;
   original_filename: string;
-  status: "pending" | "running" | "success" | "failed" | "awaiting_user";
+  status: "pending" | "running" | "success" | "failed";
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -38,8 +38,6 @@ function StatusBadge({ status, expired }: { status: MyJob["status"]; expired: bo
     return <span className="inline-flex text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Fehler</span>;
   if (status === "running")
     return <span className="inline-flex text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
-  if (status === "awaiting_user")
-    return <span className="inline-flex text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
   return <span className="inline-flex text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Wartend</span>;
 }
 
@@ -129,31 +127,19 @@ function DownloadButton({ href, filename, label }: { href?: string; filename?: s
 function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null }) {
   const router = useRouter();
 
-  // screencast_translate: awaiting_user — show resume + PPTX download
-  if (job.tool === "screencast_translate" && job.status === "awaiting_user") {
+  // screencast_translate: show PPTX download if available
+  if (job.tool === "screencast_translate" && job.status === "success") {
     const fileId = detail?.result?.file_id as string | undefined;
+    if (!fileId) return null;
     return (
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          onClick={() => router.push(`/screencast?resume=${job.job_uuid}`)}
-          className="text-xs font-medium text-white bg-[#0066cc] hover:bg-[#0052a3] px-3 py-1.5 rounded-md transition-colors"
-        >
-          Skript-Review fortsetzen
-        </button>
-        {fileId && (
-          <DownloadButton
-            href={`/api/screencast/file/${fileId}`}
-            filename="translated.pptx"
-            label="Übersetzte PPTX herunterladen"
-          />
-        )}
+      <div className="mt-3">
+        <DownloadButton
+          href={`/api/screencast/file/${fileId}`}
+          filename="translated.pptx"
+          label="Übersetzte PPTX herunterladen"
+        />
       </div>
     );
-  }
-
-  // screencast_translate: success (expired state — result file gone)
-  if (job.tool === "screencast_translate" && job.status === "success") {
-    return null;
   }
 
   // screencast render/auto/demo: show all artifacts
@@ -332,9 +318,9 @@ export default function MeineJobsPage() {
         );
         setJobs(recent);
 
-        // Fetch detail for completed/awaiting jobs
+        // Fetch detail for completed jobs
         const detailJobs = recent.filter(
-          (j) => j.status === "success" || j.status === "awaiting_user"
+          (j) => j.status === "success"
         );
         Promise.all(
           detailJobs.map((j) =>

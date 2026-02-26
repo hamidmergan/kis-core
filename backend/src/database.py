@@ -238,13 +238,13 @@ def delete_job(job_uuid: str) -> dict | None:
 
 
 def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
-    """Return True if the user has a pending/running/awaiting_user job for any of the given tools."""
+    """Return True if the user has a pending/running job for any of the given tools."""
     placeholders = ",".join("?" * len(tools))
     with get_connection() as conn:
         row = conn.execute(
             f"""SELECT 1 FROM jobs
                WHERE user_id = ? AND tool IN ({placeholders})
-               AND status IN ('pending', 'running', 'awaiting_user')
+               AND status IN ('pending', 'running')
                LIMIT 1""",
             (user_id, *tools),
         ).fetchone()

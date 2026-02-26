@@ -1,7 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScreencastStatus from "@/components/ScreencastStatus";
@@ -97,7 +96,6 @@ function stepToIndex(step: ScreencastStep): number {
 
 function ScreencastPageInner() {
   const { mergeToApiJson } = useGlossaries();
-  const searchParams = useSearchParams();
 
   // ── Auto mode state ──
   const [autoState, setAutoState] = useState<ScreencastState>("idle");
@@ -139,14 +137,12 @@ function ScreencastPageInner() {
   const [fastMode, setFastMode] = useState(true);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
-  const [currentTranslateJobUuid, setCurrentTranslateJobUuid] = useState<string | null>(null);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
   const [atStorageLimit, setAtStorageLimit] = useState(false);
   const [evictFilename, setEvictFilename] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
-  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepperRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
@@ -213,7 +209,6 @@ function ScreencastPageInner() {
 
   // ── Check for active job on mount (blocks upload if already running) ──
   useEffect(() => {
-    if (searchParams.get("resume")) return; // resume flow bypasses this check
     fetch("/api/jobs/check/screencast", { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
@@ -225,41 +220,13 @@ function ScreencastPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Resume from job (URL param ?resume={translate_job_uuid}) ──
-  useEffect(() => {
-    const resumeUuid = searchParams.get("resume");
-    if (!resumeUuid) return;
-    fetch(`/api/jobs/${resumeUuid}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((job) => {
-        if (job.tool !== "screencast_translate" || job.status !== "awaiting_user") return;
-        const data = job.result as TranslateResponse & { scripts?: string[] };
-        if (!data) return;
-        setTranslatedPptxFileId(data.file_id || "");
-        setUserPrompt(data.user_prompt || "");
-        setSlides(
-          (data.slide_texts || []).map((text: string, i: number) => ({
-            index: i,
-            imageBase64: (data.slide_images || [])[i] || "",
-            extractedText: text,
-            script: data.scripts?.[i] || "",
-          })),
-        );
-        setCurrentTranslateJobUuid(resumeUuid);
-        setStep(data.scripts?.length ? "script-review" : "user-prompt");
-        setMaxReachedIdx(data.scripts?.length ? 4 : 3);
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // ── Submit guard: check active jobs + storage limit ──
   const checkBeforeSubmit = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch("/api/jobs/check/screencast", { credentials: "include" });
       const data = await res.json();
       if (data.has_active_job) {
-        setErrorMessage("Du hast bereits einen laufenden Screencast-Job. Bitte warte bis er fertig ist.");
+        setErrorMessage("Sie haben bereits einen laufenden Screencast-Job. Bitte warten Sie, bis er fertig ist.");
         return false;
       }
       // at_storage_limit: user is already warned by the banner — just proceed
@@ -268,23 +235,6 @@ function ScreencastPageInner() {
     }
     return true;
   }, []);
-
-  // ── Autosave script edits ──
-  const triggerAutosave = useCallback((updatedSlides: SlideData[], prompt: string) => {
-    if (!currentTranslateJobUuid) return;
-    if (autosaveRef.current) clearTimeout(autosaveRef.current);
-    autosaveRef.current = setTimeout(() => {
-      fetch(`/api/screencast/scripts/${currentTranslateJobUuid}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          scripts: updatedSlides.map((s) => s.script),
-          user_prompt: prompt,
-        }),
-      }).catch(() => {});
-    }, 1500);
-  }, [currentTranslateJobUuid]);
 
   // ── Helpers ──
 
@@ -319,9 +269,7 @@ function ScreencastPageInner() {
     setAutoError("");
     setMaxReachedIdx(0);
     setSourceLang("DE");
-    setCurrentTranslateJobUuid(null);
     setIsDemoMode(false);
-    if (autosaveRef.current) clearTimeout(autosaveRef.current);
     if (fileRef.current) fileRef.current.value = "";
   }, [videoUrl]);
 
@@ -523,7 +471,6 @@ function ScreencastPageInner() {
       // Poll until translation job completes
       const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
       currentJobUuidRef.current = null;
-      setCurrentTranslateJobUuid(job_uuid);
 
       // Result comes inline from the jobs endpoint for JSON-result jobs
       const data = (jobResult.result ?? {}) as unknown as TranslateResponse;
@@ -629,12 +576,11 @@ function ScreencastPageInner() {
         signal,
       );
 
-      setSlides((prev) =>
-        prev.map((s, i) => ({
-          ...s,
-          script: scriptsData.scripts[i] || "",
-        })),
-      );
+      const updatedSlides = slides.map((s, i) => ({
+        ...s,
+        script: scriptsData.scripts[i] || "",
+      }));
+      setSlides(updatedSlides);
 
       setLoading(false);
       setStep("script-review");
@@ -876,7 +822,6 @@ function ScreencastPageInner() {
     setSlides(updated);
     setEditingSlide(null);
     setEditBuffer("");
-    triggerAutosave(updated, userPrompt);
   };
 
   const cancelEdit = () => {
@@ -1055,10 +1000,10 @@ function ScreencastPageInner() {
             {hasActiveJob === true && (
               <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-4">
                 <p className="text-sm font-semibold text-red-800">
-                  Ein Screencast-Job läuft bereits — kein weiterer möglich.
+                  Ein Screencast-Job läuft bereits, kein weiterer ist möglich.
                 </p>
                 <p className="mt-1 text-sm text-red-700">
-                  Um einen neuen Screencast zu starten, brich den laufenden Job zuerst in der{" "}
+                  Um einen neuen Screencast zu starten, brechen Sie den laufenden Job zuerst in der{" "}
                   <a href="/meine-jobs" className="underline hover:text-red-900 font-medium">
                     Jobliste
                   </a>{" "}
@@ -1211,7 +1156,7 @@ function ScreencastPageInner() {
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-700">Schnellmodus</span>
-                  <p className="text-xs text-gray-400 mt-0.5">Folienvorschau wird übersprungen – schnellere Verarbeitung.</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Folienvorschau wird übersprungen, schnellere Verarbeitung.</p>
                 </div>
               </label>
             )}
@@ -1220,11 +1165,11 @@ function ScreencastPageInner() {
             {!hasActiveJob && atStorageLimit && (
               <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3">
                 <p className="text-sm font-medium text-yellow-800">
-                  Du hast bereits einen fertigen Screencast gespeichert
+                  Sie haben bereits einen fertigen Screencast gespeichert
                   {evictFilename ? ` (${evictFilename})` : ""}.
                 </p>
                 <p className="mt-0.5 text-sm text-yellow-700">
-                  Wenn du einen neuen startest, wird der alte automatisch gelöscht — lade ihn vorher herunter.{" "}
+                  Wenn Sie einen neuen starten, wird der alte automatisch gelöscht. Bitte laden Sie ihn vorher herunter.{" "}
                   <a href="/meine-jobs" className="underline hover:text-yellow-900">
                     Zur Jobliste →
                   </a>
@@ -1244,8 +1189,8 @@ function ScreencastPageInner() {
               {demoAvailable && (
                 <button
                   onClick={handleDemoTranslate}
-                  disabled={autoState === "processing"}
-                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-50"
+                  disabled={autoState === "processing" || !!hasActiveJob}
+                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Demo
                 </button>
@@ -1711,7 +1656,7 @@ function ScreencastPageInner() {
 
             {slides.filter((s) => !s.script.trim()).length > 0 && (
               <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
-                {slides.filter((s) => !s.script.trim()).length} Folie(n) haben kein Skript — bitte ausfüllen bevor du weitergehst.
+                {slides.filter((s) => !s.script.trim()).length} Folie(n) haben kein Skript. Bitte füllen Sie diese aus, bevor Sie fortfahren.
               </p>
             )}
 
@@ -1919,7 +1864,7 @@ function ScreencastPageInner() {
               Video wird erstellt...
             </p>
             <p className="text-xs text-gray-400 mt-2">
-              Vertonung und Videoproduktion – das kann 1-3 Minuten
+              Vertonung und Videoproduktion, das kann 1-3 Minuten
               dauern.
             </p>
             <button
@@ -2126,9 +2071,5 @@ function ScreencastPageInner() {
 }
 
 export default function ScreencastPage() {
-  return (
-    <Suspense>
-      <ScreencastPageInner />
-    </Suspense>
-  );
+  return <ScreencastPageInner />;
 }

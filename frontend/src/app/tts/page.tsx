@@ -70,12 +70,12 @@ export default function TtsPage() {
       const res = await fetch("/api/jobs/check/tts", { credentials: "include" });
       const data = await res.json();
       if (data.has_active_job) {
-        setTtsErrorMessage("Du hast bereits einen laufenden TTS-Job. Bitte warte bis er fertig ist.");
+        setTtsErrorMessage("Sie haben bereits einen laufenden TTS-Job. Bitte warten Sie, bis er fertig ist.");
         return;
       }
       if (data.at_storage_limit) {
         const ok = window.confirm(
-          `Wenn du fortfährst, wird "${data.evict_filename || "deine älteste TTS-Datei"}" gelöscht. Fortfahren?`
+          `Wenn Sie fortfahren, wird "${data.evict_filename || "Ihre älteste TTS-Datei"}" gelöscht. Fortfahren?`
         );
         if (!ok) return;
       }

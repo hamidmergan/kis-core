@@ -9,7 +9,7 @@ interface MyJob {
   tool: string;
   tool_label: string;
   original_filename: string;
-  status: "pending" | "running" | "success" | "failed" | "awaiting_user";
+  status: "pending" | "running" | "success" | "failed";
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -20,7 +20,7 @@ interface MyJob {
 }
 
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running";
-const needsAttention = (s: MyJob["status"]) => isActive(s) || s === "awaiting_user";
+const needsAttention = (s: MyJob["status"]) => isActive(s);
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
 function timeAgo(dateStr: string): string {
@@ -54,8 +54,6 @@ function StatusBadge({ status, expired }: { status: MyJob["status"]; expired: bo
     return <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Fehler</span>;
   if (status === "running")
     return <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
-  if (status === "awaiting_user")
-    return <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
   return <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Wartend</span>;
 }
 

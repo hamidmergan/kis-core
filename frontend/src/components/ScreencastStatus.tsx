@@ -30,7 +30,7 @@ export default function ScreencastStatus({
             </span>
             {state === "processing" && (
               <p className="text-xs text-gray-400 mt-1">
-                Übersetzung, Audiogenerierung und Videoproduktion – das kann einige Minuten dauern.
+                Übersetzung, Audiogenerierung und Videoproduktion, das kann einige Minuten dauern.
               </p>
             )}
           </div>

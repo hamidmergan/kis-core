@@ -242,7 +242,7 @@ def run_screencast_translate(
 
         result_path = save_result_json(job_uuid, result)
         db.update_job_result(job_uuid, result_path, f"{Path(filename).stem}_translate.json")
-        db.update_job_status(job_uuid, "awaiting_user")
+        db.update_job_status(job_uuid, "success")
 
         # Clean up input file
         Path(input_path).unlink(missing_ok=True)
