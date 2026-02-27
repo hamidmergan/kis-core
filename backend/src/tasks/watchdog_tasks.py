@@ -6,7 +6,7 @@ from src.celery_app import celery_app
 from src import database as db
 
 # Jobs with no progress update for longer than this are considered stuck.
-STUCK_THRESHOLD_MINUTES = 5
+STUCK_THRESHOLD_MINUTES = 3
 
 
 @celery_app.task(name="watchdog.check")

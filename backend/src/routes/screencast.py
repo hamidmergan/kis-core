@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
@@ -529,36 +530,46 @@ async def _generate_all_tts(
     tmp: Path,
     speed: float,
     voice_id: str = "",
+    on_slide_done: Callable[[int, int], None] | None = None,
 ) -> list[tuple[Path, dict | None]]:
     """Generate TTS audio for all slides in parallel via ElevenLabs.
 
     Returns a list of (audio_path, alignment_or_None) tuples.
+    on_slide_done(current, total) is called after each slide completes.
     """
     sem = asyncio.Semaphore(10)
-    audio_paths: list[Path | None] = [tmp / f"slide_{i:03d}.mp3" for i in range(len(slide_scripts))]
-    alignments: list[dict | None] = [None] * len(slide_scripts)
+    lock = asyncio.Lock()
+    counter = 0
+    total = len(slide_scripts)
+    audio_paths: list[Path | None] = [tmp / f"slide_{i:03d}.mp3" for i in range(total)]
+    alignments: list[dict | None] = [None] * total
 
     async def _tts(i: int, script_text: str) -> None:
+        nonlocal counter
         if not script_text.strip():
             # Empty slide: no audio file — _create_slide_video handles None as video-only
             audio_paths[i] = None
-            logger.info("Slide {}/{}: empty script, audio_path set to None", i + 1, len(slide_scripts))
-            return
-        async with sem:
-            try:
-                result = await asyncio.to_thread(
-                    tts_client.synthesize_with_timestamps,
-                    script_text, "EN", voice_id=voice_id, speed=speed,
-                )
-                audio_paths[i].write_bytes(result["audio_bytes"])
-                alignments[i] = result["alignment"]
-                logger.info("TTS for slide {}/{} done", i + 1, len(slide_scripts))
-            except Exception as e:
-                logger.error("TTS failed for slide {}: {}", i + 1, e)
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"TTS-Fehler bei Folie {i + 1}: {e}",
-                )
+            logger.info("Slide {}/{}: empty script, audio_path set to None", i + 1, total)
+        else:
+            async with sem:
+                try:
+                    result = await asyncio.to_thread(
+                        tts_client.synthesize_with_timestamps,
+                        script_text, "EN", voice_id=voice_id, speed=speed,
+                    )
+                    audio_paths[i].write_bytes(result["audio_bytes"])
+                    alignments[i] = result["alignment"]
+                    logger.info("TTS for slide {}/{} done", i + 1, total)
+                except Exception as e:
+                    logger.error("TTS failed for slide {}: {}", i + 1, e)
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"TTS-Fehler bei Folie {i + 1}: {e}",
+                    )
+        async with lock:
+            counter += 1
+            if on_slide_done:
+                on_slide_done(counter, total)
 
     await asyncio.gather(*[_tts(i, t) for i, t in enumerate(slide_scripts)])
     return list(zip(audio_paths, alignments))

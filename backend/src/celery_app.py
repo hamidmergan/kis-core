@@ -29,6 +29,7 @@ celery_app.conf.update(
         "video_dubbing.submit": {"queue": "dubbing"},
         "video_dubbing.download": {"queue": "dubbing"},
         "video_dubbing.poll": {"queue": "dubbing"},
+        "watchdog.check": {"queue": "screencast"},
     },
     beat_schedule={
         "poll-dubbing-jobs": {
@@ -37,7 +38,8 @@ celery_app.conf.update(
         },
         "watchdog-stuck-jobs": {
             "task": "watchdog.check",
-            "schedule": 300.0,  # every 5 minutes
+            "schedule": 60.0,  # every 1 minute
+            "options": {"queue": "screencast"},
         },
     },
 )

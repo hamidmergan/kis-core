@@ -103,7 +103,11 @@ def _run_render_pipeline(
 
         # ── TTS ───────────────────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": 0, "total": len(scripts)})
-        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id))
+
+        def _tts_progress(current: int, total: int) -> None:
+            db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": current, "total": total})
+
+        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
 
