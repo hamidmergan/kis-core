@@ -1,4 +1,4 @@
-const CHIPS = [
+const SCRIPT_CHIPS = [
   "Kurze Sätze",
   "Formelle Sprache",
   "Für Studierende verständlich",
@@ -10,12 +10,14 @@ const CHIPS = [
 interface PromptChipsProps {
   onChipClick: (chip: string) => void;
   disabled?: boolean;
+  chips?: string[];
 }
 
-export default function PromptChips({ onChipClick, disabled }: PromptChipsProps) {
+export default function PromptChips({ onChipClick, disabled, chips }: PromptChipsProps) {
+  const items = chips ?? SCRIPT_CHIPS;
   return (
     <div className="flex flex-wrap gap-2 mt-3" aria-label="Schnellauswahl">
-      {CHIPS.map((chip) => (
+      {items.map((chip) => (
         <button
           key={chip}
           type="button"

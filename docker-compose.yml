@@ -44,10 +44,10 @@ services:
         max-size: "10m"
         max-file: "7"
 
-  celery-worker-tts:
+  celery-worker-general:
     build: ./backend
-    container_name: kis-celery-tts
-    command: celery -A src.celery_app worker --queues=tts --autoscale=6,1 --loglevel=info
+    container_name: kis-celery-general
+    command: celery -A src.celery_app worker --queues=tts,general --autoscale=10,2 --loglevel=info
     env_file:
       - .env
     volumes:
@@ -65,7 +65,7 @@ services:
   celery-worker-dubbing:
     build: ./backend
     container_name: kis-celery-dubbing
-    command: celery -A src.celery_app worker --queues=dubbing --autoscale=4,1 --loglevel=info
+    command: celery -A src.celery_app worker --queues=dubbing --autoscale=1,1 --loglevel=info
     env_file:
       - .env
     volumes:

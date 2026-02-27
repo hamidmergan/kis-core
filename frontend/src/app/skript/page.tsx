@@ -1,50 +1,37 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScriptFileUpload from "@/components/ScriptFileUpload";
-import ScriptStatus from "@/components/ScriptStatus";
 import GlossarySelector from "@/components/GlossarySelector";
 import PromptChips from "@/components/PromptChips";
 import { useGlossaries } from "@/hooks/useGlossaries";
-import { api } from "@/lib/api";
-import type { ScriptState } from "@/types";
+import { api, pollJob, downloadJobAsBlob } from "@/lib/api";
 
 export default function SkriptPage() {
     const { mergeToApiJson } = useGlossaries();
     const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
 
-    const abortControllerRef = useRef<AbortController | null>(null);
-
-    useEffect(() => {
-        return () => { abortControllerRef.current?.abort(); setState("idle"); };
-    }, []);
-
-    const [state, setState] = useState<ScriptState>("idle");
+    const [processing, setProcessing] = useState(false);
     const [pendingFile, setPendingFile] = useState<File | null>(null);
     const [selectedFile, setSelectedFile] = useState<string>("");
     const [userPrompt, setUserPrompt] = useState<string>("");
-    const [scriptText, setScriptText] = useState<string>("");
-    const [downloadName, setDownloadName] = useState<string>("");
     const [errorMessage, setErrorMessage] = useState<string>("");
+    const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
     const handleFileSelected = useCallback((file: File) => {
         setPendingFile(file);
         setSelectedFile(file.name);
-        setScriptText("");
-        setDownloadName("");
         setErrorMessage("");
-        setState("idle");
+        setDoneJobUuid(null);
     }, []);
 
     const handleSubmit = async () => {
-        if (!pendingFile || state === "processing") return;
-        abortControllerRef.current?.abort();
-        abortControllerRef.current = new AbortController();
-        const signal = abortControllerRef.current.signal;
-        setState("processing");
-
+        if (!pendingFile || processing) return;
+        setProcessing(true);
+        setErrorMessage("");
+        setDoneJobUuid(null);
         try {
             const formData = new FormData();
             formData.append("file", pendingFile);
@@ -52,67 +39,43 @@ export default function SkriptPage() {
             const glossaryJson = mergeToApiJson(glossaryIds);
             if (glossaryJson) formData.append("glossary_json", glossaryJson);
 
-            const response = await api.fetch("/api/script", {
-                method: "POST",
-                body: formData,
-                signal,
-            });
-
+            const response = await api.fetch("/api/script", { method: "POST", body: formData });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
                 throw new Error(error.detail || `Fehler: ${response.status}`);
             }
-
-            let filename = "";
-            const disposition = response.headers.get("Content-Disposition");
-            if (disposition) {
-                const utf8Match = disposition.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
-                if (utf8Match) {
-                    filename = decodeURIComponent(utf8Match[1].trim());
-                } else {
-                    const basicMatch = disposition.match(/filename="?([^";\n]+)"?/i);
-                    if (basicMatch) {
-                        filename = decodeURIComponent(basicMatch[1].trim());
-                    }
-                }
-            }
-            if (!filename) {
-                const stem = pendingFile.name.replace(/\.[^.]+$/, "");
-                filename = `${stem}_skript.md`;
-            }
-
-            const text = await response.text();
-            setScriptText(text);
-            setDownloadName(filename);
-            setState("done");
+            const data = await response.json();
+            window.dispatchEvent(new Event("kis-jobs-changed"));
+            await pollJob(data.job_uuid);
+            setDoneJobUuid(data.job_uuid);
         } catch (err) {
-            if (err instanceof Error && err.name === "AbortError") return;
             setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
-            setState("error");
+        } finally {
+            setProcessing(false);
         }
     };
 
-    const handleDownload = () => {
-        if (!scriptText) return;
-        const blob = new Blob([scriptText], { type: "text/markdown;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = downloadName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    const handleDownload = async () => {
+        if (!doneJobUuid) return;
+        try {
+            const { blob, filename } = await downloadJobAsBlob(doneJobUuid);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            setErrorMessage(err instanceof Error ? err.message : "Download fehlgeschlagen");
+        }
     };
 
     const handleReset = () => {
-        setState("idle");
         setPendingFile(null);
         setSelectedFile("");
         setUserPrompt("");
-        setScriptText("");
-        setDownloadName("");
         setErrorMessage("");
+        setDoneJobUuid(null);
     };
 
     return (
@@ -125,18 +88,9 @@ export default function SkriptPage() {
                         Laden Sie ein Dokument hoch und lassen Sie daraus ein fließendes Vorleseskript erstellen.
                     </p>
 
-                    <ScriptFileUpload
-                        onFileSelected={handleFileSelected}
-                        disabled={state === "processing"}
-                    />
-                    {selectedFile && (
-                        <p className="mt-2 text-sm font-medium text-gray-700">{selectedFile}</p>
-                    )}
+                    <ScriptFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
 
-                    <GlossarySelector
-                        values={glossaryIds}
-                        onChange={setGlossaryIds}
-                    />
+                    <GlossarySelector values={glossaryIds} onChange={setGlossaryIds} />
 
                     <div className="mb-6">
                         <label htmlFor="skript-user-prompt" className="block text-sm font-medium text-gray-700 mb-2">
@@ -147,7 +101,7 @@ export default function SkriptPage() {
                             id="skript-user-prompt"
                             value={userPrompt}
                             onChange={(e) => setUserPrompt(e.target.value)}
-                            disabled={state === "processing"}
+                            disabled={processing}
                             rows={3}
                             placeholder="z. B. Kurze Sätze verwenden, formelle Sprache …"
                             className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed resize-y"
@@ -158,42 +112,46 @@ export default function SkriptPage() {
                                     prev.trim() ? `${prev.trimEnd()}\n- ${chip}` : `- ${chip}`,
                                 )
                             }
-                            disabled={state === "processing"}
+                            disabled={processing}
                         />
                     </div>
 
-                    <div className="mb-6 flex items-center gap-3">
+                    <div className="mb-6">
                         <button
                             onClick={handleSubmit}
-                            disabled={!pendingFile || state === "processing"}
+                            disabled={!pendingFile || processing}
                             className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
-                            {state === "processing" && (
+                            {processing && (
                                 <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
                             )}
-                            {state === "processing" ? "Skript wird erstellt…" : "Skript erstellen"}
+                            {processing ? "Wird verarbeitet…" : "Skript erstellen"}
                         </button>
-                        {state === "processing" && (
-                            <button
-                                onClick={() => { abortControllerRef.current?.abort(); setState("idle"); }}
-                                className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
-                            >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Abbrechen
-                            </button>
-                        )}
                     </div>
 
-                    <ScriptStatus
-                        state={state}
-                        fileName={downloadName}
-                        scriptText={scriptText}
-                        errorMessage={errorMessage}
-                        onDownload={handleDownload}
-                        onReset={handleReset}
-                    />
+                    {errorMessage && (
+                        <p className="text-sm text-red-600" role="alert">{errorMessage}</p>
+                    )}
+
+                    {doneJobUuid && (
+                        <div className="mt-2 flex items-center gap-3">
+                            <button
+                                onClick={handleDownload}
+                                className="px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                            >
+                                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Skript herunterladen
+                            </button>
+                            <button
+                                onClick={handleReset}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+                            >
+                                Neue Datei
+                            </button>
+                        </div>
+                    )}
                 </section>
             </div>
         </ProtectedRoute>

@@ -6,6 +6,7 @@ celery_app = Celery(
     backend="redis://kis-redis:6379/1",
     include=[
         "src.tasks.tts_tasks",
+        "src.tasks.general_tasks",
         "src.tasks.screencast_tasks",
         "src.tasks.video_dubbing_tasks",
         "src.tasks.watchdog_tasks",
@@ -22,6 +23,13 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,  # one task at a time per worker process
     task_routes={
         "tts.run": {"queue": "tts"},
+        "general.translate": {"queue": "general"},
+        "general.transcribe": {"queue": "general"},
+        "general.image_generate": {"queue": "general"},
+        "general.image_edit": {"queue": "general"},
+        "general.image_analyze": {"queue": "general"},
+        "general.script": {"queue": "general"},
+        "general.summary": {"queue": "general"},
         "screencast.translate": {"queue": "screencast"},
         "screencast.render": {"queue": "screencast"},
         "screencast.auto": {"queue": "screencast"},

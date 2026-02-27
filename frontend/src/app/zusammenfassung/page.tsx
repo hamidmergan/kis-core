@@ -1,42 +1,37 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PromptChips from "@/components/PromptChips";
-import { backendApi } from "@/lib/api";
-import type { SummaryState } from "@/types";
+import { backendApi, pollJob, downloadJobAsBlob } from "@/lib/api";
+import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 
 const ACCEPTED_EXTENSIONS = [".mp3", ".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
-const MAX_SIZE_MB = 500;
-const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const MAX_SIZE_MB = MAX_UPLOAD_MB;
+const MAX_SIZE_BYTES = MAX_UPLOAD_BYTES;
 
-const FORMAT_OPTIONS = [
-  { value: "txt", label: "Nur Text (.txt)" },
-  { value: "md", label: "Markdown (.md)" },
+const SUMMARY_CHIPS = [
+  "Gehe auf die wichtigsten Punkte ein",
+  "Stichpunkte",
+  "Maximal 5 Sätze",
+  "Für Studierende verständlich",
+  "Nur Kernaussagen",
 ];
 
+
 export default function ZusammenfassungPage() {
-  const [state, setState] = useState<SummaryState>("idle");
+  const [processing, setProcessing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
   const [userPrompt, setUserPrompt] = useState("");
-  const [outputFormat, setOutputFormat] = useState("md");
-
-  const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
-  const [downloadName, setDownloadName] = useState("");
+  const outputFormat = "txt";
   const [errorMessage, setErrorMessage] = useState("");
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    return () => { abortControllerRef.current?.abort(); setState("idle"); };
-  }, []);
-
-  const isProcessing = state === "processing";
 
   const validateFile = (file: File): string | null => {
     const ext = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
@@ -54,9 +49,7 @@ export default function ZusammenfassungPage() {
     const err = validateFile(file);
     if (err) { setUploadError(err); return; }
     setSelectedFile(file);
-    setState("idle");
-    setDownloadBlob(null);
-    setDownloadName("");
+    setDoneJobUuid(null);
     setErrorMessage("");
   }, []);
 
@@ -64,11 +57,11 @@ export default function ZusammenfassungPage() {
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragActive(false);
-      if (isProcessing) return;
+      if (processing) return;
       const file = e.dataTransfer.files[0];
       if (file) handleFile(file);
     },
-    [isProcessing, handleFile],
+    [processing, handleFile],
   );
 
   const appendChip = (chip: string) => {
@@ -78,49 +71,49 @@ export default function ZusammenfassungPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedFile || isProcessing) return;
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
-    setState("processing");
+    if (!selectedFile || processing) return;
+    setProcessing(true);
     setErrorMessage("");
-    setDownloadBlob(null);
-    setDownloadName("");
+    setDoneJobUuid(null);
     try {
-      const { blob, filename } = await backendApi.uploadFileWithFields(
-        "/summary",
-        selectedFile,
-        { user_prompt: userPrompt, output_format: outputFormat },
-        "file",
-        signal,
-      );
-      setDownloadBlob(blob);
-      setDownloadName(filename);
-      setState("done");
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("user_prompt", userPrompt);
+      formData.append("output_format", outputFormat);
+      const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+        throw new Error(err.detail || `Fehler: ${response.status}`);
+      }
+      const data = await response.json();
+      window.dispatchEvent(new Event("kis-jobs-changed"));
+      await pollJob(data.job_uuid);
+      setDoneJobUuid(data.job_uuid);
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
-      setState("error");
+    } finally {
+      setProcessing(false);
     }
   };
 
-  const handleDownload = () => {
-    if (!downloadBlob) return;
-    const url = URL.createObjectURL(downloadBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = downloadName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!doneJobUuid) return;
+    try {
+      const { blob, filename } = await downloadJobAsBlob(doneJobUuid);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Download fehlgeschlagen");
+    }
   };
 
   const handleReset = () => {
-    setState("idle");
     setSelectedFile(null);
-    setDownloadBlob(null);
-    setDownloadName("");
+    setDoneJobUuid(null);
     setErrorMessage("");
     setUserPrompt("");
     if (inputRef.current) inputRef.current.value = "";
@@ -142,38 +135,31 @@ export default function ZusammenfassungPage() {
             role="button"
             tabIndex={0}
             aria-label="Datei zur Zusammenfassung auswählen"
-            onClick={() => !isProcessing && inputRef.current?.click()}
+            onClick={() => !processing && inputRef.current?.click()}
             onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && !isProcessing) {
+              if ((e.key === "Enter" || e.key === " ") && !processing) {
                 e.preventDefault();
                 inputRef.current?.click();
               }
             }}
             onDrop={handleDrop}
-            onDragOver={(e) => { e.preventDefault(); if (!isProcessing) setDragActive(true); }}
+            onDragOver={(e) => { e.preventDefault(); if (!processing) setDragActive(true); }}
             onDragLeave={() => setDragActive(false)}
             className={[
               "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]",
-              dragActive ? "border-[#0066cc] bg-blue-50" : "border-gray-300 hover:border-gray-400",
-              isProcessing ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+              dragActive ? "border-[#0066cc] bg-blue-50" : selectedFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-gray-400",
+              processing ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
             ].join(" ")}
           >
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400 mb-3"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-              />
-            </svg>
             {selectedFile ? (
-              <p className="text-sm font-medium text-gray-700">
-                {selectedFile.name}{" "}
-                <span className="text-gray-400 text-xs">
-                  ({(selectedFile.size / 1024 / 1024).toFixed(1)} MB)
-                </span>
-              </p>
+              <>
+                <svg className="mx-auto h-8 w-8 text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-sm font-medium text-gray-800">{selectedFile.name}</p>
+                <p className="text-xs text-gray-400 mt-1">Klicken um zu ersetzen</p>
+              </>
             ) : (
               <>
                 <p className="text-sm font-medium text-gray-500">
@@ -208,95 +194,50 @@ export default function ZusammenfassungPage() {
               id="user-prompt"
               value={userPrompt}
               onChange={(e) => setUserPrompt(e.target.value)}
-              disabled={isProcessing}
+              disabled={processing}
               rows={3}
               placeholder="z. B. Auf Deutsch, maximal 5 Sätze …"
               className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed resize-y"
             />
-            <PromptChips onChipClick={appendChip} disabled={isProcessing} />
+            <PromptChips chips={SUMMARY_CHIPS} onChipClick={appendChip} disabled={processing} />
           </div>
 
-          {/* Output format */}
-          <div className="mt-6">
-            <span className="block text-sm font-medium text-gray-700 mb-2">Ausgabeformat</span>
-            <div className="flex gap-6">
-              {FORMAT_OPTIONS.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="output-format"
-                    value={opt.value}
-                    checked={outputFormat === opt.value}
-                    onChange={() => setOutputFormat(opt.value)}
-                    disabled={isProcessing}
-                    className="accent-[#0066cc]"
-                  />
-                  <span className="text-sm text-gray-700">{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Submit + result */}
-          <div className="mt-6 flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSubmit}
-                disabled={!selectedFile || isProcessing}
-                className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isProcessing && (
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
-                )}
-                {isProcessing ? "Zusammenfassung wird erstellt…" : "Zusammenfassung erstellen"}
-              </button>
-              {isProcessing && (
-                <button
-                  onClick={() => { abortControllerRef.current?.abort(); setState("idle"); }}
-                  className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Abbrechen
-                </button>
+          <div className="mt-6 flex items-center gap-3">
+            <button
+              onClick={handleSubmit}
+              disabled={!selectedFile || processing}
+              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {processing && (
+                <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
               )}
-            </div>
-
-            {state === "done" && (
-              <div className="rounded-lg border border-gray-200 bg-white p-6" role="status" aria-live="polite">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm font-medium text-gray-900">Fertig! Download bereit</span>
-                  </div>
-                  {downloadName && <p className="text-xs text-gray-500">{downloadName}</p>}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleDownload}
-                      className="px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
-                    >
-                      Herunterladen
-                    </button>
-                    <button
-                      onClick={handleReset}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
-                    >
-                      Neue Datei
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {state === "error" && (
-              <p className="text-sm text-red-600" role="alert">
-                {errorMessage || "Fehler bei der Zusammenfassung"}
-              </p>
-            )}
+              {processing ? "Wird verarbeitet…" : "Zusammenfassung erstellen"}
+            </button>
           </div>
+
+          {errorMessage && (
+            <p className="mt-3 text-sm text-red-600" role="alert">{errorMessage}</p>
+          )}
+
+          {doneJobUuid && (
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={handleDownload}
+                className="px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Zusammenfassung herunterladen
+              </button>
+              <button
+                onClick={handleReset}
+                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Neue Datei
+              </button>
+            </div>
+          )}
         </section>
       </div>
     </ProtectedRoute>

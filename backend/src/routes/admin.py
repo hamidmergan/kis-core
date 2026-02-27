@@ -1,10 +1,13 @@
 """Admin endpoints — only accessible by the configured ADMIN_EMAIL."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from loguru import logger
 from pydantic import BaseModel
 
 from src import database as db
+from src.celery_app import celery_app
 from src.dependencies import get_admin_user
+from src.storage import delete_file
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -220,3 +223,26 @@ async def list_all_jobs(
             "user_display_name": j.get("user_display_name") or j.get("ldap_username") or "Unbekannt",
         })
     return {"jobs": result, "total": total, "limit": limit, "offset": offset}
+
+
+@router.delete("/jobs/{job_uuid}")
+async def admin_cancel_job(job_uuid: str, _admin=Depends(get_admin_user)):
+    """Admin: cancel and delete any job regardless of owner."""
+    job = db.get_job(job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+
+    if job["celery_task_id"]:
+        try:
+            celery_app.control.revoke(job["celery_task_id"], terminate=True, reply=False)
+        except Exception as e:
+            logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
+
+    deleted = db.delete_job(job_uuid)
+    if deleted:
+        for path in (deleted.get("input_path"), deleted.get("result_path")):
+            if path:
+                delete_file(path)
+
+    logger.info("Admin cancelled job: {}", job_uuid)
+    return {"ok": True}

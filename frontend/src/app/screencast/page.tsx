@@ -1008,7 +1008,7 @@ function ScreencastPageInner() {
                   Ein Screencast-Job läuft bereits, kein weiterer ist möglich.
                 </p>
                 <p className="mt-1 text-sm text-red-700">
-                  Um einen neuen Screencast zu starten, brechen Sie den laufenden Job zuerst in der{" "}
+                  Um einen neuen Screencast zu starten, warten Sie bis der Job fertig ist oder brechen Sie ihn in der{" "}
                   <a href="/meine-jobs" className="underline hover:text-red-900 font-medium">
                     Jobliste
                   </a>{" "}

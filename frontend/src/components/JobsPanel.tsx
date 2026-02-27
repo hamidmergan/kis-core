@@ -19,6 +19,8 @@ interface MyJob {
   result_filename: string | null;
 }
 
+const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
+
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running";
 const needsAttention = (s: MyJob["status"]) => isActive(s);
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
@@ -98,7 +100,7 @@ export default function JobsPanel() {
     }
     const hasActive = jobs.some((j) => isActive(j.status));
     if (hasActive) {
-      bgPollRef.current = setInterval(fetchJobs, 10000);
+      bgPollRef.current = setInterval(fetchJobs, 5000);
     } else {
       if (bgPollRef.current) clearInterval(bgPollRef.current);
     }
@@ -130,6 +132,14 @@ export default function JobsPanel() {
   }, [open]);
 
   const attentionCount = jobs.filter((j) => needsAttention(j.status)).length;
+
+  const handleDownload = (e: React.MouseEvent, job: MyJob) => {
+    e.stopPropagation();
+    const a = document.createElement("a");
+    a.href = `/api/jobs/${job.job_uuid}/download`;
+    if (job.result_filename) a.download = job.result_filename;
+    a.click();
+  };
 
   const handleCancel = async (e: React.MouseEvent, job: MyJob) => {
     e.stopPropagation();
@@ -179,7 +189,7 @@ export default function JobsPanel() {
 
           <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
             <p className="text-xs text-blue-700">
-              Klicke auf einen Job für Details und Downloads. Downloads sind 12 Stunden verfügbar.
+              Downloads sind 12 Stunden verfügbar.
             </p>
           </div>
 
@@ -213,6 +223,17 @@ export default function JobsPanel() {
                           )}
                           {job.status === "failed" && job.error && (
                             <p className="text-xs text-red-500 mt-1 line-clamp-2">{job.error}</p>
+                          )}
+                          {!expired && job.status === "success" && job.has_download && (
+                            <button
+                              onClick={(e) => handleDownload(e, job)}
+                              className="mt-1.5 text-xs text-[#0066cc] hover:underline flex items-center gap-1"
+                            >
+                              <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              {SCREENCAST_RENDER_TOOLS.has(job.tool) ? "MP4 herunterladen" : "Herunterladen"}
+                            </button>
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">

@@ -387,6 +387,20 @@ function JobsTab() {
   const [offset, setOffset] = useState(0);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const handleCancel = async (jobUuid: string) => {
+    if (!confirm("Job abbrechen und löschen?")) return;
+    setCancelling(jobUuid);
+    try {
+      await fetch(`/api/admin/jobs/${jobUuid}`, { method: "DELETE", credentials: "include" });
+      setJobs((prev) => prev.filter((j) => j.job_uuid !== jobUuid));
+      setTotal((t) => t - 1);
+      window.dispatchEvent(new Event("kis-jobs-changed"));
+    } finally {
+      setCancelling(null);
+    }
+  };
 
   // Debounce search input 350ms
   useEffect(() => {
@@ -466,18 +480,33 @@ function JobsTab() {
                 <th className="px-4 py-3 text-left">Datei</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-left">Erstellt</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {jobs.map((j) => (
-                <tr key={j.job_uuid}>
-                  <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{j.user_display_name}</td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{j.tool_label}</td>
-                  <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">{j.original_filename}</td>
-                  <td className="px-4 py-3"><StatusBadge status={j.status} /></td>
-                  <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(j.created_at)}</td>
-                </tr>
-              ))}
+              {jobs.map((j) => {
+                const isActive = j.status === "pending" || j.status === "running";
+                return (
+                  <tr key={j.job_uuid}>
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{j.user_display_name}</td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{j.tool_label}</td>
+                    <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">{j.original_filename}</td>
+                    <td className="px-4 py-3"><StatusBadge status={j.status} /></td>
+                    <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(j.created_at)}</td>
+                    <td className="px-4 py-3">
+                      {isActive && (
+                        <button
+                          onClick={() => handleCancel(j.job_uuid)}
+                          disabled={cancelling === j.job_uuid}
+                          className="text-xs text-red-500 hover:underline disabled:opacity-40"
+                        >
+                          {cancelling === j.job_uuid ? "..." : "Abbrechen"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -134,7 +134,7 @@ async def cancel_job(
     # Revoke the Celery task (terminate=True sends SIGTERM to the worker process)
     if job["celery_task_id"]:
         try:
-            celery_app.control.revoke(job["celery_task_id"], terminate=True)
+            celery_app.control.revoke(job["celery_task_id"], terminate=True, reply=False)
         except Exception as e:
             logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
 

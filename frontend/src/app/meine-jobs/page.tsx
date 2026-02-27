@@ -267,6 +267,19 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
     );
   }
 
+  // Generic fallback: any job with a downloadable result
+  if (job.status === "success" && job.has_download) {
+    return (
+      <div className="mt-3">
+        <DownloadButton
+          href={`/api/jobs/${job.job_uuid}/download`}
+          filename={job.result_filename || "download"}
+          label="Herunterladen"
+        />
+      </div>
+    );
+  }
+
   return null;
 }
 

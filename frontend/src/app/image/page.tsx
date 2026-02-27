@@ -3,38 +3,20 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { backendApi } from "@/lib/api";
+import { backendApi, pollJob, downloadJobAsBlob } from "@/lib/api";
+import { MAX_IMAGE_BYTES } from "@/lib/constants";
 
 type Tab = "generate" | "edit" | "analyze";
 
 const SIZES = ["1024x1024", "1280x720", "720x1280"] as const;
 const COUNTS = [1, 2, 3, 4] as const;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg"]);
-
-interface GeneratedImage {
-  b64: string;
-  index: number;
-}
 
 function validateImageFile(file: File): string | null {
   const ext = "." + file.name.split(".").pop()?.toLowerCase();
   if (!ALLOWED_EXTS.has(ext)) return "Nur PNG oder JPG erlaubt";
   if (file.size > MAX_IMAGE_BYTES) return "Bild zu groß (max 10 MB)";
   return null;
-}
-
-function downloadImage(b64: string, filename: string) {
-  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  const blob = new Blob([bytes], { type: "image/png" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 function Spinner({ label }: { label: string }) {
@@ -115,23 +97,23 @@ function UploadZone({
 
 export default function ImagePage() {
   const [activeTab, setActiveTab] = useState<Tab>("generate");
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   // ── Tab 1: Text zu Bild ──
   const [genPrompt, setGenPrompt] = useState("");
   const [genSize, setGenSize] = useState("1024x1024");
   const [genN, setGenN] = useState(1);
   const [genLoading, setGenLoading] = useState(false);
-  const [genImages, setGenImages] = useState<GeneratedImage[]>([]);
   const [genError, setGenError] = useState("");
+  const [genResults, setGenResults] = useState<Array<{ url: string; filename: string }>>([]);
 
   // ── Tab 2: Bild bearbeiten ──
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editDragOver, setEditDragOver] = useState(false);
   const [editPrompt, setEditPrompt] = useState("");
   const [editLoading, setEditLoading] = useState(false);
-  const [editResult, setEditResult] = useState("");
   const [editError, setEditError] = useState("");
+  const [editResultUrl, setEditResultUrl] = useState<string | null>(null);
+  const [editResultFilename, setEditResultFilename] = useState<string | null>(null);
   const [editPreviewUrl, setEditPreviewUrl] = useState<string | null>(null);
   const editFileRef = useRef<HTMLInputElement>(null);
 
@@ -140,13 +122,11 @@ export default function ImagePage() {
   const [analyzeDragOver, setAnalyzeDragOver] = useState(false);
   const [analyzePrompt, setAnalyzePrompt] = useState("");
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
-  const [analyzeResult, setAnalyzeResult] = useState("");
   const [analyzeError, setAnalyzeError] = useState("");
+  const [analyzeResultText, setAnalyzeResultText] = useState<string | null>(null);
   const [analyzePreviewUrl, setAnalyzePreviewUrl] = useState<string | null>(null);
-  const [analyzeCopied, setAnalyzeCopied] = useState(false);
   const analyzeFileRef = useRef<HTMLInputElement>(null);
 
-  // Manage object URLs for previews
   useEffect(() => {
     if (!editFile) { setEditPreviewUrl(null); return; }
     const url = URL.createObjectURL(editFile);
@@ -166,7 +146,7 @@ export default function ImagePage() {
     if (!genPrompt.trim()) return;
     setGenLoading(true);
     setGenError("");
-    setGenImages([]);
+    setGenResults([]);
     try {
       const formData = new FormData();
       formData.append("prompt", genPrompt);
@@ -178,7 +158,21 @@ export default function ImagePage() {
         throw new Error(err.detail || `Fehler: ${response.status}`);
       }
       const data = await response.json();
-      setGenImages(data.images);
+      window.dispatchEvent(new Event("kis-jobs-changed"));
+      await pollJob(data.job_uuid);
+      const { blob, filename } = await downloadJobAsBlob(data.job_uuid);
+      if (filename.endsWith(".json")) {
+        const text = await blob.text();
+        const parsed: { images: Array<{ b64_json: string; filename: string }> } = JSON.parse(text);
+        const results = parsed.images.map((img) => {
+          const bytes = Uint8Array.from(atob(img.b64_json), (c) => c.charCodeAt(0));
+          const imgBlob = new Blob([bytes], { type: "image/png" });
+          return { url: URL.createObjectURL(imgBlob), filename: img.filename };
+        });
+        setGenResults(results);
+      } else {
+        setGenResults([{ url: URL.createObjectURL(blob), filename }]);
+      }
     } catch (err) {
       setGenError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
@@ -192,14 +186,16 @@ export default function ImagePage() {
     if (error) { setEditError(error); return; }
     setEditError("");
     setEditFile(file);
-    setEditResult("");
+    setEditResultUrl(null);
+    setEditResultFilename(null);
   }, []);
 
   const handleEditSubmit = useCallback(async () => {
     if (!editFile || !editPrompt.trim()) return;
     setEditLoading(true);
     setEditError("");
-    setEditResult("");
+    setEditResultUrl(null);
+    setEditResultFilename(null);
     try {
       const formData = new FormData();
       formData.append("image", editFile);
@@ -210,7 +206,12 @@ export default function ImagePage() {
         throw new Error(err.detail || `Fehler: ${response.status}`);
       }
       const data = await response.json();
-      setEditResult(data.b64);
+      window.dispatchEvent(new Event("kis-jobs-changed"));
+      await pollJob(data.job_uuid);
+      const { blob, filename } = await downloadJobAsBlob(data.job_uuid);
+      const url = URL.createObjectURL(blob);
+      setEditResultUrl(url);
+      setEditResultFilename(filename);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
@@ -218,20 +219,28 @@ export default function ImagePage() {
     }
   }, [editFile, editPrompt]);
 
+  const handleEditDownload = () => {
+    if (!editResultUrl || !editResultFilename) return;
+    const a = document.createElement("a");
+    a.href = editResultUrl;
+    a.download = editResultFilename;
+    a.click();
+  };
+
   // ── Tab 3 handlers ──
   const handleAnalyzeFileSelect = useCallback((file: File) => {
     const error = validateImageFile(file);
     if (error) { setAnalyzeError(error); return; }
     setAnalyzeError("");
     setAnalyzeFile(file);
-    setAnalyzeResult("");
+    setAnalyzeResultText(null);
   }, []);
 
   const handleAnalyzeSubmit = useCallback(async () => {
     if (!analyzeFile || !analyzePrompt.trim()) return;
     setAnalyzeLoading(true);
     setAnalyzeError("");
-    setAnalyzeResult("");
+    setAnalyzeResultText(null);
     try {
       const formData = new FormData();
       formData.append("image", analyzeFile);
@@ -242,19 +251,17 @@ export default function ImagePage() {
         throw new Error(err.detail || `Fehler: ${response.status}`);
       }
       const data = await response.json();
-      setAnalyzeResult(data.text);
+      window.dispatchEvent(new Event("kis-jobs-changed"));
+      await pollJob(data.job_uuid);
+      const { blob } = await downloadJobAsBlob(data.job_uuid);
+      const text = await blob.text();
+      setAnalyzeResultText(text);
     } catch (err) {
       setAnalyzeError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setAnalyzeLoading(false);
     }
   }, [analyzeFile, analyzePrompt]);
-
-  const handleCopyAnalyzeResult = async () => {
-    await navigator.clipboard.writeText(analyzeResult);
-    setAnalyzeCopied(true);
-    setTimeout(() => setAnalyzeCopied(false), 2000);
-  };
 
   return (
     <ProtectedRoute>
@@ -295,7 +302,7 @@ export default function ImagePage() {
               value={genPrompt}
               onChange={(e) => setGenPrompt(e.target.value)}
               rows={4}
-              placeholder="Beschreiben Sie das gewünschte Bild auf Englisch..."
+              placeholder="Beschreiben Sie das gewünschte Bild ..."
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none mb-4"
             />
 
@@ -344,34 +351,32 @@ export default function ImagePage() {
               disabled={!genPrompt.trim() || genLoading}
               className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Bild generieren
+              {genLoading ? "Wird verarbeitet…" : "Bild generieren"}
             </button>
 
-            {genLoading && <Spinner label="Bild wird generiert..." />}
-
-            {genError && (
-              <p className="mt-4 text-sm text-red-600" role="alert">{genError}</p>
-            )}
-
-            {genImages.length > 0 && (
-              <div className={`mt-6 grid gap-4 ${genImages.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-                {genImages.map((img) => (
-                  <div key={img.index}>
+            {genLoading && <Spinner label="Wird generiert…" />}
+            {genError && <p className="mt-4 text-sm text-red-600" role="alert">{genError}</p>}
+            {genResults.length > 0 && (
+              <div className={`mt-6 ${genResults.length > 1 ? "grid grid-cols-2 gap-4" : ""}`}>
+                {genResults.map((result, i) => (
+                  <div key={i}>
+                    <img
+                      src={result.url}
+                      alt={`Generiertes Bild ${i + 1}`}
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 mb-2"
+                    />
                     <button
-                      onClick={() => setLightboxSrc(`data:image/png;base64,${img.b64}`)}
-                      className="w-full block rounded-lg overflow-hidden border border-gray-200 hover:border-[#0066cc] transition-colors mb-2"
-                      aria-label={`Bild ${img.index + 1} vergrößern`}
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = result.url;
+                        a.download = result.filename;
+                        a.click();
+                      }}
+                      className="w-full px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                     >
-                      <img
-                        src={`data:image/png;base64,${img.b64}`}
-                        alt={`Generiertes Bild ${img.index + 1}`}
-                        className="w-full"
-                      />
-                    </button>
-                    <button
-                      onClick={() => downloadImage(img.b64, `bild_${img.index + 1}.png`)}
-                      className="w-full px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                    >
+                      <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
                       Herunterladen
                     </button>
                   </div>
@@ -402,11 +407,7 @@ export default function ImagePage() {
 
             {editPreviewUrl && (
               <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
-                <img
-                  src={editPreviewUrl}
-                  alt="Vorschau"
-                  className="w-full max-h-64 object-contain bg-gray-50"
-                />
+                <img src={editPreviewUrl} alt="Vorschau" className="w-full max-h-64 object-contain bg-gray-50" />
               </div>
             )}
 
@@ -414,7 +415,7 @@ export default function ImagePage() {
               value={editPrompt}
               onChange={(e) => setEditPrompt(e.target.value)}
               rows={3}
-              placeholder="Beschreiben Sie die gewünschte Änderung auf Englisch, z.B. 'make style to Van Gogh'..."
+              placeholder="Beschreiben Sie die gewünschte Änderung."
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none mb-4"
             />
 
@@ -423,33 +424,26 @@ export default function ImagePage() {
               disabled={!editFile || !editPrompt.trim() || editLoading}
               className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Bild bearbeiten
+              {editLoading ? "Wird verarbeitet…" : "Bild bearbeiten"}
             </button>
 
-            {editLoading && <Spinner label="Bild wird bearbeitet..." />}
-
-            {editError && (
-              <p className="mt-4 text-sm text-red-600" role="alert">{editError}</p>
-            )}
-
-            {editResult && (
+            {editLoading && <Spinner label="Wird bearbeitet…" />}
+            {editError && <p className="mt-4 text-sm text-red-600" role="alert">{editError}</p>}
+            {editResultUrl && (
               <div className="mt-6">
+                <img
+                  src={editResultUrl}
+                  alt="Bearbeitetes Bild"
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50"
+                />
                 <button
-                  onClick={() => setLightboxSrc(`data:image/png;base64,${editResult}`)}
-                  className="w-full block rounded-lg overflow-hidden border border-gray-200 hover:border-[#0066cc] transition-colors mb-2"
-                  aria-label="Bearbeitetes Bild vergrößern"
+                  onClick={handleEditDownload}
+                  className="mt-3 px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
                 >
-                  <img
-                    src={`data:image/png;base64,${editResult}`}
-                    alt="Bearbeitetes Bild"
-                    className="w-full"
-                  />
-                </button>
-                <button
-                  onClick={() => downloadImage(editResult, "bild_bearbeitet.png")}
-                  className="w-full px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  Herunterladen
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Bild herunterladen
                 </button>
               </div>
             )}
@@ -477,11 +471,7 @@ export default function ImagePage() {
 
             {analyzePreviewUrl && (
               <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
-                <img
-                  src={analyzePreviewUrl}
-                  alt="Vorschau"
-                  className="w-full max-h-64 object-contain bg-gray-50"
-                />
+                <img src={analyzePreviewUrl} alt="Vorschau" className="w-full max-h-64 object-contain bg-gray-50" />
               </div>
             )}
 
@@ -489,81 +479,26 @@ export default function ImagePage() {
               value={analyzePrompt}
               onChange={(e) => setAnalyzePrompt(e.target.value)}
               rows={3}
-              placeholder="Was ist auf diesem Bild zu sehen? Oder stellen Sie eine spezifische Frage..."
+              placeholder="Spezifische Frage stellen (optional) – sonst wird das Bild automatisch vollständig beschrieben."
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none mb-4"
             />
 
             <button
               onClick={handleAnalyzeSubmit}
-              disabled={!analyzeFile || !analyzePrompt.trim() || analyzeLoading}
+              disabled={!analyzeFile || analyzeLoading}
               className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Analysieren
+              {analyzeLoading ? "Wird verarbeitet…" : "Analysieren"}
             </button>
 
-            {analyzeLoading && <Spinner label="Bild wird analysiert..." />}
-
-            {analyzeError && (
-              <p className="mt-4 text-sm text-red-600" role="alert">{analyzeError}</p>
-            )}
-
-            {analyzeResult && (
-              <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
-                  <span className="text-xs font-medium text-gray-500">Analyse</span>
-                  <button
-                    onClick={handleCopyAnalyzeResult}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                  >
-                    {analyzeCopied ? (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Kopiert
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Kopieren
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="px-4 py-3">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    {analyzeResult}
-                  </p>
-                </div>
+            {analyzeLoading && <Spinner label="Wird analysiert…" />}
+            {analyzeError && <p className="mt-4 text-sm text-red-600" role="alert">{analyzeError}</p>}
+            {analyzeResultText && (
+              <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{analyzeResultText}</p>
               </div>
             )}
           </section>
-        )}
-
-        {/* Lightbox */}
-        {lightboxSrc && (
-          <div
-            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-            onClick={() => setLightboxSrc(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Bildvorschau"
-          >
-            <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => setLightboxSrc(null)}
-                className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
-                aria-label="Schließen"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <img src={lightboxSrc} alt="Vollansicht" className="w-full rounded-lg shadow-2xl" />
-            </div>
-          </div>
         )}
       </div>
     </ProtectedRoute>
