@@ -237,7 +237,7 @@ export default function ImagePage() {
   }, []);
 
   const handleAnalyzeSubmit = useCallback(async () => {
-    if (!analyzeFile || !analyzePrompt.trim()) return;
+    if (!analyzeFile) return;
     setAnalyzeLoading(true);
     setAnalyzeError("");
     setAnalyzeResultText(null);
@@ -494,8 +494,29 @@ export default function ImagePage() {
             {analyzeLoading && <Spinner label="Wird analysiert…" />}
             {analyzeError && <p className="mt-4 text-sm text-red-600" role="alert">{analyzeError}</p>}
             {analyzeResultText && (
-              <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{analyzeResultText}</p>
+              <div className="mt-6">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 mb-3">
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{analyzeResultText}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const blob = new Blob([analyzeResultText], { type: "text/plain" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = analyzeFile
+                      ? analyzeFile.name.replace(/\.[^.]+$/, "_analyse.txt")
+                      : "analyse.txt";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="text-xs text-[#0066cc] hover:underline flex items-center gap-1"
+                >
+                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Als TXT herunterladen
+                </button>
               </div>
             )}
           </section>

@@ -294,6 +294,10 @@ def run_image_analyze(
 
         user_text = prompt.strip() if prompt and prompt.strip() else "Analyze this image."
 
+        # qwen3-vl does not support a separate system role with vision content;
+        # embed the system instructions as the first text block in the user message.
+        user_content = f"{_IMAGE_ANALYZE_SYSTEM_PROMPT}\n\n{user_text}"
+
         base_url, client = _kisski_http_client(timeout=60.0)
         with client:
             response = client.post(
@@ -301,12 +305,11 @@ def run_image_analyze(
                 json={
                     "model": "qwen3-vl-30b-a3b-instruct",
                     "messages": [
-                        {"role": "system", "content": _IMAGE_ANALYZE_SYSTEM_PROMPT},
                         {
                             "role": "user",
                             "content": [
+                                {"type": "text", "text": user_content},
                                 {"type": "image_url", "image_url": {"url": data_url}},
-                                {"type": "text", "text": user_text},
                             ],
                         },
                     ],

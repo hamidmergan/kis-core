@@ -93,10 +93,12 @@ async def check_job_limit(
 async def get_my_jobs(
     current_user: dict = Depends(get_current_user),
     limit: int = Query(default=20, le=200),
+    offset: int = Query(default=0, ge=0),
+    q: str = Query(default=""),
 ):
     """Return the most recent jobs for the current user (default 20, max 200)."""
     user_id = current_user.get("user_id", 0)
-    jobs = db.get_jobs_by_user(user_id, limit=limit)
+    jobs, total = db.get_jobs_by_user(user_id, limit=limit, offset=offset, q=q)
     result = []
     for job in jobs:
         has_download = (
@@ -118,7 +120,16 @@ async def get_my_jobs(
             "has_download": has_download,
             "result_filename": job["result_filename"],
         })
-    return {"jobs": result}
+
+    from src.database import MAX_RESULT_FILES
+    video_results = db.get_results_for_tool_group(user_id, "video")
+    general_results = db.get_results_for_tool_group(user_id, "general")
+    storage = {
+        "video": {"count": len(video_results), "limit": MAX_RESULT_FILES["video"]},
+        "general": {"count": len(general_results), "limit": MAX_RESULT_FILES["general"]},
+    }
+
+    return {"jobs": result, "total": total, "storage": storage}
 
 
 @router.delete("/{job_uuid}")

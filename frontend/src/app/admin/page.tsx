@@ -973,8 +973,74 @@ function ApiKeysTab() {
   return <ApiKeysSection />;
 }
 
+// --- Settings: Tool visibility ---
+interface ToolEntry {
+  key: string;
+  label: string;
+  enabled: boolean;
+}
+
+function ToolsSettingsSection() {
+  const [tools, setTools] = useState<ToolEntry[] | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/tools", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setTools(d.tools ?? []));
+  }, []);
+
+  const toggle = async (key: string, enabled: boolean) => {
+    setSaving(key);
+    setTools((prev) => prev?.map((t) => (t.key === key ? { ...t, enabled } : t)) ?? null);
+    try {
+      await fetch(`/api/admin/tools/${key}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (!tools) return <Spinner />;
+
+  return (
+    <div className="border border-gray-200 rounded-xl bg-white p-5">
+      <p className="text-sm font-medium text-gray-800 mb-1">Tools ein-/ausschalten</p>
+      <p className="text-xs text-gray-500 mb-4">Deaktivierte Tools werden auf der Startseite ausgeblendet.</p>
+      <div className="space-y-3">
+        {tools.map((tool) => (
+          <div key={tool.key} className="flex items-center justify-between">
+            <span className="text-sm text-gray-700">{tool.label}</span>
+            <button
+              onClick={() => toggle(tool.key, !tool.enabled)}
+              disabled={saving === tool.key}
+              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+                tool.enabled ? "bg-[#0066cc]" : "bg-gray-300"
+              } disabled:opacity-50`}
+              aria-label={`${tool.label} ${tool.enabled ? "deaktivieren" : "aktivieren"}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                tool.enabled ? "translate-x-5" : "translate-x-0"
+              }`} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SettingsTab() {
-  return <GeneralSettingsSection />;
+  return (
+    <div className="space-y-6">
+      <GeneralSettingsSection />
+      <ToolsSettingsSection />
+    </div>
+  );
 }
 
 function Spinner() {

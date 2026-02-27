@@ -1,12 +1,14 @@
 """Admin endpoints — only accessible by the configured ADMIN_EMAIL."""
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 from pydantic import BaseModel
 
 from src import database as db
 from src.celery_app import celery_app
-from src.dependencies import get_admin_user
+from src.dependencies import get_admin_user, get_current_user
 from src.storage import delete_file
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -19,6 +21,23 @@ class AddWhitelistRequest(BaseModel):
 class UpdateSettingsRequest(BaseModel):
     whitelist_enabled: bool | None = None
     demo_data: bool | None = None
+
+
+class ToggleToolRequest(BaseModel):
+    enabled: bool
+
+
+_TOOLS_CONFIG = [
+    {"key": "screencast",    "label": "Screencast"},
+    {"key": "translation",   "label": "Dokumentenübersetzung"},
+    {"key": "tts",           "label": "Text-to-Speech"},
+    {"key": "script",        "label": "Skript erstellen"},
+    {"key": "transcription", "label": "Transkription"},
+    {"key": "video_dubbing", "label": "Video-Dubbing"},
+    {"key": "image",         "label": "Bild-KI"},
+    {"key": "glossary",      "label": "Glossare"},
+    {"key": "summary",       "label": "Zusammenfassung"},
+]
 
 
 class SetApiKeyRequest(BaseModel):
@@ -50,6 +69,35 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
     if body.demo_data is not None:
         db.set_setting("demo_data", "true" if body.demo_data else "false")
+    return {"ok": True}
+
+
+# --- Tool visibility ---
+
+@router.get("/tools")
+async def get_tools(_user=Depends(get_current_user)):
+    """Return all tools with their enabled/disabled state. Accessible by all logged-in users."""
+    disabled = set(json.loads(db.get_setting("disabled_tools", "[]")))
+    return {
+        "tools": [
+            {**t, "enabled": t["key"] not in disabled}
+            for t in _TOOLS_CONFIG
+        ]
+    }
+
+
+@router.patch("/tools/{tool_key}")
+async def toggle_tool(tool_key: str, body: ToggleToolRequest, _admin=Depends(get_admin_user)):
+    """Enable or disable a tool on the homepage. Admin only."""
+    valid_keys = {t["key"] for t in _TOOLS_CONFIG}
+    if tool_key not in valid_keys:
+        raise HTTPException(status_code=400, detail="Unbekanntes Tool")
+    disabled = set(json.loads(db.get_setting("disabled_tools", "[]")))
+    if body.enabled:
+        disabled.discard(tool_key)
+    else:
+        disabled.add(tool_key)
+    db.set_setting("disabled_tools", json.dumps(list(disabled)))
     return {"ok": True}
 
 

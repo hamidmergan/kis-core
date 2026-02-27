@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 
@@ -24,6 +24,13 @@ interface JobDetail {
   meta: Record<string, unknown> | null;
   download_url: string | null;
 }
+
+interface StorageInfo {
+  video: { count: number; limit: number };
+  general: { count: number; limit: number };
+}
+
+const LIMIT = 10;
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running";
@@ -315,53 +322,85 @@ export default function MeineJobsPage() {
   const [details, setDetails] = useState<Record<string, JobDetail>>({});
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [storage, setStorage] = useState<StorageInfo | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
+  // Debounce q and reset offset at the same time
   useEffect(() => {
-    fetch("/api/jobs/my?limit=100", { credentials: "include" })
-      .then((r) => {
-        if (r.status === 401) { router.push("/login"); return null; }
-        return r.json();
-      })
-      .then((data) => {
-        if (!data) return;
-        const cutoff = Date.now() - 12 * 60 * 60 * 1000;
-        const recent: MyJob[] = (data.jobs ?? []).filter(
-          (j: MyJob) => new Date(j.created_at + "Z").getTime() >= cutoff
-        );
-        setJobs(recent);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQ(q);
+      setOffset(0);
+    }, 350);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [q]);
 
-        // Fetch detail for completed jobs
-        const detailJobs = recent.filter(
-          (j) => j.status === "success"
-        );
-        Promise.all(
-          detailJobs.map((j) =>
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        limit: String(LIMIT),
+        offset: String(offset),
+        q: debouncedQ,
+      });
+      const r = await fetch(`/api/jobs/my?${params}`, { credentials: "include" });
+      if (r.status === 401) { router.push("/login"); return; }
+      const data = await r.json();
+      const loaded: MyJob[] = data.jobs ?? [];
+      setJobs(loaded);
+      setTotal(data.total ?? 0);
+      if (data.storage) setStorage(data.storage);
+
+      // Fetch detail for completed jobs
+      const results = await Promise.all(
+        loaded
+          .filter((j) => j.status === "success")
+          .map((j) =>
             fetch(`/api/jobs/${j.job_uuid}`, { credentials: "include" })
               .then((r) => r.json())
               .then((d) => ({ uuid: j.job_uuid, detail: { result: d.result, meta: d.meta, download_url: d.download_url } }))
               .catch(() => null)
           )
-        ).then((results) => {
-          const map: Record<string, JobDetail> = {};
-          for (const r of results) {
-            if (r) map[r.uuid] = r.detail;
-          }
-          setDetails(map);
-        });
-      })
-      .finally(() => setLoading(false));
-  }, [router]);
+      );
+      const map: Record<string, JobDetail> = {};
+      for (const r of results) {
+        if (r) map[r.uuid] = r.detail;
+      }
+      setDetails(map);
+    } finally {
+      setLoading(false);
+    }
+  }, [offset, debouncedQ, router]);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
   const handleCancel = async (job: MyJob) => {
     setCancelling(job.job_uuid);
     try {
       await fetch(`/api/jobs/${job.job_uuid}`, { method: "DELETE", credentials: "include" });
       setJobs((prev) => prev.filter((j) => j.job_uuid !== job.job_uuid));
+      setTotal((prev) => Math.max(0, prev - 1));
     } finally {
       setCancelling(null);
     }
   };
+
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+  const currentPage = Math.floor(offset / LIMIT) + 1;
+  const pageNumbers = (() => {
+    const half = 3;
+    let start = Math.max(1, currentPage - half);
+    const end = Math.min(totalPages, start + 6);
+    start = Math.max(1, end - 6);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  })();
 
   return (
     <>
@@ -371,59 +410,106 @@ export default function MeineJobsPage() {
         <p className="text-sm text-gray-500 mb-3">
           Fertige Downloads sind 12 Stunden verfügbar. Ältere Dateien werden automatisch entfernt.
         </p>
-        {!loading && (() => {
-          const video = jobs.filter(j => j.has_download && (SCREENCAST_RENDER_TOOLS.has(j.tool) || j.tool === "video_dubbing")).length;
-          const other = jobs.filter(j => j.has_download && !SCREENCAST_RENDER_TOOLS.has(j.tool) && j.tool !== "video_dubbing").length;
-          return (
-            <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-              <span className="font-medium text-gray-600">Gespeichert:</span>
-              <span className={video >= 1 ? "text-orange-600 font-medium" : ""}>Screencast & Dubbing ({video}/1)</span>
-              <span className="text-gray-300">·</span>
-              <span className={other >= 10 ? "text-orange-600 font-medium" : ""}>Andere Tools ({other}/10)</span>
-            </div>
-          );
-        })()}
+
+        {storage && (
+          <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+            <span className="font-medium text-gray-600">Gespeichert:</span>
+            <span className={storage.video.count >= storage.video.limit ? "text-orange-600 font-medium" : ""}>
+              Screencast & Dubbing ({storage.video.count}/{storage.video.limit})
+            </span>
+            <span className="text-gray-300">·</span>
+            <span className={storage.general.count >= storage.general.limit ? "text-orange-600 font-medium" : ""}>
+              Andere Tools ({storage.general.count}/{storage.general.limit})
+            </span>
+          </div>
+        )}
+
+        <div className="mb-4">
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Dateiname suchen..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : jobs.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-16">Keine Jobs in den letzten 12 Stunden</p>
+          <p className="text-sm text-gray-400 text-center py-16">
+            {debouncedQ ? "Keine Ergebnisse für diese Suche" : "Keine Jobs in den letzten 12 Stunden"}
+          </p>
         ) : (
-          <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
-            {jobs.map((job) => {
-              const expired = isExpired(job);
-              const detail = details[job.job_uuid] ?? null;
-              return (
-                <li key={job.job_uuid} className={`px-5 py-4 bg-white ${expired ? "opacity-50" : "hover:bg-gray-50"}`}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-800">{job.tool_label}</p>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
-                      <TimingInfo job={job} />
-                      {job.status === "failed" && job.error && (
-                        <p className="text-xs text-red-500 mt-1">{job.error}</p>
-                      )}
-                      {!expired && <JobArtifacts job={job} detail={detail} />}
+          <>
+            <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+              {jobs.map((job) => {
+                const expired = isExpired(job);
+                const detail = details[job.job_uuid] ?? null;
+                return (
+                  <li key={job.job_uuid} className={`px-5 py-4 bg-white ${expired ? "opacity-50" : "hover:bg-gray-50"}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-800">{job.tool_label}</p>
+                        <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
+                        <TimingInfo job={job} />
+                        {job.status === "failed" && job.error && (
+                          <p className="text-xs text-red-500 mt-1">{job.error}</p>
+                        )}
+                        {!expired && <JobArtifacts job={job} detail={detail} />}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <StatusBadge status={job.status} expired={expired} />
+                        {isActive(job.status) && (
+                          <button
+                            onClick={() => handleCancel(job)}
+                            disabled={cancelling === job.job_uuid}
+                            className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                          >
+                            {cancelling === job.job_uuid ? "..." : "Abbrechen"}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <StatusBadge status={job.status} expired={expired} />
-                      {isActive(job.status) && (
-                        <button
-                          onClick={() => handleCancel(job)}
-                          disabled={cancelling === job.job_uuid}
-                          className="text-xs text-red-500 hover:underline disabled:opacity-50"
-                        >
-                          {cancelling === job.job_uuid ? "..." : "Abbrechen"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-1">
+                <button
+                  onClick={() => setOffset(Math.max(0, offset - LIMIT))}
+                  disabled={currentPage === 1}
+                  className="px-2 py-1 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                >
+                  &lt;
+                </button>
+                {pageNumbers.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setOffset((p - 1) * LIMIT)}
+                    className={`px-2.5 py-1 text-sm rounded ${
+                      p === currentPage
+                        ? "bg-blue-600 text-white font-semibold"
+                        : "text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setOffset(Math.min((totalPages - 1) * LIMIT, offset + LIMIT))}
+                  disabled={currentPage === totalPages}
+                  className="px-2 py-1 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                >
+                  &gt;
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
     </>

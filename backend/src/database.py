@@ -278,13 +278,28 @@ def get_job(job_uuid: str):
         ).fetchone()
 
 
-def get_jobs_by_user(user_id: int, limit: int = 20) -> list[dict]:
+def get_jobs_by_user(
+    user_id: int, limit: int = 20, offset: int = 0, q: str = "",
+) -> tuple[list[dict], int]:
+    conditions = [
+        "user_id = ?",
+        "created_at >= datetime('now', '-12 hours')",
+    ]
+    params: list = [user_id]
+    if q:
+        like = f"%{q}%"
+        conditions.append("(original_filename LIKE ? OR tool LIKE ?)")
+        params += [like, like]
+    where = " AND ".join(conditions)
     with get_connection() as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM jobs WHERE {where}", params
+        ).fetchone()[0]
         rows = conn.execute(
-            "SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
-            (user_id, limit),
+            f"SELECT * FROM jobs WHERE {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            params + [limit, offset],
         ).fetchall()
-        return [dict(row) for row in rows]
+    return [dict(row) for row in rows], total
 
 
 def set_job_celery_task_id(job_uuid: str, celery_task_id: str) -> None:

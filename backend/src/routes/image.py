@@ -77,11 +77,9 @@ async def edit_image(
 @router.post("/image/analyze")
 async def analyze_image(
     image: UploadFile = File(...),
-    prompt: str = Form(...),
+    prompt: str = Form(""),
     current_user: dict = Depends(get_current_user),
 ):
-    if not prompt.strip():
-        raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
     if not image.filename:
         raise HTTPException(status_code=400, detail="Dateiname fehlt")
 
@@ -99,7 +97,7 @@ async def analyze_image(
     user_id = current_user.get("user_id", 0)
 
     input_path = save_queue_file(job_uuid, ext, content)
-    display_name = f"{image.filename}: {prompt[:80]}"
+    display_name = f"{image.filename}: {prompt[:80]}" if prompt.strip() else image.filename
     db.create_job(job_uuid, user_id, "image_analyze", display_name)
 
     from src.tasks.general_tasks import run_image_analyze
