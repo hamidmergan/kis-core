@@ -14,7 +14,8 @@ class AddWhitelistRequest(BaseModel):
 
 
 class UpdateSettingsRequest(BaseModel):
-    whitelist_enabled: bool
+    whitelist_enabled: bool | None = None
+    demo_data: bool | None = None
 
 
 # --- Settings ---
@@ -23,12 +24,16 @@ class UpdateSettingsRequest(BaseModel):
 async def get_settings(_admin=Depends(get_admin_user)):
     return {
         "whitelist_enabled": db.get_setting("whitelist_enabled", "true").lower() == "true",
+        "demo_data": db.get_setting("demo_data", "false").lower() == "true",
     }
 
 
 @router.patch("/settings")
 async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_user)):
-    db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
+    if body.whitelist_enabled is not None:
+        db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
+    if body.demo_data is not None:
+        db.set_setting("demo_data", "true" if body.demo_data else "false")
     return {"ok": True}
 
 
@@ -86,6 +91,10 @@ async def add_whitelist(body: AddWhitelistRequest, _admin=Depends(get_admin_user
 
 @router.delete("/whitelist/{email:path}")
 async def remove_whitelist(email: str, _admin=Depends(get_admin_user)):
+    from src.dependencies import get_settings
+    settings = get_settings()
+    if email.strip().lower() == settings.admin_email.strip().lower():
+        raise HTTPException(status_code=403, detail="Die Admin-Email kann nicht aus der Whitelist entfernt werden.")
     db.remove_from_whitelist(email)
     db.deactivate_user_by_email(email)
     return {"ok": True}

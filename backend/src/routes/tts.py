@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from src.dependencies import get_elevenlabs_client, get_settings, get_current_user
+from src.dependencies import get_elevenlabs_client, get_current_user
 from src import database as db
 from src.storage import save_queue_file
 from src.services.elevenlabs_client import DEFAULT_VOICE_ID
@@ -22,13 +22,10 @@ router = APIRouter(tags=["tts"])
 @router.get("/voices")
 async def list_voices():
     """Return available TTS voices."""
-    settings = get_settings()
-    voices = [
-        {"voice_id": DEFAULT_VOICE_ID, "label": "Rachel (Standard)"},
-    ]
-    if settings.elevenlabs_voice_id:
-        voices.append({"voice_id": settings.elevenlabs_voice_id, "label": "Meine Stimme"})
-    return {"voices": voices}
+    return {"voices": [
+        {"voice_id": DEFAULT_VOICE_ID, "label": "Brian (Standard)"},
+        {"voice_id": "21m00Tcm4TlvDq8ikWAM", "label": "Rachel"},
+    ]}
 
 
 @router.post("/tts")

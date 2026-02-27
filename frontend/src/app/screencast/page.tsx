@@ -1171,7 +1171,7 @@ function ScreencastPageInner() {
                 <p className="mt-0.5 text-sm text-yellow-700">
                   Wenn Sie einen neuen starten, wird der alte automatisch gelöscht. Bitte laden Sie ihn vorher herunter.{" "}
                   <a href="/meine-jobs" className="underline hover:text-yellow-900">
-                    Zur Jobliste →
+                    Zur Jobliste
                   </a>
                 </p>
               </div>

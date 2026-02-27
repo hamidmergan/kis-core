@@ -23,7 +23,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml.ns import qn
 from pydantic import BaseModel
 
-from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski_client, get_settings, get_current_user
+from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski_client, get_current_user
 from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.kisski_client import KisskiClient
 from src.services.glossary import GlossaryService
@@ -1132,7 +1132,7 @@ def _load_demo_subtitles() -> dict:
 @router.get("/screencast/demo-available")
 async def demo_available():
     """Check whether demo data is available."""
-    settings = get_settings()
+    demo_enabled = db.get_setting("demo_data", "false").lower() == "true"
     pptx_exists = _find_demo_pptx() is not None
     video_exists = (DEMO_DIR / "video.mp4").exists()
     if not video_exists:
@@ -1141,9 +1141,9 @@ async def demo_available():
                 video_exists = True
                 break
     return {
-        "available": settings.demo_data and pptx_exists,
-        "has_video": settings.demo_data and video_exists,
-        "demo_data_enabled": settings.demo_data,
+        "available": demo_enabled and pptx_exists,
+        "has_video": demo_enabled and video_exists,
+        "demo_data_enabled": demo_enabled,
         "pptx_exists": pptx_exists,
         "video_exists": video_exists,
     }
@@ -1157,8 +1157,7 @@ async def demo_translate(body: DemoTranslateRequest):
     """
     global _demo_images_cache
 
-    settings = get_settings()
-    if not settings.demo_data:
+    if db.get_setting("demo_data", "false").lower() != "true":
         raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
 
     pptx_path = _find_demo_pptx()
@@ -1223,8 +1222,7 @@ async def demo_translate(body: DemoTranslateRequest):
 @router.post("/screencast/demo/generate-scripts")
 async def demo_generate_scripts():
     """Return demo-generated scripts parsed from the SRT file."""
-    settings = get_settings()
-    if not settings.demo_data:
+    if db.get_setting("demo_data", "false").lower() != "true":
         raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
 
     scripts = _load_demo_scripts()
@@ -1321,8 +1319,7 @@ async def demo_render(
     Mode A: per-slide MP3 files exist → full FFmpeg pipeline runs in Celery worker
     Mode B: no MP3 files → serve pre-existing MP4 immediately (no queue)
     """
-    settings = get_settings()
-    if not settings.demo_data:
+    if db.get_setting("demo_data", "false").lower() != "true":
         raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
 
     user_id = current_user.get("user_id", 0)

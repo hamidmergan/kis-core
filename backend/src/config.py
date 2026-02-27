@@ -4,13 +4,11 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # DeepL
     deepl_api_key: str = ""
-    translation_provider: str = "deepl"
     source_lang: str = "DE"
     target_lang: str = "EN-US"
 
     # ElevenLabs
     elevenlabs_api_key: str = ""
-    elevenlabs_voice_id: str = ""
 
     # KISSKI LLM (OpenAI-compatible)
     kisski_api_key: str = ""
@@ -24,9 +22,6 @@ class Settings(BaseSettings):
     # Admin: email must match the LDAP account email of the admin user.
     # Auto-whitelisted on startup so first login works without manual DB edits.
     admin_email: str = ""
-
-    # Demo mode: serve pre-built demo data instead of calling external APIs
-    demo_data: bool = False
 
     # Encryption key for sensitive DB values (Fernet, base64url-encoded 32 bytes)
     encryption_key: str = ""

@@ -106,7 +106,7 @@ function PendingTab() {
 }
 
 // --- Tab: Whitelist ---
-function WhitelistTab() {
+function WhitelistTab({ adminEmail }: { adminEmail: string }) {
   const [emails, setEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [newEmail, setNewEmail] = useState("");
@@ -149,10 +149,15 @@ function WhitelistTab() {
   const remove = async (email: string) => {
     setRemoving(email);
     try {
-      await fetch(`/api/admin/whitelist/${encodeURIComponent(email)}`, {
+      const res = await fetch(`/api/admin/whitelist/${encodeURIComponent(email)}`, {
         method: "DELETE",
         credentials: "include",
       });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.detail || "Fehler beim Entfernen");
+        return;
+      }
       setEmails((prev) => prev.filter((e) => e !== email));
     } finally {
       setRemoving(null);
@@ -184,18 +189,35 @@ function WhitelistTab() {
         <p className="text-sm text-gray-400 text-center py-8">Whitelist ist leer</p>
       ) : (
         <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
-          {emails.map((email) => (
-            <li key={email} className="px-5 py-3 bg-white flex items-center justify-between gap-4">
-              <span className="text-sm text-gray-700">{email}</span>
-              <button
-                onClick={() => remove(email)}
-                disabled={removing === email}
-                className="text-xs text-red-500 hover:underline disabled:opacity-50"
-              >
-                {removing === email ? "..." : "Entfernen"}
-              </button>
-            </li>
-          ))}
+          {emails.map((email) => {
+            const isAdmin = email.toLowerCase() === adminEmail.toLowerCase();
+            return (
+              <li key={email} className={`px-5 py-3 flex items-center justify-between gap-4 ${isAdmin ? "bg-gray-50" : "bg-white"}`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  {isAdmin && (
+                    <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 1a5 5 0 00-5 5v3H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V11a2 2 0 00-2-2h-2V6a5 5 0 00-5-5zm0 2a3 3 0 013 3v3H9V6a3 3 0 013-3zm0 10a2 2 0 110 4 2 2 0 010-4z" />
+                    </svg>
+                  )}
+                  <span className={`text-sm truncate ${isAdmin ? "text-gray-500" : "text-gray-700"}`}>{email}</span>
+                  {isAdmin && (
+                    <span className="text-[10px] font-medium text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded-full shrink-0">Admin</span>
+                  )}
+                </div>
+                {isAdmin ? (
+                  <span className="text-xs text-gray-300 shrink-0 cursor-default select-none">Entfernen</span>
+                ) : (
+                  <button
+                    onClick={() => remove(email)}
+                    disabled={removing === email}
+                    className="text-xs text-red-500 hover:underline disabled:opacity-50 shrink-0"
+                  >
+                    {removing === email ? "..." : "Entfernen"}
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -509,33 +531,37 @@ function JobsTab() {
 // --- Tab: Settings ---
 function SettingsTab() {
   const [whitelistEnabled, setWhitelistEnabled] = useState<boolean | null>(null);
+  const [demoData, setDemoData] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/settings", { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => setWhitelistEnabled(d.whitelist_enabled ?? true));
+      .then((d) => {
+        setWhitelistEnabled(d.whitelist_enabled ?? true);
+        setDemoData(d.demo_data ?? false);
+      });
   }, []);
 
-  const toggle = async (value: boolean) => {
+  const patch = async (body: Record<string, boolean>) => {
     setSaving(true);
     try {
       await fetch("/api/admin/settings", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whitelist_enabled: value }),
+        body: JSON.stringify(body),
       });
-      setWhitelistEnabled(value);
     } finally {
       setSaving(false);
     }
   };
 
-  if (whitelistEnabled === null) return <Spinner />;
+  if (whitelistEnabled === null || demoData === null) return <Spinner />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Whitelist */}
       <div className="border border-gray-200 rounded-xl bg-white p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -547,23 +573,52 @@ function SettingsTab() {
             </p>
           </div>
           <button
-            onClick={() => toggle(!whitelistEnabled)}
+            onClick={() => { const v = !whitelistEnabled; setWhitelistEnabled(v); patch({ whitelist_enabled: v }); }}
             disabled={saving}
             className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
               whitelistEnabled ? "bg-[#0066cc]" : "bg-gray-300"
             } disabled:opacity-50`}
             aria-label="Whitelist umschalten"
           >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                whitelistEnabled ? "translate-x-5" : "translate-x-0"
-              }`}
-            />
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              whitelistEnabled ? "translate-x-5" : "translate-x-0"
+            }`} />
           </button>
         </div>
         {!whitelistEnabled && (
           <p className="mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
             Achtung: Alle TH-Mitarbeiter mit gültigem LDAP-Account können sich einloggen.
+          </p>
+        )}
+      </div>
+
+      {/* Demo-Modus */}
+      <div className="border border-gray-200 rounded-xl bg-white p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Demo-Modus</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {demoData
+                ? "Aktiv — Demo-Screencast mit vorgefertigten Daten ist sichtbar."
+                : "Deaktiviert — Demo-Screencast ist ausgeblendet."}
+            </p>
+          </div>
+          <button
+            onClick={() => { const v = !demoData; setDemoData(v); patch({ demo_data: v }); }}
+            disabled={saving}
+            className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+              demoData ? "bg-[#0066cc]" : "bg-gray-300"
+            } disabled:opacity-50`}
+            aria-label="Demo-Modus umschalten"
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              demoData ? "translate-x-5" : "translate-x-0"
+            }`} />
+          </button>
+        </div>
+        {demoData && (
+          <p className="mt-3 text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+            Demo-Screencast ist für alle eingeloggten User sichtbar.
           </p>
         )}
       </div>
@@ -582,12 +637,14 @@ function Spinner() {
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("pending");
   const [checking, setChecking] = useState(true);
+  const [adminEmail, setAdminEmail] = useState("");
   const router = useRouter();
 
   useEffect(() => {
     checkAuthStatus().then((s) => {
       if (!s.authenticated) { router.push("/login"); return; }
       if (!s.is_admin) { router.push("/"); return; }
+      setAdminEmail(s.email ?? "");
       setChecking(false);
     });
   }, [router]);
@@ -608,12 +665,12 @@ export default function AdminPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <h2 className="text-lg font-semibold text-gray-800 mb-6">Admin-Bereich</h2>
 
-        <div className="flex gap-1 border-b border-gray-200 mb-6">
+        <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto scrollbar-none">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                 tab === t.key
                   ? "border-[#0066cc] text-[#0066cc]"
                   : "border-transparent text-gray-500 hover:text-gray-700"
@@ -625,7 +682,7 @@ export default function AdminPage() {
         </div>
 
         {tab === "pending" && <PendingTab />}
-        {tab === "whitelist" && <WhitelistTab />}
+        {tab === "whitelist" && <WhitelistTab adminEmail={adminEmail} />}
         {tab === "users" && <UsersTab />}
         {tab === "jobs" && <JobsTab />}
         {tab === "settings" && <SettingsTab />}

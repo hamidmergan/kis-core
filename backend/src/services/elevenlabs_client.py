@@ -5,7 +5,7 @@ import re
 import httpx
 
 # Default voice
-DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"  # Rachel – EN
+DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb"  # Brian – EN, deep, professional narration
 
 _MODEL_ID = "eleven_multilingual_v2"
 _API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
