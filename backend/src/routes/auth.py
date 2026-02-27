@@ -62,7 +62,7 @@ async def login(body: LoginRequest, response: Response):
         value=token,
         httponly=True,
         samesite="lax",
-        max_age=settings.session_max_age_seconds,
+        max_age=86400,
         secure=settings.production,
     )
     return {"status": "ok", "username": ldap_username, "display_name": display_name}

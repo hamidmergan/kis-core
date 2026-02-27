@@ -1,15 +1,18 @@
 """Transcription route: audio/video file to text, SRT, or VTT."""
 
 import tempfile
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
 
-from src.dependencies import get_kisski_client
+from src import database as db
+from src.dependencies import get_current_user, get_kisski_client
+from src.storage import save_result_file
 from src.utils.file_validation import MAX_TRANSCRIPTION_BYTES, TRANSCRIPTION_EXTENSIONS
 
 router = APIRouter(tags=["transcription"])
@@ -54,6 +57,7 @@ async def transcribe(
     file: UploadFile = File(...),
     task: str = Form("transcribe"),
     response_format: str = Form("text"),
+    current_user: dict = Depends(get_current_user),
 ):
     # Validate filename
     if not file.filename:
@@ -105,8 +109,19 @@ async def transcribe(
 
     out_ext = _FORMAT_EXT[response_format]
     suffix = "_EN" if task == "translate" else ""
-    output_name = f"{stem}{suffix}{out_ext}"
-    encoded_name = quote(output_name, safe="")
+    output_name = f"{Path(file.filename).stem}{suffix}{out_ext}"
+
+    # Save result to job history (non-fatal if storage fails)
+    try:
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        result_path = save_result_file(job_uuid, out_ext, result_text.encode("utf-8"))
+        db.create_job(job_uuid, user_id, "transcription", file.filename)
+        db.update_job_result(job_uuid, result_path, output_name)
+        db.update_job_status(job_uuid, "success")
+    except Exception:
+        logger.exception("Job tracking failed for transcription of '{}'", file.filename)
+
     mime = _FORMAT_MIME[response_format]
 
     return StreamingResponse(

@@ -1,12 +1,15 @@
 import json
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from loguru import logger
 
-from src.dependencies import get_kisski_client, get_settings
+from src import database as db
+from src.dependencies import get_current_user, get_kisski_client, get_settings
+from src.storage import save_result_file
 from src.utils.file_validation import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES
 from src.utils.text_extraction import EXTRACTORS
 
@@ -19,6 +22,7 @@ async def generate_script(
     request: Request,
     file: UploadFile = File(...),
     glossary_json: str = Form(""),
+    current_user: dict = Depends(get_current_user),
 ):
     # Validate filename
     if not file.filename:
@@ -77,9 +81,20 @@ async def generate_script(
 
     logger.info("Script generation completed for file '{}'", file.filename)
 
-    # Build output filename
     stem = Path(file.filename).stem
     output_name = f"{stem}_skript.md"
+
+    # Save result to job history (non-fatal)
+    try:
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        result_path = save_result_file(job_uuid, ".md", script.encode("utf-8"))
+        db.create_job(job_uuid, user_id, "script", file.filename)
+        db.update_job_result(job_uuid, result_path, output_name)
+        db.update_job_status(job_uuid, "success")
+    except Exception:
+        logger.exception("Job tracking failed for script generation of '{}'", file.filename)
+
     encoded_name = quote(output_name, safe="")
 
     return Response(

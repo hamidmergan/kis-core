@@ -42,12 +42,11 @@ def _get_screencast_helpers():
 
 
 def _get_tts_client():
-    from src.dependencies import get_settings
     from src.services.elevenlabs_client import ElevenLabsClient
-    settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        raise RuntimeError("ElevenLabs API Key fehlt")
-    return ElevenLabsClient(settings.elevenlabs_api_key)
+    api_key = db.get_api_config_value("elevenlabs_api_key")
+    if not api_key:
+        raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
+    return ElevenLabsClient(api_key)
 
 
 def _run_render_pipeline(
@@ -331,15 +330,14 @@ def run_screencast_auto(
 
         # Generate scripts via KISSKI
         db.update_job_status(job_uuid, "running", progress={"step": "scripts", "total": len(slide_texts)})
-        from src.dependencies import get_settings
         from src.services.kisski_client import KisskiClient
-        settings = get_settings()
-        if not settings.kisski_api_key:
-            raise RuntimeError("KISSKI API Key fehlt")
+        kisski_api_key = db.get_api_config_value("kisski_api_key")
+        if not kisski_api_key:
+            raise RuntimeError("KISSKI API Key nicht konfiguriert")
         kisski_client = KisskiClient(
-            api_key=settings.kisski_api_key,
-            base_url=settings.kisski_base_url,
-            model=settings.kisski_model,
+            api_key=kisski_api_key,
+            base_url=db.get_api_config_value("kisski_base_url") or "https://chat-ai.academiccloud.de/v1",
+            model=db.get_default_kisski_model() or "qwen3-30b-a3b-instruct-2507",
         )
 
         glossary_dict = None

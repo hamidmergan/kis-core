@@ -16,6 +16,17 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 _CONTENT_TYPES = {
     ".mp4": "video/mp4",
     ".mp3": "audio/mpeg",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".md": "text/markdown",
+    ".tex": "application/x-tex",
+    ".txt": "text/plain",
+    ".html": "text/html",
+    ".srt": "application/x-subrip",
+    ".vtt": "text/vtt",
 }
 
 
@@ -26,7 +37,12 @@ _TOOL_LABELS = {
     "screencast_auto": "Screencast (Auto)",
     "tts": "Text-to-Speech",
     "video_dubbing": "Video-Dubbing",
+    "translation": "Übersetzung",
     "transcription": "Transkription",
+    "image_generate": "Bild-Generierung",
+    "image_edit": "Bild-Bearbeitung",
+    "image_analyze": "Bild-Analyse",
+    "script": "Skript-Erstellung",
     "summary": "Zusammenfassung",
 }
 
@@ -61,7 +77,7 @@ async def check_job_limit(
 
     if result_group:
         existing = db.get_results_for_tool_group(user_id, result_group)
-        limit = MAX_RESULT_FILES.get(result_group, MAX_RESULT_FILES["other"])
+        limit = MAX_RESULT_FILES.get(result_group, 5)
         if len(existing) >= limit:
             at_storage_limit = True
             evict_filename = existing[0].get("original_filename") or existing[0].get("result_filename")

@@ -44,36 +44,35 @@ def get_session_store():
     settings = get_settings()
     return SessionStore(
         secret=settings.session_secret,
-        max_age=settings.session_max_age_seconds,
+        max_age=86400,
     )
 
 
 def get_kisski_client() -> KisskiClient:
-    settings = get_settings()
-    if not settings.kisski_api_key:
-        raise HTTPException(status_code=500, detail="KISSKI API Key fehlt")
-    return KisskiClient(
-        api_key=settings.kisski_api_key,
-        base_url=settings.kisski_base_url,
-        model=settings.kisski_model,
-    )
+    from src import database as db
+    api_key = db.get_api_config_value("kisski_api_key")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="KISSKI API Key nicht konfiguriert")
+    base_url = db.get_api_config_value("kisski_base_url") or "https://chat-ai.academiccloud.de/v1"
+    model = db.get_default_kisski_model() or "qwen3-30b-a3b-instruct-2507"
+    return KisskiClient(api_key=api_key, base_url=base_url, model=model)
 
 
 def get_elevenlabs_client() -> ElevenLabsClient:
-    settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        raise HTTPException(status_code=500, detail="ElevenLabs API Key fehlt")
-    return ElevenLabsClient(settings.elevenlabs_api_key)
+    from src import database as db
+    api_key = db.get_api_config_value("elevenlabs_api_key")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ElevenLabs API Key nicht konfiguriert")
+    return ElevenLabsClient(api_key)
 
 
-@lru_cache
 def get_deepl_client():
     from src.services.deepl_client import DeepLClient
-
-    settings = get_settings()
-    if not settings.deepl_api_key:
+    from src import database as db
+    api_key = db.get_api_config_value("deepl_api_key")
+    if not api_key:
         return None
     try:
-        return DeepLClient(settings.deepl_api_key)
+        return DeepLClient(api_key)
     except Exception:
         return None

@@ -225,11 +225,12 @@ function ScreencastPageInner() {
     try {
       const res = await fetch("/api/jobs/check/screencast", { credentials: "include" });
       const data = await res.json();
+      setHasActiveJob(!!data.has_active_job);
+      setAtStorageLimit(!!data.at_storage_limit);
+      setEvictFilename(data.evict_filename ?? null);
       if (data.has_active_job) {
-        setErrorMessage("Sie haben bereits einen laufenden Screencast-Job. Bitte warten Sie, bis er fertig ist.");
         return false;
       }
-      // at_storage_limit: user is already warned by the banner — just proceed
     } catch {
       // Ignore network errors, let backend handle it
     }
@@ -605,6 +606,8 @@ function ScreencastPageInner() {
 
   // ── Demo handlers ──
   const handleDemoTranslate = useCallback(async () => {
+    const ok = await checkBeforeSubmit();
+    if (!ok) return;
     setIsDemoMode(true);
     setStep("translating");
     setLoading(true);
@@ -631,7 +634,7 @@ function ScreencastPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [fastMode, goError]);
+  }, [fastMode, goError, checkBeforeSubmit]);
 
   const handleDemoGenerateScripts = useCallback(async () => {
     setStep("generating-scripts");
@@ -761,6 +764,8 @@ function ScreencastPageInner() {
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
+    const ok = await checkBeforeSubmit();
+    if (!ok) return;
     setStep("rendering");
     setLoading(true);
     const signal = newSignal();
@@ -794,7 +799,7 @@ function ScreencastPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, dpi, goError, processRenderResultFromJob]);
+  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, dpi, goError, processRenderResultFromJob, checkBeforeSubmit]);
 
   // ── Download MP4 ──
   const handleDownload = () => {
@@ -1181,7 +1186,7 @@ function ScreencastPageInner() {
             <div className="flex gap-3">
               <button
                 onClick={handleUploadNext}
-                disabled={!file || autoState === "processing"}
+                disabled={!file || autoState === "processing" || !!hasActiveJob}
                 className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {mode === "auto" ? "Screencast erstellen" : "Weiter"}

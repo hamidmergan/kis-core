@@ -24,9 +24,14 @@ def _de_date_to_utc(date_str: str, end_of_day: bool = False) -> str:
 # When a new result is saved and the group limit is exceeded,
 # the oldest file in that group is deleted from disk (DB record is kept).
 MAX_RESULT_FILES = {
-    "video": 1,   # video_dubbing, screencast_render, screencast_auto, screencast_demo_render
+    "video": 1,         # video_dubbing, screencast_render, screencast_auto, screencast_demo_render
     "tts": 5,
-    "other": 10,  # screencast_translate JSONs etc.
+    "translation": 5,   # document translation results
+    "transcription": 5, # transcription results
+    "image": 5,         # image_generate + image_edit (shared)
+    "image_text": 5,    # image_analyze text results
+    "script": 5,        # script generation results
+    "summary": 5,       # summary results
 }
 
 TOOL_RESULT_GROUP = {
@@ -35,6 +40,13 @@ TOOL_RESULT_GROUP = {
     "screencast_auto": "video",
     "screencast_demo_render": "video",
     "tts": "tts",
+    "translation": "translation",
+    "transcription": "transcription",
+    "image_generate": "image",
+    "image_edit": "image",
+    "image_analyze": "image_text",
+    "script": "script",
+    "summary": "summary",
 }
 
 DB_PATH = Path("/app/data/database.db")
@@ -121,6 +133,23 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 key        TEXT NOT NULL UNIQUE,
                 value      TEXT NOT NULL,
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS api_config (
+                key        TEXT NOT NULL UNIQUE,
+                value      TEXT NOT NULL,
+                encrypted  INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS kisski_models (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                model      TEXT NOT NULL UNIQUE,
+                is_default INTEGER NOT NULL DEFAULT 0,
+                position   INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
 
@@ -294,7 +323,7 @@ def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
         row = conn.execute(
             f"""SELECT 1 FROM jobs
                WHERE user_id = ? AND tool IN ({placeholders})
-               AND status IN ('pending', 'running')
+               AND status IN ('pending', 'running', 'awaiting_user')
                LIMIT 1""",
             (user_id, *tools),
         ).fetchone()
@@ -493,23 +522,12 @@ def update_job_result(
         user_id = row["user_id"]
         tool = row["tool"]
 
-    group = TOOL_RESULT_GROUP.get(tool, "other")
-    limit = MAX_RESULT_FILES.get(group, MAX_RESULT_FILES["other"])
-    old_jobs = get_results_for_tool_group(user_id, group) if group != "other" else []
+    group = TOOL_RESULT_GROUP.get(tool)
+    if not group or group not in MAX_RESULT_FILES:
+        return  # unknown tool or no limit defined — skip eviction
 
-    if group == "other":
-        # For "other" (e.g. screencast_translate JSONs), use a simple global check
-        with get_connection() as conn:
-            other_tools = [t for t in TOOL_RESULT_GROUP] + ["screencast_translate"]
-            placeholders = ",".join("?" * len(other_tools))
-            old_jobs = conn.execute(
-                f"""SELECT id, result_path FROM jobs
-                   WHERE user_id = ? AND tool NOT IN ({placeholders})
-                   AND result_path IS NOT NULL
-                   ORDER BY created_at ASC""",
-                (user_id, *other_tools),
-            ).fetchall()
-            old_jobs = [dict(r) for r in old_jobs]
+    limit = MAX_RESULT_FILES[group]
+    old_jobs = get_results_for_tool_group(user_id, group)
 
     excess = len(old_jobs) - limit
     if excess > 0:
@@ -542,3 +560,118 @@ def get_stuck_running_jobs(threshold_minutes: int = 20) -> list[dict]:
             (cutoff,),
         ).fetchall()
         return [dict(row) for row in rows]
+
+
+# --- API Config (encrypted keys + plaintext config) ---
+
+def get_api_config_value(key: str) -> str:
+    """Return decrypted value or empty string if not set."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT value, encrypted FROM api_config WHERE key = ?", (key,)
+        ).fetchone()
+    if not row:
+        return ""
+    if row["encrypted"]:
+        from src.encryption import decrypt
+        return decrypt(row["value"])
+    return row["value"]
+
+
+def set_api_config(key: str, value: str, encrypted: bool = True) -> None:
+    """Store (and optionally encrypt) a config value."""
+    stored = value
+    if encrypted:
+        from src.encryption import encrypt
+        stored = encrypt(value)
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT INTO api_config (key, value, encrypted) VALUES (?, ?, ?)
+               ON CONFLICT(key) DO UPDATE SET
+                   value = excluded.value,
+                   encrypted = excluded.encrypted,
+                   updated_at = datetime('now')""",
+            (key, stored, 1 if encrypted else 0),
+        )
+        conn.commit()
+
+
+def delete_api_config(key: str) -> None:
+    with get_connection() as conn:
+        conn.execute("DELETE FROM api_config WHERE key = ?", (key,))
+        conn.commit()
+
+
+def get_api_config_masked(key: str) -> str:
+    """Return ******xxxx (6 stars + last 4 chars) or empty string if not set."""
+    value = get_api_config_value(key)
+    if not value:
+        return ""
+    return "******" + value[-4:]
+
+
+def is_api_config_set(key: str) -> bool:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM api_config WHERE key = ?", (key,)
+        ).fetchone()
+    return row is not None
+
+
+# --- KISSKI Models ---
+
+def get_kisski_models() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT model, is_default FROM kisski_models ORDER BY is_default DESC, position ASC, created_at ASC"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_default_kisski_model() -> str:
+    """Return the default model name, or the first model, or empty string."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT model FROM kisski_models WHERE is_default = 1 LIMIT 1"
+        ).fetchone()
+        if row:
+            return row["model"]
+        row = conn.execute(
+            "SELECT model FROM kisski_models ORDER BY position ASC LIMIT 1"
+        ).fetchone()
+    return row["model"] if row else ""
+
+
+def add_kisski_model(model: str, is_default: bool = False) -> None:
+    with get_connection() as conn:
+        max_pos = conn.execute(
+            "SELECT COALESCE(MAX(position), -1) FROM kisski_models"
+        ).fetchone()[0]
+        if is_default:
+            conn.execute("UPDATE kisski_models SET is_default = 0")
+        conn.execute(
+            """INSERT INTO kisski_models (model, is_default, position) VALUES (?, ?, ?)
+               ON CONFLICT(model) DO UPDATE SET is_default = excluded.is_default""",
+            (model, 1 if is_default else 0, max_pos + 1),
+        )
+        conn.commit()
+
+
+def remove_kisski_model(model: str) -> None:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT is_default FROM kisski_models WHERE model = ?", (model,)
+        ).fetchone()
+        conn.execute("DELETE FROM kisski_models WHERE model = ?", (model,))
+        if row and row["is_default"]:
+            conn.execute(
+                "UPDATE kisski_models SET is_default = 1 WHERE id = (SELECT id FROM kisski_models ORDER BY position ASC LIMIT 1)"
+            )
+        conn.commit()
+
+
+def set_default_kisski_model(model: str) -> None:
+    with get_connection() as conn:
+        conn.execute("UPDATE kisski_models SET is_default = 0")
+        conn.execute("UPDATE kisski_models SET is_default = 1 WHERE model = ?", (model,))
+        conn.commit()

@@ -43,13 +43,12 @@ def run_tts(
         db.update_job_status(job_uuid, "running", progress={"step": "synthesize"})
 
         # Synthesize
-        from src.dependencies import get_settings
         from src.services.elevenlabs_client import ElevenLabsClient
-        settings = get_settings()
-        if not settings.elevenlabs_api_key:
-            raise RuntimeError("ElevenLabs API Key fehlt")
+        api_key = db.get_api_config_value("elevenlabs_api_key")
+        if not api_key:
+            raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
 
-        client = ElevenLabsClient(settings.elevenlabs_api_key)
+        client = ElevenLabsClient(api_key)
         mp3_bytes = client.synthesize(
             text,
             "EN",

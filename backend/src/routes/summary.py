@@ -1,14 +1,17 @@
 """Summary route: generate a text summary from various file formats via KISSKI LLM."""
 
 import tempfile
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from loguru import logger
 
-from src.dependencies import get_kisski_client
+from src import database as db
+from src.dependencies import get_current_user, get_kisski_client
+from src.storage import save_result_file
 from src.utils.file_validation import (
     MAX_TRANSCRIPTION_BYTES,
     MAX_UPLOAD_BYTES,
@@ -35,6 +38,7 @@ async def summarize(
     file: UploadFile = File(...),
     user_prompt: str = Form(""),
     output_format: str = Form("md"),
+    current_user: dict = Depends(get_current_user),
 ):
     """Generate a summary of the uploaded file using KISSKI LLM."""
     if not file.filename:
@@ -116,8 +120,21 @@ async def summarize(
 
     stem = Path(file.filename).stem
     output_name = f"{stem}_zusammenfassung{_OUTPUT_EXT[output_format]}"
-    encoded_name = quote(output_name, safe="")
+    out_ext = _OUTPUT_EXT[output_format]
     logger.info("Summary complete: '{}'", output_name)
+
+    # Save result to job history (non-fatal)
+    try:
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        result_path = save_result_file(job_uuid, out_ext, summary.encode("utf-8"))
+        db.create_job(job_uuid, user_id, "summary", file.filename)
+        db.update_job_result(job_uuid, result_path, output_name)
+        db.update_job_status(job_uuid, "success")
+    except Exception:
+        logger.exception("Job tracking failed for summary of '{}'", file.filename)
+
+    encoded_name = quote(output_name, safe="")
 
     return Response(
         content=summary.encode("utf-8"),

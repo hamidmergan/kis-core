@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import { checkAuthStatus } from "@/lib/auth";
 
-type Tab = "pending" | "whitelist" | "users" | "jobs" | "settings";
+type Tab = "pending" | "whitelist" | "users" | "jobs" | "settings" | "apikeys";
 
 interface PendingUser {
   id: number;
@@ -528,8 +528,8 @@ function JobsTab() {
   );
 }
 
-// --- Tab: Settings ---
-function SettingsTab() {
+// --- Settings: General toggles ---
+function GeneralSettingsSection() {
   const [whitelistEnabled, setWhitelistEnabled] = useState<boolean | null>(null);
   const [demoData, setDemoData] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
@@ -626,6 +626,328 @@ function SettingsTab() {
   );
 }
 
+// --- Settings: API-Keys ---
+interface ApiConfig {
+  deepl_api_key: string;
+  elevenlabs_api_key: string;
+  kisski_api_key: string;
+  kisski_base_url: string;
+  kisski_models: { model: string; is_default: number }[];
+}
+
+function KeyField({
+  label, description, masked, onSave, onDelete,
+}: {
+  label: string;
+  description: string;
+  masked: string;
+  onSave: (v: string) => Promise<void>;
+  onDelete: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!value.trim()) return;
+    setSaving(true);
+    try {
+      await onSave(value.trim());
+      setValue("");
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const del = async () => {
+    setSaving(true);
+    try { await onDelete(); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="border border-gray-200 rounded-xl bg-white p-5 space-y-3">
+      <div>
+        <p className="text-sm font-medium text-gray-800">{label}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+      </div>
+      {!editing ? (
+        <div className="flex items-center gap-3">
+          <code className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-gray-600 font-mono">
+            {masked || <span className="text-gray-300 italic">Nicht gesetzt</span>}
+          </code>
+          <button
+            onClick={() => setEditing(true)}
+            className="px-3 py-1.5 text-xs font-medium text-white bg-[#0066cc] hover:bg-[#0055aa] rounded-md transition-colors"
+          >
+            {masked ? "Ändern" : "Eintragen"}
+          </button>
+          {masked && (
+            <button
+              onClick={del}
+              disabled={saving}
+              className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+            >
+              {saving ? "..." : "Entfernen"}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <input
+            type="password"
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && save()}
+            placeholder="Neuen Key eingeben…"
+            className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc] font-mono"
+          />
+          <button
+            onClick={save}
+            disabled={saving || !value.trim()}
+            className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-md disabled:opacity-50 transition-colors"
+          >
+            {saving ? "..." : "Speichern"}
+          </button>
+          <button
+            onClick={() => { setEditing(false); setValue(""); }}
+            className="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-300 hover:bg-gray-50 rounded-md transition-colors"
+          >
+            Abbrechen
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApiKeysSection() {
+  const [config, setConfig] = useState<ApiConfig | null>(null);
+  const [baseUrl, setBaseUrl] = useState("");
+  const [editingBaseUrl, setEditingBaseUrl] = useState(false);
+  const [savingBaseUrl, setSavingBaseUrl] = useState(false);
+  const [newModel, setNewModel] = useState("");
+  const [addingModel, setAddingModel] = useState(false);
+
+  const load = useCallback(() => {
+    fetch("/api/admin/api-config", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: ApiConfig) => {
+        setConfig(d);
+        setBaseUrl(d.kisski_base_url || "https://chat-ai.academiccloud.de/v1");
+      });
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const saveKey = async (keyName: string, value: string) => {
+    await fetch(`/api/admin/api-config/keys/${keyName}`, {
+      method: "PUT", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    });
+    load();
+  };
+
+  const deleteKey = async (keyName: string) => {
+    await fetch(`/api/admin/api-config/keys/${keyName}`, {
+      method: "DELETE", credentials: "include",
+    });
+    load();
+  };
+
+  const saveBaseUrl = async () => {
+    setSavingBaseUrl(true);
+    try {
+      await fetch("/api/admin/api-config/kisski-base-url", {
+        method: "PUT", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: baseUrl }),
+      });
+      setEditingBaseUrl(false);
+      load();
+    } finally {
+      setSavingBaseUrl(false);
+    }
+  };
+
+  const addModel = async () => {
+    if (!newModel.trim()) return;
+    setAddingModel(true);
+    try {
+      const isFirst = (config?.kisski_models.length ?? 0) === 0;
+      await fetch("/api/admin/api-config/models", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: newModel.trim(), is_default: isFirst }),
+      });
+      setNewModel("");
+      load();
+    } finally {
+      setAddingModel(false);
+    }
+  };
+
+  const removeModel = async (model: string) => {
+    await fetch(`/api/admin/api-config/models/${encodeURIComponent(model)}`, {
+      method: "DELETE", credentials: "include",
+    });
+    load();
+  };
+
+  const setDefault = async (model: string) => {
+    await fetch(`/api/admin/api-config/models/${encodeURIComponent(model)}/default`, {
+      method: "PATCH", credentials: "include",
+    });
+    load();
+  };
+
+  if (!config) return <Spinner />;
+
+  return (
+    <div className="space-y-6">
+      {/* API Keys */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">API-Keys (verschlüsselt)</h3>
+        <KeyField
+          label="DeepL API Key"
+          description="Für Übersetzungen (PPTX, DOCX, etc.)"
+          masked={config.deepl_api_key}
+          onSave={(v) => saveKey("deepl_api_key", v)}
+          onDelete={() => deleteKey("deepl_api_key")}
+        />
+        <KeyField
+          label="ElevenLabs API Key"
+          description="Für Text-to-Speech und Video-Dubbing"
+          masked={config.elevenlabs_api_key}
+          onSave={(v) => saveKey("elevenlabs_api_key", v)}
+          onDelete={() => deleteKey("elevenlabs_api_key")}
+        />
+        <KeyField
+          label="KISSKI API Key"
+          description="Für Skript-Generierung. Kompatibel mit jedem OpenAI-API-Endpunkt: KISSKI/GWDG, Mistral, Together AI, Groq, OpenRouter, Fireworks AI — sowie lokale Modelle über Ollama (Llama, Qwen, Phi, Mistral, Gemma u.a.)."
+          masked={config.kisski_api_key}
+          onSave={(v) => saveKey("kisski_api_key", v)}
+          onDelete={() => deleteKey("kisski_api_key")}
+        />
+      </div>
+
+      {/* KISSKI Base URL */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">KISSKI Konfiguration</h3>
+        <div className="border border-gray-200 rounded-xl bg-white p-5 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Base URL</p>
+            <p className="text-xs text-gray-400 mt-0.5">OpenAI-kompatibler API-Endpunkt</p>
+          </div>
+          {!editingBaseUrl ? (
+            <div className="flex items-center gap-3">
+              <code className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-gray-600 font-mono truncate">
+                {config.kisski_base_url || "https://chat-ai.academiccloud.de/v1"}
+              </code>
+              <button
+                onClick={() => setEditingBaseUrl(true)}
+                className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-[#0066cc] hover:bg-[#0055aa] rounded-md transition-colors"
+              >
+                Ändern
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                autoFocus
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveBaseUrl()}
+                className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+              />
+              <button
+                onClick={saveBaseUrl}
+                disabled={savingBaseUrl}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-md disabled:opacity-50 transition-colors"
+              >
+                {savingBaseUrl ? "..." : "Speichern"}
+              </button>
+              <button
+                onClick={() => { setEditingBaseUrl(false); setBaseUrl(config.kisski_base_url || "https://chat-ai.academiccloud.de/v1"); }}
+                className="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-300 hover:bg-gray-50 rounded-md transition-colors"
+              >
+                Abbrechen
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* KISSKI Models */}
+        <div className="border border-gray-200 rounded-xl bg-white p-5 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Modelle</p>
+            <p className="text-xs text-gray-400 mt-0.5">Das Default-Modell wird automatisch verwendet. Weitere Modelle werden später als Dropdown angeboten.</p>
+          </div>
+
+          {config.kisski_models.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">Noch kein Modell eingetragen</p>
+          ) : (
+            <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+              {config.kisski_models.map((m) => (
+                <li key={m.model} className="px-4 py-2.5 bg-white flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-mono text-gray-700 truncate">{m.model}</span>
+                    {m.is_default ? (
+                      <span className="text-[10px] font-medium text-white bg-[#0066cc] px-1.5 py-0.5 rounded-full shrink-0">Default</span>
+                    ) : (
+                      <button
+                        onClick={() => setDefault(m.model)}
+                        className="text-[10px] text-gray-400 hover:text-[#0066cc] border border-gray-200 hover:border-[#0066cc] px-1.5 py-0.5 rounded-full shrink-0 transition-colors"
+                      >
+                        Als Default
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeModel(m.model)}
+                    className="text-xs text-red-400 hover:text-red-600 shrink-0 transition-colors"
+                  >
+                    Entfernen
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newModel}
+              onChange={(e) => setNewModel(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addModel()}
+              placeholder="z.B. qwen3-30b-a3b-instruct-2507"
+              className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc] font-mono"
+            />
+            <button
+              onClick={addModel}
+              disabled={addingModel || !newModel.trim()}
+              className="px-3 py-2 text-xs font-medium text-white bg-[#0066cc] hover:bg-[#0055aa] rounded-md disabled:opacity-50 transition-colors"
+            >
+              {addingModel ? "..." : "Hinzufügen"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApiKeysTab() {
+  return <ApiKeysSection />;
+}
+
+function SettingsTab() {
+  return <GeneralSettingsSection />;
+}
+
 function Spinner() {
   return (
     <div className="flex justify-center py-12">
@@ -635,7 +957,7 @@ function Spinner() {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<Tab>("pending");
+  const [tab, setTab] = useState<Tab>("settings");
   const [checking, setChecking] = useState(true);
   const [adminEmail, setAdminEmail] = useState("");
   const router = useRouter();
@@ -652,11 +974,12 @@ export default function AdminPage() {
   if (checking) return null;
 
   const tabs: { key: Tab; label: string }[] = [
+    { key: "settings", label: "Einstellungen" },
+    { key: "apikeys", label: "API-Keys" },
     { key: "pending", label: "Ausstehend" },
     { key: "whitelist", label: "Whitelist" },
     { key: "users", label: "Alle User" },
     { key: "jobs", label: "Alle Jobs" },
-    { key: "settings", label: "Einstellungen" },
   ];
 
   return (
@@ -681,6 +1004,7 @@ export default function AdminPage() {
           ))}
         </div>
 
+        {tab === "apikeys" && <ApiKeysTab />}
         {tab === "pending" && <PendingTab />}
         {tab === "whitelist" && <WhitelistTab adminEmail={adminEmail} />}
         {tab === "users" && <UsersTab />}

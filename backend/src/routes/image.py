@@ -1,11 +1,14 @@
 import base64
+import uuid
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from loguru import logger
 
-from src.dependencies import get_settings
+from src import database as db
+from src.dependencies import get_current_user
+from src.storage import save_result_file
 
 router = APIRouter(tags=["image"])
 
@@ -17,17 +20,17 @@ def _get_kisski_http_client(
     timeout: float = 120.0,
     extra_headers: dict | None = None,
 ) -> httpx.AsyncClient:
-    settings = get_settings()
-    if not settings.kisski_api_key:
-        raise HTTPException(status_code=500, detail="KISSKI API Key fehlt")
-    headers: dict[str, str] = {"Authorization": f"Bearer {settings.kisski_api_key}"}
+    api_key = db.get_api_config_value("kisski_api_key")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="KISSKI API Key nicht konfiguriert")
+    headers: dict[str, str] = {"Authorization": f"Bearer {api_key}"}
     if extra_headers:
         headers.update(extra_headers)
     return httpx.AsyncClient(headers=headers, timeout=timeout)
 
 
 def _kisski_base_url() -> str:
-    return get_settings().kisski_base_url.rstrip("/")
+    return (db.get_api_config_value("kisski_base_url") or "https://chat-ai.academiccloud.de/v1").rstrip("/")
 
 
 @router.post("/image/generate")
@@ -35,6 +38,7 @@ async def generate_image(
     prompt: str = Form(...),
     size: str = Form("1024x1024"),
     n: int = Form(1),
+    current_user: dict = Depends(get_current_user),
 ):
     if not prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
@@ -78,6 +82,22 @@ async def generate_image(
         for i, item in enumerate(data.get("data", []))
     ]
     logger.info("Image generation completed: {} images", len(images))
+
+    # Save first generated image to job history (non-fatal)
+    if images:
+        try:
+            job_uuid = uuid.uuid4().hex
+            user_id = current_user.get("user_id", 0)
+            img_bytes = base64.b64decode(images[0]["b64"])
+            label = prompt[:40].strip().replace(" ", "_")
+            result_filename = f"bild_{label}.png"
+            result_path = save_result_file(job_uuid, ".png", img_bytes)
+            db.create_job(job_uuid, user_id, "image_generate", prompt[:100])
+            db.update_job_result(job_uuid, result_path, result_filename)
+            db.update_job_status(job_uuid, "success")
+        except Exception:
+            logger.exception("Job tracking failed for image generation")
+
     return {"images": images}
 
 
@@ -85,6 +105,7 @@ async def generate_image(
 async def edit_image(
     image: UploadFile = File(...),
     prompt: str = Form(...),
+    current_user: dict = Depends(get_current_user),
 ):
     if not prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
@@ -152,6 +173,21 @@ async def edit_image(
             raise HTTPException(status_code=502, detail="Unerwartetes Antwortformat vom Bildservice")
 
     logger.info("Image edit completed for file '{}'", image.filename)
+
+    # Save edited image to job history (non-fatal)
+    try:
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        img_bytes = base64.b64decode(b64)
+        stem = Path(image.filename).stem
+        result_filename = f"{stem}_bearbeitet.png"
+        result_path = save_result_file(job_uuid, ".png", img_bytes)
+        db.create_job(job_uuid, user_id, "image_edit", image.filename)
+        db.update_job_result(job_uuid, result_path, result_filename)
+        db.update_job_status(job_uuid, "success")
+    except Exception:
+        logger.exception("Job tracking failed for image edit of '{}'", image.filename)
+
     return {"b64": b64}
 
 
@@ -159,6 +195,7 @@ async def edit_image(
 async def analyze_image(
     image: UploadFile = File(...),
     prompt: str = Form(...),
+    current_user: dict = Depends(get_current_user),
 ):
     if not prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
@@ -216,4 +253,18 @@ async def analyze_image(
     data = response.json()
     text: str = data["choices"][0]["message"]["content"]
     logger.info("Image analyze completed for file '{}'", image.filename)
+
+    # Save analysis text to job history (non-fatal)
+    try:
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        stem = Path(image.filename).stem
+        result_filename = f"{stem}_analyse.txt"
+        result_path = save_result_file(job_uuid, ".txt", text.encode("utf-8"))
+        db.create_job(job_uuid, user_id, "image_analyze", image.filename)
+        db.update_job_result(job_uuid, result_path, result_filename)
+        db.update_job_status(job_uuid, "success")
+    except Exception:
+        logger.exception("Job tracking failed for image analyze of '{}'", image.filename)
+
     return {"text": text}

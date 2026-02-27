@@ -2,22 +2,12 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # DeepL
-    deepl_api_key: str = ""
+    # DeepL (translation language settings — keys are managed in Admin → API-Keys)
     source_lang: str = "DE"
     target_lang: str = "EN-US"
 
-    # ElevenLabs
-    elevenlabs_api_key: str = ""
-
-    # KISSKI LLM (OpenAI-compatible)
-    kisski_api_key: str = ""
-    kisski_base_url: str = "https://chat-ai.academiccloud.de/v1"
-    kisski_model: str = "qwen3-30b-a3b-instruct-2507"
-
     # Security
     session_secret: str = "change-me-in-production"
-    session_max_age_seconds: int = 86400  # 24h
 
     # Admin: email must match the LDAP account email of the admin user.
     # Auto-whitelisted on startup so first login works without manual DB edits.

@@ -22,7 +22,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from src.dependencies import get_settings, get_current_user
+from src.dependencies import get_current_user
+from src import database as db
 from src import database as db
 from src.storage import save_queue_file
 from src.services.subtitle_converter import (
@@ -59,10 +60,10 @@ def _validate_upload(filename: str | None, allowed: dict, label: str) -> str:
 
 
 def _get_api_key() -> str:
-    settings = get_settings()
-    if not settings.elevenlabs_api_key:
-        raise HTTPException(status_code=500, detail="ElevenLabs API Key fehlt")
-    return settings.elevenlabs_api_key
+    api_key = db.get_api_config_value("elevenlabs_api_key")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ElevenLabs API Key nicht konfiguriert")
+    return api_key
 
 
 def _submit_dubbing_job(

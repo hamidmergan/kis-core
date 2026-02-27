@@ -1,14 +1,17 @@
 import json
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from src.dependencies import get_deepl_client, get_settings
+from src import database as db
+from src.dependencies import get_current_user, get_deepl_client, get_settings
 from src.services.glossary import GlossaryService
 from src.services.translation import TranslationService
+from src.storage import save_result_file
 from src.translators.docx import translate_docx
 from src.translators.pptx import translate_pptx
 from src.translators.markdown import translate_markdown_preserve_code_blocks
@@ -61,6 +64,7 @@ async def translate(
     request: Request,
     file: UploadFile = File(...),
     glossary: str = Form(""),
+    current_user: dict = Depends(get_current_user),
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Dateiname fehlt")
@@ -125,6 +129,17 @@ async def translate(
         raise HTTPException(status_code=400, detail="Dateityp wird nicht unterstützt")
 
     logger.info("Translation completed: '{}' -> '{}'", file.filename, download_name)
+
+    # Save result to job history (non-fatal if storage fails)
+    try:
+        job_uuid = uuid.uuid4().hex
+        user_id = current_user.get("user_id", 0)
+        result_path = save_result_file(job_uuid, ext, content)
+        db.create_job(job_uuid, user_id, "translation", file.filename)
+        db.update_job_result(job_uuid, result_path, download_name)
+        db.update_job_status(job_uuid, "success")
+    except Exception:
+        logger.exception("Job tracking failed for translation of '{}'", file.filename)
 
     encoded_filename = quote(download_name, safe="")
     return StreamingResponse(
