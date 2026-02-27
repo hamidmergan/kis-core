@@ -24,14 +24,8 @@ def _de_date_to_utc(date_str: str, end_of_day: bool = False) -> str:
 # When a new result is saved and the group limit is exceeded,
 # the oldest file in that group is deleted from disk (DB record is kept).
 MAX_RESULT_FILES = {
-    "video": 1,         # video_dubbing, screencast_render, screencast_auto, screencast_demo_render
-    "tts": 5,
-    "translation": 5,   # document translation results
-    "transcription": 5, # transcription results
-    "image": 5,         # image_generate + image_edit (shared)
-    "image_text": 5,    # image_analyze text results
-    "script": 5,        # script generation results
-    "summary": 5,       # summary results
+    "video": 1,       # video_dubbing + all screencasts (shared, MP4 files are large)
+    "general": 10,    # all other tools combined (tts, translation, transcription, image, script, summary)
 }
 
 TOOL_RESULT_GROUP = {
@@ -39,14 +33,14 @@ TOOL_RESULT_GROUP = {
     "screencast_render": "video",
     "screencast_auto": "video",
     "screencast_demo_render": "video",
-    "tts": "tts",
-    "translation": "translation",
-    "transcription": "transcription",
-    "image_generate": "image",
-    "image_edit": "image",
-    "image_analyze": "image_text",
-    "script": "script",
-    "summary": "summary",
+    "tts": "general",
+    "translation": "general",
+    "transcription": "general",
+    "image_generate": "general",
+    "image_edit": "general",
+    "image_analyze": "general",
+    "script": "general",
+    "summary": "general",
 }
 
 DB_PATH = Path("/app/data/database.db")

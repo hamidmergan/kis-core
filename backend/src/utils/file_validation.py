@@ -3,6 +3,7 @@ ALLOWED_EXTENSIONS = {
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ".md": "text/markdown",
     ".tex": "application/x-tex",
+    ".txt": "text/plain",
 }
 
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB

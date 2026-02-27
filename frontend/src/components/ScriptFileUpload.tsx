@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 
-const ACCEPTED_EXTENSIONS = [".docx", ".pptx", ".md", ".tex"];
+const ACCEPTED_EXTENSIONS = [".docx", ".pptx", ".md", ".tex", ".txt"];
 
 interface ScriptFileUploadProps {
     onFileSelected: (file: File) => void;

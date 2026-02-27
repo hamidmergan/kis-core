@@ -26,7 +26,7 @@ async def generate_script(
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
-            status_code=400, detail="Nur .docx, .pptx, .md oder .tex erlaubt"
+            status_code=400, detail="Nur .docx, .pptx, .md, .tex oder .txt erlaubt"
         )
 
     content_length = request.headers.get("content-length")

@@ -52,7 +52,7 @@ async def text_to_speech(
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
-            status_code=400, detail="Nur .docx, .pptx, .md oder .tex erlaubt"
+            status_code=400, detail="Nur .docx, .pptx, .md, .tex oder .txt erlaubt"
         )
 
     valid_presets = {"short", "medium", "long", "very_long"}

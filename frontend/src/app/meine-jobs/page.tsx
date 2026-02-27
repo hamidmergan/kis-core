@@ -368,9 +368,21 @@ export default function MeineJobsPage() {
       <Header showLogout />
       <main className="max-w-2xl mx-auto px-4 py-8">
         <h2 className="text-lg font-semibold text-gray-800 mb-1">Meine Jobs (letzte 12 Stunden)</h2>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-gray-500 mb-3">
           Fertige Downloads sind 12 Stunden verfügbar. Ältere Dateien werden automatisch entfernt.
         </p>
+        {!loading && (() => {
+          const video = jobs.filter(j => j.has_download && (SCREENCAST_RENDER_TOOLS.has(j.tool) || j.tool === "video_dubbing")).length;
+          const other = jobs.filter(j => j.has_download && !SCREENCAST_RENDER_TOOLS.has(j.tool) && j.tool !== "video_dubbing").length;
+          return (
+            <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+              <span className="font-medium text-gray-600">Gespeichert:</span>
+              <span className={video >= 1 ? "text-orange-600 font-medium" : ""}>Screencast & Dubbing ({video}/1)</span>
+              <span className="text-gray-300">·</span>
+              <span className={other >= 10 ? "text-orange-600 font-medium" : ""}>Andere Tools ({other}/10)</span>
+            </div>
+          );
+        })()}
 
         {loading ? (
           <div className="flex justify-center py-16">

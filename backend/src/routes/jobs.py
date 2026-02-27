@@ -68,7 +68,7 @@ async def check_job_limit(
     from src.database import TOOL_RESULT_GROUP, MAX_RESULT_FILES
     result_group = {
         "screencast": "video",
-        "tts": "tts",
+        "tts": "general",
         "video_dubbing": "video",
     }.get(tool_group)
 

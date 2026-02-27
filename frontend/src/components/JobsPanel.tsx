@@ -67,6 +67,7 @@ export default function JobsPanel() {
   const panelRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   const fetchJobs = useCallback(async () => {
@@ -119,17 +120,35 @@ export default function JobsPanel() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [open, fetchJobs]);
 
-  // Close on outside click
+  // Close on outside click/tap
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
   }, [open]);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    setOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    hoverTimeoutRef.current = setTimeout(() => setOpen(false), 150);
+  };
+
+  const handleButtonClick = () => {
+    if (open) {
+      setOpen(false);
+      router.push("/meine-jobs");
+    } else {
+      setOpen(true);
+    }
+  };
 
   const attentionCount = jobs.filter((j) => needsAttention(j.status)).length;
 
@@ -160,9 +179,9 @@ export default function JobsPanel() {
   };
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative" ref={panelRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleButtonClick}
         aria-label="Meine Jobs"
         className="relative flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
       >
@@ -189,7 +208,7 @@ export default function JobsPanel() {
 
           <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
             <p className="text-xs text-blue-700">
-              Downloads sind 12 Stunden verfügbar.
+              Downloads 12 Std. verfügbar. Es werden nur die letzten 10 Jobs gespeichert.
             </p>
           </div>
 

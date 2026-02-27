@@ -62,7 +62,7 @@ async def translate(
 
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Nur .docx, .pptx, .md oder .tex erlaubt")
+        raise HTTPException(status_code=400, detail="Nur .docx, .pptx, .md, .tex oder .txt erlaubt")
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
-const ACCEPTED_EXTENSIONS = [".docx", ".pptx", ".md", ".tex"];
+const ACCEPTED_EXTENSIONS = [".docx", ".pptx", ".md", ".tex", ".txt"];
 const MAX_SIZE_MB = 200;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 

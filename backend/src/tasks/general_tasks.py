@@ -75,7 +75,11 @@ def run_translate(
         service = TranslationService(deepl_client=deepl_client, glossary=glossary)
         translated_filename = service.translate_filename(filename, source_lang, target_lang)
 
-        if ext == ".md":
+        if ext == ".txt":
+            text = content.decode("utf-8")
+            translated_text = service.translate_text(text, source_lang, target_lang)
+            result_bytes = translated_text.encode("utf-8")
+        elif ext == ".md":
             from src.translators.markdown import translate_markdown_preserve_code_blocks
             text = content.decode("utf-8")
             translated_text = translate_markdown_preserve_code_blocks(text, source_lang, target_lang, service)
