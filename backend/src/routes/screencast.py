@@ -1126,7 +1126,7 @@ def _load_demo_subtitles() -> dict:
     file_map = {
         "srt": "subtitles.srt",
         "vtt": "subtitles.vtt",
-        "txt": "subtitles.txt",
+        "txt": "transcript.txt",
     }
     for key, filename in file_map.items():
         filepath = slides_dir / filename

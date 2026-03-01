@@ -299,7 +299,8 @@ def run_image_analyze(
 
         # qwen3-vl does not support a separate system role with vision content;
         # embed the system instructions as the first text block in the user message.
-        user_content = f"{_IMAGE_ANALYZE_SYSTEM_PROMPT}\n\n{user_text}"
+        system_prompt = db.get_setting("prompt_image_analyze", _IMAGE_ANALYZE_SYSTEM_PROMPT)
+        user_content = f"{system_prompt}\n\n{user_text}"
 
         base_url, client = _kisski_http_client(timeout=60.0)
         with client:

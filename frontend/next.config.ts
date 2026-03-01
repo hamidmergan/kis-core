@@ -57,6 +57,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/jobs/:job_uuid/download`,
       },
       {
+        source: "/api/jobs/:job_uuid/pptx",
+        destination: `${backendUrl}/jobs/:job_uuid/pptx`,
+      },
+      {
         source: "/api/script",
         destination: `${backendUrl}/script`,
       },

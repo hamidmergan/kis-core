@@ -148,7 +148,7 @@ def _run_render_pipeline(
         final_path = tmp / "final.mp4"
         output_bytes = _apply_faststart(concat_path, final_path)
 
-        # ── Save audio cache (stored under results/{job_uuid}/audio/) ─────
+        # ── Save audio cache (stored under jobs/{date}_{job_uuid}/audio/) ─
         audio_bytes_list = [ap.read_bytes() if ap is not None and ap.exists() else b"" for ap in audio_paths[:num_slides]]
         save_audio_cache(job_uuid, audio_bytes_list)
 
@@ -167,7 +167,7 @@ def _run_render_pipeline(
         save_result_meta(job_uuid, meta)
 
         # ── Save subtitle files separately ───────────────────────────────
-        for ext, key in (("srt", "subtitles.srt"), ("vtt", "subtitles.vtt"), ("txt", "subtitles.txt")):
+        for ext, key in (("srt", "subtitles.srt"), ("vtt", "subtitles.vtt"), ("txt", "transcript.txt")):
             content = subtitle_data.get(ext, "")
             if content:
                 save_job_file(job_uuid, key, content.encode("utf-8"))
@@ -256,10 +256,11 @@ def run_screencast_translate(
 
         result_path = save_result_json(job_uuid, result)
         db.update_job_result(job_uuid, result_path, f"{Path(filename).stem}_translate.json")
-        db.update_job_status(job_uuid, "success")
 
-        # Save translated PPTX to storage
+        # Save translated PPTX before marking success so /pptx endpoint finds the file
         save_job_file(job_uuid, "translated.pptx", translated_bytes)
+
+        db.update_job_status(job_uuid, "success")
 
         # Clean up input file
         delete_file(input_path)
@@ -556,17 +557,22 @@ def run_screencast_demo_render(
             save_result_meta(job_uuid, meta)
 
             # Save subtitle files separately
-            for ext, fname in (("srt", "subtitles.srt"), ("vtt", "subtitles.vtt"), ("txt", "subtitles.txt")):
+            for ext, fname in (("srt", "subtitles.srt"), ("vtt", "subtitles.vtt"), ("txt", "transcript.txt")):
                 content = final_subs.get(ext, "")
                 if content:
                     save_job_file(job_uuid, fname, content.encode("utf-8"))
 
-            # Save translated PPTX if available
+            # Save PPTX for download: prefer uploaded tmp file, fall back to demo PPTX
+            pptx_to_save = None
             if file_id:
                 from src.routes.screencast import PPTX_TMP_DIR as _PPTX_TMP
-                pptx_src = _PPTX_TMP / f"{file_id}.pptx"
-                if pptx_src.exists():
-                    save_job_file(job_uuid, "translated.pptx", pptx_src.read_bytes())
+                tmp_pptx = _PPTX_TMP / f"{file_id}.pptx"
+                if tmp_pptx.exists():
+                    pptx_to_save = tmp_pptx
+            if pptx_to_save is None and pptx_path:
+                pptx_to_save = pptx_path
+            if pptx_to_save:
+                save_job_file(job_uuid, "translated.pptx", pptx_to_save.read_bytes())
 
         db.update_job_result(job_uuid, result_path, "demo_screencast.mp4")
         db.update_job_status(job_uuid, "success")

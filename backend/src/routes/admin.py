@@ -27,6 +27,146 @@ class ToggleToolRequest(BaseModel):
     enabled: bool
 
 
+class UpdatePromptRequest(BaseModel):
+    value: str
+
+
+_PROMPT_SCRIPT_EN_DEFAULT = (
+    "You are an expert at creating spoken narration scripts for individual presentation slides. "
+    "Convert the slide content into a fluent, spoken script for ONE slide only. "
+    "Rules:\n"
+    "- Do NOT add any new information.\n"
+    "- Do NOT hallucinate.\n"
+    "- Keep all facts, numbers, names, and dates exactly as they are.\n"
+    "- The output MUST be in English.\n"
+    "- Convert bullet points, tables, and lists into flowing text.\n"
+    "- Remove citations, footnotes, and formatting artifacts.\n"
+    "- Add natural transitions between sections.\n"
+    "- NO semicolons, NO dashes – use only periods and commas.\n"
+    "- Address the audience directly as 'you'.\n"
+    "- Natural, conversational tone – like a university lecturer speaking.\n"
+    "- Do NOT start with 'Welcome' or greetings on every slide – only on the title slide.\n"
+    "- Do NOT end with filler phrases like 'Let us dive in' or 'Let us get started'.\n"
+    "- Keep the script concise: between 20 and 100 words. Not shorter, not longer."
+)
+
+_PROMPT_SCRIPT_BATCH_PREVIEW = (
+    "You are an expert at creating spoken narration scripts for presentation slides. "
+    "Generate a spoken script for EACH of the {N} slides below (slides {X} to {Y} of {Z} total).\n"
+    "Rules:\n"
+    "- Do NOT add any new information.\n"
+    "- Do NOT hallucinate.\n"
+    "- Keep all facts, numbers, names, and dates exactly as they are.\n"
+    "- Output MUST be in English.\n"
+    "- Convert bullet points, tables, and lists into flowing text.\n"
+    "- Remove citations, footnotes, and formatting artifacts.\n"
+    "- NO semicolons, NO dashes – use only periods and commas.\n"
+    "- Address the audience directly as 'you'.\n"
+    "- Natural, conversational tone – like a university lecturer speaking.\n"
+    "- Only use a greeting on slide 1 if the content clearly indicates a title slide.\n"
+    "- Never use greetings on any other slide.\n"
+    "- Keep each script between 20 and 100 words.\n"
+    "- For empty slides, output nothing (just write the ||| delimiter).\n"
+    "- Do NOT add closing statements like 'thank you' or 'that concludes' on any slide.\n"
+    "\n"
+    "Separate the {N} scripts using the delimiter ||| on its own line.\n"
+    "No other text before, between, or after. Example for 3 slides:\n"
+    "Script text for slide one.\n"
+    "|||\n"
+    "Script text for slide two.\n"
+    "|||\n"
+    "Script text for slide three.\n"
+    "\n"
+    "[{N}, {X}, {Y}, {Z} werden zur Laufzeit durch die tatsächliche Batch-Größe ersetzt]"
+)
+
+_PROMPT_SCRIPT_DE_DEFAULT = (
+    "Du bist ein Experte für die Erstellung von Vorleseskripten. "
+    "Erstelle aus dem folgenden Dokumentinhalt ein fließendes, gesprochenes Skript, "
+    "das sich natürlich anhört, wenn es vorgelesen wird. "
+    "Regeln:\n"
+    "- Füge KEINE neuen Informationen hinzu.\n"
+    "- Halluziniere NICHT.\n"
+    "- Behalte alle Fakten, Zahlen, Namen und Daten exakt bei.\n"
+    "- Verwende die gleiche Sprache wie der Input-Text.\n"
+    "- Wandle Stichpunkte, Tabellen und Aufzählungen in fließenden Text um.\n"
+    "- Entferne Quellenangaben, Fußnoten und Formatierungsartefakte.\n"
+    "- Füge natürliche Übergänge zwischen Abschnitten ein.\n"
+    "- Das Skript soll sich wie ein Universitätsdozent anhören der spricht.\n"
+    "- Keine Semikolons und keine Gedankenstriche – nur Punkte und Kommas.\n"
+    "- Sprich die Zuhörer direkt an mit 'Sie'.\n"
+    "- Beginne NICHT jede Folie mit einer Begrüßung – nur auf der Titelfolie.\n"
+    "- Beende das Skript NICHT mit Füllphrasen wie 'Lassen Sie uns beginnen'.\n"
+    "- Halte das Skript prägnant: zwischen 20 und 100 Wörter. Nicht kürzer, nicht länger."
+)
+
+_PROMPT_SUMMARIZE_DEFAULT = (
+    "Erstelle eine ausführliche Zusammenfassung des folgenden Transkripts. "
+    "Erfasse alle wichtigen Themen, Argumente, Fakten, Zahlen und Schlussfolgerungen vollständig. "
+    "Die Zusammenfassung soll strukturiert und gut lesbar sein, aber nichts Wesentliches auslassen. "
+    "Antworte nur mit der Zusammenfassung, ohne Einleitung oder Erklärung."
+)
+
+_PROMPT_SUMMARY_DEFAULT = (
+    "Erstelle eine Zusammenfassung ausschließlich basierend auf dem folgenden Inhalt. "
+    "Erfinde nichts, ergänze nichts, interpretiere nichts was nicht explizit im Text steht. "
+    "{format} "
+    "Antworte nur mit der Zusammenfassung, ohne einleitende oder abschließende Erklärung."
+)
+
+_PROMPT_IMAGE_ANALYZE_DEFAULT = (
+    "You are an assistant helping university lecturers analyze visual content. "
+    "Describe the image in detail: transcribe all visible text verbatim, explain "
+    "diagrams, charts, tables, and other visual elements. Be precise and complete. "
+    "Respond in the same language as the image content."
+)
+
+_PROMPT_REGISTRY = [
+    {
+        "key": "prompt_script_de",
+        "label": "Skript-Erstellung (Deutsch)",
+        "description": "Wird vom Skript-Tool verwendet, wenn der Input-Text auf Deutsch ist.",
+        "editable": True,
+        "default": _PROMPT_SCRIPT_DE_DEFAULT,
+    },
+    {
+        "key": "prompt_script_en",
+        "label": "Skript-Erstellung (Englisch)",
+        "description": "Wird vom Screencast-Tool (Einzelfolie) und bei englischem Input verwendet.",
+        "editable": True,
+        "default": _PROMPT_SCRIPT_EN_DEFAULT,
+    },
+    {
+        "key": "prompt_script_batch",
+        "label": "Screencast-Skripte (Batch-Modus)",
+        "description": "Wird im Auto-Modus für parallele Batch-Verarbeitung genutzt. Enthält strukturelle Trennzeichen (|||) die der Parser erwartet – nicht editierbar.",
+        "editable": False,
+        "default": _PROMPT_SCRIPT_BATCH_PREVIEW,
+    },
+    {
+        "key": "prompt_summarize",
+        "label": "Transkript-Zusammenfassung",
+        "description": "Wird nach der Transkription genutzt um das Transkript zusammenzufassen.",
+        "editable": True,
+        "default": _PROMPT_SUMMARIZE_DEFAULT,
+    },
+    {
+        "key": "prompt_summary",
+        "label": "Zusammenfassung",
+        "description": "Wird vom Zusammenfassungs-Tool verwendet. Platzhalter {format} wird zur Laufzeit durch die gewählte Ausgabeformat-Anweisung ersetzt – nicht entfernen.",
+        "editable": True,
+        "default": _PROMPT_SUMMARY_DEFAULT,
+    },
+    {
+        "key": "prompt_image_analyze",
+        "label": "Bild-Analyse",
+        "description": "Anweisung für das Bild-Analyse-Tool (qwen3-vl Modell).",
+        "editable": True,
+        "default": _PROMPT_IMAGE_ANALYZE_DEFAULT,
+    },
+]
+
+
 _TOOLS_CONFIG = [
     {"key": "screencast",    "label": "Screencast"},
     {"key": "translation",   "label": "Dokumentenübersetzung"},
@@ -171,6 +311,11 @@ _TOOL_LABELS = {
 }
 
 
+def _tools_matching_query(q: str) -> list[str]:
+    q_lower = q.lower()
+    return [k for k, label in _TOOL_LABELS.items() if q_lower in label.lower()]
+
+
 @router.get("/jobs")
 async def list_all_jobs(
     limit: int = Query(default=50, le=100),
@@ -180,9 +325,12 @@ async def list_all_jobs(
     date_to: str = Query(default=""),
     _admin=Depends(get_admin_user),
 ):
+    q = q.strip()
+    extra_tools = _tools_matching_query(q) if q else None
     jobs, total = db.get_all_jobs(
-        limit=limit, offset=offset, q=q.strip(),
+        limit=limit, offset=offset, q=q,
         date_from=date_from.strip(), date_to=date_to.strip(),
+        extra_tools=extra_tools,
     )
     result = []
     for j in jobs:
@@ -217,4 +365,44 @@ async def admin_cancel_job(job_uuid: str, _admin=Depends(get_admin_user)):
     delete_job_folder(job_uuid)
 
     logger.info("Admin cancelled job: {}", job_uuid)
+    return {"ok": True}
+
+
+# --- System Prompts ---
+
+@router.get("/prompts")
+async def get_prompts(_admin=Depends(get_admin_user)):
+    result = []
+    for p in _PROMPT_REGISTRY:
+        current = db.get_setting(p["key"], p["default"]) if p["editable"] else p["default"]
+        result.append({
+            "key": p["key"],
+            "label": p["label"],
+            "description": p["description"],
+            "editable": p["editable"],
+            "current_value": current,
+            "default_value": p["default"],
+        })
+    return {"prompts": result}
+
+
+@router.patch("/prompts/{key}")
+async def update_prompt(key: str, body: UpdatePromptRequest, _admin=Depends(get_admin_user)):
+    p = next((x for x in _PROMPT_REGISTRY if x["key"] == key), None)
+    if not p:
+        raise HTTPException(status_code=404, detail="Prompt nicht gefunden")
+    if not p["editable"]:
+        raise HTTPException(status_code=400, detail="Dieser Prompt ist schreibgeschützt")
+    if not body.value.strip():
+        raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
+    db.set_setting(key, body.value)
+    return {"ok": True}
+
+
+@router.delete("/prompts/{key}/reset")
+async def reset_prompt(key: str, _admin=Depends(get_admin_user)):
+    p = next((x for x in _PROMPT_REGISTRY if x["key"] == key), None)
+    if not p or not p["editable"]:
+        raise HTTPException(status_code=400, detail="Nicht erlaubt")
+    db.set_setting(key, p["default"])
     return {"ok": True}

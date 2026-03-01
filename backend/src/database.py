@@ -263,16 +263,29 @@ def get_job(job_uuid: str):
 
 def get_jobs_by_user(
     user_id: int, limit: int = 20, offset: int = 0, q: str = "",
+    date_from: str = "", date_to: str = "",
+    extra_tools: list[str] | None = None,
+    hide_expired: bool = True,
 ) -> tuple[list[dict], int]:
-    conditions = [
-        "user_id = ?",
-        "created_at >= datetime('now', '-12 hours')",
-    ]
+    conditions = ["user_id = ?"]
     params: list = [user_id]
+    if hide_expired:
+        conditions.append("NOT (status = 'success' AND (result_path IS NULL OR result_path = ''))")
     if q:
         like = f"%{q}%"
-        conditions.append("(original_filename LIKE ? OR tool LIKE ?)")
-        params += [like, like]
+        if extra_tools:
+            ph = ",".join("?" * len(extra_tools))
+            conditions.append(f"(original_filename LIKE ? OR tool LIKE ? OR tool IN ({ph}))")
+            params += [like, like] + list(extra_tools)
+        else:
+            conditions.append("(original_filename LIKE ? OR tool LIKE ?)")
+            params += [like, like]
+    if date_from:
+        conditions.append("DATE(created_at) >= ?")
+        params.append(date_from)
+    if date_to:
+        conditions.append("DATE(created_at) <= ?")
+        params.append(date_to)
     where = " AND ".join(conditions)
     with get_connection() as conn:
         total = conn.execute(
@@ -400,6 +413,7 @@ def deactivate_user_by_email(email: str) -> None:
 def get_all_jobs(
     limit: int = 50, offset: int = 0, q: str = "",
     date_from: str = "", date_to: str = "",
+    extra_tools: list[str] | None = None,
 ) -> tuple[list[dict], int]:
     """All jobs across all users, with display_name via JOIN, newest first.
 
@@ -411,10 +425,17 @@ def get_all_jobs(
 
     if q:
         like = f"%{q}%"
-        conditions.append(
-            "(u.display_name LIKE ? OR u.ldap_username LIKE ? OR j.tool LIKE ? OR j.original_filename LIKE ?)"
-        )
-        params += [like, like, like, like]
+        if extra_tools:
+            ph = ",".join("?" * len(extra_tools))
+            conditions.append(
+                f"(u.display_name LIKE ? OR u.ldap_username LIKE ? OR j.tool LIKE ? OR j.original_filename LIKE ? OR j.tool IN ({ph}))"
+            )
+            params += [like, like, like, like] + list(extra_tools)
+        else:
+            conditions.append(
+                "(u.display_name LIKE ? OR u.ldap_username LIKE ? OR j.tool LIKE ? OR j.original_filename LIKE ?)"
+            )
+            params += [like, like, like, like]
     if date_from:
         conditions.append("j.created_at >= ?")
         params.append(_de_date_to_utc(date_from))

@@ -48,6 +48,16 @@ _SYSTEM_PROMPT_EN = (
 )
 
 
+def _load_prompt(key: str, default: str) -> str:
+    """Load a system prompt from DB settings, falling back to the hardcoded default."""
+    try:
+        from src import database as db
+        val = db.get_setting(key, "")
+        return val if val.strip() else default
+    except Exception:
+        return default
+
+
 def _clean_whisper_response(raw: str) -> str:
     """Clean Whisper API response that may be JSON-encoded (wrapped in quotes with escaped newlines)."""
     text = raw.strip()
@@ -84,7 +94,9 @@ class KisskiClient:
         Raises:
             RuntimeError: If the LLM API returns an error.
         """
-        system_prompt = _SYSTEM_PROMPT_EN if language.upper() == "EN" else _SYSTEM_PROMPT_DE
+        default_prompt = _SYSTEM_PROMPT_EN if language.upper() == "EN" else _SYSTEM_PROMPT_DE
+        prompt_key = "prompt_script_en" if language.upper() == "EN" else "prompt_script_de"
+        system_prompt = _load_prompt(prompt_key, default_prompt)
         if glossary:
             lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
             system_prompt = f"Use the following terminology consistently in your output:\n{lines}\n\n" + system_prompt
@@ -297,12 +309,13 @@ class KisskiClient:
         Raises:
             RuntimeError: If the LLM API returns an error.
         """
-        system_content = (
+        _default_summarize = (
             "Erstelle eine ausführliche Zusammenfassung des folgenden Transkripts. "
             "Erfasse alle wichtigen Themen, Argumente, Fakten, Zahlen und Schlussfolgerungen vollständig. "
             "Die Zusammenfassung soll strukturiert und gut lesbar sein, aber nichts Wesentliches auslassen. "
             "Antworte nur mit der Zusammenfassung, ohne Einleitung oder Erklärung."
         )
+        system_content = _load_prompt("prompt_summarize", _default_summarize)
         if task == "translate":
             system_content += " Respond in English."
 
@@ -352,11 +365,14 @@ class KisskiClient:
             "txt": "Formatiere die Zusammenfassung als reinen, gut lesbaren Text.",
         }
 
-        system_prompt = (
+        _default_summary = (
             "Erstelle eine Zusammenfassung ausschließlich basierend auf dem folgenden Inhalt. "
             "Erfinde nichts, ergänze nichts, interpretiere nichts was nicht explizit im Text steht. "
-            f"{format_instructions.get(output_format, format_instructions['txt'])} "
+            "{format} "
             "Antworte nur mit der Zusammenfassung, ohne einleitende oder abschließende Erklärung."
+        )
+        system_prompt = _load_prompt("prompt_summary", _default_summary).replace(
+            "{format}", format_instructions.get(output_format, format_instructions["txt"])
         )
 
         if user_prompt:

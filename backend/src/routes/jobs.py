@@ -47,6 +47,12 @@ _TOOL_LABELS = {
 }
 
 
+def _tools_matching_query(q: str) -> list[str]:
+    """Return tool keys whose label contains q (case-insensitive, umlaut-safe)."""
+    q_lower = q.lower()
+    return [k for k, label in _TOOL_LABELS.items() if q_lower in label.lower()]
+
+
 @router.get("/check/{tool_group}")
 async def check_job_limit(
     tool_group: str,
@@ -95,10 +101,14 @@ async def get_my_jobs(
     limit: int = Query(default=20, le=200),
     offset: int = Query(default=0, ge=0),
     q: str = Query(default=""),
+    date_from: str = Query(default=""),
+    date_to: str = Query(default=""),
+    hide_expired: bool = Query(default=True),
 ):
-    """Return the most recent jobs for the current user (default 20, max 200)."""
+    """Return jobs for the current user with optional search and date filters."""
     user_id = current_user.get("user_id", 0)
-    jobs, total = db.get_jobs_by_user(user_id, limit=limit, offset=offset, q=q)
+    extra_tools = _tools_matching_query(q) if q else None
+    jobs, total = db.get_jobs_by_user(user_id, limit=limit, offset=offset, q=q, date_from=date_from, date_to=date_to, extra_tools=extra_tools, hide_expired=hide_expired)
     result = []
     for job in jobs:
         has_download = (
@@ -121,15 +131,7 @@ async def get_my_jobs(
             "result_filename": job["result_filename"],
         })
 
-    from src.database import MAX_RESULT_FILES
-    video_results = db.get_results_for_tool_group(user_id, "video")
-    general_results = db.get_results_for_tool_group(user_id, "general")
-    storage = {
-        "video": {"count": len(video_results), "limit": MAX_RESULT_FILES["video"]},
-        "general": {"count": len(general_results), "limit": MAX_RESULT_FILES["general"]},
-    }
-
-    return {"jobs": result, "total": total, "storage": storage}
+    return {"jobs": result, "total": total}
 
 
 @router.delete("/{job_uuid}")
@@ -248,19 +250,28 @@ async def download_job_pptx(
     current_user: dict = Depends(get_current_user),
 ):
     """Download the translated PPTX for a screencast render job."""
-    try:
-        data = get_file(f"results/{job_uuid}/translated.pptx")
-    except Exception:
+    job = db.get_job(job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if not job["result_path"]:
         raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
 
-    job = db.get_job(job_uuid)
-    stem = Path(job["original_filename"]).stem if job and job.get("original_filename") else "screencast"
+    # Derive PPTX path from stored result_path — avoids re-computing the job folder name.
+    # Both translated.pptx and the result file (MP4/JSON) live in the same job folder.
+    pptx_path = str(Path(job["result_path"]).parent / "translated.pptx")
+    try:
+        data = get_file(pptx_path)
+    except Exception as e:
+        logger.error("PPTX download failed for job {} (path: {}): {}", job_uuid, pptx_path, e)
+        raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
+
+    stem = Path(job["original_filename"]).stem if job["original_filename"] else "screencast"
 
     return StreamingResponse(
         iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={
             "Content-Length": str(len(data)),
-            "Content-Disposition": f'attachment; filename="{stem}_translated.pptx"',
+            "Content-Disposition": f'attachment; filename="{stem}_praesentation.pptx"',
         },
     )

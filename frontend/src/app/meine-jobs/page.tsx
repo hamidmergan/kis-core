@@ -25,12 +25,7 @@ interface JobDetail {
   download_url: string | null;
 }
 
-interface StorageInfo {
-  video: { count: number; limit: number };
-  general: { count: number; limit: number };
-}
 
-const LIMIT = 10;
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running";
@@ -113,8 +108,9 @@ function downloadText(text: string, filename: string, mimeType: string) {
   URL.revokeObjectURL(url);
 }
 
-function DownloadButton({ href, filename, label }: { href?: string; filename?: string; label: string }) {
+function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void; href?: string; filename?: string; label: string }) {
   const handleClick = () => {
+    if (onClick) { onClick(); return; }
     if (!href) return;
     const a = document.createElement("a");
     a.href = href;
@@ -124,11 +120,20 @@ function DownloadButton({ href, filename, label }: { href?: string; filename?: s
   return (
     <button
       onClick={handleClick}
-      className="text-xs text-[#0066cc] hover:underline text-left"
+      className="inline-flex items-center gap-1 text-xs text-[#0066cc] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full"
     >
+      <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M7 2v7.586L4.707 7.293l-1.414 1.414L8 13.414l4.707-4.707-1.414-1.414L9 9.586V2H7z"/>
+        <path d="M3 14h10v-1.5H3V14z"/>
+      </svg>
       {label}
     </button>
   );
+}
+
+// Legacy alias for single-href usage
+function DownloadButton({ href, filename, label }: { href?: string; filename?: string; label: string }) {
+  return <DownloadChip href={href} filename={filename} label={label} />;
 }
 
 function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null }) {
@@ -141,8 +146,8 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
       <div className="mt-3">
         <DownloadButton
           href={`/api/jobs/${job.job_uuid}/pptx`}
-          filename={`${baseName}_translated.pptx`}
-          label="Übersetzte PPTX herunterladen"
+          filename={`${baseName}_praesentation.pptx`}
+          label="Präsentation"
         />
       </div>
     );
@@ -169,44 +174,53 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
     }
 
     return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        {job.has_download && (
-          <DownloadButton
-            href={`/api/jobs/${job.job_uuid}/download`}
-            filename={job.result_filename || `${baseName}.mp4`}
-            label="MP4 herunterladen"
-          />
-        )}
-        {fileId && (
-          <DownloadButton
-            href={`/api/jobs/${job.job_uuid}/pptx`}
-            filename={`${baseName}_translated.pptx`}
-            label="PPTX herunterladen"
-          />
-        )}
-        {srt && (
-          <button
-            onClick={() => downloadText(srt!, `${baseName}.srt`, "application/x-subrip")}
-            className="text-xs text-[#0066cc] hover:underline"
-          >
-            SRT herunterladen
-          </button>
-        )}
-        {vtt && (
-          <button
-            onClick={() => downloadText(vtt!, `${baseName}.vtt`, "text/vtt")}
-            className="text-xs text-[#0066cc] hover:underline"
-          >
-            VTT herunterladen
-          </button>
-        )}
-        {txt && (
-          <button
-            onClick={() => downloadText(txt!, `${baseName}.txt`, "text/plain")}
-            className="text-xs text-[#0066cc] hover:underline"
-          >
-            TXT herunterladen
-          </button>
+      <div className="mt-3 space-y-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          {job.has_download && (
+            <DownloadChip
+              href={`/api/jobs/${job.job_uuid}/download`}
+              filename={`${baseName}_video.mp4`}
+              label="Video"
+            />
+          )}
+          {fileId && (
+            <DownloadChip
+              href={`/api/jobs/${job.job_uuid}/pptx`}
+              filename={`${baseName}_praesentation.pptx`}
+              label="Präsentation"
+            />
+          )}
+        </div>
+        {(srt || vtt || txt) && (
+          <div className="flex flex-wrap gap-2 items-center">
+            {(srt || vtt) && (
+              <>
+                <span className="text-xs text-gray-400">Untertitel:</span>
+                {srt && (
+                  <DownloadChip
+                    onClick={() => downloadText(srt!, `${baseName}_untertitel.srt`, "application/x-subrip")}
+                    label="SRT"
+                  />
+                )}
+                {vtt && (
+                  <DownloadChip
+                    onClick={() => downloadText(vtt!, `${baseName}_untertitel.vtt`, "text/vtt")}
+                    label="VTT"
+                  />
+                )}
+              </>
+            )}
+            {txt && (
+              <>
+                {(srt || vtt) && <span className="text-gray-300">·</span>}
+                <span className="text-xs text-gray-400">Transkript:</span>
+                <DownloadChip
+                  onClick={() => downloadText(txt!, `${baseName}_transkript.txt`, "text/plain")}
+                  label="TXT"
+                />
+              </>
+            )}
+          </div>
         )}
         {audioId && audioCount && audioCount > 0 && (
           <SlideAudioSection audioId={audioId} audioCount={audioCount} baseName={baseName} />
@@ -217,12 +231,13 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
 
   // TTS: show MP3 download
   if (job.tool === "tts" && job.status === "success" && job.has_download) {
+    const baseName = job.original_filename.replace(/\.[^.]+$/, "") || "tts";
     return (
       <div className="mt-3">
         <DownloadButton
           href={`/api/jobs/${job.job_uuid}/download`}
-          filename={job.result_filename || "tts_output.mp3"}
-          label="MP3 herunterladen"
+          filename={`${baseName}_audio.mp3`}
+          label="Audio (MP3)"
         />
       </div>
     );
@@ -234,40 +249,49 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
     const srt = meta?.srt as string | undefined;
     const vtt = meta?.vtt as string | undefined;
     const txt = meta?.txt as string | undefined;
-    const baseName = job.original_filename.replace(/\.(mp4|mp3)$/i, "") || "dubbed";
+    const baseName = job.original_filename.replace(/\.[^.]+$/, "") || "dubbed";
 
     return (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
+      <div className="mt-3 space-y-2">
         {job.has_download && (
-          <DownloadButton
-            href={`/api/jobs/${job.job_uuid}/download`}
-            filename={job.result_filename || `${baseName}_dubbed.mp4`}
-            label="Video herunterladen"
-          />
+          <div className="flex flex-wrap gap-2">
+            <DownloadChip
+              href={`/api/jobs/${job.job_uuid}/download`}
+              filename={`${baseName}_synchronisation.mp4`}
+              label="Video"
+            />
+          </div>
         )}
-        {srt && (
-          <button
-            onClick={() => downloadText(srt, `${baseName}.srt`, "application/x-subrip")}
-            className="text-xs text-[#0066cc] hover:underline"
-          >
-            SRT herunterladen
-          </button>
-        )}
-        {vtt && (
-          <button
-            onClick={() => downloadText(vtt, `${baseName}.vtt`, "text/vtt")}
-            className="text-xs text-[#0066cc] hover:underline"
-          >
-            VTT herunterladen
-          </button>
-        )}
-        {txt && (
-          <button
-            onClick={() => downloadText(txt, `${baseName}.txt`, "text/plain")}
-            className="text-xs text-[#0066cc] hover:underline"
-          >
-            TXT herunterladen
-          </button>
+        {(srt || vtt || txt) && (
+          <div className="flex flex-wrap gap-2 items-center">
+            {(srt || vtt) && (
+              <>
+                <span className="text-xs text-gray-400">Untertitel:</span>
+                {srt && (
+                  <DownloadChip
+                    onClick={() => downloadText(srt, `${baseName}_untertitel.srt`, "application/x-subrip")}
+                    label="SRT"
+                  />
+                )}
+                {vtt && (
+                  <DownloadChip
+                    onClick={() => downloadText(vtt, `${baseName}_untertitel.vtt`, "text/vtt")}
+                    label="VTT"
+                  />
+                )}
+              </>
+            )}
+            {txt && (
+              <>
+                {(srt || vtt) && <span className="text-gray-300">·</span>}
+                <span className="text-xs text-gray-400">Transkript:</span>
+                <DownloadChip
+                  onClick={() => downloadText(txt, `${baseName}_transkript.txt`, "text/plain")}
+                  label="TXT"
+                />
+              </>
+            )}
+          </div>
         )}
       </div>
     );
@@ -280,7 +304,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
         <DownloadButton
           href={`/api/jobs/${job.job_uuid}/download`}
           filename={job.result_filename || "download"}
-          label="Herunterladen"
+          label="Download"
         />
       </div>
     );
@@ -325,11 +349,14 @@ export default function MeineJobsPage() {
   const [debouncedQ, setDebouncedQ] = useState("");
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
-  const [storage, setStorage] = useState<StorageInfo | null>(null);
+  const [limit, setLimit] = useState(10);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [hideExpired, setHideExpired] = useState(true);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
-  // Debounce q and reset offset at the same time
+  // Debounce q and reset offset
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -339,21 +366,26 @@ export default function MeineJobsPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [q]);
 
+  // Reset offset when limit, dates or filter changes
+  useEffect(() => { setOffset(0); }, [limit, dateFrom, dateTo, hideExpired]);
+
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        limit: String(LIMIT),
+        limit: String(limit),
         offset: String(offset),
         q: debouncedQ,
       });
+      if (dateFrom) params.set("date_from", dateFrom);
+      if (dateTo) params.set("date_to", dateTo);
+      if (!hideExpired) params.set("hide_expired", "false");
       const r = await fetch(`/api/jobs/my?${params}`, { credentials: "include" });
       if (r.status === 401) { router.push("/login"); return; }
       const data = await r.json();
       const loaded: MyJob[] = data.jobs ?? [];
       setJobs(loaded);
       setTotal(data.total ?? 0);
-      if (data.storage) setStorage(data.storage);
 
       // Fetch detail for completed jobs
       const results = await Promise.all(
@@ -374,7 +406,7 @@ export default function MeineJobsPage() {
     } finally {
       setLoading(false);
     }
-  }, [offset, debouncedQ, router]);
+  }, [offset, debouncedQ, limit, dateFrom, dateTo, hideExpired, router]);
 
   useEffect(() => {
     fetchJobs();
@@ -391,8 +423,8 @@ export default function MeineJobsPage() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
-  const currentPage = Math.floor(offset / LIMIT) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const currentPage = Math.floor(offset / limit) + 1;
   const pageNumbers = (() => {
     const half = 3;
     let start = Math.max(1, currentPage - half);
@@ -405,32 +437,54 @@ export default function MeineJobsPage() {
     <>
       <Header showLogout />
       <main className="max-w-2xl mx-auto px-4 py-8">
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">Meine Jobs (letzte 12 Stunden)</h2>
-        <p className="text-sm text-gray-500 mb-3">
+        <h2 className="text-lg font-semibold text-gray-800 mb-1">Meine Jobs</h2>
+        <p className="text-sm text-gray-500 mb-4">
           Fertige Downloads sind 12 Stunden verfügbar. Ältere Dateien werden automatisch entfernt.
         </p>
 
-        {storage && (
-          <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-            <span className="font-medium text-gray-600">Gespeichert:</span>
-            <span className={storage.video.count >= storage.video.limit ? "text-orange-600 font-medium" : ""}>
-              Screencast & Dubbing ({storage.video.count}/{storage.video.limit})
-            </span>
-            <span className="text-gray-300">·</span>
-            <span className={storage.general.count >= storage.general.limit ? "text-orange-600 font-medium" : ""}>
-              Andere Tools ({storage.general.count}/{storage.general.limit})
-            </span>
-          </div>
-        )}
-
-        <div className="mb-4">
+        <div className="mb-4 flex flex-wrap gap-2 items-center">
           <input
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Dateiname suchen..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 min-w-[180px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
           />
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            title="Von"
+            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            title="Bis"
+            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          />
+          <select
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          >
+            <option value={10}>10 pro Seite</option>
+            <option value={25}>25 pro Seite</option>
+            <option value={50}>50 pro Seite</option>
+          </select>
+          <label className="flex items-center gap-1.5 cursor-pointer select-none whitespace-nowrap">
+            <div
+              onClick={() => setHideExpired((v) => !v)}
+              className={`relative w-8 h-4 rounded-full transition-colors ${hideExpired ? "bg-[#0066cc]" : "bg-gray-300"}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${hideExpired ? "translate-x-4" : "translate-x-0"}`} />
+            </div>
+            <span className="text-xs text-gray-600">Abgelaufene ausblenden</span>
+          </label>
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            {total} Ergebnis{total !== 1 ? "se" : ""}
+          </span>
         </div>
 
         {loading ? (
@@ -478,33 +532,33 @@ export default function MeineJobsPage() {
             </ul>
 
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-center gap-1">
+              <div className="mt-4 flex items-center justify-center gap-1 pt-2">
                 <button
-                  onClick={() => setOffset(Math.max(0, offset - LIMIT))}
+                  onClick={() => setOffset(Math.max(0, offset - limit))}
                   disabled={currentPage === 1}
-                  className="px-2 py-1 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
                 >
-                  &lt;
+                  ‹
                 </button>
                 {pageNumbers.map((p) => (
                   <button
                     key={p}
-                    onClick={() => setOffset((p - 1) * LIMIT)}
-                    className={`px-2.5 py-1 text-sm rounded ${
+                    onClick={() => setOffset((p - 1) * limit)}
+                    className={`px-3 py-1.5 text-sm border rounded-md ${
                       p === currentPage
-                        ? "bg-blue-600 text-white font-semibold"
-                        : "text-gray-500 hover:text-gray-800"
+                        ? "bg-[#0066cc] text-white border-[#0066cc]"
+                        : "border-gray-300 hover:bg-gray-50"
                     }`}
                   >
                     {p}
                   </button>
                 ))}
                 <button
-                  onClick={() => setOffset(Math.min((totalPages - 1) * LIMIT, offset + LIMIT))}
+                  onClick={() => setOffset(Math.min((totalPages - 1) * limit, offset + limit))}
                   disabled={currentPage === totalPages}
-                  className="px-2 py-1 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-30"
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
                 >
-                  &gt;
+                  ›
                 </button>
               </div>
             )}
