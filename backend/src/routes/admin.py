@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_admin_user, get_current_user
-from src.storage import delete_file
+from src.storage import delete_job_folder
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -213,11 +213,8 @@ async def admin_cancel_job(job_uuid: str, _admin=Depends(get_admin_user)):
         except Exception as e:
             logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
 
-    deleted = db.delete_job(job_uuid)
-    if deleted:
-        for path in (deleted.get("input_path"), deleted.get("result_path")):
-            if path:
-                delete_file(path)
+    db.delete_job(job_uuid)
+    delete_job_folder(job_uuid)
 
     logger.info("Admin cancelled job: {}", job_uuid)
     return {"ok": True}

@@ -9,7 +9,7 @@ from loguru import logger
 from src.database import init_db
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
-from src.storage import cleanup_expired_files
+from src.storage import USE_S3, cleanup_expired_files, init_storage
 from src.routes import admin, auth, health, image, jobs, screencast, script, summary, transcription, translate, tts, video_dubbing
 
 
@@ -46,6 +46,8 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     init_db(admin_email=settings.admin_email or None)
     logger.info("Database initialised")
+    init_storage()
+    logger.info("Storage initialised (mode={})", "s3" if USE_S3 else "local")
     if settings.admin_email:
         logger.info("Admin email auto-whitelisted: {}", settings.admin_email)
     cleanup_task = asyncio.create_task(_periodic_cleanup())

@@ -136,13 +136,12 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
 
   // screencast_translate: show PPTX download if available
   if (job.tool === "screencast_translate" && job.status === "success") {
-    const fileId = detail?.result?.file_id as string | undefined;
-    if (!fileId) return null;
+    const baseName = job.original_filename.replace(/\.pptx$/i, "") || "screencast";
     return (
       <div className="mt-3">
         <DownloadButton
-          href={`/api/screencast/file/${fileId}`}
-          filename="translated.pptx"
+          href={`/api/jobs/${job.job_uuid}/pptx`}
+          filename={`${baseName}_translated.pptx`}
           label="Übersetzte PPTX herunterladen"
         />
       </div>
@@ -180,7 +179,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
         )}
         {fileId && (
           <DownloadButton
-            href={`/api/screencast/file/${fileId}`}
+            href={`/api/jobs/${job.job_uuid}/pptx`}
             filename={`${baseName}_translated.pptx`}
             label="PPTX herunterladen"
           />

@@ -3,14 +3,13 @@
 import asyncio
 import json
 import tempfile
-import uuid
 from pathlib import Path
 
 from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import save_result_file, save_result_json, save_audio_cache
+from src.storage import delete_file, get_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -149,25 +148,35 @@ def _run_render_pipeline(
         final_path = tmp / "final.mp4"
         output_bytes = _apply_faststart(concat_path, final_path)
 
-        # ── Save audio cache (file-based, shared volume) ──────────────────
-        audio_id = uuid.uuid4().hex
+        # ── Save audio cache (stored under results/{job_uuid}/audio/) ─────
         audio_bytes_list = [ap.read_bytes() if ap is not None and ap.exists() else b"" for ap in audio_paths[:num_slides]]
-        save_audio_cache(audio_id, audio_bytes_list)
+        save_audio_cache(job_uuid, audio_bytes_list)
 
         # ── Save result ───────────────────────────────────────────────────
         result_path = save_result_file(job_uuid, ".mp4", output_bytes)
 
-        # Save meta (subtitles + audio info) alongside result
+        # Save meta (subtitles + audio info) for this job
         meta = {
             "subtitle_b64": __import__("base64").b64encode(
                 json.dumps(subtitle_data).encode("utf-8")
             ).decode("ascii"),
-            "audio_id": audio_id,
+            "audio_id": job_uuid,
             "audio_count": num_slides,
             "file_id": file_id,
         }
-        meta_path = Path(result_path).with_suffix(".meta.json")
-        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+        save_result_meta(job_uuid, meta)
+
+        # ── Save subtitle files separately ───────────────────────────────
+        for ext, key in (("srt", "subtitles.srt"), ("vtt", "subtitles.vtt"), ("txt", "subtitles.txt")):
+            content = subtitle_data.get(ext, "")
+            if content:
+                save_job_file(job_uuid, key, content.encode("utf-8"))
+
+        # ── Save translated PPTX ──────────────────────────────────────────
+        from src.routes.screencast import PPTX_TMP_DIR as _PPTX_TMP
+        pptx_src = _PPTX_TMP / f"{file_id}.pptx"
+        if pptx_src.exists():
+            save_job_file(job_uuid, "translated.pptx", pptx_src.read_bytes())
 
     # Clean up pre-rendered images after successful render
     prerendered_dir = IMAGE_TMP_DIR / file_id
@@ -177,7 +186,7 @@ def _run_render_pipeline(
 
     return {
         "result_path": result_path,
-        "audio_id": audio_id,
+        "audio_id": job_uuid,
         "audio_count": num_slides,
         "subtitle_data": subtitle_data,
     }
@@ -198,7 +207,7 @@ def run_screencast_translate(
     try:
         db.update_job_status(job_uuid, "running", progress={"step": "translate"})
 
-        pptx_bytes = Path(input_path).read_bytes()
+        pptx_bytes = get_file(input_path)
 
         from src.routes.translate import translate_pptx_content
         translated_bytes = translate_pptx_content(pptx_bytes, filename, glossary_json)
@@ -249,8 +258,11 @@ def run_screencast_translate(
         db.update_job_result(job_uuid, result_path, f"{Path(filename).stem}_translate.json")
         db.update_job_status(job_uuid, "success")
 
+        # Save translated PPTX to storage
+        save_job_file(job_uuid, "translated.pptx", translated_bytes)
+
         # Clean up input file
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
 
         logger.info("Screencast translate task {} completed: {} slides", job_uuid, len(slide_texts))
 
@@ -313,7 +325,7 @@ def run_screencast_auto(
     try:
         db.update_job_status(job_uuid, "running", progress={"step": "translate"})
 
-        pptx_bytes = Path(input_path).read_bytes()
+        pptx_bytes = get_file(input_path)
 
         from src.routes.translate import translate_pptx_content
         translated_bytes = translate_pptx_content(pptx_bytes, filename, glossary_json)
@@ -373,7 +385,7 @@ def run_screencast_auto(
         db.update_job_status(job_uuid, "success")
 
         # Clean up input file
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
 
         logger.info("Screencast auto task {} completed: {}", job_uuid, result_filename)
 
@@ -527,9 +539,8 @@ def run_screencast_demo_render(
             logger.info("TIMING [{}] faststart in {}", job_uuid[:8], _elapsed(t0))
 
             t0 = time.time()
-            audio_id = uuid.uuid4().hex
             audio_bytes_list = [ap.read_bytes() for ap in audio_paths[:num_slides]]
-            save_audio_cache(audio_id, audio_bytes_list)
+            save_audio_cache(job_uuid, audio_bytes_list)
 
             result_path = save_result_file(job_uuid, ".mp4", output_bytes)
             logger.info("TIMING [{}] save result in {}", job_uuid[:8], _elapsed(t0))
@@ -538,11 +549,24 @@ def run_screencast_demo_render(
                 "subtitle_b64": base64.b64encode(
                     json.dumps(final_subs).encode("utf-8")
                 ).decode("ascii"),
-                "audio_id": audio_id,
+                "audio_id": job_uuid,
                 "audio_count": num_slides,
                 "file_id": file_id,
             }
-            Path(result_path).with_suffix(".meta.json").write_text(json.dumps(meta), encoding="utf-8")
+            save_result_meta(job_uuid, meta)
+
+            # Save subtitle files separately
+            for ext, fname in (("srt", "subtitles.srt"), ("vtt", "subtitles.vtt"), ("txt", "subtitles.txt")):
+                content = final_subs.get(ext, "")
+                if content:
+                    save_job_file(job_uuid, fname, content.encode("utf-8"))
+
+            # Save translated PPTX if available
+            if file_id:
+                from src.routes.screencast import PPTX_TMP_DIR as _PPTX_TMP
+                pptx_src = _PPTX_TMP / f"{file_id}.pptx"
+                if pptx_src.exists():
+                    save_job_file(job_uuid, "translated.pptx", pptx_src.read_bytes())
 
         db.update_job_result(job_uuid, result_path, "demo_screencast.mp4")
         db.update_job_status(job_uuid, "success")

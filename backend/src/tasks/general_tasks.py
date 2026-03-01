@@ -9,7 +9,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import save_queue_file, save_result_file  # noqa: F401
+from src.storage import delete_file, get_file, open_input_file, save_queue_file, save_result_file  # noqa: F401
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ def run_translate(
     try:
         db.update_job_status(job_uuid, "running")
 
-        content = Path(input_path).read_bytes()
+        content = get_file(input_path)
         ext = Path(filename).suffix.lower()
 
         from src.services.deepl_client import DeepLClient
@@ -102,7 +102,7 @@ def run_translate(
         result_path = save_result_file(job_uuid, ext, result_bytes)
         db.update_job_result(job_uuid, result_path, translated_filename)
         db.update_job_status(job_uuid, "success")
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
         logger.info("Translate task {} completed: {}", job_uuid, translated_filename)
 
     except Exception as e:
@@ -129,11 +129,13 @@ def run_transcribe(
         db.update_job_status(job_uuid, "running")
 
         client = _get_kisski_client()
+        ext_suffix = Path(filename).suffix.lower()
 
-        if task == "translate":
-            result_text = client.transcribe_and_translate(input_path, response_format=response_format)
-        else:
-            result_text = client.transcribe(input_path, response_format=response_format)
+        with open_input_file(input_path, suffix=ext_suffix) as local_path:
+            if task == "translate":
+                result_text = client.transcribe_and_translate(local_path, response_format=response_format)
+            else:
+                result_text = client.transcribe(local_path, response_format=response_format)
 
         out_ext = _FORMAT_EXT[response_format]
         stem = Path(filename).stem
@@ -143,7 +145,7 @@ def run_transcribe(
         result_path = save_result_file(job_uuid, out_ext, result_text.encode("utf-8"))
         db.update_job_result(job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
         logger.info("Transcribe task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:
@@ -216,7 +218,7 @@ def run_image_edit(
     try:
         db.update_job_status(job_uuid, "running")
 
-        content = Path(input_path).read_bytes()
+        content = get_file(input_path)
         ext = Path(filename).suffix.lower()
         mime = "image/png" if ext == ".png" else "image/jpeg"
 
@@ -257,7 +259,7 @@ def run_image_edit(
         result_path = save_result_file(job_uuid, ".png", img_bytes)
         db.update_job_result(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
         logger.info("Image edit task {} completed", job_uuid)
 
     except Exception as e:
@@ -287,7 +289,7 @@ def run_image_analyze(
     try:
         db.update_job_status(job_uuid, "running")
 
-        content = Path(input_path).read_bytes()
+        content = get_file(input_path)
         ext = Path(filename).suffix.lower()
         mime = "image/png" if ext == ".png" else "image/jpeg"
         b64_image = base64.b64encode(content).decode("utf-8")
@@ -328,7 +330,7 @@ def run_image_analyze(
         result_path = save_result_file(job_uuid, ".txt", text.encode("utf-8"))
         db.update_job_result(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
         logger.info("Image analyze task {} completed", job_uuid)
 
     except Exception as e:
@@ -351,7 +353,7 @@ def run_script(
     try:
         db.update_job_status(job_uuid, "running")
 
-        content = Path(input_path).read_bytes()
+        content = get_file(input_path)
         ext = Path(filename).suffix.lower()
 
         from src.utils.text_extraction import EXTRACTORS
@@ -377,7 +379,7 @@ def run_script(
         result_path = save_result_file(job_uuid, ".txt", script.encode("utf-8"))
         db.update_job_result(job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
         logger.info("Script task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:
@@ -405,7 +407,7 @@ def run_summary(
     try:
         db.update_job_status(job_uuid, "running")
 
-        content = Path(input_path).read_bytes()
+        content = get_file(input_path)
         ext = Path(filename).suffix.lower()
         client = _get_kisski_client()
 
@@ -447,7 +449,7 @@ def run_summary(
         result_path = save_result_file(job_uuid, out_ext, summary.encode("utf-8"))
         db.update_job_result(job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
         logger.info("Summary task {} completed: {}", job_uuid, output_name)
 
     except Exception as e:

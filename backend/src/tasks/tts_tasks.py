@@ -6,7 +6,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import save_queue_file, save_result_file
+from src.storage import delete_file, get_file, save_queue_file, save_result_file
 
 
 @celery_app.task(bind=True, name="tts.run", queue="tts")
@@ -27,7 +27,7 @@ def run_tts(
     try:
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
 
-        content = Path(input_path).read_bytes()
+        content = get_file(input_path)
         ext = Path(filename).suffix.lower()
 
         # Extract text from document
@@ -69,7 +69,7 @@ def run_tts(
         db.update_job_status(job_uuid, "success")
 
         # Clean up input file
-        Path(input_path).unlink(missing_ok=True)
+        delete_file(input_path)
 
         logger.info("TTS task {} completed: {}", job_uuid, result_filename)
 

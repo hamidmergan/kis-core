@@ -9,7 +9,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
-from src.storage import delete_file, load_result_json
+from src.storage import USE_S3, delete_job_folder, get_file, load_result_json, load_result_meta
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -104,7 +104,7 @@ async def get_my_jobs(
         has_download = (
             job["status"] == "success"
             and job["result_path"]
-            and Path(job["result_path"]).exists()
+            and (USE_S3 or Path(job["result_path"]).exists())
         )
         result.append({
             "job_uuid": job["job_uuid"],
@@ -149,12 +149,9 @@ async def cancel_job(
         except Exception as e:
             logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
 
-    # Delete files and DB record
-    deleted = db.delete_job(job_uuid)
-    if deleted:
-        for path in (deleted.get("input_path"), deleted.get("result_path")):
-            if path:
-                delete_file(path)
+    # Delete all job files (queue + results folders) and DB record
+    db.delete_job(job_uuid)
+    delete_job_folder(job_uuid)
 
     logger.info("Job cancelled: {}", job_uuid)
     return {"ok": True}
@@ -204,13 +201,9 @@ async def get_job_status(
             response["download_url"] = f"/jobs/{job_uuid}/download"
 
             # For render jobs: load subtitle + audio metadata
-            meta_path = result_path.with_suffix(".meta.json")
-            if meta_path.exists():
-                try:
-                    import json
-                    response["meta"] = json.loads(meta_path.read_text(encoding="utf-8"))
-                except Exception:
-                    pass
+            meta = load_result_meta(job_uuid)
+            if meta is not None:
+                response["meta"] = meta
 
     return response
 
@@ -229,14 +222,15 @@ async def download_job_result(
     if not job["result_path"]:
         raise HTTPException(status_code=404, detail="Kein Download für diesen Job")
 
-    result_path = Path(job["result_path"])
-    if not result_path.exists():
+    result_path_str = job["result_path"]
+    try:
+        data = get_file(result_path_str)
+    except Exception:
         raise HTTPException(status_code=404, detail="Datei nicht mehr vorhanden (abgelaufen)")
 
-    data = result_path.read_bytes()
-    ext = result_path.suffix.lower()
+    ext = Path(result_path_str).suffix.lower()
     content_type = _CONTENT_TYPES.get(ext, "application/octet-stream")
-    filename = job["result_filename"] or result_path.name
+    filename = job["result_filename"] or Path(result_path_str).name
 
     return StreamingResponse(
         iter([data]),
@@ -244,5 +238,29 @@ async def download_job_result(
         headers={
             "Content-Length": str(len(data)),
             "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@router.get("/{job_uuid}/pptx")
+async def download_job_pptx(
+    job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Download the translated PPTX for a screencast render job."""
+    try:
+        data = get_file(f"results/{job_uuid}/translated.pptx")
+    except Exception:
+        raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
+
+    job = db.get_job(job_uuid)
+    stem = Path(job["original_filename"]).stem if job and job.get("original_filename") else "screencast"
+
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={
+            "Content-Length": str(len(data)),
+            "Content-Disposition": f'attachment; filename="{stem}_translated.pptx"',
         },
     )

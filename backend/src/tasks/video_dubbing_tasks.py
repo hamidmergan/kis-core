@@ -14,7 +14,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import save_result_file
+from src.storage import delete_file, get_file, save_result_file, save_result_meta
 
 
 @celery_app.task(bind=True, name="video_dubbing.submit", queue="dubbing")
@@ -33,7 +33,7 @@ def submit_dubbing(
     try:
         db.update_job_status(job_uuid, "running", progress={"step": "submit"})
 
-        file_bytes = Path(input_path).read_bytes()
+        file_bytes = get_file(input_path)
         ext = Path(filename).suffix.lower()
 
         from src.routes.video_dubbing import (
@@ -157,14 +157,13 @@ def download_dubbing(self, job_uuid: str):
             result_path = save_result_file(job_uuid, ".mp4", video_bytes)
             result_filename = f"{stem}_dubbed_{target_lang}.mp4"
 
-        meta_path = Path(result_path).with_suffix(".meta.json")
-        meta_path.write_text(json.dumps(subtitles), encoding="utf-8")
+        save_result_meta(job_uuid, subtitles)
 
         db.update_job_result(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
 
         if input_path:
-            Path(input_path).unlink(missing_ok=True)
+            delete_file(input_path)
 
         logger.info("Dubbing download task {} completed: {}", job_uuid, result_filename)
 
