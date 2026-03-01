@@ -2,9 +2,16 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # DeepL (translation language settings — keys are managed in Admin → API-Keys)
+    # Translation
     source_lang: str = "DE"
     target_lang: str = "EN-US"
+
+    # API Keys (stored in .env)
+    deepl_api_key: str = ""
+    elevenlabs_api_key: str = ""
+    kisski_api_key: str = ""
+    kisski_base_url: str = "https://chat-ai.academiccloud.de/v1"
+    kisski_model: str = "qwen3-30b-a3b-instruct-2507"
 
     # Security
     session_secret: str = "change-me-in-production"
@@ -13,7 +20,7 @@ class Settings(BaseSettings):
     # Auto-whitelisted on startup so first login works without manual DB edits.
     admin_email: str = ""
 
-    # Encryption key for sensitive DB values (Fernet, base64url-encoded 32 bytes)
+    # Encryption key (kept for potential future use)
     encryption_key: str = ""
 
     # Set via start-nginx.sh / start-th.sh, never in .env

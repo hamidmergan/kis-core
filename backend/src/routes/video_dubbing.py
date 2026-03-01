@@ -60,7 +60,8 @@ def _validate_upload(filename: str | None, allowed: dict, label: str) -> str:
 
 
 def _get_api_key() -> str:
-    api_key = db.get_api_config_value("elevenlabs_api_key")
+    from src.dependencies import get_settings
+    api_key = get_settings().elevenlabs_api_key
     if not api_key:
         raise HTTPException(status_code=500, detail="ElevenLabs API Key nicht konfiguriert")
     return api_key

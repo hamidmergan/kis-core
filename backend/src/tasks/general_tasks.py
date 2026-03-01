@@ -16,21 +16,21 @@ from src.storage import save_queue_file, save_result_file  # noqa: F401
 
 def _get_kisski_client():
     from src.services.kisski_client import KisskiClient
-    api_key = db.get_api_config_value("kisski_api_key")
-    if not api_key:
+    from src.config import Settings
+    s = Settings()
+    if not s.kisski_api_key:
         raise RuntimeError("KISSKI API Key nicht konfiguriert")
-    base_url = db.get_api_config_value("kisski_base_url") or "https://chat-ai.academiccloud.de/v1"
-    model = db.get_default_kisski_model() or "qwen3-30b-a3b-instruct-2507"
-    return KisskiClient(api_key=api_key, base_url=base_url, model=model)
+    return KisskiClient(api_key=s.kisski_api_key, base_url=s.kisski_base_url, model=s.kisski_model)
 
 
 def _kisski_http_client(extra_headers: dict | None = None, timeout: float = 120.0):
     import httpx
-    api_key = db.get_api_config_value("kisski_api_key")
-    if not api_key:
+    from src.config import Settings
+    s = Settings()
+    if not s.kisski_api_key:
         raise RuntimeError("KISSKI API Key nicht konfiguriert")
-    base_url = (db.get_api_config_value("kisski_base_url") or "https://chat-ai.academiccloud.de/v1").rstrip("/")
-    headers = {"Authorization": f"Bearer {api_key}"}
+    base_url = s.kisski_base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {s.kisski_api_key}"}
     if extra_headers:
         headers.update(extra_headers)
     return base_url, httpx.Client(headers=headers, timeout=timeout)
@@ -58,7 +58,8 @@ def run_translate(
         from src.services.glossary import GlossaryService
         from src.services.translation import TranslationService
 
-        api_key = db.get_api_config_value("deepl_api_key")
+        from src.config import Settings
+        api_key = Settings().deepl_api_key
         if not api_key:
             raise RuntimeError("DeepL API Key nicht konfiguriert")
 

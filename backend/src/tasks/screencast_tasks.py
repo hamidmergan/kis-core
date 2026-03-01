@@ -43,7 +43,8 @@ def _get_screencast_helpers():
 
 def _get_tts_client():
     from src.services.elevenlabs_client import ElevenLabsClient
-    api_key = db.get_api_config_value("elevenlabs_api_key")
+    from src.config import Settings
+    api_key = Settings().elevenlabs_api_key
     if not api_key:
         raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
     return ElevenLabsClient(api_key)
@@ -335,13 +336,14 @@ def run_screencast_auto(
         # Generate scripts via KISSKI
         db.update_job_status(job_uuid, "running", progress={"step": "scripts", "total": len(slide_texts)})
         from src.services.kisski_client import KisskiClient
-        kisski_api_key = db.get_api_config_value("kisski_api_key")
-        if not kisski_api_key:
+        from src.config import Settings
+        _s = Settings()
+        if not _s.kisski_api_key:
             raise RuntimeError("KISSKI API Key nicht konfiguriert")
         kisski_client = KisskiClient(
-            api_key=kisski_api_key,
-            base_url=db.get_api_config_value("kisski_base_url") or "https://chat-ai.academiccloud.de/v1",
-            model=db.get_default_kisski_model() or "qwen3-30b-a3b-instruct-2507",
+            api_key=_s.kisski_api_key,
+            base_url=_s.kisski_base_url,
+            model=_s.kisski_model,
         )
 
         glossary_dict = None

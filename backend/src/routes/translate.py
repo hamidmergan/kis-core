@@ -28,7 +28,7 @@ def translate_pptx_content(
     from src.translators.pptx import translate_pptx
 
     settings = get_settings()
-    api_key = db.get_api_config_value("deepl_api_key")
+    api_key = settings.deepl_api_key
     if not api_key:
         raise HTTPException(status_code=500, detail="DeepL API Key fehlt")
     deepl_client = DeepLClient(api_key)

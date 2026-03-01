@@ -44,7 +44,8 @@ def run_tts(
 
         # Synthesize
         from src.services.elevenlabs_client import ElevenLabsClient
-        api_key = db.get_api_config_value("elevenlabs_api_key")
+        from src.config import Settings
+        api_key = Settings().elevenlabs_api_key
         if not api_key:
             raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
 

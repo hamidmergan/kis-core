@@ -40,18 +40,6 @@ _TOOLS_CONFIG = [
 ]
 
 
-class SetApiKeyRequest(BaseModel):
-    value: str
-
-
-class SetKisskiBaseUrlRequest(BaseModel):
-    value: str
-
-
-class AddKisskiModelRequest(BaseModel):
-    model: str
-    is_default: bool = False
-
 
 # --- Settings ---
 
@@ -161,67 +149,6 @@ async def remove_whitelist(email: str, _admin=Depends(get_admin_user)):
         raise HTTPException(status_code=403, detail="Die Admin-Email kann nicht aus der Whitelist entfernt werden.")
     db.remove_from_whitelist(email)
     db.deactivate_user_by_email(email)
-    return {"ok": True}
-
-
-# --- API Config ---
-
-_ALLOWED_KEYS = {"deepl_api_key", "elevenlabs_api_key", "kisski_api_key"}
-
-
-@router.get("/api-config")
-async def get_api_config(_admin=Depends(get_admin_user)):
-    return {
-        "deepl_api_key": db.get_api_config_masked("deepl_api_key"),
-        "elevenlabs_api_key": db.get_api_config_masked("elevenlabs_api_key"),
-        "kisski_api_key": db.get_api_config_masked("kisski_api_key"),
-        "kisski_base_url": db.get_api_config_value("kisski_base_url"),
-        "kisski_models": db.get_kisski_models(),
-    }
-
-
-@router.put("/api-config/keys/{key_name}")
-async def set_api_key(key_name: str, body: SetApiKeyRequest, _admin=Depends(get_admin_user)):
-    if key_name not in _ALLOWED_KEYS:
-        raise HTTPException(status_code=400, detail="Ungültiger Key-Name")
-    if not body.value.strip():
-        db.delete_api_config(key_name)
-    else:
-        db.set_api_config(key_name, body.value.strip(), encrypted=True)
-    return {"ok": True}
-
-
-@router.delete("/api-config/keys/{key_name}")
-async def delete_api_key(key_name: str, _admin=Depends(get_admin_user)):
-    if key_name not in _ALLOWED_KEYS:
-        raise HTTPException(status_code=400, detail="Ungültiger Key-Name")
-    db.delete_api_config(key_name)
-    return {"ok": True}
-
-
-@router.put("/api-config/kisski-base-url")
-async def set_kisski_base_url(body: SetKisskiBaseUrlRequest, _admin=Depends(get_admin_user)):
-    db.set_api_config("kisski_base_url", body.value.strip(), encrypted=False)
-    return {"ok": True}
-
-
-@router.post("/api-config/models")
-async def add_kisski_model_route(body: AddKisskiModelRequest, _admin=Depends(get_admin_user)):
-    if not body.model.strip():
-        raise HTTPException(status_code=400, detail="Modellname darf nicht leer sein")
-    db.add_kisski_model(body.model.strip(), is_default=body.is_default)
-    return {"ok": True}
-
-
-@router.delete("/api-config/models/{model:path}")
-async def remove_kisski_model_route(model: str, _admin=Depends(get_admin_user)):
-    db.remove_kisski_model(model)
-    return {"ok": True}
-
-
-@router.patch("/api-config/models/{model:path}/default")
-async def set_default_model_route(model: str, _admin=Depends(get_admin_user)):
-    db.set_default_kisski_model(model)
     return {"ok": True}
 
 
