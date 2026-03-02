@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
@@ -38,7 +39,7 @@ from src.utils.file_validation import (
     SCREENCAST_EXTENSIONS,
 )
 from src import database as db
-from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json
+from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json, get_job_file, save_job_file
 
 router = APIRouter(tags=["screencast"])
 
@@ -281,17 +282,34 @@ def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[P
         # PDF exists despite non-zero exit — treat javaldx / Java warnings as non-fatal
         logger.warning("LibreOffice exited with rc={} but PDF was created (non-fatal): {}", result.returncode, result.stderr[:200])
 
-    # Convert PDF pages to individual PNG images using pdftoppm (poppler-utils).
+    # Get page count via pdfinfo
+    pdfinfo_result = subprocess.run(
+        ["pdfinfo", str(pdf_path)], capture_output=True, text=True, timeout=30
+    )
+    page_count = 1
+    for line in pdfinfo_result.stdout.splitlines():
+        if line.startswith("Pages:"):
+            page_count = int(line.split(":")[1].strip())
+            break
+    logger.info("PDF has {} pages, rendering in parallel", page_count)
+
+    # Convert PDF pages to PNG in parallel — one pdftoppm process per page.
     slide_prefix = str(output_dir / "slide")
-    cmd = [
-        "pdftoppm", "-png", "-r", str(dpi),
-        str(pdf_path), slide_prefix,
-    ]
-    logger.info("Converting PDF to images: {}", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    if result.returncode != 0:
-        logger.error("PDF to image conversion failed: {}", result.stderr[:300])
-        raise RuntimeError(f"PDF zu Bild Konvertierung fehlgeschlagen: {result.stderr[:200]}")
+
+    def _render_page(page: int) -> None:
+        cmd = [
+            "pdftoppm", "-png", "-r", str(dpi),
+            "-f", str(page), "-l", str(page),
+            str(pdf_path), slide_prefix,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            raise RuntimeError(f"Seite {page} fehlgeschlagen: {result.stderr[:200]}")
+
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        futures = {executor.submit(_render_page, p): p for p in range(1, page_count + 1)}
+        for future in as_completed(futures):
+            future.result()  # re-raises on error
 
     # Collect generated images (pdftoppm names them slide-1.png, slide-2.png, ...)
     images = sorted(output_dir.glob("slide-*.png"))
@@ -531,11 +549,14 @@ async def _generate_all_tts(
     speed: float,
     voice_id: str = "",
     on_slide_done: Callable[[int, int], None] | None = None,
+    job_uuid: str | None = None,
 ) -> list[tuple[Path, dict | None]]:
     """Generate TTS audio for all slides in parallel via ElevenLabs.
 
     Returns a list of (audio_path, alignment_or_None) tuples.
     on_slide_done(current, total) is called after each slide completes.
+    Each slide's audio is saved to persistent storage immediately after synthesis
+    so a crash can be recovered without re-paying for completed slides.
     """
     sem = asyncio.Semaphore(10)
     lock = asyncio.Lock()
@@ -551,14 +572,43 @@ async def _generate_all_tts(
             audio_paths[i] = None
             logger.info("Slide {}/{}: empty script, audio_path set to None", i + 1, total)
         else:
+            # Recovery: check if this slide was already synthesized in a previous (crashed) run
+            if job_uuid:
+                try:
+                    audio_data = get_job_file(job_uuid, f"tts_audio/slide_{i:03d}.mp3")
+                    audio_paths[i].write_bytes(audio_data)
+                    try:
+                        align_data = get_job_file(job_uuid, f"tts_audio/slide_{i:03d}_align.json")
+                        alignments[i] = json.loads(align_data)
+                    except Exception:
+                        pass
+                    logger.info("Slide {}/{}: loaded from storage (recovery)", i + 1, total)
+                    async with lock:
+                        counter += 1
+                        if on_slide_done:
+                            on_slide_done(counter, total)
+                    return
+                except Exception:
+                    pass  # Not saved yet — synthesize normally
+
             async with sem:
                 try:
                     result = await asyncio.to_thread(
                         tts_client.synthesize_with_timestamps,
                         script_text, "EN", voice_id=voice_id, speed=speed,
                     )
-                    audio_paths[i].write_bytes(result["audio_bytes"])
-                    alignments[i] = result["alignment"]
+                    audio_bytes = result["audio_bytes"]
+                    alignment = result["alignment"]
+                    audio_paths[i].write_bytes(audio_bytes)
+                    alignments[i] = alignment
+
+                    # Save immediately to persistent storage for crash recovery
+                    if job_uuid:
+                        save_job_file(job_uuid, f"tts_audio/slide_{i:03d}.mp3", audio_bytes)
+                        if alignment:
+                            save_job_file(job_uuid, f"tts_audio/slide_{i:03d}_align.json",
+                                          json.dumps(alignment).encode())
+
                     logger.info("TTS for slide {}/{} done", i + 1, total)
                 except Exception as e:
                     logger.error("TTS failed for slide {}: {}", i + 1, e)

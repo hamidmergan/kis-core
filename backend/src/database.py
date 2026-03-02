@@ -307,6 +307,15 @@ def set_job_celery_task_id(job_uuid: str, celery_task_id: str) -> None:
         conn.commit()
 
 
+def get_job_by_celery_task_id(celery_task_id: str) -> dict | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM jobs WHERE celery_task_id = ? AND status = 'running'",
+            (celery_task_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
 def delete_job(job_uuid: str) -> dict | None:
     """Delete a job record and return its file paths for cleanup."""
     with get_connection() as conn:
@@ -345,6 +354,7 @@ def get_results_for_tool_group(user_id: int, group: str) -> list[dict]:
         rows = conn.execute(
             f"""SELECT id, result_path, result_filename, original_filename FROM jobs
                WHERE user_id = ? AND tool IN ({placeholders}) AND result_path IS NOT NULL
+               AND status != 'failed'
                ORDER BY created_at ASC""",
             (user_id, *tools),
         ).fetchall()
@@ -513,6 +523,42 @@ def update_job_status(
         conn.commit()
 
 
+def claim_job_for_retry(job_uuid: str) -> bool:
+    """Atomically set job status from 'failed' to 'running' for retry.
+    Returns True if successful, False if job was not in 'failed' state (race condition)."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """UPDATE jobs SET status = 'running', progress_updated_at = ?, error_message = NULL
+               WHERE job_uuid = ? AND status = 'failed'""",
+            (now, job_uuid),
+        )
+        conn.commit()
+        return cursor.rowcount == 1
+
+
+def reset_stuck_jobs() -> int:
+    """Mark all pending/running jobs as failed on server startup.
+
+    Called once when the backend starts. Jobs stuck in 'pending' or 'running'
+    mean the server crashed mid-task and the Celery broker lost the message.
+    They can be manually retried via the retry endpoint.
+    Returns the number of jobs reset.
+    """
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        result = conn.execute(
+            """UPDATE jobs
+               SET status = 'failed',
+                   error_message = 'Server wurde neugestartet — bitte Wiederholen klicken.',
+                   completed_at = ?
+               WHERE status IN ('pending', 'running')""",
+            (now,),
+        )
+        conn.commit()
+        return result.rowcount
+
+
 def update_job_result(
     job_uuid: str,
     result_path: str,
@@ -556,21 +602,37 @@ def update_job_result(
             conn.commit()
 
 
-def get_stuck_running_jobs(threshold_minutes: int = 20) -> list[dict]:
-    """Return running jobs whose progress_updated_at is older than threshold_minutes.
-
-    These are candidates for being stuck (e.g. FFmpeg hung mid-render).
+def touch_job_heartbeat(job_uuid: str) -> None:
+    """Update progress_updated_at without touching any other field.
+    Called periodically during long external API calls to prevent the watchdog
+    from falsely marking an actively-running job as stuck.
+    Only updates if the job is still in 'running' state.
     """
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE jobs SET progress_updated_at = ? WHERE job_uuid = ? AND status = 'running'",
+            (now, job_uuid),
+        )
+        conn.commit()
+
+
+def get_stuck_running_jobs(threshold_minutes: int = 20) -> list[dict]:
+    """Return running/pending jobs that have not made progress for longer than threshold_minutes."""
     cutoff = (
         datetime.now(timezone.utc) - timedelta(minutes=threshold_minutes)
     ).strftime("%Y-%m-%d %H:%M:%S")
     with get_connection() as conn:
         rows = conn.execute(
             """SELECT job_uuid, tool, progress, progress_updated_at FROM jobs
-               WHERE status = 'running'
-               AND progress_updated_at IS NOT NULL
-               AND progress_updated_at <= ?""",
-            (cutoff,),
+               WHERE (
+                   (status = 'running' AND progress_updated_at IS NOT NULL AND progress_updated_at <= ?)
+                   OR
+                   (status = 'running' AND progress_updated_at IS NULL AND created_at <= ?)
+                   OR
+                   (status = 'pending' AND created_at <= ?)
+               )""",
+            (cutoff, cutoff, cutoff),
         ).fetchall()
         return [dict(row) for row in rows]
 

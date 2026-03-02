@@ -9,7 +9,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
-from src.storage import USE_S3, delete_job_folder, get_file, load_result_json, load_result_meta
+from src.storage import USE_S3, delete_job_folder, get_file, get_job_file, load_result_json, load_result_meta
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -132,6 +132,92 @@ async def get_my_jobs(
         })
 
     return {"jobs": result, "total": total}
+
+
+@router.post("/{job_uuid}/retry")
+async def retry_job(
+    job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Re-queue a failed TTS job. Resumes from already-saved chunks — no double payment."""
+    import json
+    job = db.get_job(job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job["tool"] not in ("tts", "screencast_render", "screencast_demo_render"):
+        raise HTTPException(status_code=400, detail="Retry nur für TTS- und Screencast-Jobs verfügbar")
+    if job["status"] == "success":
+        raise HTTPException(status_code=409, detail="Job bereits erfolgreich abgeschlossen")
+    if job["status"] in ("running", "pending"):
+        raise HTTPException(status_code=409, detail="Job läuft bereits")
+    progress = json.loads(job["progress"] or "{}")
+
+    # Load and validate all params BEFORE claiming the job atomically
+    if job["tool"] == "tts":
+        if not job["input_path"]:
+            raise HTTPException(status_code=400, detail="Eingabedatei nicht mehr vorhanden (abgelaufen)")
+        params = progress.get("tts_params")
+        if not params:
+            raise HTTPException(status_code=400, detail="Job-Parameter nicht gespeichert — bitte neuen Job starten")
+
+    elif job["tool"] == "screencast_render":
+        try:
+            render_params = json.loads(get_job_file(job_uuid, "render_params.json"))
+            scripts = json.loads(get_job_file(job_uuid, "render_scripts.json"))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Render-Parameter nicht mehr vorhanden (abgelaufen)")
+
+    else:  # screencast_demo_render
+        try:
+            demo_params = json.loads(get_job_file(job_uuid, "demo_params.json"))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Demo-Parameter nicht mehr vorhanden (abgelaufen)")
+
+    # Atomically claim the job — blocks parallel retries
+    if not db.claim_job_for_retry(job_uuid):
+        raise HTTPException(status_code=409, detail="Job läuft bereits (parallel gestartet)")
+
+    if job["tool"] == "tts":
+        from src.tasks.tts_tasks import run_tts
+        task = run_tts.apply_async(args=[
+            job_uuid,
+            job["input_path"],
+            job["original_filename"],
+            params["voice_id"],
+            params["speed"],
+            params["stability"],
+            params["similarity_boost"],
+            params["style"],
+            params["use_speaker_boost"],
+            params["pause_preset"],
+        ])
+
+    elif job["tool"] == "screencast_render":
+        from src.tasks.screencast_tasks import run_screencast_render
+        task = run_screencast_render.apply_async(args=[
+            job_uuid,
+            render_params["file_id"],
+            scripts,
+            render_params["voice_id"],
+            render_params["speed"],
+            render_params["slide_pause"],
+            render_params["embed_subtitles"],
+            job["original_filename"],
+            render_params["dpi"],
+        ])
+
+    else:  # screencast_demo_render
+        from src.tasks.screencast_tasks import run_screencast_demo_render
+        task = run_screencast_demo_render.apply_async(args=[
+            job_uuid,
+            demo_params["file_id"],
+            demo_params["dpi"],
+        ])
+
+    db.set_job_celery_task_id(job_uuid, task.id)
+
+    logger.info("{} job {} re-queued via retry by user {}", job["tool"], job_uuid, current_user.get("user_id"))
+    return {"ok": True}
 
 
 @router.delete("/{job_uuid}")

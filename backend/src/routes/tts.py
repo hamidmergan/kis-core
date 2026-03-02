@@ -70,6 +70,9 @@ async def list_voices():
                 "voice_id": v["voice_id"],
                 "label": v["name"],
                 "preview_url": v.get("preview_url"),
+                "category": v.get("category"),
+                "description": (v.get("labels") or {}).get("description"),
+                "use_case": (v.get("labels") or {}).get("use_case"),
             }
             for v in all_voices
             if v.get("category") not in ("cloned", "generated")

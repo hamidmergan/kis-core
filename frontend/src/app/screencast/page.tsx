@@ -94,6 +94,8 @@ function stepToIndex(step: ScreencastStep): number {
   }
 }
 
+const RENDER_SESSION_KEY = "kis_screencast_active_render";
+
 function ScreencastPageInner() {
   const { mergeToApiJson } = useGlossaries();
 
@@ -102,6 +104,9 @@ function ScreencastPageInner() {
   const [autoDownloadBlob, setAutoDownloadBlob] = useState<Blob | null>(null);
   const [autoDownloadName, setAutoDownloadName] = useState("");
   const [autoError, setAutoError] = useState("");
+  const [renderProgressLabel, setRenderProgressLabel] = useState("");
+  const [failedRenderJobUuid, setFailedRenderJobUuid] = useState<string | null>(null);
+  const [failedRenderIsAuto, setFailedRenderIsAuto] = useState(false);
 
   // ── Step-by-step state ──
   const [step, setStep] = useState<ScreencastStep>("upload");
@@ -268,6 +273,9 @@ function ScreencastPageInner() {
     setAutoDownloadBlob(null);
     setAutoDownloadName("");
     setAutoError("");
+    setFailedRenderJobUuid(null);
+    setFailedRenderIsAuto(false);
+    sessionStorage.removeItem(RENDER_SESSION_KEY);
     setMaxReachedIdx(0);
     setSourceLang("DE");
     setIsDemoMode(false);
@@ -276,6 +284,7 @@ function ScreencastPageInner() {
 
   const handleStepClick = useCallback((index: number) => {
     if (hasDraggedRef.current) return;
+    if (step === "rendering") return;
     if (index > maxReachedIdx) return;
     const targets: Record<number, ScreencastStep | null> = {
       0: null,
@@ -290,7 +299,7 @@ function ScreencastPageInner() {
     const target = targets[index];
     if (!target) return;
     setStep(target);
-  }, [maxReachedIdx]);
+  }, [maxReachedIdx, step]);
 
   const newSignal = () => {
     abortControllerRef.current?.abort();
@@ -302,6 +311,21 @@ function ScreencastPageInner() {
     setErrorMessage(msg);
     setStep("error");
     setLoading(false);
+  }, []);
+
+  const onRenderProgress = useCallback((status: import("@/lib/api").JobStatus) => {
+    const p = status.progress as { step?: string; current?: number; total?: number } | null;
+    if (!p?.step) { setRenderProgressLabel("In der Warteschlange…"); return; }
+    if (p.step === "images") setRenderProgressLabel("Folienbilder werden vorbereitet…");
+    else if (p.step === "tts" && p.current != null && p.total != null)
+      setRenderProgressLabel(`Sprachsynthese: Folie ${p.current} von ${p.total}…`);
+    else if (p.step === "tts") setRenderProgressLabel("Sprachsynthese läuft…");
+    else if (p.step === "video" && p.current != null && p.total != null)
+      setRenderProgressLabel(`Video-Clip ${p.current} von ${p.total} wird gerendert…`);
+    else if (p.step === "video") setRenderProgressLabel("Video-Clips werden gerendert…");
+    else if (p.step === "concat") setRenderProgressLabel("Videos werden zusammengefügt…");
+    else if (p.step === "subtitles") setRenderProgressLabel("Untertitel werden eingebettet…");
+    else setRenderProgressLabel("Video wird erstellt…");
   }, []);
 
   const handleFileSelect = useCallback((f: File) => {
@@ -361,22 +385,27 @@ function ScreencastPageInner() {
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
+      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: true }));
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
-      const jobResult = await pollJob(job_uuid, undefined, 5000, signal);
+      const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"));
       currentJobUuidRef.current = null;
 
       const stem = file.name.replace(/\.pptx$/i, "");
       const { blob, filename } = await downloadJobAsBlob(jobResult.job_uuid, `${stem}_screencast_EN.mp4`);
+      sessionStorage.removeItem(RENDER_SESSION_KEY);
       setAutoDownloadBlob(blob);
       setAutoDownloadName(filename);
       setAutoState("done");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
+      sessionStorage.removeItem(RENDER_SESSION_KEY);
+      setFailedRenderJobUuid(currentJobUuidRef.current);
+      setFailedRenderIsAuto(true);
       setAutoError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setAutoState("error");
     }
-  }, [file, speed, voiceId, glossaryIds, mergeToApiJson, checkBeforeSubmit]);
+  }, [file, speed, voiceId, glossaryIds, mergeToApiJson, checkBeforeSubmit, onRenderProgress]);
 
   const handleAutoDownload = () => {
     if (!autoDownloadBlob) return;
@@ -634,7 +663,7 @@ function ScreencastPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [fastMode, goError, checkBeforeSubmit]);
+  }, [fastMode, goError, checkBeforeSubmit, onRenderProgress]);
 
   const handleDemoGenerateScripts = useCallback(async () => {
     setStep("generating-scripts");
@@ -699,6 +728,7 @@ function ScreencastPageInner() {
 
   // ── Parse job result for render jobs (meta: subtitle_b64, audio_id, audio_count) ──
   const processRenderResultFromJob = useCallback(async (jobResult: JobStatus) => {
+    sessionStorage.removeItem(RENDER_SESSION_KEY);
     const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
 
     const meta = jobResult.meta ?? {};
@@ -748,8 +778,9 @@ function ScreencastPageInner() {
         // Mode A: Celery task submitted → poll for result
         const { job_uuid } = await response.json();
         currentJobUuidRef.current = job_uuid;
+        sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
         window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-        const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
+        const jobResult = await pollJob(job_uuid, onRenderProgress, 3000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"));
         currentJobUuidRef.current = null;
         await processRenderResultFromJob(jobResult);
       } else {
@@ -758,9 +789,12 @@ function ScreencastPageInner() {
       }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
+      sessionStorage.removeItem(RENDER_SESSION_KEY);
+      setFailedRenderJobUuid(currentJobUuidRef.current);
+      setFailedRenderIsAuto(false);
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [translatedPptxFileId, dpi, goError, processRenderResponse, processRenderResultFromJob, checkBeforeSubmit]);
+  }, [translatedPptxFileId, dpi, goError, processRenderResponse, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
@@ -791,15 +825,151 @@ function ScreencastPageInner() {
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
+      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      const jobResult = await pollJob(job_uuid, undefined, 5000, signal);
+      const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"));
       currentJobUuidRef.current = null;
       await processRenderResultFromJob(jobResult);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
+      sessionStorage.removeItem(RENDER_SESSION_KEY);
+      setFailedRenderJobUuid(currentJobUuidRef.current);
+      setFailedRenderIsAuto(false);
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, dpi, goError, processRenderResultFromJob, checkBeforeSubmit]);
+  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, dpi, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
+
+  // ── Retry failed render job ──
+  const handleRetryRender = useCallback(async () => {
+    const uuid = failedRenderJobUuid;
+    if (!uuid) return;
+    try {
+      const res = await fetch(`/api/jobs/${uuid}/retry`, { method: "POST", credentials: "include" });
+
+      if (res.status === 409) {
+        // Job already running or succeeded — check actual status and continue accordingly
+        const jobRes = await fetch(`/api/jobs/${uuid}`, { credentials: "include" });
+        const jobData = await jobRes.json();
+        if (jobData.status === "success") {
+          setFailedRenderJobUuid(null);
+          if (failedRenderIsAuto) {
+            const stem = file?.name.replace(/\.pptx$/i, "") || "screencast";
+            const { blob, filename } = await downloadJobAsBlob(uuid, `${stem}_screencast_EN.mp4`);
+            setAutoDownloadBlob(blob);
+            setAutoDownloadName(filename);
+            setAutoState("done");
+          } else {
+            await processRenderResultFromJob(jobData);
+          }
+          return;
+        }
+        // Job is running — fall through to polling below
+      } else if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Retry fehlgeschlagen" }));
+        throw new Error(err.detail || "Retry fehlgeschlagen");
+      }
+
+      setRenderProgressLabel("In der Warteschlange…");
+      currentJobUuidRef.current = uuid;
+      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid, isAuto: failedRenderIsAuto }));
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      if (failedRenderIsAuto) {
+        setAutoState("processing");
+        setAutoError("");
+      } else {
+        setStep("rendering");
+        setErrorMessage("");
+        setLoading(true);
+      }
+      const signal = newSignal();
+      const jobResult = await pollJob(
+        uuid, onRenderProgress, 3000, signal,
+        () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"),
+      );
+      currentJobUuidRef.current = null;
+      sessionStorage.removeItem(RENDER_SESSION_KEY);
+      setFailedRenderJobUuid(null);
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      if (failedRenderIsAuto) {
+        const stem = file?.name.replace(/\.pptx$/i, "") || "screencast";
+        const { blob, filename } = await downloadJobAsBlob(uuid, `${stem}_screencast_EN.mp4`);
+        setAutoDownloadBlob(blob);
+        setAutoDownloadName(filename);
+        setAutoState("done");
+      } else {
+        await processRenderResultFromJob(jobResult);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      sessionStorage.removeItem(RENDER_SESSION_KEY);
+      const msg = err instanceof Error ? err.message : "Retry fehlgeschlagen";
+      setFailedRenderJobUuid(uuid);
+      if (failedRenderIsAuto) {
+        setAutoError(msg);
+        setAutoState("error");
+      } else {
+        goError(msg);
+      }
+    }
+  }, [failedRenderJobUuid, failedRenderIsAuto, file, onRenderProgress, processRenderResultFromJob, newSignal, goError]);
+
+  // ── Resume active render job after page refresh ──
+  useEffect(() => {
+    const saved = sessionStorage.getItem(RENDER_SESSION_KEY);
+    if (!saved) return;
+    let parsed: { uuid: string; isAuto: boolean };
+    try { parsed = JSON.parse(saved); } catch { sessionStorage.removeItem(RENDER_SESSION_KEY); return; }
+    const { uuid, isAuto } = parsed;
+
+    fetch(`/api/jobs/${uuid}`, { credentials: "include" })
+      .then(r => r.json())
+      .then(job => {
+        if (job.status === "success") {
+          sessionStorage.removeItem(RENDER_SESSION_KEY);
+          return; // job already done, show upload form — result in Jobs Panel
+        }
+        if (job.status === "failed") {
+          sessionStorage.removeItem(RENDER_SESSION_KEY);
+          setFailedRenderJobUuid(uuid);
+          setFailedRenderIsAuto(isAuto);
+          if (isAuto) { setAutoError(job.error || "Job fehlgeschlagen"); setAutoState("error"); }
+          else { goError(job.error || "Job fehlgeschlagen"); }
+          return;
+        }
+        // Still running/pending — resume polling
+        currentJobUuidRef.current = uuid;
+        setFailedRenderIsAuto(isAuto);
+        setRenderProgressLabel("Verbindung wiederhergestellt…");
+        if (isAuto) { setAutoState("processing"); }
+        else { setStep("rendering"); setLoading(true); }
+        const ctrl = new AbortController();
+        abortControllerRef.current = ctrl;
+        pollJob(uuid, onRenderProgress, 3000, ctrl.signal,
+          () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"))
+          .then(jobResult => {
+            sessionStorage.removeItem(RENDER_SESSION_KEY);
+            currentJobUuidRef.current = null;
+            setFailedRenderJobUuid(null);
+            window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+            if (isAuto) {
+              downloadJobAsBlob(uuid, "screencast_EN.mp4").then(({ blob, filename }) => {
+                setAutoDownloadBlob(blob); setAutoDownloadName(filename); setAutoState("done");
+              });
+            } else {
+              processRenderResultFromJob(jobResult);
+            }
+          })
+          .catch(err => {
+            if (err instanceof Error && err.name === "AbortError") return;
+            sessionStorage.removeItem(RENDER_SESSION_KEY);
+            setFailedRenderJobUuid(uuid);
+            if (isAuto) { setAutoError(err.message); setAutoState("error"); }
+            else { goError(err.message); }
+          });
+      })
+      .catch(() => sessionStorage.removeItem(RENDER_SESSION_KEY));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Download MP4 ──
   const handleDownload = () => {
@@ -903,7 +1073,7 @@ function ScreencastPageInner() {
                   const isDone = !isSkipped && i < currentIdx;
                   const isActive = i === currentIdx;
                   const isReached = i <= maxReachedIdx;
-                  const isClickable = !isSkipped && isReached && !isActive && i !== 0 && i !== 1 && i !== 6;
+                  const isClickable = !isSkipped && isReached && !isActive && i !== 0 && i !== 1 && i !== 6 && step !== "rendering";
                   return (
                     <li key={label} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
                       <button
@@ -1208,8 +1378,10 @@ function ScreencastPageInner() {
                 state={autoState}
                 fileName={autoDownloadName}
                 errorMessage={autoError}
+                progressLabel={autoState === "processing" ? renderProgressLabel : undefined}
                 onDownload={handleAutoDownload}
                 onReset={resetAll}
+                onRetry={failedRenderJobUuid ? handleRetryRender : undefined}
               />
             )}
           </section>
@@ -1878,12 +2050,13 @@ function ScreencastPageInner() {
           >
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
             <p className="text-sm text-gray-700">
-              Video wird erstellt...
+              {renderProgressLabel || "Video wird erstellt..."}
             </p>
-            <p className="text-xs text-gray-400 mt-2">
-              Vertonung und Videoproduktion, das kann 1-3 Minuten
-              dauern.
-            </p>
+            {!renderProgressLabel && (
+              <p className="text-xs text-gray-400 mt-2">
+                Vertonung und Videoproduktion, das kann 1-3 Minuten dauern.
+              </p>
+            )}
             <button
               onClick={() => {
                 const uuid = currentJobUuidRef.current;
@@ -2069,17 +2242,33 @@ function ScreencastPageInner() {
               Fehler bei der Screencast-Erstellung
             </h2>
             {errorMessage && (
-              <p className="text-sm text-red-600 mb-6">
+              <p className="text-sm text-red-600 mb-3">
                 {errorMessage}
               </p>
             )}
-            <button
-              onClick={resetAll}
-              aria-label="Erneut versuchen"
-              className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
-            >
-              Erneut versuchen
-            </button>
+            {failedRenderJobUuid && (
+              <p className="text-xs text-gray-500 mb-5">
+                Klicke auf <strong>Wiederholen</strong> — bereits fertige Clips und Audio werden nicht wiederholt.
+              </p>
+            )}
+            <div className="flex gap-3 justify-center">
+              {failedRenderJobUuid && (
+                <button
+                  onClick={handleRetryRender}
+                  aria-label="Job wiederholen"
+                  className="px-6 py-2 text-sm text-white bg-[#0066cc] rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                >
+                  Wiederholen
+                </button>
+              )}
+              <button
+                onClick={resetAll}
+                aria-label="Neue Präsentation hochladen"
+                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+              >
+                Neue Präsentation
+              </button>
+            </div>
           </section>
         )}
       </div>

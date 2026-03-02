@@ -1,4 +1,6 @@
 from celery import Celery
+from celery.signals import task_failure, task_revoked
+from loguru import logger
 
 celery_app = Celery(
     "kis",
@@ -37,7 +39,7 @@ celery_app.conf.update(
         "video_dubbing.submit": {"queue": "dubbing"},
         "video_dubbing.download": {"queue": "dubbing"},
         "video_dubbing.poll": {"queue": "dubbing"},
-        "watchdog.check": {"queue": "screencast"},
+        "watchdog.check": {"queue": "general"},
     },
     beat_schedule={
         "poll-dubbing-jobs": {
@@ -46,8 +48,34 @@ celery_app.conf.update(
         },
         "watchdog-stuck-jobs": {
             "task": "watchdog.check",
-            "schedule": 60.0,  # every 1 minute
-            "options": {"queue": "screencast"},
+            "schedule": 5.0,  # every 5 seconds
+            "options": {"queue": "general"},
         },
     },
 )
+
+
+def _mark_task_failed(task_id: str, reason: str) -> None:
+    """Mark a running job as failed based on its Celery task ID."""
+    try:
+        from src import database as db
+        job = db.get_job_by_celery_task_id(task_id)
+        if job:
+            db.update_job_status(job["job_uuid"], "failed", error_message=reason)
+            logger.warning("Signal: job {} marked failed — {}", job["job_uuid"][:8], reason)
+    except Exception as e:
+        logger.error("Signal handler error: {}", e)
+
+
+@task_failure.connect
+def on_task_failure(task_id, exception, **kwargs):
+    _mark_task_failed(task_id, f"Unerwarteter Fehler: {exception}")
+
+
+@task_revoked.connect
+def on_task_revoked(request, terminated, signum, expired, **kwargs):
+    if terminated or expired:
+        _mark_task_failed(
+            request.id,
+            "Job hat sich nicht mehr gemeldet (möglicher Absturz oder Hänger). Bitte Wiederholen klicken.",
+        )

@@ -2,7 +2,9 @@
 
 import asyncio
 import json
+import os
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from loguru import logger
@@ -10,6 +12,7 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 from src.storage import delete_file, get_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta
+from src.utils.heartbeat import job_heartbeat
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -76,6 +79,13 @@ def _run_render_pipeline(
 
     tts_client = _get_tts_client()
 
+    # Save render params + scripts for crash recovery (retry button)
+    save_job_file(job_uuid, "render_params.json", json.dumps({
+        "file_id": file_id, "voice_id": voice_id, "speed": speed,
+        "slide_pause": slide_pause, "embed_subtitles": embed_subtitles, "dpi": dpi,
+    }).encode())
+    save_job_file(job_uuid, "render_scripts.json", json.dumps(scripts).encode())
+
     db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -107,7 +117,8 @@ def _run_render_pipeline(
         def _tts_progress(current: int, total: int) -> None:
             db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": current, "total": total})
 
-        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress))
+        with job_heartbeat(job_uuid):
+            tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
 
@@ -115,14 +126,20 @@ def _run_render_pipeline(
         if num_slides == 0:
             raise RuntimeError("Keine Slides verarbeitet")
 
-        # ── Video clips ───────────────────────────────────────────────────
+        # ── Video clips (parallel) ────────────────────────────────────────
+        clip_paths: list[Path] = [tmp / f"clip_{i:03d}.mp4" for i in range(num_slides)]
+
+        def _render_clip_normal(i: int) -> None:
+            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[i], pause=slide_pause, crf=23)
+
         db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": num_slides})
-        clip_paths: list[Path] = []
-        for i in range(num_slides):
-            clip_path = tmp / f"clip_{i:03d}.mp4"
-            _create_slide_video(slide_images[i], audio_paths[i], clip_path, pause=slide_pause, crf=23)
-            clip_paths.append(clip_path)
-            db.update_job_status(job_uuid, "running", progress={"step": "video", "current": i + 1, "total": num_slides})
+        with ThreadPoolExecutor(max_workers=max(1, os.cpu_count() // 2)) as executor:
+            futures = {executor.submit(_render_clip_normal, i): i for i in range(num_slides)}
+            completed = 0
+            for future in as_completed(futures):
+                future.result()
+                completed += 1
+                db.update_job_status(job_uuid, "running", progress={"step": "video", "current": completed, "total": num_slides})
 
         # ── Concatenate ───────────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "concat"})
@@ -273,7 +290,7 @@ def run_screencast_translate(
         raise
 
 
-@celery_app.task(bind=True, name="screencast.render", queue="screencast")
+@celery_app.task(bind=True, name="screencast.render", queue="screencast", acks_late=True, max_retries=7)
 def run_screencast_render(
     self,
     job_uuid: str,
@@ -396,7 +413,7 @@ def run_screencast_auto(
         raise
 
 
-@celery_app.task(bind=True, name="screencast.demo_render", queue="screencast")
+@celery_app.task(bind=True, name="screencast.demo_render", queue="screencast", acks_late=True)
 def run_screencast_demo_render(
     self,
     job_uuid: str,
@@ -411,6 +428,9 @@ def run_screencast_demo_render(
         return f"{time.time() - (since or t_start):.2f}s"
 
     try:
+        # Save params for crash recovery (retry button)
+        save_job_file(job_uuid, "demo_params.json", json.dumps({"file_id": file_id, "dpi": dpi}).encode())
+
         db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
         from src.routes.screencast import (
@@ -496,14 +516,21 @@ def run_screencast_demo_render(
             logger.info("TIMING [{}] write tmp files in {}", job_uuid[:8], _elapsed(t0))
 
             t0 = time.time()
-            clip_paths: list[Path] = []
-            for i in range(num_slides):
+            clip_paths: list[Path] = [tmp / f"clip_{i:03d}.mp4" for i in range(num_slides)]
+
+            def _render_clip(i: int) -> None:
                 t_clip = time.time()
-                clip_path = tmp / f"clip_{i:03d}.mp4"
-                _create_slide_video(slide_image_paths[i], audio_paths[i], clip_path, pause=slide_pause)
-                clip_paths.append(clip_path)
-                db.update_job_status(job_uuid, "running", progress={"step": "video", "current": i + 1, "total": num_slides})
+                _create_slide_video(slide_image_paths[i], audio_paths[i], clip_paths[i], pause=slide_pause)
                 logger.info("TIMING [{}] clip {}/{} in {}", job_uuid[:8], i + 1, num_slides, _elapsed(t_clip))
+
+            db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": num_slides})
+            with ThreadPoolExecutor(max_workers=max(1, os.cpu_count() // 2)) as executor:
+                futures = {executor.submit(_render_clip, i): i for i in range(num_slides)}
+                completed = 0
+                for future in as_completed(futures):
+                    future.result()
+                    completed += 1
+                    db.update_job_status(job_uuid, "running", progress={"step": "video", "current": completed, "total": num_slides})
             logger.info("TIMING [{}] all clips in {}", job_uuid[:8], _elapsed(t0))
 
             t0 = time.time()

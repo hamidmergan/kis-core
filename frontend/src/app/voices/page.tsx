@@ -8,6 +8,69 @@ interface Voice {
   voice_id: string;
   label: string;
   preview_url: string | null;
+  category?: string | null;
+  description?: string | null;
+  use_case?: string | null;
+}
+
+const CATEGORY_DE: Record<string, string> = {
+  professional: "Professionell",
+  high_quality: "Hohe Qualität",
+};
+
+const DESCRIPTION_DE: Record<string, string> = {
+  // Charakter / Stil
+  "Laid-Back": "Entspannt",
+  "Casual": "Locker",
+  "Formal": "Förmlich",
+  "Friendly": "Freundlich",
+  "Warm": "Warm",
+  "Authoritative": "Autoritär",
+  "Confident": "Selbstsicher",
+  "Calm": "Ruhig",
+  "Energetic": "Energetisch",
+  "Upbeat": "Lebhaft",
+  "Serious": "Sachlich",
+  "Raspy": "Rau",
+  "Smooth": "Weich",
+  "Deep": "Tief",
+  "Resonant": "Resonant",
+  "Crisp": "Klar",
+  "Soft": "Sanft",
+  "Husky": "Heiser",
+  "Clear": "Deutlich",
+  "Conversational": "Gesprächig",
+  "Narrative": "Erzählend",
+  "Expressive": "Ausdrucksstark",
+  "Melodic": "Melodisch",
+  "Mature": "Reif",
+  "Powerful": "Kraftvoll",
+  "Bright": "Hell",
+  "Grounded": "Geerdet",
+  "Soothing": "Beruhigend",
+  "Professional": "Professionell",
+};
+
+const USE_CASE_DE: Record<string, string> = {
+  "narration": "Erzählung",
+  "news": "Nachrichten",
+  "audiobook": "Hörbuch",
+  "conversational": "Gespräch",
+  "social media": "Social Media",
+  "interactive": "Interaktiv",
+  "video games": "Videospiele",
+  "entertainment & tv": "Unterhaltung & TV",
+  "training & elearning": "Training & E-Learning",
+  "meditation": "Meditation",
+  "characters": "Charaktere",
+  "animation": "Animation",
+};
+
+function translateLabel(description?: string | null, use_case?: string | null): string | null {
+  const parts: string[] = [];
+  if (description) parts.push(DESCRIPTION_DE[description] ?? description);
+  if (use_case) parts.push(USE_CASE_DE[use_case] ?? use_case);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 export default function StimmenPage() {
@@ -70,7 +133,15 @@ export default function StimmenPage() {
               >
                 <div>
                   <p className="text-sm font-medium text-gray-900">{voice.label}</p>
-                  <p className="text-xs text-gray-400 font-mono mt-0.5">{voice.voice_id}</p>
+                  {(() => {
+                    const parts: string[] = [];
+                    if (voice.category && CATEGORY_DE[voice.category]) parts.push(CATEGORY_DE[voice.category]);
+                    const desc = translateLabel(voice.description, voice.use_case);
+                    if (desc) parts.push(desc);
+                    return parts.length > 0 ? (
+                      <p className="text-xs text-gray-400 mt-0.5">{parts.join(" · ")}</p>
+                    ) : null;
+                  })()}
                 </div>
                 {voice.preview_url ? (
                   <button

@@ -64,6 +64,7 @@ export default function JobsPanel() {
   const [jobs, setJobs] = useState<MyJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -182,6 +183,23 @@ export default function JobsPanel() {
     }
   };
 
+  const handleRetry = async (e: React.MouseEvent, job: MyJob) => {
+    e.stopPropagation();
+    setRetrying(job.job_uuid);
+    try {
+      const res = await fetch(`/api/jobs/${job.job_uuid}/retry`, { method: "POST", credentials: "include" });
+      if (!res.ok && res.status !== 409) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Wiederholen fehlgeschlagen");
+        return;
+      }
+      setOpen(false);
+      router.push("/my-jobs");
+    } finally {
+      setRetrying(null);
+    }
+  };
+
   const handleJobClick = (job: MyJob) => {
     setOpen(false);
     router.push("/my-jobs");
@@ -273,6 +291,15 @@ export default function JobsPanel() {
                               className="text-xs text-red-500 hover:underline disabled:opacity-50"
                             >
                               {cancelling === job.job_uuid ? "..." : "Abbrechen"}
+                            </button>
+                          )}
+                          {(job.tool === "tts" || job.tool === "screencast_render" || job.tool === "screencast_demo_render") && job.status === "failed" && (
+                            <button
+                              onClick={(e) => handleRetry(e, job)}
+                              disabled={retrying === job.job_uuid}
+                              className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                            >
+                              {retrying === job.job_uuid ? "..." : "Wiederholen"}
                             </button>
                           )}
                         </div>

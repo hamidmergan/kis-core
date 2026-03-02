@@ -259,7 +259,12 @@ export async function pollJob(
   onProgress?: (status: JobStatus) => void,
   intervalMs = 3000,
   signal?: AbortSignal,
+  onStuck?: () => void,
+  stuckThresholdMs = 30_000,
 ): Promise<JobStatus> {
+  let lastProgressJson = "";
+  let lastProgressChangeAt = Date.now();
+
   while (true) {
     if (signal?.aborted) throw new Error("Abgebrochen");
 
@@ -270,6 +275,16 @@ export async function pollJob(
     }
 
     const status: JobStatus = await res.json();
+
+    // Track progress changes for stuck detection
+    const currentProgressJson = JSON.stringify(status.progress);
+    if (currentProgressJson !== lastProgressJson) {
+      lastProgressJson = currentProgressJson;
+      lastProgressChangeAt = Date.now();
+    } else if ((status.status === "running" || status.status === "pending") && onStuck && Date.now() - lastProgressChangeAt > stuckThresholdMs) {
+      onStuck();
+    }
+
     onProgress?.(status);
 
     if (status.status === "success") return status;

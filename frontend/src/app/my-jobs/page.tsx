@@ -345,6 +345,7 @@ export default function MeineJobsPage() {
   const [details, setDetails] = useState<Record<string, JobDetail>>({});
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [offset, setOffset] = useState(0);
@@ -418,6 +419,21 @@ export default function MeineJobsPage() {
     window.addEventListener("kis-jobs-status-changed", handler);
     return () => window.removeEventListener("kis-jobs-status-changed", handler);
   }, [fetchJobs]);
+
+  const handleRetry = async (job: MyJob) => {
+    setRetrying(job.job_uuid);
+    try {
+      const res = await fetch(`/api/jobs/${job.job_uuid}/retry`, { method: "POST", credentials: "include" });
+      if (!res.ok && res.status !== 409) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Wiederholen fehlgeschlagen");
+        return;
+      }
+      await fetchJobs();
+    } finally {
+      setRetrying(null);
+    }
+  };
 
   const handleCancel = async (job: MyJob) => {
     setCancelling(job.job_uuid);
@@ -529,6 +545,15 @@ export default function MeineJobsPage() {
                             className="text-xs text-red-500 hover:underline disabled:opacity-50"
                           >
                             {cancelling === job.job_uuid ? "..." : "Abbrechen"}
+                          </button>
+                        )}
+                        {(job.tool === "tts" || job.tool === "screencast_render" || job.tool === "screencast_demo_render") && job.status === "failed" && (
+                          <button
+                            onClick={() => handleRetry(job)}
+                            disabled={retrying === job.job_uuid}
+                            className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                          >
+                            {retrying === job.job_uuid ? "..." : "Wiederholen"}
                           </button>
                         )}
                       </div>

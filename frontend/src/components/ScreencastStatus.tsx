@@ -6,16 +6,20 @@ interface ScreencastStatusProps {
   state: ScreencastState;
   fileName?: string;
   errorMessage?: string;
+  progressLabel?: string;
   onDownload?: () => void;
   onReset?: () => void;
+  onRetry?: () => void;
 }
 
 export default function ScreencastStatus({
   state,
   fileName,
   errorMessage,
+  progressLabel,
   onDownload,
   onReset,
+  onRetry,
 }: ScreencastStatusProps) {
   if (state === "idle") return null;
 
@@ -26,9 +30,9 @@ export default function ScreencastStatus({
           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0066cc]" />
           <div>
             <span className="text-sm text-gray-700">
-              {state === "uploading" ? "Datei wird hochgeladen..." : "Screencast wird erstellt..."}
+              {state === "uploading" ? "Datei wird hochgeladen..." : (progressLabel || "Screencast wird erstellt...")}
             </span>
-            {state === "processing" && (
+            {state === "processing" && !progressLabel && (
               <p className="text-xs text-gray-400 mt-1">
                 Übersetzung, Audiogenerierung und Videoproduktion, das kann einige Minuten dauern.
               </p>
@@ -74,13 +78,29 @@ export default function ScreencastStatus({
             <span className="text-sm font-medium text-red-700">Fehler bei der Screencast-Erstellung</span>
           </div>
           {errorMessage && <p className="text-xs text-red-600">{errorMessage}</p>}
-          <button
-            onClick={onReset}
-            aria-label="Erneut versuchen"
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
-          >
-            Erneut versuchen
-          </button>
+          {onRetry && (
+            <p className="text-xs text-gray-500">
+              Klicke auf <strong>Wiederholen</strong> — bereits fertige Schritte werden nicht wiederholt.
+            </p>
+          )}
+          <div className="flex gap-3">
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                aria-label="Job wiederholen"
+                className="px-4 py-2 text-sm text-white bg-[#0066cc] rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+              >
+                Wiederholen
+              </button>
+            )}
+            <button
+              onClick={onReset}
+              aria-label="Neue Datei hochladen"
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+            >
+              Neue Datei
+            </button>
+          </div>
         </div>
       )}
     </div>

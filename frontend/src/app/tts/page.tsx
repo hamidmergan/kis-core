@@ -115,13 +115,16 @@ export default function TtsPage() {
       const jobResult = await pollJob(
         job_uuid,
         (status) => {
-          const step = (status.progress as { step?: string } | null)?.step;
-          if (step === "extract") setTtsProgressLabel("Text wird extrahiert…");
-          else if (step === "synthesize") setTtsProgressLabel("Audio wird generiert…");
+          const p = status.progress as { step?: string; chunk?: number; total?: number } | null;
+          if (p?.step === "extract") setTtsProgressLabel("Text wird extrahiert…");
+          else if (p?.step === "synthesize" && p.chunk && p.total)
+            setTtsProgressLabel(`Chunk ${p.chunk} von ${p.total} wird synthetisiert…`);
+          else if (p?.step === "synthesize") setTtsProgressLabel("Audio wird generiert…");
           else setTtsProgressLabel("In der Warteschlange…");
         },
         3000,
         signal,
+        () => setTtsProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"),
       );
 
       // Download result

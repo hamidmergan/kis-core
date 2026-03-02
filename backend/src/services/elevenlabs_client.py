@@ -14,6 +14,9 @@ DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb"  # Brian – EN, deep, professional na
 _MODEL_ID = "eleven_turbo_v2_5"
 _API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
 
+# Turbo v2.5 erlaubt max 30.000 Zeichen pro Request — 5k Chunks für minimalen Verlust bei Crash
+_CHUNK_SIZE = 5_000
+
 # Optimized defaults for educational content
 _DEFAULT_STABILITY = 0.70
 _DEFAULT_SIMILARITY_BOOST = 0.60
@@ -30,6 +33,45 @@ PAUSE_PRESETS = {
     "long": 2.0,
     "very_long": 3.0,
 }
+
+
+_CHUNK_MIN = 4_800  # search window start
+_CHUNK_MAX = 5_200  # hard cut if no sentence end found
+
+
+def _split_text(text: str, max_chars: int = _CHUNK_SIZE) -> list[str]:
+    """Split text into chunks that always end at a sentence boundary.
+
+    Searches for a period (or ! ?) between _CHUNK_MIN and _CHUNK_MAX characters.
+    Falls back to a hard cut at _CHUNK_MAX if no sentence end is found in that window.
+    """
+    if len(text) <= _CHUNK_MAX:
+        return [text]
+
+    chunks = []
+    remaining = text
+
+    while len(remaining) > _CHUNK_MAX:
+        split_at = -1
+
+        # Search for sentence end (. ! ?) between 4800 and 5200 chars
+        for punct in (". ", "! ", "? ", ".\n", "!\n", "?\n"):
+            pos = remaining.rfind(punct, _CHUNK_MIN, _CHUNK_MAX)
+            if pos != -1:
+                split_at = pos + len(punct)
+                break
+
+        if split_at == -1:
+            # No sentence end in window — hard cut at 5200
+            split_at = _CHUNK_MAX
+
+        chunks.append(remaining[:split_at])
+        remaining = remaining[split_at:]
+
+    if remaining:
+        chunks.append(remaining)
+
+    return chunks
 
 
 def _insert_pauses(text: str, pause_preset: str = "medium") -> str:
@@ -92,8 +134,77 @@ class ElevenLabsClient:
         similarity_boost = max(0.0, min(1.0, similarity_boost))
         style = max(0.0, min(1.0, style))
 
-        # Insert pauses
+        # Insert pauses then split into API-safe chunks
         processed_text = _insert_pauses(text, pause_preset)
+        chunks = _split_text(processed_text)
+
+        vid = voice_id or DEFAULT_VOICE_ID
+        url = f"{_API_URL}/{vid}"
+        headers = {
+            "xi-api-key": self._api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        }
+        voice_settings = {
+            "stability": stability,
+            "similarity_boost": similarity_boost,
+            "style": style,
+            "use_speaker_boost": use_speaker_boost,
+        }
+
+        audio_parts: list[bytes] = []
+        prev_text = ""
+
+        with httpx.Client(timeout=300.0) as client:
+            for chunk in chunks:
+                payload: dict = {
+                    "text": chunk,
+                    "model_id": _MODEL_ID,
+                    "language_code": "en",
+                    "voice_settings": voice_settings,
+                }
+                if abs(speed - 1.0) > 0.01:
+                    payload["speed"] = round(speed, 2)
+                if prev_text:
+                    payload["previous_text"] = prev_text[-200:]
+
+                response = client.post(url, json=payload, headers=headers)
+
+                if response.status_code != 200:
+                    try:
+                        detail = response.json().get("detail", {})
+                        msg = detail.get("message", response.text) if isinstance(detail, dict) else str(detail)
+                    except Exception:
+                        msg = response.text
+                    raise RuntimeError(f"ElevenLabs API Fehler ({response.status_code}): {msg}")
+
+                audio_parts.append(response.content)
+                prev_text = chunk
+
+        return b"".join(audio_parts)
+
+    def synthesize_chunk(
+        self,
+        text: str,
+        *,
+        voice_id: str = "",
+        speed: float = _DEFAULT_SPEED,
+        stability: float = _DEFAULT_STABILITY,
+        similarity_boost: float = _DEFAULT_SIMILARITY_BOOST,
+        style: float = _DEFAULT_STYLE,
+        use_speaker_boost: bool = _DEFAULT_SPEAKER_BOOST,
+        previous_text: str = "",
+    ) -> bytes:
+        """Synthesize a single pre-processed text chunk via one API call.
+
+        Unlike synthesize(), this method does NOT split long texts internally.
+        Use this when the caller manages chunking and saves each chunk individually
+        (e.g. for crash recovery). Network errors propagate to the caller.
+        """
+        speed = max(0.5, min(1.2, speed))
+        stability = max(0.0, min(1.0, stability))
+        similarity_boost = max(0.0, min(1.0, similarity_boost))
+        style = max(0.0, min(1.0, style))
 
         vid = voice_id or DEFAULT_VOICE_ID
         url = f"{_API_URL}/{vid}"
@@ -103,7 +214,7 @@ class ElevenLabsClient:
             "Accept": "audio/mpeg",
         }
         payload: dict = {
-            "text": processed_text,
+            "text": text,
             "model_id": _MODEL_ID,
             "language_code": "en",
             "voice_settings": {
@@ -113,10 +224,10 @@ class ElevenLabsClient:
                 "use_speaker_boost": use_speaker_boost,
             },
         }
-
-        # speed != 1.0 → include in payload
         if abs(speed - 1.0) > 0.01:
             payload["speed"] = round(speed, 2)
+        if previous_text:
+            payload["previous_text"] = previous_text[-200:]
 
         with httpx.Client(timeout=300.0) as client:
             response = client.post(url, json=payload, headers=headers)

@@ -6,7 +6,7 @@ from src.celery_app import celery_app
 from src import database as db
 
 # Jobs with no progress update for longer than this are considered stuck.
-STUCK_THRESHOLD_MINUTES = 3
+STUCK_THRESHOLD_MINUTES = 30 / 60  # 30 seconds — fallback for SIGKILL only
 
 
 @celery_app.task(name="watchdog.check")
@@ -25,6 +25,6 @@ def check_stuck_jobs() -> None:
         db.update_job_status(
             job_uuid,
             "failed",
-            error_message=f"Job hat sich seit über {STUCK_THRESHOLD_MINUTES} Minuten nicht mehr gemeldet (möglicher Absturz oder Hänger).",
+            error_message="Job hat sich nicht mehr gemeldet (möglicher Absturz oder Hänger). Bitte Wiederholen klicken.",
         )
     logger.info("Watchdog: {} stuck job(s) marked as failed", len(stuck))

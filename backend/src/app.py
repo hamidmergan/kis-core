@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
-from src.database import init_db
+from src.database import init_db, reset_stuck_jobs
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
 from src.storage import USE_S3, cleanup_expired_files, init_storage
@@ -46,6 +46,9 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     init_db(admin_email=settings.admin_email or None)
     logger.info("Database initialised")
+    stuck = reset_stuck_jobs()
+    if stuck:
+        logger.warning("Startup: {} stuck job(s) reset to failed (server was restarted)", stuck)
     init_storage()
     logger.info("Storage initialised (mode={})", "s3" if USE_S3 else "local")
     if settings.admin_email:
