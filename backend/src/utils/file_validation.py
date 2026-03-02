@@ -6,7 +6,19 @@ ALLOWED_EXTENSIONS = {
     ".txt": "text/plain",
 }
 
+TTS_EXTENSIONS = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".md": "text/markdown",
+    ".txt": "text/plain",
+}
+
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
+TRANSLATE_MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB
+
+TTS_MAX_CHARS = 100_000
+TRANSLATE_MAX_CHARS = 100_000
+SCRIPT_MAX_CHARS = 100_000
+SUMMARY_MAX_CHARS = 100_000
 
 TRANSCRIPTION_EXTENSIONS = {
     ".mp3": "audio/mpeg",

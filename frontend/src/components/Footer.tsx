@@ -7,14 +7,14 @@ export default function Footer() {
         KIS verwendet KI-Technologie. Alle generierten Inhalte können Fehler enthalten und sollten kritisch geprüft werden.
       </p>
       <Link
-        href="/impressum"
+        href="/imprint"
         className="hover:text-[#0066cc] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]"
       >
         Impressum
       </Link>
       <span className="mx-2">|</span>
       <Link
-        href="/datenschutz"
+        href="/privacy"
         className="hover:text-[#0066cc] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]"
       >
         Datenschutz

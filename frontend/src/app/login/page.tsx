@@ -23,7 +23,7 @@ export default function LoginPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {
-        router.push("/testphase");
+        router.push("/pending");
       } else {
         setError("Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.");
       }

@@ -182,25 +182,37 @@ export default function TtsPage() {
             <p className="mt-2 text-sm font-medium text-gray-700">{ttsSelectedFile}</p>
           )}
 
-          {/* Stimme – Dropdown */}
+          {/* Stimme – Dropdown + Custom Voice ID */}
           {voices.length > 1 && (
-            <div className="mt-6 mb-6">
-              <label htmlFor="voice-select" className="block text-sm font-medium text-gray-700 mb-2">
-                Stimme
-              </label>
-              <select
-                id="voice-select"
-                value={voiceId}
-                onChange={(e) => setVoiceId(e.target.value)}
-                disabled={isProcessing}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {voices.map((v) => (
-                  <option key={v.voice_id} value={v.voice_id}>
-                    {v.label}
-                  </option>
-                ))}
-              </select>
+            <div className="mt-6 mb-6 space-y-3">
+              <div>
+                <label htmlFor="voice-select" className="block text-sm font-medium text-gray-700 mb-2">
+                  Stimme
+                </label>
+                <select
+                  id="voice-select"
+                  value={voiceId}
+                  onChange={(e) => setVoiceId(e.target.value)}
+                  disabled={isProcessing}
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {voices.map((v) => (
+                    <option key={v.voice_id} value={v.voice_id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <a
+                  href="/voices"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#0066cc] hover:underline"
+                >
+                  Stimmen anhören →
+                </a>
+              </div>
             </div>
           )}
 

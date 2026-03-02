@@ -15,12 +15,14 @@ const ALL_WORKFLOWS = [
   },
 ];
 
-const ALL_TOOLS = [
+type Tool = { key: string; title: string; description: string; href: string; unavailable?: boolean };
+
+const ALL_TOOLS: Tool[] = [
   {
     key: "translation",
     title: "Dokumentenübersetzung",
     description: "Übersetzen Sie Dokumente automatisch von Deutsch nach Englisch.",
-    href: "/uebersetzung",
+    href: "/translation",
   },
   {
     key: "tts",
@@ -32,7 +34,7 @@ const ALL_TOOLS = [
     key: "script",
     title: "Skript erstellen",
     description: "Erstellen Sie aus Dokumenten ein fließendes Vorleseskript.",
-    href: "/skript",
+    href: "/script",
   },
   {
     key: "transcription",
@@ -45,6 +47,7 @@ const ALL_TOOLS = [
     title: "Video-Dubbing",
     description: "Synchronisieren Sie ein Video automatisch in eine andere Sprache.",
     href: "/video-dubbing",
+    unavailable: true,
   },
   {
     key: "image",
@@ -62,7 +65,7 @@ const ALL_TOOLS = [
     key: "summary",
     title: "Zusammenfassung",
     description: "Fassen Sie Dokumente, Audio- und Untertiteldateien automatisch zusammen.",
-    href: "/zusammenfassung",
+    href: "/summary",
   },
 ];
 
@@ -116,16 +119,29 @@ export default function HomePage() {
               Einzelne Tools für spezifische Aufgaben.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
-              {tools.map((tool) => (
-                <Link
-                  key={tool.href}
-                  href={tool.href}
-                  className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
-                >
-                  <h2 className="text-lg font-semibold text-[#0066cc] mb-2">{tool.title}</h2>
-                  <p className="text-sm text-gray-600">{tool.description}</p>
-                </Link>
-              ))}
+              {tools.map((tool) =>
+                tool.unavailable ? (
+                  <div
+                    key={tool.href}
+                    className="block rounded-lg border border-gray-200 bg-gray-50 p-6 shadow-sm opacity-60 cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <h2 className="text-lg font-semibold text-gray-400">{tool.title}</h2>
+                      <span className="text-xs font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">Nicht verfügbar</span>
+                    </div>
+                    <p className="text-sm text-gray-400">{tool.description}</p>
+                  </div>
+                ) : (
+                  <Link
+                    key={tool.href}
+                    href={tool.href}
+                    className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    <h2 className="text-lg font-semibold text-[#0066cc] mb-2">{tool.title}</h2>
+                    <p className="text-sm text-gray-600">{tool.description}</p>
+                  </Link>
+                )
+              )}
             </div>
           </>
         )}

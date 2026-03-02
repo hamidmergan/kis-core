@@ -13,7 +13,9 @@ from src.utils.file_validation import (
     MAX_TRANSCRIPTION_BYTES,
     MAX_UPLOAD_BYTES,
     SUMMARY_EXTENSIONS,
+    SUMMARY_MAX_CHARS,
 )
+from src.utils.text_extraction import EXTRACTORS
 
 router = APIRouter(tags=["summary"])
 
@@ -60,6 +62,15 @@ async def summarize(
         raise HTTPException(status_code=400, detail="Datei ist leer")
     if len(content) > max_bytes:
         raise HTTPException(status_code=413, detail="Datei zu groß")
+
+    extractor = EXTRACTORS.get(ext)
+    if extractor is not None:
+        text = extractor(content)
+        if len(text) > SUMMARY_MAX_CHARS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Dokument zu lang ({len(text):,} Zeichen). Bitte aufteilen (max. {SUMMARY_MAX_CHARS:,} Zeichen).".replace(",", "."),
+            )
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)

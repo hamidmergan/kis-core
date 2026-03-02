@@ -7,7 +7,11 @@ import httpx
 # Default voice
 DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb"  # Brian – EN, deep, professional narration
 
-_MODEL_ID = "eleven_multilingual_v2"
+# TTS model — Alternativen:
+# "eleven_turbo_v2_5"     → Turbo, schnell, minimal schlechtere Qualität (aktuell genutzt)
+# "eleven_multilingual_v2" → Höchste Qualität, langsamer
+# "eleven_flash_v2_5"     → Schnellstes/günstigstes Modell, spürbar schlechtere Qualität
+_MODEL_ID = "eleven_turbo_v2_5"
 _API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
 
 # Optimized defaults for educational content

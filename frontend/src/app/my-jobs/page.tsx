@@ -412,6 +412,13 @@ export default function MeineJobsPage() {
     fetchJobs();
   }, [fetchJobs]);
 
+  // Refresh when JobsPanel detects a status change (e.g. running→success)
+  useEffect(() => {
+    const handler = () => fetchJobs();
+    window.addEventListener("kis-jobs-status-changed", handler);
+    return () => window.removeEventListener("kis-jobs-status-changed", handler);
+  }, [fetchJobs]);
+
   const handleCancel = async (job: MyJob) => {
     setCancelling(job.job_uuid);
     try {

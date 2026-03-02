@@ -1009,7 +1009,7 @@ function ScreencastPageInner() {
                 </p>
                 <p className="mt-1 text-sm text-red-700">
                   Um einen neuen Screencast zu starten, warten Sie bis der Job fertig ist oder brechen Sie ihn in der{" "}
-                  <a href="/meine-jobs" className="underline hover:text-red-900 font-medium">
+                  <a href="/my-jobs" className="underline hover:text-red-900 font-medium">
                     Jobliste
                   </a>{" "}
                   ab.
@@ -1175,7 +1175,7 @@ function ScreencastPageInner() {
                 </p>
                 <p className="mt-0.5 text-sm text-yellow-700">
                   Wenn Sie einen neuen starten, wird der alte automatisch gelöscht. Bitte laden Sie ihn vorher herunter.{" "}
-                  <a href="/meine-jobs" className="underline hover:text-yellow-900">
+                  <a href="/my-jobs" className="underline hover:text-yellow-900">
                     Zur Jobliste
                   </a>
                 </p>
@@ -1696,24 +1696,36 @@ function ScreencastPageInner() {
               Passen Sie Stimme, Geschwindigkeit und Pausen an.
             </p>
 
-            {/* Stimme – Dropdown */}
+            {/* Stimme – Dropdown + Custom Voice ID */}
             {voices.length > 1 && (
-              <div className="mb-6">
-                <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">
-                  Stimme
-                </label>
-                <select
-                  id="sc-voice-select"
-                  value={voiceId}
-                  onChange={(e) => setVoiceId(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc]"
-                >
-                  {voices.map((v) => (
-                    <option key={v.voice_id} value={v.voice_id}>
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="mb-6 space-y-3">
+                <div>
+                  <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">
+                    Stimme
+                  </label>
+                  <select
+                    id="sc-voice-select"
+                    value={voiceId}
+                    onChange={(e) => setVoiceId(e.target.value)}
+                    className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc]"
+                  >
+                    {voices.map((v) => (
+                      <option key={v.voice_id} value={v.voice_id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <a
+                    href="/voices"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-[#0066cc] hover:underline"
+                  >
+                    Stimmen anhören →
+                  </a>
+                </div>
               </div>
             )}
 

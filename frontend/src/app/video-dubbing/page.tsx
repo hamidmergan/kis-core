@@ -210,6 +210,11 @@ export default function VideoDubbingPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Video-Dubbing</h1>
+
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <strong>Derzeit nicht verfügbar.</strong> Video-Dubbing über ElevenLabs ist aufgrund zu hoher Kosten deaktiviert. Eine eigene Dubbing-Pipeline ist in Planung.
+          </div>
+
           <p className="text-sm text-gray-500 mb-6">
             Laden Sie ein Video (.mp4) oder Audio (.mp3) hoch, um es automatisch
             von Deutsch nach Englisch zu synchronisieren.

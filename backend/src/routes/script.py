@@ -7,7 +7,8 @@ from loguru import logger
 from src import database as db
 from src.dependencies import get_current_user
 from src.storage import save_queue_file
-from src.utils.file_validation import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES
+from src.utils.file_validation import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES, SCRIPT_MAX_CHARS
+from src.utils.text_extraction import EXTRACTORS
 
 router = APIRouter(tags=["script"])
 
@@ -38,6 +39,17 @@ async def generate_script(
         raise HTTPException(status_code=400, detail="Datei ist leer")
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
+
+    extractor = EXTRACTORS.get(ext)
+    if extractor is None:
+        raise HTTPException(status_code=400, detail="Dateityp wird nicht unterstützt")
+
+    text = extractor(content)
+    if len(text) > SCRIPT_MAX_CHARS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Dokument zu lang ({len(text):,} Zeichen). Bitte aufteilen (max. {SCRIPT_MAX_CHARS:,} Zeichen).".replace(",", "."),
+        )
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)

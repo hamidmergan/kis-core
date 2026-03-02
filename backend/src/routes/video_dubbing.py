@@ -269,12 +269,9 @@ async def video_dubbing(
     soft_subtitles: bool = Form(False),
     current_user: dict = Depends(get_current_user),
 ):
-    """Queue a video dubbing job using ElevenLabs Dubbing API.
-
-    Returns ``{ job_uuid }`` immediately. Poll ``GET /jobs/{job_uuid}`` for status.
-    On success the result contains ``download_url`` (dubbed media) and subtitle
-    data (srt/vtt/txt/json) in the ``meta`` field.
-    """
+    # Video-Dubbing via ElevenLabs ist deaktiviert (zu teuer: ~$216/90-Min-Video).
+    # Eigene Pipeline in Planung. Bis dahin: kein ElevenLabs-Aufruf möglich.
+    raise HTTPException(status_code=503, detail="Video-Dubbing ist derzeit nicht verfügbar.")
     ext = _validate_upload(file.filename, _ALL_EXTENSIONS, "Datei")
 
     content_length = request.headers.get("content-length")

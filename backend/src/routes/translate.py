@@ -9,8 +9,10 @@ from src.dependencies import get_current_user, get_settings
 from src.storage import save_queue_file
 from src.utils.file_validation import (
     ALLOWED_EXTENSIONS,
-    MAX_UPLOAD_BYTES,
+    TRANSLATE_MAX_UPLOAD_BYTES,
+    TRANSLATE_MAX_CHARS,
 )
+from src.utils.text_extraction import EXTRACTORS
 
 router = APIRouter(tags=["translate"])
 
@@ -65,14 +67,23 @@ async def translate(
         raise HTTPException(status_code=400, detail="Nur .docx, .pptx, .md, .tex oder .txt erlaubt")
 
     content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
+    if content_length is not None and int(content_length) > TRANSLATE_MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
 
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Datei ist leer")
-    if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
+    if len(content) > TRANSLATE_MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
+
+    extractor = EXTRACTORS.get(ext)
+    if extractor is not None:
+        text = extractor(content)
+        if len(text) > TRANSLATE_MAX_CHARS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Dokument zu lang ({len(text):,} Zeichen). Bitte aufteilen (max. {TRANSLATE_MAX_CHARS:,} Zeichen).".replace(",", "."),
+            )
 
     settings = get_settings()
     job_uuid = uuid.uuid4().hex

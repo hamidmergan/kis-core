@@ -70,12 +70,21 @@ export default function JobsPanel() {
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
+  const prevJobStatusesRef = useRef<Record<string, string>>({});
+
   const fetchJobs = useCallback(async () => {
     try {
       const res = await fetch("/api/jobs/my?limit=10", { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
-      setJobs(data.jobs ?? []);
+      const newJobs: MyJob[] = data.jobs ?? [];
+      setJobs(newJobs);
+
+      // Fire event if any job changed status (e.g. running→success)
+      const prev = prevJobStatusesRef.current;
+      const changed = newJobs.some((j) => prev[j.job_uuid] && prev[j.job_uuid] !== j.status);
+      if (changed) window.dispatchEvent(new CustomEvent("kis-jobs-status-changed"));
+      prevJobStatusesRef.current = Object.fromEntries(newJobs.map((j) => [j.job_uuid, j.status]));
     } catch {
       // silently ignore
     }
@@ -144,7 +153,7 @@ export default function JobsPanel() {
   const handleButtonClick = () => {
     if (open) {
       setOpen(false);
-      router.push("/meine-jobs");
+      router.push("/my-jobs");
     } else {
       setOpen(true);
     }
@@ -175,7 +184,7 @@ export default function JobsPanel() {
 
   const handleJobClick = (job: MyJob) => {
     setOpen(false);
-    router.push("/meine-jobs");
+    router.push("/my-jobs");
   };
 
   return (
@@ -277,7 +286,7 @@ export default function JobsPanel() {
 
           <div className="px-4 py-2.5 border-t border-gray-100 text-center">
             <Link
-              href="/meine-jobs"
+              href="/my-jobs"
               onClick={() => setOpen(false)}
               className="text-xs text-[#0066cc] hover:underline"
             >
