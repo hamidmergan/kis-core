@@ -316,8 +316,7 @@ def run_screencast_render(
             dpi=dpi,
         )
 
-        stem = Path(original_filename).stem if original_filename else "screencast"
-        result_filename = f"{stem}_screencast_EN.mp4"
+        result_filename = f"{Path(original_filename).stem if original_filename else 'screencast'}.mp4"
         db.update_job_result(translate_job_uuid, result["result_path"], result_filename)
         db.update_job_status(translate_job_uuid, "success")
 
@@ -396,8 +395,7 @@ def run_screencast_auto(
             embed_subtitles=True,
         )
 
-        stem = Path(filename).stem
-        result_filename = f"{stem}_screencast_EN.mp4"
+        result_filename = f"{Path(filename).stem}.mp4"
         db.update_job_result(job_uuid, result["result_path"], result_filename)
         db.update_job_status(job_uuid, "success")
 

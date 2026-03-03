@@ -166,14 +166,15 @@ export default function TtsPage() {
         },
         3000,
         signal,
-        () => setTtsProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"),
+        () => setTtsProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"),
+        60_000,
       );
 
       // Download result
       setTtsProgressLabel("Wird heruntergeladen…");
       const { blob, filename } = await downloadJobAsBlob(
         jobResult.job_uuid,
-        `${pendingFile.name.replace(/\.[^.]+$/, "")}_EN.mp3`,
+        `${pendingFile.name.replace(/\.[^.]+$/, "")}.mp3`,
       );
       setTtsDownloadBlob(blob);
       setTtsDownloadName(filename);

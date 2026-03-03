@@ -30,6 +30,7 @@ export default function ZusammenfassungPage() {
   const [userPrompt, setUserPrompt] = useState("");
   const outputFormat = "txt";
   const [errorMessage, setErrorMessage] = useState("");
+  const [stallMessage, setStallMessage] = useState("");
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +75,7 @@ export default function ZusammenfassungPage() {
     if (!selectedFile || processing) return;
     setProcessing(true);
     setErrorMessage("");
+    setStallMessage("");
     setDoneJobUuid(null);
     try {
       const formData = new FormData();
@@ -87,7 +89,10 @@ export default function ZusammenfassungPage() {
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid);
+      await pollJob(data.job_uuid, undefined, 3000, undefined,
+        () => setStallMessage("Läuft noch – umfangreiche Inhalte können einige Minuten dauern…"),
+        60_000,
+      );
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -215,6 +220,10 @@ export default function ZusammenfassungPage() {
             </button>
           </div>
 
+          {stallMessage && !errorMessage && (
+            <p className="mt-3 text-sm text-amber-600" role="status">{stallMessage}</p>
+          )}
+
           {errorMessage && (
             <p className="mt-3 text-sm text-red-600" role="alert">{errorMessage}</p>
           )}
@@ -228,7 +237,7 @@ export default function ZusammenfassungPage() {
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Zusammenfassung herunterladen
+                Zusammenfassung
               </button>
               <button
                 onClick={handleReset}

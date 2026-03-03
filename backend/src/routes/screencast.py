@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Callable
 from io import BytesIO
@@ -37,6 +38,7 @@ from src.utils.file_validation import (
     MAX_SCREENCAST_SLIDES,
     MAX_UPLOAD_BYTES,
     SCREENCAST_EXTENSIONS,
+    SCREENCAST_MAX_CHARS,
 )
 from src import database as db
 from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json, get_job_file, save_job_file, job_file_exists, delete_job_folder
@@ -1108,6 +1110,13 @@ async def screencast_render(
             detail=f"Zu viele Folien ({len(body.scripts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
         )
 
+    total_chars = sum(len(s) for s in body.scripts)
+    if total_chars > SCREENCAST_MAX_CHARS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Das Skript ist zu lang ({total_chars:,} Zeichen). Maximum: {SCREENCAST_MAX_CHARS:,} Zeichen.",
+        )
+
     user_id = current_user.get("user_id", 0)
 
     # Validate translate job ownership + status
@@ -1140,7 +1149,33 @@ async def screencast_render(
     return {"job_uuid": body.translate_job_uuid}
 
 
-# ── Audio download endpoint ──────────────────────────────────────────────────
+# ── Audio download endpoints ──────────────────────────────────────────────────
+
+@router.get("/screencast/audio/{audio_id}/zip")
+async def download_all_slide_audio_zip(audio_id: str):
+    """Download all per-slide MP3s as a single ZIP archive."""
+    count = get_audio_slide_count(audio_id)
+    if count == 0:
+        raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
+
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for i in range(count):
+            audio_bytes = get_audio_slide(audio_id, i)
+            if audio_bytes:
+                zf.writestr(f"slide_{i + 1:02d}.mp3", audio_bytes)
+    buf.seek(0)
+    zip_bytes = buf.read()
+
+    return StreamingResponse(
+        iter([zip_bytes]),
+        media_type="application/zip",
+        headers={
+            "Content-Length": str(len(zip_bytes)),
+            "Content-Disposition": f'attachment; filename="folien_audio.zip"',
+        },
+    )
+
 
 @router.get("/screencast/audio/{audio_id}/{slide_index}")
 async def download_slide_audio(audio_id: str, slide_index: int):

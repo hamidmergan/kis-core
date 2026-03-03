@@ -138,6 +138,7 @@ function stepToIndex(step: ScreencastStep): number {
 }
 
 const RENDER_SESSION_KEY = "kis_screencast_active_render";
+const SCREENCAST_MAX_CHARS = 100_000;
 
 function ScreencastPageInner() {
   const { mergeToApiJson } = useGlossaries();
@@ -511,7 +512,7 @@ function ScreencastPageInner() {
       sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: true }));
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
-      const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"));
+      const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
       currentJobUuidRef.current = null;
 
       const stem = file.name.replace(/\.pptx$/i, "");
@@ -656,7 +657,7 @@ function ScreencastPageInner() {
       const a = document.createElement("a");
       a.href = url;
       const stem = file?.name?.replace(/\.pptx$/i, "") || "presentation";
-      a.download = `${stem}_EN.pptx`;
+      a.download = `${stem}.pptx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -931,7 +932,7 @@ function ScreencastPageInner() {
         currentJobUuidRef.current = job_uuid;
         sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
         window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-        const jobResult = await pollJob(job_uuid, onRenderProgress, 3000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"));
+        const jobResult = await pollJob(job_uuid, onRenderProgress, 3000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
         currentJobUuidRef.current = null;
         await processRenderResultFromJob(jobResult);
       } else {
@@ -980,7 +981,7 @@ function ScreencastPageInner() {
       currentJobUuidRef.current = job_uuid;
       sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"));
+      const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
       currentJobUuidRef.current = null;
       await processRenderResultFromJob(jobResult);
     } catch (err) {
@@ -1037,7 +1038,7 @@ function ScreencastPageInner() {
       const signal = newSignal();
       const jobResult = await pollJob(
         uuid, onRenderProgress, 3000, signal,
-        () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"),
+        () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000,
       );
       currentJobUuidRef.current = null;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
@@ -1098,7 +1099,7 @@ function ScreencastPageInner() {
         const ctrl = new AbortController();
         abortControllerRef.current = ctrl;
         pollJob(uuid, onRenderProgress, 3000, ctrl.signal,
-          () => setRenderProgressLabel("Kein Fortschritt seit 30 Sek. — Worker möglicherweise abgestürzt…"))
+          () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000)
           .then(jobResult => {
             sessionStorage.removeItem(RENDER_SESSION_KEY);
             currentJobUuidRef.current = null;
@@ -1203,6 +1204,8 @@ function ScreencastPageInner() {
     0,
   );
   const totalDuration = estimateDuration(totalWords);
+  const totalChars = slides.reduce((sum, s) => sum + (s.script?.length ?? 0), 0);
+  const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
 
   return (
     <ProtectedRoute>
@@ -1214,7 +1217,7 @@ function ScreencastPageInner() {
             <nav
               ref={stepperRef}
               aria-label="Fortschritt"
-              className="mb-2 overflow-x-auto scrollbar-hide cursor-grab touch-pan-x"
+              className="mb-6 overflow-x-auto scrollbar-hide cursor-grab touch-pan-x"
               onMouseDown={handleStepperMouseDown}
               onMouseMove={handleStepperMouseMove}
               onMouseUp={handleStepperMouseUp}
@@ -1299,7 +1302,7 @@ function ScreencastPageInner() {
                 })}
               </ol>
             </nav>
-            <div className="flex justify-start mb-6">
+            <div className="flex justify-between mb-6">
               <button
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-red-500 rounded transition-colors"
@@ -1308,6 +1311,15 @@ function ScreencastPageInner() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 Neu starten
+              </button>
+              <button
+                onClick={resetAll}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 rounded transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Screencast abbrechen
               </button>
             </div>
           </>
@@ -1725,9 +1737,12 @@ function ScreencastPageInner() {
             <div className="flex flex-col gap-3 mb-4">
               <button
                 onClick={handleDownloadTranslatedPptx}
-                className="w-full px-4 py-2 text-sm text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-[#0066cc]/5 transition-colors"
+                className="w-full px-4 py-2 text-sm text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center justify-center gap-2"
               >
-                Übersetzte PPTX herunterladen
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                PPTX
               </button>
 
               <div className="relative">
@@ -2161,15 +2176,38 @@ function ScreencastPageInner() {
             </div>
 
             {/* Summary */}
-            <div className="mb-6 rounded-lg bg-gray-50 px-4 py-3">
+            <div className="mb-4 rounded-lg bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-700">
                 <span className="font-medium">{slides.length}</span>{" "}
                 Folien · ca.{" "}
                 <span className="font-medium">{totalWords}</span>{" "}
                 Wörter · geschätzte Dauer{" "}
-                <span className="font-medium">~{totalDuration} Sek</span>
+                <span className="font-medium">~{totalDuration} Sek</span>{" "}
+                ·{" "}
+                <span className={`font-medium ${scriptOverLimit ? "text-red-600" : ""}`}>
+                  {totalChars.toLocaleString("de-DE")}
+                </span>{" "}
+                / {SCREENCAST_MAX_CHARS.toLocaleString("de-DE")} Zeichen
               </p>
             </div>
+
+            {scriptOverLimit && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
+                <span className="text-red-500 mt-0.5">⚠</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-700">Skript zu lang</p>
+                  <p className="text-sm text-red-600 mt-0.5">
+                    Das Skript hat {totalChars.toLocaleString("de-DE")} Zeichen (max. {SCREENCAST_MAX_CHARS.toLocaleString("de-DE")}). Bitte kürzen Sie die Folien-Texte.
+                  </p>
+                  <button
+                    onClick={handleBackToScripts}
+                    className="mt-2 px-3 py-1.5 text-sm font-medium text-red-700 border border-red-300 rounded-md hover:bg-red-100 transition-colors"
+                  >
+                    Zurück zum Skript bearbeiten
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button
@@ -2180,7 +2218,7 @@ function ScreencastPageInner() {
               </button>
               <button
                 onClick={handleStartRender}
-                disabled={isDemoMode}
+                disabled={isDemoMode || scriptOverLimit}
                 className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Screencast erstellen
@@ -2188,7 +2226,8 @@ function ScreencastPageInner() {
               {demoAvailable && (
                 <button
                   onClick={handleDemoRender}
-                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
+                  disabled={scriptOverLimit}
+                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Demo
                 </button>
@@ -2287,17 +2326,20 @@ function ScreencastPageInner() {
             <div className="flex justify-center mb-4">
               <button
                 onClick={handleDownload}
-                aria-label="MP4 herunterladen"
-                className="px-6 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                aria-label="MP4"
+                className="px-6 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors flex items-center gap-2"
               >
-                MP4 herunterladen
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                MP4
               </button>
             </div>
 
             {/* Row 2: Transcript downloads */}
             {subtitleData && (
               <div className="mb-4">
-                <p className="text-xs text-gray-400 text-center mb-2">Transkript herunterladen</p>
+                <p className="text-xs text-gray-400 text-center mb-2">Transkript</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {([
                     ["SRT", subtitleData.srt, "transcript.srt", "text/plain"],
@@ -2329,33 +2371,31 @@ function ScreencastPageInner() {
             {/* Row 3: Audio downloads */}
             {audioId && audioCount > 0 && (
               <div className="mb-4">
-                <p className="text-xs text-gray-400 text-center mb-2">Audio pro Folie herunterladen</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {Array.from({ length: audioCount }, (_, i) => (
-                    <button
-                      key={i}
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(`/api/screencast/audio/${audioId}/${i}`, { credentials: "include" });
-                          if (!res.ok) throw new Error("Download fehlgeschlagen");
-                          const blob = await res.blob();
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = `slide_${String(i + 1).padStart(2, "0")}.mp3`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                        } catch {
-                          console.error("Audio download failed for slide", i + 1);
-                        }
-                      }}
-                      className="px-3 py-1.5 text-xs text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                    >
-                      Folie {i + 1}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap justify-center gap-2 items-center">
+                  <span className="text-xs text-gray-400">Audios:</span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const stem = file?.name?.replace(/\.pptx$/i, "") || "screencast";
+                        const res = await fetch(`/api/screencast/audio/${audioId}/zip`, { credentials: "include" });
+                        if (!res.ok) throw new Error("ZIP-Download fehlgeschlagen");
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${stem}_folien_audio.zip`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      } catch {
+                        console.error("ZIP download failed");
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    ZIP
+                  </button>
                 </div>
               </div>
             )}

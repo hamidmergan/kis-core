@@ -16,6 +16,7 @@ export default function UebersetzungPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [selectedFile, setSelectedFile] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [stallMessage, setStallMessage] = useState<string>("");
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
   const handleFileSelected = useCallback((file: File) => {
@@ -29,6 +30,7 @@ export default function UebersetzungPage() {
     if (!pendingFile || processing) return;
     setProcessing(true);
     setErrorMessage("");
+    setStallMessage("");
     setDoneJobUuid(null);
     try {
       const glossaryJson = mergeToApiJson(glossaryIds);
@@ -42,7 +44,10 @@ export default function UebersetzungPage() {
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid);
+      await pollJob(data.job_uuid, undefined, 3000, undefined,
+        () => setStallMessage("Läuft noch – große Dokumente können einige Minuten dauern…"),
+        60_000,
+      );
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -102,6 +107,10 @@ export default function UebersetzungPage() {
             </button>
           </div>
 
+          {stallMessage && !errorMessage && (
+            <p className="text-sm text-amber-600" role="status">{stallMessage}</p>
+          )}
+
           {errorMessage && (
             <p className="text-sm text-red-600" role="alert">{errorMessage}</p>
           )}
@@ -115,7 +124,7 @@ export default function UebersetzungPage() {
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Übersetzung herunterladen
+                Übersetzung
               </button>
               <button
                 onClick={handleReset}

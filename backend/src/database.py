@@ -20,29 +20,10 @@ def _de_date_to_utc(date_str: str, end_of_day: bool = False) -> str:
     local_dt = datetime(year, month, day, hour, minute, second, tzinfo=_TZ_BERLIN)
     return local_dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-# Per-tool-group limits for stored result files per user.
-# When a new result is saved and the group limit is exceeded,
-# the oldest file in that group is deleted from disk (DB record is kept).
-MAX_RESULT_FILES = {
-    "video": 1,       # video_dubbing + all screencasts (shared, MP4 files are large)
-    "general": 10,    # all other tools combined (tts, translation, transcription, image, script, summary)
-}
-
-TOOL_RESULT_GROUP = {
-    "video_dubbing": "video",
-    "screencast_translate": "video",    # translate job now owns the final MP4
-    "screencast_render": "video",       # kept for backward compat with old jobs
-    "screencast_auto": "video",
-    "screencast_demo_render": "video",
-    "tts": "general",
-    "translation": "general",
-    "transcription": "general",
-    "image_generate": "general",
-    "image_edit": "general",
-    "image_analyze": "general",
-    "script": "general",
-    "summary": "general",
-}
+# Maximum number of stored result files per user (across all tools).
+# When a new result is saved and the limit is exceeded,
+# the oldest file is deleted from disk (DB record is kept).
+MAX_RESULT_FILES = 20
 
 DB_PATH = Path("/app/data/database.db")
 
@@ -235,7 +216,7 @@ def set_setting(key: str, value: str) -> None:
 
 # --- Jobs ---
 
-JOB_RETENTION_HOURS = 12
+JOB_RETENTION_HOURS = 168  # 7 days
 
 
 def create_job(
@@ -292,12 +273,9 @@ def get_jobs_by_user(
     user_id: int, limit: int = 20, offset: int = 0, q: str = "",
     date_from: str = "", date_to: str = "",
     extra_tools: list[str] | None = None,
-    hide_expired: bool = True,
 ) -> tuple[list[dict], int]:
     conditions = ["user_id = ?"]
     params: list = [user_id]
-    if hide_expired:
-        conditions.append("NOT (status = 'success' AND (result_path IS NULL OR result_path = ''))")
     if q:
         like = f"%{q}%"
         if extra_tools:
@@ -371,19 +349,14 @@ def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
         return row is not None
 
 
-def get_results_for_tool_group(user_id: int, group: str) -> list[dict]:
-    """Return all jobs with a result_path for the given tool group, ordered oldest first."""
-    tools = [t for t, g in TOOL_RESULT_GROUP.items() if g == group]
-    if not tools:
-        return []
-    placeholders = ",".join("?" * len(tools))
+def get_all_results_for_user(user_id: int) -> list[dict]:
+    """Return all jobs with a result_path for the given user, ordered oldest first."""
     with get_connection() as conn:
         rows = conn.execute(
-            f"""SELECT id, result_path, result_filename, original_filename FROM jobs
-               WHERE user_id = ? AND tool IN ({placeholders}) AND result_path IS NOT NULL
-               AND status != 'failed'
+            """SELECT id, result_path, result_filename, original_filename FROM jobs
+               WHERE user_id = ? AND result_path IS NOT NULL AND status != 'failed'
                ORDER BY created_at ASC""",
-            (user_id, *tools),
+            (user_id,),
         ).fetchall()
         return [dict(row) for row in rows]
 
@@ -598,24 +571,18 @@ def update_job_result(
         )
         conn.commit()
 
-    # Evict oldest result files per tool group if user exceeds the group limit
+    # Evict oldest result files if user exceeds the global limit
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT user_id, tool FROM jobs WHERE job_uuid = ?", (job_uuid,)
+            "SELECT user_id FROM jobs WHERE job_uuid = ?", (job_uuid,)
         ).fetchone()
         if not row:
             return
         user_id = row["user_id"]
-        tool = row["tool"]
 
-    group = TOOL_RESULT_GROUP.get(tool)
-    if not group or group not in MAX_RESULT_FILES:
-        return  # unknown tool or no limit defined — skip eviction
+    old_jobs = get_all_results_for_user(user_id)
 
-    limit = MAX_RESULT_FILES[group]
-    old_jobs = get_results_for_tool_group(user_id, group)
-
-    excess = len(old_jobs) - limit
+    excess = len(old_jobs) - MAX_RESULT_FILES
     if excess > 0:
         with get_connection() as conn:
             for i in range(excess):

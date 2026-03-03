@@ -103,6 +103,7 @@ export default function ImagePage() {
   const [genSize, setGenSize] = useState("1024x1024");
   const [genN, setGenN] = useState(1);
   const [genLoading, setGenLoading] = useState(false);
+  const [genSpinnerLabel, setGenSpinnerLabel] = useState("Wird generiert…");
   const [genError, setGenError] = useState("");
   const [genResults, setGenResults] = useState<Array<{ url: string; filename: string }>>([]);
 
@@ -111,6 +112,7 @@ export default function ImagePage() {
   const [editDragOver, setEditDragOver] = useState(false);
   const [editPrompt, setEditPrompt] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+  const [editSpinnerLabel, setEditSpinnerLabel] = useState("Wird bearbeitet…");
   const [editError, setEditError] = useState("");
   const [editResultUrl, setEditResultUrl] = useState<string | null>(null);
   const [editResultFilename, setEditResultFilename] = useState<string | null>(null);
@@ -122,6 +124,7 @@ export default function ImagePage() {
   const [analyzeDragOver, setAnalyzeDragOver] = useState(false);
   const [analyzePrompt, setAnalyzePrompt] = useState("");
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [analyzeSpinnerLabel, setAnalyzeSpinnerLabel] = useState("Wird analysiert…");
   const [analyzeError, setAnalyzeError] = useState("");
   const [analyzeResultText, setAnalyzeResultText] = useState<string | null>(null);
   const [analyzePreviewUrl, setAnalyzePreviewUrl] = useState<string | null>(null);
@@ -145,6 +148,7 @@ export default function ImagePage() {
   const handleGenerate = useCallback(async () => {
     if (!genPrompt.trim()) return;
     setGenLoading(true);
+    setGenSpinnerLabel("Wird generiert…");
     setGenError("");
     setGenResults([]);
     try {
@@ -159,7 +163,10 @@ export default function ImagePage() {
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid);
+      await pollJob(data.job_uuid, undefined, 3000, undefined,
+        () => setGenSpinnerLabel("Läuft noch – Bildgenerierung kann etwas länger dauern…"),
+        60_000,
+      );
       const { blob, filename } = await downloadJobAsBlob(data.job_uuid);
       if (filename.endsWith(".json")) {
         const text = await blob.text();
@@ -193,6 +200,7 @@ export default function ImagePage() {
   const handleEditSubmit = useCallback(async () => {
     if (!editFile || !editPrompt.trim()) return;
     setEditLoading(true);
+    setEditSpinnerLabel("Wird bearbeitet…");
     setEditError("");
     setEditResultUrl(null);
     setEditResultFilename(null);
@@ -207,7 +215,10 @@ export default function ImagePage() {
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid);
+      await pollJob(data.job_uuid, undefined, 3000, undefined,
+        () => setEditSpinnerLabel("Läuft noch – Bildbearbeitung kann etwas länger dauern…"),
+        60_000,
+      );
       const { blob, filename } = await downloadJobAsBlob(data.job_uuid);
       const url = URL.createObjectURL(blob);
       setEditResultUrl(url);
@@ -239,6 +250,7 @@ export default function ImagePage() {
   const handleAnalyzeSubmit = useCallback(async () => {
     if (!analyzeFile) return;
     setAnalyzeLoading(true);
+    setAnalyzeSpinnerLabel("Wird analysiert…");
     setAnalyzeError("");
     setAnalyzeResultText(null);
     try {
@@ -252,7 +264,10 @@ export default function ImagePage() {
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid);
+      await pollJob(data.job_uuid, undefined, 3000, undefined,
+        () => setAnalyzeSpinnerLabel("Läuft noch – Bildanalyse kann etwas länger dauern…"),
+        60_000,
+      );
       const { blob } = await downloadJobAsBlob(data.job_uuid);
       const text = await blob.text();
       setAnalyzeResultText(text);
@@ -354,7 +369,7 @@ export default function ImagePage() {
               {genLoading ? "Wird verarbeitet…" : "Bild generieren"}
             </button>
 
-            {genLoading && <Spinner label="Wird generiert…" />}
+            {genLoading && <Spinner label={genSpinnerLabel} />}
             {genError && <p className="mt-4 text-sm text-red-600" role="alert">{genError}</p>}
             {genResults.length > 0 && (
               <div className={`mt-6 ${genResults.length > 1 ? "grid grid-cols-2 gap-4" : ""}`}>
@@ -377,7 +392,7 @@ export default function ImagePage() {
                       <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
-                      Herunterladen
+                      Bild
                     </button>
                   </div>
                 ))}
@@ -427,7 +442,7 @@ export default function ImagePage() {
               {editLoading ? "Wird verarbeitet…" : "Bild bearbeiten"}
             </button>
 
-            {editLoading && <Spinner label="Wird bearbeitet…" />}
+            {editLoading && <Spinner label={editSpinnerLabel} />}
             {editError && <p className="mt-4 text-sm text-red-600" role="alert">{editError}</p>}
             {editResultUrl && (
               <div className="mt-6">
@@ -443,7 +458,7 @@ export default function ImagePage() {
                   <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Bild herunterladen
+                  Bild
                 </button>
               </div>
             )}
@@ -491,7 +506,7 @@ export default function ImagePage() {
               {analyzeLoading ? "Wird verarbeitet…" : "Analysieren"}
             </button>
 
-            {analyzeLoading && <Spinner label="Wird analysiert…" />}
+            {analyzeLoading && <Spinner label={analyzeSpinnerLabel} />}
             {analyzeError && <p className="mt-4 text-sm text-red-600" role="alert">{analyzeError}</p>}
             {analyzeResultText && (
               <div className="mt-6">
@@ -515,7 +530,7 @@ export default function ImagePage() {
                   <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Als TXT herunterladen
+                  TXT
                 </button>
               </div>
             )}

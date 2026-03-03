@@ -70,23 +70,13 @@ async def check_job_limit(
     tools = _TOOL_GROUP_TOOLS.get(tool_group, [])
     has_active = db.has_active_job_for_tool(user_id, tools) if tools else False
 
-    # Check storage limit for result group
-    from src.database import TOOL_RESULT_GROUP, MAX_RESULT_FILES
-    result_group = {
-        "screencast": "video",
-        "tts": "general",
-        "video_dubbing": "video",
-    }.get(tool_group)
-
-    at_storage_limit = False
+    # Check storage limit
+    from src.database import MAX_RESULT_FILES
+    existing = db.get_all_results_for_user(user_id)
+    at_storage_limit = len(existing) >= MAX_RESULT_FILES
     evict_filename = None
-
-    if result_group:
-        existing = db.get_results_for_tool_group(user_id, result_group)
-        limit = MAX_RESULT_FILES.get(result_group, 5)
-        if len(existing) >= limit:
-            at_storage_limit = True
-            evict_filename = existing[0].get("original_filename") or existing[0].get("result_filename")
+    if at_storage_limit:
+        evict_filename = existing[0].get("original_filename") or existing[0].get("result_filename")
 
     return {
         "has_active_job": has_active,
@@ -103,12 +93,11 @@ async def get_my_jobs(
     q: str = Query(default=""),
     date_from: str = Query(default=""),
     date_to: str = Query(default=""),
-    hide_expired: bool = Query(default=True),
 ):
     """Return jobs for the current user with optional search and date filters."""
     user_id = current_user.get("user_id", 0)
     extra_tools = _tools_matching_query(q) if q else None
-    jobs, total = db.get_jobs_by_user(user_id, limit=limit, offset=offset, q=q, date_from=date_from, date_to=date_to, extra_tools=extra_tools, hide_expired=hide_expired)
+    jobs, total = db.get_jobs_by_user(user_id, limit=limit, offset=offset, q=q, date_from=date_from, date_to=date_to, extra_tools=extra_tools)
     result = []
     for job in jobs:
         has_download = (
@@ -346,25 +335,25 @@ async def download_job_pptx(
     job = db.get_job(job_uuid)
     if not job:
         raise HTTPException(status_code=404, detail="Job nicht gefunden")
-    if not job["result_path"]:
-        raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
 
-    # Derive PPTX path from stored result_path — avoids re-computing the job folder name.
-    # Both translated.pptx and the result file (MP4/JSON) live in the same job folder.
-    pptx_path = str(Path(job["result_path"]).parent / "translated.pptx")
+    # Use get_job_file so the folder name (YYYY-MM-DD_HH-MM-SS_{uuid}) is resolved
+    # correctly from the DB — works for both screencast_translate (has result_path)
+    # and screencast_demo_render (result_path is NULL, but translated.pptx is in folder).
+    from src.storage import get_job_file
     try:
-        data = get_file(pptx_path)
+        data = get_job_file(job_uuid, "translated.pptx")
     except Exception as e:
-        logger.error("PPTX download failed for job {} (path: {}): {}", job_uuid, pptx_path, e)
+        logger.error("PPTX download failed for job {}: {}", job_uuid, e)
         raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
 
-    stem = Path(job["original_filename"]).stem if job["original_filename"] else "screencast"
+    from src.services.translation import translate_output_filename
+    pptx_filename = translate_output_filename(job["original_filename"] or "screencast.pptx", output_ext=".pptx")
 
     return StreamingResponse(
         iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={
             "Content-Length": str(len(data)),
-            "Content-Disposition": f'attachment; filename="{stem}_praesentation.pptx"',
+            "Content-Disposition": f'attachment; filename="{pptx_filename}"',
         },
     )

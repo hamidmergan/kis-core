@@ -27,7 +27,7 @@ _EXCLUDED_VOICES = {
     "adam", "alice", "bella", "charlotte", "clyde", "daniel", "domi", "elli", "ethan",
     "fin", "gigi", "harry", "james", "jeremy", "jessie", "liam", "lily", "michael",
     "mimi", "miss applewood", "nicole", "patrick", "paul", "rover", "roger",
-    "sam", "serena", "thomas", "will",
+    "sam", "serena", "thomas", "will", "bill", "arnold", "brian", "callum"
 }
 
 _NON_ENGLISH = {

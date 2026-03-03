@@ -77,7 +77,7 @@ export default function JobsPanel() {
 
   const fetchJobs = useCallback(async () => {
     try {
-      const res = await fetch("/api/jobs/my?limit=10", { credentials: "include" });
+      const res = await fetch("/api/jobs/my?limit=20", { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       const newJobs: MyJob[] = data.jobs ?? [];
@@ -237,7 +237,7 @@ export default function JobsPanel() {
 
           <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
             <p className="text-xs text-blue-700">
-              Downloads 12 Std. verfügbar. Es werden nur die letzten 10 Jobs gespeichert.
+              Downloads 7 Tage verfügbar. Es werden nur die letzten 20 Jobs gespeichert.
             </p>
           </div>
 
@@ -280,7 +280,7 @@ export default function JobsPanel() {
                               <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                               </svg>
-                              {SCREENCAST_RENDER_TOOLS.has(job.tool) ? "MP4 herunterladen" : "Herunterladen"}
+                              {SCREENCAST_RENDER_TOOLS.has(job.tool) ? "MP4" : "Datei"}
                             </button>
                           )}
                         </div>
@@ -319,7 +319,7 @@ export default function JobsPanel() {
               onClick={() => setOpen(false)}
               className="text-xs text-[#0066cc] hover:underline"
             >
-              Alle Jobs der letzten 12 Stunden
+              Alle Jobs der letzten 7 Tage
             </Link>
           </div>
         </div>

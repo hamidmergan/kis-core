@@ -6,6 +6,32 @@ from src.services.deepl_client import DeepLClient
 from src.services.glossary import GlossaryService
 
 
+def translate_output_filename(filename: str, output_ext: str | None = None, source_lang: str = "DE", target_lang: str = "EN-US") -> str:
+    stem = Path(filename).stem
+    ext = output_ext if output_ext is not None else Path(filename).suffix
+    fallback = f"{stem}{ext}"
+    if not stem.strip():
+        return fallback
+    try:
+        from src.config import Settings
+        api_key = Settings().deepl_api_key
+        if not api_key:
+            return fallback
+        deepl = DeepLClient(api_key)
+        readable = stem.replace("_", " ").replace("-", " ").strip()
+        if not readable:
+            return fallback
+        translated = deepl.translate_text(readable, source_lang, target_lang)
+        translated = translated.strip().replace(" ", "_")
+        translated = "".join(c for c in translated if c.isalnum() or c in ("_", "-", "."))
+        if not translated:
+            return fallback
+        return f"{translated}{ext}"
+    except Exception as e:
+        logger.warning("Filename translation failed for '{}': {}", filename, e)
+        return fallback
+
+
 class TranslationService:
     def __init__(self, deepl_client: DeepLClient, glossary: GlossaryService):
         self._deepl = deepl_client

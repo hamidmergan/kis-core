@@ -98,7 +98,7 @@ def run_tts(
 
         # Combine all chunks and save final result
         result_path = save_result_file(job_uuid, ".mp3", b"".join(audio_parts))
-        result_filename = f"{Path(filename).stem}_EN.mp3"
+        result_filename = f"{Path(filename).stem}.mp3"
         db.update_job_result(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
 
