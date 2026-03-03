@@ -20,9 +20,6 @@ class Settings(BaseSettings):
     # Auto-whitelisted on startup so first login works without manual DB edits.
     admin_email: str = ""
 
-    # Encryption key (kept for potential future use)
-    encryption_key: str = ""
-
     # Set via start-nginx.sh / start-th.sh, never in .env
     production: bool = False
 

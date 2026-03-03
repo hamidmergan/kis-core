@@ -21,16 +21,23 @@ router = APIRouter(tags=["tts"])
 
 _FALLBACK_VOICES = [
     {"voice_id": DEFAULT_VOICE_ID, "label": "Brian", "preview_url": None},
-    {"voice_id": "EXAVITQu4vr4xnSDxMaL", "label": "Sarah", "preview_url": None},
 ]
+
+_NON_ENGLISH = {
+    "german", "deutsch", "de",
+    "french", "français", "fr",
+    "spanish", "español", "es",
+    "portuguese", "português", "pt",
+    "italian", "italiano", "it",
+    "dutch", "nl", "polish", "pl",
+    "russian", "ru", "japanese", "ja",
+    "chinese", "zh", "korean", "ko",
+}
 
 
 @router.get("/voices")
 async def list_voices():
-    """Return available TTS voices from ElevenLabs (English premade only).
-
-    Falls back to a hardcoded list of two voices if the API is unavailable.
-    """
+    """Return all English premade voices from ElevenLabs, sorted A-Z."""
     from src.dependencies import get_settings
     import httpx
 
@@ -43,44 +50,28 @@ async def list_voices():
             resp = client.get(
                 "https://api.elevenlabs.io/v1/voices",
                 headers={"xi-api-key": settings.elevenlabs_api_key},
+                params={"show_legacy": "true"},
             )
         if resp.status_code != 200:
             return {"voices": _FALLBACK_VOICES}
 
-        all_voices = resp.json().get("voices", [])
-        _NON_ENGLISH = {
-            "german", "deutsch", "de",
-            "french", "français", "fr",
-            "spanish", "español", "es",
-            "portuguese", "português", "pt",
-            "italian", "italiano", "it",
-            "dutch", "nl", "polish", "pl",
-            "russian", "ru", "japanese", "ja",
-            "chinese", "zh", "korean", "ko",
-        }
-
-        def _is_english(v: dict) -> bool:
+        voices = []
+        for v in resp.json().get("voices", []):
+            if v.get("category") not in ("premade", "professional", "cloned"):
+                continue
             labels = v.get("labels") or {}
             language = labels.get("language", "").lower().strip()
             accent = labels.get("accent", "").lower().strip()
-            return language not in _NON_ENGLISH and accent not in _NON_ENGLISH
-
-        english_voices = [
-            {
+            if language in _NON_ENGLISH or accent in _NON_ENGLISH:
+                continue
+            voices.append({
                 "voice_id": v["voice_id"],
                 "label": v["name"],
                 "preview_url": v.get("preview_url"),
-                "category": v.get("category"),
-                "description": (v.get("labels") or {}).get("description"),
-                "use_case": (v.get("labels") or {}).get("use_case"),
-            }
-            for v in all_voices
-            if v.get("category") not in ("cloned", "generated")
-            and _is_english(v)
-        ]
-        if not english_voices:
-            return {"voices": _FALLBACK_VOICES}
-        return {"voices": english_voices}
+            })
+
+        voices.sort(key=lambda x: x["label"].lower())
+        return {"voices": voices or _FALLBACK_VOICES}
     except Exception:
         return {"voices": _FALLBACK_VOICES}
 
@@ -146,8 +137,9 @@ async def text_to_speech(
         raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden TTS-Job.")
 
     job_uuid = uuid.uuid4().hex
+    db.create_job(job_uuid, user_id, "tts", file.filename)
     input_path = save_queue_file(job_uuid, ext, content)
-    db.create_job(job_uuid, user_id, "tts", file.filename, input_path)
+    db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.tts_tasks import run_tts
     task = run_tts.apply_async(args=[

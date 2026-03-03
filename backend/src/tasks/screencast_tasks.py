@@ -11,7 +11,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import delete_file, get_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta
+from src.storage import delete_file, get_file, get_job_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta
 from src.utils.heartbeat import job_heartbeat
 
 
@@ -20,7 +20,6 @@ from src.utils.heartbeat import job_heartbeat
 def _get_screencast_helpers():
     """Import screencast helpers lazily to avoid circular imports."""
     from src.routes.screencast import (
-        PPTX_TMP_DIR,
         IMAGE_TMP_DIR,
         _pptx_to_images,
         _generate_all_tts,
@@ -31,14 +30,13 @@ def _get_screencast_helpers():
         _embed_subtitles as _embed_subs,
         _get_audio_duration,
         _extract_text_per_slide,
-        _save_pptx_tmp,
     )
     from src.services.subtitle_converter import build_subtitles
     return (
-        PPTX_TMP_DIR, IMAGE_TMP_DIR,
+        IMAGE_TMP_DIR,
         _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
         _create_slide_video, _concatenate_videos, _apply_faststart, _embed_subs,
-        _get_audio_duration, _extract_text_per_slide, _save_pptx_tmp,
+        _get_audio_duration, _extract_text_per_slide,
         build_subtitles,
     )
 
@@ -52,9 +50,17 @@ def _get_tts_client():
     return ElevenLabsClient(api_key)
 
 
+def _get_pptx_for_render(save_uuid: str) -> bytes:
+    """Get PPTX for rendering: corrected version if available, else translated."""
+    try:
+        return get_job_file(save_uuid, "corrected.pptx")
+    except Exception:
+        pass
+    return get_job_file(save_uuid, "translated.pptx")
+
+
 def _run_render_pipeline(
     job_uuid: str,
-    file_id: str,
     scripts: list[str],
     voice_id: str,
     speed: float,
@@ -64,16 +70,17 @@ def _run_render_pipeline(
     dpi: int = 100,
 ) -> dict:
     """
-    Core render pipeline shared by screencast_render and screencast_auto tasks.
+    Core render pipeline. Reads PPTX from job folder (corrected.pptx or translated.pptx).
+    All output files are saved to job_uuid's folder.
 
     Returns a dict with:
-      result_path, result_filename, audio_id, audio_count, subtitle_data
+      result_path, audio_id, audio_count, subtitle_data
     """
     (
-        PPTX_TMP_DIR, IMAGE_TMP_DIR,
+        IMAGE_TMP_DIR,
         _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
         _create_slide_video, _concatenate_videos, _apply_faststart, _embed_subs,
-        _get_audio_duration, _extract_text_per_slide, _save_pptx_tmp,
+        _get_audio_duration, _extract_text_per_slide,
         build_subtitles,
     ) = _get_screencast_helpers()
 
@@ -81,7 +88,7 @@ def _run_render_pipeline(
 
     # Save render params + scripts for crash recovery (retry button)
     save_job_file(job_uuid, "render_params.json", json.dumps({
-        "file_id": file_id, "voice_id": voice_id, "speed": speed,
+        "voice_id": voice_id, "speed": speed,
         "slide_pause": slide_pause, "embed_subtitles": embed_subtitles, "dpi": dpi,
     }).encode())
     save_job_file(job_uuid, "render_scripts.json", json.dumps(scripts).encode())
@@ -95,18 +102,16 @@ def _run_render_pipeline(
         if slide_images_override is not None:
             slide_images = slide_images_override
         else:
-            prerendered_dir = IMAGE_TMP_DIR / file_id
+            prerendered_dir = IMAGE_TMP_DIR / job_uuid
             prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir.exists() else []
 
             if prerendered_images and dpi == 100:
                 logger.info("Render {}: using {} pre-rendered images (100 DPI)", job_uuid, len(prerendered_images))
                 slide_images = prerendered_images
             else:
-                pptx_src = PPTX_TMP_DIR / f"{file_id}.pptx"
-                if not pptx_src.exists():
-                    raise RuntimeError("PPTX nicht gefunden (abgelaufen oder ungültige ID). Bitte neu hochladen.")
-                pptx_path = tmp / "translated.pptx"
-                pptx_path.write_bytes(pptx_src.read_bytes())
+                pptx_data = _get_pptx_for_render(job_uuid)
+                pptx_path = tmp / "render.pptx"
+                pptx_path.write_bytes(pptx_data)
                 img_dir = tmp / "images"
                 img_dir.mkdir()
                 slide_images = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir, dpi))
@@ -165,21 +170,19 @@ def _run_render_pipeline(
         final_path = tmp / "final.mp4"
         output_bytes = _apply_faststart(concat_path, final_path)
 
-        # ── Save audio cache (stored under jobs/{date}_{job_uuid}/audio/) ─
+        # ── Save audio cache ──────────────────────────────────────────────
         audio_bytes_list = [ap.read_bytes() if ap is not None and ap.exists() else b"" for ap in audio_paths[:num_slides]]
         save_audio_cache(job_uuid, audio_bytes_list)
 
         # ── Save result ───────────────────────────────────────────────────
         result_path = save_result_file(job_uuid, ".mp4", output_bytes)
 
-        # Save meta (subtitles + audio info) for this job
         meta = {
             "subtitle_b64": __import__("base64").b64encode(
                 json.dumps(subtitle_data).encode("utf-8")
             ).decode("ascii"),
             "audio_id": job_uuid,
             "audio_count": num_slides,
-            "file_id": file_id,
         }
         save_result_meta(job_uuid, meta)
 
@@ -189,14 +192,8 @@ def _run_render_pipeline(
             if content:
                 save_job_file(job_uuid, key, content.encode("utf-8"))
 
-        # ── Save translated PPTX ──────────────────────────────────────────
-        from src.routes.screencast import PPTX_TMP_DIR as _PPTX_TMP
-        pptx_src = _PPTX_TMP / f"{file_id}.pptx"
-        if pptx_src.exists():
-            save_job_file(job_uuid, "translated.pptx", pptx_src.read_bytes())
-
     # Clean up pre-rendered images after successful render
-    prerendered_dir = IMAGE_TMP_DIR / file_id
+    prerendered_dir = IMAGE_TMP_DIR / job_uuid
     if prerendered_dir.exists():
         import shutil
         shutil.rmtree(prerendered_dir, ignore_errors=True)
@@ -220,20 +217,23 @@ def run_screencast_translate(
     glossary_json: str,
     fast_mode: bool,
 ):
-    """Translate PPTX DE→EN, extract slide texts, optionally render slide images."""
+    """Translate PPTX DE→EN, extract slide texts, save artifacts, set awaiting_user."""
     try:
         db.update_job_status(job_uuid, "running", progress={"step": "translate"})
 
         pptx_bytes = get_file(input_path)
 
+        # Save original DE PPTX immediately
+        save_job_file(job_uuid, "original.pptx", pptx_bytes)
+
         from src.routes.translate import translate_pptx_content
         translated_bytes = translate_pptx_content(pptx_bytes, filename, glossary_json)
 
         (
-            PPTX_TMP_DIR, IMAGE_TMP_DIR,
+            IMAGE_TMP_DIR,
             _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
             _create_slide_video, _concatenate_videos, _apply_faststart, _embed_subs,
-            _get_audio_duration, _extract_text_per_slide, _save_pptx_tmp,
+            _get_audio_duration, _extract_text_per_slide,
             build_subtitles,
         ) = _get_screencast_helpers()
 
@@ -242,15 +242,15 @@ def run_screencast_translate(
         if not slide_texts:
             raise ValueError("Keine Slides in der Präsentation gefunden")
 
-        # Save translated PPTX to shared temp storage
-        file_id = _save_pptx_tmp(translated_bytes)
+        # Save translated PPTX + scripts to job folder immediately
+        save_job_file(job_uuid, "translated.pptx", translated_bytes)
+        save_job_file(job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
 
         if fast_mode:
             result = {
                 "slide_count": len(slide_texts),
                 "slide_texts": slide_texts,
                 "slide_images": [],
-                "file_id": file_id,
             }
         else:
             db.update_job_status(job_uuid, "running", progress={"step": "images"})
@@ -268,16 +268,14 @@ def run_screencast_translate(
                 "slide_count": len(slide_texts),
                 "slide_texts": slide_texts,
                 "slide_images": slide_images_b64,
-                "file_id": file_id,
             }
 
         result_path = save_result_json(job_uuid, result)
         db.update_job_result(job_uuid, result_path, f"{Path(filename).stem}_translate.json")
 
-        # Save translated PPTX before marking success so /pptx endpoint finds the file
-        save_job_file(job_uuid, "translated.pptx", translated_bytes)
-
-        db.update_job_status(job_uuid, "success")
+        # awaiting_user: user must review scripts before render starts
+        db.update_job_status(job_uuid, "awaiting_user")
+        db.update_job_expiry(job_uuid, 168)  # 7 days — no resources held while waiting
 
         # Clean up input file
         delete_file(input_path)
@@ -293,8 +291,7 @@ def run_screencast_translate(
 @celery_app.task(bind=True, name="screencast.render", queue="screencast", acks_late=True, max_retries=7)
 def run_screencast_render(
     self,
-    job_uuid: str,
-    file_id: str,
+    translate_job_uuid: str,
     scripts: list[str],
     voice_id: str,
     speed: float,
@@ -303,11 +300,14 @@ def run_screencast_render(
     original_filename: str = "screencast",
     dpi: int = 100,
 ):
-    """Render final MP4 from edited scripts and stored PPTX."""
+    """Render final MP4 from edited scripts and stored PPTX.
+
+    Reads PPTX from the translate job's folder (corrected.pptx or translated.pptx).
+    All artifacts are saved to the same folder (single-folder workflow).
+    """
     try:
         result = _run_render_pipeline(
-            job_uuid=job_uuid,
-            file_id=file_id,
+            job_uuid=translate_job_uuid,
             scripts=scripts,
             voice_id=voice_id,
             speed=speed,
@@ -318,14 +318,14 @@ def run_screencast_render(
 
         stem = Path(original_filename).stem if original_filename else "screencast"
         result_filename = f"{stem}_screencast_EN.mp4"
-        db.update_job_result(job_uuid, result["result_path"], result_filename)
-        db.update_job_status(job_uuid, "success")
+        db.update_job_result(translate_job_uuid, result["result_path"], result_filename)
+        db.update_job_status(translate_job_uuid, "success")
 
-        logger.info("Screencast render task {} completed", job_uuid)
+        logger.info("Screencast render task {} completed", translate_job_uuid)
 
     except Exception as e:
-        logger.error("Screencast render task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
+        logger.error("Screencast render task {} failed: {}", translate_job_uuid, e)
+        db.update_job_status(translate_job_uuid, "failed", error_message=str(e))
         raise
 
 
@@ -349,10 +349,10 @@ def run_screencast_auto(
         translated_bytes = translate_pptx_content(pptx_bytes, filename, glossary_json)
 
         (
-            PPTX_TMP_DIR, IMAGE_TMP_DIR,
+            IMAGE_TMP_DIR,
             _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
             _create_slide_video, _concatenate_videos, _apply_faststart, _embed_subs,
-            _get_audio_duration, _extract_text_per_slide, _save_pptx_tmp,
+            _get_audio_duration, _extract_text_per_slide,
             build_subtitles,
         ) = _get_screencast_helpers()
 
@@ -361,7 +361,7 @@ def run_screencast_auto(
         if not slide_texts:
             raise ValueError("Keine Slides in der Präsentation gefunden")
 
-        file_id = _save_pptx_tmp(translated_bytes)
+        save_job_file(job_uuid, "translated.pptx", translated_bytes)
 
         # Generate scripts via KISSKI
         db.update_job_status(job_uuid, "running", progress={"step": "scripts", "total": len(slide_texts)})
@@ -389,7 +389,6 @@ def run_screencast_auto(
 
         result = _run_render_pipeline(
             job_uuid=job_uuid,
-            file_id=file_id,
             scripts=scripts,
             voice_id=voice_id,
             speed=speed,
@@ -417,7 +416,6 @@ def run_screencast_auto(
 def run_screencast_demo_render(
     self,
     job_uuid: str,
-    file_id: str,
     dpi: int = 100,
 ):
     """Demo render: FFmpeg pipeline with pre-existing demo audio files."""
@@ -429,12 +427,11 @@ def run_screencast_demo_render(
 
     try:
         # Save params for crash recovery (retry button)
-        save_job_file(job_uuid, "demo_params.json", json.dumps({"file_id": file_id, "dpi": dpi}).encode())
+        save_job_file(job_uuid, "demo_params.json", json.dumps({"dpi": dpi}).encode())
 
         db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
         from src.routes.screencast import (
-            PPTX_TMP_DIR,
             IMAGE_TMP_DIR,
             _pptx_to_images,
             _get_demo_slide_images_sync,
@@ -452,28 +449,33 @@ def run_screencast_demo_render(
 
         logger.info("TIMING [{}] start", job_uuid[:8])
 
-        # Get slide images
+        # Get slide images: prefer pre-rendered or uploaded PPTX from job folder
         import base64
         t0 = time.time()
-        prerendered_dir = IMAGE_TMP_DIR / file_id if file_id else None
-        prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir and prerendered_dir.exists() else []
+        prerendered_dir = IMAGE_TMP_DIR / job_uuid
+        prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir.exists() else []
 
         if prerendered_images and dpi == 100:
             slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in prerendered_images]
             logger.info("TIMING [{}] images: pre-rendered 100dpi ({} slides) in {}", job_uuid[:8], len(slide_images_b64), _elapsed(t0))
-        elif file_id and (PPTX_TMP_DIR / f"{file_id}.pptx").exists():
-            pptx_src = PPTX_TMP_DIR / f"{file_id}.pptx"
-            with tempfile.TemporaryDirectory() as tmpdir_img:
-                img_dir = Path(tmpdir_img) / "images"
-                img_dir.mkdir()
-                pptx_copy = Path(tmpdir_img) / "render.pptx"
-                pptx_copy.write_bytes(pptx_src.read_bytes())
-                image_paths = _pptx_to_images(pptx_copy, img_dir, dpi)
-                slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in image_paths]
-            logger.info("TIMING [{}] images: re-rendered {}dpi ({} slides) in {}", job_uuid[:8], dpi, len(slide_images_b64), _elapsed(t0))
         else:
-            slide_images_b64 = _get_demo_slide_images_sync()
-            logger.info("TIMING [{}] images: demo ({} slides) in {}", job_uuid[:8], len(slide_images_b64), _elapsed(t0))
+            pptx_data_job = None
+            try:
+                pptx_data_job = _get_pptx_for_render(job_uuid)
+            except Exception:
+                pass
+            if pptx_data_job is not None:
+                with tempfile.TemporaryDirectory() as tmpdir_img:
+                    img_dir = Path(tmpdir_img) / "images"
+                    img_dir.mkdir()
+                    pptx_copy = Path(tmpdir_img) / "render.pptx"
+                    pptx_copy.write_bytes(pptx_data_job)
+                    image_paths = _pptx_to_images(pptx_copy, img_dir, dpi)
+                    slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in image_paths]
+                logger.info("TIMING [{}] images: re-rendered {}dpi ({} slides) in {}", job_uuid[:8], dpi, len(slide_images_b64), _elapsed(t0))
+            else:
+                slide_images_b64 = _get_demo_slide_images_sync()
+                logger.info("TIMING [{}] images: demo ({} slides) in {}", job_uuid[:8], len(slide_images_b64), _elapsed(t0))
 
         # Load demo audio
         t0 = time.time()
@@ -579,7 +581,6 @@ def run_screencast_demo_render(
                 ).decode("ascii"),
                 "audio_id": job_uuid,
                 "audio_count": num_slides,
-                "file_id": file_id,
             }
             save_result_meta(job_uuid, meta)
 
@@ -588,18 +589,6 @@ def run_screencast_demo_render(
                 content = final_subs.get(ext, "")
                 if content:
                     save_job_file(job_uuid, fname, content.encode("utf-8"))
-
-            # Save PPTX for download: prefer uploaded tmp file, fall back to demo PPTX
-            pptx_to_save = None
-            if file_id:
-                from src.routes.screencast import PPTX_TMP_DIR as _PPTX_TMP
-                tmp_pptx = _PPTX_TMP / f"{file_id}.pptx"
-                if tmp_pptx.exists():
-                    pptx_to_save = tmp_pptx
-            if pptx_to_save is None and pptx_path:
-                pptx_to_save = pptx_path
-            if pptx_to_save:
-                save_job_file(job_uuid, "translated.pptx", pptx_to_save.read_bytes())
 
         db.update_job_result(job_uuid, result_path, "demo_screencast.mp4")
         db.update_job_status(job_uuid, "success")

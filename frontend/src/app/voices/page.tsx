@@ -56,20 +56,39 @@ const USE_CASE_DE: Record<string, string> = {
   "news": "Nachrichten",
   "audiobook": "Hörbuch",
   "conversational": "Gespräch",
+  "conversation": "Gespräch",
   "social media": "Social Media",
+  "social_media": "Social Media",
   "interactive": "Interaktiv",
   "video games": "Videospiele",
+  "video_games": "Videospiele",
   "entertainment & tv": "Unterhaltung & TV",
+  "entertainment_tv": "Unterhaltung & TV",
   "training & elearning": "Training & E-Learning",
+  "training_elearning": "Training & E-Learning",
   "meditation": "Meditation",
   "characters": "Charaktere",
   "animation": "Animation",
+  "characters_animation": "Charaktere & Animation",
+  "narrative_story": "Erzählung",
+  "informative_educational": "Bildung & Information",
+  "advertisement": "Werbung",
+  "ads": "Werbung",
 };
+
+function translateDesc(description?: string | null): string | null {
+  if (!description) return null;
+  return description.split(",").map(d => {
+    const key = d.trim();
+    return DESCRIPTION_DE[key] ?? key;
+  }).join(" · ");
+}
 
 function translateLabel(description?: string | null, use_case?: string | null): string | null {
   const parts: string[] = [];
-  if (description) parts.push(DESCRIPTION_DE[description] ?? description);
-  if (use_case) parts.push(USE_CASE_DE[use_case] ?? use_case);
+  const desc = translateDesc(description);
+  if (desc) parts.push(desc);
+  if (use_case) parts.push(USE_CASE_DE[use_case.toLowerCase().trim()] ?? use_case);
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
@@ -132,7 +151,7 @@ export default function StimmenPage() {
                 className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50"
               >
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{voice.label}</p>
+                  <p className="text-sm font-medium text-gray-900">{voice.label.split(" - ")[0]}</p>
                   {(() => {
                     const parts: string[] = [];
                     if (voice.category && CATEGORY_DE[voice.category]) parts.push(CATEGORY_DE[voice.category]);

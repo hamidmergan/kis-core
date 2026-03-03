@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScreencastStatus from "@/components/ScreencastStatus";
@@ -17,6 +18,48 @@ import type {
 interface Voice {
   voice_id: string;
   label: string;
+  description?: string | null;
+  use_case?: string | null;
+}
+
+const DESCRIPTION_DE: Record<string, string> = {
+  "Laid-Back": "Entspannt",
+  "Casual": "Locker",
+  "Formal": "Förmlich",
+  "Friendly": "Freundlich",
+  "Warm": "Warm",
+  "Authoritative": "Autoritär",
+  "Confident": "Selbstsicher",
+  "Calm": "Ruhig",
+  "Energetic": "Energetisch",
+  "Upbeat": "Lebhaft",
+  "Serious": "Sachlich",
+  "Raspy": "Rau",
+  "Smooth": "Weich",
+  "Deep": "Tief",
+  "Resonant": "Resonant",
+  "Crisp": "Klar",
+  "Soft": "Sanft",
+  "Husky": "Heiser",
+  "Clear": "Deutlich",
+  "Conversational": "Gesprächig",
+  "Narrative": "Erzählend",
+  "Expressive": "Ausdrucksstark",
+  "Melodic": "Melodisch",
+  "Mature": "Reif",
+  "Powerful": "Kraftvoll",
+  "Bright": "Hell",
+  "Grounded": "Geerdet",
+  "Soothing": "Beruhigend",
+  "Professional": "Professionell",
+};
+
+function translateDesc(description?: string | null): string | null {
+  if (!description) return null;
+  return description.split(",").map(d => {
+    const key = d.trim();
+    return DESCRIPTION_DE[key] ?? key;
+  }).join(" · ");
 }
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
@@ -25,7 +68,7 @@ interface TranslateResponse {
   slide_count: number;
   slide_texts: string[];
   slide_images: string[];
-  file_id: string;
+  translate_job_uuid?: string;
   user_prompt?: string;
 }
 
@@ -120,7 +163,7 @@ function ScreencastPageInner() {
   const [userPrompt, setUserPrompt] = useState("");
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const [slides, setSlides] = useState<SlideData[]>([]);
-  const [translatedPptxFileId, setTranslatedPptxFileId] = useState("");
+  const [translateJobUuid, setTranslateJobUuid] = useState("");
   const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -146,6 +189,7 @@ function ScreencastPageInner() {
   const [atStorageLimit, setAtStorageLimit] = useState(false);
   const [evictFilename, setEvictFilename] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isResumedJob, setIsResumedJob] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const stepperRef = useRef<HTMLElement>(null);
@@ -155,6 +199,7 @@ function ScreencastPageInner() {
   const hasDraggedRef = useRef(false);
   const dragStartXRef = useRef(0);
   const dragScrollLeftRef = useRef(0);
+  const scriptAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Stepper drag-to-scroll ──
 
@@ -212,6 +257,60 @@ function ScreencastPageInner() {
     }).catch(() => {});
   }, []);
 
+  const searchParams = useSearchParams();
+
+  // ── Resume awaiting_user job from ?resume=<uuid> URL param ──
+  useEffect(() => {
+    const resumeUuid = searchParams.get("resume");
+    if (!resumeUuid) return;
+    fetch(`/api/screencast/resume/${resumeUuid}`, { credentials: "include" })
+      .then((r) => {
+        if (!r.ok) throw new Error("Job nicht gefunden oder nicht im Eingabe-Status");
+        return r.json();
+      })
+      .then((data: { tool: string; step: string; slide_texts: string[]; scripts: string[]; slide_images: string[]; original_filename: string; user_prompt: string }) => {
+        setTranslateJobUuid(resumeUuid);
+        setIsResumedJob(true);
+        if (data.user_prompt) setUserPrompt(data.user_prompt);
+
+        const imgs = data.slide_images ?? [];
+        const texts = data.slide_texts ?? [];
+        const scripts = data.scripts ?? [];
+
+        if (data.tool === "screencast_demo_render") {
+          setIsDemoMode(true);
+        } else {
+          setIsDemoMode(false);
+        }
+
+        // Build slides from available data
+        const slideCount = Math.max(texts.length, scripts.length, imgs.length);
+        if (slideCount > 0) {
+          setSlides(Array.from({ length: slideCount }, (_, i) => ({
+            index: i,
+            imageBase64: imgs[i] ?? "",
+            extractedText: texts[i] ?? scripts[i] ?? "",
+            script: scripts[i] ?? texts[i] ?? "",
+          })));
+        }
+
+        const targetStep = (
+          data.step === "tts-settings" ? "tts-settings" :
+          data.step === "translation-review" ? "translation-review" :
+          data.step === "user-prompt" ? "user-prompt" :
+          "script-review"
+        ) as import("@/types").ScreencastStep;
+
+        const stepIdx = targetStep === "tts-settings" ? 5 : targetStep === "translation-review" ? 2 : targetStep === "user-prompt" ? 3 : 4;
+        setMaxReachedIdx(stepIdx);
+        setStep(targetStep);
+      })
+      .catch(() => {
+        // Resume failed (job expired/cancelled) — stay on upload
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Check for active job on mount (blocks upload if already running) ──
   useEffect(() => {
     fetch("/api/jobs/check/screencast", { credentials: "include" })
@@ -245,6 +344,15 @@ function ScreencastPageInner() {
   // ── Helpers ──
 
   const resetAll = useCallback(() => {
+    // Abort any in-flight request and delete the current job (DB + MinIO)
+    abortControllerRef.current?.abort();
+    const uuidToDelete = translateJobUuid || currentJobUuidRef.current;
+    if (uuidToDelete) {
+      fetch(`/api/jobs/${uuidToDelete}`, { method: "DELETE", credentials: "include" }).catch(() => {});
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+    }
+    currentJobUuidRef.current = null;
+
     setStep("upload");
     setFile(null);
     setFileError(null);
@@ -254,7 +362,7 @@ function ScreencastPageInner() {
     setUserPrompt("");
     setGlossaryIds(["", "", ""]);
     setSlides([]);
-    setTranslatedPptxFileId("");
+    setTranslateJobUuid("");
     setDownloadBlob(null);
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoUrl(null);
@@ -280,7 +388,7 @@ function ScreencastPageInner() {
     setSourceLang("DE");
     setIsDemoMode(false);
     if (fileRef.current) fileRef.current.value = "";
-  }, [videoUrl]);
+  }, [videoUrl, translateJobUuid]);
 
   const handleStepClick = useCallback((index: number) => {
     if (hasDraggedRef.current) return;
@@ -312,6 +420,21 @@ function ScreencastPageInner() {
     setStep("error");
     setLoading(false);
   }, []);
+
+  const checkJobFolder = useCallback(async (): Promise<boolean> => {
+    if (!translateJobUuid) return true;
+    try {
+      const res = await fetch(`/api/screencast/folder-exists/${translateJobUuid}`, { credentials: "include" });
+      const data = await res.json();
+      if (!data.exists) {
+        goError("Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten");
+        return false;
+      }
+    } catch {
+      // Ignore network errors, let backend handle it
+    }
+    return true;
+  }, [translateJobUuid, goError]);
 
   const onRenderProgress = useCallback((status: import("@/lib/api").JobStatus) => {
     const p = status.progress as { step?: string; current?: number; total?: number } | null;
@@ -452,10 +575,9 @@ function ScreencastPageInner() {
           throw new Error(error.detail || `Fehler: ${response.status}`);
         }
 
-        const data: { file_id: string; slide_texts: string[]; slide_images: string[] } =
+        const data: { slide_texts: string[]; slide_images: string[] } =
           await response.json();
 
-        setTranslatedPptxFileId(data.file_id);
         setSlides(
           data.slide_texts.map((text, i) => ({
             index: i,
@@ -496,16 +618,16 @@ function ScreencastPageInner() {
 
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
+      setTranslateJobUuid(job_uuid);
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
-      // Poll until translation job completes
+      // Poll until translation job completes (stops at awaiting_user)
       const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
       currentJobUuidRef.current = null;
 
       // Result comes inline from the jobs endpoint for JSON-result jobs
       const data = (jobResult.result ?? {}) as unknown as TranslateResponse;
 
-      setTranslatedPptxFileId(data.file_id || "");
       setSlides(
         (data.slide_texts || []).map((text, i) => ({
           index: i,
@@ -525,9 +647,9 @@ function ScreencastPageInner() {
 
   // ── Download translated PPTX ──
   const handleDownloadTranslatedPptx = useCallback(async () => {
-    if (!translatedPptxFileId) return;
+    if (!translateJobUuid) return;
     try {
-      const res = await fetch(`/api/screencast/file/${translatedPptxFileId}`, { credentials: "include" });
+      const res = await fetch(`/api/screencast/pptx/${translateJobUuid}`, { credentials: "include" });
       if (!res.ok) throw new Error("Download fehlgeschlagen");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -542,7 +664,7 @@ function ScreencastPageInner() {
     } catch (err) {
       console.error("PPTX download failed:", err);
     }
-  }, [translatedPptxFileId, file]);
+  }, [translateJobUuid, file]);
 
   // ── Upload corrected PPTX ──
   const handleUploadCorrectedPptx = useCallback(
@@ -553,6 +675,7 @@ function ScreencastPageInner() {
       try {
         const formData = new FormData();
         formData.append("file", correctedFile);
+        if (translateJobUuid) formData.append("translate_job_uuid", translateJobUuid);
 
         const response = await fetch("/api/screencast/upload-corrected", {
           method: "POST",
@@ -566,10 +689,9 @@ function ScreencastPageInner() {
           throw new Error(err.detail || `Fehler: ${response.status}`);
         }
 
-        const data: { file_id: string; slide_texts: string[]; slide_images: string[] } =
+        const data: { slide_texts: string[]; slide_images: string[] } =
           await response.json();
 
-        setTranslatedPptxFileId(data.file_id);
         setSlides(
           data.slide_texts.map((text, i) => ({
             index: i,
@@ -586,11 +708,12 @@ function ScreencastPageInner() {
         goError(err instanceof Error ? err.message : "Unbekannter Fehler");
       }
     },
-    [goError],
+    [goError, translateJobUuid],
   );
 
   // ── Translation review → Generate scripts ──
   const handleAcceptTranslation = useCallback(async () => {
+    if (!await checkJobFolder()) return;
     setStep("generating-scripts");
     setLoading(true);
     const signal = newSignal();
@@ -602,6 +725,7 @@ function ScreencastPageInner() {
           slide_texts: slides.map((s) => s.extractedText),
           user_prompt: userPrompt || null,
           glossary_json: mergeToApiJson(glossaryIds),
+          translate_job_uuid: translateJobUuid || null,
         },
         signal,
       );
@@ -618,20 +742,44 @@ function ScreencastPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, userPrompt, glossaryIds, mergeToApiJson, goError]);
+  }, [slides, userPrompt, glossaryIds, mergeToApiJson, goError, checkJobFolder]);
 
-  // ── Accept scripts → TTS settings + fire-and-forget prerender ──
+  // ── Script autosave to bucket (debounced) ──
+  const autosaveScripts = useCallback((updatedScripts: string[], accepted = false) => {
+    if (!translateJobUuid) return;
+    if (!accepted) {
+      if (scriptAutosaveTimerRef.current) clearTimeout(scriptAutosaveTimerRef.current);
+      scriptAutosaveTimerRef.current = setTimeout(() => {
+        fetch(`/api/screencast/scripts/${translateJobUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scripts: updatedScripts, accepted: false, user_prompt: userPrompt || null }),
+          credentials: "include",
+        }).catch(() => {});
+      }, 1500);
+    } else {
+      fetch(`/api/screencast/scripts/${translateJobUuid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scripts: updatedScripts, accepted: true, user_prompt: userPrompt || null }),
+        credentials: "include",
+      }).catch(() => {});
+    }
+  }, [translateJobUuid, userPrompt]);
+
+  // ── Accept scripts → TTS settings + fire-and-forget prerender + save ──
   const handleAcceptScripts = useCallback(() => {
+    autosaveScripts(slides.map((s) => s.script), true); // save accepted_scripts.json
     setStep("tts-settings");
-    if (translatedPptxFileId) {
+    if (translateJobUuid) {
       fetch("/api/screencast/prerender-images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_id: translatedPptxFileId }),
+        body: JSON.stringify({ translate_job_uuid: translateJobUuid }),
         credentials: "include",
       }).catch(() => {}); // fire and forget
     }
-  }, [translatedPptxFileId]);
+  }, [translateJobUuid, slides, autosaveScripts]);
 
   // ── Demo handlers ──
   const handleDemoTranslate = useCallback(async () => {
@@ -647,7 +795,7 @@ function ScreencastPageInner() {
         { fast_mode: fastMode },
         signal,
       );
-      setTranslatedPptxFileId(data.file_id);
+      if (data.translate_job_uuid) setTranslateJobUuid(data.translate_job_uuid);
       setSlides(
         data.slide_texts.map((text, i) => ({
           index: i,
@@ -666,13 +814,14 @@ function ScreencastPageInner() {
   }, [fastMode, goError, checkBeforeSubmit, onRenderProgress]);
 
   const handleDemoGenerateScripts = useCallback(async () => {
+    if (!await checkJobFolder()) return;
     setStep("generating-scripts");
     setLoading(true);
     const signal = newSignal();
     try {
       const data = await api.postJson<GenerateScriptsResponse>(
         "/api/screencast/demo/generate-scripts",
-        {},
+        { translate_job_uuid: translateJobUuid || null, user_prompt: userPrompt || null },
         signal,
       );
       setSlides((prev) =>
@@ -687,7 +836,7 @@ function ScreencastPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [goError]);
+  }, [goError, translateJobUuid, userPrompt, checkJobFolder]);
 
   // ── Shared: process render response (binary video + subtitles in header) ──
   const processRenderResponse = useCallback(async (response: Response) => {
@@ -756,8 +905,10 @@ function ScreencastPageInner() {
   }, []);
 
   const handleDemoRender = useCallback(async () => {
-    const ok = await checkBeforeSubmit();
-    if (!ok) return;
+    if (!isResumedJob) {
+      const ok = await checkBeforeSubmit();
+      if (!ok) return;
+    }
     setStep("rendering");
     setLoading(true);
     const signal = newSignal();
@@ -765,7 +916,7 @@ function ScreencastPageInner() {
       const response = await fetch("/api/screencast/demo/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_id: translatedPptxFileId, dpi }),
+        body: JSON.stringify({ translate_job_uuid: translateJobUuid, dpi }),
         credentials: "include",
         signal,
       });
@@ -794,12 +945,14 @@ function ScreencastPageInner() {
       setFailedRenderIsAuto(false);
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
-  }, [translatedPptxFileId, dpi, goError, processRenderResponse, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
+  }, [translateJobUuid, dpi, isResumedJob, goError, processRenderResponse, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
-    const ok = await checkBeforeSubmit();
-    if (!ok) return;
+    if (!isResumedJob) {
+      const ok = await checkBeforeSubmit();
+      if (!ok) return;
+    }
     setStep("rendering");
     setLoading(true);
     const signal = newSignal();
@@ -809,7 +962,7 @@ function ScreencastPageInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           scripts: slides.map((s) => s.script),
-          file_id: translatedPptxFileId,
+          translate_job_uuid: translateJobUuid,
           voice_id: voiceId,
           speed,
           slide_pause: slidePause,
@@ -837,7 +990,7 @@ function ScreencastPageInner() {
       setFailedRenderIsAuto(false);
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translatedPptxFileId, voiceId, speed, slidePause, embedSubtitles, dpi, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
+  }, [slides, translateJobUuid, voiceId, speed, slidePause, embedSubtitles, dpi, isResumedJob, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
 
   // ── Retry failed render job ──
   const handleRetryRender = useCallback(async () => {
@@ -997,6 +1150,7 @@ function ScreencastPageInner() {
     setSlides(updated);
     setEditingSlide(null);
     setEditBuffer("");
+    autosaveScripts(updated.map((s) => s.script));
   };
 
   const cancelEdit = () => {
@@ -1605,7 +1759,7 @@ function ScreencastPageInner() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setStep("user-prompt")}
+                onClick={() => { setMaxReachedIdx((v) => Math.max(v, 3)); setStep("user-prompt"); }}
                 disabled={loading || isDemoMode}
                 className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
@@ -1614,8 +1768,7 @@ function ScreencastPageInner() {
               {demoAvailable && (
                 <button
                   onClick={handleDemoGenerateScripts}
-                  disabled={loading}
-                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
                 >
                   Demo
                 </button>
@@ -1881,11 +2034,14 @@ function ScreencastPageInner() {
                     onChange={(e) => setVoiceId(e.target.value)}
                     className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc]"
                   >
-                    {voices.map((v) => (
-                      <option key={v.voice_id} value={v.voice_id}>
-                        {v.label}
-                      </option>
-                    ))}
+                    {voices.map((v) => {
+                      const desc = translateDesc(v.description);
+                      return (
+                        <option key={v.voice_id} value={v.voice_id}>
+                          {desc ? `${v.label} – ${desc}` : v.label}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div>
@@ -2277,5 +2433,9 @@ function ScreencastPageInner() {
 }
 
 export default function ScreencastPage() {
-  return <ScreencastPageInner />;
+  return (
+    <Suspense>
+      <ScreencastPageInner />
+    </Suspense>
+  );
 }

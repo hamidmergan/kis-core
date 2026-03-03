@@ -89,8 +89,9 @@ async def translate(
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
 
-    input_path = save_queue_file(job_uuid, ext, content)
     db.create_job(job_uuid, user_id, "translation", file.filename)
+    input_path = save_queue_file(job_uuid, ext, content)
+    db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_translate
     run_translate.delay(

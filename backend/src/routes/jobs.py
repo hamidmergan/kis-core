@@ -9,7 +9,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
-from src.storage import USE_S3, delete_job_folder, get_file, get_job_file, load_result_json, load_result_meta
+from src.storage import USE_S3, delete_job_folder, file_exists, get_file, get_job_file, load_result_json, load_result_meta
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -62,7 +62,7 @@ async def check_job_limit(
     user_id = current_user.get("user_id", 0)
 
     _TOOL_GROUP_TOOLS = {
-        "screencast": ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"],
+        "screencast": ["screencast_translate", "screencast_auto", "screencast_demo_render"],
         "tts": ["tts"],
         "video_dubbing": ["video_dubbing"],
     }
@@ -113,9 +113,13 @@ async def get_my_jobs(
     for job in jobs:
         has_download = (
             job["status"] == "success"
-            and job["result_path"]
-            and (USE_S3 or Path(job["result_path"]).exists())
+            and bool(job["result_path"])
+            and file_exists(job["result_path"])
         )
+        created_at = job["created_at"] or ""
+        date_part = created_at[:10]
+        time_part = created_at[11:19].replace(":", "-") if len(created_at) >= 19 else ""
+        folder_name = f"{date_part}_{time_part}_{job['job_uuid']}" if date_part and time_part else job["job_uuid"]
         result.append({
             "job_uuid": job["job_uuid"],
             "tool": job["tool"],
@@ -129,6 +133,7 @@ async def get_my_jobs(
             "expires_at": job["expires_at"],
             "has_download": has_download,
             "result_filename": job["result_filename"],
+            "folder_name": folder_name,
         })
 
     return {"jobs": result, "total": total}
@@ -144,7 +149,7 @@ async def retry_job(
     job = db.get_job(job_uuid)
     if not job:
         raise HTTPException(status_code=404, detail="Job nicht gefunden")
-    if job["tool"] not in ("tts", "screencast_render", "screencast_demo_render"):
+    if job["tool"] not in ("tts", "screencast_translate", "screencast_render", "screencast_demo_render"):
         raise HTTPException(status_code=400, detail="Retry nur für TTS- und Screencast-Jobs verfügbar")
     if job["status"] == "success":
         raise HTTPException(status_code=409, detail="Job bereits erfolgreich abgeschlossen")
@@ -160,12 +165,12 @@ async def retry_job(
         if not params:
             raise HTTPException(status_code=400, detail="Job-Parameter nicht gespeichert — bitte neuen Job starten")
 
-    elif job["tool"] == "screencast_render":
+    elif job["tool"] in ("screencast_translate", "screencast_render"):
         try:
             render_params = json.loads(get_job_file(job_uuid, "render_params.json"))
             scripts = json.loads(get_job_file(job_uuid, "render_scripts.json"))
         except Exception:
-            raise HTTPException(status_code=400, detail="Render-Parameter nicht mehr vorhanden (abgelaufen)")
+            raise HTTPException(status_code=400, detail="Render-Parameter nicht mehr vorhanden — bitte neuen Screencast starten")
 
     else:  # screencast_demo_render
         try:
@@ -192,11 +197,10 @@ async def retry_job(
             params["pause_preset"],
         ])
 
-    elif job["tool"] == "screencast_render":
+    elif job["tool"] in ("screencast_translate", "screencast_render"):
         from src.tasks.screencast_tasks import run_screencast_render
         task = run_screencast_render.apply_async(args=[
             job_uuid,
-            render_params["file_id"],
             scripts,
             render_params["voice_id"],
             render_params["speed"],
@@ -210,7 +214,6 @@ async def retry_job(
         from src.tasks.screencast_tasks import run_screencast_demo_render
         task = run_screencast_demo_render.apply_async(args=[
             job_uuid,
-            demo_params["file_id"],
             demo_params["dpi"],
         ])
 
@@ -229,6 +232,8 @@ async def cancel_job(
     job = db.get_job(job_uuid)
     if not job:
         raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
 
     # Revoke the Celery task (terminate=True sends SIGTERM to the worker process)
     if job["celery_task_id"]:
@@ -237,9 +242,11 @@ async def cancel_job(
         except Exception as e:
             logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
 
-    # Delete all job files (queue + results folders) and DB record
-    db.delete_job(job_uuid)
+    # Delete all job files first — delete_job_folder reads created_at from DB
+    # to resolve the folder name (YYYY-MM-DD_HH-MM-SS_{uuid}). Deleting DB first
+    # would cause the lookup to fail and miss the real MinIO folder.
     delete_job_folder(job_uuid)
+    db.delete_job(job_uuid)
 
     logger.info("Job cancelled: {}", job_uuid)
     return {"ok": True}
@@ -274,7 +281,7 @@ async def get_job_status(
         except Exception:
             pass
 
-    if job["status"] == "success" and job["result_path"]:
+    if job["status"] in ("success", "awaiting_user") and job["result_path"]:
         result_path = Path(job["result_path"])
 
         if result_path.suffix == ".json":

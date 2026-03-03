@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { checkAuthStatus } from "@/lib/auth";
 import Header from "@/components/Header";
 
 interface MyJob {
@@ -9,7 +10,7 @@ interface MyJob {
   tool: string;
   tool_label: string;
   original_filename: string;
-  status: "pending" | "running" | "success" | "failed";
+  status: "pending" | "running" | "success" | "failed" | "awaiting_user";
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -17,6 +18,7 @@ interface MyJob {
   expires_at: string | null;
   has_download: boolean;
   result_filename: string | null;
+  folder_name: string | null;
 }
 
 interface JobDetail {
@@ -28,7 +30,7 @@ interface JobDetail {
 
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
-const isActive = (s: MyJob["status"]) => s === "pending" || s === "running";
+const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user";
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
 function StatusBadge({ status, expired }: { status: MyJob["status"]; expired: boolean }) {
@@ -40,6 +42,8 @@ function StatusBadge({ status, expired }: { status: MyJob["status"]; expired: bo
     return <span className="inline-flex text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Fehler</span>;
   if (status === "running")
     return <span className="inline-flex text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
+  if (status === "awaiting_user")
+    return <span className="inline-flex text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
   return <span className="inline-flex text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Wartend</span>;
 }
 
@@ -139,26 +143,107 @@ function DownloadButton({ href, filename, label }: { href?: string; filename?: s
 function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null }) {
   const router = useRouter();
 
-  // screencast_translate: show PPTX download if available
-  if (job.tool === "screencast_translate" && job.status === "success") {
+  // screencast_translate: single-folder workflow — show artifacts for both phases
+  if (job.tool === "screencast_translate") {
     const baseName = job.original_filename.replace(/\.pptx$/i, "") || "screencast";
+
+    if (job.status === "awaiting_user") {
+      return (
+        <div className="mt-3 space-y-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            <DownloadChip
+              href={`/api/jobs/${job.job_uuid}/pptx`}
+              filename={`${baseName}_praesentation.pptx`}
+              label="Präsentation"
+            />
+            <a
+              href={`/screencast?resume=${job.job_uuid}`}
+              className="inline-flex items-center gap-1 text-xs text-[#0066cc] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full"
+            >
+              Screencast fortsetzen →
+            </a>
+          </div>
+        </div>
+      );
+    }
+
+    if (job.status === "success") {
+      const meta = detail?.meta as Record<string, unknown> | null;
+      const audioId = meta?.audio_id as string | undefined;
+      const audioCount = meta?.audio_count as number | undefined;
+      let srt: string | undefined;
+      let vtt: string | undefined;
+      let txt: string | undefined;
+      if (meta?.subtitle_b64) {
+        try {
+          const parsed = JSON.parse(atob(meta.subtitle_b64 as string));
+          srt = parsed.srt || undefined;
+          vtt = parsed.vtt || undefined;
+          txt = parsed.txt || undefined;
+        } catch { /* ignore */ }
+      }
+      return (
+        <div className="mt-3 space-y-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            {job.has_download && (
+              <DownloadChip
+                href={`/api/jobs/${job.job_uuid}/download`}
+                filename={`${baseName}_video.mp4`}
+                label="Video"
+              />
+            )}
+            <DownloadChip
+              href={`/api/jobs/${job.job_uuid}/pptx`}
+              filename={`${baseName}_praesentation.pptx`}
+              label="Präsentation"
+            />
+          </div>
+          {(srt || vtt || txt) && (
+            <div className="flex flex-wrap gap-2 items-center">
+              {(srt || vtt) && (
+                <>
+                  <span className="text-xs text-gray-400">Untertitel:</span>
+                  {srt && <DownloadChip onClick={() => downloadText(srt!, `${baseName}_untertitel.srt`, "application/x-subrip")} label="SRT" />}
+                  {vtt && <DownloadChip onClick={() => downloadText(vtt!, `${baseName}_untertitel.vtt`, "text/vtt")} label="VTT" />}
+                </>
+              )}
+              {txt && (
+                <>
+                  {(srt || vtt) && <span className="text-gray-300">·</span>}
+                  <span className="text-xs text-gray-400">Transkript:</span>
+                  <DownloadChip onClick={() => downloadText(txt!, `${baseName}_transkript.txt`, "text/plain")} label="TXT" />
+                </>
+              )}
+            </div>
+          )}
+          {audioId && audioCount && audioCount > 0 && (
+            <SlideAudioSection audioId={audioId} audioCount={audioCount} baseName={baseName} />
+          )}
+        </div>
+      );
+    }
+    return null;
+  }
+
+  // screencast_demo_render: resume link when awaiting_user
+  if (job.tool === "screencast_demo_render" && job.status === "awaiting_user") {
     return (
       <div className="mt-3">
-        <DownloadButton
-          href={`/api/jobs/${job.job_uuid}/pptx`}
-          filename={`${baseName}_praesentation.pptx`}
-          label="Präsentation"
-        />
+        <a
+          href={`/screencast?resume=${job.job_uuid}`}
+          className="inline-flex items-center gap-1 text-xs text-[#0066cc] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full"
+        >
+          Screencast fortsetzen →
+        </a>
       </div>
     );
   }
 
-  // screencast render/auto/demo: show all artifacts
+  // screencast render/auto/demo: show all artifacts (legacy + auto mode)
   if (job.status === "success" && SCREENCAST_RENDER_TOOLS.has(job.tool)) {
     const meta = detail?.meta as Record<string, unknown> | null;
     const audioId = meta?.audio_id as string | undefined;
     const audioCount = meta?.audio_count as number | undefined;
-    const fileId = meta?.file_id as string | undefined;
     const baseName = job.original_filename.replace(/\.pptx$/i, "") || "screencast";
 
     let srt: string | undefined;
@@ -183,7 +268,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
               label="Video"
             />
           )}
-          {fileId && (
+          {job.has_download && (
             <DownloadChip
               href={`/api/jobs/${job.job_uuid}/pptx`}
               filename={`${baseName}_praesentation.pptx`}
@@ -346,6 +431,7 @@ export default function MeineJobsPage() {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [offset, setOffset] = useState(0);
@@ -354,8 +440,13 @@ export default function MeineJobsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [hideExpired, setHideExpired] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    checkAuthStatus().then((s) => setIsAdmin(s.is_admin ?? false));
+  }, []);
 
   // Debounce q and reset offset
   useEffect(() => {
@@ -404,6 +495,7 @@ export default function MeineJobsPage() {
         if (r) map[r.uuid] = r.detail;
       }
       setDetails(map);
+      setLastUpdated(new Date());
     } finally {
       setLoading(false);
     }
@@ -460,7 +552,36 @@ export default function MeineJobsPage() {
     <>
       <Header showLogout />
       <main className="max-w-2xl mx-auto px-4 py-8">
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">Meine Jobs</h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-lg font-semibold text-gray-800">Meine Jobs</h2>
+          <div className="flex items-center gap-2">
+            {lastUpdated && !loading && (
+              <span className="text-xs text-gray-400">
+                {lastUpdated.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
+            <button
+              onClick={() => fetchJobs()}
+              disabled={loading}
+              title="Aktualisieren"
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-40 transition-colors"
+            >
+              <svg
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M13.5 8A5.5 5.5 0 1 1 9 2.6" />
+                <path d="M13.5 2.5v3h-3" />
+              </svg>
+              Aktualisieren
+            </button>
+          </div>
+        </div>
         <p className="text-sm text-gray-500 mb-4">
           Fertige Downloads sind 12 Stunden verfügbar. Ältere Dateien werden automatisch entfernt.
         </p>
@@ -530,6 +651,9 @@ export default function MeineJobsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-800">{job.tool_label}</p>
                         <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
+                        {isAdmin && job.folder_name && (
+                          <p className="text-xs text-gray-300 font-mono truncate mt-0.5">{job.folder_name}</p>
+                        )}
                         <TimingInfo job={job} />
                         {job.status === "failed" && job.error && (
                           <p className="text-xs text-red-500 mt-1">{job.error}</p>
@@ -547,7 +671,7 @@ export default function MeineJobsPage() {
                             {cancelling === job.job_uuid ? "..." : "Abbrechen"}
                           </button>
                         )}
-                        {(job.tool === "tts" || job.tool === "screencast_render" || job.tool === "screencast_demo_render") && job.status === "failed" && (
+                        {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render" || job.tool === "screencast_demo_render") && job.status === "failed" && (
                           <button
                             onClick={() => handleRetry(job)}
                             disabled={retrying === job.job_uuid}

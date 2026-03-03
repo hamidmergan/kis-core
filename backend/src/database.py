@@ -30,7 +30,8 @@ MAX_RESULT_FILES = {
 
 TOOL_RESULT_GROUP = {
     "video_dubbing": "video",
-    "screencast_render": "video",
+    "screencast_translate": "video",    # translate job now owns the final MP4
+    "screencast_render": "video",       # kept for backward compat with old jobs
     "screencast_auto": "video",
     "screencast_demo_render": "video",
     "tts": "general",
@@ -129,6 +130,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
+
+        # Migration: remove legacy api_config and kisski_models tables (API keys now live in .env only)
+        conn.execute("DROP TABLE IF EXISTS api_config")
+        conn.execute("DROP TABLE IF EXISTS kisski_models")
 
         # Auto-whitelist admin email so first login works without manual DB edits
         if admin_email and admin_email.strip():
@@ -254,6 +259,28 @@ def create_job(
         conn.commit()
 
 
+def update_job_expiry(job_uuid: str, hours: int) -> None:
+    """Extend (or set) the expires_at for a job to now + hours."""
+    new_expiry = (
+        datetime.now(timezone.utc) + timedelta(hours=hours)
+    ).strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE jobs SET expires_at = ? WHERE job_uuid = ?",
+            (new_expiry, job_uuid),
+        )
+        conn.commit()
+
+
+def set_job_input_path(job_uuid: str, input_path: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE jobs SET input_path = ? WHERE job_uuid = ?",
+            (input_path, job_uuid),
+        )
+        conn.commit()
+
+
 def get_job(job_uuid: str):
     with get_connection() as conn:
         return conn.execute(
@@ -337,7 +364,7 @@ def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
         row = conn.execute(
             f"""SELECT 1 FROM jobs
                WHERE user_id = ? AND tool IN ({placeholders})
-               AND status IN ('pending', 'running', 'awaiting_user')
+               AND status IN ('pending', 'running')
                LIMIT 1""",
             (user_id, *tools),
         ).fetchone()
@@ -615,6 +642,19 @@ def touch_job_heartbeat(job_uuid: str) -> None:
             (now, job_uuid),
         )
         conn.commit()
+
+
+def get_stale_awaiting_user_jobs(threshold_hours: int = 2) -> list[dict]:
+    """Return awaiting_user jobs older than threshold_hours (user never came back to resume)."""
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(hours=threshold_hours)
+    ).strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT job_uuid, tool FROM jobs WHERE status = 'awaiting_user' AND created_at <= ?",
+            (cutoff,),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
 
 def get_stuck_running_jobs(threshold_minutes: int = 20) -> list[dict]:

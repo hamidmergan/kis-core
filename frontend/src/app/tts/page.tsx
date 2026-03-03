@@ -11,6 +11,48 @@ import type { TTSState } from "@/types";
 interface Voice {
   voice_id: string;
   label: string;
+  description?: string | null;
+  use_case?: string | null;
+}
+
+const DESCRIPTION_DE: Record<string, string> = {
+  "Laid-Back": "Entspannt",
+  "Casual": "Locker",
+  "Formal": "Förmlich",
+  "Friendly": "Freundlich",
+  "Warm": "Warm",
+  "Authoritative": "Autoritär",
+  "Confident": "Selbstsicher",
+  "Calm": "Ruhig",
+  "Energetic": "Energetisch",
+  "Upbeat": "Lebhaft",
+  "Serious": "Sachlich",
+  "Raspy": "Rau",
+  "Smooth": "Weich",
+  "Deep": "Tief",
+  "Resonant": "Resonant",
+  "Crisp": "Klar",
+  "Soft": "Sanft",
+  "Husky": "Heiser",
+  "Clear": "Deutlich",
+  "Conversational": "Gesprächig",
+  "Narrative": "Erzählend",
+  "Expressive": "Ausdrucksstark",
+  "Melodic": "Melodisch",
+  "Mature": "Reif",
+  "Powerful": "Kraftvoll",
+  "Bright": "Hell",
+  "Grounded": "Geerdet",
+  "Soothing": "Beruhigend",
+  "Professional": "Professionell",
+};
+
+function translateDesc(description?: string | null): string | null {
+  if (!description) return null;
+  return description.split(",").map(d => {
+    const key = d.trim();
+    return DESCRIPTION_DE[key] ?? key;
+  }).join(" · ");
 }
 
 const PAUSE_OPTIONS = [
@@ -199,11 +241,14 @@ export default function TtsPage() {
                   disabled={isProcessing}
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {voices.map((v) => (
-                    <option key={v.voice_id} value={v.voice_id}>
-                      {v.label}
-                    </option>
-                  ))}
+                  {voices.map((v) => {
+                    const desc = translateDesc(v.description);
+                    return (
+                      <option key={v.voice_id} value={v.voice_id}>
+                        {desc ? `${v.label} – ${desc}` : v.label}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div>

@@ -63,9 +63,10 @@ async def edit_image(
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
 
-    input_path = save_queue_file(job_uuid, ext, content)
     display_name = f"{image.filename}: {prompt[:80]}"
     db.create_job(job_uuid, user_id, "image_edit", display_name)
+    input_path = save_queue_file(job_uuid, ext, content)
+    db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_image_edit
     run_image_edit.delay(job_uuid, input_path, image.filename, prompt)
@@ -96,9 +97,10 @@ async def analyze_image(
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
 
-    input_path = save_queue_file(job_uuid, ext, content)
     display_name = f"{image.filename}: {prompt[:80]}" if prompt.strip() else image.filename
     db.create_job(job_uuid, user_id, "image_analyze", display_name)
+    input_path = save_queue_file(job_uuid, ext, content)
+    db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_image_analyze
     run_image_analyze.delay(job_uuid, input_path, image.filename, prompt)

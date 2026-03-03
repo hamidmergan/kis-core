@@ -67,6 +67,35 @@ def get_file(file_path: str) -> bytes:
     return Path(file_path).read_bytes()
 
 
+def file_exists(file_path: str) -> bool:
+    """Check whether a stored file actually exists (S3 HEAD or local stat).
+
+    For S3: returns False ONLY on a genuine 404/NoSuchKey response.
+    Any other error (network issue, S3 unavailable, permissions) returns True
+    so that transient failures never accidentally trigger job deletion.
+    """
+    if USE_S3:
+        from botocore.exceptions import ClientError
+        try:
+            _s3().head_object(Bucket=_S3_BUCKET, Key=file_path)
+            return True
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            if code in ("404", "NoSuchKey"):
+                return False
+            # Server error, permission error, network issue — assume file exists
+            return True
+        except Exception:
+            # Connection error, timeout, etc. — assume file exists
+            return True
+    return Path(file_path).exists()
+
+
+def job_file_exists(job_uuid: str, filename: str) -> bool:
+    """Check whether a specific file inside a job's folder still exists."""
+    return file_exists(_job_key(job_uuid, filename))
+
+
 def delete_file(file_path: str) -> None:
     if USE_S3:
         _s3().delete_object(Bucket=_S3_BUCKET, Key=file_path)
@@ -259,6 +288,45 @@ def get_audio_slide_count(job_uuid: str) -> int:
     if not audio_dir.exists():
         return 0
     return len(list(audio_dir.glob("slide_*.mp3")))
+
+
+# --- PPTX temp storage (translate → render handoff) ---
+#
+# Keyed by a random file_id UUID (not a job UUID).
+# S3: pptx_tmp/{file_id}.pptx  |  local: /app/storage/screencast_tmp/{file_id}.pptx
+
+_PPTX_TMP_DIR = STORAGE_ROOT / "screencast_tmp"
+_PPTX_TMP_PREFIX = "pptx_tmp"
+
+
+def save_pptx_tmp(file_id: str, data: bytes) -> None:
+    """Save a temporary PPTX for the translate→render handoff."""
+    if USE_S3:
+        _s3().put_object(Bucket=_S3_BUCKET, Key=f"{_PPTX_TMP_PREFIX}/{file_id}.pptx", Body=data)
+    else:
+        _PPTX_TMP_DIR.mkdir(parents=True, exist_ok=True)
+        (_PPTX_TMP_DIR / f"{file_id}.pptx").write_bytes(data)
+
+
+def get_pptx_tmp(file_id: str) -> bytes | None:
+    """Load a temporary PPTX. Returns None if not found or expired."""
+    if USE_S3:
+        from botocore.exceptions import ClientError
+        try:
+            resp = _s3().get_object(Bucket=_S3_BUCKET, Key=f"{_PPTX_TMP_PREFIX}/{file_id}.pptx")
+            return resp["Body"].read()
+        except ClientError:
+            return None
+    path = _PPTX_TMP_DIR / f"{file_id}.pptx"
+    return path.read_bytes() if path.exists() else None
+
+
+def delete_pptx_tmp(file_id: str) -> None:
+    """Delete a temporary PPTX after render is complete."""
+    if USE_S3:
+        _s3().delete_object(Bucket=_S3_BUCKET, Key=f"{_PPTX_TMP_PREFIX}/{file_id}.pptx")
+    else:
+        (_PPTX_TMP_DIR / f"{file_id}.pptx").unlink(missing_ok=True)
 
 
 # --- Per-job folder deletion ---

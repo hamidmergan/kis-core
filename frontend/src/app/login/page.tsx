@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { login } from "@/lib/auth";
+import { login, checkAuthStatus } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    checkAuthStatus().then((status) => {
+      if (status.authenticated) {
+        router.replace("/");
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,6 +30,7 @@ export default function LoginPage() {
 
     try {
       await login(username, password);
+      router.refresh();
       router.push("/");
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
@@ -31,6 +43,8 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  if (checking) return null;
 
   return (
     <div className="flex items-center justify-center min-h-[80vh] px-4">

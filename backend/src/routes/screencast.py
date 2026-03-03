@@ -39,7 +39,7 @@ from src.utils.file_validation import (
     SCREENCAST_EXTENSIONS,
 )
 from src import database as db
-from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json, get_job_file, save_job_file
+from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json, get_job_file, save_job_file, job_file_exists, delete_job_folder
 
 router = APIRouter(tags=["screencast"])
 
@@ -88,10 +88,10 @@ def _maybe_start_cleanup_task() -> None:
 
 
 def _save_pptx_tmp(pptx_bytes: bytes) -> str:
-    """Save PPTX bytes to PPTX_TMP_DIR/{uuid}.pptx and return the UUID."""
-    PPTX_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    """Save PPTX to temp storage (S3 or local) and return the file_id."""
+    from src.storage import save_pptx_tmp as _storage_save_pptx
     file_id = uuid.uuid4().hex
-    (PPTX_TMP_DIR / f"{file_id}.pptx").write_bytes(pptx_bytes)
+    _storage_save_pptx(file_id, pptx_bytes)
     return file_id
 
 
@@ -105,6 +105,7 @@ class GenerateScriptsRequest(BaseModel):
     slide_texts: list[str]
     user_prompt: str | None = None
     glossary_json: str = ""
+    translate_job_uuid: str | None = None
 
 
 class PrepareRequest(BaseModel):
@@ -113,7 +114,7 @@ class PrepareRequest(BaseModel):
 
 class RenderRequest(BaseModel):
     scripts: list[str]
-    file_id: str
+    translate_job_uuid: str          # the existing translate job to update
     slide_images_b64: list[str] = []
     voice_id: str = ""
     speed: float = 0.9
@@ -123,11 +124,11 @@ class RenderRequest(BaseModel):
 
 
 class PrerenderRequest(BaseModel):
-    file_id: str
+    translate_job_uuid: str
 
 
 class DemoRenderRequest(BaseModel):
-    file_id: str = ""
+    translate_job_uuid: str = ""
     dpi: int = 100
 
 
@@ -135,19 +136,39 @@ class DemoTranslateRequest(BaseModel):
     fast_mode: bool = False
 
 
-async def _prerender_images_task(file_id: str) -> None:
+async def _prerender_images_task(translate_job_uuid: str) -> None:
     """Background task: render slide images at 100 DPI and cache them in IMAGE_TMP_DIR."""
-    pptx_src = PPTX_TMP_DIR / f"{file_id}.pptx"
-    if not pptx_src.exists():
-        logger.warning("Pre-render: PPTX not found for file_id={}", file_id)
-        return
-    out_dir = IMAGE_TMP_DIR / file_id
+    from src.storage import get_job_file as _get_job_file
+
+    out_dir = IMAGE_TMP_DIR / translate_job_uuid
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Read PPTX from job folder (corrected if available, else translated)
+    pptx_data: bytes | None = None
+    for filename in ("corrected.pptx", "translated.pptx"):
+        try:
+            pptx_data = _get_job_file(translate_job_uuid, filename)
+            break
+        except Exception:
+            pass
+
+    if pptx_data is None:
+        logger.warning("Pre-render: PPTX not found in job folder for job={}", translate_job_uuid)
+        return
+
+    import tempfile as _tf
+    tmp_f = _tf.NamedTemporaryFile(suffix=".pptx", delete=False)
+    tmp_f.write(pptx_data)
+    tmp_f.close()
+    pptx_src = Path(tmp_f.name)
+
     try:
         await asyncio.to_thread(_pptx_to_images, pptx_src, out_dir, 100)
-        logger.info("Pre-rendering complete for file_id={}", file_id)
+        logger.info("Pre-rendering complete for job={}", translate_job_uuid)
     except Exception as e:
-        logger.warning("Pre-rendering failed for file_id={}: {}", file_id, e)
+        logger.warning("Pre-rendering failed for job={}: {}", translate_job_uuid, e)
+    finally:
+        pptx_src.unlink(missing_ok=True)
 
 
 # ── Shared helpers ───────────────────────────────────────────────────────────
@@ -661,8 +682,9 @@ async def screencast(
         raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
 
     job_uuid = uuid.uuid4().hex
+    db.create_job(job_uuid, user_id, "screencast_auto", file.filename or "screencast.pptx")
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
-    db.create_job(job_uuid, user_id, "screencast_auto", file.filename or "screencast.pptx", input_path)
+    db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.screencast_tasks import run_screencast_auto
     task = run_screencast_auto.apply_async(args=[
@@ -707,8 +729,9 @@ async def screencast_translate(
         raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
 
     job_uuid = uuid.uuid4().hex
+    db.create_job(job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
-    db.create_job(job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", input_path)
+    db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.screencast_tasks import run_screencast_translate
     task = run_screencast_translate.apply_async(args=[
@@ -782,16 +805,27 @@ async def screencast_prepare(body: PrepareRequest):
     }
 
 
-@router.get("/screencast/file/{file_id}")
-async def download_pptx_file(file_id: str):
-    """Download translated PPTX from temp storage (file kept for render)."""
-    if not re.match(r"^[a-f0-9]{32}$", file_id):
-        raise HTTPException(status_code=400, detail="Ungültige file_id")
-    pptx_path = PPTX_TMP_DIR / f"{file_id}.pptx"
-    if not pptx_path.exists():
-        raise HTTPException(status_code=404, detail="Datei nicht gefunden (abgelaufen oder ungültige ID)")
-    data = pptx_path.read_bytes()
-    logger.info("Serving PPTX file_id={} ({} bytes)", file_id, len(data))
+@router.get("/screencast/pptx/{translate_job_uuid}")
+async def download_pptx_file(translate_job_uuid: str, current_user: dict = Depends(get_current_user)):
+    """Download translated/corrected PPTX from job folder."""
+    from src.storage import get_job_file as _get_job_file
+    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+        raise HTTPException(status_code=400, detail="Ungültige job UUID")
+    job = db.get_job(translate_job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+    data: bytes | None = None
+    for filename in ("corrected.pptx", "translated.pptx"):
+        try:
+            data = _get_job_file(translate_job_uuid, filename)
+            break
+        except Exception:
+            pass
+    if data is None:
+        raise HTTPException(status_code=404, detail="PPTX nicht gefunden")
+    logger.info("Serving PPTX for job={} ({} bytes)", translate_job_uuid, len(data))
     return StreamingResponse(
         iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -802,12 +836,144 @@ async def download_pptx_file(file_id: str):
     )
 
 
+class SaveScriptsRequest(BaseModel):
+    scripts: list[str]
+    accepted: bool = False  # True = "Alle Skripte übernehmen" clicked
+    user_prompt: str | None = None
+
+
+@router.patch("/screencast/scripts/{translate_job_uuid}")
+async def save_scripts(
+    translate_job_uuid: str,
+    body: SaveScriptsRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Autosave or accept scripts for a screencast job (awaiting_user)."""
+    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+        raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
+    job = db.get_job(translate_job_uuid)
+    if not job or job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job["status"] != "awaiting_user":
+        raise HTTPException(status_code=409, detail="Job ist nicht im Eingabe-Status")
+    filename = "accepted_scripts.json" if body.accepted else "user_scripts.json"
+    save_job_file(translate_job_uuid, filename, json.dumps(body.scripts, ensure_ascii=False).encode())
+    if body.user_prompt is not None:
+        save_job_file(translate_job_uuid, "prompt.txt", body.user_prompt.encode())
+    return {"ok": True}
+
+
+@router.get("/screencast/resume/{translate_job_uuid}")
+async def get_resume_data(translate_job_uuid: str, current_user: dict = Depends(get_current_user)):
+    """Reconstruct workflow state from job folder for resuming an awaiting_user screencast job."""
+    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+        raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
+    job = db.get_job(translate_job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+    if job["status"] != "awaiting_user":
+        raise HTTPException(status_code=409, detail="Job ist nicht im Eingabe-Status")
+
+    tool = job["tool"]
+    slide_texts: list[str] = []
+    scripts: list[str] = []
+    slide_images: list[str] = []
+    user_prompt = ""
+    step = "script-review"
+
+    try:
+        user_prompt = get_job_file(translate_job_uuid, "prompt.txt").decode()
+    except Exception:
+        pass
+
+    # Step detection:
+    #   accepted_scripts.json  → tts-settings (step 6)
+    #   user_scripts.json      → script-review (step 5, user edits)
+    #   suggested_scripts.json → script-review (step 5, KI suggestion)
+    #   nothing                → user-prompt or translation-review
+    SCRIPT_FILES = (
+        ("accepted_scripts.json", "tts-settings"),
+        ("user_scripts.json", "script-review"),
+        ("suggested_scripts.json", "script-review"),
+    )
+
+    if tool == "screencast_translate":
+        try:
+            slide_texts = json.loads(get_job_file(translate_job_uuid, "scripts.txt"))
+        except Exception:
+            raise HTTPException(status_code=404, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
+
+        for filename, resolved_step in SCRIPT_FILES:
+            try:
+                scripts = json.loads(get_job_file(translate_job_uuid, filename))
+                step = resolved_step
+                break
+            except Exception:
+                pass
+
+        if not scripts:
+            step = "user-prompt" if user_prompt else "translation-review"
+
+    elif tool == "screencast_demo_render":
+        try:
+            slide_texts = json.loads(get_job_file(translate_job_uuid, "scripts.txt"))
+        except Exception:
+            pass
+
+        # Load slide images if available (saved for non-fast mode)
+        try:
+            slide_images = json.loads(get_job_file(translate_job_uuid, "slide_images.json"))
+        except Exception:
+            pass
+
+        # Step detection
+        step = "translation-review"
+        for filename, resolved_step in SCRIPT_FILES:
+            try:
+                scripts = json.loads(get_job_file(translate_job_uuid, filename))
+                step = resolved_step
+                break
+            except Exception:
+                pass
+        if not scripts:
+            step = "user-prompt" if user_prompt else "translation-review"
+
+    return {
+        "tool": tool,
+        "step": step,
+        "slide_texts": slide_texts,
+        "scripts": scripts,
+        "slide_images": slide_images,
+        "original_filename": job["original_filename"] or "",
+        "user_prompt": user_prompt,
+    }
+
+
+@router.get("/screencast/folder-exists/{translate_job_uuid}")
+async def check_folder_exists(translate_job_uuid: str, current_user: dict = Depends(get_current_user)):
+    """Check if the job folder (scripts.txt) still exists in storage. Lightweight pre-flight check."""
+    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+        raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
+    job = db.get_job(translate_job_uuid)
+    if not job or job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    try:
+        get_job_file(translate_job_uuid, "scripts.txt")
+        return {"exists": True}
+    except Exception:
+        return {"exists": False}
+
+
 @router.post("/screencast/upload-corrected")
 async def screencast_upload_corrected(
     request: Request,
     file: UploadFile = File(...),
+    translate_job_uuid: str = Form(""),
+    current_user: dict = Depends(get_current_user),
 ):
-    """Upload a corrected PPTX, save to temp storage, extract texts and slide images."""
+    """Upload a corrected PPTX, save to temp storage + job folder, extract texts and slide images."""
     _validate_upload(file.filename)
     _maybe_start_cleanup_task()
 
@@ -816,6 +982,14 @@ async def screencast_upload_corrected(
         raise HTTPException(status_code=400, detail="Datei ist leer")
 
     logger.info("Screencast/upload-corrected: '{}' ({} bytes)", file.filename, len(pptx_bytes))
+
+    # Validate job ownership if translate_job_uuid provided
+    if translate_job_uuid:
+        job = db.get_job(translate_job_uuid)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        if job["user_id"] != current_user.get("user_id", 0):
+            raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
 
     slide_texts = _extract_text_per_slide(pptx_bytes)
     if not slide_texts:
@@ -827,8 +1001,10 @@ async def screencast_upload_corrected(
             detail=f"Zu viele Folien ({len(slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
         )
 
-    file_id = _save_pptx_tmp(pptx_bytes)
-    logger.info("Saved corrected PPTX as file_id={}", file_id)
+    if translate_job_uuid:
+        from src.storage import save_job_file as _save_job_file
+        _save_job_file(translate_job_uuid, "corrected.pptx", pptx_bytes)
+        logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
@@ -843,7 +1019,6 @@ async def screencast_upload_corrected(
         slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
 
     return {
-        "file_id": file_id,
         "slide_texts": slide_texts,
         "slide_images": slide_images_b64,
     }
@@ -875,10 +1050,31 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         except (json.JSONDecodeError, TypeError):
             pass
 
+    # Verify job folder still exists before burning LLM tokens
+    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+        try:
+            get_job_file(body.translate_job_uuid, "scripts.txt")
+        except Exception:
+            raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
+
+    # Save user_prompt to bucket immediately so resume can restore it
+    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid) and body.user_prompt:
+        try:
+            save_job_file(body.translate_job_uuid, "prompt.txt", body.user_prompt.encode())
+        except Exception:
+            pass
+
     # PARALLELIZED
     scripts = await _generate_all_scripts(
         body.slide_texts, kisski_client, user_prompt=body.user_prompt, glossary=glossary_dict
     )
+
+    # Save suggested scripts so resume can restore step 5
+    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+        try:
+            save_job_file(body.translate_job_uuid, "suggested_scripts.json", json.dumps(scripts, ensure_ascii=False).encode())
+        except Exception:
+            pass
 
     return {"scripts": scripts}
 
@@ -890,10 +1086,10 @@ async def prerender_images(body: PrerenderRequest, background_tasks: BackgroundT
     Call this after the user confirms scripts so images are ready when /render is called.
     Fire-and-forget: always returns immediately.
     """
-    if not re.match(r"^[a-f0-9]{32}$", body.file_id):
-        raise HTTPException(status_code=400, detail="Ungültige file_id")
-    background_tasks.add_task(_prerender_images_task, body.file_id)
-    logger.info("Pre-render started for file_id={}", body.file_id)
+    if not re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+        raise HTTPException(status_code=400, detail="Ungültige job UUID")
+    background_tasks.add_task(_prerender_images_task, body.translate_job_uuid)
+    logger.info("Pre-render started for job={}", body.translate_job_uuid)
     return {"status": "started"}
 
 
@@ -902,7 +1098,7 @@ async def screencast_render(
     body: RenderRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    """Queue a render job: final MP4 from edited scripts and stored PPTX."""
+    """Queue render phase on the existing translate job (single-folder workflow)."""
     if not body.scripts:
         raise HTTPException(status_code=400, detail="Keine Skripte übergeben")
 
@@ -913,29 +1109,35 @@ async def screencast_render(
         )
 
     user_id = current_user.get("user_id", 0)
-    # Only block if a render/auto job is already running (translate jobs are short and non-blocking)
-    if db.has_active_job_for_tool(user_id, ["screencast_render", "screencast_auto", "screencast_demo_render"]):
-        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Render-Job.")
 
-    job_uuid = uuid.uuid4().hex
-    db.create_job(job_uuid, user_id, "screencast_render", "screencast.pptx")
+    # Validate translate job ownership + status
+    translate_job = db.get_job(body.translate_job_uuid)
+    if not translate_job:
+        raise HTTPException(status_code=404, detail="Translate-Job nicht gefunden")
+    if translate_job["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+    if translate_job["status"] not in ("awaiting_user", "failed"):
+        raise HTTPException(status_code=409, detail="Job ist nicht bereit zum Rendern")
+    if not job_file_exists(body.translate_job_uuid, "translated.pptx"):
+        delete_job_folder(body.translate_job_uuid)
+        db.delete_job(body.translate_job_uuid)
+        raise HTTPException(status_code=404, detail="Job-Dateien nicht mehr vorhanden. Bitte neue Übersetzung starten.")
 
     from src.tasks.screencast_tasks import run_screencast_render
     task = run_screencast_render.apply_async(args=[
-        job_uuid,
-        body.file_id,
+        body.translate_job_uuid,
         body.scripts,
         body.voice_id,
         body.speed,
         body.slide_pause,
         body.embed_subtitles,
-        "screencast.pptx",
+        translate_job["original_filename"] or "screencast.pptx",
         body.dpi,
     ])
-    db.set_job_celery_task_id(job_uuid, task.id)
+    db.set_job_celery_task_id(body.translate_job_uuid, task.id)
 
-    logger.info("Screencast render job queued: job_uuid={}, file_id={}", job_uuid, body.file_id)
-    return {"job_uuid": job_uuid}
+    logger.info("Screencast render queued: translate_job={}", body.translate_job_uuid)
+    return {"job_uuid": body.translate_job_uuid}
 
 
 # ── Audio download endpoint ──────────────────────────────────────────────────
@@ -1211,10 +1413,10 @@ async def demo_available():
 
 
 @router.post("/screencast/demo/translate")
-async def demo_translate(body: DemoTranslateRequest):
+async def demo_translate(body: DemoTranslateRequest, current_user: dict = Depends(get_current_user)):
     """Return demo translation data (slide images, texts, translated PPTX).
 
-    Requires a PPTX file in demo/slides/. Reads user prompt from Anweisung.txt.
+    Creates a screencast_demo_render job and saves the PPTX to its folder.
     """
     global _demo_images_cache
 
@@ -1231,21 +1433,32 @@ async def demo_translate(body: DemoTranslateRequest):
     logger.info("Demo/translate: using PPTX '{}', fast_mode={}", pptx_path.name, body.fast_mode)
     pptx_bytes = pptx_path.read_bytes()
 
-    # Save to temp storage so file_id can be used for download/render
-    file_id = _save_pptx_tmp(pptx_bytes)
-    logger.info("Demo/translate: saved PPTX as file_id={}", file_id)
+    # Create a job to hold all demo artifacts in one folder
+    translate_job_uuid = uuid.uuid4().hex
+    user_id = current_user.get("user_id", 0)
+    db.create_job(translate_job_uuid, user_id, "screencast_demo_render", pptx_path.name)
+    from src.storage import save_job_file as _save_job_file
+    _save_job_file(translate_job_uuid, "translated.pptx", pptx_bytes)
+    db.update_job_status(translate_job_uuid, "awaiting_user")
+    db.update_job_expiry(translate_job_uuid, 168)  # 7 days — no resources held while waiting
+    logger.info("Demo/translate: created job {} with PPTX in job folder", translate_job_uuid)
 
     # Extract slide texts
     slide_texts = _extract_text_per_slide(pptx_bytes)
     if not slide_texts:
         raise HTTPException(status_code=400, detail="Keine Slides in der Präsentation gefunden")
 
+    # Persist slide texts + prompt for resume
+    _save_job_file(translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False).encode())
+    if user_prompt:
+        _save_job_file(translate_job_uuid, "prompt.txt", user_prompt.encode())
+
     if body.fast_mode:
         return {
             "slide_count": len(slide_texts),
             "slide_texts": slide_texts,
             "slide_images": [],
-            "file_id": file_id,
+            "translate_job_uuid": translate_job_uuid,
             "user_prompt": user_prompt,
         }
 
@@ -1269,26 +1482,55 @@ async def demo_translate(body: DemoTranslateRequest):
             slide_images_b64 = await _get_demo_slide_images(len(slide_texts))
 
     num = min(len(slide_images_b64), len(slide_texts))
+    # Persist slide images for resume (only for non-fast mode)
+    _save_job_file(translate_job_uuid, "slide_images.json", json.dumps(slide_images_b64[:num]).encode())
+
     first_size = len(slide_images_b64[0]) if slide_images_b64 else 0
     logger.info("Demo/translate returning: slide_images count={}, first_size={}", num, first_size)
     return {
         "slide_count": num,
         "slide_texts": slide_texts[:num],
         "slide_images": slide_images_b64[:num],
-        "file_id": file_id,
+        "translate_job_uuid": translate_job_uuid,
         "user_prompt": user_prompt,
     }
 
 
+class DemoGenerateScriptsRequest(BaseModel):
+    translate_job_uuid: str | None = None
+    user_prompt: str | None = None
+
+
 @router.post("/screencast/demo/generate-scripts")
-async def demo_generate_scripts():
+async def demo_generate_scripts(body: DemoGenerateScriptsRequest = DemoGenerateScriptsRequest()):
     """Return demo-generated scripts parsed from the SRT file."""
     if db.get_setting("demo_data", "false").lower() != "true":
         raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
 
+    # Verify job folder still exists before loading demo scripts
+    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+        try:
+            get_job_file(body.translate_job_uuid, "scripts.txt")
+        except Exception:
+            raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
+
+    # Persist user prompt if provided (enables resume to user-prompt step)
+    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid) and body.user_prompt is not None:
+        try:
+            save_job_file(body.translate_job_uuid, "prompt.txt", body.user_prompt.encode())
+        except Exception:
+            pass
+
     scripts = _load_demo_scripts()
     if not scripts:
         raise HTTPException(status_code=404, detail="Keine Demo-Skripte (subtitles.srt fehlt in demo/slides/)")
+
+    # Save suggested scripts so resume can restore step 5
+    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+        try:
+            save_job_file(body.translate_job_uuid, "suggested_scripts.json", json.dumps(scripts, ensure_ascii=False).encode())
+        except Exception:
+            pass
 
     logger.info("Demo/generate-scripts: returning {} scripts", len(scripts))
     return {"scripts": scripts}
@@ -1397,16 +1639,25 @@ async def demo_render(
 
     # ── Mode A: MP3 files exist → queue Celery task ───────────────────────
     if demo_audio:
-        job_uuid = uuid.uuid4().hex
-        user_id = current_user.get("user_id", 0)
-        db.create_job(job_uuid, user_id, "screencast_demo_render", "demo_screencast.pptx")
+        if not body.translate_job_uuid:
+            raise HTTPException(status_code=400, detail="translate_job_uuid fehlt")
+        translate_job = db.get_job(body.translate_job_uuid)
+        if not translate_job:
+            raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        if translate_job["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+        if not job_file_exists(body.translate_job_uuid, "translated.pptx"):
+            delete_job_folder(body.translate_job_uuid)
+            db.delete_job(body.translate_job_uuid)
+            raise HTTPException(status_code=404, detail="Job-Dateien nicht mehr vorhanden. Bitte Demo neu starten.")
 
         from src.tasks.screencast_tasks import run_screencast_demo_render
-        task = run_screencast_demo_render.apply_async(args=[job_uuid, body.file_id, body.dpi])
-        db.set_job_celery_task_id(job_uuid, task.id)
+        task = run_screencast_demo_render.apply_async(args=[body.translate_job_uuid, body.dpi])
+        db.set_job_celery_task_id(body.translate_job_uuid, task.id)
+        db.update_job_status(body.translate_job_uuid, "running")
 
-        logger.info("Demo render job queued: job_uuid={}", job_uuid)
-        return {"job_uuid": job_uuid}
+        logger.info("Demo render job queued: job_uuid={}", body.translate_job_uuid)
+        return {"job_uuid": body.translate_job_uuid}
 
     # ── Mode B: No MP3 files → serve pre-existing MP4 as-is ─────────────
     subtitle_data = _load_demo_subtitles()

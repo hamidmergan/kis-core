@@ -290,8 +290,9 @@ async def video_dubbing(
         raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Dubbing-Job.")
 
     job_uuid = uuid.uuid4().hex
+    db.create_job(job_uuid, user_id, "video_dubbing", file.filename or f"input{ext}")
     input_path = save_queue_file(job_uuid, ext, file_bytes)
-    db.create_job(job_uuid, user_id, "video_dubbing", file.filename or f"input{ext}", input_path)
+    db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.video_dubbing_tasks import submit_dubbing
     task = submit_dubbing.apply_async(args=[

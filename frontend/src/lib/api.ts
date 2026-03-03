@@ -239,7 +239,7 @@ export const backendApi = new ApiClient(BACKEND_BASE);
 
 export interface JobStatus {
   job_uuid: string;
-  status: "pending" | "running" | "success" | "failed";
+  status: "pending" | "running" | "success" | "failed" | "awaiting_user";
   tool: string;
   original_filename: string;
   progress: Record<string, unknown> | null;
@@ -288,6 +288,7 @@ export async function pollJob(
     onProgress?.(status);
 
     if (status.status === "success") return status;
+    if (status.status === "awaiting_user") return status;
     if (status.status === "failed") throw new Error(status.error || "Job fehlgeschlagen");
 
     await new Promise<void>((resolve, reject) => {

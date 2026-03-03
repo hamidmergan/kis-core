@@ -9,7 +9,9 @@ export function clearAuthCache() {
 }
 
 export async function login(username: string, password: string): Promise<LoginResponse> {
-  return api.postJson<LoginResponse>("/auth/login", { username, password });
+  const result = await api.postJson<LoginResponse>("/auth/login", { username, password });
+  clearAuthCache();
+  return result;
 }
 
 export async function logout(): Promise<void> {
