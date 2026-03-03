@@ -23,6 +23,13 @@ _FALLBACK_VOICES = [
     {"voice_id": DEFAULT_VOICE_ID, "label": "Brian", "preview_url": None},
 ]
 
+_EXCLUDED_VOICES = {
+    "adam", "alice", "bella", "charlotte", "clyde", "daniel", "domi", "elli", "ethan",
+    "fin", "gigi", "harry", "james", "jeremy", "jessie", "liam", "lily", "michael",
+    "mimi", "miss applewood", "nicole", "patrick", "paul", "rover", "roger",
+    "sam", "serena", "thomas", "will",
+}
+
 _NON_ENGLISH = {
     "german", "deutsch", "de",
     "french", "français", "fr",
@@ -58,6 +65,9 @@ async def list_voices():
         voices = []
         for v in resp.json().get("voices", []):
             if v.get("category") not in ("premade", "professional", "cloned"):
+                continue
+            voice_name_lower = v["name"].lower().strip()
+            if any(voice_name_lower == ex or voice_name_lower.startswith(ex + " ") for ex in _EXCLUDED_VOICES):
                 continue
             labels = v.get("labels") or {}
             language = labels.get("language", "").lower().strip()
