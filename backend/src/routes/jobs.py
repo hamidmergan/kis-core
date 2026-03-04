@@ -113,20 +113,38 @@ async def get_my_jobs(
         date_part = created_at[:10]
         time_part = created_at[11:19].replace(":", "-") if len(created_at) >= 19 else ""
         folder_name = f"{date_part}_{time_part}_{job['job_uuid']}" if date_part and time_part else job["job_uuid"]
+
+        # Extract voice/provider params from progress JSON
+        tts_params: dict = {}
+        tool = job["tool"]
+        if tool in ("tts", "screencast_auto", "screencast_render", "screencast_translate",
+                    "screencast_demo_render"):
+            try:
+                progress = json_lib.loads(job["progress"] or "{}")
+                if tool == "tts":
+                    tts_params = progress.get("tts_params", {})
+                else:
+                    # screencast tasks store voice_id/voice_label/provider directly in progress
+                    tts_params = {k: progress[k] for k in ("voice_id", "voice_label", "provider") if k in progress}
+            except Exception:
+                pass
+
         result.append({
             "job_uuid": job["job_uuid"],
-            "tool": job["tool"],
-            "tool_label": _TOOL_LABELS.get(job["tool"], job["tool"]),
+            "tool": tool,
+            "tool_label": _TOOL_LABELS.get(tool, tool),
             "original_filename": job["original_filename"],
             "status": job["status"],
             "error": job["error_message"],
             "created_at": job["created_at"],
             "started_at": job["started_at"],
             "completed_at": job["completed_at"],
+            "render_started_at": job["render_started_at"],
             "expires_at": job["expires_at"],
             "has_download": has_download,
             "result_filename": job["result_filename"],
             "folder_name": folder_name,
+            "tts_params": tts_params or None,
         })
 
     return {"jobs": result, "total": total}
@@ -198,9 +216,9 @@ async def retry_job(
             render_params["voice_id"],
             render_params["speed"],
             render_params["slide_pause"],
-            render_params["embed_subtitles"],
-            job["original_filename"],
+            job["original_filename"] or "screencast.pptx",
             render_params["dpi"],
+            render_params.get("provider", "elevenlabs"),
         ])
 
     else:  # screencast_demo_render

@@ -160,9 +160,14 @@ export default function TtsPage() {
     setTtsState("uploading");
     setTtsProgressLabel("Wird hochgeladen…");
     try {
+      const voiceLabel = provider === "kokoro"
+        ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
+        : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
+
       const formData = new FormData();
       formData.append("file", pendingFile);
       formData.append("voice_id", voiceId);
+      formData.append("voice_label", voiceLabel);
       formData.append("speed", String(speed));
       formData.append("pause_preset", pausePreset);
       formData.append("provider", provider);

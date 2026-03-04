@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -64,6 +64,8 @@ function translateDesc(description?: string | null): string | null {
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
+const KOKORO_ACCENT_LABEL: Record<string, string> = { "American": "🇺🇸", "British": "🇬🇧" };
+
 interface TranslateResponse {
   slide_count: number;
   slide_texts: string[];
@@ -83,14 +85,6 @@ interface ExtractTextsResponse {
 
 interface GenerateScriptsResponse {
   scripts: string[];
-}
-
-interface SubtitleData {
-  srt: string;
-  vtt: string;
-
-  txt: string;
-  alignment_json: string;
 }
 
 
@@ -174,12 +168,10 @@ function ScreencastPageInner() {
   const [editBuffer, setEditBuffer] = useState("");
   const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [embedSubtitles, setEmbedSubtitles] = useState(true);
-  const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro">("elevenlabs");
+  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro">("kokoro");
   const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
   const [fishSpeechEnabled, setFishSpeechEnabled] = useState(false);
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
@@ -256,13 +248,15 @@ function ScreencastPageInner() {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setFishSpeechEnabled(data.fish_speech_enabled);
       setKokoroEnabled(data.kokoro_enabled ?? false);
-      if (!data.elevenlabs_enabled && data.fish_speech_enabled) setTtsProvider("fish_speech");
-      else if (!data.elevenlabs_enabled && !data.fish_speech_enabled && data.kokoro_enabled) setTtsProvider("kokoro");
+      // Default priority: kokoro > fish_speech > elevenlabs
+      if (data.kokoro_enabled) setTtsProvider("kokoro");
+      else if (data.fish_speech_enabled) setTtsProvider("fish_speech");
+      else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
       if (data.kokoro_enabled) {
         api.getJson<{ voices: Array<{ voice_id: string; name: string; accent: string; gender: string }> }>("/api/kokoro/voices")
           .then((kData) => {
             setKokoroVoices(kData.voices ?? []);
-            if (!data.elevenlabs_enabled && !data.fish_speech_enabled && kData.voices?.length > 0) {
+            if (kData.voices?.length > 0) {
               setVoiceId(kData.voices[0].voice_id);
             }
           }).catch(() => {});
@@ -396,8 +390,6 @@ function ScreencastPageInner() {
     setEditBuffer("");
     setCorrectedFileName(null);
     setLightboxIndex(null);
-    setEmbedSubtitles(true);
-    setSubtitleData(null);
     setAudioId("");
     setAudioCount(0);
     setAutoState("idle");
@@ -410,7 +402,7 @@ function ScreencastPageInner() {
     setMaxReachedIdx(0);
     setSourceLang("DE");
     setIsDemoMode(false);
-    setTtsProvider(elevenlabsEnabled ? "elevenlabs" : fishSpeechEnabled ? "fish_speech" : kokoroEnabled ? "kokoro" : "elevenlabs");
+    setTtsProvider(kokoroEnabled ? "kokoro" : fishSpeechEnabled ? "fish_speech" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
     if (fileRef.current) fileRef.current.value = "";
   }, [videoUrl, translateJobUuid]);
 
@@ -463,7 +455,12 @@ function ScreencastPageInner() {
   const onRenderProgress = useCallback((status: import("@/lib/api").JobStatus) => {
     const p = status.progress as { step?: string; current?: number; total?: number } | null;
     if (!p?.step) { setRenderProgressLabel("In der Warteschlange…"); return; }
-    if (p.step === "images") setRenderProgressLabel("Folienbilder werden vorbereitet…");
+    if (p.step === "translate") setRenderProgressLabel("Präsentation wird übersetzt…");
+    else if (p.step === "extract") setRenderProgressLabel("Folien werden analysiert…");
+    else if (p.step === "scripts" && p.total != null)
+      setRenderProgressLabel(`Skripte werden generiert… (${p.total} Folien)`);
+    else if (p.step === "scripts") setRenderProgressLabel("Skripte werden generiert…");
+    else if (p.step === "images") setRenderProgressLabel("Folienbilder werden vorbereitet…");
     else if (p.step === "tts" && p.current != null && p.total != null)
       setRenderProgressLabel(`Sprachsynthese: Folie ${p.current} von ${p.total}…`);
     else if (p.step === "tts") setRenderProgressLabel("Sprachsynthese läuft…");
@@ -520,9 +517,15 @@ function ScreencastPageInner() {
     try {
       const glossaryJson = mergeToApiJson(glossaryIds);
       const formData = new FormData();
+      const voiceLabel = ttsProvider === "kokoro"
+        ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
+        : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
+
       formData.append("file", file);
       formData.append("speed", String(speed));
       formData.append("voice_id", voiceId);
+      formData.append("voice_label", voiceLabel);
+      formData.append("provider", ttsProvider);
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
 
       const uploadRes = await fetch("/api/screencast", { method: "POST", body: formData, credentials: "include", signal });
@@ -599,8 +602,13 @@ function ScreencastPageInner() {
           throw new Error(error.detail || `Fehler: ${response.status}`);
         }
 
-        const data: { slide_texts: string[]; slide_images: string[] } =
+        const data: { translate_job_uuid: string; slide_texts: string[]; slide_images: string[] } =
           await response.json();
+
+        if (data.translate_job_uuid) {
+          setTranslateJobUuid(data.translate_job_uuid);
+          window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+        }
 
         setSlides(
           data.slide_texts.map((text, i) => ({
@@ -842,18 +850,6 @@ function ScreencastPageInner() {
     const blob = await response.blob();
     console.log("[Screencast] Video blob size:", blob.size, "bytes");
 
-    // Subtitles come as base64-encoded JSON in X-Subtitles header
-    const subtitleHeader = response.headers.get("X-Subtitles");
-    let subs: SubtitleData | null = null;
-    if (subtitleHeader) {
-      try {
-        const decoded = atob(subtitleHeader);
-        subs = JSON.parse(decoded);
-      } catch {
-        console.warn("[Screencast] Failed to parse X-Subtitles header");
-      }
-    }
-
     // Audio download info from headers
     const aId = response.headers.get("X-Audio-Id");
     const aCount = response.headers.get("X-Audio-Count");
@@ -863,36 +859,24 @@ function ScreencastPageInner() {
     setDownloadBlob(blob);
     const url = URL.createObjectURL(blob);
     setVideoUrl(url);
-    if (subs) setSubtitleData(subs);
     setLoading(false);
     setStep("done");
   }, []);
 
-  // ── Parse job result for render jobs (meta: subtitle_b64, audio_id, audio_count) ──
+  // ── Parse job result for render jobs (meta: audio_id, audio_count) ──
   const processRenderResultFromJob = useCallback(async (jobResult: JobStatus) => {
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
 
     const meta = jobResult.meta ?? {};
-    const subtitleB64 = meta.subtitle_b64 as string | undefined;
     const aId = meta.audio_id as string | undefined;
     const aCount = meta.audio_count as number | undefined;
-
-    let subs: SubtitleData | null = null;
-    if (subtitleB64) {
-      try {
-        subs = JSON.parse(atob(subtitleB64));
-      } catch {
-        console.warn("[Screencast] Failed to parse subtitle_b64");
-      }
-    }
 
     if (aId) setAudioId(aId);
     if (aCount !== undefined) setAudioCount(aCount);
     setDownloadBlob(blob);
     const url = URL.createObjectURL(blob);
     setVideoUrl(url);
-    if (subs) setSubtitleData(subs);
     setLoading(false);
     setStep("done");
   }, []);
@@ -1028,9 +1012,11 @@ function ScreencastPageInner() {
           scripts: slides.map((s) => s.script),
           translate_job_uuid: translateJobUuid,
           voice_id: voiceId,
+          voice_label: ttsProvider === "kokoro"
+            ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
+            : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId),
           speed,
           slide_pause: slidePause,
-          embed_subtitles: embedSubtitles,
           dpi,
           provider: ttsProvider,
         }),
@@ -1055,7 +1041,7 @@ function ScreencastPageInner() {
       setFailedRenderIsAuto(false);
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translateJobUuid, voiceId, speed, slidePause, embedSubtitles, dpi, isResumedJob, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
+  }, [slides, translateJobUuid, voiceId, speed, slidePause, dpi, isResumedJob, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
 
   // ── Retry failed render job ──
   const handleRetryRender = useCallback(async () => {
@@ -1227,18 +1213,6 @@ function ScreencastPageInner() {
   const handleBackToScripts = () => {
     setStep("script-review");
   };
-
-  // ── VTT blob URL for in-browser subtitle track ──
-  const vttUrl = useMemo(() => {
-    if (!subtitleData?.vtt) return null;
-    return URL.createObjectURL(new Blob([subtitleData.vtt], { type: "text/vtt" }));
-  }, [subtitleData]);
-
-  useEffect(() => {
-    return () => {
-      if (vttUrl) URL.revokeObjectURL(vttUrl);
-    };
-  }, [vttUrl]);
 
   // ── Track max reached step + auto-scroll active step to center ──
   useEffect(() => {
@@ -2104,9 +2078,9 @@ function ScreencastPageInner() {
                 }}
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc]"
               >
-                {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
-                {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
                 {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
+                {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
+                {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
               </select>
             </div>
             )}
@@ -2221,23 +2195,6 @@ function ScreencastPageInner() {
               </div>
             </div>
 
-            {/* Subtitle checkbox */}
-            <label className="flex items-start gap-3 mb-6 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={embedSubtitles}
-                onChange={(e) => setEmbedSubtitles(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
-              />
-              <div>
-                <span className="text-sm font-medium text-gray-700">
-                  Untertitel in MP4 einbetten
-                </span>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Soft-Subtitles als separate Spur (ein-/ausschaltbar im Player)
-                </p>
-              </div>
-            </label>
 
             {/* DPI / Bildqualität */}
             <div className="space-y-2">
@@ -2407,15 +2364,6 @@ function ScreencastPageInner() {
                   className="w-full"
                 >
                   <source src={videoUrl} type="video/mp4" />
-                  {vttUrl && (
-                    <track
-                      kind="subtitles"
-                      src={vttUrl}
-                      srcLang="en"
-                      label="English"
-                      default
-                    />
-                  )}
                   Ihr Browser unterstützt kein HTML5-Video.
                 </video>
               </div>
@@ -2435,39 +2383,7 @@ function ScreencastPageInner() {
               </button>
             </div>
 
-            {/* Row 2: Transcript downloads */}
-            {subtitleData && (
-              <div className="mb-4">
-                <p className="text-xs text-gray-400 text-center mb-2">Transkript</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {([
-                    ["SRT", subtitleData.srt, "transcript.srt", "text/plain"],
-                    ["VTT", subtitleData.vtt, "transcript.vtt", "text/vtt"],
-                    ["TXT", subtitleData.txt, "transcript.txt", "text/plain"],
-                  ] as [string, string, string, string][]).map(([label, content, filename, mime]) => (
-                    <button
-                      key={label}
-                      onClick={() => {
-                        const blob = new Blob([content], { type: mime });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = filename;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      }}
-                      className="px-3 py-1.5 text-xs text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Row 3: Audio downloads */}
+            {/* Row 2: Audio downloads */}
             {audioId && audioCount > 0 && (
               <div className="mb-4">
                 <div className="flex flex-wrap justify-center gap-2 items-center">
@@ -2499,7 +2415,7 @@ function ScreencastPageInner() {
               </div>
             )}
 
-            {/* Row 4: Reset */}
+            {/* Row 3: Reset */}
             <div className="flex justify-center">
               <button
                 onClick={() => resetAll(false)}

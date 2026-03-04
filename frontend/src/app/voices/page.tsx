@@ -96,8 +96,8 @@ function translateLabel(description?: string | null, use_case?: string | null): 
 type VoicesTab = "elevenlabs" | "fish_speech" | "kokoro";
 
 const KOKORO_ACCENT_LABEL: Record<string, string> = {
-  "American": "🇺🇸 American",
-  "British": "🇬🇧 British",
+  "American": "🇺🇸",
+  "British": "🇬🇧",
 };
 
 function StimmenPageInner() {
@@ -274,9 +274,8 @@ function StimmenPageInner() {
               {kokoroVoices.map((voice) => (
                 <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{voice.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {KOKORO_ACCENT_LABEL[voice.accent] ?? voice.accent}
+                    <p className="text-sm font-medium text-gray-900">
+                      {KOKORO_ACCENT_LABEL[voice.accent] ?? ""} {voice.name}
                     </p>
                   </div>
                   <button

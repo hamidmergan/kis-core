@@ -343,6 +343,23 @@ def delete_job_folder(job_uuid: str) -> None:
         shutil.rmtree(_job_dir(job_uuid), ignore_errors=True)
 
 
+def clear_tts_audio_cache(job_uuid: str) -> None:
+    """Delete all cached TTS audio files for a job (tts_audio/ subfolder).
+
+    Called before re-rendering so the crash-recovery mechanism does not reuse
+    stale audio from a previous render when the user has changed the scripts.
+    """
+    if USE_S3:
+        prefix = f"jobs/{_job_folder_name(job_uuid)}/tts_audio/"
+        paginator = _s3().get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=_S3_BUCKET, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                _s3().delete_object(Bucket=_S3_BUCKET, Key=obj["Key"])
+    else:
+        tts_dir = _job_dir(job_uuid) / "tts_audio"
+        shutil.rmtree(tts_dir, ignore_errors=True)
+
+
 # --- Result saving with eviction ---
 
 def save_result_and_evict(job_uuid: str, result_path: str, result_filename: str) -> None:

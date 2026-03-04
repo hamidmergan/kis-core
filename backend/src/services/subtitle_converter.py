@@ -165,6 +165,13 @@ def build_subtitles(
                     "start": seg["start"] + global_offset,
                     "end": seg["end"] + global_offset,
                 })
+        elif duration > 0 and slide.get("text"):
+            # No word-level alignment (e.g. Kokoro TTS): use slide script as one segment
+            all_segments.append({
+                "text": slide["text"].strip(),
+                "start": global_offset,
+                "end": global_offset + duration,
+            })
 
         global_offset += duration + slide_pause
 

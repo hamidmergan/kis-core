@@ -27,17 +27,13 @@ def _get_screencast_helpers():
         _create_slide_video,
         _concatenate_videos,
         _apply_faststart,
-        _embed_subtitles as _embed_subs,
-        _get_audio_duration,
         _extract_text_per_slide,
     )
-    from src.services.subtitle_converter import build_subtitles
     return (
         IMAGE_TMP_DIR,
         _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
-        _create_slide_video, _concatenate_videos, _apply_faststart, _embed_subs,
-        _get_audio_duration, _extract_text_per_slide,
-        build_subtitles,
+        _create_slide_video, _concatenate_videos, _apply_faststart,
+        _extract_text_per_slide,
     )
 
 
@@ -74,7 +70,6 @@ def _run_render_pipeline(
     voice_id: str,
     speed: float,
     slide_pause: float,
-    embed_subtitles: bool,
     slide_images_override: list[Path] | None = None,
     dpi: int = 100,
     provider: str = "elevenlabs",
@@ -84,22 +79,24 @@ def _run_render_pipeline(
     All output files are saved to job_uuid's folder.
 
     Returns a dict with:
-      result_path, audio_id, audio_count, subtitle_data
+      result_path, audio_id, audio_count
     """
     (
         IMAGE_TMP_DIR,
         _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
-        _create_slide_video, _concatenate_videos, _apply_faststart, _embed_subs,
-        _get_audio_duration, _extract_text_per_slide,
-        build_subtitles,
+        _create_slide_video, _concatenate_videos, _apply_faststart,
+        _extract_text_per_slide,
     ) = _get_screencast_helpers()
 
     tts_client = _get_tts_client(provider)
 
+    db.set_render_started_at(job_uuid)
+
     # Save render params + scripts for crash recovery (retry button)
     save_job_file(job_uuid, "render_params.json", json.dumps({
         "voice_id": voice_id, "speed": speed,
-        "slide_pause": slide_pause, "embed_subtitles": embed_subtitles, "dpi": dpi,
+        "slide_pause": slide_pause, "dpi": dpi,
+        "provider": provider,
     }).encode())
     save_job_file(job_uuid, "render_scripts.json", json.dumps(scripts).encode())
 
@@ -132,8 +129,7 @@ def _run_render_pipeline(
         def _tts_progress(current: int, total: int) -> None:
             db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": current, "total": total})
 
-        with job_heartbeat(job_uuid):
-            tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid))
+        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
 
@@ -161,26 +157,13 @@ def _run_render_pipeline(
         concat_path = tmp / "concat.mp4"
         _concatenate_videos(clip_paths, concat_path)
 
-        # ── Subtitles ─────────────────────────────────────────────────────
-        per_slide_data = []
-        for i in range(num_slides):
-            dur = _get_audio_duration(audio_paths[i])
-            per_slide_data.append({"alignment": alignments[i], "audio_duration": dur})
-        subtitle_data = build_subtitles(per_slide_data, slide_pause=slide_pause)
-
-        if embed_subtitles and subtitle_data.get("srt"):
-            db.update_job_status(job_uuid, "running", progress={"step": "subtitles"})
-            srt_path = tmp / "subtitles.srt"
-            srt_path.write_text(subtitle_data["srt"], encoding="utf-8")
-            subtitled_path = tmp / "concat_sub.mp4"
-            if _embed_subs(concat_path, srt_path, subtitled_path):
-                concat_path = subtitled_path
-
         # ── Faststart ─────────────────────────────────────────────────────
+        db.update_job_status(job_uuid, "running", progress={"step": "faststart"})
         final_path = tmp / "final.mp4"
         output_bytes = _apply_faststart(concat_path, final_path)
 
         # ── Save audio cache ──────────────────────────────────────────────
+        db.update_job_status(job_uuid, "running", progress={"step": "saving"})
         audio_bytes_list = [ap.read_bytes() if ap is not None and ap.exists() else b"" for ap in audio_paths[:num_slides]]
         save_audio_cache(job_uuid, audio_bytes_list)
 
@@ -188,19 +171,10 @@ def _run_render_pipeline(
         result_path = save_result_file(job_uuid, ".mp4", output_bytes)
 
         meta = {
-            "subtitle_b64": __import__("base64").b64encode(
-                json.dumps(subtitle_data).encode("utf-8")
-            ).decode("ascii"),
             "audio_id": job_uuid,
             "audio_count": num_slides,
         }
         save_result_meta(job_uuid, meta)
-
-        # ── Save subtitle files separately ───────────────────────────────
-        for ext, key in (("srt", "subtitles.srt"), ("vtt", "subtitles.vtt"), ("txt", "transcript.txt")):
-            content = subtitle_data.get(ext, "")
-            if content:
-                save_job_file(job_uuid, key, content.encode("utf-8"))
 
     # Clean up pre-rendered images after successful render
     prerendered_dir = IMAGE_TMP_DIR / job_uuid
@@ -212,7 +186,6 @@ def _run_render_pipeline(
         "result_path": result_path,
         "audio_id": job_uuid,
         "audio_count": num_slides,
-        "subtitle_data": subtitle_data,
     }
 
 
@@ -242,9 +215,8 @@ def run_screencast_translate(
         (
             IMAGE_TMP_DIR,
             _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
-            _create_slide_video, _concatenate_videos, _apply_faststart, _embed_subs,
-            _get_audio_duration, _extract_text_per_slide,
-            build_subtitles,
+            _create_slide_video, _concatenate_videos, _apply_faststart,
+            _extract_text_per_slide,
         ) = _get_screencast_helpers()
 
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
@@ -298,7 +270,15 @@ def run_screencast_translate(
         raise
 
 
-@celery_app.task(bind=True, name="screencast.render", queue="screencast", acks_late=True, max_retries=7)
+@celery_app.task(
+    bind=True,
+    name="screencast.render",
+    queue="screencast",
+    acks_late=True,
+    max_retries=7,
+    soft_time_limit=3600,   # 60 min: raises SoftTimeLimitExceeded → graceful DB update
+    time_limit=3720,        # 62 min: SIGKILL fallback if cleanup stalls
+)
 def run_screencast_render(
     self,
     translate_job_uuid: str,
@@ -306,33 +286,44 @@ def run_screencast_render(
     voice_id: str,
     speed: float,
     slide_pause: float,
-    embed_subtitles: bool,
     original_filename: str = "screencast",
     dpi: int = 100,
     provider: str = "elevenlabs",
+    voice_label: str = "",
 ):
     """Render final MP4 from edited scripts and stored PPTX.
 
     Reads PPTX from the translate job's folder (corrected.pptx or translated.pptx).
     All artifacts are saved to the same folder (single-folder workflow).
     """
+    from celery.exceptions import SoftTimeLimitExceeded
     try:
-        result = _run_render_pipeline(
-            job_uuid=translate_job_uuid,
-            scripts=scripts,
-            voice_id=voice_id,
-            speed=speed,
-            slide_pause=slide_pause,
-            embed_subtitles=embed_subtitles,
-            dpi=dpi,
-            provider=provider,
-        )
+        db.update_job_status(translate_job_uuid, "running", progress={
+            "step": "render", "voice_id": voice_id, "voice_label": voice_label, "provider": provider,
+        })
+        with job_heartbeat(translate_job_uuid):
+            result = _run_render_pipeline(
+                job_uuid=translate_job_uuid,
+                scripts=scripts,
+                voice_id=voice_id,
+                speed=speed,
+                slide_pause=slide_pause,
+                dpi=dpi,
+                provider=provider,
+            )
 
         result_filename = f"{Path(original_filename).stem if original_filename else 'screencast'}.mp4"
-        save_result_and_evict(translate_job_uuid, result["result_path"], result_filename)
+        with job_heartbeat(translate_job_uuid):
+            save_result_and_evict(translate_job_uuid, result["result_path"], result_filename)
         db.update_job_status(translate_job_uuid, "success")
 
         logger.info("Screencast render task {} completed", translate_job_uuid)
+
+    except SoftTimeLimitExceeded:
+        # Soft limit reached — mark as failed with a friendly message and return
+        # cleanly so the hard SIGKILL never fires.
+        logger.warning("Screencast render task {} hit soft time limit", translate_job_uuid)
+        db.update_job_status(translate_job_uuid, "failed", error_message="Zeitlimit überschritten. Bitte 'Wiederholen' klicken.")
 
     except Exception as e:
         logger.error("Screencast render task {} failed: {}", translate_job_uuid, e)
@@ -340,7 +331,14 @@ def run_screencast_render(
         raise
 
 
-@celery_app.task(bind=True, name="screencast.auto", queue="screencast")
+@celery_app.task(
+    bind=True,
+    name="screencast.auto",
+    queue="screencast",
+    acks_late=True,
+    soft_time_limit=7200,   # 2 h: translate + scripts + TTS + render
+    time_limit=7320,        # 2 h 2 min: SIGKILL fallback
+)
 def run_screencast_auto(
     self,
     job_uuid: str,
@@ -350,10 +348,14 @@ def run_screencast_auto(
     speed: float,
     glossary_json: str,
     provider: str = "elevenlabs",
+    voice_label: str = "",
 ):
     """Full auto pipeline: translate → scripts → TTS → render."""
+    from celery.exceptions import SoftTimeLimitExceeded
     try:
-        db.update_job_status(job_uuid, "running", progress={"step": "translate"})
+        db.update_job_status(job_uuid, "running", progress={
+            "step": "translate", "voice_id": voice_id, "voice_label": voice_label, "provider": provider,
+        })
 
         pptx_bytes = get_file(input_path)
 
@@ -363,9 +365,8 @@ def run_screencast_auto(
         (
             IMAGE_TMP_DIR,
             _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
-            _create_slide_video, _concatenate_videos, _apply_faststart, _embed_subs,
-            _get_audio_duration, _extract_text_per_slide,
-            build_subtitles,
+            _create_slide_video, _concatenate_videos, _apply_faststart,
+            _extract_text_per_slide,
         ) = _get_screencast_helpers()
 
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
@@ -395,28 +396,34 @@ def run_screencast_auto(
             except Exception:
                 pass
 
-        scripts = asyncio.run(
-            _generate_all_scripts_async(slide_texts, kisski_client, glossary=glossary_dict)
-        )
+        with job_heartbeat(job_uuid):
+            scripts = asyncio.run(
+                _generate_all_scripts_async(slide_texts, kisski_client, glossary=glossary_dict)
+            )
 
-        result = _run_render_pipeline(
-            job_uuid=job_uuid,
-            scripts=scripts,
-            voice_id=voice_id,
-            speed=speed,
-            slide_pause=0.5,
-            embed_subtitles=True,
-            provider=provider,
-        )
+        with job_heartbeat(job_uuid):
+            result = _run_render_pipeline(
+                job_uuid=job_uuid,
+                scripts=scripts,
+                voice_id=voice_id,
+                speed=speed,
+                slide_pause=0.5,
+                provider=provider,
+            )
 
         result_filename = f"{Path(filename).stem}.mp4"
-        save_result_and_evict(job_uuid, result["result_path"], result_filename)
+        with job_heartbeat(job_uuid):
+            save_result_and_evict(job_uuid, result["result_path"], result_filename)
         db.update_job_status(job_uuid, "success")
 
         # Clean up input file
         delete_file(input_path)
 
         logger.info("Screencast auto task {} completed: {}", job_uuid, result_filename)
+
+    except SoftTimeLimitExceeded:
+        logger.warning("Screencast auto task {} hit soft time limit", job_uuid)
+        db.update_job_status(job_uuid, "failed", error_message="Zeitlimit überschritten. Bitte 'Wiederholen' klicken.")
 
     except Exception as e:
         logger.error("Screencast auto task {} failed: {}", job_uuid, e)
@@ -448,16 +455,12 @@ def run_screencast_demo_render(
             _pptx_to_images,
             _get_demo_slide_images_sync,
             _load_demo_audio_files,
-            _load_demo_subtitles,
             _find_demo_pptx,
             _extract_text_per_slide,
             _create_slide_video,
             _concatenate_videos,
             _apply_faststart,
-            _embed_subtitles as _embed_subs,
-            _get_audio_duration,
         )
-        from src.services.subtitle_converter import build_subtitles
 
         logger.info("TIMING [{}] start", job_uuid[:8])
 
@@ -507,7 +510,6 @@ def run_screencast_demo_render(
         if num_slides == 0:
             raise RuntimeError("Keine Demo-Slides oder Audio")
 
-        subtitle_data = _load_demo_subtitles()
         slide_pause = 0.5
 
         db.update_job_status(job_uuid, "running", progress={"step": "video", "total": num_slides})
@@ -553,28 +555,6 @@ def run_screencast_demo_render(
             _concatenate_videos(clip_paths, concat_path)
             logger.info("TIMING [{}] concat in {}", job_uuid[:8], _elapsed(t0))
 
-            # Build subtitles from durations
-            per_slide_data = [{"alignment": None, "audio_duration": _get_audio_duration(ap)} for ap in audio_paths]
-            built_subs = build_subtitles(per_slide_data, slide_pause=slide_pause)
-
-            final_subs = {
-                "srt": subtitle_data.get("srt") or built_subs.get("srt", ""),
-                "vtt": subtitle_data.get("vtt") or built_subs.get("vtt", ""),
-                "txt": subtitle_data.get("txt") or built_subs.get("txt", ""),
-                "alignment_json": built_subs.get("alignment_json", "[]"),
-            }
-
-            srt_content = final_subs.get("srt", "")
-            if srt_content:
-                t0 = time.time()
-                db.update_job_status(job_uuid, "running", progress={"step": "subtitles"})
-                srt_path = tmp / "subtitles.srt"
-                srt_path.write_text(srt_content, encoding="utf-8")
-                subtitled_path = tmp / "concat_sub.mp4"
-                if _embed_subs(concat_path, srt_path, subtitled_path):
-                    concat_path = subtitled_path
-                logger.info("TIMING [{}] subtitles in {}", job_uuid[:8], _elapsed(t0))
-
             t0 = time.time()
             final_path = tmp / "final.mp4"
             output_bytes = _apply_faststart(concat_path, final_path)
@@ -588,19 +568,10 @@ def run_screencast_demo_render(
             logger.info("TIMING [{}] save result in {}", job_uuid[:8], _elapsed(t0))
 
             meta = {
-                "subtitle_b64": base64.b64encode(
-                    json.dumps(final_subs).encode("utf-8")
-                ).decode("ascii"),
                 "audio_id": job_uuid,
                 "audio_count": num_slides,
             }
             save_result_meta(job_uuid, meta)
-
-            # Save subtitle files separately
-            for ext, fname in (("srt", "subtitles.srt"), ("vtt", "subtitles.vtt"), ("txt", "transcript.txt")):
-                content = final_subs.get(ext, "")
-                if content:
-                    save_job_file(job_uuid, fname, content.encode("utf-8"))
 
         save_result_and_evict(job_uuid, result_path, "demo_screencast.mp4")
         db.update_job_status(job_uuid, "success")

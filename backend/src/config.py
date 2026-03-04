@@ -16,8 +16,9 @@ class Settings(BaseSettings):
     # Fish Speech TTS (lokaler TTS-Server) — leer = deaktiviert
     fish_speech_base_url: str = ""
 
-    # Kokoro TTS (lokaler TTS-Server, Apache 2.0) — leer = deaktiviert
+    # Kokoro TTS (Docker Service, Apache 2.0) — leer = deaktiviert
     kokoro_base_url: str = ""
+    kokoro_api_key: str = ""
 
     # Security
     session_secret: str = "change-me-in-production"

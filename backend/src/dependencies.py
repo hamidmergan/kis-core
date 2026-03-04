@@ -79,7 +79,7 @@ def get_kokoro_client():
     settings = get_settings()
     if not settings.kokoro_base_url:
         return None
-    return KokoroClient(settings.kokoro_base_url)
+    return KokoroClient(settings.kokoro_base_url, api_key=settings.kokoro_api_key)
 
 
 def is_elevenlabs_enabled() -> bool:

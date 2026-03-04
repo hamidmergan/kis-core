@@ -28,7 +28,7 @@ services:
   celery-worker-screencast:
     build: ./backend
     container_name: kis-celery-screencast
-    command: celery -A src.celery_app worker --queues=screencast --autoscale=2,1 --loglevel=info
+    command: celery -A src.celery_app worker --queues=screencast --concurrency=1 --loglevel=info
     env_file:
       - .env
     volumes:
@@ -143,6 +143,28 @@ services:
     volumes:
       - kis-minio-data:/data
     restart: unless-stopped
+
+  kokoro:
+    profiles: ["kokoro"]
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    container_name: kis-kokoro
+    environment:
+      - API_KEY=${KOKORO_API_KEY:-kokoro-local-key}
+    ports:
+      - "8880:8880"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
 
   openldap:
     profiles: ["ldap"]

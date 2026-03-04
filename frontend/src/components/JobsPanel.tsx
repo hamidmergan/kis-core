@@ -17,6 +17,7 @@ interface MyJob {
   expires_at: string | null;
   has_download: boolean;
   result_filename: string | null;
+  tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;
 }
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
@@ -258,6 +259,12 @@ export default function JobsPanel() {
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-gray-800 truncate">{job.tool_label}</p>
                           <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
+                          {job.tts_params?.voice_label || job.tts_params?.provider ? (
+                            <p className="text-xs text-gray-400 truncate mt-0.5">
+                              {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
+                              {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
+                            </p>
+                          ) : null}
                           <p className="text-xs text-gray-400 mt-0.5">{timeAgo(job.created_at)}</p>
                           {(job.started_at || job.completed_at) && (
                             <p className="text-xs text-gray-300 mt-0.5">
@@ -319,7 +326,7 @@ export default function JobsPanel() {
               onClick={() => setOpen(false)}
               className="text-xs text-[#0066cc] hover:underline"
             >
-              Alle Jobs der letzten 7 Tage
+              Zur Übersicht
             </Link>
           </div>
         </div>

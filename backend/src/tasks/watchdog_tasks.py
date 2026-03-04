@@ -6,7 +6,7 @@ from src.celery_app import celery_app
 from src import database as db
 
 # Jobs with no progress update for longer than this are considered stuck.
-STUCK_THRESHOLD_MINUTES = 30 / 60  # 30 seconds — fallback for SIGKILL only
+STUCK_THRESHOLD_MINUTES = 5  # 5 minutes — the heartbeat fires every 10 s, so this is a generous safety net
 
 # awaiting_user jobs older than this are considered abandoned — cleaned up for storage.
 AWAITING_USER_TIMEOUT_HOURS = 168  # 7 days — matches file retention, no slot blocked
@@ -20,8 +20,9 @@ def check_stuck_jobs() -> None:
             job_uuid = job["job_uuid"]
             last_update = job.get("progress_updated_at", "?")
             tool = job.get("tool", "?")
+            celery_task_id = job.get("celery_task_id")
             logger.warning(
-                "Watchdog: job {} ({}) stuck since {} — marking as failed",
+                "Watchdog: job {} ({}) stuck since {} — terminating and marking as failed",
                 job_uuid, tool, last_update,
             )
             db.update_job_status(
@@ -29,6 +30,11 @@ def check_stuck_jobs() -> None:
                 "failed",
                 error_message="Job hat sich nicht mehr gemeldet (möglicher Absturz oder Hänger). Bitte Wiederholen klicken.",
             )
+            # Revoke + terminate the Celery task so the worker slot is freed immediately.
+            # Without this the slot stays blocked until the soft time limit fires (up to 60 min).
+            if celery_task_id:
+                celery_app.control.revoke(celery_task_id, terminate=True, signal="SIGTERM")
+                logger.info("Watchdog: revoked Celery task {} for job {}", celery_task_id, job_uuid[:8])
         logger.info("Watchdog: {} stuck job(s) marked as failed", len(stuck))
 
     stale = db.get_stale_awaiting_user_jobs(threshold_hours=AWAITING_USER_TIMEOUT_HOURS)

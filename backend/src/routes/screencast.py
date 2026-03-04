@@ -30,7 +30,6 @@ from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski
 from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.kisski_client import KisskiClient
 from src.services.glossary import GlossaryService
-from src.services.subtitle_converter import build_subtitles
 from src.services.translation import TranslationService
 from src.routes.translate import translate_pptx_content
 from src.utils.file_validation import (
@@ -41,7 +40,7 @@ from src.utils.file_validation import (
     SCREENCAST_MAX_CHARS,
 )
 from src import database as db
-from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json, get_job_file, save_job_file, job_file_exists, delete_job_folder
+from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json, get_job_file, save_job_file, job_file_exists, delete_job_folder, clear_tts_audio_cache
 
 router = APIRouter(tags=["screencast"])
 
@@ -119,9 +118,9 @@ class RenderRequest(BaseModel):
     translate_job_uuid: str          # the existing translate job to update
     slide_images_b64: list[str] = []
     voice_id: str = ""
+    voice_label: str = ""
     speed: float = 0.9
     slide_pause: float = 0.5
-    embed_subtitles: bool = True
     dpi: int = 100
     provider: str = "elevenlabs"
 
@@ -507,42 +506,6 @@ def _apply_faststart(input_path: Path, output_path: Path) -> bytes:
     return output_path.read_bytes()
 
 
-def _embed_subtitles(video_path: Path, sub_path: Path, output_path: Path) -> bool:
-    """Mux a subtitle file (SRT) as a soft-subtitle track into an MP4.
-
-    Uses mov_text codec so the subtitle track can be toggled on/off in players.
-    Returns True on success, False on failure (non-fatal).
-    """
-    sub_size = sub_path.stat().st_size if sub_path.exists() else 0
-    logger.info("Embedding soft subtitles: sub_file={}, size={} bytes", sub_path.name, sub_size)
-    if sub_size == 0:
-        logger.warning("Subtitle file is empty, skipping embedding")
-        return False
-
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", str(video_path),
-        "-sub_charenc", "UTF-8",
-        "-f", "srt",
-        "-i", str(sub_path),
-        "-map", "0:v", "-map", "0:a", "-map", "1:s",
-        "-c:v", "copy", "-c:a", "copy",
-        "-c:s", "mov_text",
-        "-metadata:s:s:0", "language=eng",
-        "-metadata:s:s:0", "handler_name=English",
-        str(output_path),
-    ]
-    logger.info("FFmpeg soft-sub cmd: {}", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    if result.returncode != 0:
-        logger.error("Subtitle embedding FAILED (rc={}): {}", result.returncode, result.stderr[:500])
-        return False
-
-    out_size = output_path.stat().st_size if output_path.exists() else 0
-    logger.info("Soft subtitles embedded, output={} bytes, streams: {}",
-                out_size, _probe_streams(output_path))
-    return True
-
 
 async def _generate_all_scripts(
     slide_texts: list[str],
@@ -664,6 +627,7 @@ async def screencast(
     request: Request,
     file: UploadFile = File(...),
     voice_id: str = Form(""),
+    voice_label: str = Form(""),
     speed: float = Form(0.9),
     glossary_json: str = Form(""),
     provider: str = Form("elevenlabs"),
@@ -699,6 +663,7 @@ async def screencast(
         speed,
         glossary_json,
         provider,
+        voice_label,
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 
@@ -859,7 +824,7 @@ async def save_scripts(
     job = db.get_job(translate_job_uuid)
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail="Job nicht gefunden")
-    if job["status"] != "awaiting_user":
+    if job["status"] not in ("awaiting_user", "success"):
         raise HTTPException(status_code=409, detail="Job ist nicht im Eingabe-Status")
     filename = "accepted_scripts.json" if body.accepted else "user_scripts.json"
     save_job_file(translate_job_uuid, filename, json.dumps(body.scripts, ensure_ascii=False).encode())
@@ -1006,14 +971,29 @@ async def screencast_upload_corrected(
             detail=f"Zu viele Folien ({len(slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
         )
 
+    from src.storage import save_job_file as _save_job_file
+
     if translate_job_uuid:
-        from src.storage import save_job_file as _save_job_file
+        # Existing job: save as corrected.pptx (user re-uploaded after translation)
         _save_job_file(translate_job_uuid, "corrected.pptx", pptx_bytes)
         logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
+    else:
+        # No job yet (EN path): create a new translate job and save PPTX as translated.pptx
+        user_id = current_user.get("user_id", 0)
+        _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
+        if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
+            raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
+        translate_job_uuid = uuid.uuid4().hex
+        db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
+        _save_job_file(translate_job_uuid, "translated.pptx", pptx_bytes)
+        _save_job_file(translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
+        db.update_job_status(translate_job_uuid, "awaiting_user")
+        db.update_job_expiry(translate_job_uuid, 168)
+        logger.info("Created translate job {} for EN upload ({})", translate_job_uuid, file.filename)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        pptx_path = tmp / "corrected.pptx"
+        pptx_path = tmp / "upload.pptx"
         pptx_path.write_bytes(pptx_bytes)
         img_dir = tmp / "images"
         img_dir.mkdir()
@@ -1024,6 +1004,7 @@ async def screencast_upload_corrected(
         slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
 
     return {
+        "translate_job_uuid": translate_job_uuid,
         "slide_texts": slide_texts,
         "slide_images": slide_images_b64,
     }
@@ -1128,12 +1109,22 @@ async def screencast_render(
         raise HTTPException(status_code=404, detail="Translate-Job nicht gefunden")
     if translate_job["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
-    if translate_job["status"] not in ("awaiting_user", "failed"):
+    if translate_job["status"] not in ("awaiting_user", "failed", "success"):
         raise HTTPException(status_code=409, detail="Job ist nicht bereit zum Rendern")
     if not job_file_exists(body.translate_job_uuid, "translated.pptx"):
         delete_job_folder(body.translate_job_uuid)
         db.delete_job(body.translate_job_uuid)
         raise HTTPException(status_code=404, detail="Job-Dateien nicht mehr vorhanden. Bitte neue Übersetzung starten.")
+
+    # If re-rendering a previously completed job, clear stale TTS audio so the
+    # crash-recovery mechanism doesn't reuse old audio for the new scripts.
+    if translate_job["status"] == "success":
+        clear_tts_audio_cache(body.translate_job_uuid)
+        logger.info("Re-render: cleared TTS audio cache for job={}", body.translate_job_uuid)
+
+    # Mark as pending before dispatching so pollJob doesn't see awaiting_user and
+    # return immediately (race condition: Celery may not start before first poll).
+    db.update_job_status(body.translate_job_uuid, "pending")
 
     from src.tasks.screencast_tasks import run_screencast_render
     task = run_screencast_render.apply_async(args=[
@@ -1142,10 +1133,10 @@ async def screencast_render(
         body.voice_id,
         body.speed,
         body.slide_pause,
-        body.embed_subtitles,
         translate_job["original_filename"] or "screencast.pptx",
         body.dpi,
         body.provider,
+        body.voice_label,
     ])
     db.set_job_celery_task_id(body.translate_job_uuid, task.id)
 
@@ -1404,31 +1395,6 @@ def _get_demo_slide_images_sync(num_slides: int = 6) -> list[str]:
         slide_texts_local = [f"Slide {i+1}" for i in range(num_slides)]
     return _generate_placeholder_slides(slide_texts_local)
 
-
-def _load_demo_subtitles() -> dict:
-    """Load subtitle data from files in demo/slides/ directory."""
-    slides_dir = DEMO_DIR / "slides"
-    subtitle_data: dict[str, str] = {
-        "srt": "",
-        "vtt": "",
-        "txt": "",
-        "alignment_json": "[]",
-    }
-    file_map = {
-        "srt": "subtitles.srt",
-        "vtt": "subtitles.vtt",
-        "txt": "transcript.txt",
-    }
-    for key, filename in file_map.items():
-        filepath = slides_dir / filename
-        if filepath.exists():
-            subtitle_data[key] = filepath.read_text(encoding="utf-8")
-    # Generate plain text from scripts if transcript.txt doesn't exist
-    if not subtitle_data["txt"]:
-        scripts = _load_demo_scripts()
-        if scripts:
-            subtitle_data["txt"] = " ".join(scripts)
-    return subtitle_data
 
 
 @router.get("/screencast/demo-available")
@@ -1699,7 +1665,6 @@ async def demo_render(
         return {"job_uuid": body.translate_job_uuid}
 
     # ── Mode B: No MP3 files → serve pre-existing MP4 as-is ─────────────
-    subtitle_data = _load_demo_subtitles()
     video_path = DEMO_DIR / "video.mp4"
     if not video_path.exists():
         for search_dir in [DEMO_DIR, DEMO_DIR / "slides"]:
@@ -1718,13 +1683,10 @@ async def demo_render(
 
     video_bytes = video_path.read_bytes()
     logger.info("Demo/render PASSTHROUGH: returning pre-built MP4 ({} bytes)", len(video_bytes))
-    subtitle_json = json.dumps(subtitle_data)
-    subtitle_b64 = base64.b64encode(subtitle_json.encode("utf-8")).decode("ascii")
     return StreamingResponse(
         iter([video_bytes]),
         media_type="video/mp4",
         headers={
             "Content-Length": str(len(video_bytes)),
-            "X-Subtitles": subtitle_b64,
         },
     )

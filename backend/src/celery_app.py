@@ -1,5 +1,5 @@
 from celery import Celery
-from celery.signals import task_failure, task_revoked
+from celery.signals import task_failure, task_revoked, worker_ready
 from loguru import logger
 
 celery_app = Celery(
@@ -55,6 +55,22 @@ celery_app.conf.update(
 )
 
 
+@worker_ready.connect
+def on_worker_ready(**kwargs):
+    """Clean up stale /tmp dirs left behind by SIGKILL'd tasks from a previous run."""
+    import shutil
+    import tempfile
+    from pathlib import Path
+    tmp = Path(tempfile.gettempdir())
+    cleaned = 0
+    for d in tmp.glob("tmp*"):
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
+            cleaned += 1
+    if cleaned:
+        logger.info("Worker startup: removed {} stale temp dirs from {}", cleaned, tmp)
+
+
 def _mark_task_failed(task_id: str, reason: str) -> None:
     """Mark a running job as failed based on its Celery task ID."""
     try:
@@ -69,7 +85,14 @@ def _mark_task_failed(task_id: str, reason: str) -> None:
 
 @task_failure.connect
 def on_task_failure(task_id, exception, **kwargs):
-    _mark_task_failed(task_id, f"Unerwarteter Fehler: {exception}")
+    from celery.exceptions import SoftTimeLimitExceeded
+    if isinstance(exception, SoftTimeLimitExceeded):
+        # Task body should have caught this and updated the DB already.
+        # If it reaches here, the soft limit fired in an unguarded spot — still
+        # give a friendly message rather than a raw exception string.
+        _mark_task_failed(task_id, "Zeitlimit überschritten. Bitte 'Wiederholen' klicken.")
+    else:
+        _mark_task_failed(task_id, f"Unerwarteter Fehler: {exception}")
 
 
 @task_revoked.connect

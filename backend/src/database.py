@@ -103,6 +103,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             conn.execute("ALTER TABLE jobs ADD COLUMN progress_updated_at TEXT")
         except sqlite3.OperationalError:
             pass  # column already exists
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN render_started_at TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.execute("""
             CREATE TABLE IF NOT EXISTS settings (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -520,6 +524,17 @@ def update_job_status(
                    WHERE job_uuid = ?""",
                 (status, error_message, progress_json, now, job_uuid),
             )
+        conn.commit()
+
+
+def set_render_started_at(job_uuid: str) -> None:
+    """Setzt render_started_at einmalig (COALESCE — nicht überschreiben bei Retry)."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE jobs SET render_started_at = COALESCE(render_started_at, ?) WHERE job_uuid = ?",
+            (now, job_uuid),
+        )
         conn.commit()
 
 

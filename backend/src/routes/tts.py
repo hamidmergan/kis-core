@@ -147,6 +147,7 @@ async def text_to_speech(
     use_speaker_boost: bool = Form(True),
     pause_preset: str = Form("medium"),
     provider: str = Form("elevenlabs"),  # "elevenlabs" oder "fish_speech"
+    voice_label: str = Form(""),
     current_user: dict = Depends(get_current_user),
 ):
     """Queue a TTS job: synthesize uploaded document to MP3 via ElevenLabs.
@@ -225,6 +226,7 @@ async def text_to_speech(
         use_speaker_boost,
         pause_preset,
         provider,
+        voice_label,
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 

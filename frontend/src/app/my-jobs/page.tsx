@@ -15,10 +15,12 @@ interface MyJob {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+  render_started_at: string | null;
   expires_at: string | null;
   has_download: boolean;
   result_filename: string | null;
   folder_name: string | null;
+  tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;
 }
 
 interface JobDetail {
@@ -71,6 +73,7 @@ function toMs(dateStr: string): number {
 function TimingInfo({ job }: { job: MyJob }) {
   const waitMs = job.started_at ? toMs(job.started_at) - toMs(job.created_at) : null;
   const workMs = job.started_at && job.completed_at ? toMs(job.completed_at) - toMs(job.started_at) : null;
+  const renderMs = job.render_started_at && job.completed_at ? toMs(job.completed_at) - toMs(job.render_started_at) : null;
 
   return (
     <div className="mt-1.5 text-xs text-gray-400 space-y-0.5">
@@ -80,6 +83,9 @@ function TimingInfo({ job }: { job: MyJob }) {
       )}
       {workMs !== null && (
         <p>Bearbeitungszeit: <span className="text-gray-500">{formatDuration(workMs)}</span></p>
+      )}
+      {renderMs !== null && (
+        <p>Rendering: <span className="text-gray-500">{formatDuration(renderMs)}</span></p>
       )}
       {job.completed_at && (
         <p>Fertig: {formatDate(job.completed_at)}</p>
@@ -160,14 +166,6 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
             />
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-gray-300">Untertitel:</span>
-            <DisabledChip label="SRT" />
-            <DisabledChip label="VTT" />
-            <span className="text-gray-200">·</span>
-            <span className="text-xs text-gray-300">Transkript:</span>
-            <DisabledChip label="TXT" />
-          </div>
-          <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs text-gray-300">Audios:</span>
             <DisabledChip label="ZIP" />
           </div>
@@ -187,17 +185,6 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
       const meta = detail?.meta as Record<string, unknown> | null;
       const audioId = meta?.audio_id as string | undefined;
       const audioCount = meta?.audio_count as number | undefined;
-      let srt: string | undefined;
-      let vtt: string | undefined;
-      let txt: string | undefined;
-      if (meta?.subtitle_b64) {
-        try {
-          const parsed = JSON.parse(atob(meta.subtitle_b64 as string));
-          srt = parsed.srt || undefined;
-          vtt = parsed.vtt || undefined;
-          txt = parsed.txt || undefined;
-        } catch { /* ignore */ }
-      }
       return (
         <div className="mt-3 space-y-2">
           <div className="flex flex-wrap gap-2 items-center">
@@ -213,24 +200,6 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
               label="PPTX"
             />
           </div>
-          {(srt || vtt || txt) && (
-            <div className="flex flex-wrap gap-2 items-center">
-              {(srt || vtt) && (
-                <>
-                  <span className="text-xs text-gray-400">Untertitel:</span>
-                  {srt && <DownloadChip onClick={() => downloadText(srt!, `${baseName}_untertitel.srt`, "application/x-subrip")} label="SRT" />}
-                  {vtt && <DownloadChip onClick={() => downloadText(vtt!, `${baseName}_untertitel.vtt`, "text/vtt")} label="VTT" />}
-                </>
-              )}
-              {txt && (
-                <>
-                  {(srt || vtt) && <span className="text-gray-300">·</span>}
-                  <span className="text-xs text-gray-400">Transkript:</span>
-                  <DownloadChip onClick={() => downloadText(txt!, `${baseName}_transkript.txt`, "text/plain")} label="TXT" />
-                </>
-              )}
-            </div>
-          )}
           {audioId && audioCount && audioCount > 0 && (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-xs text-gray-400">Audios:</span>
@@ -259,14 +228,6 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
           />
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-gray-300">Untertitel:</span>
-          <DisabledChip label="SRT" />
-          <DisabledChip label="VTT" />
-          <span className="text-gray-200">·</span>
-          <span className="text-xs text-gray-300">Transkript:</span>
-          <DisabledChip label="TXT" />
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
           <span className="text-xs text-gray-300">Audios:</span>
           <DisabledChip label="ZIP" />
         </div>
@@ -289,18 +250,6 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
     const audioCount = meta?.audio_count as number | undefined;
     const baseName = job.original_filename.replace(/\.pptx$/i, "") || "screencast";
 
-    let srt: string | undefined;
-    let vtt: string | undefined;
-    let txt: string | undefined;
-    if (meta?.subtitle_b64) {
-      try {
-        const parsed = JSON.parse(atob(meta.subtitle_b64 as string));
-        srt = parsed.srt || undefined;
-        vtt = parsed.vtt || undefined;
-        txt = parsed.txt || undefined;
-      } catch { /* ignore */ }
-    }
-
     return (
       <div className="mt-3 space-y-2">
         <div className="flex flex-wrap gap-2 items-center">
@@ -318,37 +267,6 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
             />
           )}
         </div>
-        {(srt || vtt || txt) && (
-          <div className="flex flex-wrap gap-2 items-center">
-            {(srt || vtt) && (
-              <>
-                <span className="text-xs text-gray-400">Untertitel:</span>
-                {srt && (
-                  <DownloadChip
-                    onClick={() => downloadText(srt!, `${baseName}_untertitel.srt`, "application/x-subrip")}
-                    label="SRT"
-                  />
-                )}
-                {vtt && (
-                  <DownloadChip
-                    onClick={() => downloadText(vtt!, `${baseName}_untertitel.vtt`, "text/vtt")}
-                    label="VTT"
-                  />
-                )}
-              </>
-            )}
-            {txt && (
-              <>
-                {(srt || vtt) && <span className="text-gray-300">·</span>}
-                <span className="text-xs text-gray-400">Transkript:</span>
-                <DownloadChip
-                  onClick={() => downloadText(txt!, `${baseName}_transkript.txt`, "text/plain")}
-                  label="TXT"
-                />
-              </>
-            )}
-          </div>
-        )}
         {audioId && audioCount && audioCount > 0 && (
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs text-gray-400">Audios:</span>
@@ -695,6 +613,12 @@ export default function MeineJobsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-800">{job.tool_label}</p>
                         <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
+                        {job.tts_params?.voice_label || job.tts_params?.provider ? (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
+                            {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
+                          </p>
+                        ) : null}
                         {isAdmin && job.folder_name && (
                           <p className="text-xs text-gray-300 font-mono truncate mt-0.5">{job.folder_name}</p>
                         )}

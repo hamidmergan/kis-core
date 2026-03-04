@@ -11,7 +11,15 @@ from src.storage import delete_file, get_file, get_job_file, save_job_file, save
 from src.utils.heartbeat import job_heartbeat
 
 
-@celery_app.task(bind=True, name="tts.run", queue="tts", acks_late=True, max_retries=7)
+@celery_app.task(
+    bind=True,
+    name="tts.run",
+    queue="tts",
+    acks_late=True,
+    max_retries=7,
+    soft_time_limit=5400,   # 90 min: raises SoftTimeLimitExceeded → graceful DB update
+    time_limit=5520,        # 92 min: SIGKILL fallback
+)
 def run_tts(
     self,
     job_uuid: str,
@@ -25,6 +33,7 @@ def run_tts(
     use_speaker_boost: bool,
     pause_preset: str,
     provider: str = "elevenlabs",
+    voice_label: str = "",
 ):
     """Synthesize uploaded document to MP3 via ElevenLabs or Fish Speech (local).
 
@@ -35,10 +44,10 @@ def run_tts(
     try:
         # Save params so the job can be manually retried later via POST /jobs/{uuid}/retry
         tts_params = {
-            "voice_id": voice_id, "speed": speed, "stability": stability,
-            "similarity_boost": similarity_boost, "style": style,
-            "use_speaker_boost": use_speaker_boost, "pause_preset": pause_preset,
-            "provider": provider,
+            "voice_id": voice_id, "voice_label": voice_label, "speed": speed,
+            "stability": stability, "similarity_boost": similarity_boost,
+            "style": style, "use_speaker_boost": use_speaker_boost,
+            "pause_preset": pause_preset, "provider": provider,
         }
         db.update_job_status(job_uuid, "running", progress={"step": "extract", "tts_params": tts_params})
 
@@ -134,6 +143,11 @@ def run_tts(
         raise
 
     except Exception as e:
+        from celery.exceptions import SoftTimeLimitExceeded
+        if isinstance(e, SoftTimeLimitExceeded):
+            logger.warning("TTS task {} hit soft time limit", job_uuid)
+            db.update_job_status(job_uuid, "failed", error_message="Zeitlimit überschritten. Bitte 'Wiederholen' klicken.")
+            return  # exit cleanly before the hard SIGKILL fires
         logger.error("TTS task {} failed: {}", job_uuid, e)
         db.update_job_status(job_uuid, "failed", error_message=str(e))
         raise
