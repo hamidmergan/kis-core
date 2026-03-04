@@ -9,7 +9,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import delete_file, get_file, open_input_file, save_queue_file, save_result_file  # noqa: F401
+from src.storage import delete_file, get_file, open_input_file, save_queue_file, save_result_file, save_result_and_evict  # noqa: F401
 from src.utils.heartbeat import job_heartbeat
 
 
@@ -102,7 +102,7 @@ def run_translate(
                 raise ValueError(f"Unsupported format: {ext}")
 
         result_path = save_result_file(job_uuid, ext, result_bytes)
-        db.update_job_result(job_uuid, result_path, translated_filename)
+        save_result_and_evict(job_uuid, result_path, translated_filename)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Translate task {} completed: {}", job_uuid, translated_filename)
@@ -135,9 +135,9 @@ def run_transcribe(
 
         with job_heartbeat(job_uuid), open_input_file(input_path, suffix=ext_suffix) as local_path:
             if task == "translate":
-                result_text = client.transcribe_and_translate(local_path, response_format=response_format)
+                result_text = client.transcribe_and_translate_chunked(local_path, response_format=response_format)
             else:
-                result_text = client.transcribe(local_path, response_format=response_format)
+                result_text = client.transcribe_chunked(local_path, response_format=response_format)
 
         out_ext = _FORMAT_EXT[response_format]
         if task == "translate":
@@ -147,7 +147,7 @@ def run_transcribe(
             output_name = f"{Path(filename).stem}{out_ext}"
 
         result_path = save_result_file(job_uuid, out_ext, result_text.encode("utf-8"))
-        db.update_job_result(job_uuid, result_path, output_name)
+        save_result_and_evict(job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Transcribe task {} completed: {}", job_uuid, output_name)
@@ -199,7 +199,7 @@ def run_image_generate(
             result_json = json.dumps({"images": images_data})
             result_filename = f"images_{label}.json"
             result_path = save_result_file(job_uuid, ".json", result_json.encode("utf-8"))
-        db.update_job_result(job_uuid, result_path, result_filename)
+        save_result_and_evict(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
         logger.info("Image generate task {} completed ({} images)", job_uuid, len(images))
 
@@ -261,7 +261,7 @@ def run_image_edit(
         from src.services.translation import translate_output_filename
         result_filename = translate_output_filename(filename, output_ext=".png")
         result_path = save_result_file(job_uuid, ".png", img_bytes)
-        db.update_job_result(job_uuid, result_path, result_filename)
+        save_result_and_evict(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image edit task {} completed", job_uuid)
@@ -333,7 +333,7 @@ def run_image_analyze(
         from src.services.translation import translate_output_filename
         result_filename = translate_output_filename(filename, output_ext=".txt")
         result_path = save_result_file(job_uuid, ".txt", text.encode("utf-8"))
-        db.update_job_result(job_uuid, result_path, result_filename)
+        save_result_and_evict(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image analyze task {} completed", job_uuid)
@@ -383,7 +383,7 @@ def run_script(
         from src.services.translation import translate_output_filename
         output_name = translate_output_filename(filename, output_ext=".txt")
         result_path = save_result_file(job_uuid, ".txt", script.encode("utf-8"))
-        db.update_job_result(job_uuid, result_path, output_name)
+        save_result_and_evict(job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Script task {} completed: {}", job_uuid, output_name)
@@ -454,7 +454,7 @@ def run_summary(
         from src.services.translation import translate_output_filename
         output_name = translate_output_filename(filename, output_ext=out_ext)
         result_path = save_result_file(job_uuid, out_ext, summary.encode("utf-8"))
-        db.update_job_result(job_uuid, result_path, output_name)
+        save_result_and_evict(job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Summary task {} completed: {}", job_uuid, output_name)

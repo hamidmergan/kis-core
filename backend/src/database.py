@@ -353,7 +353,7 @@ def get_all_results_for_user(user_id: int) -> list[dict]:
     """Return all jobs with a result_path for the given user, ordered oldest first."""
     with get_connection() as conn:
         rows = conn.execute(
-            """SELECT id, result_path, result_filename, original_filename FROM jobs
+            """SELECT id, job_uuid, result_path, result_filename, original_filename FROM jobs
                WHERE user_id = ? AND result_path IS NOT NULL AND status != 'failed'
                ORDER BY created_at ASC""",
             (user_id,),
@@ -563,7 +563,13 @@ def update_job_result(
     job_uuid: str,
     result_path: str,
     result_filename: str,
-) -> None:
+) -> list[str]:
+    """Save job result. Returns job_uuids that exceed MAX_RESULT_FILES and must be evicted.
+
+    Callers must delete each returned UUID from storage BEFORE calling delete_job()
+    so that _job_folder_name() can still resolve the folder name from the DB.
+    Use storage.save_result_and_evict() which handles this automatically.
+    """
     with get_connection() as conn:
         conn.execute(
             "UPDATE jobs SET result_path = ?, result_filename = ? WHERE job_uuid = ?",
@@ -571,29 +577,19 @@ def update_job_result(
         )
         conn.commit()
 
-    # Evict oldest result files if user exceeds the global limit
     with get_connection() as conn:
         row = conn.execute(
             "SELECT user_id FROM jobs WHERE job_uuid = ?", (job_uuid,)
         ).fetchone()
         if not row:
-            return
+            return []
         user_id = row["user_id"]
 
     old_jobs = get_all_results_for_user(user_id)
-
     excess = len(old_jobs) - MAX_RESULT_FILES
-    if excess > 0:
-        with get_connection() as conn:
-            for i in range(excess):
-                old_path = old_jobs[i]["result_path"]
-                if old_path:
-                    Path(old_path).unlink(missing_ok=True)
-                conn.execute(
-                    "UPDATE jobs SET result_path = NULL, result_filename = NULL WHERE id = ?",
-                    (old_jobs[i]["id"],),
-                )
-            conn.commit()
+    if excess <= 0:
+        return []
+    return [old_jobs[i]["job_uuid"] for i in range(excess)]
 
 
 def touch_job_heartbeat(job_uuid: str) -> None:

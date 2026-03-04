@@ -2,11 +2,154 @@
 
 import json
 import re
+import subprocess
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from loguru import logger
 from openai import OpenAI
+
+# ── Audio chunking constants ───────────────────────────────────────────────────
+
+_CHUNK_MAX_SEC = 540        # 9 min – safely under KISSKI's 600 s limit
+_MAX_AUDIO_SEC = 6000       # 100 min – hard limit for transcription uploads
+_SILENCE_NOISE_DB = -40     # dB threshold for silence detection
+_SILENCE_MIN_DURATION = 0.3  # minimum silence duration to consider (seconds)
+_SPLIT_SEARCH_WINDOW = 60   # seconds to search around each target split point
+
+
+# ── Audio chunking helpers ─────────────────────────────────────────────────────
+
+def _get_audio_duration(file_path: str) -> float:
+    """Return audio/video duration in seconds via ffprobe."""
+    result = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_streams", file_path],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"ffprobe failed: {result.stderr[:200]}")
+    data = json.loads(result.stdout)
+    for stream in data.get("streams", []):
+        duration = stream.get("duration")
+        if duration:
+            return float(duration)
+    raise RuntimeError("Could not determine audio duration via ffprobe")
+
+
+def _find_silence_starts(file_path: str) -> list[float]:
+    """Run ffmpeg silencedetect and return a list of silence_start timestamps."""
+    result = subprocess.run(
+        [
+            "ffmpeg", "-i", file_path,
+            "-af", f"silencedetect=noise={_SILENCE_NOISE_DB}dB:d={_SILENCE_MIN_DURATION}",
+            "-f", "null", "-",
+        ],
+        capture_output=True, text=True,
+    )
+    output = result.stderr + result.stdout
+    return [float(m.group(1)) for m in re.finditer(r"silence_start:\s*([\d.]+)", output)]
+
+
+def _compute_split_points(duration: float, silence_starts: list[float]) -> list[float]:
+    """Return split timestamps aligned to nearby silence points."""
+    split_points: list[float] = []
+    target = _CHUNK_MAX_SEC
+    while target < duration - 10:
+        window_min = target - _SPLIT_SEARCH_WINDOW
+        window_max = target + _SPLIT_SEARCH_WINDOW
+        candidates = [s for s in silence_starts if window_min <= s <= window_max]
+        best = min(candidates, key=lambda s: abs(s - target)) if candidates else target
+        split_points.append(best)
+        target = best + _CHUNK_MAX_SEC
+    return split_points
+
+
+def _split_audio(file_path: str, split_points: list[float], tmpdir: str) -> list[tuple[str, float]]:
+    """Split audio at given timestamps (stream-copy, no re-encode).
+
+    Returns list of (chunk_path, start_offset_seconds).
+    """
+    ext = Path(file_path).suffix
+    boundaries = [0.0] + split_points + [None]  # None = end of file
+    chunks: list[tuple[str, float]] = []
+    for i, (start, end) in enumerate(zip(boundaries[:-1], boundaries[1:])):
+        chunk_path = str(Path(tmpdir) / f"chunk_{i:03d}{ext}")
+        cmd = ["ffmpeg", "-i", file_path, "-ss", str(start)]
+        if end is not None:
+            cmd += ["-to", str(end)]
+        cmd += ["-c", "copy", "-y", chunk_path]
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"ffmpeg split failed for chunk {i}: {result.stderr[:200]}")
+        chunks.append((chunk_path, start))
+    return chunks
+
+
+# ── Transcript merging helpers ─────────────────────────────────────────────────
+
+def _offset_srt_ts(ts: str, offset_sec: float) -> str:
+    """Shift an SRT timestamp (HH:MM:SS,mmm) by offset_sec."""
+    h, m, rest = ts.split(":")
+    s, ms = rest.split(",")
+    total_ms = (int(h) * 3600 + int(m) * 60 + int(s)) * 1000 + int(ms)
+    total_ms = max(0, total_ms + int(offset_sec * 1000))
+    h2, total_ms = divmod(total_ms, 3_600_000)
+    m2, total_ms = divmod(total_ms, 60_000)
+    s2, ms2 = divmod(total_ms, 1000)
+    return f"{h2:02d}:{m2:02d}:{s2:02d},{ms2:03d}"
+
+
+def _merge_srt(chunks: list[tuple[str, float]]) -> str:
+    """Merge SRT chunks, shifting timestamps and renumbering entries."""
+    entries: list[tuple[str, str, str]] = []
+    for text, offset in chunks:
+        for block in re.split(r"\n\n+", text.strip()):
+            lines = block.strip().splitlines()
+            if len(lines) < 3:
+                continue
+            m = re.match(r"(\d{2}:\d{2}:\d{2},\d{3})\s+-->\s+(\d{2}:\d{2}:\d{2},\d{3})", lines[1])
+            if not m:
+                continue
+            entries.append((_offset_srt_ts(m.group(1), offset), _offset_srt_ts(m.group(2), offset), "\n".join(lines[2:])))
+    return "\n".join(f"{i}\n{s} --> {e}\n{c}\n" for i, (s, e, c) in enumerate(entries, 1))
+
+
+def _offset_vtt_ts(ts: str, offset_sec: float) -> str:
+    """Shift a VTT timestamp (HH:MM:SS.mmm or MM:SS.mmm) by offset_sec."""
+    parts = ts.split(":")
+    h, m, s_ms = (parts[0], parts[1], parts[2]) if len(parts) == 3 else ("0", parts[0], parts[1])
+    s, ms = s_ms.split(".")
+    total_ms = (int(h) * 3600 + int(m) * 60 + int(s)) * 1000 + int(ms)
+    total_ms = max(0, total_ms + int(offset_sec * 1000))
+    h2, total_ms = divmod(total_ms, 3_600_000)
+    m2, total_ms = divmod(total_ms, 60_000)
+    s2, ms2 = divmod(total_ms, 1000)
+    return f"{h2:02d}:{m2:02d}:{s2:02d}.{ms2:03d}"
+
+
+def _merge_vtt(chunks: list[tuple[str, float]]) -> str:
+    """Merge VTT chunks, shifting timestamps."""
+    cues: list[str] = []
+    for text, offset in chunks:
+        lines = text.splitlines()
+        # skip WEBVTT header line(s)
+        i = 0
+        while i < len(lines) and not re.search(r"-->", lines[i]):
+            i += 1
+        cue_lines: list[str] = []
+        for line in lines[i:]:
+            m = re.match(r"([\d:]+\.?\d*)\s+-->\s+([\d:]+\.?\d*)(.*)", line)
+            if m:
+                if cue_lines:
+                    cues.append("\n".join(cue_lines))
+                    cue_lines = []
+                cue_lines.append(f"{_offset_vtt_ts(m.group(1), offset)} --> {_offset_vtt_ts(m.group(2), offset)}{m.group(3)}")
+            else:
+                cue_lines.append(line)
+        if cue_lines:
+            cues.append("\n".join(cue_lines))
+    return "WEBVTT\n\n" + "\n\n".join(c.strip() for c in cues if c.strip())
 
 _SYSTEM_PROMPT_DE = (
     "Du bist ein Experte für die Erstellung von Vorleseskripten. "
@@ -395,6 +538,81 @@ class KisskiClient:
             if isinstance(e, RuntimeError):
                 raise
             raise RuntimeError(f"KISSKI API Fehler: {e}") from e
+
+    def transcribe_chunked(self, file_path: str, response_format: str = "text") -> str:
+        """Transcribe audio, splitting files that exceed KISSKI's 600 s limit at silence points."""
+        duration = _get_audio_duration(file_path)
+        if duration > _MAX_AUDIO_SEC:
+            raise RuntimeError(
+                f"Audio zu lang ({duration / 60:.1f} min). Maximum: {_MAX_AUDIO_SEC // 60} Minuten."
+            )
+        if duration <= _CHUNK_MAX_SEC:
+            return self.transcribe(file_path, response_format=response_format)
+
+        logger.info("Audio {:.1f}s exceeds limit – splitting into chunks", duration)
+        silence_starts = _find_silence_starts(file_path)
+        split_points = _compute_split_points(duration, silence_starts)
+        logger.info("Split points: {}", split_points)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            chunks = _split_audio(file_path, split_points, tmpdir)
+            results: dict[int, tuple[str, float]] = {}
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {
+                    executor.submit(self.transcribe, path, response_format): (i, offset)
+                    for i, (path, offset) in enumerate(chunks)
+                }
+                for future in as_completed(futures):
+                    i, offset = futures[future]
+                    try:
+                        results[i] = (future.result(), offset)
+                        logger.info("Chunk {}/{} transcribed", i + 1, len(chunks))
+                    except Exception as e:
+                        raise RuntimeError(f"Chunk {i + 1} transcription failed: {e}") from e
+
+            ordered = [results[i] for i in range(len(chunks))]
+            if response_format == "srt":
+                return _merge_srt(ordered)
+            if response_format == "vtt":
+                return _merge_vtt(ordered)
+            return " ".join(text for text, _ in ordered).strip()
+
+    def transcribe_and_translate_chunked(self, file_path: str, response_format: str = "text") -> str:
+        """Transcribe and translate audio, splitting files that exceed KISSKI's 600 s limit."""
+        duration = _get_audio_duration(file_path)
+        if duration > _MAX_AUDIO_SEC:
+            raise RuntimeError(
+                f"Audio zu lang ({duration / 60:.1f} min). Maximum: {_MAX_AUDIO_SEC // 60} Minuten."
+            )
+        if duration <= _CHUNK_MAX_SEC:
+            return self.transcribe_and_translate(file_path, response_format=response_format)
+
+        logger.info("Audio {:.1f}s exceeds limit – splitting into chunks (translate mode)", duration)
+        silence_starts = _find_silence_starts(file_path)
+        split_points = _compute_split_points(duration, silence_starts)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            chunks = _split_audio(file_path, split_points, tmpdir)
+            results: dict[int, tuple[str, float]] = {}
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {
+                    executor.submit(self.transcribe_and_translate, path, response_format): (i, offset)
+                    for i, (path, offset) in enumerate(chunks)
+                }
+                for future in as_completed(futures):
+                    i, offset = futures[future]
+                    try:
+                        results[i] = (future.result(), offset)
+                        logger.info("Chunk {}/{} translated", i + 1, len(chunks))
+                    except Exception as e:
+                        raise RuntimeError(f"Chunk {i + 1} translation failed: {e}") from e
+
+            ordered = [results[i] for i in range(len(chunks))]
+            if response_format == "srt":
+                return _merge_srt(ordered)
+            if response_format == "vtt":
+                return _merge_vtt(ordered)
+            return " ".join(text for text, _ in ordered).strip()
 
     def transcribe(self, file_path: str, response_format: str = "text") -> str:
         """Transcribe audio in its original language using KISSKI Whisper.

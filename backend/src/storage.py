@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
-from src.database import get_connection
+from src.database import get_connection, update_job_result, delete_job
 
 # --- Local storage paths ---
 STORAGE_ROOT = Path("/app/storage")
@@ -341,6 +341,20 @@ def delete_job_folder(job_uuid: str) -> None:
                 _s3().delete_object(Bucket=_S3_BUCKET, Key=obj["Key"])
     else:
         shutil.rmtree(_job_dir(job_uuid), ignore_errors=True)
+
+
+# --- Result saving with eviction ---
+
+def save_result_and_evict(job_uuid: str, result_path: str, result_filename: str) -> None:
+    """Save job result and delete the oldest jobs that exceed MAX_RESULT_FILES.
+
+    Evicted jobs are fully removed — storage folder first (while DB record still
+    exists so _job_folder_name can resolve the path), then the DB record.
+    """
+    evicted_uuids = update_job_result(job_uuid, result_path, result_filename)
+    for uuid in evicted_uuids:
+        delete_job_folder(uuid)
+        delete_job(uuid)
 
 
 # --- Cleanup ---

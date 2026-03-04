@@ -364,13 +364,15 @@ function ScreencastPageInner() {
 
   // ── Helpers ──
 
-  const resetAll = useCallback(() => {
-    // Abort any in-flight request and delete the current job (DB + MinIO)
+  const resetAll = useCallback((deleteJob = true) => {
+    // Abort any in-flight request and optionally delete the current job (DB + MinIO)
     abortControllerRef.current?.abort();
-    const uuidToDelete = translateJobUuid || currentJobUuidRef.current;
-    if (uuidToDelete) {
-      fetch(`/api/jobs/${uuidToDelete}`, { method: "DELETE", credentials: "include" }).catch(() => {});
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+    if (deleteJob) {
+      const uuidToDelete = translateJobUuid || currentJobUuidRef.current;
+      if (uuidToDelete) {
+        fetch(`/api/jobs/${uuidToDelete}`, { method: "DELETE", credentials: "include" }).catch(() => {});
+        window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      }
     }
     currentJobUuidRef.current = null;
 
@@ -804,37 +806,6 @@ function ScreencastPageInner() {
   }, [translateJobUuid, slides, autosaveScripts]);
 
   // ── Demo handlers ──
-  const handleDemoTranslate = useCallback(async () => {
-    const ok = await checkBeforeSubmit();
-    if (!ok) return;
-    setIsDemoMode(true);
-    setStep("translating");
-    setLoading(true);
-    const signal = newSignal();
-    try {
-      const data = await api.postJson<TranslateResponse>(
-        "/api/screencast/demo/translate",
-        { fast_mode: fastMode },
-        signal,
-      );
-      if (data.translate_job_uuid) setTranslateJobUuid(data.translate_job_uuid);
-      setSlides(
-        data.slide_texts.map((text, i) => ({
-          index: i,
-          imageBase64: data.slide_images[i] || "",
-          extractedText: text,
-          script: "",
-        })),
-      );
-      if (data.user_prompt) setUserPrompt(data.user_prompt);
-      setLoading(false);
-      setStep("translation-review");
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Demo-Fehler");
-    }
-  }, [fastMode, goError, checkBeforeSubmit, onRenderProgress]);
-
   const handleDemoGenerateScripts = useCallback(async () => {
     if (!await checkJobFolder()) return;
     setStep("generating-scripts");
@@ -925,6 +896,77 @@ function ScreencastPageInner() {
     setLoading(false);
     setStep("done");
   }, []);
+
+  const handleDemoTranslate = useCallback(async () => {
+    const ok = await checkBeforeSubmit();
+    if (!ok) return;
+    setIsDemoMode(true);
+    setStep("translating");
+    setLoading(true);
+    const signal = newSignal();
+    try {
+      const data = await api.postJson<TranslateResponse>(
+        "/api/screencast/demo/translate",
+        { fast_mode: mode === "auto" ? true : fastMode },
+        signal,
+      );
+      const uuid = data.translate_job_uuid;
+      if (uuid) setTranslateJobUuid(uuid);
+      const initialSlides = data.slide_texts.map((text, i) => ({
+        index: i,
+        imageBase64: data.slide_images[i] || "",
+        extractedText: text,
+        script: "",
+      }));
+      setSlides(initialSlides);
+      if (data.user_prompt) setUserPrompt(data.user_prompt);
+
+      if (mode === "auto") {
+        // Auto-mode: chain all demo steps without intermediate UIs
+        setStep("generating-scripts");
+        const scriptsData = await api.postJson<GenerateScriptsResponse>(
+          "/api/screencast/demo/generate-scripts",
+          { translate_job_uuid: uuid || null, user_prompt: data.user_prompt || null },
+          signal,
+        );
+        setSlides(initialSlides.map((s, i) => ({ ...s, script: scriptsData.scripts[i] || "" })));
+
+        setStep("rendering");
+        const renderResponse = await fetch("/api/screencast/demo/render", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ translate_job_uuid: uuid, dpi }),
+          credentials: "include",
+          signal,
+        });
+        if (!renderResponse.ok) {
+          const err = await renderResponse.json().catch(() => ({ detail: "Demo-Fehler" }));
+          throw new Error(err.detail || `Fehler: ${renderResponse.status}`);
+        }
+        const contentType = renderResponse.headers.get("Content-Type") ?? "";
+        if (contentType.includes("application/json")) {
+          const { job_uuid } = await renderResponse.json();
+          currentJobUuidRef.current = job_uuid;
+          sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
+          window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+          const jobResult = await pollJob(job_uuid, onRenderProgress, 3000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
+          currentJobUuidRef.current = null;
+          await processRenderResultFromJob(jobResult);
+        } else {
+          await processRenderResponse(renderResponse);
+        }
+      } else {
+        setLoading(false);
+        setStep("translation-review");
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      sessionStorage.removeItem(RENDER_SESSION_KEY);
+      setFailedRenderJobUuid(currentJobUuidRef.current);
+      setFailedRenderIsAuto(false);
+      goError(err instanceof Error ? err.message : "Demo-Fehler");
+    }
+  }, [fastMode, mode, dpi, goError, checkBeforeSubmit, onRenderProgress, processRenderResponse, processRenderResultFromJob]);
 
   const handleDemoRender = useCallback(async () => {
     if (!isResumedJob) {
@@ -1326,7 +1368,7 @@ function ScreencastPageInner() {
             </nav>
             <div className="flex justify-between mb-6">
               <button
-                onClick={resetAll}
+                onClick={() => resetAll(step !== "done")}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-red-500 rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -1335,7 +1377,7 @@ function ScreencastPageInner() {
                 Neu starten
               </button>
               <button
-                onClick={resetAll}
+                onClick={() => resetAll(step !== "done")}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -2460,7 +2502,7 @@ function ScreencastPageInner() {
             {/* Row 4: Reset */}
             <div className="flex justify-center">
               <button
-                onClick={resetAll}
+                onClick={() => resetAll(false)}
                 aria-label="Neue Präsentation hochladen"
                 className="px-6 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
               >
@@ -2515,7 +2557,7 @@ function ScreencastPageInner() {
                 </button>
               )}
               <button
-                onClick={resetAll}
+                onClick={() => resetAll()}
                 aria-label="Neue Präsentation hochladen"
                 className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
               >

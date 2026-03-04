@@ -14,7 +14,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import delete_file, get_file, save_result_file, save_result_meta
+from src.storage import delete_file, get_file, save_result_file, save_result_meta, save_result_and_evict
 
 
 @celery_app.task(bind=True, name="video_dubbing.submit", queue="dubbing")
@@ -159,7 +159,7 @@ def download_dubbing(self, job_uuid: str):
 
         save_result_meta(job_uuid, subtitles)
 
-        db.update_job_result(job_uuid, result_path, result_filename)
+        save_result_and_evict(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
 
         if input_path:

@@ -433,12 +433,28 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
 
   // Generic fallback: any job with a downloadable result
   if (job.status === "success" && job.has_download) {
+    const downloadLabel =
+      job.tool === "image_generate"
+        ? job.result_filename?.endsWith(".json")
+          ? "ZIP"
+          : "PNG"
+        : job.tool === "image_edit"
+        ? "PNG"
+        : job.tool === "image_analyze" || job.tool === "script"
+        ? "TXT"
+        : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary")
+        ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei")
+        : "Datei";
+    const downloadFilename =
+      job.tool === "image_generate" && job.result_filename?.endsWith(".json")
+        ? job.result_filename.replace(".json", ".zip")
+        : job.result_filename || "download";
     return (
       <div className="mt-3">
         <DownloadButton
           href={`/api/jobs/${job.job_uuid}/download`}
-          filename={job.result_filename || "download"}
-          label="Datei"
+          filename={downloadFilename}
+          label={downloadLabel}
         />
       </div>
     );
@@ -619,7 +635,7 @@ export default function MeineJobsPage() {
           </div>
         </div>
         <p className="text-sm text-gray-500 mb-4">
-          Fertige Downloads sind 7 Tage verfügbar. Ältere Dateien werden automatisch entfernt.
+          Es werden bis zu 20 Jobs gespeichert. Fertige Downloads sind 7 Tage verfügbar. Ältere Dateien werden automatisch entfernt.
         </p>
 
         {/* Search/filter bar hidden for now — logic kept intact for potential future use */}

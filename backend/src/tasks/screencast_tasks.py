@@ -11,7 +11,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import delete_file, get_file, get_job_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta
+from src.storage import delete_file, get_file, get_job_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 
 
@@ -281,7 +281,7 @@ def run_screencast_translate(
             }
 
         result_path = save_result_json(job_uuid, result)
-        db.update_job_result(job_uuid, result_path, f"{Path(filename).stem}_translate.json")
+        save_result_and_evict(job_uuid, result_path, f"{Path(filename).stem}_translate.json")
 
         # awaiting_user: user must review scripts before render starts
         db.update_job_status(job_uuid, "awaiting_user")
@@ -329,7 +329,7 @@ def run_screencast_render(
         )
 
         result_filename = f"{Path(original_filename).stem if original_filename else 'screencast'}.mp4"
-        db.update_job_result(translate_job_uuid, result["result_path"], result_filename)
+        save_result_and_evict(translate_job_uuid, result["result_path"], result_filename)
         db.update_job_status(translate_job_uuid, "success")
 
         logger.info("Screencast render task {} completed", translate_job_uuid)
@@ -410,7 +410,7 @@ def run_screencast_auto(
         )
 
         result_filename = f"{Path(filename).stem}.mp4"
-        db.update_job_result(job_uuid, result["result_path"], result_filename)
+        save_result_and_evict(job_uuid, result["result_path"], result_filename)
         db.update_job_status(job_uuid, "success")
 
         # Clean up input file
@@ -602,7 +602,7 @@ def run_screencast_demo_render(
                 if content:
                     save_job_file(job_uuid, fname, content.encode("utf-8"))
 
-        db.update_job_result(job_uuid, result_path, "demo_screencast.mp4")
+        save_result_and_evict(job_uuid, result_path, "demo_screencast.mp4")
         db.update_job_status(job_uuid, "success")
 
         logger.info("TIMING [{}] TOTAL: {}", job_uuid[:8], _elapsed())

@@ -7,7 +7,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import delete_file, get_file, get_job_file, save_job_file, save_result_file
+from src.storage import delete_file, get_file, get_job_file, save_job_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 
 
@@ -116,7 +116,7 @@ def run_tts(
         # Combine all chunks and save final result
         result_path = save_result_file(job_uuid, ".mp3", b"".join(audio_parts))
         result_filename = f"{Path(filename).stem}.mp3"
-        db.update_job_result(job_uuid, result_path, result_filename)
+        save_result_and_evict(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
 
         delete_file(input_path)

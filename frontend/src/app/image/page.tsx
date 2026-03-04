@@ -8,7 +8,7 @@ import { MAX_IMAGE_BYTES } from "@/lib/constants";
 
 type Tab = "generate" | "edit" | "analyze";
 
-const SIZES = ["1024x1024", "1280x720", "720x1280"] as const;
+const SIZES = ["1024x1024", "1280x720"] as const;
 const COUNTS = [1, 2, 3, 4] as const;
 const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg"]);
 
@@ -106,6 +106,7 @@ export default function ImagePage() {
   const [genSpinnerLabel, setGenSpinnerLabel] = useState("Wird generiert…");
   const [genError, setGenError] = useState("");
   const [genResults, setGenResults] = useState<Array<{ url: string; filename: string }>>([]);
+  const [genJobUuid, setGenJobUuid] = useState<string | null>(null);
 
   // ── Tab 2: Bild bearbeiten ──
   const [editFile, setEditFile] = useState<File | null>(null);
@@ -151,6 +152,7 @@ export default function ImagePage() {
     setGenSpinnerLabel("Wird generiert…");
     setGenError("");
     setGenResults([]);
+    setGenJobUuid(null);
     try {
       const formData = new FormData();
       formData.append("prompt", genPrompt);
@@ -163,21 +165,23 @@ export default function ImagePage() {
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
-      await pollJob(data.job_uuid, undefined, 3000, undefined,
+      const jobStatus = await pollJob(data.job_uuid, undefined, 3000, undefined,
         () => setGenSpinnerLabel("Läuft noch – Bildgenerierung kann etwas länger dauern…"),
         60_000,
       );
-      const { blob, filename } = await downloadJobAsBlob(data.job_uuid);
-      if (filename.endsWith(".json")) {
-        const text = await blob.text();
-        const parsed: { images: Array<{ b64_json: string; filename: string }> } = JSON.parse(text);
-        const results = parsed.images.map((img) => {
+      setGenJobUuid(data.job_uuid);
+      const inlined = jobStatus.result as { images?: Array<{ b64_json: string; filename: string }> } | null;
+      if (inlined?.images) {
+        // Multiple images: base64 already inlined in job status response
+        const results = inlined.images.map((img) => {
           const bytes = Uint8Array.from(atob(img.b64_json), (c) => c.charCodeAt(0));
           const imgBlob = new Blob([bytes], { type: "image/png" });
           return { url: URL.createObjectURL(imgBlob), filename: img.filename };
         });
         setGenResults(results);
       } else {
+        // Single image: fetch PNG from download endpoint
+        const { blob, filename } = await downloadJobAsBlob(data.job_uuid);
         setGenResults([{ url: URL.createObjectURL(blob), filename }]);
       }
     } catch (err) {
@@ -372,30 +376,44 @@ export default function ImagePage() {
             {genLoading && <Spinner label={genSpinnerLabel} />}
             {genError && <p className="mt-4 text-sm text-red-600" role="alert">{genError}</p>}
             {genResults.length > 0 && (
-              <div className={`mt-6 ${genResults.length > 1 ? "grid grid-cols-2 gap-4" : ""}`}>
-                {genResults.map((result, i) => (
-                  <div key={i}>
-                    <img
-                      src={result.url}
-                      alt={`Generiertes Bild ${i + 1}`}
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 mb-2"
-                    />
-                    <button
-                      onClick={() => {
-                        const a = document.createElement("a");
-                        a.href = result.url;
-                        a.download = result.filename;
-                        a.click();
-                      }}
-                      className="w-full px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      Bild
-                    </button>
-                  </div>
-                ))}
+              <div className="mt-6">
+                <div className={`${genResults.length > 1 ? "grid grid-cols-2 gap-4" : ""}`}>
+                  {genResults.map((result, i) => (
+                    <div key={i}>
+                      <img
+                        src={result.url}
+                        alt={`Generiertes Bild ${i + 1}`}
+                        className="w-full rounded-lg border border-gray-200 bg-gray-50 mb-2"
+                      />
+                      <button
+                        onClick={() => {
+                          const a = document.createElement("a");
+                          a.href = result.url;
+                          a.download = result.filename;
+                          a.click();
+                        }}
+                        className="w-full px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        PNG
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {genResults.length > 1 && genJobUuid && (
+                  <a
+                    href={`/api/jobs/${genJobUuid}/download`}
+                    download
+                    className="mt-4 w-full px-3 py-1.5 bg-[#0066cc] text-white text-xs font-medium rounded-md hover:bg-[#0055aa] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Alle als ZIP
+                  </a>
+                )}
               </div>
             )}
           </section>

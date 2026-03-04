@@ -25,7 +25,7 @@ async def generate_image(
         raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
     if n < 1 or n > 4:
         raise HTTPException(status_code=400, detail="Anzahl muss zwischen 1 und 4 liegen")
-    if size not in {"1024x1024", "1280x720", "720x1280"}:
+    if size not in {"1024x1024", "1280x720"}:
         raise HTTPException(status_code=400, detail="Ungültige Bildgröße")
 
     job_uuid = uuid.uuid4().hex
