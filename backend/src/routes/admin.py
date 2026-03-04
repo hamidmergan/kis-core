@@ -21,6 +21,9 @@ class AddWhitelistRequest(BaseModel):
 class UpdateSettingsRequest(BaseModel):
     whitelist_enabled: bool | None = None
     demo_data: bool | None = None
+    elevenlabs_enabled: bool | None = None
+    fish_speech_enabled: bool | None = None
+    kokoro_enabled: bool | None = None
 
 
 class ToggleToolRequest(BaseModel):
@@ -181,13 +184,43 @@ _TOOLS_CONFIG = [
 
 
 
+def _check_fish_speech_available(settings) -> bool:
+    if not settings.fish_speech_base_url:
+        return False
+    try:
+        from src.services.fish_speech_client import FishSpeechClient
+        return FishSpeechClient(settings.fish_speech_base_url).is_available()
+    except Exception:
+        return False
+
+
+def _check_kokoro_available(settings) -> bool:
+    if not settings.kokoro_base_url:
+        return False
+    try:
+        from src.services.kokoro_client import KokoroClient
+        return KokoroClient(settings.kokoro_base_url).is_available()
+    except Exception:
+        return False
+
+
 # --- Settings ---
 
 @router.get("/settings")
 async def get_settings(_admin=Depends(get_admin_user)):
+    from src.dependencies import get_settings as _get_settings
+    app_settings = _get_settings()
     return {
         "whitelist_enabled": db.get_setting("whitelist_enabled", "true").lower() == "true",
         "demo_data": db.get_setting("demo_data", "false").lower() == "true",
+        "elevenlabs_enabled": db.get_setting("elevenlabs_enabled", "true").lower() == "true",
+        "elevenlabs_configured": bool(app_settings.elevenlabs_api_key),
+        "fish_speech_enabled": db.get_setting("fish_speech_enabled", "true").lower() == "true",
+        "fish_speech_configured": bool(app_settings.fish_speech_base_url),
+        "fish_speech_available": _check_fish_speech_available(app_settings),
+        "kokoro_enabled": db.get_setting("kokoro_enabled", "true").lower() == "true",
+        "kokoro_configured": bool(app_settings.kokoro_base_url),
+        "kokoro_available": _check_kokoro_available(app_settings),
     }
 
 
@@ -197,6 +230,12 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("whitelist_enabled", "true" if body.whitelist_enabled else "false")
     if body.demo_data is not None:
         db.set_setting("demo_data", "true" if body.demo_data else "false")
+    if body.elevenlabs_enabled is not None:
+        db.set_setting("elevenlabs_enabled", "true" if body.elevenlabs_enabled else "false")
+    if body.fish_speech_enabled is not None:
+        db.set_setting("fish_speech_enabled", "true" if body.fish_speech_enabled else "false")
+    if body.kokoro_enabled is not None:
+        db.set_setting("kokoro_enabled", "true" if body.kokoro_enabled else "false")
     return {"ok": True}
 
 

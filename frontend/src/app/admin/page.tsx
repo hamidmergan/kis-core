@@ -561,6 +561,11 @@ function JobsTab() {
 function GeneralSettingsSection() {
   const [whitelistEnabled, setWhitelistEnabled] = useState<boolean | null>(null);
   const [demoData, setDemoData] = useState<boolean | null>(null);
+  const [elevenlabsEnabled, setElevenlabsEnabled] = useState<boolean>(true);
+  const [elevenlabsConfigured, setElevenlabsConfigured] = useState<boolean>(false);
+  const [kokoroEnabled, setKokoroEnabled] = useState<boolean>(false);
+  const [kokoroConfigured, setKokoroConfigured] = useState<boolean>(false);
+  const [kokoroAvailable, setKokoroAvailable] = useState<boolean>(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -569,6 +574,11 @@ function GeneralSettingsSection() {
       .then((d) => {
         setWhitelistEnabled(d.whitelist_enabled ?? true);
         setDemoData(d.demo_data ?? false);
+        setElevenlabsEnabled(d.elevenlabs_enabled ?? true);
+        setElevenlabsConfigured(d.elevenlabs_configured ?? false);
+        setKokoroEnabled(d.kokoro_enabled ?? true);
+        setKokoroConfigured(d.kokoro_configured ?? false);
+        setKokoroAvailable(d.kokoro_available ?? false);
       });
   }, []);
 
@@ -650,6 +660,76 @@ function GeneralSettingsSection() {
             Demo-Screencast ist für alle eingeloggten User sichtbar.
           </p>
         )}
+      </div>
+
+      {/* TTS-Anbieter */}
+      <div className="border border-gray-200 rounded-xl bg-white p-5">
+        <p className="text-sm font-medium text-gray-800 mb-4">TTS-Anbieter</p>
+        <div className="space-y-4">
+          {/* ElevenLabs */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm text-gray-700">ElevenLabs</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {elevenlabsEnabled
+                  ? "Aktiv — als Anbieter wählbar."
+                  : "Deaktiviert — wird nicht angezeigt."}
+              </p>
+              {!elevenlabsConfigured && (
+                <p className="mt-1 text-xs text-gray-400">
+                  <code className="font-mono">ELEVENLABS_API_KEY</code> nicht gesetzt
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => { const v = !elevenlabsEnabled; setElevenlabsEnabled(v); patch({ elevenlabs_enabled: v }); }}
+              disabled={saving || !elevenlabsConfigured}
+              title={!elevenlabsConfigured ? "ELEVENLABS_API_KEY ist nicht in .env gesetzt" : undefined}
+              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+                elevenlabsEnabled ? "bg-[#0066cc]" : "bg-gray-300"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              aria-label="ElevenLabs umschalten"
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                elevenlabsEnabled ? "translate-x-5" : "translate-x-0"
+              }`} />
+            </button>
+          </div>
+
+          <div className="border-t border-gray-100" />
+
+          {/* Kokoro */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm text-gray-700">Kokoro TTS</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {!kokoroEnabled
+                  ? "Deaktiviert — wird nicht angezeigt."
+                  : kokoroAvailable
+                    ? "Aktiv — als Anbieter wählbar."
+                    : "Aktiviert — Server nicht erreichbar."}
+              </p>
+              {!kokoroConfigured && (
+                <p className="mt-1 text-xs text-gray-400">
+                  <code className="font-mono">KOKORO_BASE_URL</code> nicht gesetzt
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => { const v = !kokoroEnabled; setKokoroEnabled(v); patch({ kokoro_enabled: v }); }}
+              disabled={saving || !kokoroConfigured}
+              title={!kokoroConfigured ? "KOKORO_BASE_URL ist nicht in .env gesetzt" : undefined}
+              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+                kokoroEnabled ? "bg-[#0066cc]" : "bg-gray-300"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              aria-label="Kokoro TTS umschalten"
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                kokoroEnabled ? "translate-x-5" : "translate-x-0"
+              }`} />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

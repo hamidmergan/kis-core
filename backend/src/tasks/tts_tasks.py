@@ -24,8 +24,9 @@ def run_tts(
     style: float,
     use_speaker_boost: bool,
     pause_preset: str,
+    provider: str = "elevenlabs",
 ):
-    """Synthesize uploaded document to MP3 via ElevenLabs.
+    """Synthesize uploaded document to MP3 via ElevenLabs or Fish Speech (local).
 
     Long texts are split into ≤25k-char chunks. Each chunk is saved immediately
     after synthesis so a crash or network error can be resumed without re-paying
@@ -37,6 +38,7 @@ def run_tts(
             "voice_id": voice_id, "speed": speed, "stability": stability,
             "similarity_boost": similarity_boost, "style": style,
             "use_speaker_boost": use_speaker_boost, "pause_preset": pause_preset,
+            "provider": provider,
         }
         db.update_job_status(job_uuid, "running", progress={"step": "extract", "tts_params": tts_params})
 
@@ -52,14 +54,29 @@ def run_tts(
         if not text.strip():
             raise ValueError("Kein Text in der Datei gefunden")
 
-        from src.services.elevenlabs_client import ElevenLabsClient, _split_text, _insert_pauses
         from src.config import Settings
-        api_key = Settings().elevenlabs_api_key
-        if not api_key:
-            raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
+        from src.dependencies import is_elevenlabs_enabled, is_kokoro_enabled
+        settings = Settings()
 
-        client = ElevenLabsClient(api_key)
-        chunks = _split_text(_insert_pauses(text, pause_preset))
+        # Provider-Auswahl
+        requested_provider = tts_params.get("provider", "elevenlabs")
+
+        # Hard-stop: reject if provider was disabled between submit and execution
+        if requested_provider == "kokoro" and not is_kokoro_enabled():
+            raise RuntimeError("Kokoro TTS wurde deaktiviert.")
+        elif requested_provider not in ("kokoro",) and not is_elevenlabs_enabled():
+            raise RuntimeError("ElevenLabs wurde deaktiviert.")
+
+        if requested_provider == "kokoro" and bool(settings.kokoro_base_url):
+            from src.services.kokoro_client import KokoroClient, _split_text
+            client = KokoroClient(settings.kokoro_base_url)
+            chunks = _split_text(text)
+        else:
+            from src.services.elevenlabs_client import ElevenLabsClient, _split_text, _insert_pauses
+            if not settings.elevenlabs_api_key:
+                raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
+            client = ElevenLabsClient(settings.elevenlabs_api_key)
+            chunks = _split_text(_insert_pauses(text, pause_preset))
         n = len(chunks)
 
         audio_parts: list[bytes] = []
@@ -112,7 +129,8 @@ def run_tts(
             logger.warning("TTS {} network error, retry {}/{} in {}s: {}", job_uuid, self.request.retries + 1, self.max_retries, wait, e)
             raise self.retry(exc=e, countdown=wait)
         logger.error("TTS {} gave up after {} retries: {}", job_uuid, self.max_retries, e)
-        db.update_job_status(job_uuid, "failed", error_message="ElevenLabs war ~90 Minuten nicht erreichbar. Bitte 'Wiederholen' klicken wenn der Dienst wieder verfügbar ist.")
+        provider_name = {"kokoro": "Kokoro"}.get(provider, "ElevenLabs")
+        db.update_job_status(job_uuid, "failed", error_message=f"{provider_name} war ~90 Minuten nicht erreichbar. Bitte 'Wiederholen' klicken wenn der Dienst wieder verfügbar ist.")
         raise
 
     except Exception as e:

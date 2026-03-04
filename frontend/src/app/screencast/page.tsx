@@ -177,7 +177,13 @@ function ScreencastPageInner() {
   const [embedSubtitles, setEmbedSubtitles] = useState(true);
   const [subtitleData, setSubtitleData] = useState<SubtitleData | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
+  const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
   const [voiceId, setVoiceId] = useState("");
+  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro">("elevenlabs");
+  const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
+  const [fishSpeechEnabled, setFishSpeechEnabled] = useState(false);
+  const [kokoroEnabled, setKokoroEnabled] = useState(false);
+  const [providersLoaded, setProvidersLoaded] = useState(false);
   const [audioId, setAudioId] = useState<string>("");
   const [audioCount, setAudioCount] = useState(0);
   const [demoAvailable, setDemoAvailable] = useState(false);
@@ -187,8 +193,6 @@ function ScreencastPageInner() {
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
-  const [atStorageLimit, setAtStorageLimit] = useState(false);
-  const [evictFilename, setEvictFilename] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isResumedJob, setIsResumedJob] = useState(false);
 
@@ -242,12 +246,32 @@ function ScreencastPageInner() {
     return () => { abortControllerRef.current?.abort(); };
   }, []);
 
-  // ── Fetch available voices ──
+  // ── Fetch available voices + providers ──
   useEffect(() => {
     api.getJson<{ voices: Voice[] }>("/api/voices").then((data) => {
       setVoices(data.voices);
       if (data.voices.length > 0) setVoiceId(data.voices[0].voice_id);
     }).catch(() => {});
+    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
+      setElevenlabsEnabled(data.elevenlabs_enabled);
+      setFishSpeechEnabled(data.fish_speech_enabled);
+      setKokoroEnabled(data.kokoro_enabled ?? false);
+      if (!data.elevenlabs_enabled && data.fish_speech_enabled) setTtsProvider("fish_speech");
+      else if (!data.elevenlabs_enabled && !data.fish_speech_enabled && data.kokoro_enabled) setTtsProvider("kokoro");
+      if (data.kokoro_enabled) {
+        api.getJson<{ voices: Array<{ voice_id: string; name: string; accent: string; gender: string }> }>("/api/kokoro/voices")
+          .then((kData) => {
+            setKokoroVoices(kData.voices ?? []);
+            if (!data.elevenlabs_enabled && !data.fish_speech_enabled && kData.voices?.length > 0) {
+              setVoiceId(kData.voices[0].voice_id);
+            }
+          }).catch(() => {});
+      }
+    }).catch(() => {
+      setElevenlabsEnabled(true);
+    }).finally(() => {
+      setProvidersLoaded(true);
+    });
   }, []);
 
   // ── Check demo availability ──
@@ -318,8 +342,6 @@ function ScreencastPageInner() {
       .then((r) => r.json())
       .then((data) => {
         setHasActiveJob(!!data.has_active_job);
-        setAtStorageLimit(!!data.at_storage_limit);
-        setEvictFilename(data.evict_filename ?? null);
       })
       .catch(() => setHasActiveJob(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -331,8 +353,6 @@ function ScreencastPageInner() {
       const res = await fetch("/api/jobs/check/screencast", { credentials: "include" });
       const data = await res.json();
       setHasActiveJob(!!data.has_active_job);
-      setAtStorageLimit(!!data.at_storage_limit);
-      setEvictFilename(data.evict_filename ?? null);
       if (data.has_active_job) {
         return false;
       }
@@ -388,6 +408,7 @@ function ScreencastPageInner() {
     setMaxReachedIdx(0);
     setSourceLang("DE");
     setIsDemoMode(false);
+    setTtsProvider(elevenlabsEnabled ? "elevenlabs" : fishSpeechEnabled ? "fish_speech" : kokoroEnabled ? "kokoro" : "elevenlabs");
     if (fileRef.current) fileRef.current.value = "";
   }, [videoUrl, translateJobUuid]);
 
@@ -969,6 +990,7 @@ function ScreencastPageInner() {
           slide_pause: slidePause,
           embed_subtitles: embedSubtitles,
           dpi,
+          provider: ttsProvider,
         }),
         credentials: "include",
         signal,
@@ -1502,21 +1524,7 @@ function ScreencastPageInner() {
               </label>
             )}
 
-            {/* Storage limit warning — shown between Schnellmodus and submit */}
-            {!hasActiveJob && atStorageLimit && (
-              <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3">
-                <p className="text-sm font-medium text-yellow-800">
-                  Sie haben bereits einen fertigen Screencast gespeichert
-                  {evictFilename ? ` (${evictFilename})` : ""}.
-                </p>
-                <p className="mt-0.5 text-sm text-yellow-700">
-                  Wenn Sie einen neuen starten, wird der alte automatisch gelöscht. Bitte laden Sie ihn vorher herunter.{" "}
-                  <a href="/my-jobs" className="underline hover:text-yellow-900">
-                    Zur Jobliste
-                  </a>
-                </p>
-              </div>
-            )}
+
 
             {/* Submit */}
             <div className="flex gap-3">
@@ -2036,40 +2044,89 @@ function ScreencastPageInner() {
               Passen Sie Stimme, Geschwindigkeit und Pausen an.
             </p>
 
-            {/* Stimme – Dropdown + Custom Voice ID */}
-            {voices.length > 1 && (
-              <div className="mb-6 space-y-3">
-                <div>
-                  <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">
-                    Stimme
-                  </label>
-                  <select
-                    id="sc-voice-select"
-                    value={voiceId}
-                    onChange={(e) => setVoiceId(e.target.value)}
-                    className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc]"
-                  >
-                    {voices.map((v) => {
+            {/* TTS-Anbieter */}
+            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
+            <div className="mb-2">
+              <label htmlFor="sc-provider-select" className="block text-sm font-medium text-gray-700 mb-2">
+                TTS-Anbieter
+              </label>
+              <select
+                id="sc-provider-select"
+                value={ttsProvider}
+                onChange={(e) => {
+                  const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro";
+                  setTtsProvider(p);
+                  if (p === "fish_speech") setVoiceId("default");
+                  else if (p === "kokoro" && kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
+                  else if (p === "elevenlabs" && voices.length > 0) setVoiceId(voices[0].voice_id);
+                }}
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc]"
+              >
+                {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
+                {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
+                {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
+              </select>
+            </div>
+            )}
+
+            {/* Stimme */}
+            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
+            <div className="mb-6 mt-4 space-y-3">
+              <div>
+                <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">
+                  Stimme
+                </label>
+                <select
+                  id="sc-voice-select"
+                  value={voiceId}
+                  onChange={(e) => setVoiceId(e.target.value)}
+                  disabled={ttsProvider === "fish_speech"}
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {ttsProvider === "fish_speech" ? (
+                    <option value="default">Standard</option>
+                  ) : ttsProvider === "kokoro" ? (
+                    kokoroVoices.map((v) => {
+                      const flag = v.accent === "American" ? "🇺🇸" : v.accent === "British" ? "🇬🇧" : "";
+                      return (
+                        <option key={v.voice_id} value={v.voice_id}>
+                          {flag} {v.name}
+                        </option>
+                      );
+                    })
+                  ) : (
+                    voices.map((v) => {
                       const desc = translateDesc(v.description);
                       return (
                         <option key={v.voice_id} value={v.voice_id}>
                           {desc ? `${v.label} – ${desc}` : v.label}
                         </option>
                       );
-                    })}
-                  </select>
-                </div>
-                <div>
-                  <a
-                    href="/voices"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-[#0066cc] hover:underline"
-                  >
-                    Stimmen anhören →
-                  </a>
-                </div>
+                    })
+                  )}
+                </select>
               </div>
+              {ttsProvider === "elevenlabs" && (
+                <a
+                  href="/voices"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#0066cc] hover:underline"
+                >
+                  Stimmen anhören →
+                </a>
+              )}
+              {ttsProvider === "kokoro" && (
+                <a
+                  href="/voices?tab=kokoro"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#0066cc] hover:underline"
+                >
+                  Stimmen anhören →
+                </a>
+              )}
+            </div>
             )}
 
             <div className="mb-6">
@@ -2249,7 +2306,7 @@ function ScreencastPageInner() {
             </p>
             {!renderProgressLabel && (
               <p className="text-xs text-gray-400 mt-2">
-                Vertonung und Videoproduktion, das kann 1-3 Minuten dauern.
+                Vertonung und Videoproduktion, das kann ein paar Minuten dauern.
               </p>
             )}
             <button

@@ -66,6 +66,40 @@ def get_elevenlabs_client() -> ElevenLabsClient:
     return ElevenLabsClient(settings.elevenlabs_api_key)
 
 
+def get_fish_speech_client():
+    from src.services.fish_speech_client import FishSpeechClient
+    settings = get_settings()
+    if not settings.fish_speech_base_url:
+        return None
+    return FishSpeechClient(settings.fish_speech_base_url)
+
+
+def get_kokoro_client():
+    from src.services.kokoro_client import KokoroClient
+    settings = get_settings()
+    if not settings.kokoro_base_url:
+        return None
+    return KokoroClient(settings.kokoro_base_url)
+
+
+def is_elevenlabs_enabled() -> bool:
+    """Gibt True zurück wenn ElevenLabs konfiguriert UND vom Admin freigeschaltet."""
+    from src import database as db
+    settings = get_settings()
+    if not settings.elevenlabs_api_key:
+        return False
+    return db.get_setting("elevenlabs_enabled", "true").lower() == "true"
+
+
+def is_kokoro_enabled() -> bool:
+    """Gibt True zurück wenn Kokoro konfiguriert UND vom Admin freigeschaltet."""
+    from src import database as db
+    settings = get_settings()
+    if not settings.kokoro_base_url:
+        return False
+    return db.get_setting("kokoro_enabled", "true").lower() == "true"
+
+
 def get_deepl_client():
     from src.services.deepl_client import DeepLClient
     settings = get_settings()

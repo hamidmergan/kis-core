@@ -62,6 +62,11 @@ const PAUSE_OPTIONS = [
   { value: "very_long", label: "Sehr lange Pausen" },
 ];
 
+const KOKORO_ACCENT_LABEL: Record<string, string> = {
+  "American": "🇺🇸",
+  "British": "🇬🇧",
+};
+
 export default function TtsPage() {
   const [ttsState, setTtsState] = useState<TTSState>("idle");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -71,8 +76,15 @@ export default function TtsPage() {
   const [ttsErrorMessage, setTtsErrorMessage] = useState<string>("");
   const [ttsProgressLabel, setTtsProgressLabel] = useState<string>("");
 
+  // Provider
+  const [provider, setProvider] = useState<"elevenlabs" | "kokoro">("elevenlabs");
+  const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
+  const [kokoroEnabled, setKokoroEnabled] = useState(false);
+  const [providersLoaded, setProvidersLoaded] = useState(false);
+
   // Voice selection
   const [voices, setVoices] = useState<Voice[]>([]);
+  const [kokoroVoices, setKokoroVoices] = useState<Array<{voice_id: string; name: string; accent: string; gender: string}>>([]);
   const [voiceId, setVoiceId] = useState("");
 
   // Audio settings
@@ -84,7 +96,31 @@ export default function TtsPage() {
       setVoices(data.voices);
       if (data.voices.length > 0) setVoiceId(data.voices[0].voice_id);
     }).catch(() => {});
+    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
+      setElevenlabsEnabled(data.elevenlabs_enabled);
+      setKokoroEnabled(data.kokoro_enabled ?? false);
+      if (!data.elevenlabs_enabled && data.kokoro_enabled) setProvider("kokoro");
+      if (data.kokoro_enabled) {
+        api.getJson<{ voices: Array<{voice_id: string; name: string; accent: string; gender: string}> }>("/api/kokoro/voices")
+          .then((d) => {
+            setKokoroVoices(d.voices);
+          }).catch(() => {});
+      }
+    }).catch(() => {
+      setElevenlabsEnabled(true);
+    }).finally(() => {
+      setProvidersLoaded(true);
+    });
   }, []);
+
+  // Wenn Provider wechselt → passende Stimme vorauswählen
+  useEffect(() => {
+    if (provider === "kokoro") {
+      if (kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
+    } else {
+      if (voices.length > 0) setVoiceId(voices[0].voice_id);
+    }
+  }, [provider, voices, kokoroVoices]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
@@ -94,6 +130,7 @@ export default function TtsPage() {
   }, []);
 
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
+  const noProvider = providersLoaded && !elevenlabsEnabled && !kokoroEnabled;
 
   const handleTtsFileSelected = useCallback((file: File) => {
     setPendingFile(file);
@@ -107,7 +144,6 @@ export default function TtsPage() {
   const handleSubmit = async () => {
     if (!pendingFile || isProcessing) return;
 
-    // Check job limit + storage limit before submitting
     try {
       const res = await fetch("/api/jobs/check/tts", { credentials: "include" });
       const data = await res.json();
@@ -115,12 +151,7 @@ export default function TtsPage() {
         setTtsErrorMessage("Sie haben bereits einen laufenden TTS-Job. Bitte warten Sie, bis er fertig ist.");
         return;
       }
-      if (data.at_storage_limit) {
-        const ok = window.confirm(
-          `Wenn Sie fortfahren, wird "${data.evict_filename || "Ihre älteste TTS-Datei"}" gelöscht. Fortfahren?`
-        );
-        if (!ok) return;
-      }
+
     } catch { /* ignore, backend handles it */ }
 
     abortControllerRef.current?.abort();
@@ -129,12 +160,12 @@ export default function TtsPage() {
     setTtsState("uploading");
     setTtsProgressLabel("Wird hochgeladen…");
     try {
-      // Upload file → get job_uuid
       const formData = new FormData();
       formData.append("file", pendingFile);
       formData.append("voice_id", voiceId);
       formData.append("speed", String(speed));
       formData.append("pause_preset", pausePreset);
+      formData.append("provider", provider);
 
       const uploadRes = await fetch("/api/tts", {
         method: "POST",
@@ -153,7 +184,6 @@ export default function TtsPage() {
       setTtsState("processing");
       setTtsProgressLabel("In der Warteschlange…");
 
-      // Poll until done
       const jobResult = await pollJob(
         job_uuid,
         (status) => {
@@ -170,7 +200,6 @@ export default function TtsPage() {
         60_000,
       );
 
-      // Download result
       setTtsProgressLabel("Wird heruntergeladen…");
       const { blob, filename } = await downloadJobAsBlob(
         jobResult.job_uuid,
@@ -222,55 +251,89 @@ export default function TtsPage() {
 
           <TtsFileUpload
             onFileSelected={handleTtsFileSelected}
-            disabled={isProcessing}
+            disabled={isProcessing || noProvider}
           />
-          {ttsSelectedFile && (
+          {noProvider && (
+            <p className="mt-3 text-sm text-gray-400">Kein TTS-Anbieter aktiv — bitte im Admin-Bereich einen Anbieter freischalten.</p>
+          )}
+          {!noProvider && ttsSelectedFile && (
             <p className="mt-2 text-sm font-medium text-gray-700">{ttsSelectedFile}</p>
           )}
 
-          {/* Stimme – Dropdown + Custom Voice ID */}
-          {voices.length > 1 && (
-            <div className="mt-6 mb-6 space-y-3">
-              <div>
-                <label htmlFor="voice-select" className="block text-sm font-medium text-gray-700 mb-2">
-                  Stimme
-                </label>
-                <select
-                  id="voice-select"
-                  value={voiceId}
-                  onChange={(e) => setVoiceId(e.target.value)}
-                  disabled={isProcessing}
-                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {voices.map((v) => {
-                    const desc = translateDesc(v.description);
-                    return (
-                      <option key={v.voice_id} value={v.voice_id}>
-                        {desc ? `${v.label} – ${desc}` : v.label}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-              <div>
-                <a
-                  href="/voices"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-[#0066cc] hover:underline"
-                >
-                  Stimmen anhören →
-                </a>
-              </div>
-            </div>
+          {/* Provider */}
+          {providersLoaded && (elevenlabsEnabled || kokoroEnabled) && (
+          <div className="mt-6 mb-2">
+            <label htmlFor="provider-select" className="block text-sm font-medium text-gray-700 mb-2">
+              TTS-Anbieter
+            </label>
+            <select
+              id="provider-select"
+              value={provider}
+              onChange={(e) => setProvider(e.target.value as "elevenlabs" | "kokoro")}
+              disabled={isProcessing}
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
+              {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
+            </select>
+          </div>
           )}
 
-          {/* Geschwindigkeit – Slider */}
+          {/* Stimme */}
+          {providersLoaded && (elevenlabsEnabled || kokoroEnabled) && (
+          <div className="mt-4 mb-6 space-y-3">
+            <div>
+              <label htmlFor="voice-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Stimme
+              </label>
+              <select
+                id="voice-select"
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                disabled={isProcessing}
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {provider === "kokoro" && kokoroVoices.map((v) => (
+                  <option key={v.voice_id} value={v.voice_id}>
+                    {KOKORO_ACCENT_LABEL[v.accent] ?? ""} {v.name}
+                  </option>
+                ))}
+                {provider === "elevenlabs" && voices.map((v) => {
+                  const desc = translateDesc(v.description);
+                  return (
+                    <option key={v.voice_id} value={v.voice_id}>
+                      {desc ? `${v.label} – ${desc}` : v.label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            {provider === "elevenlabs" && (
+              <a
+                href="/voices"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[#0066cc] hover:underline"
+              >
+                Stimmen anhören →
+              </a>
+            )}
+            {provider === "kokoro" && (
+              <a
+                href="/voices?tab=kokoro"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[#0066cc] hover:underline"
+              >
+                Stimmen anhören →
+              </a>
+            )}
+          </div>
+          )}
+
+          {/* Geschwindigkeit */}
           <div className="mb-6">
-            <label
-              htmlFor="speed-slider"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
+            <label htmlFor="speed-slider" className="block text-sm font-medium text-gray-700 mb-2">
               Geschwindigkeit: {speed.toFixed(1)}x
             </label>
             <input
@@ -290,30 +353,32 @@ export default function TtsPage() {
             </div>
           </div>
 
-          {/* Pausen – Dropdown */}
-          <div className="mb-6">
-            <label htmlFor="pause-select" className="block text-sm font-medium text-gray-700 mb-2">
-              Pausen
-            </label>
-            <select
-              id="pause-select"
-              value={pausePreset}
-              onChange={(e) => setPausePreset(e.target.value)}
-              disabled={isProcessing}
-              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {PAUSE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Pausen (nur ElevenLabs) */}
+          {provider === "elevenlabs" && (
+            <div className="mb-6">
+              <label htmlFor="pause-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Pausen
+              </label>
+              <select
+                id="pause-select"
+                value={pausePreset}
+                onChange={(e) => setPausePreset(e.target.value)}
+                disabled={isProcessing}
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {PAUSE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="mb-6 flex items-center gap-3">
             <button
               onClick={handleSubmit}
-              disabled={!pendingFile || isProcessing}
+              disabled={!pendingFile || isProcessing || noProvider}
               className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isProcessing && (

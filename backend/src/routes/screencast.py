@@ -123,6 +123,7 @@ class RenderRequest(BaseModel):
     slide_pause: float = 0.5
     embed_subtitles: bool = True
     dpi: int = 100
+    provider: str = "elevenlabs"
 
 
 class PrerenderRequest(BaseModel):
@@ -665,6 +666,7 @@ async def screencast(
     voice_id: str = Form(""),
     speed: float = Form(0.9),
     glossary_json: str = Form(""),
+    provider: str = Form("elevenlabs"),
     current_user: dict = Depends(get_current_user),
 ):
     """Queue a screencast job: translate DE PPTX → EN, generate scripts, TTS, render MP4."""
@@ -696,6 +698,7 @@ async def screencast(
         voice_id,
         speed,
         glossary_json,
+        provider,
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 
@@ -1142,6 +1145,7 @@ async def screencast_render(
         body.embed_subtitles,
         translate_job["original_filename"] or "screencast.pptx",
         body.dpi,
+        body.provider,
     ])
     db.set_job_celery_task_id(body.translate_job_uuid, task.id)
 

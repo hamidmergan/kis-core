@@ -274,7 +274,7 @@ def get_jobs_by_user(
     date_from: str = "", date_to: str = "",
     extra_tools: list[str] | None = None,
 ) -> tuple[list[dict], int]:
-    conditions = ["user_id = ?"]
+    conditions = ["user_id = ?", "(expires_at IS NULL OR expires_at > datetime('now'))"]
     params: list = [user_id]
     if q:
         like = f"%{q}%"
@@ -430,7 +430,7 @@ def get_all_jobs(
     Returns (jobs, total_count).
     Filters: q (user/tool/filename), date_from/date_to (YYYY-MM-DD).
     """
-    conditions = []
+    conditions = ["(j.expires_at IS NULL OR j.expires_at > datetime('now'))"]
     params: list = []
 
     if q:
@@ -453,7 +453,7 @@ def get_all_jobs(
         conditions.append("j.created_at <= ?")
         params.append(_de_date_to_utc(date_to, end_of_day=True))
 
-    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    where = "WHERE " + " AND ".join(conditions)
 
     with get_connection() as conn:
         rows = conn.execute(

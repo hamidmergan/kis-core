@@ -41,13 +41,22 @@ def _get_screencast_helpers():
     )
 
 
-def _get_tts_client():
-    from src.services.elevenlabs_client import ElevenLabsClient
-    from src.config import Settings
-    api_key = Settings().elevenlabs_api_key
-    if not api_key:
-        raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
-    return ElevenLabsClient(api_key)
+def _get_tts_client(provider: str = "elevenlabs"):
+    if provider == "kokoro":
+        from src.dependencies import is_kokoro_enabled, get_kokoro_client
+        if not is_kokoro_enabled():
+            raise RuntimeError("Kokoro TTS ist nicht aktiviert")
+        client = get_kokoro_client()
+        if not client or not client.is_available():
+            raise RuntimeError("Kokoro Server nicht erreichbar")
+        return client
+    else:
+        from src.services.elevenlabs_client import ElevenLabsClient
+        from src.config import Settings
+        api_key = Settings().elevenlabs_api_key
+        if not api_key:
+            raise RuntimeError("ElevenLabs API Key nicht konfiguriert")
+        return ElevenLabsClient(api_key)
 
 
 def _get_pptx_for_render(save_uuid: str) -> bytes:
@@ -68,6 +77,7 @@ def _run_render_pipeline(
     embed_subtitles: bool,
     slide_images_override: list[Path] | None = None,
     dpi: int = 100,
+    provider: str = "elevenlabs",
 ) -> dict:
     """
     Core render pipeline. Reads PPTX from job folder (corrected.pptx or translated.pptx).
@@ -84,7 +94,7 @@ def _run_render_pipeline(
         build_subtitles,
     ) = _get_screencast_helpers()
 
-    tts_client = _get_tts_client()
+    tts_client = _get_tts_client(provider)
 
     # Save render params + scripts for crash recovery (retry button)
     save_job_file(job_uuid, "render_params.json", json.dumps({
@@ -299,6 +309,7 @@ def run_screencast_render(
     embed_subtitles: bool,
     original_filename: str = "screencast",
     dpi: int = 100,
+    provider: str = "elevenlabs",
 ):
     """Render final MP4 from edited scripts and stored PPTX.
 
@@ -314,6 +325,7 @@ def run_screencast_render(
             slide_pause=slide_pause,
             embed_subtitles=embed_subtitles,
             dpi=dpi,
+            provider=provider,
         )
 
         result_filename = f"{Path(original_filename).stem if original_filename else 'screencast'}.mp4"
@@ -337,6 +349,7 @@ def run_screencast_auto(
     voice_id: str,
     speed: float,
     glossary_json: str,
+    provider: str = "elevenlabs",
 ):
     """Full auto pipeline: translate → scripts → TTS → render."""
     try:
@@ -393,6 +406,7 @@ def run_screencast_auto(
             speed=speed,
             slide_pause=0.5,
             embed_subtitles=True,
+            provider=provider,
         )
 
         result_filename = f"{Path(filename).stem}.mp4"

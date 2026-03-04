@@ -81,12 +81,7 @@ export default function VideoDubbingPage() {
         setErrorMessage("Sie haben bereits einen laufenden Dubbing-Job. Bitte warten Sie, bis er fertig ist.");
         return;
       }
-      if (data.at_storage_limit) {
-        const ok = window.confirm(
-          `Wenn Sie fortfahren, wird "${data.evict_filename || "Ihr letztes Dubbing-Video"}" gelöscht. Fortfahren?`
-        );
-        if (!ok) return;
-      }
+
     } catch { /* ignore, backend handles it */ }
 
     abortControllerRef.current?.abort();

@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     kisski_base_url: str = "https://chat-ai.academiccloud.de/v1"
     kisski_model: str = "qwen3-30b-a3b-instruct-2507"
 
+    # Fish Speech TTS (lokaler TTS-Server) — leer = deaktiviert
+    fish_speech_base_url: str = ""
+
+    # Kokoro TTS (lokaler TTS-Server, Apache 2.0) — leer = deaktiviert
+    kokoro_base_url: str = ""
+
     # Security
     session_secret: str = "change-me-in-production"
 

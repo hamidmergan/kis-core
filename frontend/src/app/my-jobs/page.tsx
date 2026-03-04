@@ -371,7 +371,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
         <DownloadButton
           href={`/api/jobs/${job.job_uuid}/download`}
           filename={`${baseName}_audio.mp3`}
-          label="Audio (MP3)"
+          label="MP3"
         />
       </div>
     );

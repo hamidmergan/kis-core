@@ -4,7 +4,7 @@ import shutil
 import tempfile
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -345,35 +345,20 @@ def delete_job_folder(job_uuid: str) -> None:
 
 # --- Cleanup ---
 
-JOB_HISTORY_DAYS = 7
-
-
 def cleanup_expired_files() -> int:
-    """Phase 1: delete job folders for expired jobs but keep the DB record.
-    Phase 2: purge DB records older than JOB_HISTORY_DAYS.
-    """
-    now = datetime.now(timezone.utc)
-    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
-    cutoff_str = (now - timedelta(days=JOB_HISTORY_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+    """Delete storage folders and DB records for all expired jobs."""
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     affected = 0
 
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, job_uuid FROM jobs WHERE expires_at IS NOT NULL AND expires_at <= ?",
+            "SELECT job_uuid FROM jobs WHERE expires_at IS NOT NULL AND expires_at <= ?",
             (now_str,),
         ).fetchall()
         for row in rows:
             delete_job_folder(row["job_uuid"])
-            conn.execute(
-                "UPDATE jobs SET input_path = NULL, result_path = NULL, result_filename = NULL WHERE id = ?",
-                (row["id"],),
-            )
+            conn.execute("DELETE FROM jobs WHERE job_uuid = ?", (row["job_uuid"],))
             affected += 1
-
-        conn.execute(
-            "DELETE FROM jobs WHERE created_at <= ?",
-            (cutoff_str,),
-        )
         conn.commit()
 
     return affected

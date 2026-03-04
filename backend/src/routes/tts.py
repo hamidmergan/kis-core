@@ -42,11 +42,60 @@ _NON_ENGLISH = {
 }
 
 
+@router.get("/tts/providers")
+async def get_tts_providers():
+    """Return which TTS providers are currently enabled and reachable (public endpoint)."""
+    from src.dependencies import is_elevenlabs_enabled, is_kokoro_enabled, get_kokoro_client
+    kokoro_enabled = is_kokoro_enabled()
+    if kokoro_enabled:
+        client = get_kokoro_client()
+        kokoro_enabled = bool(client and client.is_available())
+    return {
+        "elevenlabs_enabled": is_elevenlabs_enabled(),
+        "fish_speech_enabled": False,
+        "kokoro_enabled": kokoro_enabled,
+    }
+
+
+@router.post("/kokoro/preview")
+async def kokoro_preview(body: dict, _user=Depends(get_current_user)):
+    """Synthesize a short preview sample for a Kokoro voice."""
+    from fastapi.responses import Response as FastAPIResponse
+    from src.dependencies import is_kokoro_enabled, get_kokoro_client
+    if not is_kokoro_enabled():
+        raise HTTPException(status_code=400, detail="Kokoro nicht aktiv")
+    client = get_kokoro_client()
+    if not client or not client.is_available():
+        raise HTTPException(status_code=503, detail="Kokoro Server nicht erreichbar")
+    voice_id = body.get("voice_id", "af_heart")
+    audio = client.synthesize_chunk(
+        "Hello! This is a preview of the selected voice. I hope you enjoy the sound.",
+        voice_id=voice_id,
+        speed=1.0,
+    )
+    return FastAPIResponse(content=audio, media_type="audio/mpeg")
+
+
+@router.get("/kokoro/voices")
+async def list_kokoro_voices():
+    """Return all available Kokoro voices from the local server."""
+    from src.dependencies import is_kokoro_enabled, get_kokoro_client
+    if not is_kokoro_enabled():
+        return {"voices": []}
+    client = get_kokoro_client()
+    if not client or not client.is_available():
+        return {"voices": []}
+    return {"voices": client.get_voices()}
+
+
 @router.get("/voices")
 async def list_voices():
     """Return all English premade voices from ElevenLabs, sorted A-Z."""
-    from src.dependencies import get_settings
+    from src.dependencies import get_settings, is_elevenlabs_enabled
     import httpx
+
+    if not is_elevenlabs_enabled():
+        return {"voices": []}
 
     settings = get_settings()
     if not settings.elevenlabs_api_key:
@@ -97,6 +146,7 @@ async def text_to_speech(
     style: float = Form(0.20),
     use_speaker_boost: bool = Form(True),
     pause_preset: str = Form("medium"),
+    provider: str = Form("elevenlabs"),  # "elevenlabs" oder "fish_speech"
     current_user: dict = Depends(get_current_user),
 ):
     """Queue a TTS job: synthesize uploaded document to MP3 via ElevenLabs.
@@ -139,8 +189,19 @@ async def text_to_speech(
             detail=f"Dokument zu lang ({len(text):,} Zeichen). Bitte aufteilen (max. {TTS_MAX_CHARS:,} Zeichen).".replace(",", "."),
         )
 
-    # Validate ElevenLabs client is configured
-    get_elevenlabs_client()
+    # Validate provider + client
+    if provider == "kokoro":
+        from src.dependencies import is_kokoro_enabled, get_kokoro_client
+        if not is_kokoro_enabled():
+            raise HTTPException(status_code=400, detail="Kokoro TTS ist nicht aktiviert")
+        kokoro_client = get_kokoro_client()
+        if not kokoro_client or not kokoro_client.is_available():
+            raise HTTPException(status_code=503, detail="Kokoro Server nicht erreichbar")
+    else:
+        from src.dependencies import is_elevenlabs_enabled
+        if not is_elevenlabs_enabled():
+            raise HTTPException(status_code=400, detail="ElevenLabs ist nicht aktiviert")
+        get_elevenlabs_client()
 
     user_id = current_user.get("user_id", 0)
     if db.has_active_job_for_tool(user_id, ["tts"]):
@@ -163,6 +224,7 @@ async def text_to_speech(
         style,
         use_speaker_boost,
         pause_preset,
+        provider,
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 
