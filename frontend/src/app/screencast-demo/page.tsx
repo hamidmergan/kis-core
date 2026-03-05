@@ -99,6 +99,7 @@ function ScreencastDemoPageInner() {
   const [openAccordion, setOpenAccordion] = useState<number>(0);
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [editBuffer, setEditBuffer] = useState("");
+  const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
@@ -257,6 +258,7 @@ function ScreencastDemoPageInner() {
     setOpenAccordion(0);
     setEditingSlide(null);
     setEditBuffer("");
+    setCorrectedFileName(null);
     setLightboxIndex(null);
     setAudioId("");
     setAudioCount(0);
@@ -395,6 +397,64 @@ function ScreencastDemoPageInner() {
       goError(err instanceof Error ? err.message : "Demo-Fehler");
     }
   }, [goError, translateJobUuid, userPrompt, checkJobFolder]);
+
+  // ── Download translated PPTX (demo — no real file, but keeps UI consistent) ──
+  const handleDownloadTranslatedPptx = useCallback(async () => {
+    if (!translateJobUuid) return;
+    try {
+      const res = await fetch(`/api/screencast/pptx/${translateJobUuid}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Download fehlgeschlagen");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "demo_presentation.pptx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PPTX download failed:", err);
+    }
+  }, [translateJobUuid]);
+
+  // ── Upload corrected PPTX (demo — updates slides if API call succeeds) ──
+  const handleUploadCorrectedPptx = useCallback(
+    async (correctedFile: File) => {
+      setLoading(true);
+      const signal = newSignal();
+      try {
+        const formData = new FormData();
+        formData.append("file", correctedFile);
+        if (translateJobUuid) formData.append("translate_job_uuid", translateJobUuid);
+        const response = await fetch("/api/screencast/upload-corrected", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+          signal,
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ detail: "Fehler beim Hochladen" }));
+          throw new Error(err.detail || `Fehler: ${response.status}`);
+        }
+        const data: { slide_texts: string[]; slide_images: string[] } = await response.json();
+        setSlides(
+          data.slide_texts.map((text, i) => ({
+            index: i,
+            imageBase64: data.slide_images[i] || "",
+            extractedText: text,
+            script: "",
+          })),
+        );
+        setCorrectedFileName(correctedFile.name);
+        setLoading(false);
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      }
+    },
+    [goError, translateJobUuid],
+  );
 
   const handleDemoRender = useCallback(async () => {
     if (!isResumedJob) {
@@ -625,38 +685,103 @@ function ScreencastDemoPageInner() {
 
         {/* Step indicator */}
         {showStepIndicator && (
-          <nav
-            ref={stepperRef}
-            className="flex overflow-x-auto gap-1 mb-6 pb-1 select-none cursor-grab"
-            style={{ scrollbarWidth: "none" }}
-            onMouseDown={handleStepperMouseDown}
-            onMouseMove={handleStepperMouseMove}
-            onMouseUp={handleStepperMouseUp}
-            onMouseLeave={handleStepperMouseUp}
-            aria-label="Fortschritt"
-          >
-            {STEP_LABELS.map((label, index) => {
-              const isActive = stepToIndex(step) === index;
-              const isReached = index <= maxReachedIdx;
-              const isClickable = isReached && !isActive && step !== "rendering";
-              return (
-                <button
-                  key={label}
-                  data-active={isActive}
-                  onClick={() => handleStepClick(index)}
-                  disabled={!isClickable}
-                  className={[
-                    "whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex-shrink-0",
-                    isActive ? "bg-[#0066cc] text-white" :
-                    isReached ? "bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer" :
-                    "bg-gray-50 text-gray-400 cursor-default",
-                  ].join(" ")}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </nav>
+          <>
+            <nav
+              ref={stepperRef}
+              aria-label="Fortschritt"
+              className="mb-6 overflow-x-auto scrollbar-hide cursor-grab touch-pan-x"
+              onMouseDown={handleStepperMouseDown}
+              onMouseMove={handleStepperMouseMove}
+              onMouseUp={handleStepperMouseUp}
+              onMouseLeave={handleStepperMouseUp}
+            >
+              <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
+                {STEP_LABELS.map((label, i) => {
+                  const currentIdx = stepToIndex(step);
+                  const isDone = i < currentIdx;
+                  const isActive = i === currentIdx;
+                  const isReached = i <= maxReachedIdx;
+                  const isClickable = isReached && !isActive && i !== 0 && i !== 1 && i !== 6 && step !== "rendering";
+                  return (
+                    <li key={label} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStepClick(i)}
+                        aria-disabled={!isClickable}
+                        className={`
+                          inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
+                          ${isClickable ? "cursor-pointer hover:bg-gray-100" : "cursor-default"}
+                        `}
+                      >
+                        <span
+                          className={`
+                            inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
+                            ${isActive ? "bg-[#0066cc] text-white" : ""}
+                            ${isDone ? "bg-[#0066cc]/20 text-[#0066cc]" : ""}
+                            ${!isActive && !isDone ? "bg-gray-100 text-gray-400" : ""}
+                          `}
+                          aria-current={isActive ? "step" : undefined}
+                        >
+                          {isDone ? (
+                            <svg
+                              className="w-3 h-3 sm:w-4 sm:h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            i + 1
+                          )}
+                        </span>
+                        <span
+                          className={`text-[10px] sm:text-xs whitespace-nowrap ${
+                            isActive
+                              ? "text-gray-900 font-medium"
+                              : isClickable
+                                ? "text-gray-600"
+                                : "text-gray-400"
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      </button>
+                      {i < STEP_LABELS.length - 1 && (
+                        <span
+                          className={`w-3 sm:w-8 h-px flex-shrink-0 ${
+                            i < currentIdx ? "bg-[#0066cc]" : "bg-gray-200"
+                          }`}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
+            <div className="flex justify-between mb-6">
+              <button
+                onClick={() => resetAll(step !== "done")}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-red-500 rounded transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Neu starten
+              </button>
+              <button
+                onClick={() => resetAll(step !== "done")}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 rounded transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Demo abbrechen
+              </button>
+            </div>
+          </>
         )}
 
         {/* ── Step: Start ── */}
@@ -736,6 +861,12 @@ function ScreencastDemoPageInner() {
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleDemoGenerateScripts}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Überspringen
+              </button>
+              <button
+                onClick={handleDemoGenerateScripts}
                 className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
               >
                 Weiter
@@ -802,12 +933,54 @@ function ScreencastDemoPageInner() {
               </div>
             )}
 
-            <button
-              onClick={handleDemoGenerateScripts}
-              className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
-            >
-              Weiter zu den Skripten
-            </button>
+            {/* Actions */}
+            <div className="flex flex-col gap-3 mb-4">
+              <button
+                onClick={handleDownloadTranslatedPptx}
+                className="w-full px-4 py-2 text-sm text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                PPTX
+              </button>
+
+              <div className="relative">
+                <label className="block w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-center cursor-pointer">
+                  {loading
+                    ? "Wird verarbeitet..."
+                    : "Korrigierte PPTX hochladen (optional)"}
+                  <input
+                    type="file"
+                    accept=".pptx"
+                    className="hidden"
+                    disabled={loading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadCorrectedPptx(f);
+                    }}
+                  />
+                </label>
+                {correctedFileName && (
+                  <p className="mt-2 text-sm text-green-600 flex items-center gap-2">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {correctedFileName} wurde hochgeladen
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setMaxReachedIdx((v) => Math.max(v, 3)); setStep("user-prompt"); }}
+                disabled={loading}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Übersetzung übernehmen und weiter
+              </button>
+            </div>
           </section>
         )}
 
@@ -855,48 +1028,78 @@ function ScreencastDemoPageInner() {
                         <span className="text-sm font-medium text-gray-900">Folie {i + 1}</span>
                         {!isOpen && <span className="ml-2 text-xs text-gray-400 truncate">{preview}</span>}
                       </div>
-                      <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                        <span className="text-xs text-gray-400">{wc} W · ~{dur}s</span>
-                        <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
+                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
                     </button>
                     {isOpen && (
-                      <div className="px-4 pb-4 border-t border-gray-100">
-                        {slide.imageBase64 && (
-                          <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full rounded mb-3 mt-3 border border-gray-100" style={{ maxHeight: "200px", objectFit: "contain" }} />
-                        )}
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          {isEditing ? (
-                            <>
-                              <textarea
-                                value={editBuffer}
-                                onChange={(e) => setEditBuffer(e.target.value)}
-                                rows={6}
-                                className="w-full text-sm font-mono text-gray-700 bg-white border border-gray-300 rounded px-2 py-1.5 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none resize-y"
-                                autoFocus
-                              />
-                              <div className="flex gap-2 mt-2">
-                                <button onClick={cancelEdit} className="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">Abbrechen</button>
-                                <button onClick={() => saveEdit(i)} className="px-3 py-1.5 text-xs text-white bg-[#0066cc] rounded hover:bg-[#0055aa] transition-colors">Speichern</button>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Skript</span>
-                                <button onClick={() => startEdit(i)} className="p-1 text-gray-400 hover:text-gray-600 transition-colors" aria-label={`Folie ${i + 1} bearbeiten`}>
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                  </svg>
-                                </button>
-                              </div>
-                              <p className="text-sm font-mono text-gray-700 whitespace-pre-wrap leading-relaxed">
-                                {slide.script || <span className="text-gray-400 italic">Kein Skript (leere Folie)</span>}
-                              </p>
-                            </>
+                      <div
+                        id={`slide-panel-${i}`}
+                        className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]"
+                      >
+                        <div className="flex flex-col md:flex-row gap-4">
+                          {/* Slide image — hidden in fast mode */}
+                          {!fastMode && (
+                            <div className="flex-shrink-0" style={{ width: "100px" }}>
+                              {slide.imageBase64 ? (
+                                <img
+                                  src={`data:image/png;base64,${slide.imageBase64}`}
+                                  alt={`Folie ${i + 1}`}
+                                  className="w-full rounded border border-gray-200"
+                                />
+                              ) : (
+                                <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">
+                                  Kein Bild
+                                </div>
+                              )}
+                            </div>
                           )}
+                          {/* Script */}
+                          <div className={`${fastMode ? "w-full" : "md:w-3/5"} flex flex-col`}>
+                            {isEditing ? (
+                              <>
+                                <textarea
+                                  value={editBuffer}
+                                  onChange={(e) => setEditBuffer(e.target.value)}
+                                  rows={8}
+                                  className="w-full rounded-md border border-[#0066cc] px-3 py-2 text-sm font-mono text-gray-900 focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+                                  aria-label={`Skript für Folie ${i + 1} bearbeiten`}
+                                  autoFocus
+                                />
+                                <div className="flex items-center justify-between mt-2">
+                                  <span className="text-xs text-gray-400">
+                                    ca. {wc} Wörter · ~{dur} Sek
+                                  </span>
+                                  <div className="flex gap-2">
+                                    <button onClick={cancelEdit} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">Abbrechen</button>
+                                    <button onClick={() => saveEdit(i)} className="px-3 py-1 text-xs bg-[#0066cc] text-white rounded hover:bg-[#0055aa] transition-colors">Speichern</button>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-start justify-between mb-2">
+                                  <span className="text-xs text-gray-400">
+                                    ca. {wc} Wörter · ~{dur} Sek
+                                  </span>
+                                  <button
+                                    onClick={() => startEdit(i)}
+                                    className="p-1 text-gray-400 hover:text-[#0066cc] transition-colors"
+                                    aria-label={`Skript für Folie ${i + 1} bearbeiten`}
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                  </button>
+                                </div>
+                                <p className="text-sm font-mono text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                  {slide.script || (
+                                    <span className="text-gray-400 italic">Kein Skript (leere Folie)</span>
+                                  )}
+                                </p>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -907,7 +1110,7 @@ function ScreencastDemoPageInner() {
 
             {slides.filter((s) => !s.script.trim()).length > 0 && (
               <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 rounded-md px-3 py-2 mb-4">
-                {slides.filter((s) => !s.script.trim()).length} Folie(n) haben kein Skript.
+                {slides.filter((s) => !s.script.trim()).length} Folie(n) haben kein Skript. Bitte füllen Sie diese aus, bevor Sie fortfahren.
               </p>
             )}
 
@@ -988,6 +1191,9 @@ function ScreencastDemoPageInner() {
               <label htmlFor="speed-slider" className="block text-sm font-medium text-gray-700 mb-2">Geschwindigkeit: {speed.toFixed(1)}x</label>
               <input id="speed-slider" type="range" min="0.7" max="1.2" step="0.1" value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0066cc]" />
               <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Langsam (0.7x)</span><span>Schnell (1.2x)</span></div>
+              <p className="text-xs text-gray-400 mt-2">
+                Langsamere Geschwindigkeit empfohlen für Lehrvideos
+              </p>
             </div>
 
             <div className="mb-6">
