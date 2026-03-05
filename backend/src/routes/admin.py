@@ -171,7 +171,8 @@ _PROMPT_REGISTRY = [
 
 
 _TOOLS_CONFIG = [
-    {"key": "screencast",    "label": "Screencast"},
+    {"key": "screencast",      "label": "Screencast"},
+    {"key": "screencast-demo", "label": "Screencast-Demo"},
     {"key": "translation",   "label": "Dokumentenübersetzung"},
     {"key": "tts",           "label": "Text-to-Speech"},
     {"key": "script",        "label": "Skript erstellen"},

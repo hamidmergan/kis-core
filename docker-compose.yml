@@ -146,6 +146,21 @@ services:
 
   kokoro:
     profiles: ["kokoro"]
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    container_name: kis-kokoro
+    environment:
+      - API_KEY=${KOKORO_API_KEY:-kokoro-local-key}
+    ports:
+      - "8880:8880"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+  kokoro-gpu:
+    profiles: ["kokoro-gpu"]
     image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
     container_name: kis-kokoro
     environment:

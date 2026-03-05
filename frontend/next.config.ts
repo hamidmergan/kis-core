@@ -93,6 +93,10 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/screencast/:path*`,
       },
       {
+        source: "/api/screencast-demo/:path*",
+        destination: `${backendUrl}/screencast-demo/:path*`,
+      },
+      {
         source: "/docs",
         destination: `${backendUrl}/docs`,
       },

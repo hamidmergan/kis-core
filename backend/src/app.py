@@ -10,7 +10,7 @@ from src.database import init_db, reset_stuck_jobs
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
 from src.storage import USE_S3, cleanup_expired_files, init_storage
-from src.routes import admin, auth, health, image, jobs, screencast, script, summary, transcription, translate, tts, video_dubbing
+from src.routes import admin, auth, health, image, jobs, screencast, screencast_demo, script, summary, transcription, translate, tts, video_dubbing
 
 
 def _configure_logging() -> None:
@@ -92,6 +92,7 @@ def create_app() -> FastAPI:
     application.include_router(transcription.router)
     application.include_router(video_dubbing.router)
     application.include_router(screencast.router)
+    application.include_router(screencast_demo.router)
     application.include_router(summary.router)
     application.include_router(jobs.router)
     application.include_router(admin.router)

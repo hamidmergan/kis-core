@@ -233,10 +233,10 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <a
-            href={`/screencast?resume=${job.job_uuid}`}
+            href={`/screencast-demo?resume=${job.job_uuid}`}
             className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
           >
-            Screencast fortsetzen →
+            Demo fortsetzen →
           </a>
         </div>
       </div>

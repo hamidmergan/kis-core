@@ -13,6 +13,13 @@ const ALL_WORKFLOWS = [
       "Laden Sie eine deutsche PowerPoint-Präsentation hoch und erhalten Sie ein englischsprachiges Video mit übersetzten Folien und Sprachausgabe.",
     href: "/screencast",
   },
+  {
+    key: "screencast-demo",
+    title: "Screencast-Demo",
+    description:
+      "Erleben Sie den Screencast-Prozess mit einer vorgefertigten Beispiel-Präsentation – ohne eigene Dateien.",
+    href: "/screencast-demo",
+  },
 ];
 
 type Tool = { key: string; title: string; description: string; href: string; unavailable?: boolean };

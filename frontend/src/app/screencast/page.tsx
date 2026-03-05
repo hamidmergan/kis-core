@@ -178,14 +178,11 @@ function ScreencastPageInner() {
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [audioId, setAudioId] = useState<string>("");
   const [audioCount, setAudioCount] = useState(0);
-  const [demoAvailable, setDemoAvailable] = useState(false);
-  const [demoHasVideo, setDemoHasVideo] = useState(false);
   const [sourceLang, setSourceLang] = useState<"DE" | "EN">("DE");
   const [fastMode, setFastMode] = useState(true);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
   const [isResumedJob, setIsResumedJob] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -268,14 +265,6 @@ function ScreencastPageInner() {
     });
   }, []);
 
-  // ── Check demo availability ──
-  useEffect(() => {
-    api.getJson<{ available: boolean; has_video: boolean }>("/api/screencast/demo-available").then((data) => {
-      setDemoAvailable(data.available);
-      setDemoHasVideo(data.has_video);
-    }).catch(() => {});
-  }, []);
-
   const searchParams = useSearchParams();
 
   // ── Resume awaiting_user job from ?resume=<uuid> URL param ──
@@ -295,12 +284,6 @@ function ScreencastPageInner() {
         const imgs = data.slide_images ?? [];
         const texts = data.slide_texts ?? [];
         const scripts = data.scripts ?? [];
-
-        if (data.tool === "screencast_demo_render") {
-          setIsDemoMode(true);
-        } else {
-          setIsDemoMode(false);
-        }
 
         // Build slides from available data
         const slideCount = Math.max(texts.length, scripts.length, imgs.length);
@@ -401,7 +384,6 @@ function ScreencastPageInner() {
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     setMaxReachedIdx(0);
     setSourceLang("DE");
-    setIsDemoMode(false);
     setTtsProvider(kokoroEnabled ? "kokoro" : fishSpeechEnabled ? "fish_speech" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
     if (fileRef.current) fileRef.current.value = "";
   }, [videoUrl, translateJobUuid]);
@@ -813,32 +795,6 @@ function ScreencastPageInner() {
     }
   }, [translateJobUuid, slides, autosaveScripts]);
 
-  // ── Demo handlers ──
-  const handleDemoGenerateScripts = useCallback(async () => {
-    if (!await checkJobFolder()) return;
-    setStep("generating-scripts");
-    setLoading(true);
-    const signal = newSignal();
-    try {
-      const data = await api.postJson<GenerateScriptsResponse>(
-        "/api/screencast/demo/generate-scripts",
-        { translate_job_uuid: translateJobUuid || null, user_prompt: userPrompt || null },
-        signal,
-      );
-      setSlides((prev) =>
-        prev.map((s, i) => ({
-          ...s,
-          script: data.scripts[i] || "",
-        })),
-      );
-      setLoading(false);
-      setStep("script-review");
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Demo-Fehler");
-    }
-  }, [goError, translateJobUuid, userPrompt, checkJobFolder]);
-
   // ── Shared: process render response (binary video + subtitles in header) ──
   const processRenderResponse = useCallback(async (response: Response) => {
     if (!response.ok) {
@@ -880,120 +836,6 @@ function ScreencastPageInner() {
     setLoading(false);
     setStep("done");
   }, []);
-
-  const handleDemoTranslate = useCallback(async () => {
-    const ok = await checkBeforeSubmit();
-    if (!ok) return;
-    setIsDemoMode(true);
-    setStep("translating");
-    setLoading(true);
-    const signal = newSignal();
-    try {
-      const data = await api.postJson<TranslateResponse>(
-        "/api/screencast/demo/translate",
-        { fast_mode: mode === "auto" ? true : fastMode },
-        signal,
-      );
-      const uuid = data.translate_job_uuid;
-      if (uuid) setTranslateJobUuid(uuid);
-      const initialSlides = data.slide_texts.map((text, i) => ({
-        index: i,
-        imageBase64: data.slide_images[i] || "",
-        extractedText: text,
-        script: "",
-      }));
-      setSlides(initialSlides);
-      if (data.user_prompt) setUserPrompt(data.user_prompt);
-
-      if (mode === "auto") {
-        // Auto-mode: chain all demo steps without intermediate UIs
-        setStep("generating-scripts");
-        const scriptsData = await api.postJson<GenerateScriptsResponse>(
-          "/api/screencast/demo/generate-scripts",
-          { translate_job_uuid: uuid || null, user_prompt: data.user_prompt || null },
-          signal,
-        );
-        setSlides(initialSlides.map((s, i) => ({ ...s, script: scriptsData.scripts[i] || "" })));
-
-        setStep("rendering");
-        const renderResponse = await fetch("/api/screencast/demo/render", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ translate_job_uuid: uuid, dpi }),
-          credentials: "include",
-          signal,
-        });
-        if (!renderResponse.ok) {
-          const err = await renderResponse.json().catch(() => ({ detail: "Demo-Fehler" }));
-          throw new Error(err.detail || `Fehler: ${renderResponse.status}`);
-        }
-        const contentType = renderResponse.headers.get("Content-Type") ?? "";
-        if (contentType.includes("application/json")) {
-          const { job_uuid } = await renderResponse.json();
-          currentJobUuidRef.current = job_uuid;
-          sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
-          window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-          const jobResult = await pollJob(job_uuid, onRenderProgress, 3000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
-          currentJobUuidRef.current = null;
-          await processRenderResultFromJob(jobResult);
-        } else {
-          await processRenderResponse(renderResponse);
-        }
-      } else {
-        setLoading(false);
-        setStep("translation-review");
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setFailedRenderJobUuid(currentJobUuidRef.current);
-      setFailedRenderIsAuto(false);
-      goError(err instanceof Error ? err.message : "Demo-Fehler");
-    }
-  }, [fastMode, mode, dpi, goError, checkBeforeSubmit, onRenderProgress, processRenderResponse, processRenderResultFromJob]);
-
-  const handleDemoRender = useCallback(async () => {
-    if (!isResumedJob) {
-      const ok = await checkBeforeSubmit();
-      if (!ok) return;
-    }
-    setStep("rendering");
-    setLoading(true);
-    const signal = newSignal();
-    try {
-      const response = await fetch("/api/screencast/demo/render", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ translate_job_uuid: translateJobUuid, dpi }),
-        credentials: "include",
-        signal,
-      });
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Demo-Fehler" }));
-        throw new Error(err.detail || `Fehler: ${response.status}`);
-      }
-      const contentType = response.headers.get("Content-Type") ?? "";
-      if (contentType.includes("application/json")) {
-        // Mode A: Celery task submitted → poll for result
-        const { job_uuid } = await response.json();
-        currentJobUuidRef.current = job_uuid;
-        sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
-        window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-        const jobResult = await pollJob(job_uuid, onRenderProgress, 3000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
-        currentJobUuidRef.current = null;
-        await processRenderResultFromJob(jobResult);
-      } else {
-        // Mode B: synchronous binary MP4 (pre-existing video)
-        await processRenderResponse(response);
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setFailedRenderJobUuid(currentJobUuidRef.current);
-      setFailedRenderIsAuto(false);
-      goError(err instanceof Error ? err.message : "Demo-Fehler");
-    }
-  }, [translateJobUuid, dpi, isResumedJob, goError, processRenderResponse, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
@@ -1551,15 +1393,6 @@ function ScreencastPageInner() {
               >
                 {mode === "auto" ? "Screencast erstellen" : "Weiter"}
               </button>
-              {demoAvailable && (
-                <button
-                  onClick={handleDemoTranslate}
-                  disabled={autoState === "processing" || !!hasActiveJob}
-                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Demo
-                </button>
-              )}
             </div>
 
             {/* Auto mode status */}
@@ -1639,26 +1472,16 @@ function ScreencastPageInner() {
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleAcceptTranslation}
-                disabled={isDemoMode}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
                 Überspringen
               </button>
               <button
                 onClick={handleAcceptTranslation}
-                disabled={isDemoMode}
-                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
               >
                 Weiter
               </button>
-              {demoAvailable && (
-                <button
-                  onClick={handleDemoGenerateScripts}
-                  className="px-4 py-2 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
-                >
-                  Demo
-                </button>
-              )}
             </div>
           </section>
         )}
@@ -1799,19 +1622,11 @@ function ScreencastPageInner() {
             <div className="flex gap-3">
               <button
                 onClick={() => { setMaxReachedIdx((v) => Math.max(v, 3)); setStep("user-prompt"); }}
-                disabled={loading || isDemoMode}
+                disabled={loading}
                 className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Übersetzung übernehmen und weiter
               </button>
-              {demoAvailable && (
-                <button
-                  onClick={handleDemoGenerateScripts}
-                  className="px-4 py-2 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
-                >
-                  Demo
-                </button>
-              )}
             </div>
           </section>
         )}
@@ -2032,20 +1847,11 @@ function ScreencastPageInner() {
             <div className="flex gap-3">
               <button
                 onClick={handleAcceptScripts}
-                disabled={editingSlide !== null || isDemoMode}
+                disabled={editingSlide !== null}
                 className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Alle Skripte übernehmen
               </button>
-              {demoAvailable && (
-                <button
-                  onClick={handleAcceptScripts}
-                  disabled={editingSlide !== null}
-                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-50"
-                >
-                  Demo
-                </button>
-              )}
             </div>
           </section>
         )}
@@ -2274,20 +2080,11 @@ function ScreencastPageInner() {
               </button>
               <button
                 onClick={handleStartRender}
-                disabled={isDemoMode || scriptOverLimit}
+                disabled={scriptOverLimit}
                 className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Screencast erstellen
               </button>
-              {demoAvailable && (
-                <button
-                  onClick={handleDemoRender}
-                  disabled={scriptOverLimit}
-                  className="px-4 py-3 text-sm font-medium text-amber-700 border-2 border-amber-400 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Demo
-                </button>
-              )}
             </div>
           </section>
         )}

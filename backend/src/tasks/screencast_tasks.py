@@ -453,13 +453,15 @@ def run_screencast_demo_render(
         from src.routes.screencast import (
             IMAGE_TMP_DIR,
             _pptx_to_images,
-            _get_demo_slide_images_sync,
-            _load_demo_audio_files,
-            _find_demo_pptx,
             _extract_text_per_slide,
             _create_slide_video,
             _concatenate_videos,
             _apply_faststart,
+        )
+        from src.routes.screencast_demo import (
+            _get_demo_slide_images_sync,
+            _load_demo_audio_files,
+            _find_demo_pptx,
         )
 
         logger.info("TIMING [{}] start", job_uuid[:8])
