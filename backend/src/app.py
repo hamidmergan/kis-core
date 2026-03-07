@@ -2,7 +2,7 @@ import asyncio
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
@@ -71,6 +71,12 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if not settings.production else None,
         openapi_url="/openapi.json" if not settings.production else None,
     )
+
+    @application.middleware("http")
+    async def no_cache(request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     # Allow direct browser requests (bypassing Next.js proxy for large uploads)
     application.add_middleware(

@@ -116,14 +116,16 @@ def delete_file(file_path: str) -> None:
 
 def _job_folder_name(job_uuid: str) -> str:
     """Return the folder name for a job: 'YYYY-MM-DD_HH-MM-SS_{uuid}'."""
+    import psycopg2.extras
     with get_connection() as conn:
-        row = conn.execute(
-            "SELECT created_at FROM jobs WHERE job_uuid = ?", (job_uuid,)
-        ).fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT created_at FROM jobs WHERE job_uuid = %s", (job_uuid,))
+            row = cur.fetchone()
     if row and row["created_at"]:
-        ts = row["created_at"]              # "2026-03-01 14:23:05"
-        date_part = ts[:10]                 # "2026-03-01"
-        time_part = ts[11:19].replace(":", "-")  # "14-23-05"
+        ts = row["created_at"]
+        iso = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+        date_part = iso[:10]
+        time_part = iso[11:19].replace(":", "-")
         return f"{date_part}_{time_part}_{job_uuid}"
     return job_uuid  # fallback if job not yet in DB
 

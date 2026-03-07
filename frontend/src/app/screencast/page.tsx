@@ -237,10 +237,6 @@ function ScreencastPageInner() {
 
   // ── Fetch available voices + providers ──
   useEffect(() => {
-    api.getJson<{ voices: Voice[] }>("/api/voices").then((data) => {
-      setVoices(data.voices);
-      if (data.voices.length > 0) setVoiceId(data.voices[0].voice_id);
-    }).catch(() => {});
     api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setFishSpeechEnabled(data.fish_speech_enabled);
@@ -249,6 +245,12 @@ function ScreencastPageInner() {
       if (data.kokoro_enabled) setTtsProvider("kokoro");
       else if (data.fish_speech_enabled) setTtsProvider("fish_speech");
       else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
+      if (data.elevenlabs_enabled) {
+        api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
+          setVoices(vData.voices);
+          if (vData.voices.length > 0) setVoiceId(vData.voices[0].voice_id);
+        }).catch(() => {});
+      }
       if (data.kokoro_enabled) {
         api.getJson<{ voices: Array<{ voice_id: string; name: string; accent: string; gender: string }> }>("/api/kokoro/voices")
           .then((kData) => {

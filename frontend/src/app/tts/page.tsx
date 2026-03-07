@@ -92,14 +92,16 @@ export default function TtsPage() {
   const [pausePreset, setPausePreset] = useState("medium");
 
   useEffect(() => {
-    api.getJson<{ voices: Voice[] }>("/api/voices").then((data) => {
-      setVoices(data.voices);
-      if (data.voices.length > 0) setVoiceId(data.voices[0].voice_id);
-    }).catch(() => {});
     api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setKokoroEnabled(data.kokoro_enabled ?? false);
       if (!data.elevenlabs_enabled && data.kokoro_enabled) setProvider("kokoro");
+      if (data.elevenlabs_enabled) {
+        api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
+          setVoices(vData.voices);
+          if (vData.voices.length > 0) setVoiceId(vData.voices[0].voice_id);
+        }).catch(() => {});
+      }
       if (data.kokoro_enabled) {
         api.getJson<{ voices: Array<{voice_id: string; name: string; accent: string; gender: string}> }>("/api/kokoro/voices")
           .then((d) => {

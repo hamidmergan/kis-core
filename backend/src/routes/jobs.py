@@ -3,10 +3,11 @@
 import base64
 import io
 import json as json_lib
+import os
 import zipfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
@@ -14,6 +15,8 @@ from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
 from src.storage import USE_S3, delete_job_folder, file_exists, get_file, get_job_file, load_result_json, load_result_meta
+
+_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -89,6 +92,61 @@ async def check_job_limit(
     }
 
 
+def _dt(val) -> str | None:
+    """Convert datetime or string to ISO string, or return None."""
+    if val is None:
+        return None
+    return val.isoformat() if hasattr(val, "isoformat") else val
+
+
+def _format_job_rows(jobs: list[dict]) -> list[dict]:
+    """Format raw DB job rows into the standard API response format."""
+    result = []
+    for job in jobs:
+        has_download = (
+            job["status"] == "success"
+            and bool(job["result_path"])
+            and file_exists(job["result_path"])
+        )
+        created_at_raw = job["created_at"]
+        created_at = created_at_raw.isoformat() if hasattr(created_at_raw, "isoformat") else (created_at_raw or "")
+        date_part = created_at[:10]
+        time_part = created_at[11:19].replace(":", "-") if len(created_at) >= 19 else ""
+        folder_name = f"{date_part}_{time_part}_{job['job_uuid']}" if date_part and time_part else job["job_uuid"]
+
+        tts_params: dict = {}
+        tool = job["tool"]
+        if tool in ("tts", "screencast_auto", "screencast_render", "screencast_translate",
+                    "screencast_demo_render"):
+            try:
+                progress = json_lib.loads(job["progress"] or "{}")
+                if tool == "tts":
+                    tts_params = progress.get("tts_params", {})
+                else:
+                    tts_params = {k: progress[k] for k in ("voice_id", "voice_label", "provider") if k in progress}
+            except Exception:
+                pass
+
+        result.append({
+            "job_uuid": job["job_uuid"],
+            "tool": tool,
+            "tool_label": _TOOL_LABELS.get(tool, tool),
+            "original_filename": job["original_filename"],
+            "status": job["status"],
+            "error": job["error_message"],
+            "created_at": _dt(job["created_at"]),
+            "started_at": _dt(job["started_at"]),
+            "completed_at": _dt(job["completed_at"]),
+            "render_started_at": _dt(job["render_started_at"]),
+            "expires_at": _dt(job["expires_at"]),
+            "has_download": has_download,
+            "result_filename": job["result_filename"],
+            "folder_name": folder_name,
+            "tts_params": tts_params or None,
+        })
+    return result
+
+
 @router.get("/my")
 async def get_my_jobs(
     current_user: dict = Depends(get_current_user),
@@ -102,52 +160,48 @@ async def get_my_jobs(
     user_id = current_user.get("user_id", 0)
     extra_tools = _tools_matching_query(q) if q else None
     jobs, total = db.get_jobs_by_user(user_id, limit=limit, offset=offset, q=q, date_from=date_from, date_to=date_to, extra_tools=extra_tools)
-    result = []
-    for job in jobs:
-        has_download = (
-            job["status"] == "success"
-            and bool(job["result_path"])
-            and file_exists(job["result_path"])
-        )
-        created_at = job["created_at"] or ""
-        date_part = created_at[:10]
-        time_part = created_at[11:19].replace(":", "-") if len(created_at) >= 19 else ""
-        folder_name = f"{date_part}_{time_part}_{job['job_uuid']}" if date_part and time_part else job["job_uuid"]
+    return {"jobs": _format_job_rows(jobs), "total": total}
 
-        # Extract voice/provider params from progress JSON
-        tts_params: dict = {}
-        tool = job["tool"]
-        if tool in ("tts", "screencast_auto", "screencast_render", "screencast_translate",
-                    "screencast_demo_render"):
-            try:
-                progress = json_lib.loads(job["progress"] or "{}")
-                if tool == "tts":
-                    tts_params = progress.get("tts_params", {})
-                else:
-                    # screencast tasks store voice_id/voice_label/provider directly in progress
-                    tts_params = {k: progress[k] for k in ("voice_id", "voice_label", "provider") if k in progress}
-            except Exception:
-                pass
 
-        result.append({
-            "job_uuid": job["job_uuid"],
-            "tool": tool,
-            "tool_label": _TOOL_LABELS.get(tool, tool),
-            "original_filename": job["original_filename"],
-            "status": job["status"],
-            "error": job["error_message"],
-            "created_at": job["created_at"],
-            "started_at": job["started_at"],
-            "completed_at": job["completed_at"],
-            "render_started_at": job["render_started_at"],
-            "expires_at": job["expires_at"],
-            "has_download": has_download,
-            "result_filename": job["result_filename"],
-            "folder_name": folder_name,
-            "tts_params": tts_params or None,
-        })
+@router.get("/stream")
+async def job_stream(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """SSE endpoint: streams job list updates whenever a job status changes."""
+    import redis.asyncio as aioredis
 
-    return {"jobs": result, "total": total}
+    user_id = current_user.get("user_id", 0)
+
+    async def event_generator():
+        # Send initial snapshot immediately on connect
+        jobs, total = db.get_jobs_by_user(user_id, limit=20)
+        yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs), 'total': total})}\n\n"
+
+        r = aioredis.from_url(_REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
+        pubsub = r.pubsub()
+        await pubsub.subscribe(f"jobs:{user_id}")
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
+                if msg and msg["type"] == "message":
+                    jobs, total = db.get_jobs_by_user(user_id, limit=20)
+                    yield f"data: {json_lib.dumps({'jobs': _format_job_rows(jobs), 'total': total})}\n\n"
+        finally:
+            await pubsub.unsubscribe(f"jobs:{user_id}")
+            await r.aclose()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/{job_uuid}/retry")

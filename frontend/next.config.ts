@@ -4,6 +4,7 @@ const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  reactStrictMode: false,
   experimental: {
     // Next.js 15.x uses middlewareClientMaxBodySize for rewrite proxy body limits
     // (proxyClientMaxBodySize is only available in Next.js 16+)
@@ -55,6 +56,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/jobs/my",
         destination: `${backendUrl}/jobs/my`,
+      },
+      {
+        source: "/api/jobs/stream",
+        destination: `${backendUrl}/jobs/stream`,
       },
       {
         source: "/api/jobs/check/:tool_group",

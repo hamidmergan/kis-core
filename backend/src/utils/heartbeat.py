@@ -16,7 +16,7 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def job_heartbeat(job_uuid: str, interval: float = 10.0):
+def job_heartbeat(job_uuid: str, interval: float = 30.0):
     """Send a DB heartbeat every `interval` seconds during a long operation."""
     from src import database as db
 

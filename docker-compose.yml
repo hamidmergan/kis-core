@@ -5,6 +5,24 @@ services:
     restart: unless-stopped
     # No ports exposed - only accessible via internal Docker network
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: kis-postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kis-local-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-kis}
+    volumes:
+      - kis-postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kis} -d ${POSTGRES_DB:-kis}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build: ./backend
     container_name: kis-backend
@@ -12,12 +30,14 @@ services:
       - .env
     volumes:
       - ./backend/demo:/app/demo:ro
-      - kis-db:/app/data
       - kis-storage:/app/storage
     ports:
       - "8000:8000"
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: json-file
@@ -33,10 +53,12 @@ services:
       - .env
     volumes:
       - ./backend/demo:/app/demo:ro
-      - kis-db:/app/data
       - kis-storage:/app/storage
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: json-file
@@ -51,10 +73,12 @@ services:
     env_file:
       - .env
     volumes:
-      - kis-db:/app/data
       - kis-storage:/app/storage
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: json-file
@@ -69,10 +93,12 @@ services:
     env_file:
       - .env
     volumes:
-      - kis-db:/app/data
       - kis-storage:/app/storage
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: json-file
@@ -87,9 +113,12 @@ services:
     env_file:
       - .env
     volumes:
-      - kis-db:/app/data
+      - kis-celerybeat:/app/data
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: json-file
@@ -107,6 +136,16 @@ services:
       - "3000:3000"
     depends_on:
       - backend
+    restart: unless-stopped
+
+  adminer:
+    profiles: ["adminer"]
+    image: adminer:latest
+    container_name: kis-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
     restart: unless-stopped
 
   nginx:
@@ -135,8 +174,8 @@ services:
     container_name: kis-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -201,7 +240,8 @@ services:
     restart: unless-stopped
 
 volumes:
-  kis-db:
+  kis-postgres-data:
+  kis-celerybeat:
   kis-storage:
   kis-minio-data:
   kis-openldap-data:

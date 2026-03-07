@@ -69,35 +69,77 @@ export default function JobsPanel() {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const bgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   const prevJobStatusesRef = useRef<Record<string, string>>({});
+
+  const applyJobs = useCallback((newJobs: MyJob[]) => {
+    setJobs(newJobs);
+    const prev = prevJobStatusesRef.current;
+    const changed = newJobs.some((j) => prev[j.job_uuid] && prev[j.job_uuid] !== j.status);
+    if (changed) window.dispatchEvent(new CustomEvent("kis-jobs-status-changed"));
+    prevJobStatusesRef.current = Object.fromEntries(newJobs.map((j) => [j.job_uuid, j.status]));
+  }, []);
 
   const fetchJobs = useCallback(async () => {
     try {
       const res = await fetch("/api/jobs/my?limit=20", { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
-      const newJobs: MyJob[] = data.jobs ?? [];
-      setJobs(newJobs);
-
-      // Fire event if any job changed status (e.g. running→success)
-      const prev = prevJobStatusesRef.current;
-      const changed = newJobs.some((j) => prev[j.job_uuid] && prev[j.job_uuid] !== j.status);
-      if (changed) window.dispatchEvent(new CustomEvent("kis-jobs-status-changed"));
-      prevJobStatusesRef.current = Object.fromEntries(newJobs.map((j) => [j.job_uuid, j.status]));
+      applyJobs(data.jobs ?? []);
     } catch {
       // silently ignore
     }
-  }, []);
+  }, [applyJobs]);
 
-  // Fetch on mount so the badge shows immediately after login
+  // BroadcastChannel — sync job state across windows/tabs of the same browser
   useEffect(() => {
+    const bc = new BroadcastChannel("kis-jobs");
+    bc.onmessage = (e) => { if (e.data?.jobs) applyJobs(e.data.jobs); };
+    return () => bc.close();
+  }, [applyJobs]);
+
+  // SSE connection — replaces all polling
+  useEffect(() => {
+    let fallbackPoll: ReturnType<typeof setInterval> | null = null;
+    let errCount = 0;
+    const bc = new BroadcastChannel("kis-jobs");
+
+    const sseUrl = process.env.NODE_ENV === "development"
+      ? "http://localhost:8000/jobs/stream"
+      : "/api/jobs/stream";
+    const es = new EventSource(sseUrl, { withCredentials: true });
+
+    es.onmessage = (e) => {
+      errCount = 0;
+      try {
+        const data = JSON.parse(e.data);
+        applyJobs(data.jobs ?? []);
+        bc.postMessage({ jobs: data.jobs ?? [] });
+      } catch { /* ignore parse errors */ }
+      if (fallbackPoll) {
+        clearInterval(fallbackPoll);
+        fallbackPoll = null;
+      }
+    };
+
+    es.onerror = () => {
+      errCount++;
+      if (errCount >= 3 && !fallbackPoll) {
+        fallbackPoll = setInterval(fetchJobs, 5000);
+      }
+    };
+
+    // Initial fetch so badge shows immediately before first SSE message arrives
     fetchJobs();
-  }, [fetchJobs]);
+
+    return () => {
+      es.close();
+      bc.close();
+      if (fallbackPoll) clearInterval(fallbackPoll);
+    };
+  }, [applyJobs, fetchJobs]);
 
   // Refresh immediately when any tool page starts or cancels a job
   useEffect(() => {
@@ -106,31 +148,18 @@ export default function JobsPanel() {
     return () => window.removeEventListener("kis-jobs-changed", handler);
   }, [fetchJobs]);
 
-  // Background poll every 10s when panel is closed but there are active jobs
+  // Refresh when tab becomes visible (browser throttles SSE in background tabs)
   useEffect(() => {
-    if (open) {
-      if (bgPollRef.current) clearInterval(bgPollRef.current);
-      return;
-    }
-    const hasActive = jobs.some((j) => isActive(j.status));
-    if (hasActive) {
-      bgPollRef.current = setInterval(fetchJobs, 5000);
-    } else {
-      if (bgPollRef.current) clearInterval(bgPollRef.current);
-    }
-    return () => { if (bgPollRef.current) clearInterval(bgPollRef.current); };
-  }, [jobs, open, fetchJobs]);
+    const handler = () => { if (!document.hidden) fetchJobs(); };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [fetchJobs]);
 
-  // Poll every 5s when panel is open
+  // Refresh jobs when panel opens
   useEffect(() => {
-    if (!open) {
-      if (pollRef.current) clearInterval(pollRef.current);
-      return;
-    }
+    if (!open) return;
     setLoading(true);
     fetchJobs().finally(() => setLoading(false));
-    pollRef.current = setInterval(fetchJobs, 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [open, fetchJobs]);
 
   // Close on outside click/tap

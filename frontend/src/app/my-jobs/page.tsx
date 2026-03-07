@@ -531,7 +531,7 @@ export default function MeineJobsPage() {
               </span>
             )}
             <button
-              onClick={() => fetchJobs()}
+              onClick={() => { fetchJobs(); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }}
               disabled={loading}
               title="Aktualisieren"
               className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-40 transition-colors"
