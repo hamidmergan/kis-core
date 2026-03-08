@@ -1130,6 +1130,7 @@ async def screencast_render(
         body.voice_label,
     ])
     db.set_job_celery_task_id(body.translate_job_uuid, task.id)
+    db.set_render_queued_at(body.translate_job_uuid)
 
     logger.info("Screencast render queued: translate_job={}", body.translate_job_uuid)
     return {"job_uuid": body.translate_job_uuid}

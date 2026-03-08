@@ -286,8 +286,6 @@ async def video_dubbing(
     _get_api_key()
 
     user_id = current_user.get("user_id", 0)
-    if db.has_active_job_for_tool(user_id, ["video_dubbing"]):
-        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Dubbing-Job.")
 
     job_uuid = uuid.uuid4().hex
     db.create_job(job_uuid, user_id, "video_dubbing", file.filename or f"input{ext}")

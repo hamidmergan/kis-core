@@ -16,6 +16,7 @@ interface MyJob {
   started_at: string | null;
   completed_at: string | null;
   render_started_at: string | null;
+  render_queued_at: string | null;
   expires_at: string | null;
   has_download: boolean;
   result_filename: string | null;
@@ -32,6 +33,7 @@ interface JobDetail {
 
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
+const SCREENCAST_TOOLS = new Set(["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]);
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user";
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
@@ -71,10 +73,34 @@ function toMs(dateStr: string): number {
 }
 
 function TimingInfo({ job }: { job: MyJob }) {
+  if (SCREENCAST_TOOLS.has(job.tool)) {
+    const queueWaitMs = job.render_queued_at && job.render_started_at
+      ? toMs(job.render_started_at) - toMs(job.render_queued_at)
+      : null;
+    const renderMs = job.render_started_at && job.completed_at
+      ? toMs(job.completed_at) - toMs(job.render_started_at)
+      : null;
+    return (
+      <div className="mt-1.5 text-xs text-gray-400 space-y-0.5">
+        <p>Eingereicht: {formatDate(job.created_at)}</p>
+        {queueWaitMs !== null && (
+          <p>Wartezeit: <span className="text-gray-500">{formatDuration(queueWaitMs)}</span></p>
+        )}
+        {renderMs !== null && (
+          <p>Renderzeit: <span className="text-gray-500">{formatDuration(renderMs)}</span></p>
+        )}
+        {job.completed_at && (
+          <p>Fertig: {formatDate(job.completed_at)}</p>
+        )}
+        {job.expires_at && (
+          <p>Läuft ab: {formatDate(job.expires_at)}</p>
+        )}
+      </div>
+    );
+  }
+
   const waitMs = job.started_at ? toMs(job.started_at) - toMs(job.created_at) : null;
   const workMs = job.started_at && job.completed_at ? toMs(job.completed_at) - toMs(job.started_at) : null;
-  const renderMs = job.render_started_at && job.completed_at ? toMs(job.completed_at) - toMs(job.render_started_at) : null;
-
   return (
     <div className="mt-1.5 text-xs text-gray-400 space-y-0.5">
       <p>Eingereicht: {formatDate(job.created_at)}</p>
@@ -83,9 +109,6 @@ function TimingInfo({ job }: { job: MyJob }) {
       )}
       {workMs !== null && (
         <p>Bearbeitungszeit: <span className="text-gray-500">{formatDuration(workMs)}</span></p>
-      )}
-      {renderMs !== null && (
-        <p>Rendering: <span className="text-gray-500">{formatDuration(renderMs)}</span></p>
       )}
       {job.completed_at && (
         <p>Fertig: {formatDate(job.completed_at)}</p>

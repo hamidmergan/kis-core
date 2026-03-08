@@ -138,6 +138,7 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
             "started_at": _dt(job["started_at"]),
             "completed_at": _dt(job["completed_at"]),
             "render_started_at": _dt(job["render_started_at"]),
+            "render_queued_at": _dt(job["render_queued_at"]),
             "expires_at": _dt(job["expires_at"]),
             "has_download": has_download,
             "result_filename": job["result_filename"],

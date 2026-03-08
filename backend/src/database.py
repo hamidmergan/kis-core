@@ -112,9 +112,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     completed_at        TIMESTAMP,
                     expires_at          TIMESTAMP,
                     progress_updated_at TIMESTAMP,
-                    render_started_at   TIMESTAMP
+                    render_started_at   TIMESTAMP,
+                    render_queued_at    TIMESTAMP
                 )
             """)
+            cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS render_queued_at TIMESTAMP")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
                     id         SERIAL PRIMARY KEY,
@@ -560,6 +562,18 @@ def set_render_started_at(job_uuid: str) -> None:
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE jobs SET render_started_at = COALESCE(render_started_at, %s) WHERE job_uuid = %s",
+                (now, job_uuid),
+            )
+        conn.commit()
+
+
+def set_render_queued_at(job_uuid: str) -> None:
+    """Setzt render_queued_at einmalig — Zeitpunkt wenn Render-Job in Celery Queue eingereiht wird."""
+    now = datetime.now(timezone.utc)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE jobs SET render_queued_at = COALESCE(render_queued_at, %s) WHERE job_uuid = %s",
                 (now, job_uuid),
             )
         conn.commit()

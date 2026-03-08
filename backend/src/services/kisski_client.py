@@ -4,6 +4,7 @@ import json
 import re
 import subprocess
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -349,6 +350,7 @@ class KisskiClient:
                 ],
                 temperature=0.3,
                 max_tokens=batch_size * 350,
+                timeout=90.0,
             )
             content = response.choices[0].message.content or ""
             if not content:
@@ -376,7 +378,7 @@ class KisskiClient:
         self, slide_texts: list[str], user_prompt: str | None = None,
         glossary: dict[str, str] | None = None,
         batch_size: int = 3,
-        max_workers: int = 10,
+        max_workers: int = 3,
     ) -> list[str]:
         """Generate spoken scripts for all slides, split into parallel batches.
 
@@ -410,26 +412,40 @@ class KisskiClient:
 
         results: dict[int, list[str]] = {}  # batch_index → scripts
 
+        def _run_batch_with_retry(texts: list[str], idx: int, global_start: int, n: int) -> tuple[int, list[str]]:
+            for attempt in range(2):
+                try:
+                    scripts = self._generate_scripts_single_batch(
+                        texts, idx, batch_count, global_start, total_slides,
+                        user_prompt, glossary,
+                    )
+                    return idx, scripts
+                except RuntimeError as e:
+                    if attempt == 0:
+                        logger.warning("Batch {}/{} failed (attempt 1): {} – retrying in 5s", idx + 1, batch_count, e)
+                        time.sleep(5)
+                    else:
+                        logger.warning(
+                            "Batch {}/{} failed (attempt 2): {} – returning empty strings for {} slide(s)",
+                            idx + 1, batch_count, e, n,
+                        )
+                        return idx, [""] * n
+            return idx, [""] * n  # unreachable, but satisfies type checker
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(
-                    self._generate_scripts_single_batch,
-                    texts, idx, batch_count, global_start, total_slides,
-                    user_prompt, glossary,
-                ): (idx, len(texts))
+                executor.submit(_run_batch_with_retry, texts, idx, global_start, len(texts)): idx
                 for idx, (global_start, texts) in enumerate(batches)
             }
             for future in as_completed(futures):
-                idx, n = futures[future]
                 try:
-                    results[idx] = future.result()
+                    idx, scripts = future.result()
+                    results[idx] = scripts
                     logger.info("Batch {}/{} completed", idx + 1, batch_count)
-                except RuntimeError as e:
-                    logger.warning(
-                        "Batch {}/{} failed: {} – returning empty strings for {} slide(s)",
-                        idx + 1, batch_count, e, n,
-                    )
-                    results[idx] = [""] * n
+                except Exception as e:
+                    idx = futures[future]
+                    logger.warning("Batch {}/{} unexpected error: {}", idx + 1, batch_count, e)
+                    results[idx] = [""] * batch_size
 
         # Reassemble in slide order
         ordered: list[str] = []

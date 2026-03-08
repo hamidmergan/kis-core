@@ -460,6 +460,7 @@ async def demo_render(
         from src.tasks.screencast_tasks import run_screencast_demo_render
         task = run_screencast_demo_render.apply_async(args=[body.translate_job_uuid, body.dpi])
         db.set_job_celery_task_id(body.translate_job_uuid, task.id)
+        db.set_render_queued_at(body.translate_job_uuid)
         db.update_job_status(body.translate_job_uuid, "running")
 
         logger.info("Demo render job queued: job_uuid={}", body.translate_job_uuid)

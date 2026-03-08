@@ -90,8 +90,6 @@ def _run_render_pipeline(
 
     tts_client = _get_tts_client(provider)
 
-    db.set_render_started_at(job_uuid)
-
     # Save render params + scripts for crash recovery (retry button)
     save_job_file(job_uuid, "render_params.json", json.dumps({
         "voice_id": voice_id, "speed": speed,
@@ -138,6 +136,7 @@ def _run_render_pipeline(
             raise RuntimeError("Keine Slides verarbeitet")
 
         # ── Video clips (parallel) ────────────────────────────────────────
+        db.set_render_started_at(job_uuid)
         clip_paths: list[Path] = [tmp / f"clip_{i:03d}.mp4" for i in range(num_slides)]
 
         def _render_clip_normal(i: int) -> None:
@@ -533,6 +532,7 @@ def run_screencast_demo_render(
                 audio_paths.append(dst)
             logger.info("TIMING [{}] write tmp files in {}", job_uuid[:8], _elapsed(t0))
 
+            db.set_render_started_at(job_uuid)
             t0 = time.time()
             clip_paths: list[Path] = [tmp / f"clip_{i:03d}.mp4" for i in range(num_slides)]
 
