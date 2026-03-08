@@ -2168,8 +2168,8 @@ function ScreencastPageInner() {
               </div>
             )}
 
-            {/* Row 1: MP4 Download */}
-            <div className="flex justify-center mb-4">
+            {/* Downloads: MP4 + Alles als ZIP */}
+            <div className="flex justify-center gap-3 mb-4">
               <button
                 onClick={handleDownload}
                 aria-label="MP4"
@@ -2180,39 +2180,41 @@ function ScreencastPageInner() {
                 </svg>
                 MP4
               </button>
-            </div>
-
-            {/* Row 2: Audio downloads */}
-            {audioId && audioCount > 0 && (
-              <div className="mb-4">
-                <div className="flex flex-wrap justify-center gap-2 items-center">
-                  <span className="text-xs text-gray-400">Audios:</span>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const stem = file?.name?.replace(/\.pptx$/i, "") || "screencast";
-                        const res = await fetch(`/api/screencast/audio/${audioId}/zip`, { credentials: "include" });
-                        if (!res.ok) throw new Error("ZIP-Download fehlgeschlagen");
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${stem}_folien_audio.zip`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      } catch {
-                        console.error("ZIP download failed");
+              {audioId && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/jobs/${audioId}/bundle`, { credentials: "include" });
+                      if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
+                      const blob = await res.blob();
+                      const disposition = res.headers.get("Content-Disposition");
+                      let filename = "bundle.zip";
+                      if (disposition) {
+                        const m = disposition.match(/filename="?([^";\n]+)"?/i);
+                        if (m) filename = m[1].trim();
                       }
-                    }}
-                    className="px-3 py-1.5 text-xs text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                  >
-                    ZIP
-                  </button>
-                </div>
-              </div>
-            )}
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      console.error("Bundle download failed");
+                    }
+                  }}
+                  aria-label="Alles herunterladen (ZIP)"
+                  className="px-6 py-2 bg-white text-[#0066cc] border border-[#0066cc] text-sm font-medium rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center gap-2"
+                >
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Alles herunterladen (ZIP)
+                </button>
+              )}
+            </div>
 
             {/* Row 3: Reset */}
             <div className="flex justify-center">

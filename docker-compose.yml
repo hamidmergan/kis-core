@@ -239,6 +239,19 @@ services:
       - kis-openldap-config:/etc/ldap/slapd.d
     restart: unless-stopped
 
+  phpldapadmin:
+    profiles: ["ldap"]
+    image: osixia/phpldapadmin:latest
+    container_name: kis-phpldapadmin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+      PHPLDAPADMIN_HTTPS: "false"
+    ports:
+      - "8090:80"
+    depends_on:
+      - openldap
+    restart: unless-stopped
+
 volumes:
   kis-postgres-data:
   kis-celerybeat:

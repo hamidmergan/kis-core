@@ -14,7 +14,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
-from src.storage import USE_S3, delete_job_folder, file_exists, get_file, get_job_file, load_result_json, load_result_meta
+from src.storage import USE_S3, delete_job_folder, file_exists, get_file, get_job_file, job_file_exists, load_result_json, load_result_meta, _job_folder_name
 
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
@@ -469,5 +469,68 @@ async def download_job_pptx(
         headers={
             "Content-Length": str(len(data)),
             "Content-Disposition": f'attachment; filename="{pptx_filename}"',
+        },
+    )
+
+
+@router.get("/{job_uuid}/bundle")
+async def download_job_bundle(
+    job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Download a ZIP bundle containing MP4, slide audios, PPTX and script for a screencast job."""
+    job = db.get_job(job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job.get("user_id") != current_user.get("user_id"):
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    folder_name = _job_folder_name(job_uuid)
+    meta = load_result_meta(job_uuid) or {}
+    audio_count = int(meta.get("audio_count", 0))
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        # MP4
+        try:
+            mp4_data = get_job_file(job_uuid, "output.mp4")
+            zf.writestr(f"{folder_name}.mp4", mp4_data)
+        except Exception:
+            pass
+
+        # Slide audios
+        for i in range(audio_count):
+            try:
+                audio_data = get_job_file(job_uuid, f"audio/slide_{i:03d}.mp3")
+                zf.writestr(f"Audios/slide_{i + 1:03d}.mp3", audio_data)
+            except Exception:
+                pass
+
+        # PPTX (corrected preferred, fallback translated)
+        pptx_name = "corrected.pptx" if job_file_exists(job_uuid, "corrected.pptx") else "translated.pptx"
+        try:
+            pptx_data = get_job_file(job_uuid, pptx_name)
+            zf.writestr(f"{folder_name}.pptx", pptx_data)
+        except Exception:
+            pass
+
+        # Script (accepted → user → raw)
+        for script_file in ("accepted_scripts.json", "user_scripts.json", "scripts.txt"):
+            try:
+                script_data = get_job_file(job_uuid, script_file)
+                zf.writestr(script_file, script_data)
+                break
+            except Exception:
+                continue
+
+    zip_bytes = buf.getvalue()
+    zip_filename = f"{folder_name}.zip"
+
+    return StreamingResponse(
+        iter([zip_bytes]),
+        media_type="application/zip",
+        headers={
+            "Content-Length": str(len(zip_bytes)),
+            "Content-Disposition": f'attachment; filename="{zip_filename}"',
         },
     )

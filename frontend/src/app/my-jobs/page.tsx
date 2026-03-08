@@ -121,6 +121,30 @@ function TimingInfo({ job }: { job: MyJob }) {
 }
 
 
+async function downloadBundle(audioId: string) {
+  try {
+    const res = await fetch(`/api/jobs/${audioId}/bundle`, { credentials: "include" });
+    if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition");
+    let filename = "bundle.zip";
+    if (disposition) {
+      const m = disposition.match(/filename="?([^";\n]+)"?/i);
+      if (m) filename = m[1].trim();
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error("Bundle download failed", e);
+  }
+}
+
 function downloadText(text: string, filename: string, mimeType: string) {
   const blob = new Blob([text], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -176,21 +200,12 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
 
   // screencast_translate: single-folder workflow — show artifacts for both phases
   if (job.tool === "screencast_translate") {
-    const baseName = job.original_filename.replace(/\.pptx$/i, "") || "screencast";
-
     if (job.status === "awaiting_user") {
       return (
         <div className="mt-3 space-y-2">
           <div className="flex flex-wrap gap-2 items-center">
             <DisabledChip label="MP4" />
-            <DownloadChip
-              href={`/api/jobs/${job.job_uuid}/pptx`}
-              label="PPTX"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-gray-300">Audios:</span>
-            <DisabledChip label="ZIP" />
+            <DisabledChip label="Alles herunterladen (ZIP)" />
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <a
@@ -207,9 +222,8 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
     if (job.status === "success") {
       const meta = detail?.meta as Record<string, unknown> | null;
       const audioId = meta?.audio_id as string | undefined;
-      const audioCount = meta?.audio_count as number | undefined;
       return (
-        <div className="mt-3 space-y-2">
+        <div className="mt-3">
           <div className="flex flex-wrap gap-2 items-center">
             {job.has_download && (
               <DownloadChip
@@ -218,21 +232,13 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
                 label="MP4"
               />
             )}
-            <DownloadChip
-              href={`/api/jobs/${job.job_uuid}/pptx`}
-              label="PPTX"
-            />
-          </div>
-          {audioId && audioCount && audioCount > 0 && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-xs text-gray-400">Audios:</span>
+            {audioId && (
               <DownloadChip
-                href={`/api/screencast/audio/${audioId}/zip`}
-                filename={`${baseName}_folien_audio.zip`}
-                label="ZIP"
+                onClick={() => downloadBundle(audioId)}
+                label="Alles herunterladen (ZIP)"
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       );
     }
@@ -245,14 +251,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
       <div className="mt-3 space-y-2">
         <div className="flex flex-wrap gap-2 items-center">
           <DisabledChip label="MP4" />
-          <DownloadChip
-            href={`/api/jobs/${job.job_uuid}/pptx`}
-            label="PPTX"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-gray-300">Audios:</span>
-          <DisabledChip label="ZIP" />
+          <DisabledChip label="Alles herunterladen (ZIP)" />
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <a
@@ -270,11 +269,9 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
   if (job.status === "success" && SCREENCAST_RENDER_TOOLS.has(job.tool)) {
     const meta = detail?.meta as Record<string, unknown> | null;
     const audioId = meta?.audio_id as string | undefined;
-    const audioCount = meta?.audio_count as number | undefined;
-    const baseName = job.original_filename.replace(/\.pptx$/i, "") || "screencast";
 
     return (
-      <div className="mt-3 space-y-2">
+      <div className="mt-3">
         <div className="flex flex-wrap gap-2 items-center">
           {job.has_download && (
             <DownloadChip
@@ -283,23 +280,13 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
               label="MP4"
             />
           )}
-          {job.has_download && (
+          {audioId && (
             <DownloadChip
-              href={`/api/jobs/${job.job_uuid}/pptx`}
-              label="PPTX"
+              href={`/api/jobs/${audioId}/bundle`}
+              label="Alles herunterladen (ZIP)"
             />
           )}
         </div>
-        {audioId && audioCount && audioCount > 0 && (
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-gray-400">Audios:</span>
-            <DownloadChip
-              href={`/api/screencast/audio/${audioId}/zip`}
-              filename={`${baseName}_folien_audio.zip`}
-              label="ZIP"
-            />
-          </div>
-        )}
       </div>
     );
   }

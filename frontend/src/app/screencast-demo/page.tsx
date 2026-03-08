@@ -1300,42 +1300,47 @@ function ScreencastDemoPageInner() {
               </div>
             )}
 
-            <div className="flex justify-center mb-4">
-              <button onClick={handleDownload} className="px-6 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors flex items-center gap-2">
+            {/* Downloads: MP4 + Alles als ZIP */}
+            <div className="flex justify-center gap-3 mb-4">
+              <button onClick={handleDownload} aria-label="MP4" className="px-6 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors flex items-center gap-2">
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 MP4
               </button>
+              {audioId && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/jobs/${audioId}/bundle`, { credentials: "include" });
+                      if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
+                      const blob = await res.blob();
+                      const disposition = res.headers.get("Content-Disposition");
+                      let filename = "bundle.zip";
+                      if (disposition) {
+                        const m = disposition.match(/filename="?([^";\n]+)"?/i);
+                        if (m) filename = m[1].trim();
+                      }
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    } catch (e) { console.error("Bundle download failed", e); }
+                  }}
+                  aria-label="Alles herunterladen (ZIP)"
+                  className="px-6 py-2 bg-white text-[#0066cc] border border-[#0066cc] text-sm font-medium rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center gap-2"
+                >
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Alles herunterladen (ZIP)
+                </button>
+              )}
             </div>
-
-            {audioId && audioCount > 0 && (
-              <div className="mb-4">
-                <div className="flex flex-wrap justify-center gap-2 items-center">
-                  <span className="text-xs text-gray-400">Audios:</span>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(`/api/screencast/audio/${audioId}/zip`, { credentials: "include" });
-                        if (!res.ok) throw new Error("ZIP-Download fehlgeschlagen");
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = "demo_folien_audio.zip";
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      } catch { console.error("ZIP download failed"); }
-                    }}
-                    className="px-3 py-1.5 text-xs text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                  >
-                    ZIP
-                  </button>
-                </div>
-              </div>
-            )}
 
             <div className="flex justify-center">
               <button onClick={() => resetAll(false)} className="px-6 py-2 text-sm text-amber-700 border border-amber-300 rounded-md hover:bg-amber-50 transition-colors">
