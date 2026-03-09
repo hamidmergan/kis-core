@@ -192,6 +192,16 @@ _SYSTEM_PROMPT_EN = (
 )
 
 
+# Predefined tone styles for batch script generation.
+# Each value is appended as an extra rule to the system prompt.
+_SCRIPT_STYLES: dict[str, str] = {
+    "standard":     "",
+    "professional": "Use a polished, professional tone suitable for corporate training.",
+    "academic":     "Use a formal academic tone, as in a university lecture.",
+    "casual":       "Use a friendly, approachable tone.",
+}
+
+
 def _load_prompt(key: str, default: str) -> str:
     """Load a system prompt from DB settings, falling back to the hardcoded default."""
     try:
@@ -217,9 +227,20 @@ def _clean_whisper_response(raw: str) -> str:
 class KisskiClient:
     """Lightweight wrapper around the KISSKI (GWDG) OpenAI-compatible API."""
 
-    def __init__(self, api_key: str, base_url: str, model: str):
+    def __init__(self, api_key: str, base_url: str, model: str, provider: str = "kisski"):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
+        if provider == "ollama":
+            # Disable thinking mode (Qwen3 default) to keep output parseable
+            self._extra_body: dict = {"think": False}
+            self._batch_max_workers: int = 3
+            self._batch_timeout: float = 180.0
+            self._batch_size: int = 1  # small model: one block per call, no delimiter needed
+        else:
+            self._extra_body = {}
+            self._batch_max_workers = 3
+            self._batch_timeout = 180.0
+            self._batch_size = 3
 
     def generate_script(
         self, text: str, language: str = "DE", user_prompt: str | None = None,
@@ -260,6 +281,7 @@ class KisskiClient:
                 ],
                 temperature=0.3,
                 max_tokens=300,
+                extra_body=self._extra_body or None,
             )
             content = response.choices[0].message.content
             if content is None:
@@ -275,38 +297,45 @@ class KisskiClient:
         batch_texts: list[str],
         batch_index: int,
         batch_count: int,
-        global_start: int,
-        total_slides: int,
-        user_prompt: str | None,
+        is_first_batch: bool,
+        is_last_batch: bool,
         glossary: dict[str, str] | None,
+        style: str,
+        add_greeting: bool,
+        add_closing: bool,
+        min_chars: int = 400,
+        max_chars: int = 700,
     ) -> list[str]:
-        """Run one LLM call for a slice of slides and return scripts for that slice.
-
-        Uses a plain-text separator (|||) instead of JSON so response truncation
-        never causes a parse failure – whatever the LLM writes is usable.
-        """
         batch_size = len(batch_texts)
-        global_end = global_start + batch_size  # exclusive
 
-        # Build slide input with global slide numbers for context
-        slides_input = ""
-        for local_i, text in enumerate(batch_texts):
-            global_i = global_start + local_i
-            position = f"Slide {global_i + 1} of {total_slides}"
-            if global_i == 0:
-                position += " (first slide)"
-            slides_input += f"### {position}\n{text.strip() if text.strip() else '[empty slide]'}\n\n"
+        # Build input: raw content blocks separated by ===
+        slides_input = "\n===\n".join(
+            text.strip() if text.strip() else "[empty]"
+            for text in batch_texts
+        )
 
-        # Build system prompt (English-only – no German text here)
+        # Build system prompt
         glossary_hint = ""
         if glossary:
             lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
             glossary_hint = f"Use the following terminology consistently in your output:\n{lines}\n\n"
 
+        greeting_rule = (
+            "- The first content block opens the presentation. Begin its script with a time-neutral greeting such as 'Welcome' or 'Hello everyone' – never use time-specific phrases like 'Good morning' or 'Good evening'.\n"
+            if (is_first_batch and add_greeting) else
+            "- Do not use any greeting or welcome phrase.\n"
+        )
+        closing_rule = (
+            "- The last content block closes the presentation. End its script with a brief neutral closing such as 'Thank you for your attention' or 'Thanks for watching' – no time-specific phrases.\n"
+            if (is_last_batch and add_closing) else
+            "- Do not add any closing statement or thank-you.\n"
+        )
+        style_rule = f"- {_SCRIPT_STYLES[style]}\n" if _SCRIPT_STYLES.get(style) else ""
+
         system_prompt = glossary_hint + (
-            "You are an expert at creating spoken narration scripts for presentation slides. "
-            f"Generate a spoken script for EACH of the {batch_size} slides below "
-            f"(slides {global_start + 1} to {global_end} of {total_slides} total). "
+            "You are an expert at creating spoken narration scripts for presentations. "
+            f"Generate a spoken script for EACH of the {batch_size} content blocks below. "
+            "The blocks are separated by ===. "
             "Rules:\n"
             "- Do NOT add any new information.\n"
             "- Do NOT hallucinate.\n"
@@ -317,29 +346,20 @@ class KisskiClient:
             "- NO semicolons, NO dashes – use only periods and commas.\n"
             "- Address the audience directly as 'you'.\n"
             "- Natural, conversational tone – like a university lecturer speaking.\n"
-            "- Only use a greeting on slide 1 of the full presentation if the content clearly indicates a title or introduction.\n"
-            "- Never use greetings on any other slide.\n"
-            "- Keep each script between 20 and 100 words.\n"
-            "- For empty slides, output nothing (just write the ||| delimiter).\n"
-            "- Do NOT add closing statements like 'thank you', 'any questions', or 'that concludes' on any slide.\n"
+            + greeting_rule
+            + closing_rule
+            + style_rule +
+            f"- Keep each script between {min_chars} and {max_chars} characters.\n"
+            "- For empty content blocks, output nothing (just write the ||| delimiter).\n"
             "\n"
             f"Separate the {batch_size} scripts using the delimiter ||| on its own line. "
-            "No other text before, between, or after. Example format for 3 slides:\n"
-            "Script text for slide one.\n"
+            "No other text before, between, or after. Example output for 2 blocks:\n"
+            "Researchers have found that regular breaks significantly reduce cognitive fatigue.\n"
             "|||\n"
-            "Script text for slide two.\n"
-            "|||\n"
-            "Script text for slide three."
+            "Three core principles guide effective workplace ergonomics."
         )
 
-        # user_prompt goes in the user message (not system) to keep system prompt English-only
         user_message = slides_input
-        if user_prompt and user_prompt.strip():
-            user_message += (
-                f"\n\nAdditional instructions to apply to each script "
-                f"(apply semantically, output must remain in English):\n{user_prompt.strip()}\n"
-                f"Note: instructions mentioning 'last slide' apply only to slide {total_slides}."
-            )
 
         try:
             response = self._client.chat.completions.create(
@@ -349,15 +369,20 @@ class KisskiClient:
                     {"role": "user", "content": user_message},
                 ],
                 temperature=0.3,
-                max_tokens=batch_size * 350,
-                timeout=90.0,
+                max_tokens=batch_size * max(600, int(max_chars // 3)) + 200,
+                timeout=self._batch_timeout,
+                extra_body=self._extra_body or None,
             )
             content = response.choices[0].message.content or ""
             if not content:
                 raise RuntimeError(f"Batch {batch_index + 1}/{batch_count}: LLM returned empty response")
 
             # Parse separator-delimited output – truncation just means a shorter last script
-            parts = re.split(r"\|\|\|", content)
+            content_clean = content.strip()
+            # LLMs sometimes prepend ||| before the first script – remove it
+            if content_clean.startswith("|||"):
+                content_clean = content_clean[3:].lstrip("\n ")
+            parts = re.split(r"\|\|\|", content_clean)
             scripts = [p.strip() for p in parts]
 
             if len(scripts) != batch_size:
@@ -375,28 +400,21 @@ class KisskiClient:
             raise RuntimeError(f"KISSKI API Fehler (Batch {batch_index + 1}): {e}") from e
 
     def generate_scripts_batch(
-        self, slide_texts: list[str], user_prompt: str | None = None,
+        self,
+        slide_texts: list[str],
         glossary: dict[str, str] | None = None,
-        batch_size: int = 3,
-        max_workers: int = 3,
+        style: str = "standard",
+        add_greeting: bool = True,
+        add_closing: bool = True,
+        min_chars: int = 400,
+        max_chars: int = 700,
+        batch_size: int | None = None,
+        max_workers: int | None = None,
     ) -> list[str]:
-        """Generate spoken scripts for all slides, split into parallel batches.
-
-        Slides are divided into groups of up to `batch_size` and all batches are
-        submitted concurrently via ThreadPoolExecutor. Results are reassembled in
-        the original slide order. Batches that fail return empty strings instead
-        of raising so partial results are always delivered.
-
-        Args:
-            slide_texts: List of extracted text per slide.
-            user_prompt: Optional additional instructions from the user.
-            glossary: Optional term mapping to enforce in the output.
-            batch_size: Maximum number of slides per LLM call (default 3).
-            max_workers: Maximum parallel LLM threads (default 10).
-
-        Returns:
-            List of scripts in the same order as slide_texts.
-        """
+        if batch_size is None:
+            batch_size = self._batch_size
+        if max_workers is None:
+            max_workers = self._batch_max_workers
         total_slides = len(slide_texts)
 
         # Split into batches
@@ -412,12 +430,14 @@ class KisskiClient:
 
         results: dict[int, list[str]] = {}  # batch_index → scripts
 
-        def _run_batch_with_retry(texts: list[str], idx: int, global_start: int, n: int) -> tuple[int, list[str]]:
+        def _run_batch_with_retry(texts: list[str], idx: int, n: int) -> tuple[int, list[str]]:
+            is_first = idx == 0
+            is_last = idx == batch_count - 1
             for attempt in range(2):
                 try:
                     scripts = self._generate_scripts_single_batch(
-                        texts, idx, batch_count, global_start, total_slides,
-                        user_prompt, glossary,
+                        texts, idx, batch_count, is_first, is_last,
+                        glossary, style, add_greeting, add_closing, min_chars, max_chars,
                     )
                     return idx, scripts
                 except RuntimeError as e:
@@ -434,8 +454,8 @@ class KisskiClient:
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(_run_batch_with_retry, texts, idx, global_start, len(texts)): idx
-                for idx, (global_start, texts) in enumerate(batches)
+                executor.submit(_run_batch_with_retry, texts, idx, len(texts)): idx
+                for idx, (_, texts) in enumerate(batches)
             }
             for future in as_completed(futures):
                 try:

@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     kisski_base_url: str = "https://chat-ai.academiccloud.de/v1"
     kisski_model: str = "qwen3-30b-a3b-instruct-2507"
 
+    # LLM Provider: "kisski" oder "ollama"
+    llm_provider: str = "kisski"
+    ollama_base_url: str = "http://ollama:11434/v1"
+    ollama_model: str = "qwen3:30b-a3b"
+
     # Fish Speech TTS (lokaler TTS-Server) — leer = deaktiviert
     fish_speech_base_url: str = ""
 
@@ -49,4 +54,22 @@ class Settings(BaseSettings):
         if raw == "EN":
             return "EN-US"
         return raw
+
+    @property
+    def effective_llm_api_key(self) -> str:
+        if self.llm_provider == "ollama":
+            return "ollama"
+        return self.kisski_api_key
+
+    @property
+    def effective_llm_base_url(self) -> str:
+        if self.llm_provider == "ollama":
+            return self.ollama_base_url
+        return self.kisski_base_url
+
+    @property
+    def effective_llm_model(self) -> str:
+        if self.llm_provider == "ollama":
+            return self.ollama_model
+        return self.kisski_model
 

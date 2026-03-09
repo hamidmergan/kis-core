@@ -4,12 +4,10 @@ const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  reactStrictMode: false,
+  reactStrictMode: true,
   experimental: {
-    // Next.js 15.x uses middlewareClientMaxBodySize for rewrite proxy body limits
-    // (proxyClientMaxBodySize is only available in Next.js 16+)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...(({ middlewareClientMaxBodySize: "500mb" }) as any),
+    middlewareClientMaxBodySize: "500mb",
+    proxyTimeout: 600000, // 10 min – für lokale Ollama-Generierung
   },
   async rewrites() {
     return [

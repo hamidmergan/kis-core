@@ -50,12 +50,13 @@ def get_session_store():
 
 def get_kisski_client() -> KisskiClient:
     settings = get_settings()
-    if not settings.kisski_api_key:
+    if not settings.effective_llm_api_key:
         raise HTTPException(status_code=500, detail="KISSKI API Key nicht konfiguriert")
     return KisskiClient(
-        api_key=settings.kisski_api_key,
-        base_url=settings.kisski_base_url,
-        model=settings.kisski_model,
+        api_key=settings.effective_llm_api_key,
+        base_url=settings.effective_llm_base_url,
+        model=settings.effective_llm_model,
+        provider=settings.llm_provider,
     )
 
 

@@ -19,9 +19,9 @@ def _get_kisski_client():
     from src.services.kisski_client import KisskiClient
     from src.config import Settings
     s = Settings()
-    if not s.kisski_api_key:
+    if not s.effective_llm_api_key:
         raise RuntimeError("KISSKI API Key nicht konfiguriert")
-    return KisskiClient(api_key=s.kisski_api_key, base_url=s.kisski_base_url, model=s.kisski_model)
+    return KisskiClient(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, model=s.effective_llm_model, provider=s.llm_provider)
 
 
 def _kisski_http_client(extra_headers: dict | None = None, timeout: float = 120.0):

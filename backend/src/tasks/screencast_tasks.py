@@ -380,12 +380,13 @@ def run_screencast_auto(
         from src.services.kisski_client import KisskiClient
         from src.config import Settings
         _s = Settings()
-        if not _s.kisski_api_key:
+        if not _s.effective_llm_api_key:
             raise RuntimeError("KISSKI API Key nicht konfiguriert")
         kisski_client = KisskiClient(
-            api_key=_s.kisski_api_key,
-            base_url=_s.kisski_base_url,
-            model=_s.kisski_model,
+            api_key=_s.effective_llm_api_key,
+            base_url=_s.effective_llm_base_url,
+            model=_s.effective_llm_model,
+            provider=_s.llm_provider,
         )
 
         glossary_dict = None
@@ -589,4 +590,4 @@ def run_screencast_demo_render(
 
 async def _generate_all_scripts_async(slide_texts, kisski_client, glossary=None):
     """Async wrapper for batch script generation (called via asyncio.run)."""
-    return kisski_client.generate_scripts_batch(slide_texts, None, glossary)
+    return kisski_client.generate_scripts_batch(slide_texts, glossary)

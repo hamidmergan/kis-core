@@ -220,6 +220,28 @@ services:
         max-size: "10m"
         max-file: "7"
 
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama
+    container_name: kis-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - kis-ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
   openldap:
     profiles: ["ldap"]
     image: tiredofit/openldap:latest
@@ -259,3 +281,4 @@ volumes:
   kis-minio-data:
   kis-openldap-data:
   kis-openldap-config:
+  kis-ollama-data:

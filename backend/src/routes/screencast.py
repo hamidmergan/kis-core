@@ -104,9 +104,19 @@ class ExtractTextsRequest(BaseModel):
 
 class GenerateScriptsRequest(BaseModel):
     slide_texts: list[str]
-    user_prompt: str | None = None
     glossary_json: str = ""
     translate_job_uuid: str | None = None
+    style: str = "standard"
+    add_greeting: bool = True
+    add_closing: bool = True
+    min_chars: int = 400
+    max_chars: int = 700
+
+
+class RegenerateSlideScriptRequest(BaseModel):
+    slide_text: str
+    user_prompt: str | None = None
+    style: str = "standard"
 
 
 class PrepareRequest(BaseModel):
@@ -203,22 +213,35 @@ def _extract_text_per_slide(pptx_bytes: bytes) -> list[str]:
     return slide_texts
 
 
+_A_T = '{http://schemas.openxmlformats.org/drawingml/2006/main}t'
+
+
 def _collect_shape_text(shape, texts: list[str]) -> None:
     if shape.has_text_frame:
         for paragraph in shape.text_frame.paragraphs:
             text = paragraph.text.strip()
             if text:
                 texts.append(text)
-    if shape.has_table:
+    elif shape.has_table:
         for row in shape.table.rows:
             for cell in row.cells:
                 for paragraph in cell.text_frame.paragraphs:
                     text = paragraph.text.strip()
                     if text:
                         texts.append(text)
-    if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+    elif shape.shape_type == MSO_SHAPE_TYPE.GROUP:
         for subshape in shape.shapes:
             _collect_shape_text(subshape, texts)
+    else:
+        # Fallback for SmartArt, graphic frames, and other non-standard shapes:
+        # scan raw XML for any <a:t> text runs not already captured above.
+        try:
+            for t_elem in shape.element.iter(_A_T):
+                text = (t_elem.text or "").strip()
+                if text:
+                    texts.append(text)
+        except Exception:
+            pass
 
 
 def _apply_autofit_for_rendering(pptx_path: Path) -> Path:
@@ -501,13 +524,17 @@ def _apply_faststart(input_path: Path, output_path: Path) -> bytes:
 async def _generate_all_scripts(
     slide_texts: list[str],
     kisski_client: KisskiClient,
-    user_prompt: str | None = None,
     glossary: dict | None = None,
+    style: str = "standard",
+    add_greeting: bool = True,
+    add_closing: bool = True,
+    min_chars: int = 400,
+    max_chars: int = 700,
 ) -> list[str]:
-    """Generate spoken scripts for all slides in a single KISSKI call."""
     try:
         scripts = await asyncio.to_thread(
-            kisski_client.generate_scripts_batch, slide_texts, user_prompt, glossary
+            kisski_client.generate_scripts_batch, slide_texts, glossary, style, add_greeting, add_closing,
+            min_chars=min_chars, max_chars=max_chars,
         )
         logger.info("Batch script generation completed for {} slides", len(slide_texts))
         return scripts
@@ -1014,9 +1041,8 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         )
 
     logger.info(
-        "Screencast/generate-scripts: {} slides, user_prompt={}",
-        len(body.slide_texts),
-        bool(body.user_prompt),
+        "Screencast/generate-scripts: {} slides, style={}, greeting={}, closing={}",
+        len(body.slide_texts), body.style, body.add_greeting, body.add_closing,
     )
 
     kisski_client = get_kisski_client()
@@ -1034,16 +1060,12 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         except Exception:
             raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
 
-    # Save user_prompt to bucket immediately so resume can restore it
-    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid) and body.user_prompt:
-        try:
-            save_job_file(body.translate_job_uuid, "prompt.txt", body.user_prompt.encode())
-        except Exception:
-            pass
-
     # PARALLELIZED
     scripts = await _generate_all_scripts(
-        body.slide_texts, kisski_client, user_prompt=body.user_prompt, glossary=glossary_dict
+        body.slide_texts, kisski_client,
+        glossary=glossary_dict, style=body.style,
+        add_greeting=body.add_greeting, add_closing=body.add_closing,
+        min_chars=body.min_chars, max_chars=body.max_chars,
     )
 
     # Save suggested scripts so resume can restore step 5
@@ -1054,6 +1076,35 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
             pass
 
     return {"scripts": scripts}
+
+
+@router.post("/screencast/regenerate-slide-script")
+async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest):
+    """Regenerate the narration script for a single slide via KISSKI LLM.
+
+    Called from Step 5 when the user clicks the AI icon next to a slide.
+    Uses a single LLM call (no batching) so user_prompt is fully reliable.
+    """
+    if not body.slide_text.strip():
+        return {"script": ""}
+
+    from src.services.kisski_client import _SCRIPT_STYLES
+    kisski_client = get_kisski_client()
+
+    style_hint = _SCRIPT_STYLES.get(body.style, "")
+    user_prompt = body.user_prompt
+    if style_hint:
+        user_prompt = f"{style_hint}\n{user_prompt}" if user_prompt else style_hint
+
+    try:
+        script = await asyncio.to_thread(
+            kisski_client.generate_script,
+            body.slide_text, "EN", user_prompt,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=f"Skript-Generierung fehlgeschlagen: {e}")
+
+    return {"script": script}
 
 
 @router.post("/screencast/prerender-images")

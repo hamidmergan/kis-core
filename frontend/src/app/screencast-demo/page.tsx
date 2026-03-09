@@ -109,6 +109,7 @@ function ScreencastDemoPageInner() {
   const [fishSpeechEnabled, setFishSpeechEnabled] = useState(false);
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
   const [providersLoaded, setProvidersLoaded] = useState(false);
+  const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
   const [audioId, setAudioId] = useState<string>("");
   const [audioCount, setAudioCount] = useState(0);
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
@@ -850,16 +851,76 @@ function ScreencastDemoPageInner() {
         {/* ── Step: User Prompt ── */}
         {step === "user-prompt" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Anweisungen für die Skript-Erstellung (optional)</h2>
-            <p className="text-sm text-gray-500 mb-4">Haben Sie spezielle Wünsche für die Skript-Erstellung?</p>
-            <textarea
-              value={userPrompt}
-              onChange={(e) => setUserPrompt(e.target.value)}
-              rows={4}
-              placeholder="z.B. Beende das Skript der letzten Folie mit: Vielen Dank fürs Zuhören."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
-            />
-            <PromptChips onChipClick={(chip) => setUserPrompt((prev) => prev.trim() ? `${prev.trimEnd()}\n- ${chip}` : `- ${chip}`)} />
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Wie sollen die Skripte erstellt werden?</h2>
+
+            {/* ── Script input mode selection ── */}
+            <div className="mt-3 space-y-2">
+              {/* Option: generate (default) */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+                <input
+                  type="radio"
+                  name="scriptInputMode"
+                  value="generate"
+                  checked={scriptInputMode === "generate"}
+                  onChange={() => setScriptInputMode("generate")}
+                  className="mt-0.5 accent-[#0066cc]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">KI-Generierung</span>
+                  <p className="text-xs text-gray-500 mt-0.5">KI erstellt Skripte automatisch basierend auf den Folieninhalten.</p>
+                </div>
+              </label>
+
+              {/* Option: manual */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+                <input
+                  type="radio"
+                  name="scriptInputMode"
+                  value="manual"
+                  checked={scriptInputMode === "manual"}
+                  onChange={() => setScriptInputMode("manual")}
+                  className="mt-0.5 accent-[#0066cc]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Manuell eingeben</span>
+                  <p className="text-xs text-gray-500 mt-0.5">Alle Textfelder bleiben leer – Sie tippen die Skripte selbst ein.</p>
+                </div>
+              </label>
+
+              {/* Option: import JSON */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+                <input
+                  type="radio"
+                  name="scriptInputMode"
+                  value="import"
+                  checked={scriptInputMode === "import"}
+                  onChange={() => setScriptInputMode("import")}
+                  className="mt-0.5 accent-[#0066cc]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Skript importieren</span>
+                  <p className="text-xs text-gray-500 mt-0.5">JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Anweisungen — nur bei KI-Generierung */}
+            {scriptInputMode === "generate" && (
+              <div className="mt-5">
+                <p className="text-sm font-medium text-gray-700 mb-1">
+                  Anweisungen für die Skript-Erstellung <span className="font-normal text-gray-400">(optional)</span>
+                </p>
+                <textarea
+                  value={userPrompt}
+                  onChange={(e) => setUserPrompt(e.target.value)}
+                  rows={4}
+                  placeholder="z.B. Beende das Skript der letzten Folie mit: Vielen Dank fürs Zuhören."
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+                />
+                <PromptChips onChipClick={(chip) => setUserPrompt((prev) => prev.trim() ? `${prev.trimEnd()}\n- ${chip}` : `- ${chip}`)} />
+              </div>
+            )}
+
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleDemoGenerateScripts}

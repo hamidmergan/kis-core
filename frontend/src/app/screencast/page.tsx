@@ -6,7 +6,6 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScreencastStatus from "@/components/ScreencastStatus";
 import GlossarySelector from "@/components/GlossarySelector";
-import PromptChips from "@/components/PromptChips";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, type JobStatus } from "@/lib/api";
 import type {
@@ -155,7 +154,21 @@ function ScreencastPageInner() {
   const [speed, setSpeed] = useState(0.9);
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [dpi, setDpi] = useState(100);
-  const [userPrompt, setUserPrompt] = useState("");
+  const [scriptStyle, setScriptStyle] = useState<"standard" | "professional" | "academic" | "casual">("standard");
+  const [addGreeting, setAddGreeting] = useState(true);
+  const [addClosing, setAddClosing] = useState(true);
+  const [scriptLength, setScriptLength] = useState<"kurz" | "mittel" | "lang" | "sehr-lang">("mittel");
+  const SCRIPT_LENGTH_CHARS: Record<typeof scriptLength, [number, number]> = {
+    "kurz":      [200,  400],
+    "mittel":    [400,  700],
+    "lang":      [700,  1100],
+    "sehr-lang": [1100, 1800],
+  };
+  // Per-slide AI regeneration state
+  const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
+  const [regenPrompt, setRegenPrompt] = useState("");
+  const [regenProposal, setRegenProposal] = useState<string | null>(null);
+  const [regenLoading, setRegenLoading] = useState(false);
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [translateJobUuid, setTranslateJobUuid] = useState("");
@@ -180,10 +193,16 @@ function ScreencastPageInner() {
   const [audioCount, setAudioCount] = useState(0);
   const [sourceLang, setSourceLang] = useState<"DE" | "EN">("DE");
   const [fastMode, setFastMode] = useState(true);
+  const [scriptLengthTooltip, setScriptLengthTooltip] = useState(false);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
   const [isResumedJob, setIsResumedJob] = useState(false);
+
+  // ── Script input mode (user-prompt step) ──
+  const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
+  const [importedScripts, setImportedScripts] = useState<string[] | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const stepperRef = useRef<HTMLElement>(null);
@@ -281,7 +300,6 @@ function ScreencastPageInner() {
       .then((data: { tool: string; step: string; slide_texts: string[]; scripts: string[]; slide_images: string[]; original_filename: string; user_prompt: string }) => {
         setTranslateJobUuid(resumeUuid);
         setIsResumedJob(true);
-        if (data.user_prompt) setUserPrompt(data.user_prompt);
 
         const imgs = data.slide_images ?? [];
         const texts = data.slide_texts ?? [];
@@ -361,7 +379,6 @@ function ScreencastPageInner() {
     setDragOver(false);
     setSpeed(0.9);
     setSlidePause(0.5);
-    setUserPrompt("");
     setGlossaryIds(["", "", ""]);
     setSlides([]);
     setTranslateJobUuid("");
@@ -386,6 +403,9 @@ function ScreencastPageInner() {
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     setMaxReachedIdx(0);
     setSourceLang("DE");
+    setScriptInputMode("generate");
+    setImportedScripts(null);
+    setImportError(null);
     setTtsProvider(kokoroEnabled ? "kokoro" : fishSpeechEnabled ? "fish_speech" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
     if (fileRef.current) fileRef.current.value = "";
   }, [videoUrl, translateJobUuid]);
@@ -727,6 +747,29 @@ function ScreencastPageInner() {
     [goError, translateJobUuid],
   );
 
+  // ── JSON script import handler ──
+  const handleJsonImport = useCallback((file: File) => {
+    setImportError(null);
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      setImportError("Bitte eine gültige JSON-Datei auswählen (.json).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target?.result as string);
+        if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === "string")) {
+          setImportError("Die JSON-Datei muss ein Array von Strings sein, z.B. [\"Skript 1\", \"Skript 2\"].");
+          return;
+        }
+        setImportedScripts(parsed);
+      } catch {
+        setImportError("Ungültige JSON-Datei – Parsing fehlgeschlagen.");
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
   // ── Translation review → Generate scripts ──
   const handleAcceptTranslation = useCallback(async () => {
     if (!await checkJobFolder()) return;
@@ -739,9 +782,13 @@ function ScreencastPageInner() {
         "/api/screencast/generate-scripts",
         {
           slide_texts: slides.map((s) => s.extractedText),
-          user_prompt: userPrompt || null,
           glossary_json: mergeToApiJson(glossaryIds),
           translate_job_uuid: translateJobUuid || null,
+          style: scriptStyle,
+          add_greeting: addGreeting,
+          add_closing: addClosing,
+          min_chars: SCRIPT_LENGTH_CHARS[scriptLength][0],
+          max_chars: SCRIPT_LENGTH_CHARS[scriptLength][1],
         },
         signal,
       );
@@ -758,7 +805,7 @@ function ScreencastPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, userPrompt, glossaryIds, mergeToApiJson, goError, checkJobFolder]);
+  }, [slides, glossaryIds, scriptStyle, addGreeting, addClosing, scriptLength, mergeToApiJson, goError, checkJobFolder]);
 
   // ── Script autosave to bucket (debounced) ──
   const autosaveScripts = useCallback((updatedScripts: string[], accepted = false) => {
@@ -769,7 +816,7 @@ function ScreencastPageInner() {
         fetch(`/api/screencast/scripts/${translateJobUuid}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scripts: updatedScripts, accepted: false, user_prompt: userPrompt || null }),
+          body: JSON.stringify({ scripts: updatedScripts, accepted: false }),
           credentials: "include",
         }).catch(() => {});
       }, 1500);
@@ -777,11 +824,11 @@ function ScreencastPageInner() {
       fetch(`/api/screencast/scripts/${translateJobUuid}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scripts: updatedScripts, accepted: true, user_prompt: userPrompt || null }),
+        body: JSON.stringify({ scripts: updatedScripts, accepted: true }),
         credentials: "include",
       }).catch(() => {});
     }
-  }, [translateJobUuid, userPrompt]);
+  }, [translateJobUuid]);
 
   // ── Accept scripts → TTS settings + fire-and-forget prerender + save ──
   const handleAcceptScripts = useCallback(() => {
@@ -1051,6 +1098,43 @@ function ScreencastPageInner() {
   const cancelEdit = () => {
     setEditingSlide(null);
     setEditBuffer("");
+  };
+
+  // ── Per-slide AI regeneration ──
+  const openRegen = (index: number) => {
+    setRegeneratingSlide(index);
+    setRegenPrompt("");
+    setRegenProposal(null);
+  };
+
+  const closeRegen = () => {
+    setRegeneratingSlide(null);
+    setRegenPrompt("");
+    setRegenProposal(null);
+  };
+
+  const runRegen = async (index: number) => {
+    setRegenLoading(true);
+    setRegenProposal(null);
+    try {
+      const result = await api.postJson<{ script: string }>(
+        "/api/screencast/regenerate-slide-script",
+        { slide_text: slides[index].extractedText, user_prompt: regenPrompt || null, style: scriptStyle },
+      );
+      setRegenProposal(result.script);
+    } catch {
+      setRegenProposal("");
+    } finally {
+      setRegenLoading(false);
+    }
+  };
+
+  const applyRegen = (index: number) => {
+    if (regenProposal === null) return;
+    const updated = slides.map((s, i) => i === index ? { ...s, script: regenProposal } : s);
+    setSlides(updated);
+    autosaveScripts(updated.map((s) => s.script));
+    closeRegen();
   };
 
   // ── Back to script review (from tts-settings) ──
@@ -1450,36 +1534,199 @@ function ScreencastPageInner() {
         {step === "user-prompt" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h2 className="text-lg font-bold text-gray-900 mb-1">
-              Anweisungen für die Skript-Erstellung (optional)
+              Wie sollen die Skripte erstellt werden?
             </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Haben Sie spezielle Wünsche für die Skript-Erstellung?
-            </p>
 
-            <textarea
-              value={userPrompt}
-              onChange={(e) => setUserPrompt(e.target.value)}
-              rows={4}
-              placeholder="z.B. Beende das Skript der letzten Folie mit: Vielen Dank fürs Zuhören."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
-            />
-            <PromptChips
-              onChipClick={(chip) =>
-                setUserPrompt((prev) =>
-                  prev.trim() ? `${prev.trimEnd()}\n- ${chip}` : `- ${chip}`,
-                )
-              }
-            />
+            {/* ── Script input mode selection ── */}
+            <div className="mt-3 space-y-2">
+              {/* Option: generate (default) */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+                <input
+                  type="radio"
+                  name="scriptInputMode"
+                  value="generate"
+                  checked={scriptInputMode === "generate"}
+                  onChange={() => { setScriptInputMode("generate"); setImportedScripts(null); setImportError(null); }}
+                  className="mt-0.5 accent-[#0066cc]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">KI-Generierung</span>
+                  <p className="text-xs text-gray-500 mt-0.5">KI erstellt Skripte automatisch basierend auf den Folieninhalten.</p>
+                </div>
+              </label>
+
+              {/* Option: manual */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+                <input
+                  type="radio"
+                  name="scriptInputMode"
+                  value="manual"
+                  checked={scriptInputMode === "manual"}
+                  onChange={() => { setScriptInputMode("manual"); setImportedScripts(null); setImportError(null); }}
+                  className="mt-0.5 accent-[#0066cc]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900">Manuell eingeben</span>
+                  <p className="text-xs text-gray-500 mt-0.5">Alle Textfelder bleiben leer – Sie tippen die Skripte selbst ein.</p>
+                </div>
+              </label>
+
+              {/* Option: import JSON */}
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+                <input
+                  type="radio"
+                  name="scriptInputMode"
+                  value="import"
+                  checked={scriptInputMode === "import"}
+                  onChange={() => setScriptInputMode("import")}
+                  className="mt-0.5 accent-[#0066cc]"
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">Skript importieren</span>
+                  <p className="text-xs text-gray-500 mt-0.5">JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.</p>
+                  {scriptInputMode === "import" && (
+                    <div className="mt-2">
+                      <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-[#0066cc]/5 cursor-pointer transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        JSON-Datei auswählen
+                        <input
+                          type="file"
+                          accept=".json"
+                          className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleJsonImport(f); }}
+                        />
+                      </label>
+                      {importedScripts && (
+                        <p className="mt-1.5 text-xs text-green-600 flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          {importedScripts.length} Skript{importedScripts.length !== 1 ? "e" : ""} geladen
+                        </p>
+                      )}
+                      {importError && (
+                        <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {importError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+
+            {/* Einstellungen — nur bei KI-Generierung */}
+            {scriptInputMode === "generate" && (
+              <div className="mt-5 space-y-4">
+                {/* Skriptstil */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Skriptstil
+                  </label>
+                  <select
+                    value={scriptStyle}
+                    onChange={(e) => setScriptStyle(e.target.value as typeof scriptStyle)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="professional">Professionell</option>
+                    <option value="academic">Akademisch</option>
+                    <option value="casual">Locker</option>
+                  </select>
+                </div>
+
+                {/* Toggles */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={addGreeting}
+                      onChange={(e) => setAddGreeting(e.target.checked)}
+                      className="w-4 h-4 rounded accent-[#0066cc]"
+                    />
+                    <span className="text-sm text-gray-700">Begrüßung auf erster Folie</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={addClosing}
+                      onChange={(e) => setAddClosing(e.target.checked)}
+                      className="w-4 h-4 rounded accent-[#0066cc]"
+                    />
+                    <span className="text-sm text-gray-700">Abschluss auf letzter Folie</span>
+                  </label>
+                </div>
+
+                {/* Wortanzahl pro Folie */}
+                <div>
+                  <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-2">
+                    Skriptlänge
+                    <span className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setScriptLengthTooltip((v) => !v)}
+                        className="flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                        aria-label="Info"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+                          <path strokeLinecap="round" strokeWidth="2" d="M12 16v-4M12 8h.01"/>
+                        </svg>
+                      </button>
+                      {scriptLengthTooltip && (
+                        <div className="absolute left-0 top-6 z-20 w-72 rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg">
+                          Folien mit sehr wenig Inhalt (z.B. nur ein Titel oder eine Grafik) können kürzer ausfallen als gewählt — das KI-Symbol pro Folie ermöglicht manuelle Nachbearbeitung.
+                          <button
+                            type="button"
+                            onClick={() => setScriptLengthTooltip(false)}
+                            className="ml-2 text-gray-400 hover:text-gray-600"
+                          >✕</button>
+                        </div>
+                      )}
+                    </span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {(["kurz", "mittel", "lang", "sehr-lang"] as const).map((len) => {
+                      const labels: Record<typeof len, string> = { "kurz": "Kurz", "mittel": "Mittel", "lang": "Lang", "sehr-lang": "Sehr lang" };
+                      return (
+                        <button
+                          key={len}
+                          type="button"
+                          onClick={() => setScriptLength(len)}
+                          className={`px-3 py-1 rounded text-sm font-medium border transition-colors ${
+                            scriptLength === len
+                              ? "bg-[#0066cc] text-white border-[#0066cc]"
+                              : "bg-white text-gray-700 border-gray-300 hover:border-[#0066cc] hover:text-[#0066cc]"
+                          }`}
+                        >
+                          {labels[len]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 mt-4">
               <button
-                onClick={handleAcceptTranslation}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Überspringen
-              </button>
-              <button
-                onClick={handleAcceptTranslation}
+                onClick={() => {
+                  if (scriptInputMode === "manual") {
+                    setSlides((prev) => prev.map((s) => ({ ...s, script: "" })));
+                    setStep("script-review");
+                  } else if (scriptInputMode === "import") {
+                    if (!importedScripts) { setImportError("Bitte zuerst eine JSON-Datei auswählen."); return; }
+                    setSlides((prev) => prev.map((s, i) => ({ ...s, script: importedScripts[i] ?? "" })));
+                    setStep("script-review");
+                  } else {
+                    handleAcceptTranslation();
+                  }
+                }}
                 className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
               >
                 Weiter
@@ -1798,28 +2045,29 @@ function ScreencastPageInner() {
                                     ca. {wc} Wörter · ~{dur}{" "}
                                     Sek
                                   </span>
-                                  <button
-                                    onClick={() =>
-                                      startEdit(i)
-                                    }
-                                    className="p-1 text-gray-400 hover:text-[#0066cc] transition-colors"
-                                    aria-label={`Skript für Folie ${i + 1} bearbeiten`}
-                                  >
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                      aria-hidden="true"
+                                  <div className="flex items-center gap-1">
+                                    {/* KI-Regenerierung */}
+                                    <button
+                                      onClick={() => openRegen(i)}
+                                      className="p-1 text-gray-400 hover:text-purple-600 transition-colors"
+                                      aria-label={`Skript für Folie ${i + 1} per KI neu generieren`}
+                                      title="Mit KI neu generieren"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                      />
-                                    </svg>
-                                  </button>
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                                      </svg>
+                                    </button>
+                                    {/* Manuell bearbeiten */}
+                                    <button
+                                      onClick={() => startEdit(i)}
+                                      className="p-1 text-gray-400 hover:text-[#0066cc] transition-colors"
+                                      aria-label={`Skript für Folie ${i + 1} bearbeiten`}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                      </svg>
+                                    </button>
+                                  </div>
                                 </div>
                                 <p className="text-sm font-mono text-gray-700 whitespace-pre-wrap leading-relaxed">
                                   {slide.script || (
@@ -1829,6 +2077,54 @@ function ScreencastPageInner() {
                                     </span>
                                   )}
                                 </p>
+
+                                {/* KI-Regenerierung Inline-UI */}
+                                {regeneratingSlide === i && (
+                                  <div className="mt-3 border border-purple-200 rounded-lg p-3 bg-purple-50 space-y-2">
+                                    <p className="text-xs font-medium text-purple-700">KI-Anweisung für diese Folie (optional)</p>
+                                    <textarea
+                                      value={regenPrompt}
+                                      onChange={(e) => setRegenPrompt(e.target.value)}
+                                      rows={2}
+                                      placeholder="z.B. Erkläre das Konzept vereinfacht für Einsteiger."
+                                      className="w-full rounded-md border border-purple-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white"
+                                    />
+                                    {regenProposal !== null && (
+                                      <div>
+                                        <p className="text-xs font-medium text-purple-700 mb-1">Vorschlag</p>
+                                        <textarea
+                                          value={regenProposal}
+                                          onChange={(e) => setRegenProposal(e.target.value)}
+                                          rows={4}
+                                          className="w-full rounded-md border border-purple-300 px-3 py-2 text-sm font-mono text-gray-900 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white"
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="flex gap-2 justify-end">
+                                      <button
+                                        onClick={closeRegen}
+                                        className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                                      >
+                                        Abbrechen
+                                      </button>
+                                      <button
+                                        onClick={() => runRegen(i)}
+                                        disabled={regenLoading}
+                                        className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                                      >
+                                        {regenLoading ? "Generiere…" : "Generieren"}
+                                      </button>
+                                      {regenProposal !== null && (
+                                        <button
+                                          onClick={() => applyRegen(i)}
+                                          className="px-3 py-1 text-xs bg-[#0066cc] text-white rounded hover:bg-[#0055aa] transition-colors"
+                                        >
+                                          Übernehmen
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
