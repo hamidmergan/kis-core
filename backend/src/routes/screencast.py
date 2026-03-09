@@ -407,13 +407,13 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         cmd = [
             "ffmpeg", "-y",
             "-loop", "1", "-i", str(image_path),
-            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
             "-t", "3",
             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
             "-threads", "2",
             "-crf", str(crf),
-            "-c:a", "aac",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
             "-pix_fmt", "yuv420p",
             str(output_path),
         ]
@@ -430,8 +430,9 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         silence_path = output_path.with_suffix(".silence.mp3")
         cmd_silence = [
             "ffmpeg", "-y", "-f", "lavfi", "-i",
-            f"anullsrc=r=44100:cl=mono",
+            "anullsrc=r=44100:cl=stereo",
             "-t", str(pause),
+            "-ac", "2", "-ar", "44100",
             "-c:a", "libmp3lame", str(silence_path),
         ]
         subprocess.run(cmd_silence, capture_output=True, text=True, timeout=30)
@@ -462,7 +463,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
         "-threads", "2",
-        "-c:a", "aac", "-b:a", "192k",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
         "-crf", str(crf),
         "-pix_fmt", "yuv420p",
         str(output_path),

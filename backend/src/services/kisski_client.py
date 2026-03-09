@@ -365,10 +365,13 @@ class KisskiClient:
         batch_size = len(batch_texts)
 
         # Build input: raw content blocks separated by ===
-        slides_input = "\n===\n".join(
-            text.strip() if text.strip() else "[empty]"
-            for text in batch_texts
-        )
+        annotated: list[str] = []
+        for j, text in enumerate(batch_texts):
+            content = text.strip() if text.strip() else "[empty]"
+            if is_first_batch and add_greeting and j == 0:
+                content = "[First slide – open with a greeting]\n" + content
+            annotated.append(content)
+        slides_input = "\n===\n".join(annotated)
 
         # Build system prompt
         glossary_hint = ""
@@ -377,13 +380,12 @@ class KisskiClient:
             glossary_hint = f"Use the following terminology consistently in your output:\n{lines}\n\n"
 
         greeting_rule = (
-            "- The first content block opens the presentation. Begin its script with a time-neutral greeting such as 'Welcome' or 'Hello everyone' – never use time-specific phrases like 'Good morning' or 'Good evening'.\n"
+            "- The block marked [First slide] opens the presentation. Begin its script with a time-neutral greeting such as 'Welcome' or 'Hello everyone' – never use time-specific phrases like 'Good morning' or 'Good evening'.\n"
             if (is_first_batch and add_greeting) else
             "- Do not use any greeting or welcome phrase.\n"
         )
         closing_rule = (
-            "- The last content block closes the presentation. End its script with a brief neutral closing such as 'Thank you for your attention' or 'Thanks for watching' – no time-specific phrases.\n"
-            if (is_last_batch and add_closing) else
+            "" if (is_last_batch and add_closing) else
             "- Do not add any closing statement or thank-you.\n"
         )
         style_rule = f"- {_SCRIPT_STYLES[style]}\n" if _SCRIPT_STYLES.get(style) else ""
@@ -527,6 +529,15 @@ class KisskiClient:
         ordered: list[str] = []
         for idx in range(batch_count):
             ordered.extend(results[idx])
+
+        # Ensure closing is appended to the last non-empty script
+        if add_closing:
+            _CLOSING_PHRASES = ("thank you", "thanks for", "thanks everyone", "that's all")
+            for i in range(len(ordered) - 1, -1, -1):
+                if ordered[i].strip():
+                    if not any(p in ordered[i].lower() for p in _CLOSING_PHRASES):
+                        ordered[i] = ordered[i].rstrip().rstrip(".") + ". Thank you for your attention."
+                    break
 
         return ordered
 

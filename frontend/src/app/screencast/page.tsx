@@ -194,6 +194,12 @@ function ScreencastPageInner() {
   const [sourceLang, setSourceLang] = useState<"DE" | "EN">("DE");
   const [fastMode, setFastMode] = useState(true);
   const [scriptLengthTooltip, setScriptLengthTooltip] = useState(false);
+  useEffect(() => {
+    if (!scriptLengthTooltip) return;
+    const close = () => setScriptLengthTooltip(false);
+    const timer = setTimeout(() => document.addEventListener("click", close), 0);
+    return () => { clearTimeout(timer); document.removeEventListener("click", close); };
+  }, [scriptLengthTooltip]);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
@@ -1684,12 +1690,9 @@ function ScreencastPageInner() {
                         </svg>
                       </button>
                       {scriptLengthTooltip && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={() => setScriptLengthTooltip(false)} />
-                          <div className="absolute left-0 top-6 z-20 w-64 rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg">
-                            Folien mit sehr wenig Inhalt können kürzer ausfallen als gewählt.
-                          </div>
-                        </>
+                        <div className="absolute left-0 top-6 z-20 w-64 rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg">
+                          Folien mit sehr wenig Inhalt können kürzer ausfallen als gewählt.
+                        </div>
                       )}
                     </span>
                   </label>
