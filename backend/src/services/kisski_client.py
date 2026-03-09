@@ -292,6 +292,62 @@ class KisskiClient:
                 raise
             raise RuntimeError(f"KISSKI API Fehler: {e}") from e
 
+    def refine_script(
+        self,
+        user_prompt: str,
+        current_script: str = "",
+        slide_text: str = "",
+        style: str = "standard",
+    ) -> str:
+        """Refine or create a narration script for a single slide based on a user instruction.
+
+        Uses the current script as the base if provided, otherwise falls back to slide_text.
+        No length or format constraints — follows the user instruction freely.
+        """
+        style_hint = _SCRIPT_STYLES.get(style, "")
+
+        system_prompt = (
+            "You are an expert editor of spoken narration scripts for presentations. "
+            "Output ONLY the final script text — no explanations, no labels, no prefixes. "
+            "The script must be in English, spoken-style, natural and conversational. "
+            "No semicolons, no dashes — use only periods and commas.\n"
+        )
+        if style_hint:
+            system_prompt += f"Style: {style_hint}\n"
+
+        if current_script.strip():
+            user_message = (
+                f"Current script:\n{current_script.strip()}\n\n"
+                f"Instruction: {user_prompt.strip()}"
+            )
+        elif slide_text.strip():
+            user_message = (
+                f"Slide content:\n{slide_text.strip()}\n\n"
+                f"Instruction: {user_prompt.strip()}"
+            )
+        else:
+            user_message = f"Instruction: {user_prompt.strip()}"
+
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=0.4,
+                max_tokens=800,
+                extra_body=self._extra_body or None,
+            )
+            content = response.choices[0].message.content
+            if content is None:
+                raise RuntimeError("LLM returned empty response")
+            return content.strip()
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise
+            raise RuntimeError(f"KISSKI API Fehler: {e}") from e
+
     def _generate_scripts_single_batch(
         self,
         batch_texts: list[str],

@@ -1119,7 +1119,12 @@ function ScreencastPageInner() {
     try {
       const result = await api.postJson<{ script: string }>(
         "/api/screencast/regenerate-slide-script",
-        { slide_text: slides[index].extractedText, user_prompt: regenPrompt || null, style: scriptStyle },
+        {
+          slide_text: slides[index].extractedText,
+          current_script: slides[index].script || "",
+          user_prompt: regenPrompt || null,
+          style: scriptStyle,
+        },
       );
       setRegenProposal(result.script);
     } catch {
@@ -1679,14 +1684,12 @@ function ScreencastPageInner() {
                         </svg>
                       </button>
                       {scriptLengthTooltip && (
-                        <div className="absolute left-0 top-6 z-20 w-72 rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg">
-                          Folien mit sehr wenig Inhalt (z.B. nur ein Titel oder eine Grafik) können kürzer ausfallen als gewählt — das KI-Symbol pro Folie ermöglicht manuelle Nachbearbeitung.
-                          <button
-                            type="button"
-                            onClick={() => setScriptLengthTooltip(false)}
-                            className="ml-2 text-gray-400 hover:text-gray-600"
-                          >✕</button>
-                        </div>
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setScriptLengthTooltip(false)} />
+                          <div className="absolute left-0 top-6 z-20 w-64 rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg">
+                            Folien mit sehr wenig Inhalt können kürzer ausfallen als gewählt.
+                          </div>
+                        </>
                       )}
                     </span>
                   </label>
@@ -2089,17 +2092,6 @@ function ScreencastPageInner() {
                                       placeholder="z.B. Erkläre das Konzept vereinfacht für Einsteiger."
                                       className="w-full rounded-md border border-purple-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white"
                                     />
-                                    {regenProposal !== null && (
-                                      <div>
-                                        <p className="text-xs font-medium text-purple-700 mb-1">Vorschlag</p>
-                                        <textarea
-                                          value={regenProposal}
-                                          onChange={(e) => setRegenProposal(e.target.value)}
-                                          rows={4}
-                                          className="w-full rounded-md border border-purple-300 px-3 py-2 text-sm font-mono text-gray-900 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white"
-                                        />
-                                      </div>
-                                    )}
                                     <div className="flex gap-2 justify-end">
                                       <button
                                         onClick={closeRegen}
@@ -2114,15 +2106,26 @@ function ScreencastPageInner() {
                                       >
                                         {regenLoading ? "Generiere…" : "Generieren"}
                                       </button>
-                                      {regenProposal !== null && (
-                                        <button
-                                          onClick={() => applyRegen(i)}
-                                          className="px-3 py-1 text-xs bg-[#0066cc] text-white rounded hover:bg-[#0055aa] transition-colors"
-                                        >
-                                          Übernehmen
-                                        </button>
-                                      )}
                                     </div>
+                                    {regenProposal !== null && (
+                                      <div>
+                                        <p className="text-xs font-medium text-purple-700 mb-1">Vorschlag</p>
+                                        <textarea
+                                          value={regenProposal}
+                                          onChange={(e) => setRegenProposal(e.target.value)}
+                                          rows={4}
+                                          className="w-full rounded-md border border-purple-300 px-3 py-2 text-sm font-mono text-gray-900 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white"
+                                        />
+                                        <div className="flex justify-end mt-2">
+                                          <button
+                                            onClick={() => applyRegen(i)}
+                                            className="px-3 py-1 text-xs bg-[#0066cc] text-white rounded hover:bg-[#0055aa] transition-colors"
+                                          >
+                                            Übernehmen
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </>

@@ -114,7 +114,8 @@ class GenerateScriptsRequest(BaseModel):
 
 
 class RegenerateSlideScriptRequest(BaseModel):
-    slide_text: str
+    slide_text: str = ""
+    current_script: str | None = None
     user_prompt: str | None = None
     style: str = "standard"
 
@@ -1085,21 +1086,24 @@ async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest)
     Called from Step 5 when the user clicks the AI icon next to a slide.
     Uses a single LLM call (no batching) so user_prompt is fully reliable.
     """
-    if not body.slide_text.strip():
+    # Need at least one source of input
+    has_content = (
+        body.slide_text.strip()
+        or (body.current_script or "").strip()
+        or (body.user_prompt or "").strip()
+    )
+    if not has_content:
         return {"script": ""}
 
-    from src.services.kisski_client import _SCRIPT_STYLES
     kisski_client = get_kisski_client()
-
-    style_hint = _SCRIPT_STYLES.get(body.style, "")
-    user_prompt = body.user_prompt
-    if style_hint:
-        user_prompt = f"{style_hint}\n{user_prompt}" if user_prompt else style_hint
 
     try:
         script = await asyncio.to_thread(
-            kisski_client.generate_script,
-            body.slide_text, "EN", user_prompt,
+            kisski_client.refine_script,
+            body.user_prompt or "",
+            body.current_script or "",
+            body.slide_text,
+            body.style,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"Skript-Generierung fehlgeschlagen: {e}")
