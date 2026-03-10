@@ -6,7 +6,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import FileUpload from "@/components/FileUpload";
 import GlossarySelector from "@/components/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
-import { api, pollJob, downloadJobAsBlob } from "@/lib/api";
+import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 
 export default function UebersetzungPage() {
   const { mergeToApiJson } = useGlossaries();
@@ -40,7 +40,7 @@ export default function UebersetzungPage() {
       const response = await api.fetch("/translate", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(err.detail || `Fehler: ${response.status}`);
+        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));

@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TtsFileUpload from "@/components/TtsFileUpload";
 import TtsStatus from "@/components/TtsStatus";
-import { api, pollJob, downloadJobAsBlob } from "@/lib/api";
+import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import type { TTSState } from "@/types";
 
 interface Voice {
@@ -182,7 +182,7 @@ export default function TtsPage() {
       });
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
-        throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
+        throw new Error(parseDetail(err.detail, `Fehler: ${uploadRes.status}`));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;

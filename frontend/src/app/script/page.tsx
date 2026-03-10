@@ -7,7 +7,7 @@ import ScriptFileUpload from "@/components/ScriptFileUpload";
 import GlossarySelector from "@/components/GlossarySelector";
 import PromptChips from "@/components/PromptChips";
 import { useGlossaries } from "@/hooks/useGlossaries";
-import { api, pollJob, downloadJobAsBlob } from "@/lib/api";
+import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 
 export default function SkriptPage() {
     const { mergeToApiJson } = useGlossaries();
@@ -44,7 +44,7 @@ export default function SkriptPage() {
             const response = await api.fetch("/api/script", { method: "POST", body: formData });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-                throw new Error(error.detail || `Fehler: ${response.status}`);
+                throw new Error(parseDetail(error.detail, `Fehler: ${response.status}`));
             }
             const data = await response.json();
             window.dispatchEvent(new Event("kis-jobs-changed"));

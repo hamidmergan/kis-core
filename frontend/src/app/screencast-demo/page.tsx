@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PromptChips from "@/components/PromptChips";
-import { api, pollJob, downloadJobAsBlob, type JobStatus } from "@/lib/api";
+import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
 import type { ScreencastStep, SlideData } from "@/types";
 
 interface Voice {
@@ -86,7 +86,7 @@ const SCREENCAST_MAX_CHARS = 100_000;
 function ScreencastDemoPageInner() {
   const [step, setStep] = useState<ScreencastStep>("upload");
   const [fastMode, setFastMode] = useState(true);
-  const [dpi, setDpi] = useState(100);
+  const [dpi, setDpi] = useState(144);
   const [speed, setSpeed] = useState(0.9);
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [userPrompt, setUserPrompt] = useState("");
@@ -322,7 +322,7 @@ function ScreencastDemoPageInner() {
   const processRenderResponse = useCallback(async (response: Response) => {
     if (!response.ok) {
       const err = await response.json().catch(() => ({ detail: "Render-Fehler" }));
-      throw new Error(err.detail || `Fehler: ${response.status}`);
+      throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
     }
     const blob = await response.blob();
     const aId = response.headers.get("X-Audio-Id");
@@ -438,7 +438,7 @@ function ScreencastDemoPageInner() {
         });
         if (!response.ok) {
           const err = await response.json().catch(() => ({ detail: "Fehler beim Hochladen" }));
-          throw new Error(err.detail || `Fehler: ${response.status}`);
+          throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
         }
         const data: { slide_texts: string[]; slide_images: string[] } = await response.json();
         setSlides(
@@ -489,7 +489,7 @@ function ScreencastDemoPageInner() {
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: "Demo-Fehler" }));
-        throw new Error(err.detail || `Fehler: ${response.status}`);
+        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
       }
       const contentType = response.headers.get("Content-Type") ?? "";
       if (contentType.includes("application/json")) {
@@ -526,7 +526,7 @@ function ScreencastDemoPageInner() {
         }
       } else if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Retry fehlgeschlagen" }));
-        throw new Error(err.detail || "Retry fehlgeschlagen");
+        throw new Error(parseDetail(err.detail, "Retry fehlgeschlagen"));
       }
       setRenderProgressLabel("In der Warteschlange…");
       currentJobUuidRef.current = uuid;
@@ -1269,17 +1269,24 @@ function ScreencastDemoPageInner() {
               <p className="text-sm font-medium text-gray-700">Bildqualität</p>
               <div className="flex flex-col gap-2">
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="radio" name="dpi" value={100} checked={dpi === 100} onChange={() => setDpi(100)} className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
+                  <input type="radio" name="dpi" value={96} checked={dpi === 96} onChange={() => setDpi(96)} className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
                   <div>
-                    <span className="text-sm font-medium text-gray-700">100 DPI – Standard</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Moodle-Standard (~720p), empfohlen</p>
+                    <span className="text-sm font-medium text-gray-700">96 DPI – Geringe Qualität</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Schnellere Verarbeitung, geringere Bildschärfe</p>
                   </div>
                 </label>
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="radio" name="dpi" value={150} checked={dpi === 150} onChange={() => setDpi(150)} className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
+                  <input type="radio" name="dpi" value={144} checked={dpi === 144} onChange={() => setDpi(144)} className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
                   <div>
-                    <span className="text-sm font-medium text-gray-700">150 DPI – Bessere Qualität</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Schärfere Bilder, ca. doppelte Bearbeitungszeit</p>
+                    <span className="text-sm font-medium text-gray-700">144 DPI – Standard</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Empfohlen, gute Bildqualität</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="radio" name="dpi" value={300} checked={dpi === 300} onChange={() => setDpi(300)} className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">300 DPI – Maximale Qualität</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit</p>
                   </div>
                 </label>
               </div>

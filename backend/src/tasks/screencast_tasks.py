@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -13,9 +14,39 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import delete_file, get_file, get_job_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
+from src.limits import (
+    SCREENCAST_SOFT_TIME_LIMIT,
+    SCREENCAST_TIME_LIMIT,
+    SCREENCAST_AUTO_SOFT_TIME_LIMIT,
+    SCREENCAST_AUTO_TIME_LIMIT,
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
+class _JobCancelled(Exception):
+    """Raised when the user clicked Abbrechen (Redis cancel flag is set)."""
+
+
+def _assert_not_cancelled(job_uuid: str) -> None:
+    """Raise _JobCancelled if a Redis cancel flag exists for this job."""
+    cancelled = False
+    try:
+        import redis as _redis
+        _r = _redis.from_url("redis://kis-redis:6379/0")
+        cancelled = bool(_r.exists(f"job:cancel:{job_uuid}"))
+        logger.debug("Cancel check for {}: cancelled={}", job_uuid[:8], cancelled)
+    except Exception as e:
+        logger.warning("Cancel check Redis error: {}", e)
+    if cancelled:
+        logger.info("Job {} cancelled — killing active procs", job_uuid[:8])
+        try:
+            from src.routes.screencast import kill_job_procs
+            kill_job_procs(job_uuid)
+        except Exception as e:
+            logger.warning("kill_job_procs error: {}", e)
+        raise _JobCancelled()
+
 
 def _get_screencast_helpers():
     """Import screencast helpers lazily to avoid circular imports."""
@@ -98,9 +129,42 @@ def _run_render_pipeline(
     }).encode())
     save_job_file(job_uuid, "render_scripts.json", json.dumps(scripts).encode())
 
+    # Check cancel flag before starting — catches cancels that arrived while
+    # the task was queued or being restarted after a SIGTERM (acks_late requeue).
+    _assert_not_cancelled(job_uuid)
+
     db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    # Watcher thread: runs for the ENTIRE pipeline (images + TTS + video clips)
+    # Checks Redis cancel flag every 0.5s and kills active ffmpeg processes immediately.
+    _stop_watcher = threading.Event()
+    _cancelled_by_watcher = threading.Event()
+
+    def _cancel_watcher() -> None:
+        try:
+            import redis as _redis
+            _r = _redis.from_url("redis://kis-redis:6379/0")
+            logger.debug("Cancel watcher started for {}", job_uuid[:8])
+            check_count = 0
+            while not _stop_watcher.wait(0.5):
+                check_count += 1
+                exists = bool(_r.exists(f"job:cancel:{job_uuid}"))
+                if check_count % 10 == 0:  # every 5 seconds
+                    logger.debug("Cancel watcher [{}] check #{}: cancelled={}", job_uuid[:8], check_count, exists)
+                if exists:
+                    logger.info("Cancel watcher: killing procs for {}", job_uuid[:8])
+                    _cancelled_by_watcher.set()
+                    from src.routes.screencast import kill_job_procs
+                    kill_job_procs(job_uuid)
+                    break
+            logger.debug("Cancel watcher stopped for {} after {} checks", job_uuid[:8], check_count)
+        except Exception as e:
+            logger.warning("Cancel watcher error: {}", e)
+
+    threading.Thread(target=_cancel_watcher, daemon=True, name=f"cancel-{job_uuid[:8]}").start()
+
+    try:
+      with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
 
         # ── Slide images ──────────────────────────────────────────────────
@@ -121,10 +185,17 @@ def _run_render_pipeline(
                 img_dir.mkdir()
                 slide_images = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir, dpi))
 
+        _assert_not_cancelled(job_uuid)
+        if _cancelled_by_watcher.is_set():
+            raise _JobCancelled()
+
         # ── TTS ───────────────────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": 0, "total": len(scripts)})
 
         def _tts_progress(current: int, total: int) -> None:
+            if _cancelled_by_watcher.is_set():
+                raise _JobCancelled()
+            _assert_not_cancelled(job_uuid)
             db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": current, "total": total})
 
         tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid))
@@ -135,23 +206,39 @@ def _run_render_pipeline(
         if num_slides == 0:
             raise RuntimeError("Keine Slides verarbeitet")
 
+        _assert_not_cancelled(job_uuid)
+        if _cancelled_by_watcher.is_set():
+            raise _JobCancelled()
+
         # ── Video clips (parallel) ────────────────────────────────────────
         db.set_render_started_at(job_uuid)
         clip_paths: list[Path] = [tmp / f"clip_{i:03d}.mp4" for i in range(num_slides)]
 
         def _render_clip_normal(i: int) -> None:
-            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[i], pause=slide_pause, crf=23)
+            _create_slide_video(slide_images[i], audio_paths[i], clip_paths[i], pause=slide_pause, crf=23, job_uuid=job_uuid)
 
         db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": num_slides})
         with ThreadPoolExecutor(max_workers=max(1, os.cpu_count() // 2)) as executor:
             futures = {executor.submit(_render_clip_normal, i): i for i in range(num_slides)}
             completed = 0
             for future in as_completed(futures):
-                future.result()
+                try:
+                    future.result()
+                except Exception:
+                    # If watcher killed ffmpeg, convert to _JobCancelled
+                    if _cancelled_by_watcher.is_set():
+                        raise _JobCancelled()
+                    raise
                 completed += 1
                 db.update_job_status(job_uuid, "running", progress={"step": "video", "current": completed, "total": num_slides})
+                if _cancelled_by_watcher.is_set():
+                    raise _JobCancelled()
+                _assert_not_cancelled(job_uuid)
 
         # ── Concatenate ───────────────────────────────────────────────────
+        _assert_not_cancelled(job_uuid)
+        if _cancelled_by_watcher.is_set():
+            raise _JobCancelled()
         db.update_job_status(job_uuid, "running", progress={"step": "concat"})
         concat_path = tmp / "concat.mp4"
         _concatenate_videos(clip_paths, concat_path)
@@ -174,6 +261,9 @@ def _run_render_pipeline(
             "audio_count": num_slides,
         }
         save_result_meta(job_uuid, meta)
+
+    finally:
+        _stop_watcher.set()
 
     # Clean up pre-rendered images after successful render
     prerendered_dir = IMAGE_TMP_DIR / job_uuid
@@ -275,8 +365,8 @@ def run_screencast_translate(
     queue="screencast",
     acks_late=True,
     max_retries=7,
-    soft_time_limit=3600,   # 60 min: raises SoftTimeLimitExceeded → graceful DB update
-    time_limit=3720,        # 62 min: SIGKILL fallback if cleanup stalls
+    soft_time_limit=SCREENCAST_SOFT_TIME_LIMIT,
+    time_limit=SCREENCAST_TIME_LIMIT,
 )
 def run_screencast_render(
     self,
@@ -318,6 +408,10 @@ def run_screencast_render(
 
         logger.info("Screencast render task {} completed", translate_job_uuid)
 
+    except _JobCancelled:
+        logger.info("Screencast render task {} cancelled by user", translate_job_uuid)
+        db.reset_job_to_awaiting(translate_job_uuid)
+
     except SoftTimeLimitExceeded:
         # Soft limit reached — mark as failed with a friendly message and return
         # cleanly so the hard SIGKILL never fires.
@@ -335,8 +429,8 @@ def run_screencast_render(
     name="screencast.auto",
     queue="screencast",
     acks_late=True,
-    soft_time_limit=7200,   # 2 h: translate + scripts + TTS + render
-    time_limit=7320,        # 2 h 2 min: SIGKILL fallback
+    soft_time_limit=SCREENCAST_AUTO_SOFT_TIME_LIMIT,
+    time_limit=SCREENCAST_AUTO_TIME_LIMIT,
 )
 def run_screencast_auto(
     self,

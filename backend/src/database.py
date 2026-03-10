@@ -29,12 +29,7 @@ def _notify_job_update(job_uuid: str) -> None:
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 
-# Maximum number of stored result files per user (across all tools).
-# When a new result is saved and the limit is exceeded,
-# the oldest file is deleted from disk (DB record is kept).
-MAX_RESULT_FILES = 20
-
-JOB_RETENTION_HOURS = 168  # 7 days
+from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS  # noqa: E402
 
 _pool: psycopg2.pool.ThreadedConnectionPool | None = None
 
@@ -123,6 +118,34 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     key        TEXT NOT NULL UNIQUE,
                     value      TEXT NOT NULL,
                     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_quotas (
+                    id                SERIAL PRIMARY KEY,
+                    user_id           INTEGER NOT NULL,
+                    quota_type        TEXT NOT NULL,
+                    used              INTEGER NOT NULL DEFAULT 0,
+                    window_started_at TIMESTAMP,
+                    reset_at          TIMESTAMP,
+                    updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+                    UNIQUE (user_id, quota_type)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_quota_overrides (
+                    id          SERIAL PRIMARY KEY,
+                    user_id     INTEGER NOT NULL,
+                    quota_type  TEXT NOT NULL,
+                    limit_value INTEGER NOT NULL,
+                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    UNIQUE (user_id, quota_type)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_quota_resets (
+                    user_id  INTEGER PRIMARY KEY,
+                    reset_at TIMESTAMP NOT NULL
                 )
             """)
             if admin_email and admin_email.strip():
@@ -354,17 +377,78 @@ def delete_job(job_uuid: str) -> dict | None:
 
 
 def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
-    """Return True if the user has a pending/running job for any of the given tools."""
+    """Return True if the user has a pending/running/awaiting_user job for any of the given tools."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """SELECT 1 FROM jobs
                    WHERE user_id = %s AND tool = ANY(%s)
-                   AND status IN ('pending', 'running')
+                   AND status IN ('pending', 'running', 'awaiting_user')
                    LIMIT 1""",
                 (user_id, tools),
             )
             return cur.fetchone() is not None
+
+
+def set_generating_scripts_flag(job_uuid: str, generating: bool) -> None:
+    """Merge or remove the 'generating_scripts' marker in the job's progress JSON.
+
+    Used to signal My Jobs that the resume button should be hidden while
+    script generation is in progress.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT progress FROM jobs WHERE job_uuid = %s", (job_uuid,))
+            row = cur.fetchone()
+            if row is None:
+                return
+            try:
+                progress = json.loads(row[0] or "{}")
+            except Exception:
+                progress = {}
+            if generating:
+                progress["generating_scripts"] = True
+            else:
+                progress.pop("generating_scripts", None)
+            cur.execute(
+                "UPDATE jobs SET progress = %s WHERE job_uuid = %s",
+                (json.dumps(progress), job_uuid),
+            )
+        conn.commit()
+    _notify_job_update(job_uuid)
+
+
+def transition_job_to_pending(
+    job_uuid: str,
+    user_id: int,
+    from_statuses: tuple = ("awaiting_user",),
+) -> bool:
+    """Atomically transition a job to 'pending' from one of the allowed source statuses.
+
+    Uses SELECT FOR UPDATE to prevent race conditions when multiple tabs
+    submit the same job simultaneously.
+
+    Returns True if the transition succeeded (this caller owns the job),
+    False if another request already transitioned it (status not in from_statuses).
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT status FROM jobs
+                   WHERE job_uuid = %s AND user_id = %s
+                   FOR UPDATE""",
+                (job_uuid, user_id),
+            )
+            row = cur.fetchone()
+            if row is None or row[0] not in from_statuses:
+                conn.rollback()
+                return False
+            cur.execute(
+                "UPDATE jobs SET status = 'pending' WHERE job_uuid = %s",
+                (job_uuid,),
+            )
+        conn.commit()
+    return True
 
 
 def get_all_results_for_user(user_id: int) -> list[dict]:
@@ -531,7 +615,7 @@ def update_job_status(
                        SET status = %s, error_message = %s, progress = %s,
                            progress_updated_at = %s,
                            started_at = COALESCE(started_at, %s)
-                       WHERE job_uuid = %s""",
+                       WHERE job_uuid = %s AND status != 'awaiting_user'""",
                     (status, error_message, progress_json, now, now, job_uuid),
                 )
             elif status in ("success", "failed"):
@@ -539,7 +623,7 @@ def update_job_status(
                     """UPDATE jobs
                        SET status = %s, error_message = %s, progress = %s,
                            progress_updated_at = %s, completed_at = %s
-                       WHERE job_uuid = %s""",
+                       WHERE job_uuid = %s AND status != 'awaiting_user'""",
                     (status, error_message, progress_json, now, now, job_uuid),
                 )
             else:
@@ -553,6 +637,22 @@ def update_job_status(
         conn.commit()
     if status in ("success", "failed", "awaiting_user"):
         _notify_job_update(job_uuid)
+
+
+def reset_job_to_awaiting(job_uuid: str) -> None:
+    """Stop a running render: set status back to awaiting_user, clear task ID and progress."""
+    now = datetime.now(timezone.utc)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE jobs
+                   SET status = 'awaiting_user', celery_task_id = NULL,
+                       progress = NULL, progress_updated_at = %s
+                   WHERE job_uuid = %s""",
+                (now, job_uuid),
+            )
+        conn.commit()
+    _notify_job_update(job_uuid)
 
 
 def set_render_started_at(job_uuid: str) -> None:
@@ -697,3 +797,126 @@ def get_stuck_running_jobs(threshold_minutes: int = 20) -> list[dict]:
             )
             rows = cur.fetchall()
         return [dict(row) for row in rows]
+
+
+# --- Quota ---
+
+def quota_get_override(user_id: int, quota_type: str) -> Optional[int]:
+    """Return per-user override limit, or None if no override exists."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT limit_value FROM user_quota_overrides WHERE user_id = %s AND quota_type = %s",
+                (user_id, quota_type),
+            )
+            row = cur.fetchone()
+    return row[0] if row else None
+
+
+def quota_set_override(user_id: int, quota_type: str, limit_value: int) -> None:
+    """Upsert a per-user override. limit_value=-1 means unlimited."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO user_quota_overrides (user_id, quota_type, limit_value)
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (user_id, quota_type)
+                   DO UPDATE SET limit_value = EXCLUDED.limit_value, updated_at = NOW()""",
+                (user_id, quota_type, limit_value),
+            )
+        conn.commit()
+
+
+def quota_remove_override(user_id: int, quota_type: str) -> None:
+    """Remove a per-user override so the user falls back to the global default."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM user_quota_overrides WHERE user_id = %s AND quota_type = %s",
+                (user_id, quota_type),
+            )
+        conn.commit()
+
+
+def quota_reset(user_id: int, quota_type: str) -> None:
+    """Admin: immediately zero a user's quota counter and clear the global reset timer."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE user_quotas
+                   SET used = 0, window_started_at = NULL, reset_at = NULL, updated_at = NOW()
+                   WHERE user_id = %s AND quota_type = %s""",
+                (user_id, quota_type),
+            )
+            cur.execute(
+                "DELETE FROM user_quota_resets WHERE user_id = %s",
+                (user_id,),
+            )
+        conn.commit()
+
+
+def quota_get_all_for_user(user_id: int) -> tuple[list[dict], Optional[datetime]]:
+    """Return all quota rows for a user (used, reset_at, override if any) plus the global reset_at."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT
+                     COALESCE(q.quota_type, o.quota_type) AS quota_type,
+                     COALESCE(q.used, 0)                  AS used,
+                     q.reset_at,
+                     o.limit_value                        AS override
+                   FROM user_quotas q
+                   FULL OUTER JOIN user_quota_overrides o
+                     ON o.user_id = q.user_id AND o.quota_type = q.quota_type
+                   WHERE COALESCE(q.user_id, o.user_id) = %s""",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+            cur.execute(
+                "SELECT reset_at FROM user_quota_resets WHERE user_id = %s",
+                (user_id,),
+            )
+            gr = cur.fetchone()
+            global_reset_at: Optional[datetime] = gr["reset_at"] if gr else None
+    return [dict(row) for row in rows], global_reset_at
+
+
+def quota_get_all_users_usage() -> list[dict]:
+    """Admin: return all users with any quota activity, joined with display name."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT u.id AS user_id, u.ldap_username, u.display_name,
+                          q.quota_type, q.used, q.reset_at, o.limit_value AS override
+                   FROM user_quotas q
+                   JOIN users u ON u.id = q.user_id
+                   LEFT JOIN user_quota_overrides o
+                     ON o.user_id = q.user_id AND o.quota_type = q.quota_type
+                   WHERE q.used > 0 OR o.limit_value IS NOT NULL
+                   ORDER BY u.display_name, q.quota_type"""
+            )
+            rows = cur.fetchall()
+            cur.execute("SELECT user_id, reset_at FROM user_quota_resets")
+            global_resets = cur.fetchall()
+    result = [dict(row) for row in rows]
+    resets_by_uid = {gr["user_id"]: gr["reset_at"] for gr in global_resets}
+    for row in result:
+        uid = row["user_id"]
+        gr_at = resets_by_uid.get(uid)
+        row["global_reset_at"] = gr_at.isoformat() if gr_at else None
+    return result
+
+
+def quota_get_all_overrides() -> list[dict]:
+    """Return all override rows with user display name."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT u.id AS user_id, u.ldap_username, u.display_name,
+                          o.quota_type, o.limit_value
+                   FROM user_quota_overrides o
+                   JOIN users u ON u.id = o.user_id
+                   ORDER BY u.display_name, o.quota_type"""
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]

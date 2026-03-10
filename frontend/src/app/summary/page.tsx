@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PromptChips from "@/components/PromptChips";
-import { backendApi, pollJob, downloadJobAsBlob } from "@/lib/api";
+import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 
 const ACCEPTED_EXTENSIONS = [".mp3", ".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
@@ -85,7 +85,7 @@ export default function ZusammenfassungPage() {
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(err.detail || `Fehler: ${response.status}`);
+        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));

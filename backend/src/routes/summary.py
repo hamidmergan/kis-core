@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, is_admin_user
+from src.quotas import enforce_quota
 from src.storage import save_queue_file
 from src.utils.file_validation import (
     MAX_TRANSCRIPTION_BYTES,
@@ -74,6 +75,7 @@ async def summarize(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_quota(user_id, "summary", is_admin_user(current_user))
 
     db.create_job(job_uuid, user_id, "summary", file.filename)
     input_path = save_queue_file(job_uuid, ext, content)

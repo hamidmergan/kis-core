@@ -7,7 +7,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import ScreencastStatus from "@/components/ScreencastStatus";
 import GlossarySelector from "@/components/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
-import { api, pollJob, downloadJobAsBlob, type JobStatus } from "@/lib/api";
+import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
 import type {
   ScreencastState,
   ScreencastStep,
@@ -144,6 +144,7 @@ function ScreencastPageInner() {
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const [failedRenderJobUuid, setFailedRenderJobUuid] = useState<string | null>(null);
   const [failedRenderIsAuto, setFailedRenderIsAuto] = useState(false);
+  const [ttsSettingsError, setTtsSettingsError] = useState("");
 
   // ── Step-by-step state ──
   const [step, setStep] = useState<ScreencastStep>("upload");
@@ -153,7 +154,7 @@ function ScreencastPageInner() {
   const [dragOver, setDragOver] = useState(false);
   const [speed, setSpeed] = useState(0.9);
   const [slidePause, setSlidePause] = useState<number>(0.5);
-  const [dpi, setDpi] = useState(100);
+  const [dpi, setDpi] = useState(144);
   const [scriptStyle, setScriptStyle] = useState<"standard" | "professional" | "academic" | "casual">("standard");
   const [addGreeting, setAddGreeting] = useState(true);
   const [addClosing, setAddClosing] = useState(true);
@@ -219,6 +220,7 @@ function ScreencastPageInner() {
   const dragStartXRef = useRef(0);
   const dragScrollLeftRef = useRef(0);
   const scriptAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isGeneratingScriptsRef = useRef(false);
 
   // ── Stepper drag-to-scroll ──
 
@@ -365,6 +367,20 @@ function ScreencastPageInner() {
     return true;
   }, []);
 
+  // ── Guard: check that a specific resumed job is still in a submittable state ──
+  const checkJobStillValid = useCallback(async (jobUuid: string): Promise<"ok" | "running" | "deleted"> => {
+    try {
+      const res = await fetch(`/api/jobs/${jobUuid}`, { credentials: "include" });
+      if (!res.ok) return "deleted";
+      const job = await res.json();
+      if (job.status === "awaiting_user" || job.status === "success" || job.status === "failed") return "ok";
+      if (job.status === "pending" || job.status === "running") return "running";
+      return "deleted";
+    } catch {
+      return "ok"; // Network error — let backend decide
+    }
+  }, []);
+
   // ── Helpers ──
 
   const resetAll = useCallback((deleteJob = true) => {
@@ -418,7 +434,7 @@ function ScreencastPageInner() {
 
   const handleStepClick = useCallback((index: number) => {
     if (hasDraggedRef.current) return;
-    if (step === "rendering") return;
+    if (step === "rendering" || step === "generating-scripts") return;
     if (index > maxReachedIdx) return;
     const targets: Record<number, ScreencastStep | null> = {
       0: null,
@@ -541,7 +557,7 @@ function ScreencastPageInner() {
       const uploadRes = await fetch("/api/screencast", { method: "POST", body: formData, credentials: "include", signal });
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
-        throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
+        throw new Error(parseDetail(err.detail, `Fehler: ${uploadRes.status}`));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
@@ -609,7 +625,7 @@ function ScreencastPageInner() {
 
         if (!response.ok) {
           const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-          throw new Error(error.detail || `Fehler: ${response.status}`);
+          throw new Error(parseDetail(error.detail, `Fehler: ${response.status}`));
         }
 
         const data: { translate_job_uuid: string; slide_texts: string[]; slide_images: string[] } =
@@ -655,7 +671,7 @@ function ScreencastPageInner() {
 
       if (!uploadRes.ok) {
         const error = await uploadRes.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(error.detail || `Fehler: ${uploadRes.status}`);
+        throw new Error(parseDetail(error.detail, `Fehler: ${uploadRes.status}`));
       }
 
       const { job_uuid } = await uploadRes.json();
@@ -728,7 +744,7 @@ function ScreencastPageInner() {
 
         if (!response.ok) {
           const err = await response.json().catch(() => ({ detail: "Fehler beim Hochladen" }));
-          throw new Error(err.detail || `Fehler: ${response.status}`);
+          throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
         }
 
         const data: { slide_texts: string[]; slide_images: string[] } =
@@ -778,9 +794,28 @@ function ScreencastPageInner() {
 
   // ── Translation review → Generate scripts ──
   const handleAcceptTranslation = useCallback(async () => {
+    if (isGeneratingScriptsRef.current) return;
+    // If we have a specific job to continue, check its current status directly.
+    // checkBeforeSubmit would block here because awaiting_user now counts as active.
+    if (translateJobUuid) {
+      const validity = await checkJobStillValid(translateJobUuid);
+      if (validity === "running") {
+        goError("Dieser Job wird bereits in einem anderen Tab verarbeitet. Bitte wechseln Sie zur Jobliste.");
+        return;
+      }
+      if (validity === "deleted") {
+        goError("Der Job wurde gelöscht oder abgebrochen. Bitte starten Sie einen neuen Screencast.");
+        return;
+      }
+    } else {
+      const ok = await checkBeforeSubmit();
+      if (!ok) { window.location.href = "/my-jobs"; return; }
+    }
     if (!await checkJobFolder()) return;
+    isGeneratingScriptsRef.current = true;
     setStep("generating-scripts");
     setLoading(true);
+    window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
     const signal = newSignal();
 
     try {
@@ -807,11 +842,15 @@ function ScreencastPageInner() {
 
       setLoading(false);
       setStep("script-review");
+      isGeneratingScriptsRef.current = false;
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
     } catch (err) {
+      isGeneratingScriptsRef.current = false;
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, glossaryIds, scriptStyle, addGreeting, addClosing, scriptLength, mergeToApiJson, goError, checkJobFolder]);
+  }, [slides, glossaryIds, scriptStyle, addGreeting, addClosing, scriptLength, mergeToApiJson, goError, checkJobFolder, checkBeforeSubmit, checkJobStillValid, translateJobUuid]);
 
   // ── Script autosave to bucket (debounced) ──
   const autosaveScripts = useCallback((updatedScripts: string[], accepted = false) => {
@@ -854,7 +893,7 @@ function ScreencastPageInner() {
   const processRenderResponse = useCallback(async (response: Response) => {
     if (!response.ok) {
       const err = await response.json().catch(() => ({ detail: "Render-Fehler" }));
-      throw new Error(err.detail || `Fehler: ${response.status}`);
+      throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
     }
 
     // Video comes as raw binary bytes
@@ -894,7 +933,8 @@ function ScreencastPageInner() {
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
-    if (!isResumedJob) {
+    setTtsSettingsError("");
+    if (!translateJobUuid) {
       const ok = await checkBeforeSubmit();
       if (!ok) return;
     }
@@ -902,6 +942,9 @@ function ScreencastPageInner() {
     setLoading(true);
     const signal = newSignal();
     try {
+      // No signal on the POST — ensures we always get job_uuid before checking abort.
+      // If signal fires during the POST, the job still starts on the backend.
+      // We catch that case below and cancel immediately.
       const uploadRes = await fetch("/api/screencast/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -918,16 +961,30 @@ function ScreencastPageInner() {
           provider: ttsProvider,
         }),
         credentials: "include",
-        signal,
       });
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => ({ detail: "Render-Fehler" }));
-        throw new Error(err.detail || `Fehler: ${uploadRes.status}`);
+        // 409 = previous render still stopping — stay on settings, show inline message
+        if (uploadRes.status === 409) {
+          setStep("tts-settings");
+          setLoading(false);
+          setTtsSettingsError("Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen.");
+          return;
+        }
+        throw new Error(parseDetail(err.detail, `Fehler: ${uploadRes.status}`));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
       sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+
+      // If user clicked cancel while POST was in flight, cancel the job now
+      if (signal.aborted) {
+        await fetch(`/api/jobs/${job_uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
+        currentJobUuidRef.current = null;
+        return;
+      }
+
       const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
       currentJobUuidRef.current = null;
       await processRenderResultFromJob(jobResult);
@@ -938,7 +995,7 @@ function ScreencastPageInner() {
       setFailedRenderIsAuto(false);
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, translateJobUuid, voiceId, speed, slidePause, dpi, isResumedJob, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
+  }, [slides, translateJobUuid, voiceId, speed, slidePause, dpi, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
 
   // ── Retry failed render job ──
   const handleRetryRender = useCallback(async () => {
@@ -967,7 +1024,7 @@ function ScreencastPageInner() {
         // Job is running — fall through to polling below
       } else if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Retry fehlgeschlagen" }));
-        throw new Error(err.detail || "Retry fehlgeschlagen");
+        throw new Error(parseDetail(err.detail, "Retry fehlgeschlagen"));
       }
 
       setRenderProgressLabel("In der Warteschlange…");
@@ -1150,6 +1207,7 @@ function ScreencastPageInner() {
 
   // ── Back to script review (from tts-settings) ──
   const handleBackToScripts = () => {
+    if (step === "rendering") return;
     setStep("script-review");
   };
 
@@ -1733,7 +1791,8 @@ function ScreencastPageInner() {
                     handleAcceptTranslation();
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                disabled={loading}
+                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Weiter
               </button>
@@ -2314,28 +2373,42 @@ function ScreencastPageInner() {
                   <input
                     type="radio"
                     name="dpi"
-                    value={100}
-                    checked={dpi === 100}
-                    onChange={() => setDpi(100)}
+                    value={96}
+                    checked={dpi === 96}
+                    onChange={() => setDpi(96)}
                     className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-700">100 DPI – Standard</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Moodle-Standard (~720p), empfohlen</p>
+                    <span className="text-sm font-medium text-gray-700">96 DPI – Geringe Qualität</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Schnellere Verarbeitung, geringere Bildschärfe</p>
                   </div>
                 </label>
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="radio"
                     name="dpi"
-                    value={150}
-                    checked={dpi === 150}
-                    onChange={() => setDpi(150)}
+                    value={144}
+                    checked={dpi === 144}
+                    onChange={() => setDpi(144)}
                     className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-700">150 DPI – Bessere Qualität</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Schärfere Bilder, ca. doppelte Bearbeitungszeit</p>
+                    <span className="text-sm font-medium text-gray-700">144 DPI – Standard</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Empfohlen, gute Bildqualität</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="dpi"
+                    value={300}
+                    checked={dpi === 300}
+                    onChange={() => setDpi(300)}
+                    className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">300 DPI – Maximale Qualität</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit</p>
                   </div>
                 </label>
               </div>
@@ -2375,6 +2448,11 @@ function ScreencastPageInner() {
               </div>
             )}
 
+            {ttsSettingsError && (
+              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+                {ttsSettingsError}
+              </p>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={handleBackToScripts}
@@ -2410,12 +2488,17 @@ function ScreencastPageInner() {
               </p>
             )}
             <button
-              onClick={() => {
+              onClick={async () => {
                 const uuid = currentJobUuidRef.current;
                 currentJobUuidRef.current = null;
                 abortControllerRef.current?.abort();
-                if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
-                setStep("tts-settings"); setLoading(false);
+                if (uuid) {
+                  await fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
+                  window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+                }
+                setRenderProgressLabel("");
+                setStep("tts-settings");
+                setLoading(false);
               }}
               className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
             >

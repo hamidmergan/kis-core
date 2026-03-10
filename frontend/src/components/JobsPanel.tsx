@@ -18,6 +18,7 @@ interface MyJob {
   has_download: boolean;
   result_filename: string | null;
   tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;
+  is_generating_scripts?: boolean;
 }
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
@@ -48,14 +49,14 @@ function toMs(dateStr: string): number {
   return new Date(dateStr + "Z").getTime();
 }
 
-function StatusBadge({ status, expired }: { status: MyJob["status"]; expired: boolean }) {
+function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {
   if (expired)
     return <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Abgelaufen</span>;
   if (status === "success")
     return <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">Fertig</span>;
   if (status === "failed")
     return <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Fehler</span>;
-  if (status === "running")
+  if (status === "running" || isGeneratingScripts)
     return <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
   if (status === "awaiting_user")
     return <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
@@ -72,14 +73,21 @@ export default function JobsPanel() {
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
-  const prevJobStatusesRef = useRef<Record<string, string>>({});
+  const prevJobStatusesRef = useRef<Record<string, { status: string; isGeneratingScripts?: boolean }>>({});
 
   const applyJobs = useCallback((newJobs: MyJob[]) => {
     setJobs(newJobs);
     const prev = prevJobStatusesRef.current;
-    const changed = newJobs.some((j) => prev[j.job_uuid] && prev[j.job_uuid] !== j.status);
+    const changed = newJobs.some((j) =>
+      prev[j.job_uuid] !== undefined && (
+        prev[j.job_uuid].status !== j.status ||
+        prev[j.job_uuid].isGeneratingScripts !== j.is_generating_scripts
+      )
+    );
     if (changed) window.dispatchEvent(new CustomEvent("kis-jobs-status-changed"));
-    prevJobStatusesRef.current = Object.fromEntries(newJobs.map((j) => [j.job_uuid, j.status]));
+    prevJobStatusesRef.current = Object.fromEntries(
+      newJobs.map((j) => [j.job_uuid, { status: j.status, isGeneratingScripts: j.is_generating_scripts }])
+    );
   }, []);
 
   const fetchJobs = useCallback(async () => {
@@ -321,7 +329,7 @@ export default function JobsPanel() {
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <StatusBadge status={job.status} expired={expired} />
+                          <StatusBadge status={job.status} expired={expired} isGeneratingScripts={job.is_generating_scripts} />
                           {isActive(job.status) && (
                             <button
                               onClick={(e) => handleCancel(e, job)}

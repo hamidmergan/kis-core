@@ -5,12 +5,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, is_admin_user
 from src.storage import save_queue_file
+from src.limits import MAX_IMAGE_BYTES
+from src.quotas import enforce_quota
 
 router = APIRouter(tags=["image"])
-
-MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 
 
@@ -30,6 +30,8 @@ async def generate_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_quota(user_id, "image_generate", is_admin_user(current_user))
+
     db.create_job(job_uuid, user_id, "image_generate", prompt[:100])
 
     from src.tasks.general_tasks import run_image_generate
@@ -62,6 +64,7 @@ async def edit_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_quota(user_id, "image_edit", is_admin_user(current_user))
 
     display_name = f"{image.filename}: {prompt[:80]}"
     db.create_job(job_uuid, user_id, "image_edit", display_name)
@@ -96,6 +99,7 @@ async def analyze_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_quota(user_id, "image_analyze", is_admin_user(current_user))
 
     display_name = f"{image.filename}: {prompt[:80]}" if prompt.strip() else image.filename
     db.create_job(job_uuid, user_id, "image_analyze", display_name)

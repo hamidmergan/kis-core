@@ -152,25 +152,6 @@ def _merge_vtt(chunks: list[tuple[str, float]]) -> str:
             cues.append("\n".join(cue_lines))
     return "WEBVTT\n\n" + "\n\n".join(c.strip() for c in cues if c.strip())
 
-_SYSTEM_PROMPT_DE = (
-    "Du bist ein Experte für die Erstellung von Vorleseskripten. "
-    "Erstelle aus dem folgenden Dokumentinhalt ein fließendes, gesprochenes Skript, "
-    "das sich natürlich anhört, wenn es vorgelesen wird. "
-    "Regeln:\n"
-    "- Füge KEINE neuen Informationen hinzu.\n"
-    "- Halluziniere NICHT.\n"
-    "- Behalte alle Fakten, Zahlen, Namen und Daten exakt bei.\n"
-    "- Verwende die gleiche Sprache wie der Input-Text.\n"
-    "- Wandle Stichpunkte, Tabellen und Aufzählungen in fließenden Text um.\n"
-    "- Entferne Quellenangaben, Fußnoten und Formatierungsartefakte.\n"
-    "- Füge natürliche Übergänge zwischen Abschnitten ein.\n"
-    "- Das Skript soll sich wie ein Universitätsdozent anhören der spricht.\n"
-    "- Keine Semikolons und keine Gedankenstriche – nur Punkte und Kommas.\n"
-    "- Sprich die Zuhörer direkt an mit 'Sie'.\n"
-    "- Beginne NICHT jede Folie mit einer Begrüßung – nur auf der Titelfolie.\n"
-    "- Beende das Skript NICHT mit Füllphrasen wie 'Lassen Sie uns beginnen'.\n"
-    "- Halte das Skript prägnant: zwischen 20 und 100 Wörter. Nicht kürzer, nicht länger."
-)
 
 _SYSTEM_PROMPT_EN = (
     "You are an expert at creating spoken narration scripts for individual presentation slides. "
@@ -183,7 +164,7 @@ _SYSTEM_PROMPT_EN = (
     "- Convert bullet points, tables, and lists into flowing text.\n"
     "- Remove citations, footnotes, and formatting artifacts.\n"
     "- Add natural transitions between sections.\n"
-    "- NO semicolons, NO dashes – use only periods and commas.\n"
+    "- NO semicolons, NO dashes – use only periods, commas, exclamation marks, and question marks.\n"
     "- Address the audience directly as 'you'.\n"
     "- Natural, conversational tone – like a university lecturer speaking.\n"
     "- Do NOT start with 'Welcome' or greetings on every slide – only on the title slide.\n"
@@ -235,7 +216,7 @@ class KisskiClient:
             self._extra_body: dict = {"think": False}
             self._batch_max_workers: int = 3
             self._batch_timeout: float = 180.0
-            self._batch_size: int = 1  # small model: one block per call, no delimiter needed
+            self._batch_size: int = 3
         else:
             self._extra_body = {}
             self._batch_max_workers = 3
@@ -243,14 +224,13 @@ class KisskiClient:
             self._batch_size = 3
 
     def generate_script(
-        self, text: str, language: str = "DE", user_prompt: str | None = None,
+        self, text: str, user_prompt: str | None = None,
         glossary: dict[str, str] | None = None,
     ) -> str:
         """Convert extracted document text into a spoken script.
 
         Args:
             text: Raw text extracted from a document.
-            language: Output language – 'DE' (default) or 'EN'.
             user_prompt: Optional additional instructions appended to the system prompt.
 
         Returns:
@@ -259,9 +239,7 @@ class KisskiClient:
         Raises:
             RuntimeError: If the LLM API returns an error.
         """
-        default_prompt = _SYSTEM_PROMPT_EN if language.upper() == "EN" else _SYSTEM_PROMPT_DE
-        prompt_key = "prompt_script_en" if language.upper() == "EN" else "prompt_script_de"
-        system_prompt = _load_prompt(prompt_key, default_prompt)
+        system_prompt = _load_prompt("prompt_script_en", _SYSTEM_PROMPT_EN)
         if glossary:
             lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
             system_prompt = f"Use the following terminology consistently in your output:\n{lines}\n\n" + system_prompt
@@ -310,7 +288,11 @@ class KisskiClient:
             "You are an expert editor of spoken narration scripts for presentations. "
             "Output ONLY the final script text — no explanations, no labels, no prefixes. "
             "The script must be in English, spoken-style, natural and conversational. "
-            "No semicolons, no dashes — use only periods and commas.\n"
+            "No semicolons, no dashes — use only periods, commas, exclamation marks, and question marks.\n"
+            "The user's instruction may be written in German or another language — understand it and apply it, but always output the script in English.\n"
+            "If a 'Current script' is provided, it is ALWAYS the basis for your edit. "
+            "Any instruction such as 'change term X to Y' or 'make it shorter' refers to that existing script — do not rewrite from scratch unless explicitly told to.\n"
+            "If no instruction is given (empty instruction), produce a fresh alternative version of the current script with different wording but the same meaning.\n"
         )
         if style_hint:
             system_prompt += f"Style: {style_hint}\n"
@@ -369,7 +351,7 @@ class KisskiClient:
         for j, text in enumerate(batch_texts):
             content = text.strip() if text.strip() else "[empty]"
             if is_first_batch and add_greeting and j == 0:
-                content = "[First slide – open with a greeting]\n" + content
+                content = "[FIRST SLIDE: open with a greeting]\n" + content
             annotated.append(content)
         slides_input = "\n===\n".join(annotated)
 
@@ -380,7 +362,7 @@ class KisskiClient:
             glossary_hint = f"Use the following terminology consistently in your output:\n{lines}\n\n"
 
         greeting_rule = (
-            "- The block marked [First slide] opens the presentation. Begin its script with a time-neutral greeting such as 'Welcome' or 'Hello everyone' – never use time-specific phrases like 'Good morning' or 'Good evening'.\n"
+            "- The block marked [FIRST SLIDE] opens the presentation. Begin its script with a time-neutral greeting such as 'Welcome' or 'Hello everyone' (never time-specific like 'Good morning'). Apply all punctuation rules normally.\n"
             if (is_first_batch and add_greeting) else
             "- Do not use any greeting or welcome phrase.\n"
         )
@@ -401,7 +383,7 @@ class KisskiClient:
             "- Output MUST be in English.\n"
             "- Convert bullet points, tables, and lists into flowing text.\n"
             "- Remove citations, footnotes, and formatting artifacts.\n"
-            "- NO semicolons, NO dashes – use only periods and commas.\n"
+            "- NO semicolons, NO dashes – use only periods, commas, exclamation marks, and question marks.\n"
             "- Address the audience directly as 'you'.\n"
             "- Natural, conversational tone – like a university lecturer speaking.\n"
             + greeting_rule
@@ -427,7 +409,7 @@ class KisskiClient:
                     {"role": "user", "content": user_message},
                 ],
                 temperature=0.3,
-                max_tokens=batch_size * max(600, int(max_chars // 3)) + 200,
+                max_tokens=batch_size * max(800, int(max_chars // 2.5)) + 400,
                 timeout=self._batch_timeout,
                 extra_body=self._extra_body or None,
             )

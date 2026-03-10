@@ -1,6 +1,41 @@
 const API_BASE = "";
 const BACKEND_BASE = "http://localhost:8000";
 
+export class QuotaError extends Error {
+  quota_type: string;
+  label: string;
+  reset_at: string | null;
+  used: number;
+  limit: number;
+
+  constructor(detail: Record<string, unknown>) {
+    super(typeof detail.message === "string" ? detail.message : "Limit erreicht");
+    this.name = "QuotaError";
+    this.quota_type = String(detail.quota_type ?? "");
+    this.label = String(detail.label ?? detail.quota_type ?? "");
+    this.reset_at = (detail.reset_at as string | null) ?? null;
+    this.used = Number(detail.used ?? 0);
+    this.limit = Number(detail.limit ?? 0);
+  }
+}
+
+export function parseDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object" && "message" in (detail as object)) {
+    return String((detail as Record<string, unknown>).message);
+  }
+  return fallback;
+}
+
+function _parseErrorResponse(errorBody: { detail?: unknown }, fallbackStatus: number): Error {
+  const detail = errorBody.detail;
+  if (detail && typeof detail === "object" && "quota_type" in (detail as object)) {
+    return new QuotaError(detail as Record<string, unknown>);
+  }
+  const msg = typeof detail === "string" ? detail : `Fehler: ${fallbackStatus}`;
+  return new Error(msg);
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -37,7 +72,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-      throw new Error(error.detail || `Fehler: ${response.status}`);
+      throw _parseErrorResponse(error, response.status);
     }
 
     return response.json();
@@ -48,7 +83,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-      throw new Error(error.detail || `Fehler: ${response.status}`);
+      throw _parseErrorResponse(error, response.status);
     }
 
     return response.json();
@@ -75,7 +110,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-      throw new Error(error.detail || `Fehler: ${response.status}`);
+      throw _parseErrorResponse(error, response.status);
     }
 
     const blob = await response.blob();
@@ -119,7 +154,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Übersetzungsfehler" }));
-      throw new Error(error.detail || `Fehler: ${response.status}`);
+      throw _parseErrorResponse(error, response.status);
     }
 
     const blob = await response.blob();
@@ -159,7 +194,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-      throw new Error(error.detail || `Fehler: ${response.status}`);
+      throw _parseErrorResponse(error, response.status);
     }
 
     const blob = await response.blob();
@@ -205,7 +240,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-      throw new Error(error.detail || `Fehler: ${response.status}`);
+      throw _parseErrorResponse(error, response.status);
     }
 
     const blob = await response.blob();
@@ -266,7 +301,7 @@ export async function pollJob(
   let lastProgressChangeAt = Date.now();
 
   while (true) {
-    if (signal?.aborted) throw new Error("Abgebrochen");
+    if (signal?.aborted) throw new DOMException("Abgebrochen", "AbortError");
 
     const res = await fetch(`/api/jobs/${jobUuid}`, { credentials: "include", signal });
     if (!res.ok) {
@@ -293,7 +328,7 @@ export async function pollJob(
 
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(resolve, intervalMs);
-      signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new Error("Abgebrochen")); }, { once: true });
+      signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new DOMException("Abgebrochen", "AbortError")); }, { once: true });
     });
   }
 }

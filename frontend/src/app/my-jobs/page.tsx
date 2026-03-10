@@ -22,6 +22,7 @@ interface MyJob {
   result_filename: string | null;
   folder_name: string | null;
   tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;
+  is_generating_scripts?: boolean;
 }
 
 interface JobDetail {
@@ -37,14 +38,14 @@ const SCREENCAST_TOOLS = new Set(["screencast_translate", "screencast_render", "
 const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user";
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
-function StatusBadge({ status, expired }: { status: MyJob["status"]; expired: boolean }) {
+function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {
   if (expired)
     return <span className="inline-flex text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Abgelaufen</span>;
   if (status === "success")
     return <span className="inline-flex text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">Fertig</span>;
   if (status === "failed")
     return <span className="inline-flex text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Fehler</span>;
-  if (status === "running")
+  if (status === "running" || isGeneratingScripts)
     return <span className="inline-flex text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
   if (status === "awaiting_user")
     return <span className="inline-flex text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
@@ -208,12 +209,22 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
             <DisabledChip label="Alles herunterladen (ZIP)" />
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            <a
-              href={`/screencast?resume=${job.job_uuid}`}
-              className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
-            >
-              Screencast fortsetzen →
-            </a>
+            {job.is_generating_scripts ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
+                <svg className="w-3 h-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                </svg>
+                Skripte werden generiert…
+              </span>
+            ) : (
+              <a
+                href={`/screencast?resume=${job.job_uuid}`}
+                className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
+              >
+                Screencast fortsetzen →
+              </a>
+            )}
           </div>
         </div>
       );
@@ -254,12 +265,22 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
           <DisabledChip label="Alles herunterladen (ZIP)" />
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <a
-            href={`/screencast-demo?resume=${job.job_uuid}`}
-            className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
-          >
-            Demo fortsetzen →
-          </a>
+          {job.is_generating_scripts ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
+              <svg className="w-3 h-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+              </svg>
+              Skripte werden generiert…
+            </span>
+          ) : (
+            <a
+              href={`/screencast-demo?resume=${job.job_uuid}`}
+              className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
+            >
+              Demo fortsetzen →
+            </a>
+          )}
         </div>
       </div>
     );
@@ -639,7 +660,7 @@ export default function MeineJobsPage() {
                         {!expired && <JobArtifacts job={job} detail={detail} />}
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">
-                        <StatusBadge status={job.status} expired={expired} />
+                        <StatusBadge status={job.status} expired={expired} isGeneratingScripts={job.is_generating_scripts} />
                         {isActive(job.status) && (
                           <button
                             onClick={() => handleCancel(job)}

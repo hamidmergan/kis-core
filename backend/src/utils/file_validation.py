@@ -1,3 +1,17 @@
+from src.limits import (
+    MAX_UPLOAD_BYTES,
+    TRANSLATE_MAX_UPLOAD_BYTES,
+    MAX_TRANSCRIPTION_BYTES,
+    MAX_IMAGE_BYTES,
+    MAX_OUTPUT_VIDEO_BYTES,
+    TTS_MAX_CHARS,
+    TRANSLATE_MAX_CHARS,
+    SCRIPT_MAX_CHARS,
+    SUMMARY_MAX_CHARS,
+    SCREENCAST_MAX_CHARS,
+    MAX_SCREENCAST_SLIDES,
+)
+
 ALLOWED_EXTENSIONS = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -12,20 +26,12 @@ TTS_EXTENSIONS = {
     ".txt": "text/plain",
 }
 
-MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
-TRANSLATE_MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB
-
-TTS_MAX_CHARS = 100_000
-TRANSLATE_MAX_CHARS = 100_000
-SCRIPT_MAX_CHARS = 100_000
-SUMMARY_MAX_CHARS = 100_000
 
 TRANSCRIPTION_EXTENSIONS = {
     ".mp3": "audio/mpeg",
     ".mp4": "video/mp4",
 }
 
-MAX_TRANSCRIPTION_BYTES = 200 * 1024 * 1024  # 200 MB
 
 VIDEO_DUBBING_VIDEO_EXTENSIONS = {
     ".mp4": "video/mp4",
@@ -44,9 +50,6 @@ SCREENCAST_EXTENSIONS = {
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
-MAX_SCREENCAST_SLIDES = 50
-SCREENCAST_MAX_CHARS = 100_000
-MAX_OUTPUT_VIDEO_BYTES = 200 * 1024 * 1024  # 200 MB
 
 SUMMARY_EXTENSIONS = {
     ".mp3": "audio/mpeg",

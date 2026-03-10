@@ -6,8 +6,10 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
+import threading
 import time
 import uuid
 import zipfile
@@ -16,6 +18,66 @@ from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
+
+# ── Per-job subprocess tracking for instant ffmpeg cancellation ──────────────
+_job_procs: dict[str, list[subprocess.Popen]] = {}
+_job_procs_lock = threading.Lock()
+
+
+def _register_proc(job_uuid: str, proc: subprocess.Popen) -> None:
+    with _job_procs_lock:
+        _job_procs.setdefault(job_uuid, []).append(proc)
+
+
+def _unregister_proc(job_uuid: str, proc: subprocess.Popen) -> None:
+    with _job_procs_lock:
+        procs = _job_procs.get(job_uuid, [])
+        try:
+            procs.remove(proc)
+        except ValueError:
+            pass
+
+
+def kill_job_procs(job_uuid: str) -> None:
+    """Kill all active ffmpeg subprocesses for a job (process group kill)."""
+    with _job_procs_lock:
+        procs = _job_procs.pop(job_uuid, [])
+    for proc in procs:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+
+def _run_proc(cmd: list[str], timeout: int, job_uuid: str | None = None) -> subprocess.CompletedProcess:
+    """Run a command in a new session (killable process group). Registers with job tracking."""
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
+    if job_uuid:
+        _register_proc(job_uuid, proc)
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            proc.kill()
+        stdout, stderr = proc.communicate()
+    finally:
+        if job_uuid:
+            _unregister_proc(job_uuid, proc)
+    return subprocess.CompletedProcess(
+        cmd, proc.returncode,
+        stdout.decode(errors="replace"),
+        stderr.decode(errors="replace"),
+    )
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -26,7 +88,8 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.oxml.ns import qn
 from pydantic import BaseModel
 
-from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski_client, get_current_user
+from src.dependencies import get_deepl_client, get_elevenlabs_client, get_kisski_client, get_current_user, is_admin_user
+from src.quotas import enforce_quota
 from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.kisski_client import KisskiClient
 from src.services.glossary import GlossaryService
@@ -49,6 +112,9 @@ PPTX_TMP_DIR = Path("/app/storage/screencast_tmp")
 IMAGE_TMP_DIR = Path("/app/storage/screencast_tmp/images")
 
 _cleanup_task: asyncio.Task | None = None
+
+# Per-UUID lock: prevents concurrent script generation for the same job
+_script_gen_locks: dict[str, asyncio.Lock] = {}
 
 
 async def _cleanup_old_pptx_files() -> None:
@@ -382,7 +448,7 @@ def _get_audio_duration(audio_path: Path | None) -> float:
     return float(result.stdout.strip())
 
 
-def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: Path, pause: float = 0.0, crf: int = 23) -> None:
+def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: Path, pause: float = 0.0, crf: int = 23, job_uuid: str | None = None) -> None:
     """Combine a single slide image with its audio into a video clip.
 
     If audio_path is None (silent/empty slide), produces a video-only clip
@@ -417,7 +483,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
             "-pix_fmt", "yuv420p",
             str(output_path),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        result = _run_proc(cmd, timeout=300, job_uuid=job_uuid)
         if result.returncode != 0:
             logger.error("Slide video creation failed (rc={}):\nSTDOUT: {}\nSTDERR: {}", result.returncode, result.stdout[-500:], result.stderr[-500:])
             raise RuntimeError(f"Video-Erstellung fehlgeschlagen (kein Audio): {result.stderr[-300:]}")
@@ -435,7 +501,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
             "-ac", "2", "-ar", "44100",
             "-c:a", "libmp3lame", str(silence_path),
         ]
-        subprocess.run(cmd_silence, capture_output=True, text=True, timeout=30)
+        _run_proc(cmd_silence, timeout=30, job_uuid=job_uuid)
 
         # Concatenate TTS audio + silence
         audio_with_pause_path = output_path.with_suffix(".paused.mp3")
@@ -448,7 +514,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
             "-i", str(concat_audio_file),
             "-c", "copy", str(audio_with_pause_path),
         ]
-        subprocess.run(cmd_concat, capture_output=True, text=True, timeout=30)
+        _run_proc(cmd_concat, timeout=30, job_uuid=job_uuid)
         final_audio = audio_with_pause_path
         total_duration = duration + pause
     else:
@@ -468,7 +534,7 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         "-pix_fmt", "yuv420p",
         str(output_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    result = _run_proc(cmd, timeout=300, job_uuid=job_uuid)
     if result.returncode != 0:
         logger.error("Slide video creation failed (rc={}):\nSTDOUT: {}\nSTDERR: {}", result.returncode, result.stdout[-500:], result.stderr[-500:])
         raise RuntimeError(f"Video-Erstellung fehlgeschlagen: {result.stderr[-300:]}")
@@ -669,6 +735,7 @@ async def screencast(
     if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
         raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
 
+    enforce_quota(user_id, "screencast", is_admin_user(current_user))
     job_uuid = uuid.uuid4().hex
     db.create_job(job_uuid, user_id, "screencast_auto", file.filename or "screencast.pptx")
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
@@ -718,6 +785,7 @@ async def screencast_translate(
     if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
         raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
 
+    enforce_quota(user_id, "screencast", is_admin_user(current_user))
     job_uuid = uuid.uuid4().hex
     db.create_job(job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
@@ -1003,6 +1071,7 @@ async def screencast_upload_corrected(
         _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
         if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
             raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
+        enforce_quota(user_id, "screencast", is_admin_user(current_user))
         translate_job_uuid = uuid.uuid4().hex
         db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
         _save_job_file(translate_job_uuid, "translated.pptx", pptx_bytes)
@@ -1055,25 +1124,51 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         except (json.JSONDecodeError, TypeError):
             pass
 
+    uuid_key = body.translate_job_uuid if (body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid)) else None
+
     # Verify job folder still exists before burning LLM tokens
-    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+    if uuid_key:
         try:
-            get_job_file(body.translate_job_uuid, "scripts.txt")
+            get_job_file(uuid_key, "scripts.txt")
         except Exception:
             raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
 
-    # PARALLELIZED
-    scripts = await _generate_all_scripts(
-        body.slide_texts, kisski_client,
-        glossary=glossary_dict, style=body.style,
-        add_greeting=body.add_greeting, add_closing=body.add_closing,
-        min_chars=body.min_chars, max_chars=body.max_chars,
-    )
+    async def _do_generate() -> list[str]:
+        return await _generate_all_scripts(
+            body.slide_texts, kisski_client,
+            glossary=glossary_dict, style=body.style,
+            add_greeting=body.add_greeting, add_closing=body.add_closing,
+            min_chars=body.min_chars, max_chars=body.max_chars,
+        )
 
-    # Save suggested scripts so resume can restore step 5
-    if body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
+    if not uuid_key:
+        return {"scripts": await _do_generate()}
+
+    if uuid_key not in _script_gen_locks:
+        _script_gen_locks[uuid_key] = asyncio.Lock()
+    lock = _script_gen_locks[uuid_key]
+
+    if lock.locked():
+        # Another request is already generating for this job — wait, then return its result
+        logger.info("generate-scripts: waiting for concurrent generation of {}", uuid_key)
+        async with lock:
+            # The other request just finished; read what it saved
+            try:
+                data = get_job_file(uuid_key, "suggested_scripts.json")
+                return {"scripts": json.loads(data)}
+            except Exception:
+                pass
+        # File missing after wait (other request failed) — fall through to regenerate.
+        # The lock is now FREE (we released it above), so the acquire below is safe.
+
+    async with lock:
+        db.set_generating_scripts_flag(uuid_key, True)
         try:
-            save_job_file(body.translate_job_uuid, "suggested_scripts.json", json.dumps(scripts, ensure_ascii=False).encode())
+            scripts = await _do_generate()
+        finally:
+            db.set_generating_scripts_flag(uuid_key, False)
+        try:
+            save_job_file(uuid_key, "suggested_scripts.json", json.dumps(scripts, ensure_ascii=False).encode())
         except Exception:
             pass
 
@@ -1165,13 +1260,32 @@ async def screencast_render(
 
     # If re-rendering a previously completed job, clear stale TTS audio so the
     # crash-recovery mechanism doesn't reuse old audio for the new scripts.
-    if translate_job["status"] == "success":
+    original_status = translate_job["status"]
+    if original_status == "success":
         clear_tts_audio_cache(body.translate_job_uuid)
         logger.info("Re-render: cleared TTS audio cache for job={}", body.translate_job_uuid)
 
-    # Mark as pending before dispatching so pollJob doesn't see awaiting_user and
-    # return immediately (race condition: Celery may not start before first poll).
-    db.update_job_status(body.translate_job_uuid, "pending")
+    # Atomically transition status → pending to prevent duplicate render jobs
+    # when the user has the same job open in multiple tabs simultaneously.
+    transitioned = db.transition_job_to_pending(
+        body.translate_job_uuid,
+        user_id,
+        from_statuses=("awaiting_user", "failed", "success"),
+    )
+    if not transitioned:
+        raise HTTPException(
+            status_code=409,
+            detail="Dieser Job wird bereits in einem anderen Tab verarbeitet.",
+        )
+
+    # Clear any stale cancel flag from a previous cancelled render so the new
+    # task doesn't immediately abort when it hits the first checkpoint.
+    try:
+        import redis as _redis
+        _r = _redis.from_url("redis://kis-redis:6379/0")
+        _r.delete(f"job:cancel:{body.translate_job_uuid}")
+    except Exception as e:
+        logger.warning("Could not clear cancel flag in Redis: {}", e)
 
     from src.tasks.screencast_tasks import run_screencast_render
     task = run_screencast_render.apply_async(args=[

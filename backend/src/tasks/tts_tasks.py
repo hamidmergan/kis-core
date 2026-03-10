@@ -9,6 +9,7 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import delete_file, get_file, get_job_file, save_job_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
+from src.limits import TTS_SOFT_TIME_LIMIT, TTS_TIME_LIMIT
 
 
 @celery_app.task(
@@ -17,8 +18,8 @@ from src.utils.heartbeat import job_heartbeat
     queue="tts",
     acks_late=True,
     max_retries=7,
-    soft_time_limit=5400,   # 90 min: raises SoftTimeLimitExceeded → graceful DB update
-    time_limit=5520,        # 92 min: SIGKILL fallback
+    soft_time_limit=TTS_SOFT_TIME_LIMIT,
+    time_limit=TTS_TIME_LIMIT,
 )
 def run_tts(
     self,

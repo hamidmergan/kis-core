@@ -69,7 +69,7 @@ async def check_job_limit(
     user_id = current_user.get("user_id", 0)
 
     _TOOL_GROUP_TOOLS = {
-        "screencast": ["screencast_translate", "screencast_auto", "screencast_demo_render"],
+        "screencast": ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"],
         "tts": ["tts"],
         "video_dubbing": ["video_dubbing"],
     }
@@ -115,6 +115,7 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
         folder_name = f"{date_part}_{time_part}_{job['job_uuid']}" if date_part and time_part else job["job_uuid"]
 
         tts_params: dict = {}
+        is_generating_scripts = False
         tool = job["tool"]
         if tool in ("tts", "screencast_auto", "screencast_render", "screencast_translate",
                     "screencast_demo_render"):
@@ -124,6 +125,8 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
                     tts_params = progress.get("tts_params", {})
                 else:
                     tts_params = {k: progress[k] for k in ("voice_id", "voice_label", "provider") if k in progress}
+                if tool in ("screencast_translate", "screencast_demo_render"):
+                    is_generating_scripts = bool(progress.get("generating_scripts"))
             except Exception:
                 pass
 
@@ -144,6 +147,7 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
             "result_filename": job["result_filename"],
             "folder_name": folder_name,
             "tts_params": tts_params or None,
+            "is_generating_scripts": is_generating_scripts,
         })
     return result
 
@@ -283,9 +287,49 @@ async def retry_job(
             demo_params["dpi"],
         ])
 
+    # Clear any stale cancel flag so the retried task doesn't immediately abort.
+    try:
+        import redis as _redis
+        _r = _redis.from_url("redis://kis-redis:6379/0")
+        _r.delete(f"job:cancel:{job_uuid}")
+    except Exception as e:
+        logger.warning("Could not clear cancel flag in Redis: {}", e)
+
     db.set_job_celery_task_id(job_uuid, task.id)
 
     logger.info("{} job {} re-queued via retry by user {}", job["tool"], job_uuid, current_user.get("user_id"))
+    return {"ok": True}
+
+
+@router.post("/{job_uuid}/cancel")
+async def cancel_job_render(
+    job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Stop a running render without deleting job data. Sets status back to awaiting_user."""
+    job = db.get_job(job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+
+    if job["celery_task_id"]:
+        try:
+            celery_app.control.revoke(job["celery_task_id"], terminate=True, reply=False)
+        except Exception as e:
+            logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
+
+    # Set a Redis cancellation flag so the worker stops at the next checkpoint
+    try:
+        import redis as _redis
+        _r = _redis.from_url("redis://kis-redis:6379/0")
+        _r.setex(f"job:cancel:{job_uuid}", 600, "1")  # 10 min TTL
+        logger.info("Cancel flag set in Redis for job={}", job_uuid)
+    except Exception as e:
+        logger.warning("Could not set cancel flag in Redis: {}", e)
+
+    db.reset_job_to_awaiting(job_uuid)
+    logger.info("Job render soft-cancelled: {}", job_uuid)
     return {"ok": True}
 
 
@@ -307,6 +351,16 @@ async def cancel_job(
             celery_app.control.revoke(job["celery_task_id"], terminate=True, reply=False)
         except Exception as e:
             logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
+
+    # Set Redis cancellation flag so the worker stops at the next checkpoint
+    # (same mechanism as POST /cancel). Without this, _assert_not_cancelled()
+    # never triggers and the worker keeps running despite the revoke.
+    try:
+        import redis as _redis
+        _r = _redis.from_url("redis://kis-redis:6379/0")
+        _r.setex(f"job:cancel:{job_uuid}", 600, "1")
+    except Exception as e:
+        logger.warning("Could not set cancel flag in Redis: {}", e)
 
     # Delete all job files first — delete_job_folder reads created_at from DB
     # to resolve the folder name (YYYY-MM-DD_HH-MM-SS_{uuid}). Deleting DB first

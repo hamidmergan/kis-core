@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, is_admin_user
+from src.quotas import enforce_quota
 from src.storage import save_queue_file
 from src.utils.file_validation import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES, SCRIPT_MAX_CHARS
 from src.utils.text_extraction import EXTRACTORS
@@ -53,6 +54,7 @@ async def generate_script(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_quota(user_id, "script", is_admin_user(current_user))
 
     db.create_job(job_uuid, user_id, "script", file.filename)
     input_path = save_queue_file(job_uuid, ext, content)

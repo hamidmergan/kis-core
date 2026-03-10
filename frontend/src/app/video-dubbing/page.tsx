@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { pollJob, downloadJobAsBlob } from "@/lib/api";
+import { pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import type { VideoDubbingState } from "@/types";
 
 const ACCEPTED_EXTENSIONS = [".mp4", ".mp3"];
@@ -114,7 +114,7 @@ export default function VideoDubbingPage() {
       });
       if (!uploadRes.ok) {
         const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
-        throw new Error(err.detail ?? `Fehler ${uploadRes.status}`);
+        throw new Error(parseDetail(err.detail, `Fehler ${uploadRes.status}`));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
@@ -333,7 +333,7 @@ export default function VideoDubbingPage() {
                   const uuid = currentJobUuidRef.current;
                   currentJobUuidRef.current = null;
                   abortControllerRef.current?.abort();
-                  if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                  if (uuid) { fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
                   setState("idle");
                 }}
                 className="px-4 py-3 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2 shrink-0"

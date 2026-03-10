@@ -7,8 +7,10 @@ from loguru import logger
 from pydantic import BaseModel
 
 from src import database as db
+from src.services.kisski_client import _SYSTEM_PROMPT_EN as _PROMPT_SCRIPT_EN_DEFAULT
 from src.celery_app import celery_app
 from src.dependencies import get_admin_user, get_current_user
+from src.limits import QUOTA_DEFAULTS
 from src.storage import delete_job_folder
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -34,24 +36,6 @@ class UpdatePromptRequest(BaseModel):
     value: str
 
 
-_PROMPT_SCRIPT_EN_DEFAULT = (
-    "You are an expert at creating spoken narration scripts for individual presentation slides. "
-    "Convert the slide content into a fluent, spoken script for ONE slide only. "
-    "Rules:\n"
-    "- Do NOT add any new information.\n"
-    "- Do NOT hallucinate.\n"
-    "- Keep all facts, numbers, names, and dates exactly as they are.\n"
-    "- The output MUST be in English.\n"
-    "- Convert bullet points, tables, and lists into flowing text.\n"
-    "- Remove citations, footnotes, and formatting artifacts.\n"
-    "- Add natural transitions between sections.\n"
-    "- NO semicolons, NO dashes – use only periods and commas.\n"
-    "- Address the audience directly as 'you'.\n"
-    "- Natural, conversational tone – like a university lecturer speaking.\n"
-    "- Do NOT start with 'Welcome' or greetings on every slide – only on the title slide.\n"
-    "- Do NOT end with filler phrases like 'Let us dive in' or 'Let us get started'.\n"
-    "- Keep the script concise: between 20 and 100 words. Not shorter, not longer."
-)
 
 _PROMPT_SCRIPT_BATCH_PREVIEW = (
     "You are an expert at creating spoken narration scripts for presentation slides. "
@@ -83,25 +67,6 @@ _PROMPT_SCRIPT_BATCH_PREVIEW = (
     "[{N}, {X}, {Y}, {Z} werden zur Laufzeit durch die tatsächliche Batch-Größe ersetzt]"
 )
 
-_PROMPT_SCRIPT_DE_DEFAULT = (
-    "Du bist ein Experte für die Erstellung von Vorleseskripten. "
-    "Erstelle aus dem folgenden Dokumentinhalt ein fließendes, gesprochenes Skript, "
-    "das sich natürlich anhört, wenn es vorgelesen wird. "
-    "Regeln:\n"
-    "- Füge KEINE neuen Informationen hinzu.\n"
-    "- Halluziniere NICHT.\n"
-    "- Behalte alle Fakten, Zahlen, Namen und Daten exakt bei.\n"
-    "- Verwende die gleiche Sprache wie der Input-Text.\n"
-    "- Wandle Stichpunkte, Tabellen und Aufzählungen in fließenden Text um.\n"
-    "- Entferne Quellenangaben, Fußnoten und Formatierungsartefakte.\n"
-    "- Füge natürliche Übergänge zwischen Abschnitten ein.\n"
-    "- Das Skript soll sich wie ein Universitätsdozent anhören der spricht.\n"
-    "- Keine Semikolons und keine Gedankenstriche – nur Punkte und Kommas.\n"
-    "- Sprich die Zuhörer direkt an mit 'Sie'.\n"
-    "- Beginne NICHT jede Folie mit einer Begrüßung – nur auf der Titelfolie.\n"
-    "- Beende das Skript NICHT mit Füllphrasen wie 'Lassen Sie uns beginnen'.\n"
-    "- Halte das Skript prägnant: zwischen 20 und 100 Wörter. Nicht kürzer, nicht länger."
-)
 
 _PROMPT_SUMMARIZE_DEFAULT = (
     "Erstelle eine ausführliche Zusammenfassung des folgenden Transkripts. "
@@ -126,16 +91,9 @@ _PROMPT_IMAGE_ANALYZE_DEFAULT = (
 
 _PROMPT_REGISTRY = [
     {
-        "key": "prompt_script_de",
-        "label": "Skript-Erstellung (Deutsch)",
-        "description": "Wird vom Skript-Tool verwendet, wenn der Input-Text auf Deutsch ist.",
-        "editable": True,
-        "default": _PROMPT_SCRIPT_DE_DEFAULT,
-    },
-    {
         "key": "prompt_script_en",
-        "label": "Skript-Erstellung (Englisch)",
-        "description": "Wird vom Screencast-Tool (Einzelfolie) und bei englischem Input verwendet.",
+        "label": "Skript-Erstellung",
+        "description": "System-Prompt für das Skript-Tool und den Screencast (Einzelfolie).",
         "editable": True,
         "default": _PROMPT_SCRIPT_EN_DEFAULT,
     },
@@ -445,4 +403,113 @@ async def reset_prompt(key: str, _admin=Depends(get_admin_user)):
     if not p or not p["editable"]:
         raise HTTPException(status_code=400, detail="Nicht erlaubt")
     db.set_setting(key, p["default"])
+    return {"ok": True}
+
+
+# ─── Quota Management ─────────────────────────────────────────────────────────
+
+class SetQuotaOverrideRequest(BaseModel):
+    limit_value: int  # -1 = unlimitiert
+
+
+@router.get("/quota/defaults")
+async def get_quota_defaults(_admin=Depends(get_admin_user)):
+    """Globale Standard-Limits anzeigen."""
+    return {"defaults": QUOTA_DEFAULTS}
+
+
+@router.get("/quota/overview")
+async def get_quota_overview(_admin=Depends(get_admin_user)):
+    """Alle User mit Quota-Aktivität (used > 0 oder Override vorhanden)."""
+    rows = db.quota_get_all_users_usage()
+    # Group by user
+    users: dict[int, dict] = {}
+    for row in rows:
+        uid = row["user_id"]
+        if uid not in users:
+            users[uid] = {
+                "user_id": uid,
+                "ldap_username": row["ldap_username"],
+                "display_name": row["display_name"],
+                "quotas": [],
+                "global_reset_at": row.get("global_reset_at"),
+            }
+        cfg = QUOTA_DEFAULTS.get(row["quota_type"], {})
+        effective_limit = row["override"] if row["override"] is not None else cfg.get("limit", 30)
+        users[uid]["quotas"].append({
+            "quota_type": row["quota_type"],
+            "label": cfg.get("label", row["quota_type"]),
+            "used": row["used"],
+            "limit": effective_limit,
+            "limit_is_unlimited": effective_limit == -1,
+            "override": row["override"],
+            "reset_at": row["reset_at"].isoformat() if row["reset_at"] else None,
+        })
+    return {"users": list(users.values())}
+
+
+@router.get("/quota/users/{user_id}")
+async def get_user_quota(user_id: int, _admin=Depends(get_admin_user)):
+    """Alle Quota-Typen für einen bestimmten User."""
+    rows, global_reset_at = db.quota_get_all_for_user(user_id)
+    result = []
+    for cfg_type, cfg in QUOTA_DEFAULTS.items():
+        row = next((r for r in rows if r["quota_type"] == cfg_type), None)
+        used = row["used"] if row else 0
+        override = row["override"] if row else None
+        reset_at = row["reset_at"] if row else None
+        effective_limit = override if override is not None else cfg["limit"]
+        result.append({
+            "quota_type": cfg_type,
+            "label": cfg["label"],
+            "used": used,
+            "limit": effective_limit,
+            "limit_is_unlimited": effective_limit == -1,
+            "override": override,
+            "reset_at": reset_at.isoformat() if reset_at else None,
+        })
+    return {
+        "user_id": user_id,
+        "quotas": result,
+        "global_reset_at": global_reset_at.isoformat() if global_reset_at else None,
+    }
+
+
+@router.post("/quota/users/{user_id}/{quota_type}/override")
+async def set_quota_override(
+    user_id: int,
+    quota_type: str,
+    body: SetQuotaOverrideRequest,
+    _admin=Depends(get_admin_user),
+):
+    """Per-User Limit setzen. -1 = unlimitiert."""
+    if quota_type not in QUOTA_DEFAULTS:
+        raise HTTPException(status_code=400, detail=f"Unbekannter Quota-Typ: {quota_type}")
+    db.quota_set_override(user_id, quota_type, body.limit_value)
+    return {"ok": True}
+
+
+@router.delete("/quota/users/{user_id}/{quota_type}/override")
+async def delete_quota_override(
+    user_id: int,
+    quota_type: str,
+    _admin=Depends(get_admin_user),
+):
+    """Override löschen — User fällt auf globalen Standard zurück."""
+    if quota_type not in QUOTA_DEFAULTS:
+        raise HTTPException(status_code=400, detail=f"Unbekannter Quota-Typ: {quota_type}")
+    db.quota_remove_override(user_id, quota_type)
+    return {"ok": True}
+
+
+@router.post("/quota/users/{user_id}/{quota_type}/reset")
+async def reset_user_quota(
+    user_id: int,
+    quota_type: str,
+    _admin=Depends(get_admin_user),
+):
+    """Quota-Zähler sofort auf 0 setzen und Reset-Timer löschen."""
+    if quota_type not in QUOTA_DEFAULTS:
+        raise HTTPException(status_code=400, detail=f"Unbekannter Quota-Typ: {quota_type}")
+    db.quota_reset(user_id, quota_type)
     return {"ok": True}
