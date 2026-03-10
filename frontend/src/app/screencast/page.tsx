@@ -2166,8 +2166,11 @@ function ScreencastPageInner() {
                                       <button
                                         onClick={() => runRegen(i)}
                                         disabled={regenLoading}
-                                        className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                                        className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
                                       >
+                                        {regenLoading && (
+                                          <span className="inline-block animate-spin rounded-full h-3 w-3 border-b-2 border-white shrink-0" />
+                                        )}
                                         {regenLoading ? "Generiere…" : "Generieren"}
                                       </button>
                                     </div>

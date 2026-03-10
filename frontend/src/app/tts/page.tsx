@@ -386,12 +386,9 @@ export default function TtsPage() {
             <button
               onClick={handleSubmit}
               disabled={!pendingFile || isProcessing || noProvider}
-              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing && (
-                <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
-              )}
-              {isProcessing ? (ttsProgressLabel || "MP3 wird erstellt…") : "MP3 erstellen"}
+              MP3 erstellen
             </button>
             {isProcessing && (
               <button
