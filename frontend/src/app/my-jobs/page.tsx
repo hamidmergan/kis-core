@@ -389,7 +389,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
           : "PNG"
         : job.tool === "image_edit"
         ? "PNG"
-        : job.tool === "image_analyze" || job.tool === "script"
+        : job.tool === "image_analyze"
         ? "TXT"
         : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary")
         ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei")

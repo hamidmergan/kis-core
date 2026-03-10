@@ -38,12 +38,6 @@ const ALL_TOOLS: Tool[] = [
     href: "/tts",
   },
   {
-    key: "script",
-    title: "Skript erstellen",
-    description: "Erstellen Sie aus Dokumenten ein fließendes Vorleseskript.",
-    href: "/script",
-  },
-  {
     key: "transcription",
     title: "Transkription",
     description: "Transkribieren oder übersetzen Sie Audio- und Videodateien zu Text, SRT oder VTT.",

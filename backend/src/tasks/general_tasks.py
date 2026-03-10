@@ -1,4 +1,4 @@
-"""Celery tasks: translate, transcribe, image_generate, image_edit, image_analyze, script, summary."""
+"""Celery tasks: translate, transcribe, image_generate, image_edit, image_analyze, summary."""
 
 import base64
 import json
@@ -340,56 +340,6 @@ def run_image_analyze(
 
     except Exception as e:
         logger.error("Image analyze task {} failed: {}", job_uuid, e)
-        db.update_job_status(job_uuid, "failed", error_message=str(e))
-        raise
-
-
-# ── Script ────────────────────────────────────────────────────────────────────
-
-@celery_app.task(bind=True, name="general.script", queue="general")
-def run_script(
-    self,
-    job_uuid: str,
-    input_path: str,
-    filename: str,
-    glossary_json: str,
-    user_prompt: str = "",
-):
-    try:
-        db.update_job_status(job_uuid, "running")
-
-        content = get_file(input_path)
-        ext = Path(filename).suffix.lower()
-
-        from src.utils.text_extraction import EXTRACTORS
-        extractor = EXTRACTORS.get(ext)
-        if extractor is None:
-            raise ValueError(f"Unsupported file type: {ext}")
-        text = extractor(content)
-        if not text.strip():
-            raise ValueError("Kein Text in der Datei gefunden")
-
-        glossary_dict: dict | None = None
-        if glossary_json:
-            try:
-                glossary_dict = json.loads(glossary_json)
-            except (json.JSONDecodeError, TypeError):
-                pass
-
-        client = _get_kisski_client()
-        with job_heartbeat(job_uuid):
-            script = client.generate_script(text, glossary=glossary_dict, user_prompt=user_prompt or None)
-
-        from src.services.translation import translate_output_filename
-        output_name = translate_output_filename(filename, output_ext=".txt")
-        result_path = save_result_file(job_uuid, ".txt", script.encode("utf-8"))
-        save_result_and_evict(job_uuid, result_path, output_name)
-        db.update_job_status(job_uuid, "success")
-        delete_file(input_path)
-        logger.info("Script task {} completed: {}", job_uuid, output_name)
-
-    except Exception as e:
-        logger.error("Script task {} failed: {}", job_uuid, e)
         db.update_job_status(job_uuid, "failed", error_message=str(e))
         raise
 

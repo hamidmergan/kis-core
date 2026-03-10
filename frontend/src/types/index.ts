@@ -21,8 +21,6 @@ export type TranslationState = "idle" | "uploading" | "translating" | "done" | "
 
 export type TTSState = "idle" | "uploading" | "processing" | "done" | "error";
 
-export type ScriptState = "idle" | "uploading" | "processing" | "done" | "error";
-
 export type TranscriptionState = "idle" | "uploading" | "processing" | "done" | "error";
 
 export type VideoDubbingState = "idle" | "uploading" | "processing" | "done" | "error";

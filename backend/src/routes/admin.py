@@ -133,7 +133,6 @@ _TOOLS_CONFIG = [
     {"key": "screencast-demo", "label": "Screencast-Demo"},
     {"key": "translation",   "label": "Dokumentenübersetzung"},
     {"key": "tts",           "label": "Text-to-Speech"},
-    {"key": "script",        "label": "Skript erstellen"},
     {"key": "transcription", "label": "Transkription"},
     {"key": "video_dubbing", "label": "Video-Dubbing"},
     {"key": "image",         "label": "Bild-KI"},
@@ -304,7 +303,6 @@ _TOOL_LABELS = {
     "image_generate": "Bild-Generierung",
     "image_edit": "Bild-Bearbeitung",
     "image_analyze": "Bild-Analyse",
-    "script": "Skript-Erstellung",
     "summary": "Zusammenfassung",
 }
 

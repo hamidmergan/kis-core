@@ -49,7 +49,6 @@ _TOOL_LABELS = {
     "image_generate": "Bild-Generierung",
     "image_edit": "Bild-Bearbeitung",
     "image_analyze": "Bild-Analyse",
-    "script": "Skript-Erstellung",
     "summary": "Zusammenfassung",
 }
 
@@ -367,6 +366,14 @@ async def cancel_job(
     # would cause the lookup to fail and miss the real MinIO folder.
     delete_job_folder(job_uuid)
     db.delete_job(job_uuid)
+
+    # Clean up pre-rendered slide image cache (screencast jobs only, ignored for others)
+    try:
+        import shutil as _shutil
+        from src.routes.screencast import IMAGE_TMP_DIR
+        _shutil.rmtree(IMAGE_TMP_DIR / job_uuid, ignore_errors=True)
+    except Exception:
+        pass
 
     logger.info("Job cancelled: {}", job_uuid)
     return {"ok": True}

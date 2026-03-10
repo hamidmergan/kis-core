@@ -11,7 +11,6 @@
 # label:        Anzeigename für Admin-UI und Fehlermeldungen
 QUOTA_DEFAULTS: dict[str, dict] = {
     "tts":            {"limit": 30, "window_hours": 4, "label": "Text-to-Speech"},
-    "script":         {"limit": 30, "window_hours": 4, "label": "Skript-Generierung"},
     "summary":        {"limit": 30, "window_hours": 4, "label": "Zusammenfassung"},
     "translate":      {"limit": 30, "window_hours": 4, "label": "Dokumentenübersetzung"},
     "transcription":  {"limit": 30, "window_hours": 4, "label": "Transkription"},

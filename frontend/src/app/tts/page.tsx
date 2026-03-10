@@ -146,16 +146,6 @@ export default function TtsPage() {
   const handleSubmit = async () => {
     if (!pendingFile || isProcessing) return;
 
-    try {
-      const res = await fetch("/api/jobs/check/tts", { credentials: "include" });
-      const data = await res.json();
-      if (data.has_active_job) {
-        setTtsErrorMessage("Sie haben bereits einen laufenden TTS-Job. Bitte warten Sie, bis er fertig ist.");
-        return;
-      }
-
-    } catch { /* ignore, backend handles it */ }
-
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;

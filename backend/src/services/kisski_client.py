@@ -258,7 +258,7 @@ class KisskiClient:
                     {"role": "user", "content": user_message},
                 ],
                 temperature=0.3,
-                max_tokens=300,
+                max_tokens=4096,
                 extra_body=self._extra_body or None,
             )
             content = response.choices[0].message.content
