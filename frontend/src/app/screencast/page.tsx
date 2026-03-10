@@ -813,6 +813,7 @@ function ScreencastPageInner() {
     }
     if (!await checkJobFolder()) return;
     isGeneratingScriptsRef.current = true;
+    if (translateJobUuid) currentJobUuidRef.current = translateJobUuid;
     setStep("generating-scripts");
     setLoading(true);
     window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
@@ -840,6 +841,7 @@ function ScreencastPageInner() {
       }));
       setSlides(updatedSlides);
 
+      currentJobUuidRef.current = null;
       setLoading(false);
       setStep("script-review");
       isGeneratingScriptsRef.current = false;
@@ -1964,7 +1966,7 @@ function ScreencastPageInner() {
                 const uuid = currentJobUuidRef.current;
                 currentJobUuidRef.current = null;
                 abortControllerRef.current?.abort();
-                if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                if (uuid) { fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
                 setStep("translation-review"); setLoading(false);
               }}
               className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
