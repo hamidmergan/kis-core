@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     # Translation
     source_lang: str = "DE"
     target_lang: str = "EN-US"
+    translation_provider: str = "deepl"  # "deepl" oder "llm"
+    translation_languages: str = "DE,EN-US,FR,ES,IT,NL,PL,PT-BR"
 
     # API Keys (stored in .env)
     deepl_api_key: str = ""

@@ -48,6 +48,7 @@ def run_translate(
     glossary_json: str,
     source_lang: str,
     target_lang: str,
+    translation_provider: str = "",
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -55,16 +56,27 @@ def run_translate(
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
 
-        from src.services.deepl_client import DeepLClient
+        from src.config import Settings
         from src.services.glossary import GlossaryService
         from src.services.translation import TranslationService
 
-        from src.config import Settings
-        api_key = Settings().deepl_api_key
-        if not api_key:
-            raise RuntimeError("DeepL API Key nicht konfiguriert")
+        settings = Settings()
+        effective_provider = translation_provider or settings.translation_provider
 
-        deepl_client = DeepLClient(api_key)
+        if effective_provider == "llm":
+            from src.services.llm_translation_client import LLMTranslationClient
+            translation_client = LLMTranslationClient(
+                api_key=settings.effective_llm_api_key,
+                base_url=settings.effective_llm_base_url,
+                model=settings.effective_llm_model,
+                provider=settings.llm_provider,
+            )
+        else:
+            from src.services.deepl_client import DeepLClient
+            if not settings.deepl_api_key:
+                raise RuntimeError("DeepL API Key nicht konfiguriert")
+            translation_client = DeepLClient(settings.deepl_api_key)
+
         glossary = GlossaryService()
         if glossary_json:
             try:
@@ -74,7 +86,7 @@ def run_translate(
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        service = TranslationService(deepl_client=deepl_client, glossary=glossary)
+        service = TranslationService(deepl_client=translation_client, glossary=glossary)
         translated_filename = service.translate_filename(filename, source_lang, target_lang)
 
         with job_heartbeat(job_uuid):

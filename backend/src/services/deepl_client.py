@@ -11,9 +11,14 @@ class DeepLClient:
         """Direct access to the underlying deepl.Translator for Document API."""
         return self._translator
 
+    @staticmethod
+    def _normalize_source(lang: str) -> str:
+        """DeepL source language must not have regional variant (EN-US → EN, PT-BR → PT)."""
+        return lang.split("-")[0] if lang else lang
+
     def translate_text(self, text: str, source_lang: str, target_lang: str) -> str:
         result = self._translator.translate_text(
-            text, source_lang=source_lang, target_lang=target_lang
+            text, source_lang=self._normalize_source(source_lang), target_lang=target_lang
         )
         return result.text
 
@@ -21,12 +26,13 @@ class DeepLClient:
         """Translate a list of strings in a single API call."""
         if not texts:
             return []
+        normalized = self._normalize_source(source_lang)
         total_chars = sum(len(t) for t in texts)
         logger.info(
             "DeepL batch call: {} texts, {} chars total ({} → {})",
-            len(texts), total_chars, source_lang, target_lang,
+            len(texts), total_chars, normalized, target_lang,
         )
         results = self._translator.translate_text(
-            texts, source_lang=source_lang, target_lang=target_lang
+            texts, source_lang=normalized, target_lang=target_lang
         )
         return [r.text for r in results]

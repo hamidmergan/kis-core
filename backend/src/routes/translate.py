@@ -17,6 +17,39 @@ from src.utils.text_extraction import EXTRACTORS
 
 router = APIRouter(tags=["translate"])
 
+_LANG_LABELS = {
+    "DE": "Deutsch",
+    "EN-US": "Englisch",
+    "EN-GB": "Englisch (UK)",
+    "FR": "Französisch",
+    "ES": "Spanisch",
+    "IT": "Italienisch",
+    "NL": "Niederländisch",
+    "PL": "Polnisch",
+    "PT-BR": "Portugiesisch (Brasilien)",
+}
+
+
+@router.get("/translate/config")
+async def get_translate_config(current_user: dict = Depends(get_current_user)):
+    settings = get_settings()
+
+    providers = [
+        {"id": "deepl", "label": "DeepL"},
+        {"id": "llm", "label": "KI-Übersetzung (KISSKI)"},
+    ]
+
+    raw_langs = [lang.strip() for lang in settings.translation_languages.split(",") if lang.strip()]
+    languages = [{"id": lang, "label": _LANG_LABELS.get(lang, lang)} for lang in raw_langs]
+
+    return {
+        "providers": providers,
+        "default_provider": settings.translation_provider,
+        "languages": languages,
+        "default_source": settings.source_lang,
+        "default_target": settings.effective_target_lang,
+    }
+
 
 def translate_pptx_content(
     content: bytes,
@@ -58,6 +91,9 @@ async def translate(
     request: Request,
     file: UploadFile = File(...),
     glossary: str = Form(""),
+    translation_provider: str = Form(""),
+    source_lang: str = Form(""),
+    target_lang: str = Form(""),
     current_user: dict = Depends(get_current_user),
 ):
     if not file.filename:
@@ -87,6 +123,9 @@ async def translate(
             )
 
     settings = get_settings()
+    effective_source = source_lang or settings.source_lang
+    effective_target = target_lang or settings.effective_target_lang
+
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
     enforce_quota(user_id, "translate", is_admin_user(current_user))
@@ -101,8 +140,9 @@ async def translate(
         input_path,
         file.filename,
         glossary,
-        settings.source_lang,
-        settings.effective_target_lang,
+        effective_source,
+        effective_target,
+        translation_provider,
     )
 
     logger.info("Translate job {} queued for '{}'", job_uuid, file.filename)
