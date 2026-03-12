@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TranscriptionFileUpload from "@/components/TranscriptionFileUpload";
@@ -21,15 +21,6 @@ export default function TranscriptionPage() {
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
   const [responseFormat, setResponseFormat] = useState("text");
-  const [diarize, setDiarize] = useState(false);
-  const [diarizeEnabled, setDiarizeEnabled] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/features", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => setDiarizeEnabled(d.diarize_enabled ?? false))
-      .catch(() => {});
-  }, []);
 
   const handleFileSelected = useCallback((file: File) => {
     setPendingFile(file);
@@ -49,7 +40,6 @@ export default function TranscriptionPage() {
       formData.append("file", pendingFile);
       formData.append("task", "transcribe");
       formData.append("response_format", responseFormat);
-      if (diarize) formData.append("diarize", "true");
       const response = await backendApi.fetch("/transcription", { method: "POST", body: formData });
       if (!response.ok) {
         const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
@@ -122,22 +112,6 @@ export default function TranscriptionPage() {
               ))}
             </div>
           </div>
-
-          {diarizeEnabled && (
-            <div className="mb-6">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={diarize}
-                  onChange={(e) => setDiarize(e.target.checked)}
-                  disabled={processing}
-                  className="accent-[#0066cc]"
-                />
-                <span className="text-sm text-gray-700">Sprecher erkennen (Diarisierung)</span>
-              </label>
-              <p className="text-xs text-gray-400 mt-1 ml-5">Experimentell – funktioniert am besten bei 2–5 Sprechern</p>
-            </div>
-          )}
 
           <div className="mb-6">
             <button

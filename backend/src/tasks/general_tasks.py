@@ -9,7 +9,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import delete_file, get_file, open_input_file, save_job_file, save_queue_file, save_result_file, save_result_and_evict  # noqa: F401
+from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 
 
@@ -138,7 +138,6 @@ def run_transcribe(
     filename: str,
     task: str,
     response_format: str,
-    diarize: bool = False,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -148,12 +147,9 @@ def run_transcribe(
 
         with job_heartbeat(job_uuid), open_input_file(input_path, suffix=ext_suffix) as local_path:
             if task == "translate":
-                result_text, verbose_json = client.transcribe_and_translate_chunked(local_path, response_format=response_format), None
+                result_text = client.transcribe_and_translate_chunked(local_path, response_format=response_format)
             else:
-                result_text, verbose_json = client.transcribe_chunked(local_path, response_format=response_format, diarize=diarize)
-
-        if verbose_json:
-            save_job_file(job_uuid, "verbose.json", verbose_json.encode("utf-8"))
+                result_text = client.transcribe_chunked(local_path, response_format=response_format)
 
         out_ext = _FORMAT_EXT[response_format]
         if task == "translate":

@@ -26,7 +26,6 @@ class UpdateSettingsRequest(BaseModel):
     elevenlabs_enabled: bool | None = None
     fish_speech_enabled: bool | None = None
     kokoro_enabled: bool | None = None
-    diarize_enabled: bool | None = None
 
 
 class ToggleToolRequest(BaseModel):
@@ -180,7 +179,6 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "kokoro_enabled": db.get_setting("kokoro_enabled", "true").lower() == "true",
         "kokoro_configured": bool(app_settings.kokoro_base_url),
         "kokoro_available": _check_kokoro_available(app_settings),
-        "diarize_enabled": db.get_setting("diarize_enabled", "false").lower() == "true",
     }
 
 
@@ -196,19 +194,7 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("fish_speech_enabled", "true" if body.fish_speech_enabled else "false")
     if body.kokoro_enabled is not None:
         db.set_setting("kokoro_enabled", "true" if body.kokoro_enabled else "false")
-    if body.diarize_enabled is not None:
-        db.set_setting("diarize_enabled", "true" if body.diarize_enabled else "false")
     return {"ok": True}
-
-
-# --- Public feature flags ---
-
-@router.get("/features")
-async def get_features(_user=Depends(get_current_user)):
-    """Return user-visible feature flags. Accessible by all logged-in users."""
-    return {
-        "diarize_enabled": db.get_setting("diarize_enabled", "false").lower() == "true",
-    }
 
 
 # --- Tool visibility ---

@@ -655,22 +655,15 @@ class KisskiClient:
                 raise
             raise RuntimeError(f"KISSKI API Fehler: {e}") from e
 
-    def transcribe_chunked(self, file_path: str, response_format: str = "text", diarize: bool = False) -> tuple[str, str | None]:
-        """Transcribe audio, splitting files that exceed KISSKI's 600 s limit at silence points.
-
-        Returns:
-            (output_text, verbose_json_str) — verbose_json_str is set when diarize=True, else None.
-        """
+    def transcribe_chunked(self, file_path: str, response_format: str = "text") -> str:
+        """Transcribe audio, splitting files that exceed KISSKI's 600 s limit at silence points."""
         duration = _get_audio_duration(file_path)
         if duration > _MAX_AUDIO_SEC:
             raise RuntimeError(
                 f"Audio zu lang ({duration / 60:.1f} min). Maximum: {_MAX_AUDIO_SEC // 60} Minuten."
             )
         if duration <= _CHUNK_MAX_SEC:
-            return self.transcribe(file_path, response_format=response_format, diarize=diarize)
-
-        if diarize:
-            raise RuntimeError("Diarisierung wird nur für Dateien unter 9 Minuten unterstützt.")
+            return self.transcribe(file_path, response_format=response_format)
 
         logger.info("Audio {:.1f}s exceeds limit – splitting into chunks", duration)
         silence_starts = _find_silence_starts(file_path)
@@ -682,24 +675,23 @@ class KisskiClient:
             results: dict[int, tuple[str, float]] = {}
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {
-                    executor.submit(self.transcribe, path, response_format, False): (i, offset)
+                    executor.submit(self.transcribe, path, response_format): (i, offset)
                     for i, (path, offset) in enumerate(chunks)
                 }
                 for future in as_completed(futures):
                     i, offset = futures[future]
                     try:
-                        text, _ = future.result()
-                        results[i] = (text, offset)
+                        results[i] = (future.result(), offset)
                         logger.info("Chunk {}/{} transcribed", i + 1, len(chunks))
                     except Exception as e:
                         raise RuntimeError(f"Chunk {i + 1} transcription failed: {e}") from e
 
             ordered = [results[i] for i in range(len(chunks))]
             if response_format == "srt":
-                return _merge_srt(ordered), None
+                return _merge_srt(ordered)
             if response_format == "vtt":
-                return _merge_vtt(ordered), None
-            return " ".join(text for text, _ in ordered).strip(), None
+                return _merge_vtt(ordered)
+            return " ".join(text for text, _ in ordered).strip()
 
     def transcribe_and_translate_chunked(self, file_path: str, response_format: str = "text") -> str:
         """Transcribe and translate audio, splitting files that exceed KISSKI's 600 s limit."""
@@ -738,41 +730,18 @@ class KisskiClient:
                 return _merge_vtt(ordered)
             return " ".join(text for text, _ in ordered).strip()
 
-    def transcribe(self, file_path: str, response_format: str = "text", diarize: bool = False) -> tuple[str, str | None]:
-        """Transcribe audio in its original language using KISSKI Whisper.
-
-        Returns:
-            (output_text, verbose_json_str) — verbose_json_str is set when diarize=True, else None.
-        """
+    def transcribe(self, file_path: str, response_format: str = "text") -> str:
+        """Transcribe audio in its original language using KISSKI Whisper."""
         try:
-            if diarize:
-                import httpx
-                base_url = str(self._client.base_url).rstrip("/")
-                with open(file_path, "rb") as f:
-                    resp = httpx.post(
-                        f"{base_url}/audio/transcriptions",
-                        headers={"Authorization": f"Bearer {self._client.api_key}"},
-                        data={"model": "whisper-large-v2", "response_format": "verbose_json"},
-                        files={"file": f},
-                        timeout=300.0,
-                    )
-                resp.raise_for_status()
-                raw_json = resp.text
-                data = json.loads(raw_json)
-                output = _verbose_json_to_output(data, response_format)
-                if not output:
-                    raise RuntimeError("Whisper returned no output")
-                return output, raw_json
-            else:
-                with open(file_path, "rb") as f:
-                    result = str(self._client.audio.transcriptions.create(
-                        model="whisper-large-v2",
-                        file=f,
-                        response_format=response_format,
-                    ))
-                if not result:
-                    raise RuntimeError("Whisper returned no output")
-                return _clean_whisper_response(result), None
+            with open(file_path, "rb") as f:
+                result = str(self._client.audio.transcriptions.create(
+                    model="whisper-large-v2",
+                    file=f,
+                    response_format=response_format,
+                ))
+            if not result:
+                raise RuntimeError("Whisper returned no output")
+            return _clean_whisper_response(result)
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
@@ -793,11 +762,10 @@ class KisskiClient:
         """
         try:
             with open(file_path, "rb") as f:
-                response = self._client.audio.transcriptions.create(
+                response = self._client.audio.translations.create(
                     model="whisper-large-v2",
                     file=f,
                     response_format=response_format,
-                    extra_body={"task": "translate"},
                 )
             if not response:
                 raise RuntimeError("Whisper returned no output")

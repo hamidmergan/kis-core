@@ -572,7 +572,6 @@ function GeneralSettingsSection() {
   const [kokoroEnabled, setKokoroEnabled] = useState<boolean>(false);
   const [kokoroConfigured, setKokoroConfigured] = useState<boolean>(false);
   const [kokoroAvailable, setKokoroAvailable] = useState<boolean>(false);
-  const [diarizeEnabled, setDiarizeEnabled] = useState<boolean>(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -586,7 +585,6 @@ function GeneralSettingsSection() {
         setKokoroEnabled(d.kokoro_enabled ?? true);
         setKokoroConfigured(d.kokoro_configured ?? false);
         setKokoroAvailable(d.kokoro_available ?? false);
-        setDiarizeEnabled(d.diarize_enabled ?? false);
       });
   }, []);
 
@@ -668,32 +666,6 @@ function GeneralSettingsSection() {
             Demo-Screencast ist für alle eingeloggten User sichtbar.
           </p>
         )}
-      </div>
-
-      {/* Diarisierung */}
-      <div className="border border-gray-200 rounded-xl bg-white p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-800">Diarisierung (Sprechererkennung)</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {diarizeEnabled
-                ? "Aktiv — Option zur Sprechererkennung ist in der Transkription sichtbar."
-                : "Deaktiviert — Option wird in der Transkription ausgeblendet."}
-            </p>
-          </div>
-          <button
-            onClick={() => { const v = !diarizeEnabled; setDiarizeEnabled(v); patch({ diarize_enabled: v }); }}
-            disabled={saving}
-            className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-              diarizeEnabled ? "bg-[#0066cc]" : "bg-gray-300"
-            } disabled:opacity-50`}
-            aria-label="Diarisierung umschalten"
-          >
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-              diarizeEnabled ? "translate-x-5" : "translate-x-0"
-            }`} />
-          </button>
-        </div>
       </div>
 
       {/* TTS-Anbieter */}
