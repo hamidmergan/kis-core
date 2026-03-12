@@ -882,17 +882,18 @@ def quota_get_all_for_user(user_id: int) -> tuple[list[dict], Optional[datetime]
 
 
 def quota_get_all_users_usage() -> list[dict]:
-    """Admin: return all users with any quota activity, joined with display name."""
+    """Admin: return all active users with quota data (used=0 if no activity yet)."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT u.id AS user_id, u.ldap_username, u.display_name,
-                          q.quota_type, q.used, q.reset_at, o.limit_value AS override
-                   FROM user_quotas q
-                   JOIN users u ON u.id = q.user_id
+                          q.quota_type, COALESCE(q.used, 0) AS used, q.reset_at,
+                          o.limit_value AS override
+                   FROM users u
+                   LEFT JOIN user_quotas q ON q.user_id = u.id
                    LEFT JOIN user_quota_overrides o
-                     ON o.user_id = q.user_id AND o.quota_type = q.quota_type
-                   WHERE q.used > 0 OR o.limit_value IS NOT NULL
+                     ON o.user_id = u.id AND o.quota_type = q.quota_type
+                   WHERE u.active = 1
                    ORDER BY u.display_name, q.quota_type"""
             )
             rows = cur.fetchall()

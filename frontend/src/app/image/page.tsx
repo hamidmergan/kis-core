@@ -15,7 +15,7 @@ const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg"]);
 function validateImageFile(file: File): string | null {
   const ext = "." + file.name.split(".").pop()?.toLowerCase();
   if (!ALLOWED_EXTS.has(ext)) return "Nur PNG oder JPG erlaubt";
-  if (file.size > MAX_IMAGE_BYTES) return "Bild zu groß (max 10 MB)";
+  if (file.size > MAX_IMAGE_BYTES) return "Bild zu groß (max 20 MB)";
   return null;
 }
 
@@ -88,7 +88,7 @@ function UploadZone({
             Bild hierher ziehen oder{" "}
             <span className="text-[#0066cc] font-medium">durchsuchen</span>
           </p>
-          <p className="text-xs text-gray-400 mt-1">PNG oder JPG, max. 10 MB</p>
+          <p className="text-xs text-gray-400 mt-1">PNG oder JPG</p>
         </>
       )}
     </div>

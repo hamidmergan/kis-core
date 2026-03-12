@@ -73,7 +73,7 @@ function toMs(dateStr: string): number {
   return new Date(dateStr + "Z").getTime();
 }
 
-function TimingInfo({ job }: { job: MyJob }) {
+function TimingInfo({ job, isAdmin }: { job: MyJob; isAdmin: boolean }) {
   if (SCREENCAST_TOOLS.has(job.tool)) {
     const queueWaitMs = job.render_queued_at && job.render_started_at
       ? toMs(job.render_started_at) - toMs(job.render_queued_at)
@@ -84,10 +84,10 @@ function TimingInfo({ job }: { job: MyJob }) {
     return (
       <div className="mt-1.5 text-xs text-gray-400 space-y-0.5">
         <p>Eingereicht: {formatDate(job.created_at)}</p>
-        {queueWaitMs !== null && (
+        {isAdmin && queueWaitMs !== null && (
           <p>Wartezeit: <span className="text-gray-500">{formatDuration(queueWaitMs)}</span></p>
         )}
-        {renderMs !== null && (
+        {isAdmin && renderMs !== null && (
           <p>Renderzeit: <span className="text-gray-500">{formatDuration(renderMs)}</span></p>
         )}
         {job.completed_at && (
@@ -105,10 +105,10 @@ function TimingInfo({ job }: { job: MyJob }) {
   return (
     <div className="mt-1.5 text-xs text-gray-400 space-y-0.5">
       <p>Eingereicht: {formatDate(job.created_at)}</p>
-      {waitMs !== null && (
+      {isAdmin && waitMs !== null && (
         <p>Wartezeit: <span className="text-gray-500">{formatDuration(waitMs)}</span></p>
       )}
-      {workMs !== null && (
+      {isAdmin && workMs !== null && (
         <p>Bearbeitungszeit: <span className="text-gray-500">{formatDuration(workMs)}</span></p>
       )}
       {job.completed_at && (
@@ -653,7 +653,7 @@ export default function MeineJobsPage() {
                         {isAdmin && job.folder_name && (
                           <p className="text-xs text-gray-300 font-mono truncate mt-0.5">{job.folder_name}</p>
                         )}
-                        <TimingInfo job={job} />
+                        <TimingInfo job={job} isAdmin={isAdmin} />
                         {job.status === "failed" && job.error && (
                           <p className="text-xs text-red-500 mt-1">{job.error}</p>
                         )}

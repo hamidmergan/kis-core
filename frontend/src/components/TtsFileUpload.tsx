@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 const ACCEPTED_EXTENSIONS = [".docx", ".md", ".txt"];
-const MAX_SIZE_MB = 200;
+const MAX_SIZE_MB = 500;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 interface TtsFileUploadProps {
@@ -106,7 +106,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false }: TtsF
             Datei hierher ziehen oder <span className="text-[#0066cc] underline">durchsuchen</span>
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            {ACCEPTED_EXTENSIONS.join(", ")} (max {MAX_SIZE_MB} MB)
+            {ACCEPTED_EXTENSIONS.join(", ")}
           </p>
         </div>
       </div>

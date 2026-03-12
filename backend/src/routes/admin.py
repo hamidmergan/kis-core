@@ -26,6 +26,7 @@ class UpdateSettingsRequest(BaseModel):
     elevenlabs_enabled: bool | None = None
     fish_speech_enabled: bool | None = None
     kokoro_enabled: bool | None = None
+    diarize_enabled: bool | None = None
 
 
 class ToggleToolRequest(BaseModel):
@@ -179,6 +180,7 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "kokoro_enabled": db.get_setting("kokoro_enabled", "true").lower() == "true",
         "kokoro_configured": bool(app_settings.kokoro_base_url),
         "kokoro_available": _check_kokoro_available(app_settings),
+        "diarize_enabled": db.get_setting("diarize_enabled", "false").lower() == "true",
     }
 
 
@@ -194,7 +196,19 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("fish_speech_enabled", "true" if body.fish_speech_enabled else "false")
     if body.kokoro_enabled is not None:
         db.set_setting("kokoro_enabled", "true" if body.kokoro_enabled else "false")
+    if body.diarize_enabled is not None:
+        db.set_setting("diarize_enabled", "true" if body.diarize_enabled else "false")
     return {"ok": True}
+
+
+# --- Public feature flags ---
+
+@router.get("/features")
+async def get_features(_user=Depends(get_current_user)):
+    """Return user-visible feature flags. Accessible by all logged-in users."""
+    return {
+        "diarize_enabled": db.get_setting("diarize_enabled", "false").lower() == "true",
+    }
 
 
 # --- Tool visibility ---
@@ -418,7 +432,7 @@ async def get_quota_defaults(_admin=Depends(get_admin_user)):
 
 @router.get("/quota/overview")
 async def get_quota_overview(_admin=Depends(get_admin_user)):
-    """Alle User mit Quota-Aktivität (used > 0 oder Override vorhanden)."""
+    """Alle aktiven User mit Kontingenten (auch ohne bisherige Aktivität)."""
     rows = db.quota_get_all_users_usage()
     # Group by user
     users: dict[int, dict] = {}
@@ -432,17 +446,31 @@ async def get_quota_overview(_admin=Depends(get_admin_user)):
                 "quotas": [],
                 "global_reset_at": row.get("global_reset_at"),
             }
-        cfg = QUOTA_DEFAULTS.get(row["quota_type"], {})
-        effective_limit = row["override"] if row["override"] is not None else cfg.get("limit", 30)
-        users[uid]["quotas"].append({
-            "quota_type": row["quota_type"],
-            "label": cfg.get("label", row["quota_type"]),
-            "used": row["used"],
-            "limit": effective_limit,
-            "limit_is_unlimited": effective_limit == -1,
-            "override": row["override"],
-            "reset_at": row["reset_at"].isoformat() if row["reset_at"] else None,
-        })
+        if row["quota_type"] is None:
+            # User exists but has no quota entries yet — fill from QUOTA_DEFAULTS
+            for cfg_type, cfg in QUOTA_DEFAULTS.items():
+                effective_limit = cfg["limit"]
+                users[uid]["quotas"].append({
+                    "quota_type": cfg_type,
+                    "label": cfg["label"],
+                    "used": 0,
+                    "limit": effective_limit,
+                    "limit_is_unlimited": effective_limit == -1,
+                    "override": None,
+                    "reset_at": None,
+                })
+        else:
+            cfg = QUOTA_DEFAULTS.get(row["quota_type"], {})
+            effective_limit = row["override"] if row["override"] is not None else cfg.get("limit", 30)
+            users[uid]["quotas"].append({
+                "quota_type": row["quota_type"],
+                "label": cfg.get("label", row["quota_type"]),
+                "used": row["used"],
+                "limit": effective_limit,
+                "limit_is_unlimited": effective_limit == -1,
+                "override": row["override"],
+                "reset_at": row["reset_at"].isoformat() if row["reset_at"] else None,
+            })
     return {"users": list(users.values())}
 
 

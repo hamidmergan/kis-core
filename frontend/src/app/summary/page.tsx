@@ -172,7 +172,7 @@ export default function ZusammenfassungPage() {
                   <span className="text-[#0066cc] underline">durchsuchen</span>
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  {ACCEPTED_EXTENSIONS.join(", ")} (max {MAX_SIZE_MB} MB)
+                  {ACCEPTED_EXTENSIONS.join(", ")}
                 </p>
               </>
             )}

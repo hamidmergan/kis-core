@@ -106,7 +106,7 @@ export default function TranscriptionFileUpload({ onFileSelected, disabled = fal
               Datei hierher ziehen oder <span className="text-[#0066cc] underline">durchsuchen</span>
             </p>
             <p className="text-xs text-gray-400 mt-1">
-              {DISPLAY_EXTENSIONS.join(", ")} (max {MAX_TRANSCRIPTION_MB} MB)
+              {DISPLAY_EXTENSIONS.join(", ")}
             </p>
           </>
         )}

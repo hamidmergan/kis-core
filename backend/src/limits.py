@@ -26,10 +26,10 @@ JOB_RETENTION_HOURS  = 168  # 7 Tage — danach wird Datei als "abgelaufen" mark
 JOB_WATCHDOG_MINUTES = 20   # Job gilt als hängend wenn kein Heartbeat seit X Minuten
 
 # ─── Upload-Größen ─────────────────────────────────────────────────────────────
-MAX_UPLOAD_BYTES           = 200 * 1024 * 1024   # allgemein (200 MB)
-TRANSLATE_MAX_UPLOAD_BYTES = 500 * 1024 * 1024   # Übersetzung: größere Dokumente erlaubt (500 MB)
-MAX_TRANSCRIPTION_BYTES    = 200 * 1024 * 1024   # Audio-Upload (200 MB)
-MAX_IMAGE_BYTES            = 10  * 1024 * 1024   # Bild-Upload (10 MB)
+MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # allgemein (500 MB)
+TRANSLATE_MAX_UPLOAD_BYTES = 500 * 1024 * 1024   # Übersetzung (500 MB)
+MAX_TRANSCRIPTION_BYTES    = 500 * 1024 * 1024   # Audio-Upload (500 MB)
+MAX_IMAGE_BYTES            = 20  * 1024 * 1024   # Bild-Upload (20 MB)
 MAX_OUTPUT_VIDEO_BYTES     = 200 * 1024 * 1024   # Ausgabe-Video-Limit (200 MB)
 
 # ─── Zeichen-Limits (pro Anfrage, nicht pro Zeitfenster) ──────────────────────

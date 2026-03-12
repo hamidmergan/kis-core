@@ -38,7 +38,7 @@ async def summarize_transcript(body: SummarizeRequest):
     return {"summary": summary}
 
 
-_VALID_TASKS = {"transcribe", "translate"}
+_VALID_TASKS = {"transcribe"}
 _VALID_FORMATS = {"text", "srt", "vtt"}
 
 

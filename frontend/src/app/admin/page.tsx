@@ -225,7 +225,7 @@ function WhitelistTab({ adminEmail }: { adminEmail: string }) {
 }
 
 // --- Tab: All Users ---
-function UsersTab() {
+function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -309,6 +309,7 @@ function UsersTab() {
                 <th className="px-4 py-3 text-left">Email</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-left">Erstellt</th>
+                <th className="px-4 py-3 text-left">Kontingente</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
@@ -327,6 +328,11 @@ function UsersTab() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(u.created_at)}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => onOpenQuota(u.id)} className="text-xs text-[#0066cc] hover:underline whitespace-nowrap">
+                      Details
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -566,6 +572,7 @@ function GeneralSettingsSection() {
   const [kokoroEnabled, setKokoroEnabled] = useState<boolean>(false);
   const [kokoroConfigured, setKokoroConfigured] = useState<boolean>(false);
   const [kokoroAvailable, setKokoroAvailable] = useState<boolean>(false);
+  const [diarizeEnabled, setDiarizeEnabled] = useState<boolean>(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -579,6 +586,7 @@ function GeneralSettingsSection() {
         setKokoroEnabled(d.kokoro_enabled ?? true);
         setKokoroConfigured(d.kokoro_configured ?? false);
         setKokoroAvailable(d.kokoro_available ?? false);
+        setDiarizeEnabled(d.diarize_enabled ?? false);
       });
   }, []);
 
@@ -660,6 +668,32 @@ function GeneralSettingsSection() {
             Demo-Screencast ist für alle eingeloggten User sichtbar.
           </p>
         )}
+      </div>
+
+      {/* Diarisierung */}
+      <div className="border border-gray-200 rounded-xl bg-white p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Diarisierung (Sprechererkennung)</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {diarizeEnabled
+                ? "Aktiv — Option zur Sprechererkennung ist in der Transkription sichtbar."
+                : "Deaktiviert — Option wird in der Transkription ausgeblendet."}
+            </p>
+          </div>
+          <button
+            onClick={() => { const v = !diarizeEnabled; setDiarizeEnabled(v); patch({ diarize_enabled: v }); }}
+            disabled={saving}
+            className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+              diarizeEnabled ? "bg-[#0066cc]" : "bg-gray-300"
+            } disabled:opacity-50`}
+            aria-label="Diarisierung umschalten"
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              diarizeEnabled ? "translate-x-5" : "translate-x-0"
+            }`} />
+          </button>
+        </div>
       </div>
 
       {/* TTS-Anbieter */}
@@ -958,8 +992,7 @@ interface QuotaDefaults {
   [key: string]: { limit: number; window_hours: number; label: string };
 }
 
-function QuotaTab() {
-  const [users, setUsers] = useState<QuotaUser[]>([]);
+function QuotaTab({ targetUserId, onConsumed, onBack }: { targetUserId: number | null; onConsumed: () => void; onBack: () => void }) {
   const [defaults, setDefaults] = useState<QuotaDefaults>({});
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<QuotaUser | null>(null);
@@ -969,13 +1002,8 @@ function QuotaTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [overviewRes, defaultsRes] = await Promise.all([
-        fetch("/api/admin/quota/overview", { credentials: "include" }),
-        fetch("/api/admin/quota/defaults", { credentials: "include" }),
-      ]);
-      const overview = await overviewRes.json();
+      const defaultsRes = await fetch("/api/admin/quota/defaults", { credentials: "include" });
       const defs = await defaultsRes.json();
-      setUsers(overview.users ?? []);
       setDefaults(defs.defaults ?? {});
     } finally {
       setLoading(false);
@@ -983,6 +1011,13 @@ function QuotaTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (targetUserId === null) return;
+    openUser({ user_id: targetUserId, display_name: "", ldap_username: "", quotas: [], global_reset_at: null });
+    onConsumed();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetUserId]);
 
   const openUser = async (u: QuotaUser) => {
     const res = await fetch(`/api/admin/quota/users/${u.user_id}`, { credentials: "include" });
@@ -1036,8 +1071,8 @@ function QuotaTab() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => setSelectedUser(null)} className="text-sm text-[#0066cc] hover:underline">
-            ← Zurück zur Übersicht
+          <button onClick={() => { setSelectedUser(null); onBack(); }} className="text-sm text-[#0066cc] hover:underline">
+            ← Zurück
           </button>
           <span className="text-sm text-gray-500">|</span>
           <span className="text-sm font-medium text-gray-800">{selectedUser.display_name}</span>
@@ -1136,67 +1171,9 @@ function QuotaTab() {
     );
   }
 
-  if (users.length === 0) {
-    return (
-      <div className="text-center py-12 text-sm text-gray-500">
-        Noch keine Quota-Aktivität. Limits greifen ab dem ersten Einsatz eines Tools.
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-gray-500">Nur User mit Verbrauch oder individuellem Override werden angezeigt.</p>
-      <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">User</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Aktive Limits</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {users.map((u) => {
-              const blocked = u.quotas.filter((q) => !q.limit_is_unlimited && q.used >= q.limit).length;
-              const overloaded = u.quotas.filter((q) => !q.limit_is_unlimited && q.used >= q.limit).length;
-              return (
-                <tr key={u.user_id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800">{u.display_name}</p>
-                    <p className="text-xs text-gray-400">{u.ldap_username}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {u.quotas.map((q) => {
-                        const pct = q.limit_is_unlimited ? 0 : Math.min(100, Math.round((q.used / q.limit) * 100));
-                        const isBlocked = !q.limit_is_unlimited && q.used >= q.limit;
-                        const color = isBlocked ? "bg-red-100 text-red-700" : pct >= 80 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600";
-                        return (
-                          <span key={q.quota_type} className={`text-xs px-2 py-0.5 rounded-full ${color}`}>
-                            {q.label}: {q.used}/{q.limit_is_unlimited ? "∞" : q.limit}
-                          </span>
-                        );
-                      })}
-                    </div>
-                    {blocked > 0 && <p className="text-xs text-red-600 mt-1">{blocked} Tool(s) gesperrt</p>}
-                    {u.global_reset_at && (
-                      <p className="text-xs text-amber-500 mt-0.5">
-                        Reset: {new Date(u.global_reset_at).toLocaleString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => openUser(u)} className="text-xs text-[#0066cc] hover:underline">
-                      Details
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+    <div className="text-center py-12 text-sm text-gray-500">
+      Bitte einen User über <span className="font-medium text-gray-700">Alle User → Kontingente →</span> auswählen.
     </div>
   );
 }
@@ -1205,7 +1182,13 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("settings");
   const [checking, setChecking] = useState(true);
   const [adminEmail, setAdminEmail] = useState("");
+  const [quotaTargetId, setQuotaTargetId] = useState<number | null>(null);
   const router = useRouter();
+
+  const openQuotaForUser = (userId: number) => {
+    setQuotaTargetId(userId);
+    setTab("quota");
+  };
 
   useEffect(() => {
     checkAuthStatus().then((s) => {
@@ -1225,7 +1208,6 @@ export default function AdminPage() {
     { key: "whitelist", label: "Whitelist" },
     { key: "users", label: "Alle User" },
     { key: "jobs", label: "Alle Jobs" },
-    { key: "quota", label: "Kontingente" },
   ];
 
   return (
@@ -1252,11 +1234,11 @@ export default function AdminPage() {
 
         {tab === "pending" && <PendingTab />}
         {tab === "whitelist" && <WhitelistTab adminEmail={adminEmail} />}
-        {tab === "users" && <UsersTab />}
+        {tab === "users" && <UsersTab onOpenQuota={openQuotaForUser} />}
         {tab === "jobs" && <JobsTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "prompts" && <PromptsTab />}
-        {tab === "quota" && <QuotaTab />}
+        {tab === "quota" && <QuotaTab targetUserId={quotaTargetId} onConsumed={() => setQuotaTargetId(null)} onBack={() => setTab("users")} />}
       </main>
     </>
   );

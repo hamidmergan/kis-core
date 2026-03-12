@@ -1,15 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TranscriptionFileUpload from "@/components/TranscriptionFileUpload";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
-
-const TASK_OPTIONS = [
-  { value: "transcribe", label: "In Originalsprache transkribieren" },
-  { value: "translate", label: "Transkribieren und ins Englische übersetzen" },
-];
 
 const FORMAT_OPTIONS = [
   { value: "text", label: "Text (.txt)" },
@@ -25,9 +20,16 @@ export default function TranscriptionPage() {
   const [stallMessage, setStallMessage] = useState<string>("");
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
-  const [task, setTask] = useState("transcribe");
   const [responseFormat, setResponseFormat] = useState("text");
   const [diarize, setDiarize] = useState(false);
+  const [diarizeEnabled, setDiarizeEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/features", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setDiarizeEnabled(d.diarize_enabled ?? false))
+      .catch(() => {});
+  }, []);
 
   const handleFileSelected = useCallback((file: File) => {
     setPendingFile(file);
@@ -45,7 +47,7 @@ export default function TranscriptionPage() {
     try {
       const formData = new FormData();
       formData.append("file", pendingFile);
-      formData.append("task", task);
+      formData.append("task", "transcribe");
       formData.append("response_format", responseFormat);
       if (diarize) formData.append("diarize", "true");
       const response = await backendApi.fetch("/transcription", { method: "POST", body: formData });
@@ -96,27 +98,10 @@ export default function TranscriptionPage() {
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Transkription</h1>
           <p className="text-sm text-gray-500 mb-6">
-            Laden Sie eine Audio- oder Videodatei hoch, um sie zu transkribieren oder ins Englische zu übersetzen.
+            Laden Sie eine Audio- oder Videodatei hoch, um sie in der Originalsprache zu transkribieren.
           </p>
 
           <TranscriptionFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
-
-          <div className="mt-6 mb-4">
-            <label htmlFor="task-select" className="block text-sm font-medium text-gray-700 mb-2">
-              Aktion
-            </label>
-            <select
-              id="task-select"
-              value={task}
-              onChange={(e) => setTask(e.target.value)}
-              disabled={processing}
-              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {TASK_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
 
           <div className="mb-6">
             <span className="block text-sm font-medium text-gray-700 mb-2">Ausgabeformat</span>
@@ -138,7 +123,7 @@ export default function TranscriptionPage() {
             </div>
           </div>
 
-          {task === "transcribe" && (
+          {diarizeEnabled && (
             <div className="mb-6">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
