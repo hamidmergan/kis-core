@@ -3,7 +3,8 @@
 import { useCallback, useRef, useState } from "react";
 import { MAX_TRANSCRIPTION_MB, MAX_TRANSCRIPTION_BYTES } from "@/lib/constants";
 
-const ACCEPTED_EXTENSIONS = [".mp3", ".mp4"];
+const DISPLAY_EXTENSIONS = [".mp3", ".mp4"];
+const ALLOWED_EXTENSIONS = [".mp3", ".mp4", ".m4a", ".wav", ".flac"];
 
 interface TranscriptionFileUploadProps {
   onFileSelected: (file: File) => void;
@@ -18,8 +19,8 @@ export default function TranscriptionFileUpload({ onFileSelected, disabled = fal
 
   const validateFile = (file: File): string | null => {
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
-    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      return `Nur ${ACCEPTED_EXTENSIONS.join(", ")} Dateien erlaubt`;
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return `Nur ${DISPLAY_EXTENSIONS.join(", ")} Dateien erlaubt`;
     }
     if (file.size > MAX_TRANSCRIPTION_BYTES) {
       return `Datei zu groß (max ${MAX_TRANSCRIPTION_MB} MB)`;
@@ -105,7 +106,7 @@ export default function TranscriptionFileUpload({ onFileSelected, disabled = fal
               Datei hierher ziehen oder <span className="text-[#0066cc] underline">durchsuchen</span>
             </p>
             <p className="text-xs text-gray-400 mt-1">
-              {ACCEPTED_EXTENSIONS.join(", ")} (max {MAX_TRANSCRIPTION_MB} MB)
+              {DISPLAY_EXTENSIONS.join(", ")} (max {MAX_TRANSCRIPTION_MB} MB)
             </p>
           </>
         )}
@@ -113,7 +114,7 @@ export default function TranscriptionFileUpload({ onFileSelected, disabled = fal
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPTED_EXTENSIONS.join(",")}
+        accept={ALLOWED_EXTENSIONS.join(",")}
         onChange={handleInputChange}
         className="hidden"
         aria-hidden="true"

@@ -30,6 +30,9 @@ TTS_EXTENSIONS = {
 TRANSCRIPTION_EXTENSIONS = {
     ".mp3": "audio/mpeg",
     ".mp4": "video/mp4",
+    ".m4a": "audio/mp4",
+    ".wav": "audio/wav",
+    ".flac": "audio/flac",
 }
 
 

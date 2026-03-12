@@ -14,6 +14,37 @@ from openai import OpenAI
 # ── Audio chunking constants ───────────────────────────────────────────────────
 
 _CHUNK_MAX_SEC = 540        # 9 min – safely under KISSKI's 600 s limit
+
+def _seconds_to_srt_timestamp(s: float) -> str:
+    h = int(s // 3600)
+    m = int((s % 3600) // 60)
+    sec = s % 60
+    return f"{h:02d}:{m:02d}:{sec:06.3f}".replace(".", ",")
+
+
+def _seconds_to_vtt_timestamp(s: float) -> str:
+    h = int(s // 3600)
+    m = int((s % 3600) // 60)
+    sec = s % 60
+    return f"{h:02d}:{m:02d}:{sec:06.3f}"
+
+
+def _verbose_json_to_output(data: dict, response_format: str) -> str:
+    if response_format == "srt":
+        parts = []
+        for i, seg in enumerate(data.get("segments", []), 1):
+            start = _seconds_to_srt_timestamp(seg["start"])
+            end = _seconds_to_srt_timestamp(seg["end"])
+            parts.append(f"{i}\n{start} --> {end}\n{seg['text'].strip()}")
+        return "\n\n".join(parts)
+    if response_format == "vtt":
+        parts = ["WEBVTT"]
+        for seg in data.get("segments", []):
+            start = _seconds_to_vtt_timestamp(seg["start"])
+            end = _seconds_to_vtt_timestamp(seg["end"])
+            parts.append(f"\n{start} --> {end}\n{seg['text'].strip()}")
+        return "\n".join(parts)
+    return data.get("text", "").strip()
 _MAX_AUDIO_SEC = 6000       # 100 min – hard limit for transcription uploads
 _SILENCE_NOISE_DB = -40     # dB threshold for silence detection
 _SILENCE_MIN_DURATION = 0.3  # minimum silence duration to consider (seconds)
@@ -624,15 +655,22 @@ class KisskiClient:
                 raise
             raise RuntimeError(f"KISSKI API Fehler: {e}") from e
 
-    def transcribe_chunked(self, file_path: str, response_format: str = "text") -> str:
-        """Transcribe audio, splitting files that exceed KISSKI's 600 s limit at silence points."""
+    def transcribe_chunked(self, file_path: str, response_format: str = "text", diarize: bool = False) -> tuple[str, str | None]:
+        """Transcribe audio, splitting files that exceed KISSKI's 600 s limit at silence points.
+
+        Returns:
+            (output_text, verbose_json_str) — verbose_json_str is set when diarize=True, else None.
+        """
         duration = _get_audio_duration(file_path)
         if duration > _MAX_AUDIO_SEC:
             raise RuntimeError(
                 f"Audio zu lang ({duration / 60:.1f} min). Maximum: {_MAX_AUDIO_SEC // 60} Minuten."
             )
         if duration <= _CHUNK_MAX_SEC:
-            return self.transcribe(file_path, response_format=response_format)
+            return self.transcribe(file_path, response_format=response_format, diarize=diarize)
+
+        if diarize:
+            raise RuntimeError("Diarisierung wird nur für Dateien unter 9 Minuten unterstützt.")
 
         logger.info("Audio {:.1f}s exceeds limit – splitting into chunks", duration)
         silence_starts = _find_silence_starts(file_path)
@@ -644,23 +682,24 @@ class KisskiClient:
             results: dict[int, tuple[str, float]] = {}
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {
-                    executor.submit(self.transcribe, path, response_format): (i, offset)
+                    executor.submit(self.transcribe, path, response_format, False): (i, offset)
                     for i, (path, offset) in enumerate(chunks)
                 }
                 for future in as_completed(futures):
                     i, offset = futures[future]
                     try:
-                        results[i] = (future.result(), offset)
+                        text, _ = future.result()
+                        results[i] = (text, offset)
                         logger.info("Chunk {}/{} transcribed", i + 1, len(chunks))
                     except Exception as e:
                         raise RuntimeError(f"Chunk {i + 1} transcription failed: {e}") from e
 
             ordered = [results[i] for i in range(len(chunks))]
             if response_format == "srt":
-                return _merge_srt(ordered)
+                return _merge_srt(ordered), None
             if response_format == "vtt":
-                return _merge_vtt(ordered)
-            return " ".join(text for text, _ in ordered).strip()
+                return _merge_vtt(ordered), None
+            return " ".join(text for text, _ in ordered).strip(), None
 
     def transcribe_and_translate_chunked(self, file_path: str, response_format: str = "text") -> str:
         """Transcribe and translate audio, splitting files that exceed KISSKI's 600 s limit."""
@@ -699,29 +738,41 @@ class KisskiClient:
                 return _merge_vtt(ordered)
             return " ".join(text for text, _ in ordered).strip()
 
-    def transcribe(self, file_path: str, response_format: str = "text") -> str:
+    def transcribe(self, file_path: str, response_format: str = "text", diarize: bool = False) -> tuple[str, str | None]:
         """Transcribe audio in its original language using KISSKI Whisper.
 
-        Args:
-            file_path: Path to the audio file.
-            response_format: Output format – "text", "srt", or "vtt".
-
         Returns:
-            Transcription in the requested format.
-
-        Raises:
-            RuntimeError: If the Whisper API returns an error.
+            (output_text, verbose_json_str) — verbose_json_str is set when diarize=True, else None.
         """
         try:
-            with open(file_path, "rb") as f:
-                response = self._client.audio.transcriptions.create(
-                    model="whisper-large-v2",
-                    file=f,
-                    response_format=response_format,
-                )
-            if not response:
-                raise RuntimeError("Whisper returned no output")
-            return _clean_whisper_response(str(response))
+            if diarize:
+                import httpx
+                base_url = str(self._client.base_url).rstrip("/")
+                with open(file_path, "rb") as f:
+                    resp = httpx.post(
+                        f"{base_url}/audio/transcriptions",
+                        headers={"Authorization": f"Bearer {self._client.api_key}"},
+                        data={"model": "whisper-large-v2", "response_format": "verbose_json"},
+                        files={"file": f},
+                        timeout=300.0,
+                    )
+                resp.raise_for_status()
+                raw_json = resp.text
+                data = json.loads(raw_json)
+                output = _verbose_json_to_output(data, response_format)
+                if not output:
+                    raise RuntimeError("Whisper returned no output")
+                return output, raw_json
+            else:
+                with open(file_path, "rb") as f:
+                    result = str(self._client.audio.transcriptions.create(
+                        model="whisper-large-v2",
+                        file=f,
+                        response_format=response_format,
+                    ))
+                if not result:
+                    raise RuntimeError("Whisper returned no output")
+                return _clean_whisper_response(result), None
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise

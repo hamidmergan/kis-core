@@ -48,6 +48,7 @@ async def transcribe(
     file: UploadFile = File(...),
     task: str = Form("transcribe"),
     response_format: str = Form("text"),
+    diarize: bool = Form(False),
     current_user: dict = Depends(get_current_user),
 ):
     if not file.filename:
@@ -84,7 +85,7 @@ async def transcribe(
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_transcribe
-    run_transcribe.delay(job_uuid, input_path, file.filename, task, response_format)
+    run_transcribe.delay(job_uuid, input_path, file.filename, task, response_format, diarize)
 
     logger.info("Transcribe job {} queued for '{}'", job_uuid, file.filename)
     return {"job_uuid": job_uuid, "status": "pending"}
