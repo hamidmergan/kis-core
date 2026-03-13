@@ -3,22 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import PromptChips from "@/components/PromptChips";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 
 const ACCEPTED_EXTENSIONS = [".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
 const MAX_SIZE_MB = MAX_UPLOAD_MB;
 const MAX_SIZE_BYTES = MAX_UPLOAD_BYTES;
-
-const SUMMARY_CHIPS = [
-  "Gehe auf die wichtigsten Punkte ein",
-  "Stichpunkte",
-  "Maximal 5 Sätze",
-  "Für Studierende verständlich",
-  "Nur Kernaussagen",
-];
-
 
 export default function ZusammenfassungPage() {
   const [processing, setProcessing] = useState(false);
@@ -27,7 +17,6 @@ export default function ZusammenfassungPage() {
   const [dragActive, setDragActive] = useState(false);
   const [doneJobUuid, setDoneJobUuid] = useState<string | null>(null);
 
-  const [userPrompt, setUserPrompt] = useState("");
   const outputFormat = "txt";
   const [errorMessage, setErrorMessage] = useState("");
   const [stallMessage, setStallMessage] = useState("");
@@ -65,12 +54,6 @@ export default function ZusammenfassungPage() {
     [processing, handleFile],
   );
 
-  const appendChip = (chip: string) => {
-    setUserPrompt((prev) =>
-      prev.trim() ? `${prev.trimEnd()}\n- ${chip}` : `- ${chip}`,
-    );
-  };
-
   const handleSubmit = async () => {
     if (!selectedFile || processing) return;
     setProcessing(true);
@@ -80,7 +63,6 @@ export default function ZusammenfassungPage() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("user_prompt", userPrompt);
       formData.append("output_format", outputFormat);
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
       if (!response.ok) {
@@ -120,7 +102,6 @@ export default function ZusammenfassungPage() {
     setSelectedFile(null);
     setDoneJobUuid(null);
     setErrorMessage("");
-    setUserPrompt("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -188,24 +169,6 @@ export default function ZusammenfassungPage() {
           {uploadError && (
             <p className="mt-2 text-sm text-red-600" role="alert">{uploadError}</p>
           )}
-
-          {/* User prompt + chips */}
-          <div className="mt-6">
-            <label htmlFor="user-prompt" className="block text-sm font-medium text-gray-700 mb-2">
-              Zusätzliche Anweisungen{" "}
-              <span className="font-normal text-gray-400">(optional)</span>
-            </label>
-            <textarea
-              id="user-prompt"
-              value={userPrompt}
-              onChange={(e) => setUserPrompt(e.target.value)}
-              disabled={processing}
-              rows={3}
-              placeholder="z. B. Auf Deutsch, maximal 5 Sätze …"
-              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed resize-y"
-            />
-            <PromptChips chips={SUMMARY_CHIPS} onChipClick={appendChip} disabled={processing} />
-          </div>
 
           <div className="mt-6 flex items-center gap-3">
             <button

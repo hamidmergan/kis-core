@@ -173,11 +173,11 @@ class GenerateScriptsRequest(BaseModel):
     slide_texts: list[str]
     glossary_json: str = ""
     translate_job_uuid: str | None = None
-    style: str = "standard"
     add_greeting: bool = True
     add_closing: bool = True
-    min_chars: int = 400
-    max_chars: int = 700
+    min_chars: int = 1500
+    max_chars: int = 2000
+    source_lang: str = "DE"
     target_lang: str = "EN-US"
 
 
@@ -185,7 +185,6 @@ class RegenerateSlideScriptRequest(BaseModel):
     slide_text: str = ""
     current_script: str | None = None
     user_prompt: str | None = None
-    style: str = "standard"
     target_lang: str = "EN-US"
 
 
@@ -594,17 +593,17 @@ async def _generate_all_scripts(
     slide_texts: list[str],
     kisski_client: KisskiClient,
     glossary: dict | None = None,
-    style: str = "standard",
     add_greeting: bool = True,
     add_closing: bool = True,
-    min_chars: int = 400,
-    max_chars: int = 700,
+    min_chars: int = 1500,
+    max_chars: int = 2000,
+    source_lang: str = "DE",
     target_lang: str = "EN-US",
 ) -> list[str]:
     try:
         scripts = await asyncio.to_thread(
-            kisski_client.generate_scripts_batch, slide_texts, glossary, style, add_greeting, add_closing,
-            min_chars=min_chars, max_chars=max_chars, target_lang=target_lang,
+            kisski_client.generate_scripts_batch, slide_texts, glossary, add_greeting, add_closing,
+            min_chars=min_chars, max_chars=max_chars, source_lang=source_lang, target_lang=target_lang,
         )
         logger.info("Batch script generation completed for {} slides", len(slide_texts))
         return scripts
@@ -1128,8 +1127,8 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         )
 
     logger.info(
-        "Screencast/generate-scripts: {} slides, style={}, greeting={}, closing={}",
-        len(body.slide_texts), body.style, body.add_greeting, body.add_closing,
+        "Screencast/generate-scripts: {} slides, greeting={}, closing={}",
+        len(body.slide_texts), body.add_greeting, body.add_closing,
     )
 
     kisski_client = get_kisski_client()
@@ -1152,10 +1151,10 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
     async def _do_generate() -> list[str]:
         return await _generate_all_scripts(
             body.slide_texts, kisski_client,
-            glossary=glossary_dict, style=body.style,
+            glossary=glossary_dict,
             add_greeting=body.add_greeting, add_closing=body.add_closing,
             min_chars=body.min_chars, max_chars=body.max_chars,
-            target_lang=body.target_lang,
+            source_lang=body.source_lang, target_lang=body.target_lang,
         )
 
     if not uuid_key:
@@ -1216,7 +1215,6 @@ async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest)
             body.user_prompt or "",
             body.current_script or "",
             body.slide_text,
-            body.style,
             body.target_lang,
         )
     except RuntimeError as e:

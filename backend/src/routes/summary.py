@@ -30,7 +30,6 @@ _OUTPUT_MIME = {
 async def summarize(
     request: Request,
     file: UploadFile = File(...),
-    user_prompt: str = Form(""),
     output_format: str = Form("txt"),
     current_user: dict = Depends(get_current_user),
 ):
@@ -79,7 +78,7 @@ async def summarize(
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_summary
-    run_summary.delay(job_uuid, input_path, file.filename, user_prompt.strip(), output_format)
+    run_summary.delay(job_uuid, input_path, file.filename, output_format)
 
     logger.info("Summary job {} queued for '{}'", job_uuid, file.filename)
     return {"job_uuid": job_uuid, "status": "pending"}

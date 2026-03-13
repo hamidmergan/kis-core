@@ -156,21 +156,12 @@ function ScreencastPageInner() {
   const [speed, setSpeed] = useState(0.9);
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [dpi, setDpi] = useState(144);
-  const [scriptStyle, setScriptStyle] = useState<"standard" | "professional" | "academic" | "casual">("standard");
-  const [addGreeting, setAddGreeting] = useState(true);
-  const [addClosing, setAddClosing] = useState(true);
-  const [scriptLength, setScriptLength] = useState<"kurz" | "mittel" | "lang" | "sehr-lang">("mittel");
-  const SCRIPT_LENGTH_CHARS: Record<typeof scriptLength, [number, number]> = {
-    "kurz":      [200,  400],
-    "mittel":    [400,  700],
-    "lang":      [700,  1100],
-    "sehr-lang": [1100, 1800],
-  };
   // Per-slide AI regeneration state
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
   const [regenPrompt, setRegenPrompt] = useState("");
   const [regenProposal, setRegenProposal] = useState<string | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
+  const [zipDownloading, setZipDownloading] = useState(false);
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [translateJobUuid, setTranslateJobUuid] = useState("");
@@ -198,13 +189,6 @@ function ScreencastPageInner() {
   const [targetLang, setTargetLang] = useState<string>("EN-US");
   const [fastMode, setFastMode] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [scriptLengthTooltip, setScriptLengthTooltip] = useState(false);
-  useEffect(() => {
-    if (!scriptLengthTooltip) return;
-    const close = () => setScriptLengthTooltip(false);
-    const timer = setTimeout(() => document.addEventListener("click", close), 0);
-    return () => { clearTimeout(timer); document.removeEventListener("click", close); };
-  }, [scriptLengthTooltip]);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
@@ -864,11 +848,11 @@ function ScreencastPageInner() {
           slide_texts: slides.map((s) => s.extractedText),
           glossary_json: mergeToApiJson(glossaryIds),
           translate_job_uuid: translateJobUuid || null,
-          style: scriptStyle,
-          add_greeting: addGreeting,
-          add_closing: addClosing,
-          min_chars: SCRIPT_LENGTH_CHARS[scriptLength][0],
-          max_chars: SCRIPT_LENGTH_CHARS[scriptLength][1],
+          add_greeting: true,
+          add_closing: true,
+          min_chars: 1500,
+          max_chars: 2000,
+          source_lang: sourceLang,
           target_lang: targetLang,
         },
         signal,
@@ -891,7 +875,7 @@ function ScreencastPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [slides, glossaryIds, scriptStyle, addGreeting, addClosing, scriptLength, mergeToApiJson, goError, checkJobFolder, checkBeforeSubmit, checkJobStillValid, translateJobUuid]);
+  }, [slides, glossaryIds, mergeToApiJson, goError, checkJobFolder, checkBeforeSubmit, checkJobStillValid, translateJobUuid]);
 
   // ── Script autosave to bucket (debounced) ──
   const autosaveScripts = useCallback((updatedScripts: string[], accepted = false) => {
@@ -1232,7 +1216,6 @@ function ScreencastPageInner() {
           slide_text: slides[index].extractedText,
           current_script: slides[index].script || "",
           user_prompt: regenPrompt || null,
-          style: scriptStyle,
         },
       );
       setRegenProposal(result.script);
@@ -1780,87 +1763,6 @@ function ScreencastPageInner() {
             {scriptInputMode === "generate" && (
               <div className="mt-5 space-y-4">
                 {/* Skriptstil */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Skriptstil
-                  </label>
-                  <select
-                    value={scriptStyle}
-                    onChange={(e) => setScriptStyle(e.target.value as typeof scriptStyle)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="professional">Professionell</option>
-                    <option value="academic">Akademisch</option>
-                    <option value="casual">Locker</option>
-                  </select>
-                </div>
-
-                {/* Toggles */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={addGreeting}
-                      onChange={(e) => setAddGreeting(e.target.checked)}
-                      className="w-4 h-4 rounded accent-[#0066cc]"
-                    />
-                    <span className="text-sm text-gray-700">Begrüßung auf erster Folie</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={addClosing}
-                      onChange={(e) => setAddClosing(e.target.checked)}
-                      className="w-4 h-4 rounded accent-[#0066cc]"
-                    />
-                    <span className="text-sm text-gray-700">Abschluss auf letzter Folie</span>
-                  </label>
-                </div>
-
-                {/* Wortanzahl pro Folie */}
-                <div>
-                  <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-2">
-                    Skriptlänge
-                    <span className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setScriptLengthTooltip((v) => !v)}
-                        className="flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
-                        aria-label="Info"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <circle cx="12" cy="12" r="10" strokeWidth="2"/>
-                          <path strokeLinecap="round" strokeWidth="2" d="M12 16v-4M12 8h.01"/>
-                        </svg>
-                      </button>
-                      {scriptLengthTooltip && (
-                        <div className="absolute left-0 top-6 z-20 w-64 rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg">
-                          Folien mit sehr wenig Inhalt können kürzer ausfallen als gewählt.
-                        </div>
-                      )}
-                    </span>
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {(["kurz", "mittel", "lang", "sehr-lang"] as const).map((len) => {
-                      const labels: Record<typeof len, string> = { "kurz": "Kurz", "mittel": "Mittel", "lang": "Lang", "sehr-lang": "Sehr lang" };
-                      return (
-                        <button
-                          key={len}
-                          type="button"
-                          onClick={() => setScriptLength(len)}
-                          className={`px-3 py-1 rounded text-sm font-medium border transition-colors ${
-                            scriptLength === len
-                              ? "bg-[#0066cc] text-white border-[#0066cc]"
-                              : "bg-white text-gray-700 border-gray-300 hover:border-[#0066cc] hover:text-[#0066cc]"
-                          }`}
-                        >
-                          {labels[len]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -2658,6 +2560,8 @@ function ScreencastPageInner() {
               {audioId && (
                 <button
                   onClick={async () => {
+                    if (zipDownloading) return;
+                    setZipDownloading(true);
                     try {
                       const res = await fetch(`/api/jobs/${audioId}/bundle`, { credentials: "include" });
                       if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
@@ -2678,15 +2582,25 @@ function ScreencastPageInner() {
                       URL.revokeObjectURL(url);
                     } catch {
                       console.error("Bundle download failed");
+                    } finally {
+                      setZipDownloading(false);
                     }
                   }}
+                  disabled={zipDownloading}
                   aria-label="Alles herunterladen (ZIP)"
-                  className="px-6 py-2 bg-white text-[#0066cc] border border-[#0066cc] text-sm font-medium rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center gap-2"
+                  className="px-6 py-2 bg-white text-[#0066cc] border border-[#0066cc] text-sm font-medium rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Alles herunterladen (ZIP)
+                  {zipDownloading ? (
+                    <svg className="h-4 w-4 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  )}
+                  {zipDownloading ? "Wird erstellt…" : "Alles herunterladen (ZIP)"}
                 </button>
               )}
             </div>

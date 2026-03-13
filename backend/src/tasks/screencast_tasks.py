@@ -516,7 +516,7 @@ def run_screencast_auto(
         with job_heartbeat(job_uuid):
             scripts = asyncio.run(
                 _generate_all_scripts_async(
-                    slide_texts, kisski_client, glossary=glossary_dict, target_lang=target_lang
+                    slide_texts, kisski_client, glossary=glossary_dict, source_lang=source_lang, target_lang=target_lang
                 )
             )
 
@@ -713,9 +713,9 @@ def run_screencast_demo_render(
         raise
 
 
-async def _generate_all_scripts_async(slide_texts, kisski_client, glossary=None, target_lang="EN-US"):
+async def _generate_all_scripts_async(slide_texts, kisski_client, glossary=None, source_lang="DE", target_lang="EN-US"):
     """Async wrapper for batch script generation (called via asyncio.run)."""
-    return kisski_client.generate_scripts_batch(slide_texts, glossary, target_lang=target_lang)
+    return kisski_client.generate_scripts_batch(slide_texts, glossary, source_lang=source_lang, target_lang=target_lang)
 
 
 # ── User-Level Queue: automatisch nächsten Job dispatchen ────────────────────

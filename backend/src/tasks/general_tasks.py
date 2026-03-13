@@ -293,12 +293,7 @@ def run_image_edit(
 
 # ── Image: Analyze ────────────────────────────────────────────────────────────
 
-_IMAGE_ANALYZE_SYSTEM_PROMPT = (
-    "You are an assistant helping university lecturers analyze visual content. "
-    "Describe the image in detail: transcribe all visible text verbatim, explain "
-    "diagrams, charts, tables, and other visual elements. Be precise and complete. "
-    "Respond in the same language as the image content."
-)
+from src.tool_prompts import IMAGE_ANALYZE_DEFAULT as _IMAGE_ANALYZE_SYSTEM_PROMPT
 
 
 @celery_app.task(bind=True, name="general.image_analyze", queue="general")
@@ -376,7 +371,6 @@ def run_summary(
     job_uuid: str,
     input_path: str,
     filename: str,
-    user_prompt: str,
     output_format: str,
 ):
     try:
@@ -403,7 +397,6 @@ def run_summary(
             too_long = len(text) > _SUMMARY_CONTEXT_WARN_CHARS
             summary = client.generate_summary(
                 text,
-                user_prompt=user_prompt or None,
                 output_format=output_format,
             )
 

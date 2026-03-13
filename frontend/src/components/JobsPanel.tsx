@@ -60,6 +60,8 @@ function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["
     return <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
   if (status === "awaiting_user")
     return <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
+  if (status === "queued")
+    return <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">In der Schlange</span>;
   return <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Wartend</span>;
 }
 
@@ -234,6 +236,13 @@ export default function JobsPanel() {
     a.click();
   };
 
+  const handleDownloadBundle = (e: React.MouseEvent, job: MyJob) => {
+    e.stopPropagation();
+    const a = document.createElement("a");
+    a.href = `/api/jobs/${job.job_uuid}/bundle`;
+    a.click();
+  };
+
   const handleCancel = async (e: React.MouseEvent, job: MyJob) => {
     e.stopPropagation();
     setCancelling(job.job_uuid);
@@ -342,15 +351,28 @@ export default function JobsPanel() {
                             <p className="text-xs text-red-500 mt-1 line-clamp-2">{job.error}</p>
                           )}
                           {!expired && job.status === "success" && job.has_download && (
-                            <button
-                              onClick={(e) => handleDownload(e, job)}
-                              className="mt-1.5 text-xs text-[#0066cc] hover:underline flex items-center gap-1"
-                            >
-                              <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                              {SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate" ? "MP4" : job.tool === "image_generate" ? (job.result_filename?.endsWith(".json") ? "ZIP" : "PNG") : job.tool === "image_edit" ? "PNG" : job.tool === "image_analyze" ? "TXT" : job.tool === "tts" ? "MP3" : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary" || job.tool === "video_dubbing") ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei") : "Datei"}
-                            </button>
+                            <div className="mt-1.5 flex flex-col gap-1">
+                              <button
+                                onClick={(e) => handleDownload(e, job)}
+                                className="text-xs text-[#0066cc] hover:underline flex items-center gap-1"
+                              >
+                                <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                {SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate" ? "MP4" : job.tool === "image_generate" ? (job.result_filename?.endsWith(".json") ? "ZIP" : "PNG") : job.tool === "image_edit" ? "PNG" : job.tool === "image_analyze" ? "TXT" : job.tool === "tts" ? "MP3" : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary" || job.tool === "video_dubbing") ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei") : "Datei"}
+                              </button>
+                              {SCREENCAST_RENDER_TOOLS.has(job.tool) && (
+                                <button
+                                  onClick={(e) => handleDownloadBundle(e, job)}
+                                  className="text-xs text-[#0066cc] hover:underline flex items-center gap-1"
+                                >
+                                  <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  Alles herunterladen (ZIP)
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -375,6 +397,27 @@ export default function JobsPanel() {
                           )}
                         </div>
                       </div>
+                      {job.status === "awaiting_user" && (job.tool === "screencast_translate" || job.tool === "screencast_demo_render") && (
+                        <div className="mt-2">
+                          {job.is_generating_scripts ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
+                              <svg className="w-3 h-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                              </svg>
+                              Skripte werden generiert…
+                            </span>
+                          ) : (
+                            <a
+                              href={job.tool === "screencast_demo_render" ? `/screencast-demo?resume=${job.job_uuid}` : `/screencast?resume=${job.job_uuid}`}
+                              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+                              className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
+                            >
+                              {job.tool === "screencast_demo_render" ? "Demo fortsetzen →" : "Screencast fortsetzen →"}
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </li>
                   );
                 })}

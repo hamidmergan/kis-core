@@ -7,7 +7,11 @@ from loguru import logger
 from pydantic import BaseModel
 
 from src import database as db
-from src.services.kisski_client import _SYSTEM_PROMPT_EN as _PROMPT_SCRIPT_EN_DEFAULT
+from src.tool_prompts import (
+    SCRIPT_BATCH_PREVIEW as _PROMPT_SCRIPT_BATCH_PREVIEW,
+    SUMMARY_DEFAULT as _PROMPT_SUMMARY_DEFAULT,
+    IMAGE_ANALYZE_DEFAULT as _PROMPT_IMAGE_ANALYZE_DEFAULT,
+)
 from src.celery_app import celery_app
 from src.dependencies import get_admin_user, get_current_user
 from src.limits import QUOTA_DEFAULTS
@@ -37,79 +41,14 @@ class UpdatePromptRequest(BaseModel):
 
 
 
-_PROMPT_SCRIPT_BATCH_PREVIEW = (
-    "You are an expert at creating spoken narration scripts for presentation slides. "
-    "Generate a spoken script for EACH of the {N} slides below (slides {X} to {Y} of {Z} total).\n"
-    "Rules:\n"
-    "- Do NOT add any new information.\n"
-    "- Do NOT hallucinate.\n"
-    "- Keep all facts, numbers, names, and dates exactly as they are.\n"
-    "- Output MUST be in English.\n"
-    "- Convert bullet points, tables, and lists into flowing text.\n"
-    "- Remove citations, footnotes, and formatting artifacts.\n"
-    "- NO semicolons, NO dashes – use only periods and commas.\n"
-    "- Address the audience directly as 'you'.\n"
-    "- Natural, conversational tone – like a university lecturer speaking.\n"
-    "- Only use a greeting on slide 1 if the content clearly indicates a title slide.\n"
-    "- Never use greetings on any other slide.\n"
-    "- Keep each script between 20 and 100 words.\n"
-    "- For empty slides, output nothing (just write the ||| delimiter).\n"
-    "- Do NOT add closing statements like 'thank you' or 'that concludes' on any slide.\n"
-    "\n"
-    "Separate the {N} scripts using the delimiter ||| on its own line.\n"
-    "No other text before, between, or after. Example for 3 slides:\n"
-    "Script text for slide one.\n"
-    "|||\n"
-    "Script text for slide two.\n"
-    "|||\n"
-    "Script text for slide three.\n"
-    "\n"
-    "[{N}, {X}, {Y}, {Z} werden zur Laufzeit durch die tatsächliche Batch-Größe ersetzt]"
-)
-
-
-_PROMPT_SUMMARIZE_DEFAULT = (
-    "Erstelle eine ausführliche Zusammenfassung des folgenden Transkripts. "
-    "Erfasse alle wichtigen Themen, Argumente, Fakten, Zahlen und Schlussfolgerungen vollständig. "
-    "Die Zusammenfassung soll strukturiert und gut lesbar sein, aber nichts Wesentliches auslassen. "
-    "Antworte nur mit der Zusammenfassung, ohne Einleitung oder Erklärung."
-)
-
-_PROMPT_SUMMARY_DEFAULT = (
-    "Erstelle eine Zusammenfassung ausschließlich basierend auf dem folgenden Inhalt. "
-    "Erfinde nichts, ergänze nichts, interpretiere nichts was nicht explizit im Text steht. "
-    "{format} "
-    "Antworte nur mit der Zusammenfassung, ohne einleitende oder abschließende Erklärung."
-)
-
-_PROMPT_IMAGE_ANALYZE_DEFAULT = (
-    "You are an assistant helping university lecturers analyze visual content. "
-    "Describe the image in detail: transcribe all visible text verbatim, explain "
-    "diagrams, charts, tables, and other visual elements. Be precise and complete. "
-    "Respond in the same language as the image content."
-)
 
 _PROMPT_REGISTRY = [
-    {
-        "key": "prompt_script_en",
-        "label": "Skript-Erstellung",
-        "description": "System-Prompt für das Skript-Tool und den Screencast (Einzelfolie).",
-        "editable": True,
-        "default": _PROMPT_SCRIPT_EN_DEFAULT,
-    },
     {
         "key": "prompt_script_batch",
         "label": "Screencast-Skripte (Batch-Modus)",
         "description": "Wird im Auto-Modus für parallele Batch-Verarbeitung genutzt. Enthält strukturelle Trennzeichen (|||) die der Parser erwartet – nicht editierbar.",
         "editable": False,
         "default": _PROMPT_SCRIPT_BATCH_PREVIEW,
-    },
-    {
-        "key": "prompt_summarize",
-        "label": "Transkript-Zusammenfassung",
-        "description": "Wird nach der Transkription genutzt um das Transkript zusammenzufassen.",
-        "editable": True,
-        "default": _PROMPT_SUMMARIZE_DEFAULT,
     },
     {
         "key": "prompt_summary",

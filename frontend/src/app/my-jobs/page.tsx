@@ -158,9 +158,15 @@ function downloadText(text: string, filename: string, mimeType: string) {
   URL.revokeObjectURL(url);
 }
 
-function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void; href?: string; filename?: string; label: string }) {
-  const handleClick = () => {
-    if (onClick) { onClick(); return; }
+function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void | Promise<void>; href?: string; filename?: string; label: string }) {
+  const [busy, setBusy] = useState(false);
+  const handleClick = async () => {
+    if (busy) return;
+    if (onClick) {
+      setBusy(true);
+      try { await onClick(); } finally { setBusy(false); }
+      return;
+    }
     if (!href) return;
     const a = document.createElement("a");
     a.href = href;
@@ -170,13 +176,21 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
   return (
     <button
       onClick={handleClick}
-      className="inline-flex items-center gap-1 text-xs text-[#0066cc] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full"
+      disabled={busy}
+      className="inline-flex items-center gap-1 text-xs text-[#0066cc] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full disabled:opacity-60 disabled:cursor-not-allowed"
     >
-      <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M7 2v7.586L4.707 7.293l-1.414 1.414L8 13.414l4.707-4.707-1.414-1.414L9 9.586V2H7z"/>
-        <path d="M3 14h10v-1.5H3V14z"/>
-      </svg>
-      {label}
+      {busy ? (
+        <svg className="w-3 h-3 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      ) : (
+        <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M7 2v7.586L4.707 7.293l-1.414 1.414L8 13.414l4.707-4.707-1.414-1.414L9 9.586V2H7z"/>
+          <path d="M3 14h10v-1.5H3V14z"/>
+        </svg>
+      )}
+      {busy ? "Wird erstellt…" : label}
     </button>
   );
 }

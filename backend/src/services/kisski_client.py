@@ -184,34 +184,7 @@ def _merge_vtt(chunks: list[tuple[str, float]]) -> str:
     return "WEBVTT\n\n" + "\n\n".join(c.strip() for c in cues if c.strip())
 
 
-_SYSTEM_PROMPT_EN = (
-    "You are an expert at creating spoken narration scripts for individual presentation slides. "
-    "Convert the slide content into a fluent, spoken script for ONE slide only. "
-    "Rules:\n"
-    "- Do NOT add any new information.\n"
-    "- Do NOT hallucinate.\n"
-    "- Keep all facts, numbers, names, and dates exactly as they are.\n"
-    "- The output MUST be in English.\n"
-    "- Convert bullet points, tables, and lists into flowing text.\n"
-    "- Remove citations, footnotes, and formatting artifacts.\n"
-    "- Add natural transitions between sections.\n"
-    "- NO semicolons, NO dashes – use only periods, commas, exclamation marks, and question marks.\n"
-    "- Address the audience directly as 'you'.\n"
-    "- Natural, conversational tone – like a university lecturer speaking.\n"
-    "- Do NOT start with 'Welcome' or greetings on every slide – only on the title slide.\n"
-    "- Do NOT end with filler phrases like 'Let us dive in' or 'Let us get started'.\n"
-    "- Keep the script concise: between 20 and 100 words. Not shorter, not longer."
-)
-
-
-# Predefined tone styles for batch script generation.
-# Each value is appended as an extra rule to the system prompt.
-_SCRIPT_STYLES: dict[str, str] = {
-    "standard":     "",
-    "professional": "Use a polished, professional tone suitable for corporate training.",
-    "academic":     "Use a formal academic tone, as in a university lecture.",
-    "casual":       "Use a friendly, approachable tone.",
-}
+from src.tool_prompts import SUMMARY_DEFAULT as _SUMMARY_DEFAULT
 
 
 def _load_prompt(key: str, default: str) -> str:
@@ -254,80 +227,28 @@ class KisskiClient:
             self._batch_timeout = 180.0
             self._batch_size = 3
 
-    def generate_script(
-        self, text: str, user_prompt: str | None = None,
-        glossary: dict[str, str] | None = None,
-    ) -> str:
-        """Convert extracted document text into a spoken script.
-
-        Args:
-            text: Raw text extracted from a document.
-            user_prompt: Optional additional instructions appended to the system prompt.
-
-        Returns:
-            A fluent, spoken-style script based on the input text.
-
-        Raises:
-            RuntimeError: If the LLM API returns an error.
-        """
-        system_prompt = _load_prompt("prompt_script_en", _SYSTEM_PROMPT_EN)
-        if glossary:
-            lines = "\n".join(f"- {k} → {v}" for k, v in glossary.items())
-            system_prompt = f"Use the following terminology consistently in your output:\n{lines}\n\n" + system_prompt
-        # user_prompt goes in the user message (not system) to keep the system prompt English-only
-        user_message = text
-        if user_prompt and user_prompt.strip():
-            user_message += (
-                f"\n\nAdditional instructions to apply "
-                f"(apply semantically, output must remain in English):\n{user_prompt.strip()}"
-            )
-        try:
-            response = self._client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message},
-                ],
-                temperature=0.3,
-                max_tokens=4096,
-                extra_body=self._extra_body or None,
-            )
-            content = response.choices[0].message.content
-            if content is None:
-                raise RuntimeError("LLM hat keine Antwort generiert")
-            return content.strip()
-        except Exception as e:
-            if isinstance(e, RuntimeError):
-                raise
-            raise RuntimeError(f"KISSKI API Fehler: {e}") from e
-
     def refine_script(
         self,
         user_prompt: str,
         current_script: str = "",
         slide_text: str = "",
-        style: str = "standard",
     ) -> str:
         """Refine or create a narration script for a single slide based on a user instruction.
 
         Uses the current script as the base if provided, otherwise falls back to slide_text.
         No length or format constraints — follows the user instruction freely.
         """
-        style_hint = _SCRIPT_STYLES.get(style, "")
-
         system_prompt = (
             "You are an expert editor of spoken narration scripts for presentations. "
             "Output ONLY the final script text — no explanations, no labels, no prefixes. "
             "The script must be in English, spoken-style, natural and conversational. "
             "No semicolons, no dashes — use only periods, commas, exclamation marks, and question marks.\n"
             "The user's instruction may be written in German or another language — understand it and apply it, but always output the script in English.\n"
+            "Use a formal academic tone, as in a university lecture.\n"
             "If a 'Current script' is provided, it is ALWAYS the basis for your edit. "
             "Any instruction such as 'change term X to Y' or 'make it shorter' refers to that existing script — do not rewrite from scratch unless explicitly told to.\n"
             "If no instruction is given (empty instruction), produce a fresh alternative version of the current script with different wording but the same meaning.\n"
         )
-        if style_hint:
-            system_prompt += f"Style: {style_hint}\n"
-
         if current_script.strip():
             user_message = (
                 f"Current script:\n{current_script.strip()}\n\n"
@@ -369,12 +290,12 @@ class KisskiClient:
         is_first_batch: bool,
         is_last_batch: bool,
         glossary: dict[str, str] | None,
-        style: str,
         add_greeting: bool,
         add_closing: bool,
-        min_chars: int = 400,
-        max_chars: int = 700,
+        min_chars: int = 1500,
+        max_chars: int = 2000,
         target_lang: str = "EN-US",
+        source_lang: str = "DE",
     ) -> list[str]:
         batch_size = len(batch_texts)
 
@@ -402,17 +323,16 @@ class KisskiClient:
             "" if (is_last_batch and add_closing) else
             "- Do not add any closing statement or thank-you.\n"
         )
-        style_rule = f"- {_SCRIPT_STYLES[style]}\n" if _SCRIPT_STYLES.get(style) else ""
 
         system_prompt = glossary_hint + (
             "You are an expert at creating spoken narration scripts for presentations. "
             f"Generate a spoken script for EACH of the {batch_size} content blocks below. "
             "The blocks are separated by ===. "
+            f"The slide content is in {source_lang}. Output MUST be in {target_lang}.\n"
             "Rules:\n"
             "- Do NOT add any new information.\n"
             "- Do NOT hallucinate.\n"
-            "- Keep all facts, numbers, names, and dates exactly as they are.\n"
-            f"- Output MUST be in {target_lang}.\n"
+            "- Keep all facts, numbers, names, dates, and links exactly as they are.\n"
             "- Convert bullet points, tables, and lists into flowing text.\n"
             "- Remove citations, footnotes, and formatting artifacts.\n"
             "- NO semicolons, NO dashes – use only periods, commas, exclamation marks, and question marks.\n"
@@ -420,8 +340,7 @@ class KisskiClient:
             "- Natural, conversational tone – like a university lecturer speaking.\n"
             + greeting_rule
             + closing_rule
-            + style_rule +
-            f"- Keep each script between {min_chars} and {max_chars} characters.\n"
+            + f"- Keep each script between {min_chars} and {max_chars} characters.\n"
             "- For empty content blocks, output nothing (just write the ||| delimiter).\n"
             "\n"
             f"Separate the {batch_size} scripts using the delimiter ||| on its own line. "
@@ -475,12 +394,12 @@ class KisskiClient:
         self,
         slide_texts: list[str],
         glossary: dict[str, str] | None = None,
-        style: str = "standard",
         add_greeting: bool = True,
         add_closing: bool = True,
-        min_chars: int = 400,
-        max_chars: int = 700,
+        min_chars: int = 1500,
+        max_chars: int = 2000,
         target_lang: str = "EN-US",
+        source_lang: str = "DE",
         batch_size: int | None = None,
         max_workers: int | None = None,
     ) -> list[str]:
@@ -510,7 +429,7 @@ class KisskiClient:
                 try:
                     scripts = self._generate_scripts_single_batch(
                         texts, idx, batch_count, is_first, is_last,
-                        glossary, style, add_greeting, add_closing, min_chars, max_chars, target_lang,
+                        glossary, add_greeting, add_closing, min_chars, max_chars, target_lang, source_lang,
                     )
                     return idx, scripts
                 except RuntimeError as e:
@@ -556,59 +475,15 @@ class KisskiClient:
 
         return ordered
 
-    def summarize(self, text: str, task: str = "transcribe") -> str:
-        """Summarize a transcript using KISSKI LLM.
-
-        Args:
-            text: Transcript text to summarize.
-            task: "transcribe" (summarize in source language) or
-                  "translate" (summarize in English).
-
-        Returns:
-            A short plain-text summary.
-
-        Raises:
-            RuntimeError: If the LLM API returns an error.
-        """
-        _default_summarize = (
-            "Erstelle eine ausführliche Zusammenfassung des folgenden Transkripts. "
-            "Erfasse alle wichtigen Themen, Argumente, Fakten, Zahlen und Schlussfolgerungen vollständig. "
-            "Die Zusammenfassung soll strukturiert und gut lesbar sein, aber nichts Wesentliches auslassen. "
-            "Antworte nur mit der Zusammenfassung, ohne Einleitung oder Erklärung."
-        )
-        system_content = _load_prompt("prompt_summarize", _default_summarize)
-        if task == "translate":
-            system_content += " Respond in English."
-
-        try:
-            response = self._client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": system_content},
-                    {"role": "user", "content": text},
-                ],
-                temperature=0.3,
-            )
-            content = response.choices[0].message.content
-            if content is None:
-                raise RuntimeError("LLM hat keine Antwort generiert")
-            return content.strip()
-        except Exception as e:
-            if isinstance(e, RuntimeError):
-                raise
-            raise RuntimeError(f"KISSKI API Fehler: {e}") from e
-
     def generate_summary(
         self,
         text: str,
-        user_prompt: str | None = None,
         output_format: str = "txt",
     ) -> str:
         """Generate a summary of the given text using KISSKI LLM.
 
         Args:
             text: The extracted text to summarize.
-            user_prompt: Optional additional instructions appended below the base prompt.
             output_format: "txt" (plain text), "md" (Markdown), or "html" (HTML fragment).
 
         Returns:
@@ -626,18 +501,9 @@ class KisskiClient:
             "txt": "Formatiere die Zusammenfassung als reinen, gut lesbaren Text.",
         }
 
-        _default_summary = (
-            "Erstelle eine Zusammenfassung ausschließlich basierend auf dem folgenden Inhalt. "
-            "Erfinde nichts, ergänze nichts, interpretiere nichts was nicht explizit im Text steht. "
-            "{format} "
-            "Antworte nur mit der Zusammenfassung, ohne einleitende oder abschließende Erklärung."
-        )
-        system_prompt = _load_prompt("prompt_summary", _default_summary).replace(
+        system_prompt = _load_prompt("prompt_summary", _SUMMARY_DEFAULT).replace(
             "{format}", format_instructions.get(output_format, format_instructions["txt"])
         )
-
-        if user_prompt:
-            system_prompt += f"\n\nZusätzliche Anweisungen:\n{user_prompt}"
 
         try:
             response = self._client.chat.completions.create(

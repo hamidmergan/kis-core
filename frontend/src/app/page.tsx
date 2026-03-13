@@ -10,15 +10,8 @@ const ALL_WORKFLOWS = [
     key: "screencast",
     title: "Screencast",
     description:
-      "Laden Sie eine deutsche PowerPoint-Präsentation hoch und erhalten Sie ein englischsprachiges Video mit (per DeepL) übersetzten Folien und passender Sprachausgabe.",
+      "Aus PowerPoint-Dateien vertonte Videos mit übersetzten Folien generieren.",
     href: "/screencast",
-  },
-  {
-    key: "screencast-demo",
-    title: "Screencast-Demo",
-    description:
-      "Erleben Sie den Screencast-Prozess mit einer vorgefertigten Beispiel-Präsentation – ohne eigene Dateien.",
-    href: "/screencast-demo",
   },
 ];
 
@@ -28,44 +21,44 @@ const ALL_TOOLS: Tool[] = [
   {
     key: "translation",
     title: "Dokumentenübersetzung",
-    description: "Übersetzen Sie Dokumente automatisch von Deutsch nach Englisch.",
+    description: "Dokumente in andere Sprachen übersetzen.",
     href: "/translation",
   },
   {
     key: "tts",
     title: "Text-to-Speech",
-    description: "Lassen Sie Dokumente als MP3-Audiodatei vorlesen.",
+    description: "Texte und Dokumente in Audio umwandeln.",
     href: "/tts",
   },
   {
     key: "transcription",
     title: "Transkription",
-    description: "Transkribieren oder übersetzen Sie Audio- und Videodateien zu Text, SRT oder VTT.",
+    description: "Audio- und Videoinhalte in Text oder Untertitel umwandeln.",
     href: "/transcription",
   },
   {
     key: "video_dubbing",
     title: "Video-Dubbing",
-    description: "Synchronisieren Sie ein Video automatisch in eine andere Sprache.",
+    description: "Videos in andere Sprachen synchronisieren.",
     href: "/video-dubbing",
     unavailable: true,
   },
   {
     key: "image",
     title: "Bild-KI",
-    description: "Bilder generieren, bearbeiten und analysieren mit KI.",
+    description: "Bilder erstellen, bearbeiten oder analysieren.",
     href: "/image",
   },
   {
     key: "glossary",
     title: "Glossare",
-    description: "Verwalten Sie Begriffslisten für konsistente Übersetzungen und Skripterstellung.",
+    description: "Begriffslisten für Übersetzungen und Skripte verwalten.",
     href: "/glossary",
   },
   {
     key: "summary",
     title: "Zusammenfassung",
-    description: "Fassen Sie Dokumente, Audio- und Untertiteldateien automatisch zusammen.",
+    description: "Dokumente und Medieninhalte zusammenfassen.",
     href: "/summary",
   },
 ];
