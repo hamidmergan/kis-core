@@ -95,7 +95,7 @@ from src.services.kisski_client import KisskiClient
 from src.services.glossary import GlossaryService
 from src.services.translation import TranslationService
 from src.routes.translate import translate_pptx_content
-from src.limits import MAX_QUEUED_SCREENCAST_JOBS
+from src.limits import MAX_QUEUED_SCREENCAST_JOBS, RENDER_MAX_WORKERS
 from src.utils.file_validation import (
     MAX_OUTPUT_VIDEO_BYTES,
     MAX_SCREENCAST_SLIDES,
@@ -413,7 +413,7 @@ def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[P
         if result.returncode != 0:
             raise RuntimeError(f"Seite {page} fehlgeschlagen: {result.stderr[:200]}")
 
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+    with ThreadPoolExecutor(max_workers=RENDER_MAX_WORKERS) as executor:
         futures = {executor.submit(_render_page, p): p for p in range(1, page_count + 1)}
         for future in as_completed(futures):
             future.result()  # re-raises on error

@@ -1421,14 +1421,14 @@ function ScreencastPageInner() {
             {hasActiveJob === true && (
               <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-4">
                 <p className="text-sm font-semibold text-red-800">
-                  Sie haben bereits 3 laufende Screencast-Jobs, kein weiterer ist möglich.
+                  Sie haben bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich.
                 </p>
                 <p className="mt-1 text-sm text-red-700">
-                  Um einen neuen Screencast zu starten, warten Sie bis ein Job fertig ist oder brechen Sie ihn in der{" "}
+                  Warten Sie bis ein Job abgeschlossen ist oder löschen Sie einen in der{" "}
                   <a href="/my-jobs" className="underline hover:text-red-900 font-medium">
                     Jobliste
                   </a>{" "}
-                  ab.
+                  .
                 </p>
               </div>
             )}

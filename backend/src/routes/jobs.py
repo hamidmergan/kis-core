@@ -15,7 +15,7 @@ from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
 from src.limits import MAX_QUEUED_SCREENCAST_JOBS
-from src.storage import USE_S3, delete_job_folder, file_exists, get_file, get_job_file, job_file_exists, load_result_json, load_result_meta, _job_folder_name
+from src.storage import USE_S3, delete_job_folder, file_exists, get_file, get_job_file, job_file_exists, load_result_json, load_result_meta, save_job_file, _job_folder_name
 
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
@@ -253,17 +253,13 @@ async def retry_job(
         except Exception:
             raise HTTPException(status_code=400, detail="Demo-Parameter nicht mehr vorhanden (abgelaufen)")
 
-    # Concurrent job limit check for screencast retries (includes queued jobs)
     _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
-    if job["tool"] in _SCREENCAST_TOOLS:
-        if db.count_all_jobs_for_tool_excluding(job["user_id"], _SCREENCAST_TOOLS, job_uuid) > 0:
-            raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job. Bitte warte bis er abgeschlossen ist.")
-
-    # Atomically claim the job — blocks parallel retries
-    if not db.claim_job_for_retry(job_uuid):
-        raise HTTPException(status_code=409, detail="Job läuft bereits (parallel gestartet)")
 
     if job["tool"] == "tts":
+        # Atomically claim the job — blocks parallel retries
+        if not db.claim_job_for_retry(job_uuid):
+            raise HTTPException(status_code=409, detail="Job läuft bereits (parallel gestartet)")
+
         from src.tasks.tts_tasks import run_tts
         task = run_tts.apply_async(args=[
             job_uuid,
@@ -277,36 +273,39 @@ async def retry_job(
             params["use_speaker_boost"],
             params["pause_preset"],
         ])
+        try:
+            import redis as _redis
+            _r = _redis.from_url("redis://kis-redis:6379/0")
+            _r.delete(f"job:cancel:{job_uuid}")
+        except Exception as e:
+            logger.warning("Could not clear cancel flag in Redis: {}", e)
+        db.set_job_celery_task_id(job_uuid, task.id)
 
     elif job["tool"] in ("screencast_translate", "screencast_render"):
-        from src.tasks.screencast_tasks import run_screencast_render
-        task = run_screencast_render.apply_async(args=[
-            job_uuid,
-            scripts,
-            render_params["voice_id"],
-            render_params["speed"],
-            render_params["slide_pause"],
-            job["original_filename"] or "screencast.pptx",
-            render_params["dpi"],
-            render_params.get("provider", "elevenlabs"),
-        ])
+        save_job_file(job_uuid, "queue_params.json", json.dumps({
+            "dispatch_as": "render",
+            "voice_id": render_params["voice_id"],
+            "speed": render_params["speed"],
+            "slide_pause": render_params["slide_pause"],
+            "dpi": render_params["dpi"],
+            "provider": render_params.get("provider", "elevenlabs"),
+            "voice_label": render_params.get("voice_label", ""),
+            "is_admin": render_params.get("is_admin", False),
+        }).encode())
+        if not db.transition_job_to_queued(job_uuid, job["user_id"], from_statuses=("failed",)):
+            raise HTTPException(status_code=409, detail="Job läuft bereits (parallel gestartet)")
+        from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
+        dispatch_next_screencast_job_for_user(job["user_id"])
 
     else:  # screencast_demo_render
-        from src.tasks.screencast_tasks import run_screencast_demo_render
-        task = run_screencast_demo_render.apply_async(args=[
-            job_uuid,
-            demo_params["dpi"],
-        ])
-
-    # Clear any stale cancel flag so the retried task doesn't immediately abort.
-    try:
-        import redis as _redis
-        _r = _redis.from_url("redis://kis-redis:6379/0")
-        _r.delete(f"job:cancel:{job_uuid}")
-    except Exception as e:
-        logger.warning("Could not clear cancel flag in Redis: {}", e)
-
-    db.set_job_celery_task_id(job_uuid, task.id)
+        save_job_file(job_uuid, "queue_params.json", json.dumps({
+            "dispatch_as": "demo_render",
+            "dpi": demo_params["dpi"],
+        }).encode())
+        if not db.transition_job_to_queued(job_uuid, job["user_id"], from_statuses=("failed",)):
+            raise HTTPException(status_code=409, detail="Job läuft bereits (parallel gestartet)")
+        from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
+        dispatch_next_screencast_job_for_user(job["user_id"])
 
     logger.info("{} job {} re-queued via retry by user {}", job["tool"], job_uuid, current_user.get("user_id"))
     return {"ok": True}
@@ -340,6 +339,11 @@ async def cancel_job_render(
         logger.warning("Could not set cancel flag in Redis: {}", e)
 
     db.reset_job_to_awaiting(job_uuid)
+    try:
+        from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
+        dispatch_next_screencast_job_for_user(job["user_id"])
+    except Exception as e:
+        logger.warning("Could not dispatch next queued job after soft-cancel: {}", e)
     logger.info("Job render soft-cancelled: {}", job_uuid)
     return {"ok": True}
 

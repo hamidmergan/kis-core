@@ -19,6 +19,7 @@ from src.limits import (
     SCREENCAST_TIME_LIMIT,
     SCREENCAST_AUTO_SOFT_TIME_LIMIT,
     SCREENCAST_AUTO_TIME_LIMIT,
+    RENDER_MAX_WORKERS,
 )
 
 
@@ -219,7 +220,7 @@ def _run_render_pipeline(
             _create_slide_video(slide_images[i], audio_paths[i], clip_paths[i], pause=slide_pause, crf=23, job_uuid=job_uuid)
 
         db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": num_slides})
-        with ThreadPoolExecutor(max_workers=max(1, os.cpu_count() // 2)) as executor:
+        with ThreadPoolExecutor(max_workers=RENDER_MAX_WORKERS) as executor:
             futures = {executor.submit(_render_clip_normal, i): i for i in range(num_slides)}
             completed = 0
             for future in as_completed(futures):
@@ -359,6 +360,7 @@ def run_screencast_translate(
         # awaiting_user: user must review scripts before render starts
         db.update_job_status(job_uuid, "awaiting_user")
         db.update_job_expiry(job_uuid, 168)  # 7 days — no resources held while waiting
+        _maybe_dispatch_next(job_uuid)  # awaiting_user hält keinen Slot → nächsten Job starten
 
         # Clean up input file
         delete_file(input_path)
@@ -427,7 +429,7 @@ def run_screencast_render(
     except _JobCancelled:
         logger.info("Screencast render task {} cancelled by user", translate_job_uuid)
         db.reset_job_to_awaiting(translate_job_uuid)
-        # Kein dispatch_next — User reviewt noch, Job blockiert weiterhin die Warteschlange
+        _maybe_dispatch_next(translate_job_uuid)  # awaiting_user hält keinen Slot → nächsten Job starten
 
     except SoftTimeLimitExceeded:
         logger.warning("Screencast render task {} hit soft time limit", translate_job_uuid)
@@ -664,7 +666,7 @@ def run_screencast_demo_render(
                 logger.info("TIMING [{}] clip {}/{} in {}", job_uuid[:8], i + 1, num_slides, _elapsed(t_clip))
 
             db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": num_slides})
-            with ThreadPoolExecutor(max_workers=max(1, os.cpu_count() // 2)) as executor:
+            with ThreadPoolExecutor(max_workers=RENDER_MAX_WORKERS) as executor:
                 futures = {executor.submit(_render_clip, i): i for i in range(num_slides)}
                 completed = 0
                 for future in as_completed(futures):
@@ -759,6 +761,11 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 params["is_admin"],
             ])
             db.set_render_queued_at(job_uuid)
+        elif dispatch_as == "demo_render":
+            task = run_screencast_demo_render.apply_async(args=[
+                job_uuid,
+                params["dpi"],
+            ])
         else:
             logger.warning("dispatch_next: unknown dispatch_as '{}' for job {}", dispatch_as, job_uuid[:8])
             db.update_job_status(job_uuid, "failed", error_message="Interner Fehler: Unbekannter Job-Typ in Warteschlange.")

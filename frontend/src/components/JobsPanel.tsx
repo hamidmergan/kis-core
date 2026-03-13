@@ -78,7 +78,10 @@ export default function JobsPanel() {
   const applyJobs = useCallback((newJobs: MyJob[]) => {
     setJobs(newJobs);
     const prev = prevJobStatusesRef.current;
-    const changed = newJobs.some((j) =>
+    const prevUuids = Object.keys(prev);
+    const newUuids = new Set(newJobs.map((j) => j.job_uuid));
+    const jobRemoved = prevUuids.some((uuid) => !newUuids.has(uuid));
+    const changed = jobRemoved || newJobs.some((j) =>
       prev[j.job_uuid] !== undefined && (
         prev[j.job_uuid].status !== j.status ||
         prev[j.job_uuid].isGeneratingScripts !== j.is_generating_scripts
@@ -108,8 +111,11 @@ export default function JobsPanel() {
     return () => bc.close();
   }, [applyJobs]);
 
-  // SSE connection — replaces all polling
+  // SSE connection — opens only when tab is visible, closes when hidden
+  // This prevents exhausting the browser's 6-connection-per-origin limit
+  // when many tabs are open simultaneously.
   useEffect(() => {
+    let es: EventSource | null = null;
     let fallbackPoll: ReturnType<typeof setInterval> | null = null;
     let errCount = 0;
     const bc = new BroadcastChannel("kis-jobs");
@@ -117,33 +123,51 @@ export default function JobsPanel() {
     const sseUrl = process.env.NODE_ENV === "development"
       ? "http://localhost:8000/jobs/stream"
       : "/api/jobs/stream";
-    const es = new EventSource(sseUrl, { withCredentials: true });
 
-    es.onmessage = (e) => {
+    const openSSE = () => {
+      if (es) return;
       errCount = 0;
-      try {
-        const data = JSON.parse(e.data);
-        applyJobs(data.jobs ?? []);
-        bc.postMessage({ jobs: data.jobs ?? [] });
-      } catch { /* ignore parse errors */ }
-      if (fallbackPoll) {
-        clearInterval(fallbackPoll);
-        fallbackPoll = null;
+      es = new EventSource(sseUrl, { withCredentials: true });
+      es.onmessage = (e) => {
+        errCount = 0;
+        try {
+          const data = JSON.parse(e.data);
+          applyJobs(data.jobs ?? []);
+          bc.postMessage({ jobs: data.jobs ?? [] });
+        } catch { /* ignore parse errors */ }
+        if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
+      };
+      es.onerror = () => {
+        errCount++;
+        if (errCount >= 3 && !fallbackPoll) {
+          fallbackPoll = setInterval(fetchJobs, 5000);
+        }
+      };
+    };
+
+    const closeSSE = () => {
+      if (es) { es.close(); es = null; }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        openSSE();
+        fetchJobs(); // sofortiger Snapshot beim Tab-Wechsel
+      } else {
+        closeSSE();
+        if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
       }
     };
 
-    es.onerror = () => {
-      errCount++;
-      if (errCount >= 3 && !fallbackPoll) {
-        fallbackPoll = setInterval(fetchJobs, 5000);
-      }
-    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     // Initial fetch so badge shows immediately before first SSE message arrives
     fetchJobs();
+    if (document.visibilityState === "visible") openSSE();
 
     return () => {
-      es.close();
+      document.removeEventListener("visibilitychange", onVisibility);
+      closeSSE();
       bc.close();
       if (fallbackPoll) clearInterval(fallbackPoll);
     };
@@ -233,6 +257,7 @@ export default function JobsPanel() {
         alert(err.detail || "Wiederholen fehlgeschlagen");
         return;
       }
+      window.dispatchEvent(new Event("kis-jobs-status-changed"));
       setOpen(false);
       router.push("/my-jobs");
     } finally {
@@ -240,7 +265,7 @@ export default function JobsPanel() {
     }
   };
 
-  const handleJobClick = (job: MyJob) => {
+  const handleJobClick = (_job: MyJob) => {
     setOpen(false);
     router.push("/my-jobs");
   };

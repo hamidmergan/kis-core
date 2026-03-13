@@ -411,7 +411,8 @@ def count_all_jobs_for_tool(user_id: int, tools: list[str]) -> int:
 
 def get_next_queued_job(user_id: int, tools: list[str]) -> dict | None:
     """Atomically claim the oldest queued job by transitioning queued → pending,
-    but only if the user has no currently active (pending/running/awaiting_user) job.
+    but only if the user has no currently active (pending/running) job.
+    awaiting_user does NOT block dispatch — it uses no Celery slot.
     Returns the updated job row, or None if no queued job exists or user is already active."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -423,7 +424,7 @@ def get_next_queued_job(user_id: int, tools: list[str]) -> dict | None:
                        AND NOT EXISTS (
                            SELECT 1 FROM jobs a
                            WHERE a.user_id = %s AND a.tool = ANY(%s)
-                           AND a.status IN ('pending', 'running', 'awaiting_user')
+                           AND a.status IN ('pending', 'running')
                        )
                        ORDER BY j.created_at ASC
                        LIMIT 1
@@ -434,7 +435,10 @@ def get_next_queued_job(user_id: int, tools: list[str]) -> dict | None:
             )
             conn.commit()
             row = cur.fetchone()
-            return dict(row) if row else None
+            result = dict(row) if row else None
+    if result:
+        _notify_job_update(result["job_uuid"])
+    return result
 
 
 def count_all_jobs_for_tool_excluding(user_id: int, tools: list[str], exclude_uuid: str) -> int:
@@ -532,10 +536,11 @@ def transition_job_to_queued(
                 conn.rollback()
                 return False
             cur.execute(
-                "UPDATE jobs SET status = 'queued' WHERE job_uuid = %s",
+                "UPDATE jobs SET status = 'queued', error_message = NULL WHERE job_uuid = %s",
                 (job_uuid,),
             )
         conn.commit()
+    _notify_job_update(job_uuid)
     return True
 
 
@@ -723,7 +728,7 @@ def update_job_status(
                     (status, error_message, progress_json, now, job_uuid),
                 )
         conn.commit()
-    if status in ("success", "failed", "awaiting_user"):
+    if status in ("success", "failed", "awaiting_user", "pending", "queued", "running"):
         _notify_job_update(job_uuid)
 
 

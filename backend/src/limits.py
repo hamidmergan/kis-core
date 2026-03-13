@@ -43,6 +43,13 @@ SCREENCAST_MAX_CHARS = 100_000
 MAX_SCREENCAST_SLIDES          = 50
 MAX_QUEUED_SCREENCAST_JOBS     = 5  # max. Jobs in User-Warteschlange (inkl. laufender)
 
+# CPU-Parallelität für Render-Operationen — auf verfügbare Kerne anpassen:
+# 4 Kerne  →  RENDER_MAX_WORKERS = 2
+# 8 Kerne  →  RENDER_MAX_WORKERS = 4
+# 16 Kerne →  RENDER_MAX_WORKERS = 8
+# Faustregel: halbe Kernzahl → lässt genug CPU für Uvicorn + OS frei
+RENDER_MAX_WORKERS = 2  # ThreadPoolExecutor-Limit für PDF→PNG und FFmpeg
+
 # ─── Celery Task Timeouts (in Sekunden) ───────────────────────────────────────
 TTS_SOFT_TIME_LIMIT             = 5400   # 90 min — SoftTimeLimitExceeded → graceful DB update
 TTS_TIME_LIMIT                  = 5520   # 92 min — SIGKILL Fallback
