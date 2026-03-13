@@ -536,6 +536,7 @@ export default function MeineJobsPage() {
       await fetch(`/api/jobs/${job.job_uuid}`, { method: "DELETE", credentials: "include" });
       setJobs((prev) => prev.filter((j) => j.job_uuid !== job.job_uuid));
       setTotal((prev) => Math.max(0, prev - 1));
+      window.dispatchEvent(new Event("kis-jobs-changed"));
     } finally {
       setCancelling(null);
     }

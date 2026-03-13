@@ -383,6 +383,16 @@ async def cancel_job(
     delete_job_folder(job_uuid)
     db.delete_job(job_uuid)
 
+    # Notify SSE clients that job list changed (job was removed)
+    # Must happen after delete but we still have user_id from the job dict above.
+    try:
+        import redis as _redis_notify
+        _rn = _redis_notify.from_url("redis://kis-redis:6379/0", socket_connect_timeout=1, socket_timeout=1)
+        _rn.publish(f"jobs:{job['user_id']}", "update")
+        _rn.close()
+    except Exception as e:
+        logger.warning("Could not notify SSE after job delete: {}", e)
+
     # Clean up pre-rendered slide image cache (screencast jobs only, ignored for others)
     try:
         import shutil as _shutil
