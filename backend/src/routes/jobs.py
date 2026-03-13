@@ -14,6 +14,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
+from src.limits import MAX_QUEUED_SCREENCAST_JOBS
 from src.storage import USE_S3, delete_job_folder, file_exists, get_file, get_job_file, job_file_exists, load_result_json, load_result_meta, _job_folder_name
 
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -73,8 +74,13 @@ async def check_job_limit(
         "video_dubbing": ["video_dubbing"],
     }
 
+    _TOOL_GROUP_LIMITS = {
+        "screencast": MAX_QUEUED_SCREENCAST_JOBS,
+    }
+
     tools = _TOOL_GROUP_TOOLS.get(tool_group, [])
-    has_active = db.has_active_job_for_tool(user_id, tools) if tools else False
+    max_jobs = _TOOL_GROUP_LIMITS.get(tool_group, 1)
+    has_active = db.count_all_jobs_for_tool(user_id, tools) >= max_jobs if tools else False
 
     # Check storage limit
     from src.database import MAX_RESULT_FILES
@@ -247,6 +253,12 @@ async def retry_job(
         except Exception:
             raise HTTPException(status_code=400, detail="Demo-Parameter nicht mehr vorhanden (abgelaufen)")
 
+    # Concurrent job limit check for screencast retries (includes queued jobs)
+    _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
+    if job["tool"] in _SCREENCAST_TOOLS:
+        if db.count_all_jobs_for_tool_excluding(job["user_id"], _SCREENCAST_TOOLS, job_uuid) > 0:
+            raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job. Bitte warte bis er abgeschlossen ist.")
+
     # Atomically claim the job — blocks parallel retries
     if not db.claim_job_for_retry(job_uuid):
         raise HTTPException(status_code=409, detail="Job läuft bereits (parallel gestartet)")
@@ -374,6 +386,15 @@ async def cancel_job(
         _shutil.rmtree(IMAGE_TMP_DIR / job_uuid, ignore_errors=True)
     except Exception:
         pass
+
+    # If a screencast job was cancelled, dispatch the next queued job for this user
+    _SCREENCAST_TOOLS = {"screencast_translate", "screencast_auto", "screencast_render", "screencast_demo_render"}
+    if job.get("tool") in _SCREENCAST_TOOLS:
+        try:
+            from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
+            dispatch_next_screencast_job_for_user(job["user_id"])
+        except Exception as e:
+            logger.warning("Could not dispatch next queued screencast job after cancel: {}", e)
 
     logger.info("Job cancelled: {}", job_uuid)
     return {"ok": True}

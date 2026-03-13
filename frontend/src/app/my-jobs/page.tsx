@@ -10,7 +10,7 @@ interface MyJob {
   tool: string;
   tool_label: string;
   original_filename: string;
-  status: "pending" | "running" | "success" | "failed" | "awaiting_user";
+  status: "pending" | "running" | "success" | "failed" | "awaiting_user" | "queued";
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -35,7 +35,7 @@ interface JobDetail {
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
 const SCREENCAST_TOOLS = new Set(["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]);
-const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user";
+const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user" || s === "queued";
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
 function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {
@@ -49,6 +49,8 @@ function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["
     return <span className="inline-flex text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
   if (status === "awaiting_user")
     return <span className="inline-flex text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
+  if (status === "queued")
+    return <span className="inline-flex text-xs font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">In der Schlange</span>;
   return <span className="inline-flex text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Wartend</span>;
 }
 
@@ -504,7 +506,7 @@ export default function MeineJobsPage() {
     setRetrying(job.job_uuid);
     try {
       const res = await fetch(`/api/jobs/${job.job_uuid}/retry`, { method: "POST", credentials: "include" });
-      if (!res.ok && res.status !== 409) {
+      if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         alert(err.detail || "Wiederholen fehlgeschlagen");
         return;

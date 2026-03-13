@@ -48,7 +48,7 @@ services:
   celery-worker-screencast:
     build: ./backend
     container_name: kis-celery-screencast
-    command: celery -A src.celery_app worker --queues=screencast --concurrency=1 --loglevel=info
+    command: celery -A src.celery_app worker --queues=screencast --concurrency=2 --loglevel=info
     env_file:
       - .env
     volumes:

@@ -95,6 +95,7 @@ from src.services.kisski_client import KisskiClient
 from src.services.glossary import GlossaryService
 from src.services.translation import TranslationService
 from src.routes.translate import translate_pptx_content
+from src.limits import MAX_QUEUED_SCREENCAST_JOBS
 from src.utils.file_validation import (
     MAX_OUTPUT_VIDEO_BYTES,
     MAX_SCREENCAST_SLIDES,
@@ -735,31 +736,34 @@ async def screencast(
 
     user_id = current_user.get("user_id", 0)
     _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
-    if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
-        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
+    if db.count_all_jobs_for_tool(user_id, _SCREENCAST_TOOLS) >= MAX_QUEUED_SCREENCAST_JOBS:
+        raise HTTPException(status_code=409, detail=f"Du hast bereits {MAX_QUEUED_SCREENCAST_JOBS} Screencast-Jobs in der Warteschlange.")
 
     enforce_quota(user_id, "screencast", is_admin_user(current_user))
     job_uuid = uuid.uuid4().hex
-    db.create_job(job_uuid, user_id, "screencast_auto", file.filename or "screencast.pptx")
+    filename = file.filename or "screencast.pptx"
+    db.create_job(job_uuid, user_id, "screencast_auto", filename)
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
     db.set_job_input_path(job_uuid, input_path)
 
-    from src.tasks.screencast_tasks import run_screencast_auto
-    task = run_screencast_auto.apply_async(args=[
-        job_uuid,
-        input_path,
-        file.filename or "screencast.pptx",
-        voice_id,
-        speed,
-        glossary_json,
-        provider,
-        voice_label,
-        source_lang,
-        target_lang,
-    ])
-    db.set_job_celery_task_id(job_uuid, task.id)
+    # Always save params and queue; dispatch_next atomically dispatches if no active job
+    save_job_file(job_uuid, "queue_params.json", json.dumps({
+        "dispatch_as": "auto",
+        "input_path": input_path,
+        "filename": filename,
+        "voice_id": voice_id,
+        "speed": speed,
+        "glossary_json": glossary_json,
+        "provider": provider,
+        "voice_label": voice_label,
+        "source_lang": source_lang,
+        "target_lang": target_lang,
+    }).encode())
+    db.update_job_status(job_uuid, "queued")
+    from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
+    dispatch_next_screencast_job_for_user(user_id)
+    logger.info("Screencast auto job submitted: job_uuid={}, file={}", job_uuid, filename)
 
-    logger.info("Screencast auto job queued: job_uuid={}, file={}", job_uuid, file.filename)
     return {"job_uuid": job_uuid}
 
 
@@ -789,28 +793,31 @@ async def screencast_translate(
 
     user_id = current_user.get("user_id", 0)
     _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
-    if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
-        raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
+    if db.count_all_jobs_for_tool(user_id, _SCREENCAST_TOOLS) >= MAX_QUEUED_SCREENCAST_JOBS:
+        raise HTTPException(status_code=409, detail=f"Du hast bereits {MAX_QUEUED_SCREENCAST_JOBS} Screencast-Jobs in der Warteschlange.")
 
     enforce_quota(user_id, "screencast", is_admin_user(current_user))
     job_uuid = uuid.uuid4().hex
-    db.create_job(job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
+    filename = file.filename or "screencast.pptx"
+    db.create_job(job_uuid, user_id, "screencast_translate", filename)
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
     db.set_job_input_path(job_uuid, input_path)
 
-    from src.tasks.screencast_tasks import run_screencast_translate
-    task = run_screencast_translate.apply_async(args=[
-        job_uuid,
-        input_path,
-        file.filename or "screencast.pptx",
-        glossary_json,
-        fast_mode,
-        source_lang,
-        target_lang,
-    ])
-    db.set_job_celery_task_id(job_uuid, task.id)
+    # Always save params and queue; dispatch_next atomically dispatches if no active job
+    save_job_file(job_uuid, "queue_params.json", json.dumps({
+        "dispatch_as": "translate",
+        "input_path": input_path,
+        "filename": filename,
+        "glossary_json": glossary_json,
+        "fast_mode": fast_mode,
+        "source_lang": source_lang,
+        "target_lang": target_lang,
+    }).encode())
+    db.update_job_status(job_uuid, "queued")
+    from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
+    dispatch_next_screencast_job_for_user(user_id)
+    logger.info("Screencast translate job submitted: job_uuid={}, file={}, fast_mode={}", job_uuid, filename, fast_mode)
 
-    logger.info("Screencast translate job queued: job_uuid={}, file={}, fast_mode={}", job_uuid, file.filename, fast_mode)
     return {"job_uuid": job_uuid}
 
 
@@ -1078,8 +1085,8 @@ async def screencast_upload_corrected(
         # No job yet (EN path): create a new translate job and save PPTX as translated.pptx
         user_id = current_user.get("user_id", 0)
         _SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
-        if db.has_active_job_for_tool(user_id, _SCREENCAST_TOOLS):
-            raise HTTPException(status_code=409, detail="Du hast bereits einen laufenden Screencast-Job.")
+        if db.count_all_jobs_for_tool(user_id, _SCREENCAST_TOOLS) >= MAX_QUEUED_SCREENCAST_JOBS:
+            raise HTTPException(status_code=409, detail=f"Du hast bereits {MAX_QUEUED_SCREENCAST_JOBS} Screencast-Jobs in der Warteschlange.")
         enforce_quota(user_id, "screencast", is_admin_user(current_user))
         translate_job_uuid = uuid.uuid4().hex
         db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
@@ -1276,9 +1283,21 @@ async def screencast_render(
         clear_tts_audio_cache(body.translate_job_uuid)
         logger.info("Re-render: cleared TTS audio cache for job={}", body.translate_job_uuid)
 
-    # Atomically transition status → pending to prevent duplicate render jobs
-    # when the user has the same job open in multiple tabs simultaneously.
-    transitioned = db.transition_job_to_pending(
+    # Save scripts and render params for queue dispatch (used by dispatch_next)
+    save_job_file(body.translate_job_uuid, "render_scripts.json", json.dumps(body.scripts, ensure_ascii=False).encode())
+    save_job_file(body.translate_job_uuid, "queue_params.json", json.dumps({
+        "dispatch_as": "render",
+        "voice_id": body.voice_id,
+        "speed": body.speed,
+        "slide_pause": body.slide_pause,
+        "dpi": body.dpi,
+        "provider": body.provider,
+        "voice_label": body.voice_label,
+        "is_admin": is_admin_user(current_user),
+    }).encode())
+
+    # Atomically transition to queued (prevents duplicate submissions from multiple tabs)
+    transitioned = db.transition_job_to_queued(
         body.translate_job_uuid,
         user_id,
         from_statuses=("awaiting_user", "failed", "success"),
@@ -1286,33 +1305,11 @@ async def screencast_render(
     if not transitioned:
         raise HTTPException(
             status_code=409,
-            detail="Dieser Job wird bereits in einem anderen Tab verarbeitet.",
+            detail="Dieser Job wird bereits verarbeitet.",
         )
 
-    # Clear any stale cancel flag from a previous cancelled render so the new
-    # task doesn't immediately abort when it hits the first checkpoint.
-    try:
-        import redis as _redis
-        _r = _redis.from_url("redis://kis-redis:6379/0")
-        _r.delete(f"job:cancel:{body.translate_job_uuid}")
-    except Exception as e:
-        logger.warning("Could not clear cancel flag in Redis: {}", e)
-
-    from src.tasks.screencast_tasks import run_screencast_render
-    task = run_screencast_render.apply_async(args=[
-        body.translate_job_uuid,
-        body.scripts,
-        body.voice_id,
-        body.speed,
-        body.slide_pause,
-        translate_job["original_filename"] or "screencast.pptx",
-        body.dpi,
-        body.provider,
-        body.voice_label,
-        is_admin_user(current_user),
-    ])
-    db.set_job_celery_task_id(body.translate_job_uuid, task.id)
-    db.set_render_queued_at(body.translate_job_uuid)
+    from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
+    dispatch_next_screencast_job_for_user(user_id)
 
     logger.info("Screencast render queued: translate_job={}", body.translate_job_uuid)
     return {"job_uuid": body.translate_job_uuid}

@@ -9,7 +9,7 @@ interface MyJob {
   tool: string;
   tool_label: string;
   original_filename: string;
-  status: "pending" | "running" | "success" | "failed" | "awaiting_user";
+  status: "pending" | "running" | "success" | "failed" | "awaiting_user" | "queued";
   error: string | null;
   created_at: string;
   started_at: string | null;
@@ -23,7 +23,7 @@ interface MyJob {
 
 const SCREENCAST_RENDER_TOOLS = new Set(["screencast_render", "screencast_auto", "screencast_demo_render"]);
 
-const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user";
+const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s === "awaiting_user" || s === "queued";
 const needsAttention = (s: MyJob["status"]) => isActive(s);
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
@@ -228,7 +228,7 @@ export default function JobsPanel() {
     setRetrying(job.job_uuid);
     try {
       const res = await fetch(`/api/jobs/${job.job_uuid}/retry`, { method: "POST", credentials: "include" });
-      if (!res.ok && res.status !== 409) {
+      if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         alert(err.detail || "Wiederholen fehlgeschlagen");
         return;

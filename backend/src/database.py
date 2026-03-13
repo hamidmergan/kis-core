@@ -376,18 +376,80 @@ def delete_job(job_uuid: str) -> dict | None:
         return dict(row)
 
 
-def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
-    """Return True if the user has a pending/running/awaiting_user job for any of the given tools."""
+def count_active_jobs_for_tool(user_id: int, tools: list[str]) -> int:
+    """Return the number of pending/running/awaiting_user jobs the user has for any of the given tools."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT 1 FROM jobs
+                """SELECT COUNT(*) FROM jobs
                    WHERE user_id = %s AND tool = ANY(%s)
-                   AND status IN ('pending', 'running', 'awaiting_user')
-                   LIMIT 1""",
+                   AND status IN ('pending', 'running', 'awaiting_user')""",
                 (user_id, tools),
             )
-            return cur.fetchone() is not None
+            row = cur.fetchone()
+            return row[0] if row else 0
+
+
+def has_active_job_for_tool(user_id: int, tools: list[str]) -> bool:
+    """Return True if the user has a pending/running/awaiting_user job for any of the given tools."""
+    return count_active_jobs_for_tool(user_id, tools) > 0
+
+
+def count_all_jobs_for_tool(user_id: int, tools: list[str]) -> int:
+    """Return total non-terminal jobs (pending/running/awaiting_user/queued) for quota/queue-size checks."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT COUNT(*) FROM jobs
+                   WHERE user_id = %s AND tool = ANY(%s)
+                   AND status IN ('pending', 'running', 'awaiting_user', 'queued')""",
+                (user_id, tools),
+            )
+            row = cur.fetchone()
+            return row[0] if row else 0
+
+
+def get_next_queued_job(user_id: int, tools: list[str]) -> dict | None:
+    """Atomically claim the oldest queued job by transitioning queued → pending,
+    but only if the user has no currently active (pending/running/awaiting_user) job.
+    Returns the updated job row, or None if no queued job exists or user is already active."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """UPDATE jobs SET status = 'pending'
+                   WHERE job_uuid = (
+                       SELECT j.job_uuid FROM jobs j
+                       WHERE j.user_id = %s AND j.tool = ANY(%s) AND j.status = 'queued'
+                       AND NOT EXISTS (
+                           SELECT 1 FROM jobs a
+                           WHERE a.user_id = %s AND a.tool = ANY(%s)
+                           AND a.status IN ('pending', 'running', 'awaiting_user')
+                       )
+                       ORDER BY j.created_at ASC
+                       LIMIT 1
+                       FOR UPDATE SKIP LOCKED
+                   )
+                   RETURNING *""",
+                (user_id, tools, user_id, tools),
+            )
+            conn.commit()
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def count_all_jobs_for_tool_excluding(user_id: int, tools: list[str], exclude_uuid: str) -> int:
+    """Count active/queued jobs (pending/running/awaiting_user/queued) excluding a specific job."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT COUNT(*) FROM jobs
+                   WHERE user_id = %s AND tool = ANY(%s)
+                   AND status IN ('pending', 'running', 'awaiting_user', 'queued')
+                   AND job_uuid != %s""",
+                (user_id, tools, exclude_uuid),
+            )
+            row = cur.fetchone()
+            return row[0] if row else 0
 
 
 def set_generating_scripts_flag(job_uuid: str, generating: bool) -> None:
@@ -445,6 +507,32 @@ def transition_job_to_pending(
                 return False
             cur.execute(
                 "UPDATE jobs SET status = 'pending' WHERE job_uuid = %s",
+                (job_uuid,),
+            )
+        conn.commit()
+    return True
+
+
+def transition_job_to_queued(
+    job_uuid: str,
+    user_id: int,
+    from_statuses: tuple = ("awaiting_user", "failed", "success"),
+) -> bool:
+    """Atomically transition a job to 'queued' from one of the allowed source statuses."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT status FROM jobs
+                   WHERE job_uuid = %s AND user_id = %s
+                   FOR UPDATE""",
+                (job_uuid, user_id),
+            )
+            row = cur.fetchone()
+            if row is None or row[0] not in from_statuses:
+                conn.rollback()
+                return False
+            cur.execute(
+                "UPDATE jobs SET status = 'queued' WHERE job_uuid = %s",
                 (job_uuid,),
             )
         conn.commit()
