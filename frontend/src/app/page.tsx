@@ -10,7 +10,7 @@ const ALL_WORKFLOWS = [
     key: "screencast",
     title: "Screencast",
     description:
-      "Laden Sie eine deutsche PowerPoint-Präsentation hoch und erhalten Sie ein englischsprachiges Video mit übersetzten Folien und Sprachausgabe.",
+      "Laden Sie eine deutsche PowerPoint-Präsentation hoch und erhalten Sie ein englischsprachiges Video mit (per DeepL) übersetzten Folien und passender Sprachausgabe.",
     href: "/screencast",
   },
   {

@@ -177,6 +177,7 @@ class GenerateScriptsRequest(BaseModel):
     add_closing: bool = True
     min_chars: int = 400
     max_chars: int = 700
+    target_lang: str = "EN-US"
 
 
 class RegenerateSlideScriptRequest(BaseModel):
@@ -184,6 +185,7 @@ class RegenerateSlideScriptRequest(BaseModel):
     current_script: str | None = None
     user_prompt: str | None = None
     style: str = "standard"
+    target_lang: str = "EN-US"
 
 
 class PrepareRequest(BaseModel):
@@ -472,15 +474,14 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
     if audio_path is None:
         cmd = [
             "ffmpeg", "-y",
-            "-loop", "1", "-i", str(image_path),
+            "-loop", "1", "-framerate", "1", "-i", str(image_path),
             "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
             "-t", "3",
             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
-            "-threads", "2",
-            "-crf", str(crf),
-            "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
-            "-pix_fmt", "yuv420p",
+            "-crf", str(crf), "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "44100",
+            "-shortest",
             str(output_path),
         ]
         result = _run_proc(cmd, timeout=300, job_uuid=job_uuid)
@@ -523,15 +524,14 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
 
     cmd = [
         "ffmpeg", "-y",
-        "-loop", "1", "-i", str(image_path),
+        "-loop", "1", "-framerate", "1", "-i", str(image_path),
         "-i", str(final_audio),
         "-t", str(total_duration),
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
-        "-threads", "2",
-        "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
-        "-crf", str(crf),
-        "-pix_fmt", "yuv420p",
+        "-crf", str(crf), "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "44100",
+        "-shortest",
         str(output_path),
     ]
     result = _run_proc(cmd, timeout=300, job_uuid=job_uuid)
@@ -598,11 +598,12 @@ async def _generate_all_scripts(
     add_closing: bool = True,
     min_chars: int = 400,
     max_chars: int = 700,
+    target_lang: str = "EN-US",
 ) -> list[str]:
     try:
         scripts = await asyncio.to_thread(
             kisski_client.generate_scripts_batch, slide_texts, glossary, style, add_greeting, add_closing,
-            min_chars=min_chars, max_chars=max_chars,
+            min_chars=min_chars, max_chars=max_chars, target_lang=target_lang,
         )
         logger.info("Batch script generation completed for {} slides", len(slide_texts))
         return scripts
@@ -717,6 +718,8 @@ async def screencast(
     speed: float = Form(0.9),
     glossary_json: str = Form(""),
     provider: str = Form("elevenlabs"),
+    source_lang: str = Form("DE"),
+    target_lang: str = Form("EN-US"),
     current_user: dict = Depends(get_current_user),
 ):
     """Queue a screencast job: translate DE PPTX → EN, generate scripts, TTS, render MP4."""
@@ -751,6 +754,8 @@ async def screencast(
         glossary_json,
         provider,
         voice_label,
+        source_lang,
+        target_lang,
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 
@@ -766,6 +771,8 @@ async def screencast_translate(
     file: UploadFile = File(...),
     glossary_json: str = Form(""),
     fast_mode: bool = Form(False),
+    source_lang: str = Form("DE"),
+    target_lang: str = Form("EN-US"),
     current_user: dict = Depends(get_current_user),
 ):
     """Queue a translate job: translate PPTX DE→EN, extract slide texts (+ images)."""
@@ -798,6 +805,8 @@ async def screencast_translate(
         file.filename or "screencast.pptx",
         glossary_json,
         fast_mode,
+        source_lang,
+        target_lang,
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 
@@ -1139,6 +1148,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
             glossary=glossary_dict, style=body.style,
             add_greeting=body.add_greeting, add_closing=body.add_closing,
             min_chars=body.min_chars, max_chars=body.max_chars,
+            target_lang=body.target_lang,
         )
 
     if not uuid_key:
@@ -1200,6 +1210,7 @@ async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest)
             body.current_script or "",
             body.slide_text,
             body.style,
+            body.target_lang,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"Skript-Generierung fehlgeschlagen: {e}")
@@ -1298,6 +1309,7 @@ async def screencast_render(
         body.dpi,
         body.provider,
         body.voice_label,
+        is_admin_user(current_user),
     ])
     db.set_job_celery_task_id(body.translate_job_uuid, task.id)
     db.set_render_queued_at(body.translate_job_uuid)

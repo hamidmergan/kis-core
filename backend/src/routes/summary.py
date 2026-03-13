@@ -11,7 +11,6 @@ from src.dependencies import get_current_user, is_admin_user
 from src.quotas import enforce_quota
 from src.storage import save_queue_file
 from src.utils.file_validation import (
-    MAX_TRANSCRIPTION_BYTES,
     MAX_UPLOAD_BYTES,
     SUMMARY_EXTENSIONS,
     SUMMARY_MAX_CHARS,
@@ -52,16 +51,14 @@ async def summarize(
             detail="output_format muss 'txt', 'md' oder 'html' sein",
         )
 
-    is_audio = ext == ".mp3"
-    max_bytes = MAX_TRANSCRIPTION_BYTES if is_audio else MAX_UPLOAD_BYTES
     content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > max_bytes:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB für Audio, 200 MB sonst)")
+    if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
 
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Datei ist leer")
-    if len(content) > max_bytes:
+    if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Datei zu groß")
 
     extractor = EXTRACTORS.get(ext)

@@ -22,7 +22,7 @@ export default function UebersetzungPage() {
   const [providers, setProviders] = useState<{ id: string; label: string }[]>([]);
   const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
   const [translationProvider, setTranslationProvider] = useState<string>("");
-  const [sourceLang, setSourceLang] = useState<string>("");
+  const [sourceLang, setSourceLang] = useState<string>("DE");
   const [targetLang, setTargetLang] = useState<string>("");
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export default function UebersetzungPage() {
         setProviders(data.providers ?? []);
         setLanguages(data.languages ?? []);
         setTranslationProvider(data.default_provider ?? "");
-        setSourceLang(data.default_source ?? "");
+        setSourceLang(data.default_source ?? "DE");
         setTargetLang(data.default_target ?? "");
       })
       .catch(() => {});
@@ -58,7 +58,7 @@ export default function UebersetzungPage() {
       formData.append("file", pendingFile);
       if (glossaryJson) formData.append("glossary", glossaryJson);
       if (translationProvider) formData.append("translation_provider", translationProvider);
-      if (sourceLang) formData.append("source_lang", sourceLang);
+      if (sourceLang && sourceLang !== "auto") formData.append("source_lang", sourceLang);
       if (targetLang) formData.append("target_lang", targetLang);
       const response = await api.fetch("/translate", { method: "POST", body: formData });
       if (!response.ok) {
@@ -125,10 +125,18 @@ export default function UebersetzungPage() {
                 </label>
                 <select
                   value={sourceLang}
-                  onChange={(e) => setSourceLang(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSourceLang(val);
+                    if (val !== "auto" && val === targetLang) {
+                      const other = languages.find((l) => l.id !== val);
+                      if (other) setTargetLang(other.id);
+                    }
+                  }}
                   disabled={processing}
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
+                  <option value="auto">Automatisch erkennen</option>
                   {languages.map((l) => (
                     <option key={l.id} value={l.id}>{l.label}</option>
                   ))}
@@ -143,7 +151,14 @@ export default function UebersetzungPage() {
                 </label>
                 <select
                   value={targetLang}
-                  onChange={(e) => setTargetLang(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTargetLang(val);
+                    if (sourceLang !== "auto" && val === sourceLang) {
+                      const other = languages.find((l) => l.id !== val && l.id !== "auto");
+                      if (other) setSourceLang(other.id);
+                    }
+                  }}
                   disabled={processing}
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
                 >

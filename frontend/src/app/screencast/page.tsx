@@ -8,6 +8,7 @@ import ScreencastStatus from "@/components/ScreencastStatus";
 import GlossarySelector from "@/components/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
+import { checkAuthStatus } from "@/lib/auth";
 import type {
   ScreencastState,
   ScreencastStep,
@@ -192,8 +193,11 @@ function ScreencastPageInner() {
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [audioId, setAudioId] = useState<string>("");
   const [audioCount, setAudioCount] = useState(0);
-  const [sourceLang, setSourceLang] = useState<"DE" | "EN">("DE");
+  const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
+  const [sourceLang, setSourceLang] = useState<string>("DE");
+  const [targetLang, setTargetLang] = useState<string>("EN-US");
   const [fastMode, setFastMode] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [scriptLengthTooltip, setScriptLengthTooltip] = useState(false);
   useEffect(() => {
     if (!scriptLengthTooltip) return;
@@ -205,6 +209,12 @@ function ScreencastPageInner() {
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
   const [isResumedJob, setIsResumedJob] = useState(false);
+
+  useEffect(() => {
+    checkAuthStatus().then((status) => {
+      setIsAdmin(!!status.is_admin);
+    });
+  }, []);
 
   // ── Script input mode (user-prompt step) ──
   const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
@@ -260,6 +270,29 @@ function ScreencastPageInner() {
   // ── Abort on unmount ──
   useEffect(() => {
     return () => { abortControllerRef.current?.abort(); };
+  }, []);
+
+  // ── Fetch language config ──
+  useEffect(() => {
+    // Provide a sensible default so dropdowns are always visible
+    setLanguages([
+      { id: "DE", label: "Deutsch" },
+      { id: "EN-US", label: "Englisch" },
+      { id: "EN-GB", label: "Englisch (UK)" },
+      { id: "FR", label: "Französisch" },
+      { id: "ES", label: "Spanisch" },
+      { id: "IT", label: "Italienisch" },
+    ]);
+    api
+      .getJson<{ languages: { id: string; label: string }[]; default_source: string; default_target: string }>(
+        "/api/translate/config",
+      )
+      .then((data) => {
+        if (data.languages?.length) setLanguages(data.languages);
+        if (data.default_source) setSourceLang(data.default_source);
+        if (data.default_target) setTargetLang(data.default_target);
+      })
+      .catch(() => {});
   }, []);
 
   // ── Fetch available voices + providers ──
@@ -425,6 +458,7 @@ function ScreencastPageInner() {
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     setMaxReachedIdx(0);
     setSourceLang("DE");
+    setTargetLang("EN-US");
     setScriptInputMode("generate");
     setImportedScripts(null);
     setImportError(null);
@@ -552,6 +586,8 @@ function ScreencastPageInner() {
       formData.append("voice_id", voiceId);
       formData.append("voice_label", voiceLabel);
       formData.append("provider", ttsProvider);
+      formData.append("source_lang", sourceLang);
+      formData.append("target_lang", targetLang);
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
 
       const uploadRes = await fetch("/api/screencast", { method: "POST", body: formData, credentials: "include", signal });
@@ -581,7 +617,7 @@ function ScreencastPageInner() {
       setAutoError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setAutoState("error");
     }
-  }, [file, speed, voiceId, glossaryIds, mergeToApiJson, checkBeforeSubmit, onRenderProgress]);
+  }, [file, speed, voiceId, sourceLang, targetLang, glossaryIds, mergeToApiJson, checkBeforeSubmit, onRenderProgress]);
 
   const handleAutoDownload = () => {
     if (!autoDownloadBlob) return;
@@ -610,8 +646,8 @@ function ScreencastPageInner() {
     setLoading(true);
     const signal = newSignal();
 
-    // ── EN path: skip DeepL, upload as-is, go directly to user-prompt ──
-    if (sourceLang === "EN") {
+    // ── Same-language path: skip DeepL, upload as-is, go directly to user-prompt ──
+    if (sourceLang === targetLang) {
       try {
         const formData = new FormData();
         formData.append("file", file);
@@ -661,6 +697,8 @@ function ScreencastPageInner() {
       const glossaryJson = mergeToApiJson(glossaryIds);
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
       formData.append("fast_mode", String(fastMode));
+      formData.append("source_lang", sourceLang);
+      formData.append("target_lang", targetLang);
 
       const uploadRes = await fetch("/api/screencast/translate", {
         method: "POST",
@@ -701,7 +739,7 @@ function ScreencastPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [file, mode, sourceLang, fastMode, handleAutoSubmit, checkBeforeSubmit, goError, glossaryIds, mergeToApiJson]);
+  }, [file, mode, sourceLang, targetLang, fastMode, handleAutoSubmit, checkBeforeSubmit, goError, glossaryIds, mergeToApiJson]);
 
   // ── Download translated PPTX ──
   const handleDownloadTranslatedPptx = useCallback(async () => {
@@ -831,6 +869,7 @@ function ScreencastPageInner() {
           add_closing: addClosing,
           min_chars: SCRIPT_LENGTH_CHARS[scriptLength][0],
           max_chars: SCRIPT_LENGTH_CHARS[scriptLength][1],
+          target_lang: targetLang,
         },
         signal,
       );
@@ -1369,9 +1408,8 @@ function ScreencastPageInner() {
               Screencast erstellen
             </h1>
             <p className="text-sm text-gray-500 mb-6">
-              Laden Sie eine deutsche PowerPoint-Präsentation hoch.
-              Die Präsentation wird ins Englische übersetzt und als
-              vertontes Video exportiert.
+              Laden Sie eine PowerPoint-Präsentation hoch. Die Präsentation wird
+              per DeepL übersetzt und als vertontes Video exportiert.
             </p>
 
             {/* Banner: active job → hard block */}
@@ -1474,32 +1512,74 @@ function ScreencastPageInner() {
                 </>
               )}
             </div>
-            {/* English PPTX checkbox */}
+
+            {/* Skip translation checkbox */}
             <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={sourceLang === "EN"}
-                onChange={(e) => setSourceLang(e.target.checked ? "EN" : "DE")}
+                checked={sourceLang === targetLang}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    // mark as "already translated" by setting source == target
+                    setSourceLang(targetLang);
+                  } else {
+                    // restore default source
+                    setSourceLang("DE");
+                  }
+                }}
                 disabled={autoState === "processing"}
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
               />
               <span className="text-sm font-medium text-gray-700">
-                Präsentation ist bereits auf Englisch (Übersetzung überspringen)
+                Präsentation bereits übersetzt (Übersetzung überspringen)
               </span>
             </label>
+
+            {/* Language selection + Glossary — only when translation is needed */}
+            {sourceLang !== targetLang && (
+              <>
+                {languages.length > 0 && (
+                  <div className="flex gap-3 mb-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Quellsprache</label>
+                      <select
+                        value={sourceLang}
+                        onChange={(e) => setSourceLang(e.target.value)}
+                        disabled={autoState === "processing"}
+                        className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-[#0066cc] focus:border-[#0066cc] disabled:opacity-50"
+                      >
+                        {languages.map((l) => (
+                          <option key={l.id} value={l.id}>{l.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Zielsprache</label>
+                      <select
+                        value={targetLang}
+                        onChange={(e) => setTargetLang(e.target.value)}
+                        disabled={autoState === "processing"}
+                        className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-[#0066cc] focus:border-[#0066cc] disabled:opacity-50"
+                      >
+                        {languages.map((l) => (
+                          <option key={l.id} value={l.id}>{l.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <GlossarySelector
+                  values={glossaryIds}
+                  onChange={setGlossaryIds}
+                />
+              </>
+            )}
 
             {fileError && (
               <p className="mb-4 text-sm text-red-600" role="alert">
                 {fileError}
               </p>
-            )}
-
-            {/* Glossary — hidden for EN presentations (no translation needed) */}
-            {sourceLang === "DE" && (
-              <GlossarySelector
-                values={glossaryIds}
-                onChange={setGlossaryIds}
-              />
             )}
 
             {/* Mode toggle */}
@@ -1523,8 +1603,8 @@ function ScreencastPageInner() {
               </div>
             </label>
 
-            {/* Fast mode — only relevant in manual mode */}
-            {mode === "manual" && (
+            {/* Fast mode — only relevant in manual mode and for admins */}
+            {mode === "manual" && isAdmin && (
               <label className="flex items-center gap-2 cursor-pointer select-none mt-4 mb-6">
                 <input
                   type="checkbox"
@@ -1576,7 +1656,7 @@ function ScreencastPageInner() {
           >
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
             <p className="text-sm text-gray-700 animate-pulse">
-              {sourceLang === "EN"
+              {sourceLang === targetLang
                 ? "Präsentation wird vorbereitet..."
                 : "Präsentation wird übersetzt..."}
             </p>

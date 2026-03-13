@@ -12,7 +12,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
-from src.storage import delete_file, get_file, get_job_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta, save_result_and_evict
+from src.storage import delete_file, get_file, get_job_file, save_audio_cache, save_job_file, save_result_file, save_result_json, save_result_meta, save_result_and_evict, clear_tts_audio_cache
 from src.utils.heartbeat import job_heartbeat
 from src.limits import (
     SCREENCAST_SOFT_TIME_LIMIT,
@@ -104,6 +104,7 @@ def _run_render_pipeline(
     slide_images_override: list[Path] | None = None,
     dpi: int = 100,
     provider: str = "elevenlabs",
+    is_admin: bool = False,
 ) -> dict:
     """
     Core render pipeline. Reads PPTX from job folder (corrected.pptx or translated.pptx).
@@ -265,8 +266,15 @@ def _run_render_pipeline(
     finally:
         _stop_watcher.set()
 
-    # Clean up pre-rendered images after successful render
+    # Save slide images to bucket for admin before cleanup
     prerendered_dir = IMAGE_TMP_DIR / job_uuid
+    if is_admin and prerendered_dir.exists():
+        img_paths = sorted(prerendered_dir.glob("slide-*.png"))
+        for img_path in img_paths:
+            save_job_file(job_uuid, f"images/{img_path.name}", img_path.read_bytes())
+        logger.info("Screencast render {}: saved {} slide images to bucket/images/", job_uuid, len(img_paths))
+
+    # Clean up pre-rendered images after successful render
     if prerendered_dir.exists():
         import shutil
         shutil.rmtree(prerendered_dir, ignore_errors=True)
@@ -288,6 +296,8 @@ def run_screencast_translate(
     filename: str,
     glossary_json: str,
     fast_mode: bool,
+    source_lang: str = "DE",
+    target_lang: str = "EN-US",
 ):
     """Translate PPTX DE→EN, extract slide texts, save artifacts, set awaiting_user."""
     try:
@@ -299,7 +309,9 @@ def run_screencast_translate(
         save_job_file(job_uuid, "original.pptx", pptx_bytes)
 
         from src.routes.translate import translate_pptx_content
-        translated_bytes = translate_pptx_content(pptx_bytes, filename, glossary_json)
+        translated_bytes = translate_pptx_content(
+            pptx_bytes, filename, glossary_json, source_lang, target_lang
+        )
 
         (
             IMAGE_TMP_DIR,
@@ -379,6 +391,7 @@ def run_screencast_render(
     dpi: int = 100,
     provider: str = "elevenlabs",
     voice_label: str = "",
+    is_admin: bool = False,
 ):
     """Render final MP4 from edited scripts and stored PPTX.
 
@@ -399,12 +412,14 @@ def run_screencast_render(
                 slide_pause=slide_pause,
                 dpi=dpi,
                 provider=provider,
+                is_admin=is_admin,
             )
 
         result_filename = f"{Path(original_filename).stem if original_filename else 'screencast'}.mp4"
         with job_heartbeat(translate_job_uuid):
             save_result_and_evict(translate_job_uuid, result["result_path"], result_filename)
         db.update_job_status(translate_job_uuid, "success")
+        clear_tts_audio_cache(translate_job_uuid)
 
         logger.info("Screencast render task {} completed", translate_job_uuid)
 
@@ -442,6 +457,8 @@ def run_screencast_auto(
     glossary_json: str,
     provider: str = "elevenlabs",
     voice_label: str = "",
+    source_lang: str = "DE",
+    target_lang: str = "EN-US",
 ):
     """Full auto pipeline: translate → scripts → TTS → render."""
     from celery.exceptions import SoftTimeLimitExceeded
@@ -453,7 +470,9 @@ def run_screencast_auto(
         pptx_bytes = get_file(input_path)
 
         from src.routes.translate import translate_pptx_content
-        translated_bytes = translate_pptx_content(pptx_bytes, filename, glossary_json)
+        translated_bytes = translate_pptx_content(
+            pptx_bytes, filename, glossary_json, source_lang, target_lang
+        )
 
         (
             IMAGE_TMP_DIR,
@@ -492,7 +511,9 @@ def run_screencast_auto(
 
         with job_heartbeat(job_uuid):
             scripts = asyncio.run(
-                _generate_all_scripts_async(slide_texts, kisski_client, glossary=glossary_dict)
+                _generate_all_scripts_async(
+                    slide_texts, kisski_client, glossary=glossary_dict, target_lang=target_lang
+                )
             )
 
         with job_heartbeat(job_uuid):
@@ -509,6 +530,7 @@ def run_screencast_auto(
         with job_heartbeat(job_uuid):
             save_result_and_evict(job_uuid, result["result_path"], result_filename)
         db.update_job_status(job_uuid, "success")
+        clear_tts_audio_cache(job_uuid)
 
         # Clean up input file
         delete_file(input_path)
@@ -682,6 +704,6 @@ def run_screencast_demo_render(
         raise
 
 
-async def _generate_all_scripts_async(slide_texts, kisski_client, glossary=None):
+async def _generate_all_scripts_async(slide_texts, kisski_client, glossary=None, target_lang="EN-US"):
     """Async wrapper for batch script generation (called via asyncio.run)."""
-    return kisski_client.generate_scripts_batch(slide_texts, glossary)
+    return kisski_client.generate_scripts_batch(slide_texts, glossary, target_lang=target_lang)

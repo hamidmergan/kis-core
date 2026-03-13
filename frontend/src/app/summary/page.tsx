@@ -7,7 +7,7 @@ import PromptChips from "@/components/PromptChips";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 
-const ACCEPTED_EXTENSIONS = [".mp3", ".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
+const ACCEPTED_EXTENSIONS = [".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
 const MAX_SIZE_MB = MAX_UPLOAD_MB;
 const MAX_SIZE_BYTES = MAX_UPLOAD_BYTES;
 
@@ -132,7 +132,7 @@ export default function ZusammenfassungPage() {
           <h1 className="text-xl font-bold text-gray-900 mb-1">Zusammenfassung</h1>
           <p className="text-sm text-gray-500 mb-6">
             Laden Sie eine Datei hoch, um deren Inhalt automatisch zusammenzufassen. Unterstützt werden
-            Audio (mp3), Untertitel (srt, vtt) sowie Dokumente (txt, md, pptx, docx).
+             Untertitel (srt, vtt) sowie Dokumente (txt, md, pptx, docx).
           </p>
 
           {/* File upload */}

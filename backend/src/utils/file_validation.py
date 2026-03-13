@@ -55,7 +55,6 @@ SCREENCAST_EXTENSIONS = {
 
 
 SUMMARY_EXTENSIONS = {
-    ".mp3": "audio/mpeg",
     ".srt": "application/x-subrip",
     ".vtt": "text/vtt",
     ".txt": "text/plain",

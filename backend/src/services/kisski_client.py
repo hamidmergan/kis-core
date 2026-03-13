@@ -374,6 +374,7 @@ class KisskiClient:
         add_closing: bool,
         min_chars: int = 400,
         max_chars: int = 700,
+        target_lang: str = "EN-US",
     ) -> list[str]:
         batch_size = len(batch_texts)
 
@@ -411,7 +412,7 @@ class KisskiClient:
             "- Do NOT add any new information.\n"
             "- Do NOT hallucinate.\n"
             "- Keep all facts, numbers, names, and dates exactly as they are.\n"
-            "- Output MUST be in English.\n"
+            f"- Output MUST be in {target_lang}.\n"
             "- Convert bullet points, tables, and lists into flowing text.\n"
             "- Remove citations, footnotes, and formatting artifacts.\n"
             "- NO semicolons, NO dashes – use only periods, commas, exclamation marks, and question marks.\n"
@@ -479,6 +480,7 @@ class KisskiClient:
         add_closing: bool = True,
         min_chars: int = 400,
         max_chars: int = 700,
+        target_lang: str = "EN-US",
         batch_size: int | None = None,
         max_workers: int | None = None,
     ) -> list[str]:
@@ -508,7 +510,7 @@ class KisskiClient:
                 try:
                     scripts = self._generate_scripts_single_batch(
                         texts, idx, batch_count, is_first, is_last,
-                        glossary, style, add_greeting, add_closing, min_chars, max_chars,
+                        glossary, style, add_greeting, add_closing, min_chars, max_chars, target_lang,
                     )
                     return idx, scripts
                 except RuntimeError as e:

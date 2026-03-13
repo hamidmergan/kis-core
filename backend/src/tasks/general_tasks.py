@@ -63,28 +63,35 @@ def run_translate(
         settings = Settings()
         effective_provider = translation_provider or settings.translation_provider
 
+        # Parse glossary entries from JSON
+        glossary_entries: dict = {}
+        if glossary_json:
+            try:
+                entries = json.loads(glossary_json)
+                if isinstance(entries, dict):
+                    glossary_entries = entries
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         if effective_provider == "llm":
             from src.services.llm_translation_client import LLMTranslationClient
+            # LLM gets glossary directly in the prompt for context-aware translation
             translation_client = LLMTranslationClient(
                 api_key=settings.effective_llm_api_key,
                 base_url=settings.effective_llm_base_url,
                 model=settings.effective_llm_model,
                 provider=settings.llm_provider,
+                glossary=glossary_entries or None,
             )
+            glossary = GlossaryService()  # empty — LLM handles glossary via prompt
         else:
             from src.services.deepl_client import DeepLClient
             if not settings.deepl_api_key:
                 raise RuntimeError("DeepL API Key nicht konfiguriert")
             translation_client = DeepLClient(settings.deepl_api_key)
-
-        glossary = GlossaryService()
-        if glossary_json:
-            try:
-                entries = json.loads(glossary_json)
-                if isinstance(entries, dict):
-                    glossary.set_entries(entries)
-            except (json.JSONDecodeError, TypeError):
-                pass
+            glossary = GlossaryService()
+            if glossary_entries:
+                glossary.set_entries(glossary_entries)
 
         service = TranslationService(deepl_client=translation_client, glossary=glossary)
         translated_filename = service.translate_filename(filename, source_lang, target_lang)
@@ -380,17 +387,11 @@ def run_summary(
         client = _get_kisski_client()
 
         with job_heartbeat(job_uuid):
-            if ext == ".mp3":
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    audio_file = Path(tmpdir) / f"input{ext}"
-                    audio_file.write_bytes(content)
-                    text = client.transcribe(str(audio_file), response_format="text")
-            else:
-                from src.utils.text_extraction import EXTRACTORS
-                extractor = EXTRACTORS.get(ext)
-                if extractor is None:
-                    raise ValueError(f"Unsupported file type: {ext}")
-                text = extractor(content)
+            from src.utils.text_extraction import EXTRACTORS
+            extractor = EXTRACTORS.get(ext)
+            if extractor is None:
+                raise ValueError(f"Unsupported file type: {ext}")
+            text = extractor(content)
 
             text = text.strip()
             word_count = len(text.split())

@@ -8,31 +8,62 @@ from openai import OpenAI
 
 
 _SYSTEM_PROMPT = (
-    "You are a professional translator.\n"
-    "Translate the given text from {source_lang} to {target_lang}.\n"
+    "You are a professional translator specializing in academic and university content.\n"
+    "Translate the given text {instruction}.\n"
     "Rules:\n"
     "- Output ONLY the translated text, nothing else.\n"
-    "- No explanations, no notes, no preamble.\n"
-    "- Preserve all formatting, line breaks, and special characters exactly.\n"
-    "- Preserve technical terms, proper nouns, and abbreviations unless a standard translation exists."
+    "- No explanations, no notes, no preamble, no commentary.\n"
+    "- Use formal register appropriate for academic and educational materials.\n"
+    "- Preserve all formatting, line breaks, whitespace, and special characters exactly.\n"
+    "- Preserve technical terms, proper nouns, and abbreviations unless a well-established translation exists in the target language.\n"
+    "- NEVER translate URLs, domains, email addresses, or code snippets. Leave them exactly as they are.\n"
+    "- Do not introduce dashes or semicolons that are not present in the source text. Prefer periods, commas, colons, exclamation marks, and question marks.\n"
+    "- Maintain consistent terminology throughout the text.\n"
+    "- Do not add, remove, or reorder any content.\n"
+    "{glossary}"
 )
 
 _BATCH_SYSTEM_PROMPT = (
-    "You are a professional translator.\n"
-    "Translate each numbered item from {source_lang} to {target_lang}.\n"
+    "You are a professional translator specializing in academic and university content.\n"
+    "Translate each numbered item {instruction}.\n"
     "Rules:\n"
-    "- Return ONLY the numbered list in the same format, nothing else.\n"
-    "- No explanations, no notes, no preamble.\n"
-    "- Preserve all formatting, line breaks, and special characters exactly.\n"
-    "- Preserve technical terms, proper nouns, and abbreviations unless a standard translation exists."
+    "- Return ONLY the numbered list in the exact same format, nothing else.\n"
+    "- No explanations, no notes, no preamble, no commentary.\n"
+    "- Use formal register appropriate for academic and educational materials.\n"
+    "- Preserve all formatting, line breaks, whitespace, and special characters exactly.\n"
+    "- Preserve technical terms, proper nouns, and abbreviations unless a well-established translation exists in the target language.\n"
+    "- NEVER translate URLs, domains, email addresses, or code snippets. Leave them exactly as they are.\n"
+    "- Do not introduce dashes or semicolons that are not present in the source text. Prefer periods, commas, colons, exclamation marks, and question marks.\n"
+    "- Maintain consistent terminology throughout.\n"
+    "- Do not add, remove, or reorder any content.\n"
+    "{glossary}"
 )
 
 
+def _format_glossary(glossary: dict[str, str] | None) -> str:
+    """Build a glossary instruction block for the system prompt."""
+    if not glossary:
+        return ""
+    lines = "\n".join(f"  {src} → {tgt}" for src, tgt in glossary.items())
+    return (
+        "\nYou MUST use the following terminology exactly as specified:\n"
+        f"{lines}\n"
+    )
+
+
 class LLMTranslationClient:
-    def __init__(self, api_key: str, base_url: str, model: str, provider: str = "kisski"):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str,
+        model: str,
+        provider: str = "kisski",
+        glossary: dict[str, str] | None = None,
+    ):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
         self._provider = provider
+        self._glossary = glossary or {}
 
     def _extra_body(self) -> dict:
         if self._provider == "ollama":
@@ -40,7 +71,15 @@ class LLMTranslationClient:
         return {}
 
     def translate_text(self, text: str, source_lang: str, target_lang: str) -> str:
-        system = _SYSTEM_PROMPT.format(source_lang=source_lang, target_lang=target_lang)
+        if source_lang:
+            instruction = f"from {source_lang} to {target_lang}"
+        else:
+            instruction = f"to {target_lang} (auto-detect source language)"
+
+        system = _SYSTEM_PROMPT.format(
+            instruction=instruction,
+            glossary=_format_glossary(self._glossary),
+        )
         response = self._client.chat.completions.create(
             model=self._model,
             messages=[
@@ -57,8 +96,16 @@ class LLMTranslationClient:
         if not texts:
             return []
 
+        if source_lang:
+            instruction = f"from {source_lang} to {target_lang}"
+        else:
+            instruction = f"to {target_lang} (auto-detect source language)"
+
         numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
-        system = _BATCH_SYSTEM_PROMPT.format(source_lang=source_lang, target_lang=target_lang)
+        system = _BATCH_SYSTEM_PROMPT.format(
+            instruction=instruction,
+            glossary=_format_glossary(self._glossary),
+        )
 
         if self._provider == "ollama":
             # Small models don't reliably follow numbered list format — translate in parallel
@@ -108,3 +155,4 @@ class LLMTranslationClient:
             return fallback  # type: ignore[return-value]
 
         return results
+

@@ -12,9 +12,11 @@ class DeepLClient:
         return self._translator
 
     @staticmethod
-    def _normalize_source(lang: str) -> str:
-        """DeepL source language must not have regional variant (EN-US → EN, PT-BR → PT)."""
-        return lang.split("-")[0] if lang else lang
+    def _normalize_source(lang: str) -> str | None:
+        """DeepL source language must not have regional variant (EN-US → EN, PT-BR → PT). Return None for auto-detect."""
+        if not lang:
+            return None
+        return lang.split("-")[0]
 
     def translate_text(self, text: str, source_lang: str, target_lang: str) -> str:
         result = self._translator.translate_text(

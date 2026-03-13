@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PromptChips from "@/components/PromptChips";
 import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
+import { checkAuthStatus } from "@/lib/auth";
 import type { ScreencastStep, SlideData } from "@/types";
 
 interface Voice {
@@ -114,6 +115,7 @@ function ScreencastDemoPageInner() {
   const [audioCount, setAudioCount] = useState(0);
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isResumedJob, setIsResumedJob] = useState(false);
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const [failedRenderJobUuid, setFailedRenderJobUuid] = useState<string | null>(null);
@@ -227,6 +229,12 @@ function ScreencastDemoPageInner() {
       .then((data) => { setHasActiveJob(!!data.has_active_job); })
       .catch(() => setHasActiveJob(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    checkAuthStatus().then((status) => {
+      setIsAdmin(!!status.is_admin);
+    });
   }, []);
 
   const checkBeforeSubmit = useCallback(async (): Promise<boolean> => {
@@ -807,18 +815,20 @@ function ScreencastDemoPageInner() {
               </div>
             )}
 
-            <label className="flex items-center gap-3 mb-4 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={fastMode}
-                onChange={(e) => setFastMode(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
-              />
-              <div>
-                <span className="text-sm font-medium text-gray-700">Schnellmodus</span>
-                <p className="text-xs text-gray-400 mt-0.5">Folienvorschau wird übersprungen, schnellere Verarbeitung.</p>
-              </div>
-            </label>
+            {isAdmin && (
+              <label className="flex items-center gap-3 mb-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={fastMode}
+                  onChange={(e) => setFastMode(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Schnellmodus</span>
+                  <p className="text-xs text-gray-400 mt-0.5">Folienvorschau wird übersprungen, schnellere Verarbeitung.</p>
+                </div>
+              </label>
+            )}
 
             <button
               onClick={handleDemoStart}

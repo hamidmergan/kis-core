@@ -24,9 +24,6 @@ _LANG_LABELS = {
     "FR": "Französisch",
     "ES": "Spanisch",
     "IT": "Italienisch",
-    "NL": "Niederländisch",
-    "PL": "Polnisch",
-    "PT-BR": "Portugiesisch (Brasilien)",
 }
 
 
@@ -35,8 +32,8 @@ async def get_translate_config(current_user: dict = Depends(get_current_user)):
     settings = get_settings()
 
     providers = [
-        {"id": "deepl", "label": "DeepL"},
-        {"id": "llm", "label": "KI-Übersetzung (KISSKI)"},
+        {"id": "deepl", "label": "DeepL Übersetzer (schnell)"},
+        {"id": "llm", "label": f"LLM {settings.effective_llm_model} (langsam, experimentell)"},
     ]
 
     raw_langs = [lang.strip() for lang in settings.translation_languages.split(",") if lang.strip()]
@@ -55,6 +52,8 @@ def translate_pptx_content(
     content: bytes,
     filename: str,
     glossary_json: str = "",
+    source_lang: str = "",
+    target_lang: str = "",
 ) -> bytes:
     """Synchronous PPTX translation helper — used by screencast.py."""
     import json
@@ -78,7 +77,9 @@ def translate_pptx_content(
             pass
     service = TranslationService(deepl_client=deepl_client, glossary=glossary)
     try:
-        return translate_pptx(content, settings.source_lang, settings.effective_target_lang, service)
+        eff_source = source_lang if source_lang else settings.source_lang
+        eff_target = target_lang if target_lang else settings.effective_target_lang
+        return translate_pptx(content, eff_source, eff_target, service)
     except ValueError as e:
         raise HTTPException(status_code=500, detail=f"PPTX-Übersetzungsfehler: {str(e)}")
     except Exception as e:
@@ -123,7 +124,7 @@ async def translate(
             )
 
     settings = get_settings()
-    effective_source = source_lang or settings.source_lang
+    effective_source = source_lang or ""
     effective_target = target_lang or settings.effective_target_lang
 
     job_uuid = uuid.uuid4().hex
