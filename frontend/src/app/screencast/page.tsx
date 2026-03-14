@@ -1216,6 +1216,7 @@ function ScreencastPageInner() {
           slide_text: slides[index].extractedText,
           current_script: slides[index].script || "",
           user_prompt: regenPrompt || null,
+          target_lang: targetLang,
         },
       );
       setRegenProposal(result.script);

@@ -184,7 +184,7 @@ def _merge_vtt(chunks: list[tuple[str, float]]) -> str:
     return "WEBVTT\n\n" + "\n\n".join(c.strip() for c in cues if c.strip())
 
 
-from src.tool_prompts import SUMMARY_DEFAULT as _SUMMARY_DEFAULT
+from src.tool_prompts import SUMMARY_DEFAULT as _SUMMARY_DEFAULT, SCRIPT_REFINE_DEFAULT as _SCRIPT_REFINE_DEFAULT
 
 
 def _load_prompt(key: str, default: str) -> str:
@@ -232,42 +232,26 @@ class KisskiClient:
         user_prompt: str,
         current_script: str = "",
         slide_text: str = "",
+        target_lang: str = "EN-US",
     ) -> str:
         """Refine or create a narration script for a single slide based on a user instruction.
 
         Uses the current script as the base if provided, otherwise falls back to slide_text.
         No length or format constraints — follows the user instruction freely.
         """
-        system_prompt = (
-            "You are an expert editor of spoken narration scripts for presentations. "
-            "Output ONLY the final script text — no explanations, no labels, no prefixes. "
-            "The script must be in English, spoken-style, natural and conversational. "
-            "No semicolons, no dashes — use only periods, commas, exclamation marks, and question marks.\n"
-            "The user's instruction may be written in German or another language — understand it and apply it, but always output the script in English.\n"
-            "Use a formal academic tone, as in a university lecture.\n"
-            "If a 'Current script' is provided, it is ALWAYS the basis for your edit. "
-            "Any instruction such as 'change term X to Y' or 'make it shorter' refers to that existing script — do not rewrite from scratch unless explicitly told to.\n"
-            "If no instruction is given (empty instruction), produce a fresh alternative version of the current script with different wording but the same meaning.\n"
+        current_script_content = current_script.strip() or slide_text.strip()
+        system_prompt = _load_prompt("prompt_script_refine", _SCRIPT_REFINE_DEFAULT).format(
+            TARGET_LANG=target_lang,
+            CURRENT_SCRIPT=current_script_content,
+            USER_INSTRUCTION=user_prompt.strip(),
         )
-        if current_script.strip():
-            user_message = (
-                f"Current script:\n{current_script.strip()}\n\n"
-                f"Instruction: {user_prompt.strip()}"
-            )
-        elif slide_text.strip():
-            user_message = (
-                f"Slide content:\n{slide_text.strip()}\n\n"
-                f"Instruction: {user_prompt.strip()}"
-            )
-        else:
-            user_message = f"Instruction: {user_prompt.strip()}"
 
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message},
+                    {"role": "user", "content": "Generate the script."},
                 ],
                 temperature=0.4,
                 max_tokens=800,

@@ -51,6 +51,31 @@ SUMMARY_DEFAULT = (
     "Rule 6: Do not use semicolons or any type of dash. Use only periods, commas and question marks."
 )
 
+# ── Screencast single-slide refine ────────────────────────────────────────────
+
+SCRIPT_REFINE_DEFAULT = (
+    "You are an expert editor of spoken narration scripts for presentations.\n"
+    "Output ONLY the final script text. Do not include explanations, labels or prefixes.\n"
+    "The script must be in {TARGET_LANG}.\n"
+    "Follow these rules strictly:\n"
+    "Rule 1: If a 'Current script' is provided, it is ALWAYS the basis for your edit.\n"
+    "Rule 2: Apply the user instruction to the existing script. Do not rewrite from scratch unless explicitly told to.\n"
+    "Rule 3: If no instruction is given, produce a fresh alternative version of the current script with different wording but the exact same meaning.\n"
+    "Rule 4: Do not add any new information and do not hallucinate.\n"
+    "Rule 5: Maintain a formal academic tone suitable for a university lecture.\n"
+    "Rule 6: Address the audience directly maintaining the appropriate formal pronoun for the target language.\n"
+    "Rule 7: Write in flowing continuous text. Make it sound natural and conversational for speaking.\n"
+    "Rule 8: Do not use asterisks or any type of dash. Use only periods, commas, exclamation marks and question marks.\n"
+    "Rule 9: The user instruction may be in any language but always output the final script in {TARGET_LANG}.\n"
+    "\n"
+    "Current script:\n"
+    "{CURRENT_SCRIPT}\n"
+    "\n"
+    "User instruction:\n"
+    "{USER_INSTRUCTION}"
+)
+
+
 # ── Image analyze tool ────────────────────────────────────────────────────────
 
 IMAGE_ANALYZE_DEFAULT = (

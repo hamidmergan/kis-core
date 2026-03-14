@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from src import database as db
 from src.tool_prompts import (
     SCRIPT_BATCH_PREVIEW as _PROMPT_SCRIPT_BATCH_PREVIEW,
+    SCRIPT_REFINE_DEFAULT as _PROMPT_SCRIPT_REFINE_DEFAULT,
     SUMMARY_DEFAULT as _PROMPT_SUMMARY_DEFAULT,
     IMAGE_ANALYZE_DEFAULT as _PROMPT_IMAGE_ANALYZE_DEFAULT,
 )
@@ -51,17 +52,24 @@ _PROMPT_REGISTRY = [
         "default": _PROMPT_SCRIPT_BATCH_PREVIEW,
     },
     {
+        "key": "prompt_script_refine",
+        "label": "Screencast-Skripte (Einzelfolie)",
+        "description": "Wird in Schritt 5 verwendet wenn der Nutzer das KI-Symbol neben einer Folie klickt.",
+        "editable": False,
+        "default": _PROMPT_SCRIPT_REFINE_DEFAULT,
+    },
+    {
         "key": "prompt_summary",
         "label": "Zusammenfassung",
         "description": "Wird vom Zusammenfassungs-Tool verwendet. Platzhalter {format} wird zur Laufzeit durch die gewählte Ausgabeformat-Anweisung ersetzt – nicht entfernen.",
-        "editable": True,
+        "editable": False,
         "default": _PROMPT_SUMMARY_DEFAULT,
     },
     {
         "key": "prompt_image_analyze",
         "label": "Bild-Analyse",
         "description": "Anweisung für das Bild-Analyse-Tool (qwen3-vl Modell).",
-        "editable": True,
+        "editable": False,
         "default": _PROMPT_IMAGE_ANALYZE_DEFAULT,
     },
 ]
