@@ -234,6 +234,7 @@ class KisskiClient:
         slide_text: str = "",
         target_lang: str = "EN-US",
         selected_text: str | None = None,
+        messages: list[dict] | None = None,
     ) -> str:
         """Refine or create a narration script for a single slide based on a user instruction.
 
@@ -242,19 +243,31 @@ class KisskiClient:
         No length or format constraints — follows the user instruction freely.
         """
         current_script_content = current_script.strip() or slide_text.strip()
+        is_followup = messages is not None and len(messages) > 1
         if selected_text and selected_text.strip():
             instruction = user_prompt.strip() or "Improve this excerpt."
-            system_prompt = (
-                f"You are an expert editor of spoken narration scripts for presentations.\n"
-                f"You will receive a selected excerpt from a script and a task to perform on it.\n"
-                f"Output ONLY the resulting text that should replace the excerpt. "
-                f"Do not repeat the instruction. Do not add labels or explanations. "
-                f"Write in flowing spoken language suitable for a university lecture. "
-                f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n\n"
-                f"Selected excerpt: «{selected_text.strip()}»\n\n"
-                f"Full script context (for reference only, do NOT output this):\n{current_script_content}\n\n"
-                f"Task to perform on the excerpt: {instruction}"
-            )
+            if is_followup:
+                system_prompt = (
+                    f"You are an expert editor of spoken narration scripts for presentations.\n"
+                    f"The user is refining your previous response. Apply the new instruction to your last answer.\n"
+                    f"Output ONLY the refined text. Do not repeat the instruction. Do not add labels or explanations. "
+                    f"Write in flowing spoken language suitable for a university lecture. "
+                    f"Never exceed 600 words. "
+                    f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n\n"
+                    f"Original excerpt for context: «{selected_text.strip()}»"
+                )
+            else:
+                system_prompt = (
+                    f"You are an expert editor of spoken narration scripts for presentations.\n"
+                    f"You will receive a selected excerpt from a script and a task to perform on it.\n"
+                    f"Output ONLY the resulting text that should replace the excerpt. "
+                    f"Do not repeat the instruction. Do not add labels or explanations. "
+                    f"Write in flowing spoken language suitable for a university lecture. "
+                    f"Never exceed 600 words. "
+                    f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n\n"
+                    f"Selected excerpt: «{selected_text.strip()}»\n\n"
+                    f"Task: {instruction}"
+                )
         else:
             system_prompt = _load_prompt("prompt_script_refine", _SCRIPT_REFINE_DEFAULT).format(
                 TARGET_LANG=target_lang,
@@ -262,13 +275,18 @@ class KisskiClient:
                 USER_INSTRUCTION=user_prompt.strip(),
             )
 
+        # Build message history: system + prior turns + final user message
+        chat_messages: list[dict] = [{"role": "system", "content": system_prompt}]
+        if messages and len(messages) > 1:
+            # All messages except the last (current) user message — already included via user_prompt in prompt
+            for m in messages[:-1]:
+                chat_messages.append({"role": m["role"], "content": m["content"]})
+        chat_messages.append({"role": "user", "content": user_prompt.strip() or "Generate the script."})
+
         try:
             response = self._client.chat.completions.create(
                 model=self._model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Generate the script."},
-                ],
+                messages=chat_messages,
                 temperature=0.4,
                 max_tokens=800,
                 extra_body=self._extra_body or None,

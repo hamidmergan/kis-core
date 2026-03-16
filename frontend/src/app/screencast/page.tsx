@@ -159,11 +159,12 @@ function ScreencastPageInner() {
   // Per-slide AI regeneration state
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
   const [regenPrompt, setRegenPrompt] = useState("");
-  const [regenProposal, setRegenProposal] = useState<string | null>(null);
+  const [regenMessages, setRegenMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenAnchorText, setRegenAnchorText] = useState("");
   const [regenAnchorSlide, setRegenAnchorSlide] = useState<number | null>(null);
   const regeneratingSlideRef = useRef<number | null>(null);
+  const regenChatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = () => {
@@ -176,6 +177,11 @@ function ScreencastPageInner() {
     document.addEventListener("selectionchange", handler);
     return () => document.removeEventListener("selectionchange", handler);
   }, []);
+
+  useEffect(() => {
+    regenChatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [regenMessages, regenLoading]);
+
   const [zipDownloading, setZipDownloading] = useState(false);
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const [slides, setSlides] = useState<SlideData[]>([]);
@@ -1246,52 +1252,58 @@ function ScreencastPageInner() {
     regeneratingSlideRef.current = index;
     setRegeneratingSlide(index);
     setRegenPrompt("");
-    setRegenProposal(null);
+    setRegenMessages([]);
   };
 
   const closeRegen = () => {
     regeneratingSlideRef.current = null;
     setRegeneratingSlide(null);
     setRegenPrompt("");
-    setRegenProposal(null);
+    setRegenMessages([]);
     setRegenAnchorText("");
     setRegenAnchorSlide(null);
   };
 
   const runRegen = async (index: number) => {
+    const userText = regenPrompt.trim();
+    if (!userText) return;
+    const newMessages: { role: "user" | "assistant"; content: string }[] = [
+      ...regenMessages,
+      { role: "user", content: userText },
+    ];
+    setRegenMessages(newMessages);
+    setRegenPrompt("");
     setRegenLoading(true);
-    setRegenProposal(null);
     try {
       const result = await api.postJson<{ script: string }>(
         "/api/screencast/regenerate-slide-script",
         {
           slide_text: slides[index].extractedText,
           current_script: slides[index].script || "",
-          user_prompt: regenPrompt || null,
+          messages: newMessages,
           selected_text: regenAnchorText || null,
           target_lang: targetLang,
         },
       );
-      setRegenProposal(result.script);
+      setRegenMessages([...newMessages, { role: "assistant", content: result.script }]);
     } catch {
-      setRegenProposal("");
+      setRegenMessages([...newMessages, { role: "assistant", content: "Fehler beim Generieren." }]);
     } finally {
       setRegenLoading(false);
     }
   };
 
-  const applyRegen = (index: number, mode: "replace-selection" | "insert-before" | "insert-after" | "replace-all") => {
-    if (regenProposal === null) return;
+  const applyRegen = (index: number, mode: "replace-selection" | "insert-before" | "insert-after" | "replace-all", content: string) => {
     const current = slides[index].script || "";
     let newScript = current;
     if (mode === "replace-all" || !regenAnchorText) {
-      newScript = regenProposal;
+      newScript = content;
     } else if (mode === "replace-selection") {
-      newScript = current.replace(regenAnchorText, regenProposal);
+      newScript = current.replace(regenAnchorText, content);
     } else if (mode === "insert-before") {
-      newScript = current.replace(regenAnchorText, regenProposal + " " + regenAnchorText);
+      newScript = current.replace(regenAnchorText, content + " " + regenAnchorText);
     } else if (mode === "insert-after") {
-      newScript = current.replace(regenAnchorText, regenAnchorText + " " + regenProposal);
+      newScript = current.replace(regenAnchorText, regenAnchorText + " " + content);
     }
     const updated = slides.map((s, i) => i === index ? { ...s, script: newScript } : s);
     setSlides(updated);
@@ -2723,120 +2735,140 @@ function ScreencastPageInner() {
         {/* ── KI-Regenerierung Modal ── */}
         {regeneratingSlide !== null && (
           <>
-            {/* Backdrop */}
-            <div className="fixed inset-0 bg-black/50 z-40" onClick={closeRegen} />
+            {/* Backdrop — subtle */}
+            <div className="fixed inset-0 z-40" />
 
-            {/* Modal — Bottom Sheet on mobile, centered on desktop */}
-            <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-xl sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-lg sm:rounded-xl bg-white shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Panel — Bottom Sheet mobile, right-anchored sidebar on desktop */}
+            <div className={`fixed z-50 bg-white shadow-2xl flex flex-col overflow-hidden sm:inset-auto sm:top-16 sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl ${regenMessages.length > 0 ? "inset-0 rounded-none" : "inset-x-0 bottom-0 rounded-t-2xl max-h-[60vh]"}`}>
+
               {/* Header */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <div className="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="w-5 h-5 text-purple-600 fill-current">
-                    <path d="M234.38,51.06a8,8,0,0,0-5.44-5.44C193.34,34.89,152,34.89,128,34.89s-65.34,0-100.94,10.73a8,8,0,0,0-5.44,5.44C11.89,86.66,11.89,128,11.89,128s0,41.34,10.73,76.94a8,8,0,0,0,5.44,5.44C63.66,221.11,104,221.11,128,221.11s65.34,0,100.94-10.73a8,8,0,0,0,5.44-5.44C245.11,169.34,245.11,128,245.11,128S245.11,86.66,234.38,51.06ZM104,168.89V87.11L176,128Z" opacity="0.2"/><path d="M228.44,48.56C190.49,37.57,151,36,128,36S65.51,37.57,27.56,48.56A16,16,0,0,0,16,65.51V190.49A16,16,0,0,0,27.56,207.44C65.51,218.43,105,220,128,220s62.49-1.57,100.44-12.56A16,16,0,0,0,240,190.49V65.51A16,16,0,0,0,228.44,48.56ZM224,190.49a.22.22,0,0,1-.08.14C186.8,201.44,148.07,204,128,204s-58.8-2.56-95.92-13.37A.22.22,0,0,1,32,190.49V65.51a.22.22,0,0,1,.08-.14C69.2,54.56,107.93,52,128,52s58.8,2.56,95.92,13.37a.22.22,0,0,1,.08.14ZM168,128a8,8,0,0,1-3.56,6.66l-48,32A8,8,0,0,1,104,160V96a8,8,0,0,1,12.44-6.66l48,32A8,8,0,0,1,168,128Z"/>
-                  </svg>
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    KI-Skript — Folie {regeneratingSlide + 1}
-                  </h3>
-                </div>
-                <button
-                  onClick={closeRegen}
-                  aria-label="Schließen"
-                  className="text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Markierter Text als Kontext */}
-              {regenAnchorText && (
-                <div className="text-xs text-gray-500 bg-gray-50 rounded p-2 border-l-2 border-purple-400 max-h-20 overflow-y-auto">
-                  „{regenAnchorText}"
-                </div>
-              )}
-
-              {/* Anweisung */}
-              <textarea
-                value={regenPrompt}
-                onChange={(e) => setRegenPrompt(e.target.value)}
-                rows={2}
-                placeholder="z.B. Erkläre das Konzept vereinfacht für Einsteiger."
-                autoFocus
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-              />
-
-              {/* Aktionen */}
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={closeRegen}
-                  className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  onClick={() => runRegen(regeneratingSlide)}
-                  disabled={regenLoading}
-                  className="px-4 py-2 text-sm text-white bg-purple-600 rounded-md hover:bg-purple-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {regenLoading && (
-                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  <span className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                     </svg>
-                  )}
-                  {regenLoading ? "Generiere…" : "Generieren"}
+                  </span>
+                  <span className="text-sm font-medium text-gray-800">KI-Assistent · Folie {regeneratingSlide + 1}</span>
+                </div>
+                <button onClick={closeRegen} className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
 
-              {/* Vorschlag */}
-              {regenProposal !== null && (
-                <>
-                  <hr className="border-gray-200" />
-                  <p className="text-xs font-medium text-gray-600">Vorschlag</p>
+              {/* Chat area */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
+
+                {/* Markierung als Kontext-Chip oben */}
+                {regenAnchorText && (
+                  <div className="flex justify-center">
+                    <div className="w-full bg-purple-50 border border-purple-100 rounded-xl px-3 py-1.5 text-xs text-gray-700 italic">
+                      <span className="text-purple-500">✦</span> „{regenAnchorText}"
+                    </div>
+                  </div>
+                )}
+
+                {/* Chatverlauf */}
+                {regenMessages.map((msg, idx) => {
+                  const isUser = msg.role === "user";
+                  const isLastAssistant = !isUser && idx === regenMessages.length - 1;
+                  return (
+                    <div key={idx} className={`flex gap-2 items-start ${isUser ? "justify-end" : "justify-start"}`}>
+                      {!isUser && (
+                        <span className="w-6 h-6 rounded-full bg-purple-100 flex-shrink-0 flex items-center justify-center mt-0.5">
+                          <svg className="w-3 h-3 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                          </svg>
+                        </span>
+                      )}
+                      <div className={`${isUser ? "max-w-[85%]" : "flex-1 min-w-0"} space-y-2 ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+                        {isUser ? (
+                          <div className="bg-gray-200 text-gray-900 text-sm px-3 py-2 rounded-2xl rounded-tr-sm leading-relaxed">
+                            {msg.content}
+                          </div>
+                        ) : (
+                          <>
+                            <textarea
+                              value={msg.content}
+                              onChange={(e) => {
+                                const t = e.target;
+                                t.style.height = "auto";
+                                t.style.height = t.scrollHeight + "px";
+                                const updated = regenMessages.map((m, i) => i === idx ? { ...m, content: e.target.value } : m);
+                                setRegenMessages(updated);
+                              }}
+                              ref={(el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }}
+                              rows={1}
+                              className="text-sm text-gray-900 bg-purple-50 rounded-2xl rounded-tl-sm px-3 py-2 border-0 focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none leading-relaxed w-full overflow-hidden"
+                            />
+                            {isLastAssistant && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {regenAnchorText ? (
+                                  <>
+                                    <button onClick={() => applyRegen(regeneratingSlide, "replace-selection", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Markierung ersetzen</button>
+                                    <button onClick={() => applyRegen(regeneratingSlide, "insert-before", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Davor</button>
+                                    <button onClick={() => applyRegen(regeneratingSlide, "insert-after", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Danach</button>
+                                    <button onClick={() => applyRegen(regeneratingSlide, "replace-all", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Ganzes Skript</button>
+                                  </>
+                                ) : (
+                                  <button onClick={() => applyRegen(regeneratingSlide, "replace-all", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Ersetzen</button>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Typing indicator */}
+                {regenLoading && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-purple-100 flex-shrink-0 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                      </svg>
+                    </span>
+                    <span className="flex gap-1">
+                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                    </span>
+                  </div>
+                )}
+
+                <div ref={regenChatBottomRef} />
+              </div>
+
+              {/* Input area */}
+              <div className="border-t border-gray-100 px-3 py-3">
+                <div className="flex items-end gap-2 bg-gray-50 rounded-2xl px-3 py-2 focus-within:ring-2 focus-within:ring-purple-300 transition-all">
                   <textarea
-                    value={regenProposal}
-                    onChange={(e) => setRegenProposal(e.target.value)}
-                    rows={8}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                    value={regenPrompt}
+                    onChange={(e) => setRegenPrompt(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!regenLoading) runRegen(regeneratingSlide); }}}
+                    rows={1}
+                    placeholder="Anweisung eingeben… (Enter zum Senden)"
+                    autoFocus
+                    className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none leading-relaxed max-h-32 overflow-y-auto"
                   />
-                  {regenAnchorText ? (
-                    <div className="flex flex-wrap gap-2 justify-end">
-                      <button
-                        onClick={() => applyRegen(regeneratingSlide, "replace-selection")}
-                        className="px-3 py-1.5 text-sm text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
-                      >
-                        Markierung ersetzen
-                      </button>
-                      <button
-                        onClick={() => applyRegen(regeneratingSlide, "insert-before")}
-                        className="px-3 py-1.5 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                      >
-                        Davor einfügen
-                      </button>
-                      <button
-                        onClick={() => applyRegen(regeneratingSlide, "insert-after")}
-                        className="px-3 py-1.5 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                      >
-                        Danach einfügen
-                      </button>
-                      <button
-                        onClick={() => applyRegen(regeneratingSlide, "replace-all")}
-                        className="px-3 py-1.5 text-sm text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                      >
-                        Ganzes Skript ersetzen
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => applyRegen(regeneratingSlide, "replace-all")}
-                        className="px-4 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
-                      >
-                        Übernehmen
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
+                  <button
+                    onClick={() => runRegen(regeneratingSlide)}
+                    disabled={regenLoading}
+                    className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-40 transition-colors"
+                  >
+                    {regenLoading ? (
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </>
         )}

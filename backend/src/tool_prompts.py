@@ -67,6 +67,7 @@ SCRIPT_REFINE_DEFAULT = (
     "Rule 7: Write in flowing continuous text. Make it sound natural and conversational for speaking.\n"
     "Rule 8: Do not use asterisks or any type of dash. Use only periods, commas, exclamation marks and question marks.\n"
     "Rule 9: The user instruction may be in any language but always output the final script in {TARGET_LANG}.\n"
+    "Rule 10: Never exceed 600 words in your output.\n"
     "\n"
     "Current script:\n"
     "{CURRENT_SCRIPT}\n"

@@ -181,10 +181,15 @@ class GenerateScriptsRequest(BaseModel):
     target_lang: str = "EN-US"
 
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
 class RegenerateSlideScriptRequest(BaseModel):
     slide_text: str = ""
     current_script: str | None = None
     user_prompt: str | None = None
+    messages: list[ChatMessage] = []
     selected_text: str | None = None
     target_lang: str = "EN-US"
 
@@ -1257,10 +1262,11 @@ async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest)
     Uses a single LLM call (no batching) so user_prompt is fully reliable.
     """
     # Need at least one source of input
+    user_prompt = body.user_prompt or (body.messages[-1].content if body.messages else "")
     has_content = (
         body.slide_text.strip()
         or (body.current_script or "").strip()
-        or (body.user_prompt or "").strip()
+        or user_prompt.strip()
     )
     if not has_content:
         return {"script": ""}
@@ -1270,11 +1276,12 @@ async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest)
     try:
         script = await asyncio.to_thread(
             kisski_client.refine_script,
-            body.user_prompt or "",
+            user_prompt,
             body.current_script or "",
             body.slide_text,
             body.target_lang,
             body.selected_text or None,
+            [{"role": m.role, "content": m.content} for m in body.messages],
         )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"Skript-Generierung fehlgeschlagen: {e}")
