@@ -84,7 +84,7 @@ export default function TranscriptionPage() {
   return (
     <ProtectedRoute>
       <Header showLogout />
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Speech-to-Text</h1>
           <p className="text-sm text-gray-500 mb-6">

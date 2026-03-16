@@ -158,7 +158,7 @@ export default function HomePage() {
     <ProtectedRoute>
       <Header showLogout />
 
-      <div className="max-w-5xl mx-auto px-4 py-10 lg:py-25">
+      <div className="max-w-5xl mx-auto px-4 pt-10 pb-20 lg:pt-15 lg:pb-30">
 
         <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
 
@@ -177,7 +177,7 @@ export default function HomePage() {
                   <Link
                     key={wf.href}
                     href={wf.href}
-                    className="group flex flex-col sm:flex-row sm:min-h-40 lg:min-h-50 rounded-xl overflow-hidden transition-all duration-200"
+                    className="group flex flex-col sm:flex-row sm:min-h-40 lg:min-h-45 rounded-xl overflow-hidden transition-all duration-200"
                     style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}

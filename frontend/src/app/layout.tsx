@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
-import Footer from "@/components/Footer";
+import FooterWrapper from "@/components/FooterWrapper";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="de">
       <body className={`${geist.variable} min-h-screen flex flex-col`}>
         <main className="flex-1">{children}</main>
-        <Footer />
+        <FooterWrapper />
       </body>
     </html>
   );

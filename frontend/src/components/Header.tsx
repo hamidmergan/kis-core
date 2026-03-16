@@ -26,43 +26,42 @@ export default function Header({ showLogout = false }: HeaderProps) {
   };
 
   return (
-    <header
-      style={{ backgroundColor: "#004261" }}
-      className="px-5 py-3 flex items-center justify-between"
-    >
-      <h1 className="text-lg font-semibold tracking-tight">
-        <Link
-          href="/"
-          aria-label="Zur Startseite"
-          className="text-white hover:opacity-80 transition-opacity"
-        >
-          KIS
-        </Link>
-      </h1>
+    <header style={{ backgroundColor: "#004261" }} className="py-3">
+      <div className="max-w-5xl mx-auto px-4 flex items-center justify-between">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          <Link
+            href="/"
+            aria-label="Zur Startseite"
+            className="text-white hover:opacity-80 transition-opacity"
+          >
+            KIS
+          </Link>
+        </h1>
 
-      {showLogout && (
-        <div className="flex items-center gap-1.5">
-          <JobsPanel />
+        {showLogout && (
+          <div className="flex items-center gap-1.5">
+            <JobsPanel />
 
-          {isAdmin && (
-            <Link
-              href="/admin"
-              aria-label="Admin"
+            {isAdmin && (
+              <Link
+                href="/admin"
+                aria-label="Admin"
+                className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <UserCircleGear size={18} weight="bold" />
+              </Link>
+            )}
+
+            <button
+              onClick={handleLogout}
+              aria-label="Abmelden"
               className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
-              <UserCircleGear size={18} weight="bold" />
-            </Link>
-          )}
-
-          <button
-            onClick={handleLogout}
-            aria-label="Abmelden"
-            className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <SignOut size={17} weight="bold" />
-          </button>
-        </div>
-      )}
+              <SignOut size={17} weight="bold" />
+            </button>
+          </div>
+        )}
+      </div>
     </header>
   );
 }

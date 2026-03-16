@@ -72,6 +72,7 @@ export default function JobsPanel() {
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [bundleDownloading, setBundleDownloading] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
@@ -237,11 +238,33 @@ export default function JobsPanel() {
     a.click();
   };
 
-  const handleDownloadBundle = (e: React.MouseEvent, job: MyJob) => {
+  const handleDownloadBundle = async (e: React.MouseEvent, job: MyJob) => {
     e.stopPropagation();
-    const a = document.createElement("a");
-    a.href = `/api/jobs/${job.job_uuid}/bundle`;
-    a.click();
+    if (bundleDownloading) return;
+    setBundleDownloading(job.job_uuid);
+    try {
+      const res = await fetch(`/api/jobs/${job.job_uuid}/bundle`, { credentials: "include" });
+      if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      let filename = "bundle.zip";
+      if (disposition) {
+        const m = disposition.match(/filename="?([^";\n]+)"?/i);
+        if (m) filename = m[1].trim();
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      console.error("Bundle download failed");
+    } finally {
+      setBundleDownloading(null);
+    }
   };
 
   const handleCancel = async (e: React.MouseEvent, job: MyJob) => {
@@ -284,6 +307,7 @@ export default function JobsPanel() {
     <div className="relative" ref={panelRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         onClick={handleButtonClick}
+        onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open("/my-jobs", "_blank"); } }}
         aria-label="Meine Jobs"
         className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm text-white/80 hover:text-white rounded-full transition-colors"
         style={{ backgroundColor: "rgba(255,255,255,0.10)" }}
@@ -294,7 +318,7 @@ export default function JobsPanel() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
-        <span className="text-xs font-medium">Jobs</span>
+        <span className="text-sm font-medium">Jobs</span>
         {attentionCount > 0 && (
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-[#004261] text-[9px] font-bold rounded-full flex items-center justify-center shadow">
             {attentionCount}
@@ -303,7 +327,17 @@ export default function JobsPanel() {
       </button>
 
       {open && (
-        <div className="fixed right-4 top-14 w-[min(20rem,calc(100vw-2rem))] rounded-xl shadow-xl z-50 overflow-hidden" style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}>
+        <>
+          {/* Mobile backdrop */}
+          <div className="sm:hidden fixed inset-0 bg-black/40 z-40" onClick={() => setOpen(false)} />
+        </>
+      )}
+      {open && (
+        <div className="
+          fixed inset-x-0 bottom-0 z-50 rounded-t-xl
+          sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:bottom-auto sm:mt-2 sm:w-80 sm:rounded-xl
+          shadow-xl overflow-hidden
+        " style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}>
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-800">Meine Jobs</span>
             {loading && (
@@ -361,7 +395,7 @@ export default function JobsPanel() {
                             <p className="text-xs text-red-500 mt-1 line-clamp-2">{job.error}</p>
                           )}
                           {!expired && job.status === "success" && job.has_download && (
-                            <div className="mt-1.5 flex flex-col gap-1">
+                            <div className="mt-1.5 flex flex-row flex-wrap gap-2">
                               <button
                                 onClick={(e) => handleDownload(e, job)}
                                 className="text-xs text-[#004261] hover:underline flex items-center gap-1"
@@ -371,15 +405,23 @@ export default function JobsPanel() {
                                 </svg>
                                 {SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate" ? "MP4" : job.tool === "image_generate" ? (job.result_filename?.endsWith(".json") ? "ZIP" : "PNG") : job.tool === "image_edit" ? "PNG" : job.tool === "image_analyze" ? "TXT" : job.tool === "tts" ? "MP3" : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary" || job.tool === "video_dubbing") ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei") : "Datei"}
                               </button>
-                              {SCREENCAST_RENDER_TOOLS.has(job.tool) && (
+                              {(SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate") && (
                                 <button
                                   onClick={(e) => handleDownloadBundle(e, job)}
-                                  className="text-xs text-[#004261] hover:underline flex items-center gap-1"
+                                  disabled={bundleDownloading === job.job_uuid}
+                                  className="text-xs text-[#004261] hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
-                                  <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                  </svg>
-                                  Alles herunterladen (ZIP)
+                                  {bundleDownloading === job.job_uuid ? (
+                                    <svg className="h-3 w-3 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                    </svg>
+                                  ) : (
+                                    <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                  )}
+                                  {bundleDownloading === job.job_uuid ? "Wird erstellt…" : "Alles herunterladen (ZIP)"}
                                 </button>
                               )}
                             </div>

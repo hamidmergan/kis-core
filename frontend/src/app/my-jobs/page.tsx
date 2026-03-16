@@ -587,7 +587,7 @@ export default function MeineJobsPage() {
       <Header showLogout />
       <main className="max-w-2xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Meine Jobs</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Meine Jobs</h2>
           <div className="flex items-center gap-2">
             {lastUpdated && !loading && (
               <span className="text-xs text-gray-400">

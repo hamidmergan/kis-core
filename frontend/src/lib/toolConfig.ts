@@ -26,7 +26,7 @@ export const TOOL_CONFIG: Record<string, { color: string; image: string | null; 
     jobTools: ["tts"],
   },
   transcription: {
-    color: "#4F46E5",   // Indigo
+    color: "#0284C7",   // Sky blue
     image: "/tools/stt-img.png",
     jobTools: ["transcription"],
   },

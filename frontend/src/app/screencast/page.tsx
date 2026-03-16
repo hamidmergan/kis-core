@@ -174,6 +174,7 @@ function ScreencastPageInner() {
   const [editBuffer, setEditBuffer] = useState("");
   const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
   const [voiceId, setVoiceId] = useState("");
@@ -193,6 +194,7 @@ function ScreencastPageInner() {
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
   const [isResumedJob, setIsResumedJob] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(false);
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
@@ -204,6 +206,8 @@ function ScreencastPageInner() {
   const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
   const [importedScripts, setImportedScripts] = useState<string[] | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [jsonDragOver, setJsonDragOver] = useState(false);
+  const jsonFileRef = useRef<HTMLInputElement>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const stepperRef = useRef<HTMLElement>(null);
@@ -317,6 +321,7 @@ function ScreencastPageInner() {
   useEffect(() => {
     const resumeUuid = searchParams.get("resume");
     if (!resumeUuid) return;
+    setResumeLoading(true);
     fetch(`/api/screencast/resume/${resumeUuid}`, { credentials: "include" })
       .then((r) => {
         if (!r.ok) throw new Error("Job nicht gefunden oder nicht im Eingabe-Status");
@@ -330,7 +335,6 @@ function ScreencastPageInner() {
         const texts = data.slide_texts ?? [];
         const scripts = data.scripts ?? [];
 
-        // Build slides from available data
         const slideCount = Math.max(texts.length, scripts.length, imgs.length);
         if (slideCount > 0) {
           setSlides(Array.from({ length: slideCount }, (_, i) => ({
@@ -354,9 +358,26 @@ function ScreencastPageInner() {
       })
       .catch(() => {
         // Resume failed (job expired/cancelled) — stay on upload
-      });
+      })
+      .finally(() => setResumeLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Lazy-load slide images if missing after resume ──
+  useEffect(() => {
+    if (!translateJobUuid || !slides.length) return;
+    if (slides.some((s) => s.imageBase64)) return; // already have images
+    fetch(`/api/screencast/${translateJobUuid}/images`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.slide_images?.length) return;
+        setSlides((prev) => prev.map((s, i) => ({
+          ...s,
+          imageBase64: data.slide_images[i] ?? s.imageBase64,
+        })));
+      })
+      .catch(() => {});
+  }, [translateJobUuid, slides.length]);
 
   // ── Check for active job on mount (blocks upload if already running) ──
   useEffect(() => {
@@ -590,8 +611,18 @@ function ScreencastPageInner() {
       const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
       currentJobUuidRef.current = null;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
+      const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
+      const meta = jobResult.meta ?? {};
+      const aId = meta.audio_id as string | undefined;
+      const aCount = meta.audio_count as number | undefined;
+      if (aId) setAudioId(aId);
+      if (aCount !== undefined) setAudioCount(aCount);
+      const stem = file?.name?.replace(/\.pptx$/i, "") || "screencast";
+      setAutoDownloadBlob(blob);
+      setAutoDownloadName(`${stem}_screencast.mp4`);
+      setLoading(false);
       setAutoState("done");
-      await processRenderResultFromJob(jobResult);
+      setStep("upload");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
@@ -614,6 +645,34 @@ function ScreencastPageInner() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const handleAutoZipDownload = useCallback(async () => {
+    if (!audioId || zipDownloading) return;
+    setZipDownloading(true);
+    try {
+      const res = await fetch(`/api/jobs/${audioId}/bundle`, { credentials: "include" });
+      if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      let filename = "bundle.zip";
+      if (disposition) {
+        const m = disposition.match(/filename="?([^";\n]+)"?/i);
+        if (m) filename = m[1].trim();
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      console.error("Bundle download failed");
+    } finally {
+      setZipDownloading(false);
+    }
+  }, [audioId, zipDownloading]);
 
   // ── Step: Upload → Translating (or auto) ──
   const handleUploadNext = useCallback(async () => {
@@ -1249,7 +1308,7 @@ function ScreencastPageInner() {
   return (
     <ProtectedRoute>
       <Header showLogout />
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Step indicator */}
         {showStepIndicator && (
           <>
@@ -1364,8 +1423,16 @@ function ScreencastPageInner() {
           </>
         )}
 
+        {/* ── Resume loading ── */}
+        {resumeLoading && (
+          <section className="animate-[fadeIn_0.2s_ease-out] text-center py-16" role="status" aria-live="polite">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#004261] mb-4" />
+            <p className="text-sm text-gray-700">Screencast wird wiederhergestellt…</p>
+          </section>
+        )}
+
         {/* ── Step: Upload ── */}
-        {step === "upload" && (
+        {!resumeLoading && step === "upload" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h1 className="text-xl font-bold text-gray-900 mb-1">
               Screencast erstellen
@@ -1605,13 +1672,16 @@ function ScreencastPageInner() {
                 onDownload={handleAutoDownload}
                 onReset={resetAll}
                 onRetry={failedRenderJobUuid ? handleRetryRender : undefined}
+                hasZip={!!audioId}
+                onZipDownload={handleAutoZipDownload}
+                zipDownloading={zipDownloading}
               />
             )}
           </section>
         )}
 
         {/* ── Step: Translating (loading) ── */}
-        {step === "translating" && (
+        {!resumeLoading && step === "translating" && (
           <section
             className="animate-[fadeIn_0.3s_ease-out] text-center py-16"
             role="status"
@@ -1645,7 +1715,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: User Prompt ── */}
-        {step === "user-prompt" && (
+        {!resumeLoading && step === "user-prompt" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h2 className="text-lg font-bold text-gray-900 mb-1">
               Wie sollen die Skripte erstellt werden?
@@ -1700,26 +1770,43 @@ function ScreencastPageInner() {
                   <p className="text-xs text-gray-500 mt-0.5">JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.</p>
                   {scriptInputMode === "import" && (
                     <div className="mt-2">
-                      <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-[#004261] border border-[#004261] rounded-md hover:bg-[#004261]/5 cursor-pointer transition-colors">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                        </svg>
-                        JSON-Datei auswählen
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setJsonDragOver(true); }}
+                        onDragLeave={() => setJsonDragOver(false)}
+                        onDrop={(e) => { e.preventDefault(); setJsonDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handleJsonImport(f); }}
+                        onClick={() => jsonFileRef.current?.click()}
+                        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 cursor-pointer transition-colors
+                          ${importedScripts
+                            ? "border-green-400 bg-green-50"
+                            : jsonDragOver
+                              ? "border-[#004261] bg-[#004261]/5"
+                              : "border-gray-300 hover:border-gray-400"
+                          }`}
+                      >
                         <input
+                          ref={jsonFileRef}
                           type="file"
                           accept=".json"
                           className="hidden"
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleJsonImport(f); }}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleJsonImport(f); e.target.value = ""; }}
                         />
-                      </label>
-                      {importedScripts && (
-                        <p className="mt-1.5 text-xs text-green-600 flex items-center gap-1">
-                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          {importedScripts.length} Skript{importedScripts.length !== 1 ? "e" : ""} geladen
-                        </p>
-                      )}
+                        {importedScripts ? (
+                          <>
+                            <svg className="w-6 h-6 text-green-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p className="text-xs font-medium text-green-700">{importedScripts.length} Skript{importedScripts.length !== 1 ? "e" : ""} geladen</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Klicken oder ziehen zum Ersetzen</p>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p className="text-xs text-gray-600">JSON-Datei hierher ziehen oder <span className="text-[#004261] font-medium">auswählen</span></p>
+                          </>
+                        )}
+                      </div>
                       {importError && (
                         <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
                           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1765,7 +1852,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Translation Review ── */}
-        {step === "translation-review" && (
+        {!resumeLoading && step === "translation-review" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h2 className="text-lg font-bold text-gray-900 mb-1">
               Übersetzung prüfen
@@ -1805,56 +1892,6 @@ function ScreencastPageInner() {
                     </div>
                   </button>
                 ))}
-              </div>
-            )}
-
-            {/* Lightbox modal — only when thumbnails are visible */}
-            {!fastMode && lightboxIndex !== null && (
-              <div
-                className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-                onClick={() => setLightboxIndex(null)}
-                role="dialog"
-                aria-modal="true"
-                aria-label={`Folie ${lightboxIndex + 1}`}
-              >
-                <div
-                  className="relative max-w-4xl w-full"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    onClick={() => setLightboxIndex(null)}
-                    className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
-                    aria-label="Schließen"
-                  >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                  <p className="text-white text-sm text-center mb-2">
-                    Folie {lightboxIndex + 1} von {slides.length}
-                  </p>
-                  <img
-                    src={`data:image/png;base64,${slides[lightboxIndex].imageBase64}`}
-                    alt={`Folie ${lightboxIndex + 1}`}
-                    className="w-full rounded-lg shadow-2xl"
-                  />
-                  <div className="flex justify-center gap-4 mt-4">
-                    <button
-                      onClick={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))}
-                      disabled={lightboxIndex === 0}
-                      className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30"
-                    >
-                      ← Zurück
-                    </button>
-                    <button
-                      onClick={() => setLightboxIndex(Math.min(slides.length - 1, lightboxIndex + 1))}
-                      disabled={lightboxIndex === slides.length - 1}
-                      className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30"
-                    >
-                      Weiter →
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -1910,7 +1947,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Generating Scripts (loading) ── */}
-        {step === "generating-scripts" && (
+        {!resumeLoading && step === "generating-scripts" && (
           <section
             className="animate-[fadeIn_0.3s_ease-out] text-center py-16"
             role="status"
@@ -1942,7 +1979,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Script Review ── */}
-        {step === "script-review" && (
+        {!resumeLoading && step === "script-review" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h2 className="text-lg font-bold text-gray-900 mb-1">
               Skripte überprüfen und anpassen
@@ -2013,26 +2050,32 @@ function ScreencastPageInner() {
                         id={`slide-panel-${i}`}
                         className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]"
                       >
-                        <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex flex-col gap-4">
                           {/* Slide image — hidden in fast mode */}
                           {!fastMode && (
                             <div className="flex-shrink-0" style={{ width: "100px" }}>
                               {slide.imageBase64 ? (
-                                <img
-                                  src={`data:image/png;base64,${slide.imageBase64}`}
-                                  alt={`Folie ${i + 1}`}
-                                  className="w-full rounded border border-gray-200"
-                                />
+                                <button
+                                  onClick={() => { setLightboxIndex(i); }}
+                                  className="w-full rounded border border-gray-200 hover:border-[#004261] transition-colors overflow-hidden cursor-zoom-in focus-visible:outline-2 focus-visible:outline-[#004261]"
+                                  aria-label={`Folie ${i + 1} vergrößern`}
+                                >
+                                  <img
+                                    src={`data:image/png;base64,${slide.imageBase64}`}
+                                    alt={`Folie ${i + 1}`}
+                                    className="w-full"
+                                  />
+                                </button>
                               ) : (
-                                <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">
-                                  Kein Bild
+                                <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center">
+                                  <div className="w-4 h-4 border-2 border-gray-300 border-t-[#004261] rounded-full animate-spin" />
                                 </div>
                               )}
                             </div>
                           )}
 
                           {/* Script */}
-                          <div className={`${fastMode ? "w-full" : "md:w-3/5"} flex flex-col`}>
+                          <div className="w-full flex flex-col">
                             {isEditing ? (
                               <>
                                 <textarea
@@ -2140,7 +2183,7 @@ function ScreencastPageInner() {
                                         <textarea
                                           value={regenProposal}
                                           onChange={(e) => setRegenProposal(e.target.value)}
-                                          rows={4}
+                                          rows={8}
                                           className="w-full rounded-md border border-purple-300 px-3 py-2 text-sm font-mono text-gray-900 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white"
                                         />
                                         <div className="flex justify-end mt-2">
@@ -2185,7 +2228,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: TTS Settings ── */}
-        {step === "tts-settings" && (
+        {!resumeLoading && step === "tts-settings" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h2 className="text-lg font-bold text-gray-900 mb-1">
               Spracheinstellungen
@@ -2435,7 +2478,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Rendering (loading) ── */}
-        {step === "rendering" && (
+        {!resumeLoading && step === "rendering" && (
           <section
             className="animate-[fadeIn_0.3s_ease-out] text-center py-16"
             role="status"
@@ -2475,7 +2518,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Step: Done ── */}
-        {step === "done" && (
+        {!resumeLoading && step === "done" && (
           <section className="animate-[fadeIn_0.3s_ease-out] py-8">
             <div className="flex justify-center mb-4">
               <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
@@ -2587,7 +2630,7 @@ function ScreencastPageInner() {
         )}
 
         {/* ── Error state ── */}
-        {step === "error" && (
+        {!resumeLoading && step === "error" && (
           <section className="animate-[fadeIn_0.3s_ease-out] text-center py-12">
             <div className="flex justify-center mb-4">
               <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
@@ -2639,6 +2682,55 @@ function ScreencastPageInner() {
               </button>
             </div>
           </section>
+        )}
+        {/* ── Lightbox modal (shared across steps) ── */}
+        {!fastMode && lightboxIndex !== null && slides[lightboxIndex]?.imageBase64 && (
+          <div
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => { setLightboxIndex(null); }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Folie ${lightboxIndex + 1}`}
+          >
+            <div
+              className="relative max-w-4xl w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => { setLightboxIndex(null); }}
+                className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
+                aria-label="Schließen"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <p className="text-white text-sm text-center mb-2">
+                Folie {lightboxIndex + 1} von {slides.length}
+              </p>
+              <img
+                src={`data:image/png;base64,${slides[lightboxIndex].imageBase64}`}
+                alt={`Folie ${lightboxIndex + 1}`}
+                className="w-full rounded-lg shadow-2xl"
+              />
+              <div className="flex justify-center gap-4 mt-4">
+                <button
+                  onClick={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))}
+                  disabled={lightboxIndex === 0}
+                  className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30"
+                >
+                  ← Zurück
+                </button>
+                <button
+                  onClick={() => setLightboxIndex(Math.min(slides.length - 1, lightboxIndex + 1))}
+                  disabled={lightboxIndex === slides.length - 1}
+                  className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30"
+                >
+                  Weiter →
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </ProtectedRoute>
