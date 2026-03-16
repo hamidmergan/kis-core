@@ -6,8 +6,8 @@
   --kb60: #668DA0;
   --kb20: #CCD9DF;
 
-  --bg:      #F3F4F6;
-  --surface: #CCD9DF;
+  --bg:      #ffffff;
+  --surface: #F3F4F6;
   --border:  #B8CDD5;
   --text:    #0D1F2D;
   --muted:   #668DA0;
@@ -37,6 +37,9 @@ select,
 label[for] {
   cursor: pointer;
 }
+
+/* ─── Safelist (dynamisch zusammengebaute Klassen) ─── */
+@source inline("object-contain p-1 p-2 p-4");
 
 @utility scrollbar-hide {
   scrollbar-width: none;

@@ -63,15 +63,16 @@ const ALL_TOOLS: Tool[] = [
 function ToolImage({ toolKey, title }: { toolKey: string; title: string }) {
   const cfg = TOOL_CONFIG[toolKey];
   if (cfg?.image) {
+    const containPadding = toolKey === "tts" ? "p-4" : toolKey === "image" ? "p-2" : ["summary", "transcription", "translation", "glossary"].includes(toolKey) ? "p-1" : null;
     return (
-      <div className="relative w-full h-36 overflow-hidden">
+      <div className="relative w-full h-36 overflow-hidden flex items-center justify-center">
         <Image
           src={cfg.image}
           alt={title}
           fill
-          className="object-cover"
+          className={containPadding ? `object-contain ${containPadding}` : "object-cover"}
           sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          priority={false}
+          loading="eager"
         />
       </div>
     );
@@ -157,7 +158,9 @@ export default function HomePage() {
     <ProtectedRoute>
       <Header showLogout />
 
-      <div className="max-w-5xl mx-auto px-4 py-10">
+      <div className="max-w-5xl mx-auto px-4 py-10 lg:py-25">
+
+        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
 
         {/* ── Workflows ── */}
         {workflows.length > 0 && (
@@ -174,7 +177,7 @@ export default function HomePage() {
                   <Link
                     key={wf.href}
                     href={wf.href}
-                    className="group flex flex-col sm:flex-row sm:min-h-40 rounded-xl overflow-hidden transition-all duration-200"
+                    className="group flex flex-col sm:flex-row sm:min-h-40 lg:min-h-50 rounded-xl overflow-hidden transition-all duration-200"
                     style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
@@ -260,7 +263,7 @@ export default function HomePage() {
                     onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
                   >
                     <ToolImage toolKey={tool.key} title={tool.title} />
-                    <div className="p-4">
+                    <div className="px-4 pt-0 pb-4">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                         <h3 className="text-base font-semibold" style={{ color: "var(--text)" }}>{tool.title}</h3>

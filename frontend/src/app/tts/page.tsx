@@ -249,12 +249,10 @@ export default function TtsPage() {
           <TtsFileUpload
             onFileSelected={handleTtsFileSelected}
             disabled={isProcessing || noProvider}
+            selectedFilename={ttsSelectedFile || undefined}
           />
           {noProvider && (
             <p className="mt-3 text-sm text-gray-400">Kein TTS-Anbieter aktiv — bitte im Admin-Bereich einen Anbieter freischalten.</p>
-          )}
-          {!noProvider && ttsSelectedFile && (
-            <p className="mt-2 text-sm font-medium text-gray-700">{ttsSelectedFile}</p>
           )}
 
           {/* Provider */}
