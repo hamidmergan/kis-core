@@ -88,6 +88,27 @@ interface GenerateScriptsResponse {
 }
 
 
+const MAX_REGEN_TEXTAREA_HEIGHT = 480; // ~20 lines at text-sm leading-relaxed
+
+function RegenTextarea({ value, onChange, className }: { value: string; onChange: (v: string) => void; className: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, MAX_REGEN_TEXTAREA_HEIGHT) + "px";
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={1}
+      className={className}
+    />
+  );
+}
+
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -165,6 +186,7 @@ function ScreencastPageInner() {
   const [regenAnchorSlide, setRegenAnchorSlide] = useState<number | null>(null);
   const regeneratingSlideRef = useRef<number | null>(null);
   const regenChatBottomRef = useRef<HTMLDivElement>(null);
+  const regenChatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = () => {
@@ -181,6 +203,7 @@ function ScreencastPageInner() {
   useEffect(() => {
     regenChatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [regenMessages, regenLoading]);
+
 
   const [zipDownloading, setZipDownloading] = useState(false);
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
@@ -2619,7 +2642,7 @@ function ScreencastPageInner() {
               <button
                 onClick={() => resetAll(false)}
                 aria-label="Neue Präsentation hochladen"
-                className="px-6 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
               >
                 Neue Präsentation
               </button>
@@ -2757,7 +2780,7 @@ function ScreencastPageInner() {
               </div>
 
               {/* Chat area */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
+              <div ref={regenChatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
 
                 {/* Markierung als Kontext-Chip oben */}
                 {regenAnchorText && (
@@ -2788,18 +2811,10 @@ function ScreencastPageInner() {
                           </div>
                         ) : (
                           <>
-                            <textarea
+                            <RegenTextarea
                               value={msg.content}
-                              onChange={(e) => {
-                                const t = e.target;
-                                t.style.height = "auto";
-                                t.style.height = t.scrollHeight + "px";
-                                const updated = regenMessages.map((m, i) => i === idx ? { ...m, content: e.target.value } : m);
-                                setRegenMessages(updated);
-                              }}
-                              ref={(el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }}
-                              rows={1}
-                              className="text-sm text-gray-900 bg-purple-50 rounded-2xl rounded-tl-sm px-3 py-2 border-0 focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none leading-relaxed w-full overflow-hidden"
+                              onChange={(v) => setRegenMessages(regenMessages.map((m, i) => i === idx ? { ...m, content: v } : m))}
+                              className="text-sm text-gray-900 bg-purple-50 rounded-2xl rounded-tl-sm px-3 py-2 border-0 focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none leading-relaxed w-full overflow-y-auto"
                             />
                             {isLastAssistant && (
                               <div className="flex flex-wrap gap-1.5">
