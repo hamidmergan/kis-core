@@ -185,6 +185,7 @@ class RegenerateSlideScriptRequest(BaseModel):
     slide_text: str = ""
     current_script: str | None = None
     user_prompt: str | None = None
+    selected_text: str | None = None
     target_lang: str = "EN-US"
 
 
@@ -1273,6 +1274,7 @@ async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest)
             body.current_script or "",
             body.slide_text,
             body.target_lang,
+            body.selected_text or None,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"Skript-Generierung fehlgeschlagen: {e}")

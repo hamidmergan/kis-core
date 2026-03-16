@@ -233,18 +233,34 @@ class KisskiClient:
         current_script: str = "",
         slide_text: str = "",
         target_lang: str = "EN-US",
+        selected_text: str | None = None,
     ) -> str:
         """Refine or create a narration script for a single slide based on a user instruction.
 
         Uses the current script as the base if provided, otherwise falls back to slide_text.
+        If selected_text is given, the instruction applies only to that excerpt.
         No length or format constraints — follows the user instruction freely.
         """
         current_script_content = current_script.strip() or slide_text.strip()
-        system_prompt = _load_prompt("prompt_script_refine", _SCRIPT_REFINE_DEFAULT).format(
-            TARGET_LANG=target_lang,
-            CURRENT_SCRIPT=current_script_content,
-            USER_INSTRUCTION=user_prompt.strip(),
-        )
+        if selected_text and selected_text.strip():
+            instruction = user_prompt.strip() or "Improve this excerpt."
+            system_prompt = (
+                f"You are an expert editor of spoken narration scripts for presentations.\n"
+                f"You will receive a selected excerpt from a script and a task to perform on it.\n"
+                f"Output ONLY the resulting text that should replace the excerpt. "
+                f"Do not repeat the instruction. Do not add labels or explanations. "
+                f"Write in flowing spoken language suitable for a university lecture. "
+                f"Output must be in {target_lang}, unless the task explicitly requests a translation to a different language.\n\n"
+                f"Selected excerpt: «{selected_text.strip()}»\n\n"
+                f"Full script context (for reference only, do NOT output this):\n{current_script_content}\n\n"
+                f"Task to perform on the excerpt: {instruction}"
+            )
+        else:
+            system_prompt = _load_prompt("prompt_script_refine", _SCRIPT_REFINE_DEFAULT).format(
+                TARGET_LANG=target_lang,
+                CURRENT_SCRIPT=current_script_content,
+                USER_INSTRUCTION=user_prompt.strip(),
+            )
 
         try:
             response = self._client.chat.completions.create(
