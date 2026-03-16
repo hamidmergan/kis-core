@@ -133,7 +133,7 @@ export default function UebersetzungPage() {
                       if (other) setTargetLang(other.id);
                     }
                   }}
-                  disabled={processing}
+                  disabled
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="auto">Automatisch erkennen</option>
@@ -159,7 +159,7 @@ export default function UebersetzungPage() {
                       if (other) setSourceLang(other.id);
                     }
                   }}
-                  disabled={processing}
+                  disabled
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {languages.map((l) => (

@@ -1508,7 +1508,7 @@ function ScreencastPageInner() {
                       <select
                         value={sourceLang}
                         onChange={(e) => setSourceLang(e.target.value)}
-                        disabled={autoState === "processing"}
+                        disabled
                         className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-[#0066cc] focus:border-[#0066cc] disabled:opacity-50"
                       >
                         {languages.map((l) => (
@@ -1521,7 +1521,7 @@ function ScreencastPageInner() {
                       <select
                         value={targetLang}
                         onChange={(e) => setTargetLang(e.target.value)}
-                        disabled={autoState === "processing"}
+                        disabled
                         className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-[#0066cc] focus:border-[#0066cc] disabled:opacity-50"
                       >
                         {languages.map((l) => (

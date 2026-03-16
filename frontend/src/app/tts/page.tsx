@@ -328,6 +328,32 @@ export default function TtsPage() {
           </div>
           )}
 
+          {/* Sprache */}
+          <div className="mt-4 mb-6">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Quellsprache</label>
+                <select
+                  value="DE"
+                  disabled
+                  className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="DE">Deutsch</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Zielsprache</label>
+                <select
+                  value="EN"
+                  disabled
+                  className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="EN">Englisch</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           {/* Geschwindigkeit */}
           <div className="mb-6">
             <label htmlFor="speed-slider" className="block text-sm font-medium text-gray-700 mb-2">
