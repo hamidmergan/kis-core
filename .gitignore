@@ -17,5 +17,3 @@ frontend/.next/
 frontend/out/
 frontend/tsconfig.tsbuildinfo
 
-# Local dev override
-docker-compose.override.yml
