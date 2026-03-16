@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+/* ─── Brand tokens ─── */
+:root {
+  --kb:   #004261;
+  --kb60: #668DA0;
+  --kb20: #CCD9DF;
+
+  --bg:      #F3F4F6;
+  --surface: #CCD9DF;
+  --border:  #B8CDD5;
+  --text:    #0D1F2D;
+  --muted:   #668DA0;
+  --shadow:  0 1px 4px rgba(0,66,97,.10);
+  --shadow-hover: 0 6px 20px rgba(0,66,97,.15);
+}
+
+/* ─── Base ─── */
+html {
+  background-color: var(--bg);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Old brand-colour links → new brand colour */
+.text-\[\#0066cc\] { color: #004261; }
+
+/* ─── Utilities ─── */
 button,
 [role="button"],
 a,
@@ -11,7 +41,5 @@ label[for] {
 @utility scrollbar-hide {
   scrollbar-width: none;
   -ms-overflow-style: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  &::-webkit-scrollbar { display: none; }
 }

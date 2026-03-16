@@ -268,7 +268,7 @@ export default function TtsPage() {
               value={provider}
               onChange={(e) => setProvider(e.target.value as "elevenlabs" | "kokoro")}
               disabled={isProcessing}
-              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
               {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
@@ -288,7 +288,7 @@ export default function TtsPage() {
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
                 disabled={isProcessing}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {provider === "kokoro" && kokoroVoices.map((v) => (
                   <option key={v.voice_id} value={v.voice_id}>
@@ -310,7 +310,7 @@ export default function TtsPage() {
                 href="/voices"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-[#0066cc] hover:underline"
+                className="text-sm text-[#004261] hover:underline"
               >
                 Stimmen anhören →
               </a>
@@ -320,7 +320,7 @@ export default function TtsPage() {
                 href="/voices?tab=kokoro"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-[#0066cc] hover:underline"
+                className="text-sm text-[#004261] hover:underline"
               >
                 Stimmen anhören →
               </a>
@@ -368,7 +368,7 @@ export default function TtsPage() {
               value={speed}
               onChange={(e) => setSpeed(parseFloat(e.target.value))}
               disabled={isProcessing}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0066cc] disabled:opacity-50"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#004261] disabled:opacity-50"
             />
             <div className="flex justify-between text-xs text-gray-400 mt-1">
               <span>Langsam (0.7x)</span>
@@ -387,7 +387,7 @@ export default function TtsPage() {
                 value={pausePreset}
                 onChange={(e) => setPausePreset(e.target.value)}
                 disabled={isProcessing}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {PAUSE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -402,7 +402,7 @@ export default function TtsPage() {
             <button
               onClick={handleSubmit}
               disabled={!pendingFile || isProcessing || noProvider}
-              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="self-start px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               MP3 erstellen
             </button>

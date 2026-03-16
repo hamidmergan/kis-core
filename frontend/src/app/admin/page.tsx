@@ -175,12 +175,12 @@ function WhitelistTab({ adminEmail }: { adminEmail: string }) {
           onChange={(e) => setNewEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
           placeholder="name@th-luebeck.de"
-          className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         />
         <button
           onClick={add}
           disabled={adding || !newEmail.trim()}
-          className="px-4 py-2 text-sm font-medium text-white bg-[#0066cc] hover:bg-[#0055aa] rounded-md disabled:opacity-40 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-white bg-[#004261] hover:bg-[#003a56] rounded-md disabled:opacity-40 transition-colors"
         >
           {adding ? "..." : "Hinzufügen"}
         </button>
@@ -271,26 +271,26 @@ function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Suche: Name, Username, Email..."
-          className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         />
         <input
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           title="Von"
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           title="Bis"
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         />
         <select
           value={limit}
           onChange={(e) => setLimit(Number(e.target.value))}
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         >
           <option value={50}>50 pro Seite</option>
           <option value={100}>100 pro Seite</option>
@@ -331,7 +331,7 @@ function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(u.created_at)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => onOpenQuota(u.id)} className="text-xs text-[#0066cc] hover:underline whitespace-nowrap">
+                    <button onClick={() => onOpenQuota(u.id)} className="text-xs text-[#004261] hover:underline whitespace-nowrap">
                       Details
                     </button>
                   </td>
@@ -363,7 +363,7 @@ function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
                 onClick={() => setOffset((page - 1) * limit)}
                 className={`px-3 py-1.5 text-sm border rounded-md ${
                   page === currentPage
-                    ? "bg-[#0066cc] text-white border-[#0066cc]"
+                    ? "bg-[#004261] text-white border-[#004261]"
                     : "border-gray-300 hover:bg-gray-50"
                 }`}
               >
@@ -446,26 +446,26 @@ function JobsTab() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Suche: User, Tool, Datei..."
-          className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         />
         <input
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           title="Von"
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           title="Bis"
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         />
         <select
           value={limit}
           onChange={(e) => setLimit(Number(e.target.value))}
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
         >
           <option value={50}>50 pro Seite</option>
           <option value={100}>100 pro Seite</option>
@@ -544,7 +544,7 @@ function JobsTab() {
                 onClick={() => setOffset((page - 1) * limit)}
                 className={`px-3 py-1.5 text-sm border rounded-md ${
                   page === currentPage
-                    ? "bg-[#0066cc] text-white border-[#0066cc]"
+                    ? "bg-[#004261] text-white border-[#004261]"
                     : "border-gray-300 hover:bg-gray-50"
                 }`}
               >
@@ -623,7 +623,7 @@ function GeneralSettingsSection() {
             onClick={() => { const v = !whitelistEnabled; setWhitelistEnabled(v); patch({ whitelist_enabled: v }); }}
             disabled={saving}
             className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-              whitelistEnabled ? "bg-[#0066cc]" : "bg-gray-300"
+              whitelistEnabled ? "bg-[#004261]" : "bg-gray-300"
             } disabled:opacity-50`}
             aria-label="Whitelist umschalten"
           >
@@ -654,7 +654,7 @@ function GeneralSettingsSection() {
             onClick={() => { const v = !demoData; setDemoData(v); patch({ demo_data: v }); }}
             disabled={saving}
             className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-              demoData ? "bg-[#0066cc]" : "bg-gray-300"
+              demoData ? "bg-[#004261]" : "bg-gray-300"
             } disabled:opacity-50`}
             aria-label="Demo-Modus umschalten"
           >
@@ -694,7 +694,7 @@ function GeneralSettingsSection() {
               disabled={saving || !elevenlabsConfigured}
               title={!elevenlabsConfigured ? "ELEVENLABS_API_KEY ist nicht in .env gesetzt" : undefined}
               className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                elevenlabsEnabled ? "bg-[#0066cc]" : "bg-gray-300"
+                elevenlabsEnabled ? "bg-[#004261]" : "bg-gray-300"
               } disabled:opacity-50 disabled:cursor-not-allowed`}
               aria-label="ElevenLabs umschalten"
             >
@@ -728,7 +728,7 @@ function GeneralSettingsSection() {
               disabled={saving || !kokoroConfigured}
               title={!kokoroConfigured ? "KOKORO_BASE_URL ist nicht in .env gesetzt" : undefined}
               className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                kokoroEnabled ? "bg-[#0066cc]" : "bg-gray-300"
+                kokoroEnabled ? "bg-[#004261]" : "bg-gray-300"
               } disabled:opacity-50 disabled:cursor-not-allowed`}
               aria-label="Kokoro TTS umschalten"
             >
@@ -789,7 +789,7 @@ function ToolsSettingsSection() {
               onClick={() => toggle(tool.key, !tool.enabled)}
               disabled={saving === tool.key}
               className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                tool.enabled ? "bg-[#0066cc]" : "bg-gray-300"
+                tool.enabled ? "bg-[#004261]" : "bg-gray-300"
               } disabled:opacity-50`}
               aria-label={`${tool.label} ${tool.enabled ? "deaktivieren" : "aktivieren"}`}
             >
@@ -897,7 +897,7 @@ function PromptsTab() {
             spellCheck={false}
             className={`w-full text-xs font-mono rounded-lg border px-3 py-2.5 resize-y leading-relaxed focus:outline-none ${
               p.editable
-                ? "border-gray-300 bg-white text-gray-800 focus:ring-2 focus:ring-[#0066cc]"
+                ? "border-gray-300 bg-white text-gray-800 focus:ring-2 focus:ring-[#004261]"
                 : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none"
             }`}
           />
@@ -906,7 +906,7 @@ function PromptsTab() {
               <button
                 onClick={() => save(p.key)}
                 disabled={saving === p.key}
-                className="text-sm bg-[#0066cc] text-white px-4 py-1.5 rounded-lg hover:bg-[#0055aa] disabled:opacity-50"
+                className="text-sm bg-[#004261] text-white px-4 py-1.5 rounded-lg hover:bg-[#003a56] disabled:opacity-50"
               >
                 {saving === p.key ? "Speichert..." : saved === p.key ? "Gespeichert ✓" : "Speichern"}
               </button>
@@ -1045,7 +1045,7 @@ function QuotaTab({ targetUserId, onConsumed, onBack }: { targetUserId: number |
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => { setSelectedUser(null); onBack(); }} className="text-sm text-[#0066cc] hover:underline">
+          <button onClick={() => { setSelectedUser(null); onBack(); }} className="text-sm text-[#004261] hover:underline">
             ← Zurück
           </button>
           <span className="text-sm text-gray-500">|</span>
@@ -1103,12 +1103,12 @@ function QuotaTab({ targetUserId, onConsumed, onBack }: { targetUserId: number |
                           value={overrideInputs[q.quota_type] ?? ""}
                           onChange={(e) => setOverrideInputs((prev) => ({ ...prev, [q.quota_type]: e.target.value }))}
                           placeholder="Standard"
-                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-[#0066cc]"
+                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-[#004261]"
                         />
                         <button
                           onClick={() => saveOverride(q.quota_type, overrideInputs[q.quota_type] ?? "")}
                           disabled={saving === q.quota_type}
-                          className="text-xs text-[#0066cc] hover:underline disabled:opacity-50"
+                          className="text-xs text-[#004261] hover:underline disabled:opacity-50"
                         >
                           Speichern
                         </button>
@@ -1197,7 +1197,7 @@ export default function AdminPage() {
               onClick={() => setTab(t.key)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                 tab === t.key
-                  ? "border-[#0066cc] text-[#0066cc]"
+                  ? "border-[#004261] text-[#004261]"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >

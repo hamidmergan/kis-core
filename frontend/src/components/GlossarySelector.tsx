@@ -33,7 +33,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
       <div className="mb-4">
         <p className="text-sm text-gray-400">
           Noch kein Glossar erstellt →{" "}
-          <Link href="/glossary" className="text-[#0066cc] hover:underline">
+          <Link href="/glossary" className="text-[#004261] hover:underline">
             Glossare verwalten
           </Link>
         </p>
@@ -93,7 +93,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
         <button
           type="button"
           onClick={() => setOpen(prev => !prev)}
-          className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-50 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+          className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-50 focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none"
         >
           <span className={selectedIds.length === 0 ? "text-gray-400" : "text-gray-700"}>
             {buttonLabel}
@@ -130,7 +130,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
                       checked={isSelected}
                       disabled={isDisabled}
                       onChange={() => toggleGlossary(g.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc] flex-shrink-0"
+                      className="h-4 w-4 rounded border-gray-300 text-[#004261] focus:ring-[#004261] flex-shrink-0"
                     />
                     <span className="flex-1 text-gray-700">{g.name}</span>
                     <span className="text-gray-400 text-xs">
@@ -164,7 +164,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
                   isDraggingThis
                     ? "opacity-40"
                     : isDragTarget
-                      ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
+                      ? "border-[#004261] bg-[#004261]/10 text-[#004261]"
                       : "border-gray-300 bg-gray-100 text-gray-700"
                 }`}
               >

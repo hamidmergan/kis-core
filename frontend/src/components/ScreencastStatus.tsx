@@ -27,7 +27,7 @@ export default function ScreencastStatus({
     <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6" role="status" aria-live="polite">
       {(state === "uploading" || state === "processing") && (
         <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0066cc]" />
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#004261]" />
           <div>
             <span className="text-sm text-gray-700">
               {state === "uploading" ? "Datei wird hochgeladen..." : (progressLabel || "Screencast wird erstellt...")}
@@ -54,7 +54,7 @@ export default function ScreencastStatus({
             <button
               onClick={onDownload}
               aria-label="MP4"
-              className="px-4 py-2 bg-[#0066cc] text-white text-sm rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-[#004261] text-white text-sm rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
             >
               <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -64,7 +64,7 @@ export default function ScreencastStatus({
             <button
               onClick={onReset}
               aria-label="Neue Datei hochladen"
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
             >
               Neue Datei
             </button>
@@ -91,7 +91,7 @@ export default function ScreencastStatus({
               <button
                 onClick={onRetry}
                 aria-label="Job wiederholen"
-                className="px-4 py-2 text-sm text-white bg-[#0066cc] rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                className="px-4 py-2 text-sm text-white bg-[#004261] rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
               >
                 Wiederholen
               </button>
@@ -99,7 +99,7 @@ export default function ScreencastStatus({
             <button
               onClick={onReset}
               aria-label="Neue Datei hochladen"
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
             >
               Neue Datei
             </button>

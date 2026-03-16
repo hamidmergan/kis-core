@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getToolConfigByJobTool } from "@/lib/toolConfig";
 
 interface MyJob {
   job_uuid: string;
@@ -284,22 +285,25 @@ export default function JobsPanel() {
       <button
         onClick={handleButtonClick}
         aria-label="Meine Jobs"
-        className="relative flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+        className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm text-white/80 hover:text-white rounded-full transition-colors"
+        style={{ backgroundColor: "rgba(255,255,255,0.10)" }}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.18)")}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.10)")}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
-        <span>Jobs</span>
+        <span className="text-xs font-medium">Jobs</span>
         {attentionCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-[#004261] text-[9px] font-bold rounded-full flex items-center justify-center shadow">
             {attentionCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="fixed right-4 top-[4.5rem] w-[min(20rem,calc(100vw-2rem))] bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+        <div className="fixed right-4 top-14 w-[min(20rem,calc(100vw-2rem))] rounded-xl shadow-xl z-50 overflow-hidden" style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}>
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-800">Meine Jobs</span>
             {loading && (
@@ -307,8 +311,8 @@ export default function JobsPanel() {
             )}
           </div>
 
-          <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
-            <p className="text-xs text-blue-700">
+          <div className="px-4 py-2 border-b" style={{ borderColor: "var(--border)" }}>
+            <p className="text-xs text-[#004261]">
               Downloads 7 Tage verfügbar. Es werden nur die letzten 20 Jobs gespeichert.
             </p>
           </div>
@@ -328,7 +332,13 @@ export default function JobsPanel() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-gray-800 truncate">{job.tool_label}</p>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: getToolConfigByJobTool(job.tool).color }}
+                            />
+                            <p className="text-xs font-medium text-gray-800 truncate">{job.tool_label}</p>
+                          </div>
                           <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
                           {job.tts_params?.voice_label || job.tts_params?.provider ? (
                             <p className="text-xs text-gray-400 truncate mt-0.5">
@@ -354,7 +364,7 @@ export default function JobsPanel() {
                             <div className="mt-1.5 flex flex-col gap-1">
                               <button
                                 onClick={(e) => handleDownload(e, job)}
-                                className="text-xs text-[#0066cc] hover:underline flex items-center gap-1"
+                                className="text-xs text-[#004261] hover:underline flex items-center gap-1"
                               >
                                 <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -364,7 +374,7 @@ export default function JobsPanel() {
                               {SCREENCAST_RENDER_TOOLS.has(job.tool) && (
                                 <button
                                   onClick={(e) => handleDownloadBundle(e, job)}
-                                  className="text-xs text-[#0066cc] hover:underline flex items-center gap-1"
+                                  className="text-xs text-[#004261] hover:underline flex items-center gap-1"
                                 >
                                   <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -429,7 +439,7 @@ export default function JobsPanel() {
             <Link
               href="/my-jobs"
               onClick={() => setOpen(false)}
-              className="text-xs text-[#0066cc] hover:underline"
+              className="text-xs text-[#004261] hover:underline"
             >
               Zur Übersicht
             </Link>

@@ -65,7 +65,7 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
   };
 
   const borderClass = dragActive
-    ? "border-[#0066cc] bg-blue-50"
+    ? "border-[#004261] bg-blue-50"
     : selectedFilename
       ? "border-green-400 bg-green-50"
       : "border-gray-300 hover:border-gray-400";
@@ -86,7 +86,7 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] ${borderClass} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] ${borderClass} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         {selectedFilename ? (
           <>
@@ -102,7 +102,7 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
             <p className="text-sm font-medium text-gray-500">
-              Datei hierher ziehen oder <span className="text-[#0066cc] underline">durchsuchen</span>
+              Datei hierher ziehen oder <span className="text-[#004261] underline">durchsuchen</span>
             </p>
             <p className="text-xs text-gray-400 mt-1">
               {ACCEPTED_EXTENSIONS.join(", ")}

@@ -1284,8 +1284,8 @@ function ScreencastPageInner() {
                         <span
                           className={`
                             inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
-                            ${isActive ? "bg-[#0066cc] text-white" : ""}
-                            ${isDone ? "bg-[#0066cc]/20 text-[#0066cc]" : ""}
+                            ${isActive ? "bg-[#004261] text-white" : ""}
+                            ${isDone ? "bg-[#004261]/20 text-[#004261]" : ""}
                             ${isSkipped ? "bg-gray-100 text-gray-300" : ""}
                             ${!isActive && !isDone && !isSkipped ? "bg-gray-100 text-gray-400" : ""}
                           `}
@@ -1331,7 +1331,7 @@ function ScreencastPageInner() {
                       {i < STEP_LABELS.length - 1 && (
                         <span
                           className={`w-3 sm:w-8 h-px flex-shrink-0 ${
-                            i < currentIdx && !isSkipped ? "bg-[#0066cc]" : "bg-gray-200"
+                            i < currentIdx && !isSkipped ? "bg-[#004261]" : "bg-gray-200"
                           }`}
                           aria-hidden="true"
                         />
@@ -1407,7 +1407,7 @@ function ScreencastPageInner() {
                 }
                 ${!hasActiveJob && (
                   dragOver
-                    ? "border-[#0066cc] bg-[#0066cc]/5"
+                    ? "border-[#004261] bg-[#004261]/5"
                     : file
                       ? "border-green-400 bg-green-50"
                       : "border-gray-300 hover:border-gray-400"
@@ -1465,7 +1465,7 @@ function ScreencastPageInner() {
                   </svg>
                   <p className="text-sm text-gray-600">
                     Datei hierher ziehen oder{" "}
-                    <span className="text-[#0066cc] font-medium">
+                    <span className="text-[#004261] font-medium">
                       durchsuchen
                     </span>
                   </p>
@@ -1491,7 +1491,7 @@ function ScreencastPageInner() {
                   }
                 }}
                 disabled={autoState === "processing"}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#004261] focus:ring-[#004261]"
               />
               <span className="text-sm font-medium text-gray-700">
                 Präsentation bereits übersetzt (Übersetzung überspringen)
@@ -1509,7 +1509,7 @@ function ScreencastPageInner() {
                         value={sourceLang}
                         onChange={(e) => setSourceLang(e.target.value)}
                         disabled
-                        className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-[#0066cc] focus:border-[#0066cc] disabled:opacity-50"
+                        className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-[#004261] focus:border-[#004261] disabled:opacity-50"
                       >
                         {languages.map((l) => (
                           <option key={l.id} value={l.id}>{l.label}</option>
@@ -1522,7 +1522,7 @@ function ScreencastPageInner() {
                         value={targetLang}
                         onChange={(e) => setTargetLang(e.target.value)}
                         disabled
-                        className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-[#0066cc] focus:border-[#0066cc] disabled:opacity-50"
+                        className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-[#004261] focus:border-[#004261] disabled:opacity-50"
                       >
                         {languages.map((l) => (
                           <option key={l.id} value={l.id}>{l.label}</option>
@@ -1554,7 +1554,7 @@ function ScreencastPageInner() {
                   setMode(e.target.checked ? "manual" : "auto")
                 }
                 disabled={autoState === "processing"}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#004261] focus:ring-[#004261]"
               />
               <div>
                 <span className="text-sm font-medium text-gray-700">
@@ -1573,7 +1573,7 @@ function ScreencastPageInner() {
                   type="checkbox"
                   checked={fastMode}
                   onChange={(e) => setFastMode(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc]"
+                  className="h-4 w-4 rounded border-gray-300 text-[#004261] focus:ring-[#004261]"
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-700">Schnellmodus</span>
@@ -1589,7 +1589,7 @@ function ScreencastPageInner() {
               <button
                 onClick={handleUploadNext}
                 disabled={!file || autoState === "processing" || !!hasActiveJob}
-                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {mode === "auto" ? "Screencast erstellen" : "Weiter"}
               </button>
@@ -1617,7 +1617,7 @@ function ScreencastPageInner() {
             role="status"
             aria-live="polite"
           >
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#004261] mb-4" />
             <p className="text-sm text-gray-700 animate-pulse">
               {sourceLang === targetLang
                 ? "Präsentation wird vorbereitet..."
@@ -1654,14 +1654,14 @@ function ScreencastPageInner() {
             {/* ── Script input mode selection ── */}
             <div className="mt-3 space-y-2">
               {/* Option: generate (default) */}
-              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-[#004261] bg-[#004261]/5" : "border-gray-200 hover:border-gray-300"}`}>
                 <input
                   type="radio"
                   name="scriptInputMode"
                   value="generate"
                   checked={scriptInputMode === "generate"}
                   onChange={() => { setScriptInputMode("generate"); setImportedScripts(null); setImportError(null); }}
-                  className="mt-0.5 accent-[#0066cc]"
+                  className="mt-0.5 accent-[#004261]"
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-900">KI-Generierung</span>
@@ -1670,14 +1670,14 @@ function ScreencastPageInner() {
               </label>
 
               {/* Option: manual */}
-              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-[#004261] bg-[#004261]/5" : "border-gray-200 hover:border-gray-300"}`}>
                 <input
                   type="radio"
                   name="scriptInputMode"
                   value="manual"
                   checked={scriptInputMode === "manual"}
                   onChange={() => { setScriptInputMode("manual"); setImportedScripts(null); setImportError(null); }}
-                  className="mt-0.5 accent-[#0066cc]"
+                  className="mt-0.5 accent-[#004261]"
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-900">Manuell eingeben</span>
@@ -1686,21 +1686,21 @@ function ScreencastPageInner() {
               </label>
 
               {/* Option: import JSON */}
-              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-[#004261] bg-[#004261]/5" : "border-gray-200 hover:border-gray-300"}`}>
                 <input
                   type="radio"
                   name="scriptInputMode"
                   value="import"
                   checked={scriptInputMode === "import"}
                   onChange={() => setScriptInputMode("import")}
-                  className="mt-0.5 accent-[#0066cc]"
+                  className="mt-0.5 accent-[#004261]"
                 />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium text-gray-900">Skript importieren</span>
                   <p className="text-xs text-gray-500 mt-0.5">JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.</p>
                   {scriptInputMode === "import" && (
                     <div className="mt-2">
-                      <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-[#0066cc]/5 cursor-pointer transition-colors">
+                      <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-[#004261] border border-[#004261] rounded-md hover:bg-[#004261]/5 cursor-pointer transition-colors">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                         </svg>
@@ -1756,7 +1756,7 @@ function ScreencastPageInner() {
                   }
                 }}
                 disabled={loading}
-                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Weiter
               </button>
@@ -1784,7 +1784,7 @@ function ScreencastPageInner() {
                     key={i}
                     onClick={() => setLightboxIndex(i)}
                     style={{ width: "100px" }}
-                    className="relative rounded-lg overflow-hidden border border-gray-200 hover:border-[#0066cc] transition-colors focus-visible:outline-2 focus-visible:outline-[#0066cc] group flex-shrink-0"
+                    className="relative rounded-lg overflow-hidden border border-gray-200 hover:border-[#004261] transition-colors focus-visible:outline-2 focus-visible:outline-[#004261] group flex-shrink-0"
                     aria-label={`Folie ${i + 1} vergrößern`}
                   >
                     {slide.imageBase64 ? (
@@ -1862,7 +1862,7 @@ function ScreencastPageInner() {
             <div className="flex flex-col gap-3 mb-4">
               <button
                 onClick={handleDownloadTranslatedPptx}
-                className="w-full px-4 py-2 text-sm text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center justify-center gap-2"
+                className="w-full px-4 py-2 text-sm text-[#004261] border border-[#004261] rounded-md hover:bg-[#004261]/5 transition-colors flex items-center justify-center gap-2"
               >
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1901,7 +1901,7 @@ function ScreencastPageInner() {
               <button
                 onClick={() => { setMaxReachedIdx((v) => Math.max(v, 3)); setStep("user-prompt"); }}
                 disabled={loading}
-                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Übersetzung übernehmen und weiter
               </button>
@@ -1916,7 +1916,7 @@ function ScreencastPageInner() {
             role="status"
             aria-live="polite"
           >
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#004261] mb-4" />
             <p className="text-sm text-gray-700 animate-pulse">
               Sprechskripte werden generiert...
             </p>
@@ -1977,7 +1977,7 @@ function ScreencastPageInner() {
                         }
                         setOpenAccordion(isOpen ? -1 : i);
                       }}
-                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]"
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261]"
                       aria-expanded={isOpen}
                       aria-controls={`slide-panel-${i}`}
                     >
@@ -2041,7 +2041,7 @@ function ScreencastPageInner() {
                                     setEditBuffer(e.target.value)
                                   }
                                   rows={8}
-                                  className="w-full rounded-md border border-[#0066cc] px-3 py-2 text-sm font-mono text-gray-900 focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+                                  className="w-full rounded-md border border-[#004261] px-3 py-2 text-sm font-mono text-gray-900 focus:ring-1 focus:ring-[#004261] focus:outline-none"
                                   aria-label={`Skript für Folie ${i + 1} bearbeiten`}
                                 />
                                 <div className="flex items-center justify-between mt-2">
@@ -2059,7 +2059,7 @@ function ScreencastPageInner() {
                                       onClick={() =>
                                         saveEdit(i)
                                       }
-                                      className="px-3 py-1 text-xs bg-[#0066cc] text-white rounded hover:bg-[#0055aa] transition-colors"
+                                      className="px-3 py-1 text-xs bg-[#004261] text-white rounded hover:bg-[#003a56] transition-colors"
                                     >
                                       Speichern
                                     </button>
@@ -2087,7 +2087,7 @@ function ScreencastPageInner() {
                                     {/* Manuell bearbeiten */}
                                     <button
                                       onClick={() => startEdit(i)}
-                                      className="p-1 text-gray-400 hover:text-[#0066cc] transition-colors"
+                                      className="p-1 text-gray-400 hover:text-[#004261] transition-colors"
                                       aria-label={`Skript für Folie ${i + 1} bearbeiten`}
                                     >
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -2146,7 +2146,7 @@ function ScreencastPageInner() {
                                         <div className="flex justify-end mt-2">
                                           <button
                                             onClick={() => applyRegen(i)}
-                                            className="px-3 py-1 text-xs bg-[#0066cc] text-white rounded hover:bg-[#0055aa] transition-colors"
+                                            className="px-3 py-1 text-xs bg-[#004261] text-white rounded hover:bg-[#003a56] transition-colors"
                                           >
                                             Übernehmen
                                           </button>
@@ -2176,7 +2176,7 @@ function ScreencastPageInner() {
               <button
                 onClick={handleAcceptScripts}
                 disabled={editingSlide !== null}
-                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Alle Skripte übernehmen
               </button>
@@ -2210,7 +2210,7 @@ function ScreencastPageInner() {
                   else if (p === "kokoro" && kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
                   else if (p === "elevenlabs" && voices.length > 0) setVoiceId(voices[0].voice_id);
                 }}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc]"
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261]"
               >
                 {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
                 {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
@@ -2231,7 +2231,7 @@ function ScreencastPageInner() {
                   value={voiceId}
                   onChange={(e) => setVoiceId(e.target.value)}
                   disabled={ttsProvider === "fish_speech"}
-                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {ttsProvider === "fish_speech" ? (
                     <option value="default">Standard</option>
@@ -2261,7 +2261,7 @@ function ScreencastPageInner() {
                   href="/voices"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#0066cc] hover:underline"
+                  className="text-sm text-[#004261] hover:underline"
                 >
                   Stimmen anhören →
                 </a>
@@ -2271,7 +2271,7 @@ function ScreencastPageInner() {
                   href="/voices?tab=kokoro"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#0066cc] hover:underline"
+                  className="text-sm text-[#004261] hover:underline"
                 >
                   Stimmen anhören →
                 </a>
@@ -2296,7 +2296,7 @@ function ScreencastPageInner() {
                 onChange={(e) =>
                   setSpeed(parseFloat(e.target.value))
                 }
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0066cc]"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#004261]"
               />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
                 <span>Langsam (0.7x)</span>
@@ -2321,7 +2321,7 @@ function ScreencastPageInner() {
                 onChange={(e) =>
                   setSlidePause(parseFloat(e.target.value))
                 }
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0066cc]"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#004261]"
               />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
                 <span>0s</span>
@@ -2341,7 +2341,7 @@ function ScreencastPageInner() {
                     value={96}
                     checked={dpi === 96}
                     onChange={() => setDpi(96)}
-                    className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]"
+                    className="mt-0.5 h-4 w-4 text-[#004261] focus:ring-[#004261]"
                   />
                   <div>
                     <span className="text-sm font-medium text-gray-700">96 DPI – Geringe Qualität</span>
@@ -2355,7 +2355,7 @@ function ScreencastPageInner() {
                     value={144}
                     checked={dpi === 144}
                     onChange={() => setDpi(144)}
-                    className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]"
+                    className="mt-0.5 h-4 w-4 text-[#004261] focus:ring-[#004261]"
                   />
                   <div>
                     <span className="text-sm font-medium text-gray-700">144 DPI – Standard</span>
@@ -2369,7 +2369,7 @@ function ScreencastPageInner() {
                     value={300}
                     checked={dpi === 300}
                     onChange={() => setDpi(300)}
-                    className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]"
+                    className="mt-0.5 h-4 w-4 text-[#004261] focus:ring-[#004261]"
                   />
                   <div>
                     <span className="text-sm font-medium text-gray-700">300 DPI – Maximale Qualität</span>
@@ -2426,7 +2426,7 @@ function ScreencastPageInner() {
               <button
                 onClick={handleStartRender}
                 disabled={scriptOverLimit}
-                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Screencast erstellen
               </button>
@@ -2441,7 +2441,7 @@ function ScreencastPageInner() {
             role="status"
             aria-live="polite"
           >
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#004261] mb-4" />
             <p className="text-sm text-gray-700">
               {renderProgressLabel || "Video wird erstellt..."}
             </p>
@@ -2518,7 +2518,7 @@ function ScreencastPageInner() {
               <button
                 onClick={handleDownload}
                 aria-label="MP4"
-                className="px-6 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors flex items-center gap-2"
+                className="px-6 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
               >
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -2556,7 +2556,7 @@ function ScreencastPageInner() {
                   }}
                   disabled={zipDownloading}
                   aria-label="Alles herunterladen (ZIP)"
-                  className="px-6 py-2 bg-white text-[#0066cc] border border-[#0066cc] text-sm font-medium rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-6 py-2 bg-white text-[#004261] border border-[#004261] text-sm font-medium rounded-md hover:bg-[#004261]/5 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {zipDownloading ? (
                     <svg className="h-4 w-4 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
@@ -2625,7 +2625,7 @@ function ScreencastPageInner() {
                 <button
                   onClick={handleRetryRender}
                   aria-label="Job wiederholen"
-                  className="px-6 py-2 text-sm text-white bg-[#0066cc] rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                  className="px-6 py-2 text-sm text-white bg-[#004261] rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
                 >
                   Wiederholen
                 </button>
@@ -2633,7 +2633,7 @@ function ScreencastPageInner() {
               <button
                 onClick={() => resetAll()}
                 aria-label="Neue Präsentation hochladen"
-                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
               >
                 Neue Präsentation
               </button>

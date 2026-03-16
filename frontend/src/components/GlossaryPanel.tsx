@@ -64,7 +64,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
               onChange={(e) => setNewSource(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="z.B. Technische Hochschule"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#004261] focus:border-transparent"
             />
           </div>
           <div className="flex-1">
@@ -78,13 +78,13 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
               onChange={(e) => setNewTarget(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="z.B. University of Applied Sciences"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#004261] focus:border-transparent"
             />
           </div>
           <button
             onClick={handleAddEntry}
             disabled={!newSource.trim() || !newTarget.trim()}
-            className="px-4 py-2 bg-[#0066cc] text-white text-sm rounded-md hover:bg-[#0055aa] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors whitespace-nowrap"
+            className="px-4 py-2 bg-[#004261] text-white text-sm rounded-md hover:bg-[#003a56] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors whitespace-nowrap"
           >
             Hinzufügen
           </button>

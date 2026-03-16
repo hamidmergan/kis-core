@@ -43,7 +43,7 @@ export default function TestphasePage() {
 
             <a
               href="mailto:hamid.mergan@th-luebeck.de"
-              className="inline-block px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] transition-colors mb-6"
+              className="inline-block px-4 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] transition-colors mb-6"
             >
               hamid.mergan@th-luebeck.de
             </a>
@@ -51,7 +51,7 @@ export default function TestphasePage() {
             <div>
               <Link
                 href="/login"
-                className="text-sm text-[#0066cc] hover:underline"
+                className="text-sm text-[#004261] hover:underline"
               >
                 Zurück zur Anmeldung
               </Link>

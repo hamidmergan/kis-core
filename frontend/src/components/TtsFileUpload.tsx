@@ -82,9 +82,9 @@ export default function TtsFileUpload({ onFileSelected, disabled = false }: TtsF
         onDragLeave={handleDragLeave}
         className={`
           border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors
-          ${dragActive ? "border-[#0066cc] bg-blue-50" : "border-gray-300 hover:border-gray-400"}
+          ${dragActive ? "border-[#004261] bg-blue-50" : "border-gray-300 hover:border-gray-400"}
           ${disabled ? "opacity-50 cursor-not-allowed" : ""}
-          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]
+          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261]
         `}
       >
         <div className="text-gray-500">
@@ -103,7 +103,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false }: TtsF
             />
           </svg>
           <p className="text-sm font-medium">
-            Datei hierher ziehen oder <span className="text-[#0066cc] underline">durchsuchen</span>
+            Datei hierher ziehen oder <span className="text-[#004261] underline">durchsuchen</span>
           </p>
           <p className="text-xs text-gray-400 mt-1">
             {ACCEPTED_EXTENSIONS.join(", ")}

@@ -134,7 +134,7 @@ export default function UebersetzungPage() {
                     }
                   }}
                   disabled
-                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="auto">Automatisch erkennen</option>
                   {languages.map((l) => (
@@ -160,7 +160,7 @@ export default function UebersetzungPage() {
                     }
                   }}
                   disabled
-                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {languages.map((l) => (
                     <option key={l.id} value={l.id}>{l.label}</option>
@@ -179,7 +179,7 @@ export default function UebersetzungPage() {
                 value={translationProvider}
                 onChange={(e) => setTranslationProvider(e.target.value)}
                 disabled={processing}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {providers.map((p) => (
                   <option key={p.id} value={p.id}>{p.label}</option>
@@ -192,7 +192,7 @@ export default function UebersetzungPage() {
             <button
               onClick={handleSubmit}
               disabled={!pendingFile || processing}
-              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="self-start px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {processing && (
                 <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />

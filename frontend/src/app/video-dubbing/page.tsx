@@ -242,7 +242,7 @@ export default function VideoDubbingPage() {
               className={`
                 relative flex flex-col items-center justify-center
                 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-colors
-                ${dragOver ? "border-[#0066cc] bg-[#0066cc]/5" : ""}
+                ${dragOver ? "border-[#004261] bg-[#004261]/5" : ""}
                 ${file && !dragOver ? "border-green-400 bg-green-50" : ""}
                 ${!file && !dragOver ? "border-gray-300 hover:border-gray-400" : ""}
                 ${isProcessing ? "opacity-50 pointer-events-none" : ""}
@@ -273,7 +273,7 @@ export default function VideoDubbingPage() {
                   </svg>
                   <p className="text-sm text-gray-600">
                     Eine Datei hierher ziehen oder{" "}
-                    <span className="text-[#0066cc] font-medium">durchsuchen</span>
+                    <span className="text-[#004261] font-medium">durchsuchen</span>
                   </p>
                   <p className="text-xs text-gray-400 mt-1">Nur eine .mp4- oder .mp3-Datei</p>
                 </>
@@ -290,7 +290,7 @@ export default function VideoDubbingPage() {
                 checked={dropBackground}
                 onChange={(e) => setDropBackground(e.target.checked)}
                 disabled={isProcessing}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc] disabled:opacity-50"
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#004261] focus:ring-[#004261] disabled:opacity-50"
               />
               <div>
                 <span className="text-sm font-medium text-gray-700">Hintergrundgeräusche entfernen</span>
@@ -306,7 +306,7 @@ export default function VideoDubbingPage() {
                   checked={softSubtitles}
                   onChange={(e) => setSoftSubtitles(e.target.checked)}
                   disabled={isProcessing}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc] disabled:opacity-50"
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#004261] focus:ring-[#004261] disabled:opacity-50"
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-700">Soft Subtitles in MP4 einbetten</span>
@@ -323,7 +323,7 @@ export default function VideoDubbingPage() {
             <button
               onClick={handleSubmit}
               disabled={!file || isProcessing}
-              className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Dubbing starten
             </button>
@@ -353,7 +353,7 @@ export default function VideoDubbingPage() {
               {/* Processing */}
               {isProcessing && (
                 <div className="flex items-center gap-3">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0066cc] flex-shrink-0" />
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#004261] flex-shrink-0" />
                   <div>
                     <p className="text-sm text-gray-700">{progressLabel || "Dubbing läuft..."}</p>
                     {state === "processing" && (
@@ -379,7 +379,7 @@ export default function VideoDubbingPage() {
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Audio</p>
                       <button
                         onClick={() => downloadBlob(audioBlob, outputName || `${stem}_dubbed_en.mp3`)}
-                        className="px-4 py-2 bg-[#0066cc] text-white text-sm rounded-md hover:bg-[#0055aa] transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-[#004261] text-white text-sm rounded-md hover:bg-[#003a56] transition-colors flex items-center gap-2"
                       >
                         <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -395,7 +395,7 @@ export default function VideoDubbingPage() {
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Video</p>
                       <button
                         onClick={() => downloadBlob(videoBlob, outputName || `${stem}_dubbed_en.mp4`)}
-                        className="px-4 py-2 bg-[#0066cc] text-white text-sm rounded-md hover:bg-[#0055aa] transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-[#004261] text-white text-sm rounded-md hover:bg-[#003a56] transition-colors flex items-center gap-2"
                       >
                         <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

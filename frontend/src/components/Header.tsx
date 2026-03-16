@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SignOut, UserCircleGear } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/JobsPanel";
 
@@ -25,29 +26,40 @@ export default function Header({ showLogout = false }: HeaderProps) {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-      <h1 className="text-xl font-bold text-[#0066cc]">
-        <Link href="/" aria-label="Zur Startseite">
+    <header
+      style={{ backgroundColor: "#004261" }}
+      className="px-5 py-3 flex items-center justify-between"
+    >
+      <h1 className="text-lg font-semibold tracking-tight">
+        <Link
+          href="/"
+          aria-label="Zur Startseite"
+          className="text-white hover:opacity-80 transition-opacity"
+        >
           KIS
         </Link>
       </h1>
+
       {showLogout && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <JobsPanel />
+
           {isAdmin && (
             <Link
               href="/admin"
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              aria-label="Admin"
+              className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
-              Admin
+              <UserCircleGear size={18} weight="bold" />
             </Link>
           )}
+
           <button
             onClick={handleLogout}
             aria-label="Abmelden"
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
           >
-            Abmelden
+            <SignOut size={17} weight="bold" />
           </button>
         </div>
       )}

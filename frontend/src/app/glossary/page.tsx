@@ -171,7 +171,7 @@ export default function GlossaryPage() {
                 onClick={() => setCreatingNew(true)}
                 disabled={glossaries.length >= MAX_GLOSSARIES}
                 title={glossaries.length >= MAX_GLOSSARIES ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})` : undefined}
-                className="px-3 py-1.5 text-sm bg-[#0066cc] text-white rounded-md hover:bg-[#0055aa] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-1.5 text-sm bg-[#004261] text-white rounded-md hover:bg-[#003a56] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {glossaries.length >= MAX_GLOSSARIES
                   ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})`
@@ -196,12 +196,12 @@ export default function GlossaryPage() {
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreatingNew(false); }}
                 placeholder="Name des Glossars"
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none"
               />
               <button
                 onClick={handleCreate}
                 disabled={!newName.trim()}
-                className="px-4 py-2 text-sm bg-[#0066cc] text-white rounded-md hover:bg-[#0055aa] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 text-sm bg-[#004261] text-white rounded-md hover:bg-[#003a56] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Erstellen
               </button>
@@ -265,7 +265,7 @@ export default function GlossaryPage() {
                       }}
                       onBlur={() => handleRename(g.id)}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex-1 rounded border border-gray-300 px-2 py-0.5 text-sm focus:border-[#0066cc] focus:outline-none"
+                      className="flex-1 rounded border border-gray-300 px-2 py-0.5 text-sm focus:border-[#004261] focus:outline-none"
                     />
                   ) : (
                     <div className="flex-1 min-w-0">
@@ -319,7 +319,7 @@ export default function GlossaryPage() {
                   onChange={(e) => { setNewEntryDe(e.target.value); setEntryError(""); }}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}
                   placeholder="Deutsch"
-                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none"
                 />
                 <input
                   type="text"
@@ -327,13 +327,13 @@ export default function GlossaryPage() {
                   onChange={(e) => { setNewEntryEn(e.target.value); setEntryError(""); }}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}
                   placeholder="Englisch"
-                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
+                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none"
                 />
                 <button
                   onClick={handleAddEntry}
                   disabled={!newEntryDe.trim() || !newEntryEn.trim() || Object.keys(selectedGlossary.entries).length >= MAX_ENTRIES_PER_GLOSSARY}
                   title={Object.keys(selectedGlossary.entries).length >= MAX_ENTRIES_PER_GLOSSARY ? `Maximum erreicht (${MAX_ENTRIES_PER_GLOSSARY}/${MAX_ENTRIES_PER_GLOSSARY})` : undefined}
-                  className="px-4 py-2 text-sm bg-[#0066cc] text-white rounded-md hover:bg-[#0055aa] disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  className="px-4 py-2 text-sm bg-[#004261] text-white rounded-md hover:bg-[#003a56] disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >
                   {Object.keys(selectedGlossary.entries).length >= MAX_ENTRIES_PER_GLOSSARY
                     ? `Maximum erreicht (${MAX_ENTRIES_PER_GLOSSARY}/${MAX_ENTRIES_PER_GLOSSARY})`

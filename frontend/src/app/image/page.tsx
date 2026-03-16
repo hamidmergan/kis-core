@@ -22,7 +22,7 @@ function validateImageFile(file: File): string | null {
 function Spinner({ label }: { label: string }) {
   return (
     <div className="flex justify-center items-center gap-2 mt-6" role="status" aria-live="polite">
-      <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-[#0066cc]" />
+      <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-[#004261]" />
       <p className="text-sm text-gray-500 animate-pulse">{label}</p>
     </div>
   );
@@ -55,7 +55,7 @@ function UploadZone({
       onClick={() => inputRef.current?.click()}
       className={`relative mb-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
         dragOver
-          ? "border-[#0066cc] bg-[#0066cc]/5"
+          ? "border-[#004261] bg-[#004261]/5"
           : file
             ? "border-green-400 bg-green-50"
             : "border-gray-300 hover:border-gray-400"
@@ -86,7 +86,7 @@ function UploadZone({
           </svg>
           <p className="text-sm text-gray-600">
             Bild hierher ziehen oder{" "}
-            <span className="text-[#0066cc] font-medium">durchsuchen</span>
+            <span className="text-[#004261] font-medium">durchsuchen</span>
           </p>
           <p className="text-xs text-gray-400 mt-1">PNG oder JPG</p>
         </>
@@ -305,7 +305,7 @@ export default function ImagePage() {
               onClick={() => setActiveTab(id)}
               className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeTab === id
-                  ? "border-[#0066cc] text-[#0066cc]"
+                  ? "border-[#004261] text-[#004261]"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -322,7 +322,7 @@ export default function ImagePage() {
               onChange={(e) => setGenPrompt(e.target.value)}
               rows={4}
               placeholder="Beschreiben Sie das gewünschte Bild ..."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none mb-4"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none mb-4"
             />
 
             <div className="mb-4">
@@ -335,7 +335,7 @@ export default function ImagePage() {
                     onClick={() => setGenSize(s)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                       genSize === s
-                        ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
+                        ? "border-[#004261] bg-[#004261]/10 text-[#004261]"
                         : "border-gray-300 text-gray-600 hover:bg-gray-50"
                     }`}
                   >
@@ -355,7 +355,7 @@ export default function ImagePage() {
                     onClick={() => setGenN(c)}
                     className={`w-10 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                       genN === c
-                        ? "border-[#0066cc] bg-[#0066cc]/10 text-[#0066cc]"
+                        ? "border-[#004261] bg-[#004261]/10 text-[#004261]"
                         : "border-gray-300 text-gray-600 hover:bg-gray-50"
                     }`}
                   >
@@ -368,7 +368,7 @@ export default function ImagePage() {
             <button
               onClick={handleGenerate}
               disabled={!genPrompt.trim() || genLoading}
-              className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {genLoading ? "Wird verarbeitet…" : "Bild generieren"}
             </button>
@@ -406,7 +406,7 @@ export default function ImagePage() {
                   <a
                     href={`/api/jobs/${genJobUuid}/download`}
                     download
-                    className="mt-4 w-full px-3 py-1.5 bg-[#0066cc] text-white text-xs font-medium rounded-md hover:bg-[#0055aa] transition-colors flex items-center justify-center gap-2"
+                    className="mt-4 w-full px-3 py-1.5 bg-[#004261] text-white text-xs font-medium rounded-md hover:bg-[#003a56] transition-colors flex items-center justify-center gap-2"
                   >
                     <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -449,13 +449,13 @@ export default function ImagePage() {
               onChange={(e) => setEditPrompt(e.target.value)}
               rows={3}
               placeholder="Beschreiben Sie die gewünschte Änderung."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none mb-4"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none mb-4"
             />
 
             <button
               onClick={handleEditSubmit}
               disabled={!editFile || !editPrompt.trim() || editLoading}
-              className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {editLoading ? "Wird verarbeitet…" : "Bild bearbeiten"}
             </button>
@@ -513,13 +513,13 @@ export default function ImagePage() {
               onChange={(e) => setAnalyzePrompt(e.target.value)}
               rows={3}
               placeholder="Spezifische Frage stellen (optional) – sonst wird das Bild automatisch vollständig beschrieben."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none mb-4"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none mb-4"
             />
 
             <button
               onClick={handleAnalyzeSubmit}
               disabled={!analyzeFile || analyzeLoading}
-              className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {analyzeLoading ? "Wird verarbeitet…" : "Analysieren"}
             </button>
@@ -543,7 +543,7 @@ export default function ImagePage() {
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="text-xs text-[#0066cc] hover:underline flex items-center gap-1"
+                  className="text-xs text-[#004261] hover:underline flex items-center gap-1"
                 >
                   <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

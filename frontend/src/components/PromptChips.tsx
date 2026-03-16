@@ -23,7 +23,7 @@ export default function PromptChips({ onChipClick, disabled, chips }: PromptChip
           type="button"
           onClick={() => onChipClick(chip)}
           disabled={disabled}
-          className="px-3 py-1 text-xs rounded-full border border-[#0066cc] text-[#0066cc] hover:bg-[#e8f0fb] transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]"
+          className="px-3 py-1 text-xs rounded-full border border-[#004261] text-[#004261] hover:bg-[#e8f0fb] transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261]"
         >
           {chip}
         </button>

@@ -105,7 +105,7 @@ export default function TranscriptionPage() {
                     checked={responseFormat === opt.value}
                     onChange={() => setResponseFormat(opt.value)}
                     disabled={processing}
-                    className="accent-[#0066cc]"
+                    className="accent-[#004261]"
                   />
                   <span className="text-sm text-gray-700">{opt.label}</span>
                 </label>
@@ -117,7 +117,7 @@ export default function TranscriptionPage() {
             <button
               onClick={handleSubmit}
               disabled={!pendingFile || processing}
-              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="self-start px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {processing && (
                 <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />

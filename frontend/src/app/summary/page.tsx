@@ -133,8 +133,8 @@ export default function ZusammenfassungPage() {
             onDragLeave={() => setDragActive(false)}
             className={[
               "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]",
-              dragActive ? "border-[#0066cc] bg-blue-50" : selectedFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-gray-400",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261]",
+              dragActive ? "border-[#004261] bg-blue-50" : selectedFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-gray-400",
               processing ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
             ].join(" ")}
           >
@@ -150,7 +150,7 @@ export default function ZusammenfassungPage() {
               <>
                 <p className="text-sm font-medium text-gray-500">
                   Datei hierher ziehen oder{" "}
-                  <span className="text-[#0066cc] underline">durchsuchen</span>
+                  <span className="text-[#004261] underline">durchsuchen</span>
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   {ACCEPTED_EXTENSIONS.join(", ")}
@@ -174,7 +174,7 @@ export default function ZusammenfassungPage() {
             <button
               onClick={handleSubmit}
               disabled={!selectedFile || processing}
-              className="self-start px-5 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="self-start px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {processing && (
                 <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />

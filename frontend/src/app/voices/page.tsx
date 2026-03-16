@@ -239,7 +239,7 @@ function StimmenPageInner() {
               onClick={() => setActiveTab("elevenlabs")}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "elevenlabs"
-                  ? "border-[#0066cc] text-[#0066cc]"
+                  ? "border-[#004261] text-[#004261]"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -252,7 +252,7 @@ function StimmenPageInner() {
               onClick={() => setActiveTab("kokoro")}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "kokoro"
-                  ? "border-[#0066cc] text-[#0066cc]"
+                  ? "border-[#004261] text-[#004261]"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -280,7 +280,7 @@ function StimmenPageInner() {
                   </div>
                   <button
                     onClick={() => handlePlayKokoro(voice.voice_id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-blue-50 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#004261] border border-[#004261] rounded-md hover:bg-blue-50 transition-colors"
                     aria-label={playingId === voice.voice_id ? "Stoppen" : "Anhören"}
                   >
                     {loadingKokoroId === voice.voice_id ? (
@@ -341,7 +341,7 @@ function StimmenPageInner() {
                 {voice.preview_url ? (
                   <button
                     onClick={() => handlePlay(voice)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-blue-50 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#004261] border border-[#004261] rounded-md hover:bg-blue-50 transition-colors"
                     aria-label={playingId === voice.voice_id ? "Stoppen" : "Anhören"}
                   >
                     {playingId === voice.voice_id ? (

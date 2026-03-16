@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
 import Header from "@/components/Header";
+import { getToolConfigByJobTool } from "@/lib/toolConfig";
 
 interface MyJob {
   job_uuid: string;
@@ -177,7 +178,7 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
     <button
       onClick={handleClick}
       disabled={busy}
-      className="inline-flex items-center gap-1 text-xs text-[#0066cc] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full disabled:opacity-60 disabled:cursor-not-allowed"
+      className="inline-flex items-center gap-1 text-xs text-[#004261] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {busy ? (
         <svg className="w-3 h-3 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -621,7 +622,7 @@ export default function MeineJobsPage() {
 
         {/* Search/filter bar */}
         <div className="mb-4 flex flex-wrap gap-2 items-center">
-          <div className="flex-1 min-w-[220px] flex items-center border border-gray-300 rounded-md bg-white focus-within:ring-2 focus-within:ring-[#0066cc]">
+          <div className="flex-1 min-w-[220px] flex items-center border border-gray-300 rounded-md bg-white focus-within:ring-2 focus-within:ring-[#004261]">
             <input
               type="text"
               value={q}
@@ -650,14 +651,14 @@ export default function MeineJobsPage() {
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             title="Von"
-            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             title="Bis"
-            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
           />
           <select
             value={limit}
@@ -699,7 +700,13 @@ export default function MeineJobsPage() {
                   <li key={job.job_uuid} className={`px-5 py-4 bg-white ${expired ? "opacity-50" : "hover:bg-gray-50"}`}>
                     <div className="flex items-stretch justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-800">{job.tool_label}</p>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: getToolConfigByJobTool(job.tool).color }}
+                          />
+                          <p className="text-sm font-medium text-gray-800">{job.tool_label}</p>
+                        </div>
                         <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
                         {job.tts_params?.voice_label || job.tts_params?.provider ? (
                           <p className="text-xs text-gray-400 mt-0.5">
@@ -769,7 +776,7 @@ export default function MeineJobsPage() {
                     onClick={() => setOffset((p - 1) * limit)}
                     className={`px-3 py-1.5 text-sm border rounded-md ${
                       p === currentPage
-                        ? "bg-[#0066cc] text-white border-[#0066cc]"
+                        ? "bg-[#004261] text-white border-[#004261]"
                         : "border-gray-300 hover:bg-gray-50"
                     }`}
                   >

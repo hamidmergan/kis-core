@@ -50,7 +50,7 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-[80vh] px-4">
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h1 className="text-2xl font-bold text-[#0066cc] text-center mb-6">
+          <h1 className="text-2xl font-bold text-[#004261] text-center mb-6">
             <Link href="/" aria-label="Zur Startseite">
               KIS
             </Link>
@@ -69,7 +69,7 @@ export default function LoginPage() {
                 autoComplete="username"
                 required
                 disabled={loading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc] focus:border-transparent disabled:opacity-50"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#004261] focus:border-transparent disabled:opacity-50"
               />
             </div>
 
@@ -86,7 +86,7 @@ export default function LoginPage() {
                 required
                 disabled={loading}
                 aria-describedby={error ? "login-error" : undefined}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc] focus:border-transparent disabled:opacity-50"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#004261] focus:border-transparent disabled:opacity-50"
               />
             </div>
 
@@ -100,7 +100,7 @@ export default function LoginPage() {
               type="submit"
               disabled={loading || !username || !password}
               aria-label="Anmelden"
-              className="w-full px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+              className="w-full px-4 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
             >
               {loading ? "Wird angemeldet..." : "Anmelden"}
             </button>
