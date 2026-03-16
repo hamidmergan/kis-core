@@ -86,7 +86,7 @@ export default function TranscriptionPage() {
       <Header showLogout />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <section>
-          <h1 className="text-xl font-bold text-gray-900 mb-1">Transkription</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-1">Speech-to-Text</h1>
           <p className="text-sm text-gray-500 mb-6">
             Laden Sie eine Audio- oder Videodatei hoch, um sie in der Originalsprache zu transkribieren.
           </p>

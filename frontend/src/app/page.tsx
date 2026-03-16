@@ -13,6 +13,13 @@ const ALL_WORKFLOWS = [
       "Aus PowerPoint-Dateien vertonte Videos mit übersetzten Folien generieren.",
     href: "/screencast",
   },
+  {
+    key: "screencast-demo",
+    title: "Screencast-Demo",
+    description:
+      "Demo-Präsentation als vertontes Video ansehen und ausprobieren.",
+    href: "/screencast-demo",
+  },
 ];
 
 type Tool = { key: string; title: string; description: string; href: string; unavailable?: boolean };
@@ -20,7 +27,7 @@ type Tool = { key: string; title: string; description: string; href: string; una
 const ALL_TOOLS: Tool[] = [
   {
     key: "translation",
-    title: "Dokumentenübersetzung",
+    title: "Translate",
     description: "Dokumente in andere Sprachen übersetzen.",
     href: "/translation",
   },
@@ -32,7 +39,7 @@ const ALL_TOOLS: Tool[] = [
   },
   {
     key: "transcription",
-    title: "Transkription",
+    title: "Speech-to-Text",
     description: "Audio- und Videoinhalte in Text oder Untertitel umwandeln.",
     href: "/transcription",
   },
@@ -45,19 +52,19 @@ const ALL_TOOLS: Tool[] = [
   },
   {
     key: "image",
-    title: "Bild-KI",
+    title: "Image",
     description: "Bilder erstellen, bearbeiten oder analysieren.",
     href: "/image",
   },
   {
     key: "glossary",
-    title: "Glossare",
+    title: "Glossary",
     description: "Begriffslisten für Übersetzungen und Skripte verwalten.",
     href: "/glossary",
   },
   {
     key: "summary",
-    title: "Zusammenfassung",
+    title: "Summarize",
     description: "Dokumente und Medieninhalte zusammenfassen.",
     href: "/summary",
   },

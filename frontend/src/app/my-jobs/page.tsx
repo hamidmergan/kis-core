@@ -436,13 +436,15 @@ export default function MeineJobsPage() {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
+  const ss = (key: string, fallback: string) => typeof window !== "undefined" ? (sessionStorage.getItem(key) ?? fallback) : fallback;
+  const [q, setQ] = useState(() => ss("mj_q", ""));
+  const [debouncedQ, setDebouncedQ] = useState(() => ss("mj_q", ""));
+  const [toolFilter, setToolFilter] = useState(() => ss("mj_tool", ""));
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
-  const [limit, setLimit] = useState(10);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [limit, setLimit] = useState(() => Number(ss("mj_limit", "10")));
+  const [dateFrom, setDateFrom] = useState(() => ss("mj_from", ""));
+  const [dateTo, setDateTo] = useState(() => ss("mj_to", ""));
   const [isAdmin, setIsAdmin] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<MyJob | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -463,8 +465,20 @@ export default function MeineJobsPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [q]);
 
-  // Reset offset when limit or dates change
-  useEffect(() => { setOffset(0); }, [limit, dateFrom, dateTo]);
+  // Persist filters to sessionStorage
+  useEffect(() => { sessionStorage.setItem("mj_q", q); }, [q]);
+  useEffect(() => { sessionStorage.setItem("mj_tool", toolFilter); }, [toolFilter]);
+  useEffect(() => { sessionStorage.setItem("mj_limit", String(limit)); }, [limit]);
+  useEffect(() => { sessionStorage.setItem("mj_from", dateFrom); }, [dateFrom]);
+  useEffect(() => { sessionStorage.setItem("mj_to", dateTo); }, [dateTo]);
+
+  const resetFilters = () => {
+    setQ(""); setToolFilter(""); setDateFrom(""); setDateTo(""); setLimit(10); setOffset(0);
+  };
+  const hasActiveFilters = q || toolFilter || dateFrom || dateTo;
+
+  // Reset offset when limit, dates or tool filter change
+  useEffect(() => { setOffset(0); }, [limit, dateFrom, dateTo, toolFilter]);
 
   const fetchJobs = useCallback(async () => {
     setLoading(true);
@@ -476,6 +490,7 @@ export default function MeineJobsPage() {
       });
       if (dateFrom) params.set("date_from", dateFrom);
       if (dateTo) params.set("date_to", dateTo);
+      if (toolFilter) params.set("tool_filter", toolFilter);
       const r = await fetch(`/api/jobs/my?${params}`, { credentials: "include" });
       if (r.status === 401) { router.push("/login"); return; }
       const data = await r.json();
@@ -503,7 +518,7 @@ export default function MeineJobsPage() {
     } finally {
       setLoading(false);
     }
-  }, [offset, debouncedQ, limit, dateFrom, dateTo, router]);
+  }, [offset, debouncedQ, toolFilter, limit, dateFrom, dateTo, router]);
 
   useEffect(() => {
     fetchJobs();
@@ -604,15 +619,32 @@ export default function MeineJobsPage() {
           Es werden bis zu 20 Jobs gespeichert. Fertige Downloads sind 7 Tage verfügbar. Ältere Dateien werden automatisch entfernt.
         </p>
 
-        {/* Search/filter bar hidden for now — logic kept intact for potential future use */}
-        <div className="mb-4 flex flex-wrap gap-2 items-center hidden">
-          <input
-            type="text"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Dateiname suchen..."
-            className="flex-1 min-w-[180px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
-          />
+        {/* Search/filter bar */}
+        <div className="mb-4 flex flex-wrap gap-2 items-center">
+          <div className="flex-1 min-w-[220px] flex items-center border border-gray-300 rounded-md bg-white focus-within:ring-2 focus-within:ring-[#0066cc]">
+            <input
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Suche"
+              className="flex-1 text-sm px-3 py-2 bg-transparent outline-none min-w-0"
+            />
+            <div className="w-px h-5 bg-gray-200 shrink-0" />
+            <select
+              value={toolFilter}
+              onChange={(e) => setToolFilter(e.target.value)}
+              className="text-sm px-2 py-2 bg-transparent outline-none text-gray-500 cursor-pointer appearance-none pr-3"
+            >
+              <option value="">Alle Tools</option>
+              <option value="transcription">Transkription</option>
+              <option value="translation">Übersetzung</option>
+              <option value="summary">Zusammenfassung</option>
+              <option value="tts">Text-to-Speech</option>
+              <option value="screencast">Screencast</option>
+              <option value="video_dubbing">Video-Dubbing</option>
+              <option value="image">Bild</option>
+            </select>
+          </div>
           <input
             type="date"
             value={dateFrom}
@@ -630,7 +662,7 @@ export default function MeineJobsPage() {
           <select
             value={limit}
             onChange={(e) => setLimit(Number(e.target.value))}
-            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+            className="hidden"
           >
             <option value={10}>10 pro Seite</option>
             <option value={25}>25 pro Seite</option>
@@ -639,6 +671,14 @@ export default function MeineJobsPage() {
           <span className="text-xs text-gray-400 whitespace-nowrap">
             {total} Ergebnis{total !== 1 ? "se" : ""}
           </span>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="text-xs text-gray-400 hover:text-gray-700 underline whitespace-nowrap"
+            >
+              Filter zurücksetzen
+            </button>
+          )}
         </div>
 
         {loading ? (

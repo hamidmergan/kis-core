@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .env
 output/
+backend/demo/
 *.log
 .DS_Store
 

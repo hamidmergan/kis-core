@@ -110,7 +110,7 @@ export default function ZusammenfassungPage() {
       <Header showLogout />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <section>
-          <h1 className="text-xl font-bold text-gray-900 mb-1">Zusammenfassung</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-1">Summarize</h1>
           <p className="text-sm text-gray-500 mb-6">
             Laden Sie eine Datei hoch, um deren Inhalt automatisch zusammenzufassen. Unterstützt werden
              Untertitel (srt, vtt) sowie Dokumente (txt, md, pptx, docx).

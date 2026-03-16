@@ -463,6 +463,7 @@ def run_screencast_auto(
     voice_label: str = "",
     source_lang: str = "DE",
     target_lang: str = "EN-US",
+    dpi: int = 100,
 ):
     """Full auto pipeline: translate → scripts → TTS → render."""
     from celery.exceptions import SoftTimeLimitExceeded
@@ -527,6 +528,7 @@ def run_screencast_auto(
                 voice_id=voice_id,
                 speed=speed,
                 slide_pause=0.5,
+                dpi=dpi,
                 provider=provider,
             )
 
@@ -738,6 +740,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 params["voice_id"], params["speed"], params["glossary_json"],
                 params["provider"], params["voice_label"],
                 params["source_lang"], params["target_lang"],
+                params.get("dpi", 100),
             ])
         elif dispatch_as == "translate":
             task = run_screencast_translate.apply_async(args=[

@@ -157,6 +157,18 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
     return result
 
 
+_TOOL_FILTER_GROUPS: dict[str, list[str]] = {
+    "screencast": ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"],
+    "image": ["image_generate", "image_edit", "image_analyze"],
+}
+
+
+def _expand_tool_filter(tool_filter: str) -> list[str] | None:
+    if not tool_filter:
+        return None
+    return _TOOL_FILTER_GROUPS.get(tool_filter, [tool_filter])
+
+
 @router.get("/my")
 async def get_my_jobs(
     current_user: dict = Depends(get_current_user),
@@ -165,11 +177,17 @@ async def get_my_jobs(
     q: str = Query(default=""),
     date_from: str = Query(default=""),
     date_to: str = Query(default=""),
+    tool_filter: str = Query(default=""),
 ):
     """Return jobs for the current user with optional search and date filters."""
     user_id = current_user.get("user_id", 0)
     extra_tools = _tools_matching_query(q) if q else None
-    jobs, total = db.get_jobs_by_user(user_id, limit=limit, offset=offset, q=q, date_from=date_from, date_to=date_to, extra_tools=extra_tools)
+    tool_filter_list = _expand_tool_filter(tool_filter)
+    jobs, total = db.get_jobs_by_user(
+        user_id, limit=limit, offset=offset, q=q,
+        date_from=date_from, date_to=date_to,
+        extra_tools=extra_tools, tool_filter=tool_filter_list,
+    )
     return {"jobs": _format_job_rows(jobs), "total": total}
 
 

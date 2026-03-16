@@ -309,6 +309,7 @@ def get_jobs_by_user(
     user_id: int, limit: int = 20, offset: int = 0, q: str = "",
     date_from: str = "", date_to: str = "",
     extra_tools: list[str] | None = None,
+    tool_filter: list[str] | None = None,
 ) -> tuple[list[dict], int]:
     conditions = ["user_id = %s", "(expires_at IS NULL OR expires_at > NOW())"]
     params: list = [user_id]
@@ -320,6 +321,9 @@ def get_jobs_by_user(
         else:
             conditions.append("(original_filename ILIKE %s OR tool ILIKE %s)")
             params += [like, like]
+    if tool_filter:
+        conditions.append("tool = ANY(%s)")
+        params.append(tool_filter)
     if date_from:
         conditions.append("created_at::date >= %s::date")
         params.append(date_from)

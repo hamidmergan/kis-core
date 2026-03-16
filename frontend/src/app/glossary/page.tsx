@@ -152,7 +152,7 @@ export default function GlossaryPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <section>
           <div className="flex items-center justify-between mb-1">
-            <h1 className="text-xl font-bold text-gray-900">Glossare</h1>
+            <h1 className="text-xl font-bold text-gray-900">Glossary</h1>
             <div className="flex gap-2">
               <input
                 ref={importRef}

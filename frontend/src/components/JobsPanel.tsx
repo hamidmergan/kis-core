@@ -61,7 +61,7 @@ function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["
   if (status === "awaiting_user")
     return <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
   if (status === "queued")
-    return <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">In der Schlange</span>;
+    return <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">In der Schlange</span>;
   return <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Wartend</span>;
 }
 

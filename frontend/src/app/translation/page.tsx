@@ -106,7 +106,7 @@ export default function UebersetzungPage() {
       <Header showLogout />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <section>
-          <h1 className="text-xl font-bold text-gray-900 mb-1">Dokumentenübersetzung</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-1">Translate</h1>
           <p className="text-sm text-gray-500 mb-6">
             Übersetzen Sie Dokumente automatisch von Deutsch nach Englisch.
           </p>

@@ -187,7 +187,7 @@ function ScreencastPageInner() {
   const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
   const [sourceLang, setSourceLang] = useState<string>("DE");
   const [targetLang, setTargetLang] = useState<string>("EN-US");
-  const [fastMode, setFastMode] = useState(true);
+  const [fastMode, setFastMode] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
@@ -557,6 +557,8 @@ function ScreencastPageInner() {
     setAutoDownloadName("");
     setAutoError("");
     setAutoState("processing");
+    setStep("rendering");
+    setLoading(true);
 
     try {
       const glossaryJson = mergeToApiJson(glossaryIds);
@@ -567,6 +569,7 @@ function ScreencastPageInner() {
 
       formData.append("file", file);
       formData.append("speed", String(speed));
+      formData.append("dpi", String(dpi));
       formData.append("voice_id", voiceId);
       formData.append("voice_label", voiceLabel);
       formData.append("provider", ttsProvider);
@@ -586,22 +589,19 @@ function ScreencastPageInner() {
 
       const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
       currentJobUuidRef.current = null;
-
-      const stem = file.name.replace(/\.pptx$/i, "");
-      const { blob, filename } = await downloadJobAsBlob(jobResult.job_uuid, `${stem}_screencast_EN.mp4`);
       sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setAutoDownloadBlob(blob);
-      setAutoDownloadName(filename);
       setAutoState("done");
+      await processRenderResultFromJob(jobResult);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       setFailedRenderJobUuid(currentJobUuidRef.current);
       setFailedRenderIsAuto(true);
-      setAutoError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setAutoState("error");
+      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [file, speed, voiceId, sourceLang, targetLang, glossaryIds, mergeToApiJson, checkBeforeSubmit, onRenderProgress]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, speed, dpi, voiceId, sourceLang, targetLang, glossaryIds, mergeToApiJson, checkBeforeSubmit, onRenderProgress, goError]);
 
   const handleAutoDownload = () => {
     if (!autoDownloadBlob) return;
@@ -1040,15 +1040,8 @@ function ScreencastPageInner() {
         }
         if (jobData.status === "success") {
           setFailedRenderJobUuid(null);
-          if (failedRenderIsAuto) {
-            const stem = file?.name.replace(/\.pptx$/i, "") || "screencast";
-            const { blob, filename } = await downloadJobAsBlob(uuid, `${stem}_screencast_EN.mp4`);
-            setAutoDownloadBlob(blob);
-            setAutoDownloadName(filename);
-            setAutoState("done");
-          } else {
-            await processRenderResultFromJob(jobData);
-          }
+          if (failedRenderIsAuto) setAutoState("done");
+          await processRenderResultFromJob(jobData);
           return;
         }
         // Job is running — fall through to polling below
@@ -1061,14 +1054,10 @@ function ScreencastPageInner() {
       currentJobUuidRef.current = uuid;
       sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid, isAuto: failedRenderIsAuto }));
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      if (failedRenderIsAuto) {
-        setAutoState("processing");
-        setAutoError("");
-      } else {
-        setStep("rendering");
-        setErrorMessage("");
-        setLoading(true);
-      }
+      setStep("rendering");
+      setErrorMessage("");
+      setLoading(true);
+      if (failedRenderIsAuto) { setAutoState("processing"); setAutoError(""); }
       const signal = newSignal();
       const jobResult = await pollJob(
         uuid, onRenderProgress, 3000, signal,
@@ -1078,26 +1067,15 @@ function ScreencastPageInner() {
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       setFailedRenderJobUuid(null);
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      if (failedRenderIsAuto) {
-        const stem = file?.name.replace(/\.pptx$/i, "") || "screencast";
-        const { blob, filename } = await downloadJobAsBlob(uuid, `${stem}_screencast_EN.mp4`);
-        setAutoDownloadBlob(blob);
-        setAutoDownloadName(filename);
-        setAutoState("done");
-      } else {
-        await processRenderResultFromJob(jobResult);
-      }
+      if (failedRenderIsAuto) setAutoState("done");
+      await processRenderResultFromJob(jobResult);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       const msg = err instanceof Error ? err.message : "Retry fehlgeschlagen";
       setFailedRenderJobUuid(uuid);
-      if (failedRenderIsAuto) {
-        setAutoError(msg);
-        setAutoState("error");
-      } else {
-        goError(msg);
-      }
+      if (failedRenderIsAuto) { setAutoState("error"); setAutoError(msg); }
+      goError(msg);
     }
   }, [failedRenderJobUuid, failedRenderIsAuto, file, onRenderProgress, processRenderResultFromJob, newSignal, goError]);
 
@@ -1128,8 +1106,9 @@ function ScreencastPageInner() {
         currentJobUuidRef.current = uuid;
         setFailedRenderIsAuto(isAuto);
         setRenderProgressLabel("Verbindung wiederhergestellt…");
-        if (isAuto) { setAutoState("processing"); }
-        else { setStep("rendering"); setLoading(true); }
+        setStep("rendering");
+        setLoading(true);
+        if (isAuto) setAutoState("processing");
         const ctrl = new AbortController();
         abortControllerRef.current = ctrl;
         pollJob(uuid, onRenderProgress, 3000, ctrl.signal,
@@ -1139,20 +1118,15 @@ function ScreencastPageInner() {
             currentJobUuidRef.current = null;
             setFailedRenderJobUuid(null);
             window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-            if (isAuto) {
-              downloadJobAsBlob(uuid, "screencast_EN.mp4").then(({ blob, filename }) => {
-                setAutoDownloadBlob(blob); setAutoDownloadName(filename); setAutoState("done");
-              });
-            } else {
-              processRenderResultFromJob(jobResult);
-            }
+            if (isAuto) setAutoState("done");
+            processRenderResultFromJob(jobResult);
           })
           .catch(err => {
             if (err instanceof Error && err.name === "AbortError") return;
             sessionStorage.removeItem(RENDER_SESSION_KEY);
             setFailedRenderJobUuid(uuid);
-            if (isAuto) { setAutoError(err.message); setAutoState("error"); }
-            else { goError(err.message); }
+            if (isAuto) { setAutoState("error"); }
+            goError(err.message);
           });
       })
       .catch(() => sessionStorage.removeItem(RENDER_SESSION_KEY));
@@ -1804,7 +1778,7 @@ function ScreencastPageInner() {
 
             {/* Thumbnail grid — hidden in fast mode */}
             {!fastMode && (
-              <div className="flex flex-wrap gap-2 mb-6">
+              <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {slides.map((slide, i) => (
                   <button
                     key={i}
@@ -2072,8 +2046,7 @@ function ScreencastPageInner() {
                                 />
                                 <div className="flex items-center justify-between mt-2">
                                   <span className="text-xs text-gray-400">
-                                    ca. {wc} Wörter · ~{dur}{" "}
-                                    Sek
+                                    ca. {wc} Wörter
                                   </span>
                                   <div className="flex gap-2">
                                     <button
@@ -2097,8 +2070,7 @@ function ScreencastPageInner() {
                               <>
                                 <div className="flex items-start justify-between mb-2">
                                   <span className="text-xs text-gray-400">
-                                    ca. {wc} Wörter · ~{dur}{" "}
-                                    Sek
+                                    ca. {wc} Wörter
                                   </span>
                                   <div className="flex items-center gap-1">
                                     {/* KI-Regenerierung */}
@@ -2413,9 +2385,7 @@ function ScreencastPageInner() {
                 <span className="font-medium">{slides.length}</span>{" "}
                 Folien · ca.{" "}
                 <span className="font-medium">{totalWords}</span>{" "}
-                Wörter · geschätzte Dauer{" "}
-                <span className="font-medium">~{totalDuration} Sek</span>{" "}
-                ·{" "}
+                Wörter ·{" "}
                 <span className={`font-medium ${scriptOverLimit ? "text-red-600" : ""}`}>
                   {totalChars.toLocaleString("de-DE")}
                 </span>{" "}
@@ -2490,7 +2460,8 @@ function ScreencastPageInner() {
                   window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
                 }
                 setRenderProgressLabel("");
-                setStep("tts-settings");
+                setAutoState("idle");
+                setStep(mode === "auto" ? "upload" : "tts-settings");
                 setLoading(false);
               }}
               className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
@@ -2527,10 +2498,6 @@ function ScreencastPageInner() {
             <h2 className="text-lg font-bold text-gray-900 mb-2 text-center">
               Fertig! Ihr Screencast ist bereit.
             </h2>
-            <p className="text-xs text-gray-400 mb-6 text-center">
-              {slides.length} Folien · ca. {totalDuration} Sek
-              Gesamtdauer
-            </p>
 
             {/* Video player */}
             {videoUrl && (

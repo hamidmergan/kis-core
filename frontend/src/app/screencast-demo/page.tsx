@@ -1,36 +1,60 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import PromptChips from "@/components/PromptChips";
-import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
+import { api, parseDetail } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
-import type { ScreencastStep, SlideData } from "@/types";
+import type {
+  ScreencastStep,
+  SlideData,
+} from "@/types";
 
 interface Voice {
   voice_id: string;
   label: string;
   description?: string | null;
+  use_case?: string | null;
 }
 
 const DESCRIPTION_DE: Record<string, string> = {
-  "Laid-Back": "Entspannt", "Casual": "Locker", "Formal": "Förmlich",
-  "Friendly": "Freundlich", "Warm": "Warm", "Authoritative": "Autoritär",
-  "Confident": "Selbstsicher", "Calm": "Ruhig", "Energetic": "Energetisch",
-  "Upbeat": "Lebhaft", "Serious": "Sachlich", "Raspy": "Rau",
-  "Smooth": "Weich", "Deep": "Tief", "Resonant": "Resonant",
-  "Crisp": "Klar", "Soft": "Sanft", "Husky": "Heiser", "Clear": "Deutlich",
-  "Conversational": "Gesprächig", "Narrative": "Erzählend",
-  "Expressive": "Ausdrucksstark", "Melodic": "Melodisch", "Mature": "Reif",
-  "Powerful": "Kraftvoll", "Bright": "Hell", "Grounded": "Geerdet",
-  "Soothing": "Beruhigend", "Professional": "Professionell",
+  "Laid-Back": "Entspannt",
+  "Casual": "Locker",
+  "Formal": "Förmlich",
+  "Friendly": "Freundlich",
+  "Warm": "Warm",
+  "Authoritative": "Autoritär",
+  "Confident": "Selbstsicher",
+  "Calm": "Ruhig",
+  "Energetic": "Energetisch",
+  "Upbeat": "Lebhaft",
+  "Serious": "Sachlich",
+  "Raspy": "Rau",
+  "Smooth": "Weich",
+  "Deep": "Tief",
+  "Resonant": "Resonant",
+  "Crisp": "Klar",
+  "Soft": "Sanft",
+  "Husky": "Heiser",
+  "Clear": "Deutlich",
+  "Conversational": "Gesprächig",
+  "Narrative": "Erzählend",
+  "Expressive": "Ausdrucksstark",
+  "Melodic": "Melodisch",
+  "Mature": "Reif",
+  "Powerful": "Kraftvoll",
+  "Bright": "Hell",
+  "Grounded": "Geerdet",
+  "Soothing": "Beruhigend",
+  "Professional": "Professionell",
 };
 
 function translateDesc(description?: string | null): string | null {
   if (!description) return null;
-  return description.split(",").map(d => DESCRIPTION_DE[d.trim()] ?? d.trim()).join(" · ");
+  return description.split(",").map(d => {
+    const key = d.trim();
+    return DESCRIPTION_DE[key] ?? key;
+  }).join(" · ");
 }
 
 const KOKORO_ACCENT_LABEL: Record<string, string> = { "American": "🇺🇸", "British": "🇬🇧" };
@@ -56,8 +80,8 @@ function estimateDuration(words: number): number {
 }
 
 const STEP_LABELS = [
-  "Start",
-  "Laden",
+  "Upload",
+  "Übersetzen",
   "Prüfen",
   "Anweisungen",
   "Skripte",
@@ -85,12 +109,17 @@ const RENDER_SESSION_KEY = "kis_screencast_demo_active_render";
 const SCREENCAST_MAX_CHARS = 100_000;
 
 function ScreencastDemoPageInner() {
+  const [ttsSettingsError, setTtsSettingsError] = useState("");
+  const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const [step, setStep] = useState<ScreencastStep>("upload");
-  const [fastMode, setFastMode] = useState(true);
-  const [dpi, setDpi] = useState(144);
   const [speed, setSpeed] = useState(0.9);
   const [slidePause, setSlidePause] = useState<number>(0.5);
-  const [userPrompt, setUserPrompt] = useState("");
+  const [dpi, setDpi] = useState(144);
+  const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
+  const [regenPrompt, setRegenPrompt] = useState("");
+  const [regenProposal, setRegenProposal] = useState<string | null>(null);
+  const [regenLoading, setRegenLoading] = useState(false);
+  const [zipDownloading, setZipDownloading] = useState(false);
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [translateJobUuid, setTranslateJobUuid] = useState("");
   const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
@@ -100,7 +129,6 @@ function ScreencastDemoPageInner() {
   const [openAccordion, setOpenAccordion] = useState<number>(0);
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [editBuffer, setEditBuffer] = useState("");
-  const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
@@ -110,24 +138,52 @@ function ScreencastDemoPageInner() {
   const [fishSpeechEnabled, setFishSpeechEnabled] = useState(false);
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
   const [providersLoaded, setProvidersLoaded] = useState(false);
-  const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
   const [audioId, setAudioId] = useState<string>("");
-  const [audioCount, setAudioCount] = useState(0);
-  const [maxReachedIdx, setMaxReachedIdx] = useState(0);
-  const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
+  const [, setAudioCount] = useState(0);
+  const [fastMode, setFastMode] = useState(false);
+  const [showSteps, setShowSteps] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isResumedJob, setIsResumedJob] = useState(false);
-  const [renderProgressLabel, setRenderProgressLabel] = useState("");
-  const [failedRenderJobUuid, setFailedRenderJobUuid] = useState<string | null>(null);
+  const [maxReachedIdx, setMaxReachedIdx] = useState(0);
+  const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
+  const [importedScripts, setImportedScripts] = useState<string[] | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const stepperRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const currentJobUuidRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
   const hasDraggedRef = useRef(false);
   const dragStartXRef = useRef(0);
   const dragScrollLeftRef = useRef(0);
-  const scriptAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    checkAuthStatus().then((status) => { setIsAdmin(!!status.is_admin); });
+  }, []);
+
+  useEffect(() => {
+    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
+      setElevenlabsEnabled(data.elevenlabs_enabled);
+      setFishSpeechEnabled(data.fish_speech_enabled);
+      setKokoroEnabled(data.kokoro_enabled ?? false);
+      if (data.kokoro_enabled) setTtsProvider("kokoro");
+      else if (data.fish_speech_enabled) setTtsProvider("fish_speech");
+      else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
+      if (data.elevenlabs_enabled) {
+        api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
+          setVoices(vData.voices);
+          if (vData.voices.length > 0) setVoiceId(vData.voices[0].voice_id);
+        }).catch(() => {});
+      }
+      if (data.kokoro_enabled) {
+        api.getJson<{ voices: Array<{ voice_id: string; name: string; accent: string; gender: string }> }>("/api/kokoro/voices")
+          .then((kData) => {
+            setKokoroVoices(kData.voices ?? []);
+            if (kData.voices?.length > 0) setVoiceId(kData.voices[0].voice_id);
+          }).catch(() => {});
+      }
+    }).catch(() => { setElevenlabsEnabled(true); }).finally(() => { setProvidersLoaded(true); });
+  }, []);
+
+  useEffect(() => { return () => { abortControllerRef.current?.abort(); }; }, []);
 
   const handleStepperMouseDown = useCallback((e: React.MouseEvent) => {
     const el = stepperRef.current;
@@ -156,109 +212,12 @@ function ScreencastDemoPageInner() {
     if (el) { el.style.cursor = ""; el.style.userSelect = ""; }
   }, []);
 
-  useEffect(() => { return () => { abortControllerRef.current?.abort(); }; }, []);
-
-  useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
-      setElevenlabsEnabled(data.elevenlabs_enabled);
-      setFishSpeechEnabled(data.fish_speech_enabled);
-      setKokoroEnabled(data.kokoro_enabled ?? false);
-      if (data.kokoro_enabled) setTtsProvider("kokoro");
-      else if (data.fish_speech_enabled) setTtsProvider("fish_speech");
-      else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
-      if (data.elevenlabs_enabled) {
-        api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
-          setVoices(vData.voices);
-          if (vData.voices.length > 0) setVoiceId(vData.voices[0].voice_id);
-        }).catch(() => {});
-      }
-      if (data.kokoro_enabled) {
-        api.getJson<{ voices: Array<{ voice_id: string; name: string; accent: string; gender: string }> }>("/api/kokoro/voices")
-          .then((kData) => {
-            setKokoroVoices(kData.voices ?? []);
-            if (kData.voices?.length > 0) setVoiceId(kData.voices[0].voice_id);
-          }).catch(() => {});
-      }
-    }).catch(() => { setElevenlabsEnabled(true); }).finally(() => { setProvidersLoaded(true); });
-  }, []);
-
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const resumeUuid = searchParams.get("resume");
-    if (!resumeUuid) return;
-    fetch(`/api/screencast/resume/${resumeUuid}`, { credentials: "include" })
-      .then((r) => {
-        if (!r.ok) throw new Error("Job nicht gefunden");
-        return r.json();
-      })
-      .then((data: { tool: string; step: string; slide_texts: string[]; scripts: string[]; slide_images: string[]; user_prompt: string }) => {
-        if (data.tool !== "screencast_demo_render") return;
-        setTranslateJobUuid(resumeUuid);
-        setIsResumedJob(true);
-        if (data.user_prompt) setUserPrompt(data.user_prompt);
-        const imgs = data.slide_images ?? [];
-        const texts = data.slide_texts ?? [];
-        const scripts = data.scripts ?? [];
-        const slideCount = Math.max(texts.length, scripts.length, imgs.length);
-        if (slideCount > 0) {
-          setSlides(Array.from({ length: slideCount }, (_, i) => ({
-            index: i,
-            imageBase64: imgs[i] ?? "",
-            extractedText: texts[i] ?? scripts[i] ?? "",
-            script: scripts[i] ?? texts[i] ?? "",
-          })));
-        }
-        const targetStep = (
-          data.step === "tts-settings" ? "tts-settings" :
-          data.step === "translation-review" ? "translation-review" :
-          data.step === "user-prompt" ? "user-prompt" :
-          "script-review"
-        ) as ScreencastStep;
-        const stepIdx = targetStep === "tts-settings" ? 5 : targetStep === "translation-review" ? 2 : targetStep === "user-prompt" ? 3 : 4;
-        setMaxReachedIdx(stepIdx);
-        setStep(targetStep);
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/jobs/check/screencast", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => { setHasActiveJob(!!data.has_active_job); })
-      .catch(() => setHasActiveJob(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    checkAuthStatus().then((status) => {
-      setIsAdmin(!!status.is_admin);
-    });
-  }, []);
-
-  const checkBeforeSubmit = useCallback(async (): Promise<boolean> => {
-    try {
-      const res = await fetch("/api/jobs/check/screencast", { credentials: "include" });
-      const data = await res.json();
-      setHasActiveJob(!!data.has_active_job);
-      if (data.has_active_job) return false;
-    } catch { /* ignore */ }
-    return true;
-  }, []);
-
-  const resetAll = useCallback((deleteJob = true) => {
+  const resetAll = useCallback(() => {
     abortControllerRef.current?.abort();
-    if (deleteJob) {
-      const uuidToDelete = translateJobUuid || currentJobUuidRef.current;
-      if (uuidToDelete) {
-        fetch(`/api/jobs/${uuidToDelete}`, { method: "DELETE", credentials: "include" }).catch(() => {});
-        window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      }
-    }
-    currentJobUuidRef.current = null;
+    sessionStorage.removeItem(RENDER_SESSION_KEY);
     setStep("upload");
-    setUserPrompt("");
+    setSpeed(0.9);
+    setSlidePause(0.5);
     setSlides([]);
     setTranslateJobUuid("");
     setDownloadBlob(null);
@@ -269,18 +228,20 @@ function ScreencastDemoPageInner() {
     setOpenAccordion(0);
     setEditingSlide(null);
     setEditBuffer("");
-    setCorrectedFileName(null);
     setLightboxIndex(null);
     setAudioId("");
     setAudioCount(0);
-    setFailedRenderJobUuid(null);
-    sessionStorage.removeItem(RENDER_SESSION_KEY);
+    setRenderProgressLabel("");
     setMaxReachedIdx(0);
-  }, [videoUrl, translateJobUuid]);
+    setScriptInputMode("generate");
+    setImportedScripts(null);
+    setImportError(null);
+    setTtsProvider(kokoroEnabled ? "kokoro" : fishSpeechEnabled ? "fish_speech" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
+  }, [videoUrl, kokoroEnabled, fishSpeechEnabled, elevenlabsEnabled]);
 
   const handleStepClick = useCallback((index: number) => {
     if (hasDraggedRef.current) return;
-    if (step === "rendering") return;
+    if (step === "rendering" || step === "generating-scripts") return;
     if (index > maxReachedIdx) return;
     const targets: Record<number, ScreencastStep | null> = {
       0: null, 1: null, 2: "translation-review", 3: "user-prompt",
@@ -291,41 +252,67 @@ function ScreencastDemoPageInner() {
     setStep(target);
   }, [maxReachedIdx, step]);
 
-  const newSignal = () => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
-    return abortControllerRef.current.signal;
-  };
-
   const goError = useCallback((msg: string) => {
     setErrorMessage(msg);
     setStep("error");
     setLoading(false);
   }, []);
 
-  const checkJobFolder = useCallback(async (): Promise<boolean> => {
-    if (!translateJobUuid) return true;
+  const handleDemoStart = useCallback(async () => {
+    setStep("translating");
+    setLoading(true);
     try {
-      const res = await fetch(`/api/screencast/folder-exists/${translateJobUuid}`, { credentials: "include" });
-      const data = await res.json();
-      if (!data.exists) { goError("Job-Daten nicht mehr verfügbar — bitte Demo neu starten"); return false; }
-    } catch { /* ignore */ }
-    return true;
-  }, [translateJobUuid, goError]);
+      const res = await fetch("/api/screencast-demo/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fast_mode: fastMode }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Fehler beim Laden der Demo" }));
+        throw new Error(parseDetail(err.detail, `Fehler: ${res.status}`));
+      }
+      const data: TranslateResponse = await res.json();
+      setTranslateJobUuid(data.translate_job_uuid ?? "demo");
+      setSlides(
+        (data.slide_texts || []).map((text, i) => ({
+          index: i,
+          imageBase64: (data.slide_images || [])[i] || "",
+          extractedText: text,
+          script: "",
+        })),
+      );
+      setLoading(false);
+      setStep("translation-review");
+    } catch (err) {
+      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+    }
+  }, [fastMode, goError]);
 
-  const onRenderProgress = useCallback((status: JobStatus) => {
-    const p = status.progress as { step?: string; current?: number; total?: number } | null;
-    if (!p?.step) { setRenderProgressLabel("In der Warteschlange…"); return; }
-    if (p.step === "images") setRenderProgressLabel("Folienbilder werden vorbereitet…");
-    else if (p.step === "tts" && p.current != null && p.total != null)
-      setRenderProgressLabel(`Sprachsynthese: Folie ${p.current} von ${p.total}…`);
-    else if (p.step === "tts") setRenderProgressLabel("Sprachsynthese läuft…");
-    else if (p.step === "video" && p.current != null && p.total != null)
-      setRenderProgressLabel(`Video-Clip ${p.current} von ${p.total} wird gerendert…`);
-    else if (p.step === "video") setRenderProgressLabel("Video-Clips werden gerendert…");
-    else if (p.step === "concat") setRenderProgressLabel("Videos werden zusammengefügt…");
-    else setRenderProgressLabel("Video wird erstellt…");
-  }, []);
+  const handleAcceptTranslation = useCallback(async () => {
+    setStep("generating-scripts");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/screencast-demo/generate-scripts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Fehler beim Laden der Skripte" }));
+        throw new Error(parseDetail(err.detail, `Fehler: ${res.status}`));
+      }
+      const data: GenerateScriptsResponse = await res.json();
+      setSlides((prev) => prev.map((s, i) => ({ ...s, script: data.scripts[i] || "" })));
+      setLoading(false);
+      setStep("script-review");
+    } catch (err) {
+      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+    }
+  }, [goError]);
+
+  const handleAcceptScripts = useCallback(() => { setStep("tts-settings"); }, []);
 
   const processRenderResponse = useCallback(async (response: Response) => {
     if (!response.ok) {
@@ -338,311 +325,125 @@ function ScreencastDemoPageInner() {
     if (aId) setAudioId(aId);
     if (aCount) setAudioCount(parseInt(aCount, 10) || 0);
     setDownloadBlob(blob);
-    setVideoUrl(URL.createObjectURL(blob));
+    const url = URL.createObjectURL(blob);
+    setVideoUrl(url);
     setLoading(false);
     setStep("done");
   }, []);
 
-  const processRenderResultFromJob = useCallback(async (jobResult: JobStatus) => {
-    sessionStorage.removeItem(RENDER_SESSION_KEY);
-    const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "demo_screencast.mp4");
-    const meta = jobResult.meta ?? {};
-    const aId = meta.audio_id as string | undefined;
-    const aCount = meta.audio_count as number | undefined;
-    if (aId) setAudioId(aId);
-    if (aCount !== undefined) setAudioCount(aCount);
-    setDownloadBlob(blob);
-    setVideoUrl(URL.createObjectURL(blob));
-    setLoading(false);
-    setStep("done");
-  }, []);
-
-  // ── Demo handlers ──
-
-  const handleDemoStart = useCallback(async () => {
-    const ok = await checkBeforeSubmit();
-    if (!ok) return;
-    setStep("translating");
-    setLoading(true);
-    const signal = newSignal();
-    try {
-      const data = await api.postJson<TranslateResponse>(
-        "/api/screencast-demo/translate",
-        { fast_mode: fastMode },
-        signal,
-      );
-      const uuid = data.translate_job_uuid;
-      if (uuid) { setTranslateJobUuid(uuid); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
-      const initialSlides = data.slide_texts.map((text, i) => ({
-        index: i,
-        imageBase64: data.slide_images[i] || "",
-        extractedText: text,
-        script: "",
-      }));
-      setSlides(initialSlides);
-      if (data.user_prompt) setUserPrompt(data.user_prompt);
-      setLoading(false);
-      setStep("translation-review");
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Demo-Fehler");
-    }
-  }, [fastMode, goError, checkBeforeSubmit]);
-
-  const handleDemoGenerateScripts = useCallback(async () => {
-    if (!await checkJobFolder()) return;
-    setStep("generating-scripts");
-    setLoading(true);
-    const signal = newSignal();
-    try {
-      const data = await api.postJson<GenerateScriptsResponse>(
-        "/api/screencast-demo/generate-scripts",
-        { translate_job_uuid: translateJobUuid || null, user_prompt: userPrompt || null },
-        signal,
-      );
-      setSlides((prev) => prev.map((s, i) => ({ ...s, script: data.scripts[i] || "" })));
-      setLoading(false);
-      setStep("script-review");
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Demo-Fehler");
-    }
-  }, [goError, translateJobUuid, userPrompt, checkJobFolder]);
-
-  // ── Download translated PPTX (demo — no real file, but keeps UI consistent) ──
-  const handleDownloadTranslatedPptx = useCallback(async () => {
-    if (!translateJobUuid) return;
-    try {
-      const res = await fetch(`/api/screencast/pptx/${translateJobUuid}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Download fehlgeschlagen");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "demo_presentation.pptx";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("PPTX download failed:", err);
-    }
-  }, [translateJobUuid]);
-
-  // ── Upload corrected PPTX (demo — updates slides if API call succeeds) ──
-  const handleUploadCorrectedPptx = useCallback(
-    async (correctedFile: File) => {
-      setLoading(true);
-      const signal = newSignal();
-      try {
-        const formData = new FormData();
-        formData.append("file", correctedFile);
-        if (translateJobUuid) formData.append("translate_job_uuid", translateJobUuid);
-        const response = await fetch("/api/screencast/upload-corrected", {
-          method: "POST",
-          body: formData,
-          credentials: "include",
-          signal,
-        });
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({ detail: "Fehler beim Hochladen" }));
-          throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
-        }
-        const data: { slide_texts: string[]; slide_images: string[] } = await response.json();
-        setSlides(
-          data.slide_texts.map((text, i) => ({
-            index: i,
-            imageBase64: data.slide_images[i] || "",
-            extractedText: text,
-            script: "",
-          })),
-        );
-        setCorrectedFileName(correctedFile.name);
-        setLoading(false);
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-      }
-    },
-    [goError, translateJobUuid],
-  );
-
-  const handleDemoRender = useCallback(async () => {
-    if (!isResumedJob) {
-      const ok = await checkBeforeSubmit();
-      if (!ok) return;
-    }
+  const handleStartRender = useCallback(async () => {
+    setTtsSettingsError("");
     setStep("rendering");
     setLoading(true);
-    const signal = newSignal();
     try {
       const voiceLabel = ttsProvider === "kokoro"
         ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
         : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
-
       const response = await fetch("/api/screencast-demo/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          translate_job_uuid: translateJobUuid,
-          dpi,
-          speed,
-          slide_pause: slidePause,
-          voice_id: voiceId,
-          voice_label: voiceLabel,
-          provider: ttsProvider,
+          translate_job_uuid: translateJobUuid || "demo",
+          voice_id: voiceId, voice_label: voiceLabel,
+          speed, slide_pause: slidePause, dpi, provider: ttsProvider,
         }),
         credentials: "include",
-        signal,
       });
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Demo-Fehler" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
-      }
-      const contentType = response.headers.get("Content-Type") ?? "";
-      if (contentType.includes("application/json")) {
-        const { job_uuid } = await response.json();
-        currentJobUuidRef.current = job_uuid;
-        sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid }));
-        window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-        const jobResult = await pollJob(job_uuid, onRenderProgress, 3000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
-        currentJobUuidRef.current = null;
-        await processRenderResultFromJob(jobResult);
-      } else {
-        await processRenderResponse(response);
-      }
+      await processRenderResponse(response);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setFailedRenderJobUuid(currentJobUuidRef.current);
-      goError(err instanceof Error ? err.message : "Demo-Fehler");
+      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [translateJobUuid, dpi, speed, slidePause, voiceId, ttsProvider, kokoroVoices, voices, isResumedJob, goError, checkBeforeSubmit, onRenderProgress, processRenderResponse, processRenderResultFromJob]);
+  }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, voices, translateJobUuid, goError, processRenderResponse]);
 
-  const handleRetryRender = useCallback(async () => {
-    const uuid = failedRenderJobUuid;
-    if (!uuid) return;
+  const handleDemoStartDirect = useCallback(async () => {
+    setStep("translating");
+    setLoading(true);
     try {
-      const res = await fetch(`/api/jobs/${uuid}/retry`, { method: "POST", credentials: "include" });
-      if (res.status === 409) {
-        const jobRes = await fetch(`/api/jobs/${uuid}`, { credentials: "include" });
-        const jobData = await jobRes.json();
-        if (jobData.status === "success") {
-          setFailedRenderJobUuid(null);
-          await processRenderResultFromJob(jobData);
-          return;
-        }
-      } else if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Retry fehlgeschlagen" }));
-        throw new Error(parseDetail(err.detail, "Retry fehlgeschlagen"));
-      }
-      setRenderProgressLabel("In der Warteschlange…");
-      currentJobUuidRef.current = uuid;
-      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid }));
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      setStep("rendering");
-      setErrorMessage("");
-      setLoading(true);
-      const signal = newSignal();
-      const jobResult = await pollJob(uuid, onRenderProgress, 3000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
-      currentJobUuidRef.current = null;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setFailedRenderJobUuid(null);
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      await processRenderResultFromJob(jobResult);
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setFailedRenderJobUuid(uuid);
-      goError(err instanceof Error ? err.message : "Retry fehlgeschlagen");
-    }
-  }, [failedRenderJobUuid, onRenderProgress, processRenderResultFromJob, goError]);
-
-  // ── Resume active render job after page refresh ──
-  useEffect(() => {
-    const saved = sessionStorage.getItem(RENDER_SESSION_KEY);
-    if (!saved) return;
-    let parsed: { uuid: string };
-    try { parsed = JSON.parse(saved); } catch { sessionStorage.removeItem(RENDER_SESSION_KEY); return; }
-    const { uuid } = parsed;
-    fetch(`/api/jobs/${uuid}`, { credentials: "include" })
-      .then(r => r.json())
-      .then(job => {
-        if (job.status === "success") { sessionStorage.removeItem(RENDER_SESSION_KEY); return; }
-        if (job.status === "failed") {
-          sessionStorage.removeItem(RENDER_SESSION_KEY);
-          setFailedRenderJobUuid(uuid);
-          goError(job.error || "Job fehlgeschlagen");
-          return;
-        }
-        currentJobUuidRef.current = uuid;
-        setRenderProgressLabel("Verbindung wiederhergestellt…");
-        setStep("rendering");
-        setLoading(true);
-        const ctrl = new AbortController();
-        abortControllerRef.current = ctrl;
-        pollJob(uuid, onRenderProgress, 3000, ctrl.signal,
-          () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000)
-          .then(jobResult => {
-            sessionStorage.removeItem(RENDER_SESSION_KEY);
-            currentJobUuidRef.current = null;
-            setFailedRenderJobUuid(null);
-            window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-            processRenderResultFromJob(jobResult);
-          })
-          .catch(err => {
-            if (err instanceof Error && err.name === "AbortError") return;
-            sessionStorage.removeItem(RENDER_SESSION_KEY);
-            setFailedRenderJobUuid(uuid);
-            goError(err.message);
-          });
-      })
-      .catch(() => sessionStorage.removeItem(RENDER_SESSION_KEY));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Script autosave ──
-  const autosaveScripts = useCallback((updatedScripts: string[], accepted = false) => {
-    if (!translateJobUuid) return;
-    if (!accepted) {
-      if (scriptAutosaveTimerRef.current) clearTimeout(scriptAutosaveTimerRef.current);
-      scriptAutosaveTimerRef.current = setTimeout(() => {
-        fetch(`/api/screencast/scripts/${translateJobUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scripts: updatedScripts, accepted: false, user_prompt: userPrompt || null }),
-          credentials: "include",
-        }).catch(() => {});
-      }, 1500);
-    } else {
-      fetch(`/api/screencast/scripts/${translateJobUuid}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scripts: updatedScripts, accepted: true, user_prompt: userPrompt || null }),
-        credentials: "include",
-      }).catch(() => {});
-    }
-  }, [translateJobUuid, userPrompt]);
-
-  const handleAcceptScripts = useCallback(() => {
-    autosaveScripts(slides.map((s) => s.script), true);
-    setStep("tts-settings");
-    if (translateJobUuid) {
-      fetch("/api/screencast/prerender-images", {
+      // Step 1: translate
+      const res1 = await fetch("/api/screencast-demo/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ translate_job_uuid: translateJobUuid }),
+        body: JSON.stringify({ fast_mode: fastMode }),
         credentials: "include",
-      }).catch(() => {});
+      });
+      if (!res1.ok) {
+        const err = await res1.json().catch(() => ({ detail: "Fehler beim Laden der Demo" }));
+        throw new Error(parseDetail(err.detail, `Fehler: ${res1.status}`));
+      }
+      const data1: TranslateResponse = await res1.json();
+      const loadedSlides = (data1.slide_texts || []).map((text, i) => ({
+        index: i,
+        imageBase64: (data1.slide_images || [])[i] || "",
+        extractedText: text,
+        script: "",
+      }));
+      setTranslateJobUuid(data1.translate_job_uuid ?? "demo");
+      setSlides(loadedSlides);
+
+      // Step 2: generate scripts
+      const res2 = await fetch("/api/screencast-demo/generate-scripts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        credentials: "include",
+      });
+      if (!res2.ok) {
+        const err = await res2.json().catch(() => ({ detail: "Fehler beim Laden der Skripte" }));
+        throw new Error(parseDetail(err.detail, `Fehler: ${res2.status}`));
+      }
+      const data2: GenerateScriptsResponse = await res2.json();
+      setSlides(loadedSlides.map((s, i) => ({ ...s, script: data2.scripts[i] || "" })));
+
+      // Step 3: render
+      const voiceLabel = ttsProvider === "kokoro"
+        ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
+        : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
+      const res3 = await fetch("/api/screencast-demo/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          translate_job_uuid: data1.translate_job_uuid ?? "demo",
+          voice_id: voiceId, voice_label: voiceLabel,
+          speed, slide_pause: slidePause, dpi, provider: ttsProvider,
+        }),
+        credentials: "include",
+      });
+      await processRenderResponse(res3);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [translateJobUuid, slides, autosaveScripts]);
+  }, [fastMode, ttsProvider, kokoroVoices, voiceId, voices, speed, slidePause, dpi, goError, processRenderResponse]);
+
+  const handleJsonImport = useCallback((file: File) => {
+    setImportError(null);
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      setImportError("Bitte eine gültige JSON-Datei auswählen (.json).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target?.result as string);
+        if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === "string")) {
+          setImportError("Die JSON-Datei muss ein Array von Strings sein, z.B. [\"Skript 1\", \"Skript 2\"].");
+          return;
+        }
+        setImportedScripts(parsed);
+      } catch {
+        setImportError("Ungültige JSON-Datei – Parsing fehlgeschlagen.");
+      }
+    };
+    reader.readAsText(file);
+  }, []);
 
   const handleDownload = () => {
     if (!downloadBlob) return;
     const url = URL.createObjectURL(downloadBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "demo_screencast.mp4";
+    a.download = "screencast_demo.mp4";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -656,19 +457,38 @@ function ScreencastDemoPageInner() {
   };
 
   const saveEdit = (index: number) => {
-    const updated = slides.map((s, i) => i === index ? { ...s, script: editBuffer } : s);
-    setSlides(updated);
-    setEditingSlide(null);
-    setEditBuffer("");
-    autosaveScripts(updated.map((s) => s.script));
-  };
-
-  const cancelEdit = () => {
+    setSlides((prev) => prev.map((s, i) => i === index ? { ...s, script: editBuffer } : s));
     setEditingSlide(null);
     setEditBuffer("");
   };
 
-  // ── Track max reached step + auto-scroll stepper ──
+  const cancelEdit = () => { setEditingSlide(null); setEditBuffer(""); };
+
+  const openRegen = (index: number) => { setRegeneratingSlide(index); setRegenPrompt(""); setRegenProposal(null); };
+  const closeRegen = () => { setRegeneratingSlide(null); setRegenPrompt(""); setRegenProposal(null); };
+
+  const runRegen = async (index: number) => {
+    setRegenLoading(true);
+    setRegenProposal(null);
+    try {
+      const result = await api.postJson<{ script: string }>("/api/screencast/regenerate-slide-script", {
+        slide_text: slides[index].extractedText,
+        current_script: slides[index].script || "",
+        user_prompt: regenPrompt || null,
+        target_lang: "EN-US",
+      });
+      setRegenProposal(result.script);
+    } catch { setRegenProposal(""); } finally { setRegenLoading(false); }
+  };
+
+  const applyRegen = (index: number) => {
+    if (regenProposal === null) return;
+    setSlides((prev) => prev.map((s, i) => i === index ? { ...s, script: regenProposal } : s));
+    closeRegen();
+  };
+
+  const handleBackToScripts = () => { if (step === "rendering") return; setStep("script-review"); };
+
   useEffect(() => {
     const idx = stepToIndex(step);
     setMaxReachedIdx((prev) => Math.max(prev, idx));
@@ -683,18 +503,15 @@ function ScreencastDemoPageInner() {
   }, [step]);
 
   const showStepIndicator = step !== "upload" && step !== "error";
-
   const totalWords = slides.reduce((sum, s) => sum + wordCount(s.script), 0);
-  const totalDuration = estimateDuration(totalWords);
   const totalChars = slides.reduce((sum, s) => sum + (s.script?.length ?? 0), 0);
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
 
   return (
     <ProtectedRoute>
       <Header showLogout />
-      <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="max-w-3xl mx-auto px-4 py-8">
 
-        {/* Step indicator */}
         {showStepIndicator && (
           <>
             <nav
@@ -719,14 +536,10 @@ function ScreencastDemoPageInner() {
                         type="button"
                         onClick={() => handleStepClick(i)}
                         aria-disabled={!isClickable}
-                        className={`
-                          inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
-                          ${isClickable ? "cursor-pointer hover:bg-gray-100" : "cursor-default"}
-                        `}
+                        className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none ${isClickable ? "cursor-pointer hover:bg-gray-100" : "cursor-default"}`}
                       >
                         <span
-                          className={`
-                            inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
+                          className={`inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
                             ${isActive ? "bg-[#0066cc] text-white" : ""}
                             ${isDone ? "bg-[#0066cc]/20 text-[#0066cc]" : ""}
                             ${!isActive && !isDone ? "bg-gray-100 text-gray-400" : ""}
@@ -734,38 +547,17 @@ function ScreencastDemoPageInner() {
                           aria-current={isActive ? "step" : undefined}
                         >
                           {isDone ? (
-                            <svg
-                              className="w-3 h-3 sm:w-4 sm:h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              aria-hidden="true"
-                            >
+                            <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
-                          ) : (
-                            i + 1
-                          )}
+                          ) : (i + 1)}
                         </span>
-                        <span
-                          className={`text-[10px] sm:text-xs whitespace-nowrap ${
-                            isActive
-                              ? "text-gray-900 font-medium"
-                              : isClickable
-                                ? "text-gray-600"
-                                : "text-gray-400"
-                          }`}
-                        >
+                        <span className={`text-[10px] sm:text-xs whitespace-nowrap ${isActive ? "text-gray-900 font-medium" : isClickable ? "text-gray-600" : "text-gray-400"}`}>
                           {label}
                         </span>
                       </button>
                       {i < STEP_LABELS.length - 1 && (
-                        <span
-                          className={`w-3 sm:w-8 h-px flex-shrink-0 ${
-                            i < currentIdx ? "bg-[#0066cc]" : "bg-gray-200"
-                          }`}
-                          aria-hidden="true"
-                        />
+                        <span className={`w-3 sm:w-8 h-px flex-shrink-0 ${i < currentIdx ? "bg-[#0066cc]" : "bg-gray-200"}`} aria-hidden="true" />
                       )}
                     </li>
                   );
@@ -774,7 +566,7 @@ function ScreencastDemoPageInner() {
             </nav>
             <div className="flex justify-between mb-6">
               <button
-                onClick={() => resetAll(step !== "done")}
+                onClick={() => resetAll()}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-red-500 rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -783,40 +575,58 @@ function ScreencastDemoPageInner() {
                 Neu starten
               </button>
               <button
-                onClick={() => resetAll(step !== "done")}
+                onClick={() => resetAll()}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Demo abbrechen
+                Screencast abbrechen
               </button>
             </div>
           </>
         )}
 
-        {/* ── Step: Start ── */}
+        {/* ── Step: Upload (Demo Start) ── */}
         {step === "upload" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-6 mb-6 text-center">
-              <div className="text-4xl mb-3">🎬</div>
-              <h2 className="text-xl font-bold text-amber-900 mb-2">Screencast-Demo</h2>
-              <p className="text-sm text-amber-800 mb-1">
-                Erleben Sie den Screencast-Prozess mit einer Beispiel-Präsentation.
-              </p>
-              <p className="text-xs text-amber-700">
-                Es werden keine eigenen Dateien benötigt – alles ist bereits vorbereitet.
-              </p>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-xl font-bold text-gray-900">
+                Screencast erstellen
+              </h1>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+                Demo
+              </span>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">
+              Laden Sie eine PowerPoint-Präsentation hoch. Die Präsentation wird
+              per DeepL übersetzt und als vertontes Video exportiert.
+            </p>
+
+            {/* Disabled file drop zone */}
+            <div className="mb-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 transition-colors border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed">
+              <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p className="text-sm text-gray-500">Datei hierher ziehen oder <span className="text-gray-400 font-medium">durchsuchen</span></p>
+              <p className="text-xs text-gray-400 mt-1">Nur .pptx-Datei</p>
             </div>
 
-            {hasActiveJob && (
-              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Du hast bereits einen laufenden Screencast-Job. Bitte warte, bis er abgeschlossen ist.
+            <label className="flex items-start gap-3 mb-4 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showSteps}
+                onChange={(e) => setShowSteps(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#0066cc] focus:ring-[#0066cc] cursor-pointer"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Zwischenschritte anzeigen und bearbeiten</span>
+                <p className="text-xs text-gray-400 mt-0.5">Empfohlen für beste Ergebnisse</p>
               </div>
-            )}
+            </label>
 
             {isAdmin && (
-              <label className="flex items-center gap-3 mb-4 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer select-none mt-4 mb-6">
                 <input
                   type="checkbox"
                   checked={fastMode}
@@ -830,21 +640,22 @@ function ScreencastDemoPageInner() {
               </label>
             )}
 
-            <button
-              onClick={handleDemoStart}
-              disabled={!!hasActiveJob}
-              className="w-full px-4 py-3 bg-amber-500 text-white text-sm font-medium rounded-md hover:bg-amber-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Demo starten
-            </button>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={showSteps ? handleDemoStart : handleDemoStartDirect}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+              >
+                Demo starten
+              </button>
+            </div>
           </section>
         )}
 
-        {/* ── Step: Translating (loading) ── */}
+        {/* ── Step: Translating ── */}
         {step === "translating" && (
           <section className="animate-[fadeIn_0.3s_ease-out] text-center py-16" role="status" aria-live="polite">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
-            <p className="text-sm text-gray-700 animate-pulse">Demo-Präsentation wird geladen...</p>
+            <p className="text-sm text-gray-700 animate-pulse">Demo wird geladen...</p>
             <p className="text-xs text-gray-400 mt-2">Das kann je nach Dateigröße einige Sekunden dauern.</p>
             <button
               onClick={() => { abortControllerRef.current?.abort(); setStep("upload"); setLoading(false); }}
@@ -862,85 +673,78 @@ function ScreencastDemoPageInner() {
         {step === "user-prompt" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h2 className="text-lg font-bold text-gray-900 mb-1">Wie sollen die Skripte erstellt werden?</h2>
-
-            {/* ── Script input mode selection ── */}
             <div className="mt-3 space-y-2">
-              {/* Option: generate (default) */}
               <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
-                <input
-                  type="radio"
-                  name="scriptInputMode"
-                  value="generate"
-                  checked={scriptInputMode === "generate"}
-                  onChange={() => setScriptInputMode("generate")}
-                  className="mt-0.5 accent-[#0066cc]"
-                />
+                <input type="radio" name="scriptInputMode" value="generate" checked={scriptInputMode === "generate"}
+                  onChange={() => { setScriptInputMode("generate"); setImportedScripts(null); setImportError(null); }}
+                  className="mt-0.5 accent-[#0066cc]" />
                 <div>
                   <span className="text-sm font-medium text-gray-900">KI-Generierung</span>
                   <p className="text-xs text-gray-500 mt-0.5">KI erstellt Skripte automatisch basierend auf den Folieninhalten.</p>
                 </div>
               </label>
-
-              {/* Option: manual */}
               <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
-                <input
-                  type="radio"
-                  name="scriptInputMode"
-                  value="manual"
-                  checked={scriptInputMode === "manual"}
-                  onChange={() => setScriptInputMode("manual")}
-                  className="mt-0.5 accent-[#0066cc]"
-                />
+                <input type="radio" name="scriptInputMode" value="manual" checked={scriptInputMode === "manual"}
+                  onChange={() => { setScriptInputMode("manual"); setImportedScripts(null); setImportError(null); }}
+                  className="mt-0.5 accent-[#0066cc]" />
                 <div>
                   <span className="text-sm font-medium text-gray-900">Manuell eingeben</span>
                   <p className="text-xs text-gray-500 mt-0.5">Alle Textfelder bleiben leer – Sie tippen die Skripte selbst ein.</p>
                 </div>
               </label>
-
-              {/* Option: import JSON */}
               <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-[#0066cc] bg-[#0066cc]/5" : "border-gray-200 hover:border-gray-300"}`}>
-                <input
-                  type="radio"
-                  name="scriptInputMode"
-                  value="import"
-                  checked={scriptInputMode === "import"}
-                  onChange={() => setScriptInputMode("import")}
-                  className="mt-0.5 accent-[#0066cc]"
-                />
-                <div>
+                <input type="radio" name="scriptInputMode" value="import" checked={scriptInputMode === "import"}
+                  onChange={() => setScriptInputMode("import")} className="mt-0.5 accent-[#0066cc]" />
+                <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium text-gray-900">Skript importieren</span>
                   <p className="text-xs text-gray-500 mt-0.5">JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.</p>
+                  {scriptInputMode === "import" && (
+                    <div className="mt-2">
+                      <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-[#0066cc]/5 cursor-pointer transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        JSON-Datei auswählen
+                        <input type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleJsonImport(f); }} />
+                      </label>
+                      {importedScripts && (
+                        <p className="mt-1.5 text-xs text-green-600 flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          {importedScripts.length} Skript{importedScripts.length !== 1 ? "e" : ""} geladen
+                        </p>
+                      )}
+                      {importError && (
+                        <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {importError}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </label>
             </div>
-
-            {/* Anweisungen — nur bei KI-Generierung */}
-            {scriptInputMode === "generate" && (
-              <div className="mt-5">
-                <p className="text-sm font-medium text-gray-700 mb-1">
-                  Anweisungen für die Skript-Erstellung <span className="font-normal text-gray-400">(optional)</span>
-                </p>
-                <textarea
-                  value={userPrompt}
-                  onChange={(e) => setUserPrompt(e.target.value)}
-                  rows={4}
-                  placeholder="z.B. Beende das Skript der letzten Folie mit: Vielen Dank fürs Zuhören."
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
-                />
-                <PromptChips onChipClick={(chip) => setUserPrompt((prev) => prev.trim() ? `${prev.trimEnd()}\n- ${chip}` : `- ${chip}`)} />
-              </div>
-            )}
-
+            {scriptInputMode === "generate" && <div className="mt-5 space-y-4" />}
             <div className="flex gap-3 mt-4">
               <button
-                onClick={handleDemoGenerateScripts}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Überspringen
-              </button>
-              <button
-                onClick={handleDemoGenerateScripts}
-                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors"
+                onClick={() => {
+                  if (scriptInputMode === "manual") {
+                    setSlides((prev) => prev.map((s) => ({ ...s, script: "" })));
+                    setStep("script-review");
+                  } else if (scriptInputMode === "import") {
+                    if (!importedScripts) { setImportError("Bitte zuerst eine JSON-Datei auswählen."); return; }
+                    setSlides((prev) => prev.map((s, i) => ({ ...s, script: importedScripts[i] ?? "" })));
+                    setStep("script-review");
+                  } else {
+                    handleAcceptTranslation();
+                  }
+                }}
+                disabled={loading}
+                className="flex-1 px-4 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Weiter
               </button>
@@ -951,37 +755,27 @@ function ScreencastDemoPageInner() {
         {/* ── Step: Translation Review ── */}
         {step === "translation-review" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Demo-Folien</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Übersetzung prüfen</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Dies ist die Demo-Präsentation. Klicken Sie auf die Miniaturansichten, um die Folien zu vergrößern.
+              Die Präsentation wurde übersetzt. Sie können die übersetzte
+              PPTX herunterladen, prüfen und optional eine korrigierte
+              Version hochladen.
             </p>
 
-            {!fastMode && slides.some(s => s.imageBase64) && (
-              <div className="flex flex-wrap gap-2 mb-6">
+            {!fastMode && (
+              <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {slides.map((slide, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setLightboxIndex(i)}
-                    style={{ width: "100px" }}
+                  <button key={i} onClick={() => setLightboxIndex(i)} style={{ width: "100px" }}
                     className="relative rounded-lg overflow-hidden border border-gray-200 hover:border-[#0066cc] transition-colors focus-visible:outline-2 focus-visible:outline-[#0066cc] group flex-shrink-0"
                     aria-label={`Folie ${i + 1} vergrößern`}
                   >
                     {slide.imageBase64 ? (
-                      <img
-                        src={`data:image/png;base64,${slide.imageBase64}`}
-                        alt={`Folie ${i + 1}`}
-                        className="w-full object-cover"
-                        style={{ aspectRatio: "16/9" }}
-                      />
+                      <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full object-cover" />
                     ) : (
-                      <div className="bg-gray-100 flex items-center justify-center text-xs text-gray-400" style={{ aspectRatio: "16/9" }}>
-                        {i + 1}
-                      </div>
+                      <div className="aspect-video bg-gray-100 flex items-center justify-center text-xs text-gray-400">Wird geladen...</div>
                     )}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-gray-700 px-2 py-1 rounded transition-opacity">
-                        Folie {i + 1}
-                      </span>
+                      <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-gray-700 px-2 py-1 rounded transition-opacity">Folie {i + 1}</span>
                     </div>
                   </button>
                 ))}
@@ -989,7 +783,9 @@ function ScreencastDemoPageInner() {
             )}
 
             {!fastMode && lightboxIndex !== null && (
-              <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxIndex(null)} role="dialog" aria-modal="true">
+              <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+                onClick={() => setLightboxIndex(null)} role="dialog" aria-modal="true" aria-label={`Folie ${lightboxIndex + 1}`}
+              >
                 <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
                   <button onClick={() => setLightboxIndex(null)} className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors" aria-label="Schließen">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -999,51 +795,14 @@ function ScreencastDemoPageInner() {
                   <p className="text-white text-sm text-center mb-2">Folie {lightboxIndex + 1} von {slides.length}</p>
                   <img src={`data:image/png;base64,${slides[lightboxIndex].imageBase64}`} alt={`Folie ${lightboxIndex + 1}`} className="w-full rounded-lg shadow-2xl" />
                   <div className="flex justify-center gap-4 mt-4">
-                    <button onClick={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))} disabled={lightboxIndex === 0} className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30">← Zurück</button>
-                    <button onClick={() => setLightboxIndex(Math.min(slides.length - 1, lightboxIndex + 1))} disabled={lightboxIndex === slides.length - 1} className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30">Weiter →</button>
+                    <button onClick={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))} disabled={lightboxIndex === 0}
+                      className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30">← Zurück</button>
+                    <button onClick={() => setLightboxIndex(Math.min(slides.length - 1, lightboxIndex + 1))} disabled={lightboxIndex === slides.length - 1}
+                      className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30">Weiter →</button>
                   </div>
                 </div>
               </div>
             )}
-
-            {/* Actions */}
-            <div className="flex flex-col gap-3 mb-4">
-              <button
-                onClick={handleDownloadTranslatedPptx}
-                className="w-full px-4 py-2 text-sm text-[#0066cc] border border-[#0066cc] rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center justify-center gap-2"
-              >
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                PPTX
-              </button>
-
-              <div className="relative">
-                <label className="block w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-center cursor-pointer">
-                  {loading
-                    ? "Wird verarbeitet..."
-                    : "Korrigierte PPTX hochladen (optional)"}
-                  <input
-                    type="file"
-                    accept=".pptx"
-                    className="hidden"
-                    disabled={loading}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUploadCorrectedPptx(f);
-                    }}
-                  />
-                </label>
-                {correctedFileName && (
-                  <p className="mt-2 text-sm text-green-600 flex items-center gap-2">
-                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    {correctedFileName} wurde hochgeladen
-                  </p>
-                )}
-              </div>
-            </div>
 
             <div className="flex gap-3">
               <button
@@ -1057,12 +816,12 @@ function ScreencastDemoPageInner() {
           </section>
         )}
 
-        {/* ── Step: Generating Scripts (loading) ── */}
+        {/* ── Step: Generating Scripts ── */}
         {step === "generating-scripts" && (
           <section className="animate-[fadeIn_0.3s_ease-out] text-center py-16" role="status" aria-live="polite">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
-            <p className="text-sm text-gray-700 animate-pulse">Demo-Skripte werden geladen...</p>
-            <p className="text-xs text-gray-400 mt-2">Die vorbereiteten Skripte für {slides.length} Folien werden geladen.</p>
+            <p className="text-sm text-gray-700 animate-pulse">Sprechskripte werden generiert...</p>
+            <p className="text-xs text-gray-400 mt-2">Die KI erstellt Skripte für {slides.length} Folien.</p>
             <button
               onClick={() => { abortControllerRef.current?.abort(); setStep("translation-review"); setLoading(false); }}
               className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
@@ -1080,7 +839,8 @@ function ScreencastDemoPageInner() {
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h2 className="text-lg font-bold text-gray-900 mb-1">Skripte überprüfen und anpassen</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Überprüfen Sie die Demo-Skripte für jede Folie. Klicken Sie auf den Stift um zu bearbeiten.
+              Überprüfen Sie die generierten Skripte für jede Folie.
+              Klicken Sie auf den Stift um zu bearbeiten.
             </p>
 
             <div className="space-y-2 mb-6">
@@ -1095,7 +855,7 @@ function ScreencastDemoPageInner() {
                     <button
                       onClick={() => { if (editingSlide !== null) cancelEdit(); setOpenAccordion(isOpen ? -1 : i); }}
                       className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]"
-                      aria-expanded={isOpen}
+                      aria-expanded={isOpen} aria-controls={`slide-panel-${i}`}
                     >
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-gray-900">Folie {i + 1}</span>
@@ -1106,43 +866,25 @@ function ScreencastDemoPageInner() {
                       </svg>
                     </button>
                     {isOpen && (
-                      <div
-                        id={`slide-panel-${i}`}
-                        className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]"
-                      >
+                      <div id={`slide-panel-${i}`} className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]">
                         <div className="flex flex-col md:flex-row gap-4">
-                          {/* Slide image — hidden in fast mode */}
                           {!fastMode && (
                             <div className="flex-shrink-0" style={{ width: "100px" }}>
                               {slide.imageBase64 ? (
-                                <img
-                                  src={`data:image/png;base64,${slide.imageBase64}`}
-                                  alt={`Folie ${i + 1}`}
-                                  className="w-full rounded border border-gray-200"
-                                />
+                                <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full rounded border border-gray-200" />
                               ) : (
-                                <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">
-                                  Kein Bild
-                                </div>
+                                <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">Kein Bild</div>
                               )}
                             </div>
                           )}
-                          {/* Script */}
                           <div className={`${fastMode ? "w-full" : "md:w-3/5"} flex flex-col`}>
                             {isEditing ? (
                               <>
-                                <textarea
-                                  value={editBuffer}
-                                  onChange={(e) => setEditBuffer(e.target.value)}
-                                  rows={8}
+                                <textarea value={editBuffer} onChange={(e) => setEditBuffer(e.target.value)} rows={8}
                                   className="w-full rounded-md border border-[#0066cc] px-3 py-2 text-sm font-mono text-gray-900 focus:ring-1 focus:ring-[#0066cc] focus:outline-none"
-                                  aria-label={`Skript für Folie ${i + 1} bearbeiten`}
-                                  autoFocus
-                                />
+                                  aria-label={`Skript für Folie ${i + 1} bearbeiten`} />
                                 <div className="flex items-center justify-between mt-2">
-                                  <span className="text-xs text-gray-400">
-                                    ca. {wc} Wörter · ~{dur} Sek
-                                  </span>
+                                  <span className="text-xs text-gray-400">ca. {wc} Wörter · ~{dur} Sek</span>
                                   <div className="flex gap-2">
                                     <button onClick={cancelEdit} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">Abbrechen</button>
                                     <button onClick={() => saveEdit(i)} className="px-3 py-1 text-xs bg-[#0066cc] text-white rounded hover:bg-[#0055aa] transition-colors">Speichern</button>
@@ -1152,24 +894,53 @@ function ScreencastDemoPageInner() {
                             ) : (
                               <>
                                 <div className="flex items-start justify-between mb-2">
-                                  <span className="text-xs text-gray-400">
-                                    ca. {wc} Wörter · ~{dur} Sek
-                                  </span>
-                                  <button
-                                    onClick={() => startEdit(i)}
-                                    className="p-1 text-gray-400 hover:text-[#0066cc] transition-colors"
-                                    aria-label={`Skript für Folie ${i + 1} bearbeiten`}
-                                  >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
-                                  </button>
+                                  <span className="text-xs text-gray-400">ca. {wc} Wörter · ~{dur} Sek</span>
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={() => openRegen(i)} disabled
+                                      className="p-1 text-gray-300 cursor-not-allowed"
+                                      aria-label={`Skript für Folie ${i + 1} per KI neu generieren`}
+                                      title="Nicht in der Demo verfügbar"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                                      </svg>
+                                    </button>
+                                    <button onClick={() => startEdit(i)} className="p-1 text-gray-400 hover:text-[#0066cc] transition-colors" aria-label={`Skript für Folie ${i + 1} bearbeiten`}>
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                      </svg>
+                                    </button>
+                                  </div>
                                 </div>
                                 <p className="text-sm font-mono text-gray-700 whitespace-pre-wrap leading-relaxed">
-                                  {slide.script || (
-                                    <span className="text-gray-400 italic">Kein Skript (leere Folie)</span>
-                                  )}
+                                  {slide.script || <span className="text-gray-400 italic">Kein Skript (leere Folie)</span>}
                                 </p>
+                                {regeneratingSlide === i && (
+                                  <div className="mt-3 border border-purple-200 rounded-lg p-3 bg-purple-50 space-y-2">
+                                    <p className="text-xs font-medium text-purple-700">KI-Anweisung für diese Folie (optional)</p>
+                                    <textarea value={regenPrompt} onChange={(e) => setRegenPrompt(e.target.value)} rows={2}
+                                      placeholder="z.B. Erkläre das Konzept vereinfacht für Einsteiger."
+                                      className="w-full rounded-md border border-purple-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white" />
+                                    <div className="flex gap-2 justify-end">
+                                      <button onClick={closeRegen} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">Abbrechen</button>
+                                      <button onClick={() => runRegen(i)} disabled={regenLoading}
+                                        className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+                                        {regenLoading && <span className="inline-block animate-spin rounded-full h-3 w-3 border-b-2 border-white shrink-0" />}
+                                        {regenLoading ? "Generiere…" : "Generieren"}
+                                      </button>
+                                    </div>
+                                    {regenProposal !== null && (
+                                      <div>
+                                        <p className="text-xs font-medium text-purple-700 mb-1">Vorschlag</p>
+                                        <textarea value={regenProposal} onChange={(e) => setRegenProposal(e.target.value)} rows={4}
+                                          className="w-full rounded-md border border-purple-300 px-3 py-2 text-sm font-mono text-gray-900 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white" />
+                                        <div className="flex justify-end mt-2">
+                                          <button onClick={() => applyRegen(i)} className="px-3 py-1 text-xs bg-[#0066cc] text-white rounded hover:bg-[#0055aa] transition-colors">Übernehmen</button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
@@ -1182,18 +953,17 @@ function ScreencastDemoPageInner() {
             </div>
 
             {slides.filter((s) => !s.script.trim()).length > 0 && (
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 rounded-md px-3 py-2 mb-4">
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
                 {slides.filter((s) => !s.script.trim()).length} Folie(n) haben kein Skript. Bitte füllen Sie diese aus, bevor Sie fortfahren.
               </p>
             )}
 
-            <button
-              onClick={handleAcceptScripts}
-              disabled={editingSlide !== null}
-              className="w-full px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Alle Skripte übernehmen
-            </button>
+            <div className="flex gap-3">
+              <button onClick={handleAcceptScripts} disabled={editingSlide !== null}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                Alle Skripte übernehmen
+              </button>
+            </div>
           </section>
         )}
 
@@ -1206,9 +976,7 @@ function ScreencastDemoPageInner() {
             {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
               <div className="mb-2">
                 <label htmlFor="sc-provider-select" className="block text-sm font-medium text-gray-700 mb-2">TTS-Anbieter</label>
-                <select
-                  id="sc-provider-select"
-                  value={ttsProvider}
+                <select id="sc-provider-select" value={ttsProvider}
                   onChange={(e) => {
                     const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro";
                     setTtsProvider(p);
@@ -1229,10 +997,7 @@ function ScreencastDemoPageInner() {
               <div className="mb-6 mt-4 space-y-3">
                 <div>
                   <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">Stimme</label>
-                  <select
-                    id="sc-voice-select"
-                    value={voiceId}
-                    onChange={(e) => setVoiceId(e.target.value)}
+                  <select id="sc-voice-select" value={voiceId} onChange={(e) => setVoiceId(e.target.value)}
                     disabled={ttsProvider === "fish_speech"}
                     className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#0066cc] focus:ring-1 focus:ring-[#0066cc] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1262,49 +1027,48 @@ function ScreencastDemoPageInner() {
 
             <div className="mb-6">
               <label htmlFor="speed-slider" className="block text-sm font-medium text-gray-700 mb-2">Geschwindigkeit: {speed.toFixed(1)}x</label>
-              <input id="speed-slider" type="range" min="0.7" max="1.2" step="0.1" value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0066cc]" />
-              <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Langsam (0.7x)</span><span>Schnell (1.2x)</span></div>
-              <p className="text-xs text-gray-400 mt-2">
-                Langsamere Geschwindigkeit empfohlen für Lehrvideos
-              </p>
+              <input id="speed-slider" type="range" min="0.7" max="1.2" step="0.1" value={speed}
+                onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0066cc]" />
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>Langsam (0.7x)</span><span>Schnell (1.2x)</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">Langsamere Geschwindigkeit empfohlen für Lehrvideos</p>
             </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Pause zwischen Folien: {slidePause.toFixed(1)}s</label>
-              <input type="range" min={0} max={3} step={0.1} value={slidePause} onChange={(e) => setSlidePause(parseFloat(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0066cc]" />
+              <input type="range" min={0} max={3} step={0.1} value={slidePause}
+                onChange={(e) => setSlidePause(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0066cc]" />
               <div className="flex justify-between text-xs text-gray-400 mt-1"><span>0s</span><span>3s</span></div>
             </div>
 
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2">
               <p className="text-sm font-medium text-gray-700">Bildqualität</p>
               <div className="flex flex-col gap-2">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="radio" name="dpi" value={96} checked={dpi === 96} onChange={() => setDpi(96)} className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">96 DPI – Geringe Qualität</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Schnellere Verarbeitung, geringere Bildschärfe</p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="radio" name="dpi" value={144} checked={dpi === 144} onChange={() => setDpi(144)} className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">144 DPI – Standard</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Empfohlen, gute Bildqualität</p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="radio" name="dpi" value={300} checked={dpi === 300} onChange={() => setDpi(300)} className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">300 DPI – Maximale Qualität</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit</p>
-                  </div>
-                </label>
+                {[{ val: 96, label: "96 DPI – Geringe Qualität", desc: "Schnellere Verarbeitung, geringere Bildschärfe" },
+                  { val: 144, label: "144 DPI – Standard", desc: "Empfohlen, gute Bildqualität" },
+                  { val: 300, label: "300 DPI – Maximale Qualität", desc: "Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit" }
+                ].map(({ val, label, desc }) => (
+                  <label key={val} className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="dpi" value={val} checked={dpi === val} onChange={() => setDpi(val)}
+                      className="mt-0.5 h-4 w-4 text-[#0066cc] focus:ring-[#0066cc]" />
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">{label}</span>
+                      <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                    </div>
+                  </label>
+                ))}
               </div>
             </div>
 
             <div className="mb-4 rounded-lg bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-700">
-                <span className="font-medium">{slides.length}</span> Folien · ca. <span className="font-medium">{totalWords}</span> Wörter · geschätzte Dauer <span className="font-medium">~{totalDuration} Sek</span> · <span className={`font-medium ${scriptOverLimit ? "text-red-600" : ""}`}>{totalChars.toLocaleString("de-DE")}</span> / {SCREENCAST_MAX_CHARS.toLocaleString("de-DE")} Zeichen
+                <span className="font-medium">{slides.length}</span> Folien · ca.{" "}
+                <span className="font-medium">{totalWords}</span> Wörter ·{" "}
+                <span className={`font-medium ${scriptOverLimit ? "text-red-600" : ""}`}>{totalChars.toLocaleString("de-DE")}</span>{" "}
+                / {SCREENCAST_MAX_CHARS.toLocaleString("de-DE")} Zeichen
               </p>
             </div>
 
@@ -1313,39 +1077,38 @@ function ScreencastDemoPageInner() {
                 <span className="text-red-500 mt-0.5">⚠</span>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-red-700">Skript zu lang</p>
-                  <p className="text-sm text-red-600 mt-0.5">Das Skript hat {totalChars.toLocaleString("de-DE")} Zeichen (max. {SCREENCAST_MAX_CHARS.toLocaleString("de-DE")}). Bitte kürzen Sie die Folien-Texte.</p>
-                  <button onClick={() => setStep("script-review")} className="mt-2 px-3 py-1.5 text-sm font-medium text-red-700 border border-red-300 rounded-md hover:bg-red-100 transition-colors">Zurück zum Skript bearbeiten</button>
+                  <p className="text-sm text-red-600 mt-0.5">
+                    Das Skript hat {totalChars.toLocaleString("de-DE")} Zeichen (max. {SCREENCAST_MAX_CHARS.toLocaleString("de-DE")}). Bitte kürzen Sie die Folien-Texte.
+                  </p>
+                  <button onClick={handleBackToScripts} className="mt-2 px-3 py-1.5 text-sm font-medium text-red-700 border border-red-300 rounded-md hover:bg-red-100 transition-colors">
+                    Zurück zum Skript bearbeiten
+                  </button>
                 </div>
               </div>
             )}
 
+            {ttsSettingsError && (
+              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">{ttsSettingsError}</p>
+            )}
+
             <div className="flex gap-3">
-              <button onClick={() => setStep("script-review")} className="px-4 py-3 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">Zurück</button>
-              <button
-                onClick={handleDemoRender}
-                disabled={scriptOverLimit}
-                className="flex-1 px-4 py-3 bg-amber-500 text-white text-sm font-medium rounded-md hover:bg-amber-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Demo-Screencast erstellen
+              <button onClick={handleBackToScripts} className="px-4 py-3 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">Zurück</button>
+              <button onClick={handleStartRender} disabled={scriptOverLimit}
+                className="flex-1 px-4 py-3 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                Screencast erstellen
               </button>
             </div>
           </section>
         )}
 
-        {/* ── Step: Rendering (loading) ── */}
+        {/* ── Step: Rendering ── */}
         {step === "rendering" && (
           <section className="animate-[fadeIn_0.3s_ease-out] text-center py-16" role="status" aria-live="polite">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#0066cc] mb-4" />
             <p className="text-sm text-gray-700">{renderProgressLabel || "Video wird erstellt..."}</p>
             {!renderProgressLabel && <p className="text-xs text-gray-400 mt-2">Vertonung und Videoproduktion, das kann ein paar Minuten dauern.</p>}
             <button
-              onClick={() => {
-                const uuid = currentJobUuidRef.current;
-                currentJobUuidRef.current = null;
-                abortControllerRef.current?.abort();
-                if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
-                setStep("tts-settings"); setLoading(false);
-              }}
+              onClick={() => { abortControllerRef.current?.abort(); setRenderProgressLabel(""); setStep("tts-settings"); setLoading(false); }}
               className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1366,8 +1129,7 @@ function ScreencastDemoPageInner() {
                 </svg>
               </div>
             </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2 text-center">Fertig! Ihr Demo-Screencast ist bereit.</h2>
-            <p className="text-xs text-gray-400 mb-6 text-center">{slides.length} Folien · ca. {totalDuration} Sek Gesamtdauer</p>
+            <h2 className="text-lg font-bold text-gray-900 mb-2 text-center">Fertig! Ihr Screencast ist bereit.</h2>
 
             {videoUrl && (
               <div className="mb-6 rounded-lg overflow-hidden border border-gray-200">
@@ -1378,51 +1140,54 @@ function ScreencastDemoPageInner() {
               </div>
             )}
 
-            {/* Downloads: MP4 + Alles als ZIP */}
             <div className="flex justify-center gap-3 mb-4">
-              <button onClick={handleDownload} aria-label="MP4" className="px-6 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors flex items-center gap-2">
+              <button onClick={handleDownload} aria-label="MP4"
+                className="px-6 py-2 bg-[#0066cc] text-white text-sm font-medium rounded-md hover:bg-[#0055aa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors flex items-center gap-2">
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 MP4
               </button>
-              {audioId && (
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch(`/api/jobs/${audioId}/bundle`, { credentials: "include" });
-                      if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
-                      const blob = await res.blob();
-                      const disposition = res.headers.get("Content-Disposition");
-                      let filename = "bundle.zip";
-                      if (disposition) {
-                        const m = disposition.match(/filename="?([^";\n]+)"?/i);
-                        if (m) filename = m[1].trim();
-                      }
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = filename;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    } catch (e) { console.error("Bundle download failed", e); }
-                  }}
-                  aria-label="Alles herunterladen (ZIP)"
-                  className="px-6 py-2 bg-white text-[#0066cc] border border-[#0066cc] text-sm font-medium rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center gap-2"
-                >
+              <button
+                onClick={async () => {
+                  if (zipDownloading) return;
+                  setZipDownloading(true);
+                  try {
+                    const endpoint = audioId ? `/api/jobs/${audioId}/bundle` : "/api/screencast-demo/bundle";
+                    const res = await fetch(endpoint, { credentials: "include" });
+                    if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
+                    const blob = await res.blob();
+                    const disposition = res.headers.get("Content-Disposition");
+                    let filename = "bundle.zip";
+                    if (disposition) { const m = disposition.match(/filename="?([^";\n]+)"?/i); if (m) filename = m[1].trim(); }
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = filename;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch { console.error("Bundle download failed"); } finally { setZipDownloading(false); }
+                }}
+                disabled={zipDownloading} aria-label="Alles herunterladen (ZIP)"
+                className="px-6 py-2 bg-white text-[#0066cc] border border-[#0066cc] text-sm font-medium rounded-md hover:bg-[#0066cc]/5 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {zipDownloading ? (
+                  <svg className="h-4 w-4 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
                   <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Alles herunterladen (ZIP)
-                </button>
-              )}
+                )}
+                {zipDownloading ? "Wird erstellt…" : "Alles herunterladen (ZIP)"}
+              </button>
             </div>
 
             <div className="flex justify-center">
-              <button onClick={() => resetAll(false)} className="px-6 py-2 text-sm text-amber-700 border border-amber-300 rounded-md hover:bg-amber-50 transition-colors">
-                Demo neu starten
+              <button onClick={() => resetAll()} aria-label="Neue Präsentation hochladen"
+                className="px-6 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors">
+                Neue Präsentation
               </button>
             </div>
           </section>
@@ -1438,21 +1203,12 @@ function ScreencastDemoPageInner() {
                 </svg>
               </div>
             </div>
-            <h2 className="text-lg font-bold text-red-700 mb-2">Fehler bei der Demo-Erstellung</h2>
+            <h2 className="text-lg font-bold text-red-700 mb-2">Fehler bei der Screencast-Erstellung</h2>
             {errorMessage && <p className="text-sm text-red-600 mb-3">{errorMessage}</p>}
-            {failedRenderJobUuid && (
-              <p className="text-xs text-gray-500 mb-5">
-                Klicke auf <strong>Wiederholen</strong> — bereits fertige Clips und Audio werden nicht wiederholt.
-              </p>
-            )}
             <div className="flex gap-3 justify-center">
-              {failedRenderJobUuid && (
-                <button onClick={handleRetryRender} className="px-6 py-2 text-sm text-white bg-[#0066cc] rounded-md hover:bg-[#0055aa] transition-colors">
-                  Wiederholen
-                </button>
-              )}
-              <button onClick={() => resetAll()} className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-                Demo neu starten
+              <button onClick={() => resetAll()} aria-label="Neue Präsentation hochladen"
+                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] transition-colors">
+                Neue Präsentation
               </button>
             </div>
           </section>
