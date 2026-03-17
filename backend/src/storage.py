@@ -292,6 +292,36 @@ def get_audio_slide_count(job_uuid: str) -> int:
     return len(list(audio_dir.glob("slide_*.mp3")))
 
 
+def get_all_audio_slides(job_uuid: str) -> list[tuple[str, bytes]]:
+    """Fetch all per-slide MP3s in parallel (S3) or sequentially (local).
+
+    Returns a sorted list of (filename, data) tuples.
+    """
+    if USE_S3:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        prefix = _job_key(job_uuid, "audio/")
+        resp = _s3().list_objects_v2(Bucket=_S3_BUCKET, Prefix=prefix)
+        keys = sorted(obj["Key"] for obj in resp.get("Contents", []) if obj["Key"].endswith(".mp3"))
+        if not keys:
+            return []
+
+        def _fetch(key: str) -> tuple[str, bytes]:
+            data = _s3().get_object(Bucket=_S3_BUCKET, Key=key)["Body"].read()
+            return (key.split("/")[-1], data)
+
+        results: list[tuple[str, bytes]] = []
+        with ThreadPoolExecutor(max_workers=min(len(keys), 10)) as pool:
+            futures = {pool.submit(_fetch, key): key for key in keys}
+            for future in as_completed(futures):
+                results.append(future.result())
+        return sorted(results, key=lambda x: x[0])
+
+    audio_dir = _job_dir(job_uuid) / "audio"
+    if not audio_dir.exists():
+        return []
+    return [(f.name, f.read_bytes()) for f in sorted(audio_dir.glob("slide_*.mp3"))]
+
+
 # --- PPTX temp storage (translate → render handoff) ---
 #
 # Keyed by a random file_id UUID (not a job UUID).

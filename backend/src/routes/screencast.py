@@ -104,7 +104,7 @@ from src.utils.file_validation import (
     SCREENCAST_MAX_CHARS,
 )
 from src import database as db
-from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, load_result_json, save_result_json, get_job_file, save_job_file, job_file_exists, delete_job_folder, clear_tts_audio_cache
+from src.storage import save_queue_file, save_audio_cache, get_audio_slide, get_audio_slide_count, get_all_audio_slides, load_result_json, save_result_json, get_job_file, save_job_file, job_file_exists, delete_job_folder, clear_tts_audio_cache
 
 router = APIRouter(tags=["screencast"])
 
@@ -1384,16 +1384,14 @@ async def screencast_render(
 @router.get("/screencast/audio/{audio_id}/zip")
 async def download_all_slide_audio_zip(audio_id: str):
     """Download all per-slide MP3s as a single ZIP archive."""
-    count = get_audio_slide_count(audio_id)
-    if count == 0:
+    slides = get_all_audio_slides(audio_id)
+    if not slides:
         raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
 
     buf = BytesIO()
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for i in range(count):
-            audio_bytes = get_audio_slide(audio_id, i)
-            if audio_bytes:
-                zf.writestr(f"slide_{i + 1:02d}.mp3", audio_bytes)
+        for filename, data in slides:
+            zf.writestr(filename, data)
     buf.seek(0)
     zip_bytes = buf.read()
 
