@@ -248,72 +248,121 @@ async def demo_render(body: DemoRenderRequest, _: dict = Depends(get_current_use
     )
 
 
+class _ZipStreamWriter:
+    """File-like object for streaming ZIP construction."""
+
+    def __init__(self):
+        self._buf = io.BytesIO()
+
+    def write(self, data: bytes) -> int:
+        return self._buf.write(data)
+
+    def flush(self):
+        pass
+
+    def tell(self) -> int:
+        return self._buf.tell()
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        return self._buf.seek(offset, whence)
+
+    def read(self, n: int = -1) -> bytes:
+        return self._buf.read(n)
+
+    def close(self):
+        pass
+
+
+def _streaming_demo_bundle():
+    """Generator that yields ZIP data file-by-file for the demo bundle."""
+    import zipfile as zf_mod
+
+    stream = _ZipStreamWriter()
+    zf = zf_mod.ZipFile(stream, mode="w", compression=zf_mod.ZIP_STORED)
+
+    def _add_bytes_and_yield(arcname: str, data: bytes):
+        pos_before = stream.tell()
+        zf.writestr(arcname, data)
+        pos_after = stream.tell()
+        stream.seek(pos_before)
+        return stream.read(pos_after - pos_before)
+
+    def _add_file_and_yield(arcname: str, filepath: Path):
+        data = filepath.read_bytes()
+        return _add_bytes_and_yield(arcname, data)
+
+    # Video
+    video = _find_demo_video()
+    if video:
+        if not DEMO_LOCAL:
+            data = _s3_get(str(video))
+            if data:
+                yield _add_bytes_and_yield(str(video).split("/")[-1], data)
+                del data
+        else:
+            yield _add_file_and_yield(Path(video).name, Path(video))
+
+    # Script JSON
+    for fname in ("accepted_scripts.json", "render_scripts.json"):
+        if not DEMO_LOCAL:
+            data = _s3_get(f"{_S3_DEMO_PREFIX}/{fname}")
+            if data:
+                yield _add_bytes_and_yield(fname, data)
+                break
+        else:
+            p = DEMO_DIR / fname
+            if p.exists():
+                yield _add_file_and_yield(fname, p)
+                break
+
+    # PPTX, audio, images
+    if not DEMO_LOCAL:
+        for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/") if k.endswith(".pptx")):
+            data = _s3_get(key)
+            if data:
+                yield _add_bytes_and_yield(key.split("/")[-1], data)
+        if BUNDLE_INCLUDE_AUDIO:
+            for key in sorted(_s3_list_keys(f"{_S3_DEMO_PREFIX}/audio/")):
+                data = _s3_get(key)
+                if data:
+                    yield _add_bytes_and_yield(f"audio/{key.split('/')[-1]}", data)
+        if BUNDLE_INCLUDE_IMAGES:
+            for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/images/") if k.endswith(".png")):
+                data = _s3_get(key)
+                if data:
+                    yield _add_bytes_and_yield(f"images/{key.split('/')[-1]}", data)
+    else:
+        for p in sorted(DEMO_DIR.glob("*.pptx")):
+            yield _add_file_and_yield(p.name, p)
+        if BUNDLE_INCLUDE_AUDIO:
+            audio_dir = DEMO_DIR / "audio"
+            if audio_dir.exists():
+                for f in sorted(audio_dir.iterdir()):
+                    if f.is_file():
+                        yield _add_file_and_yield(f"audio/{f.name}", f)
+        if BUNDLE_INCLUDE_IMAGES:
+            images_dir = DEMO_DIR / "images"
+            if images_dir.exists():
+                for f in sorted(images_dir.glob("*.png")):
+                    yield _add_file_and_yield(f"images/{f.name}", f)
+
+    # Finalize ZIP (central directory)
+    pos_before = stream.tell()
+    zf.close()
+    pos_after = stream.tell()
+    stream.seek(pos_before)
+    yield stream.read(pos_after - pos_before)
+
+
 @router.get("/screencast-demo/bundle")
 async def demo_bundle(_: dict = Depends(get_current_user)):
     """Return a ZIP with the demo video and audio files."""
     _require_demo_enabled()
 
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        video = _find_demo_video()
-        if video:
-            if not DEMO_LOCAL:
-                data = _s3_get(str(video))
-                if data:
-                    zf.writestr(str(video).split("/")[-1], data)
-            else:
-                zf.write(Path(video), Path(video).name)
-
-        for fname in ("accepted_scripts.json", "render_scripts.json"):
-            if not DEMO_LOCAL:
-                data = _s3_get(f"{_S3_DEMO_PREFIX}/{fname}")
-                if data:
-                    zf.writestr(fname, data)
-                    break
-            else:
-                p = DEMO_DIR / fname
-                if p.exists():
-                    zf.write(p, fname)
-                    break
-
-        if not DEMO_LOCAL:
-            for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/") if k.endswith(".pptx")):
-                data = _s3_get(key)
-                if data:
-                    zf.writestr(key.split("/")[-1], data)
-            if BUNDLE_INCLUDE_AUDIO:
-                for key in sorted(_s3_list_keys(f"{_S3_DEMO_PREFIX}/audio/")):
-                    data = _s3_get(key)
-                    if data:
-                        zf.writestr(f"audio/{key.split('/')[-1]}", data)
-            if BUNDLE_INCLUDE_IMAGES:
-                for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/images/") if k.endswith(".png")):
-                    data = _s3_get(key)
-                    if data:
-                        zf.writestr(f"images/{key.split('/')[-1]}", data)
-        else:
-            for p in sorted(DEMO_DIR.glob("*.pptx")):
-                zf.write(p, p.name)
-            if BUNDLE_INCLUDE_AUDIO:
-                audio_dir = DEMO_DIR / "audio"
-                if audio_dir.exists():
-                    for f in sorted(audio_dir.iterdir()):
-                        if f.is_file():
-                            zf.write(f, f"audio/{f.name}")
-            if BUNDLE_INCLUDE_IMAGES:
-                images_dir = DEMO_DIR / "images"
-                if images_dir.exists():
-                    for f in sorted(images_dir.glob("*.png")):
-                        zf.write(f, f"images/{f.name}")
-
-    buf.seek(0)
-    data = buf.read()
-    logger.info("Demo/bundle: {} bytes", len(data))
     return StreamingResponse(
-        iter([data]),
+        _streaming_demo_bundle(),
         media_type="application/zip",
         headers={
-            "Content-Length": str(len(data)),
             "Content-Disposition": 'attachment; filename="screencast_demo_bundle.zip"',
         },
     )

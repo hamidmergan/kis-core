@@ -125,29 +125,6 @@ function TimingInfo({ job, isAdmin }: { job: MyJob; isAdmin: boolean }) {
 }
 
 
-async function downloadBundle(audioId: string) {
-  try {
-    const res = await fetch(`/api/jobs/${audioId}/bundle`, { credentials: "include" });
-    if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
-    const blob = await res.blob();
-    const disposition = res.headers.get("Content-Disposition");
-    let filename = "bundle.zip";
-    if (disposition) {
-      const m = disposition.match(/filename="?([^";\n]+)"?/i);
-      if (m) filename = m[1].trim();
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    console.error("Bundle download failed", e);
-  }
-}
 
 function downloadText(text: string, filename: string, mimeType: string) {
   const blob = new Blob([text], { type: mimeType });
@@ -260,7 +237,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
             )}
             {audioId && (
               <DownloadChip
-                onClick={() => downloadBundle(audioId)}
+                href={`/api/jobs/${audioId}/bundle`}
                 label="Alles herunterladen (ZIP)"
               />
             )}

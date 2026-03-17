@@ -1389,7 +1389,7 @@ async def download_all_slide_audio_zip(audio_id: str):
         raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
 
     buf = BytesIO()
-    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_STORED) as zf:
         for filename, data in slides:
             zf.writestr(filename, data)
     buf.seek(0)

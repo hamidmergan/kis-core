@@ -525,7 +525,7 @@ async def download_job_result(
             )
         else:
             buf = io.BytesIO()
-            with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_STORED) as zf:
                 for img in images_data:
                     img_bytes = base64.b64decode(img["b64_json"])
                     zf.writestr(img.get("filename", "image.png"), img_bytes)
@@ -587,6 +587,88 @@ async def download_job_pptx(
     )
 
 
+class _ZipStreamWriter:
+    """File-like object that collects written bytes into chunks for streaming."""
+
+    def __init__(self):
+        self._buf = io.BytesIO()
+
+    def write(self, data: bytes) -> int:
+        return self._buf.write(data)
+
+    def flush(self):
+        pass
+
+    def tell(self) -> int:
+        return self._buf.tell()
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        return self._buf.seek(offset, whence)
+
+    def read(self, n: int = -1) -> bytes:
+        return self._buf.read(n)
+
+    def close(self):
+        pass
+
+
+def _streaming_zip_bundle(job_uuid: str, folder_name: str, audio_count: int):
+    """Generator that yields ZIP data file-by-file without buffering everything first."""
+
+    # Collect (arcname, data) pairs — yield each file's ZIP contribution immediately
+    stream = _ZipStreamWriter()
+    zf = zipfile.ZipFile(stream, mode="w", compression=zipfile.ZIP_STORED)
+
+    def _add_and_yield(arcname: str, data: bytes):
+        pos_before = stream.tell()
+        zf.writestr(arcname, data)
+        pos_after = stream.tell()
+        stream.seek(pos_before)
+        chunk = stream.read(pos_after - pos_before)
+        return chunk
+
+    # MP4
+    try:
+        mp4_data = get_job_file(job_uuid, "output.mp4")
+        yield _add_and_yield(f"{folder_name}.mp4", mp4_data)
+        del mp4_data
+    except Exception:
+        pass
+
+    # Slide audios
+    if BUNDLE_INCLUDE_AUDIO:
+        for i in range(audio_count):
+            try:
+                audio_data = get_job_file(job_uuid, f"audio/slide_{i:03d}.mp3")
+                yield _add_and_yield(f"Audios/slide_{i + 1:03d}.mp3", audio_data)
+            except Exception:
+                pass
+
+    # PPTX
+    pptx_name = "corrected.pptx" if job_file_exists(job_uuid, "corrected.pptx") else "translated.pptx"
+    try:
+        pptx_data = get_job_file(job_uuid, pptx_name)
+        yield _add_and_yield(f"{folder_name}.pptx", pptx_data)
+    except Exception:
+        pass
+
+    # Script
+    for script_file in ("accepted_scripts.json", "user_scripts.json", "scripts.txt"):
+        try:
+            script_data = get_job_file(job_uuid, script_file)
+            yield _add_and_yield(script_file, script_data)
+            break
+        except Exception:
+            continue
+
+    # Finalize ZIP (central directory)
+    pos_before = stream.tell()
+    zf.close()
+    pos_after = stream.tell()
+    stream.seek(pos_before)
+    yield stream.read(pos_after - pos_before)
+
+
 @router.get("/{job_uuid}/bundle")
 async def download_job_bundle(
     job_uuid: str,
@@ -602,50 +684,12 @@ async def download_job_bundle(
     folder_name = _job_folder_name(job_uuid)
     meta = load_result_meta(job_uuid) or {}
     audio_count = int(meta.get("audio_count", 0))
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        # MP4
-        try:
-            mp4_data = get_job_file(job_uuid, "output.mp4")
-            zf.writestr(f"{folder_name}.mp4", mp4_data)
-        except Exception:
-            pass
-
-        # Slide audios
-        if BUNDLE_INCLUDE_AUDIO:
-            for i in range(audio_count):
-                try:
-                    audio_data = get_job_file(job_uuid, f"audio/slide_{i:03d}.mp3")
-                    zf.writestr(f"Audios/slide_{i + 1:03d}.mp3", audio_data)
-                except Exception:
-                    pass
-
-        # PPTX (corrected preferred, fallback translated)
-        pptx_name = "corrected.pptx" if job_file_exists(job_uuid, "corrected.pptx") else "translated.pptx"
-        try:
-            pptx_data = get_job_file(job_uuid, pptx_name)
-            zf.writestr(f"{folder_name}.pptx", pptx_data)
-        except Exception:
-            pass
-
-        # Script (accepted → user → raw)
-        for script_file in ("accepted_scripts.json", "user_scripts.json", "scripts.txt"):
-            try:
-                script_data = get_job_file(job_uuid, script_file)
-                zf.writestr(script_file, script_data)
-                break
-            except Exception:
-                continue
-
-    zip_bytes = buf.getvalue()
     zip_filename = f"{folder_name}.zip"
 
     return StreamingResponse(
-        iter([zip_bytes]),
+        _streaming_zip_bundle(job_uuid, folder_name, audio_count),
         media_type="application/zip",
         headers={
-            "Content-Length": str(len(zip_bytes)),
             "Content-Disposition": f'attachment; filename="{zip_filename}"',
         },
     )

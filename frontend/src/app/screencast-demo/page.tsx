@@ -119,7 +119,6 @@ function ScreencastDemoPageInner() {
   const [regenPrompt, setRegenPrompt] = useState("");
   const [regenProposal, setRegenProposal] = useState<string | null>(null);
   const [regenLoading, setRegenLoading] = useState(false);
-  const [zipDownloading, setZipDownloading] = useState(false);
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [translateJobUuid, setTranslateJobUuid] = useState("");
   const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
@@ -1149,38 +1148,22 @@ function ScreencastDemoPageInner() {
                 MP4
               </button>
               <button
-                onClick={async () => {
-                  if (zipDownloading) return;
-                  setZipDownloading(true);
-                  try {
-                    const endpoint = audioId ? `/api/jobs/${audioId}/bundle` : "/api/screencast-demo/bundle";
-                    const res = await fetch(endpoint, { credentials: "include" });
-                    if (!res.ok) throw new Error("Bundle-Download fehlgeschlagen");
-                    const blob = await res.blob();
-                    const disposition = res.headers.get("Content-Disposition");
-                    let filename = "bundle.zip";
-                    if (disposition) { const m = disposition.match(/filename="?([^";\n]+)"?/i); if (m) filename = m[1].trim(); }
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url; a.download = filename;
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  } catch { console.error("Bundle download failed"); } finally { setZipDownloading(false); }
+                onClick={() => {
+                  const endpoint = audioId ? `/api/jobs/${audioId}/bundle` : "/api/screencast-demo/bundle";
+                  const a = document.createElement("a");
+                  a.href = endpoint;
+                  a.download = "";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
                 }}
-                disabled={zipDownloading} aria-label="Alles herunterladen (ZIP)"
-                className="px-6 py-2 bg-white text-[#004261] border border-[#004261] text-sm font-medium rounded-md hover:bg-[#004261]/5 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                aria-label="Alles herunterladen (ZIP)"
+                className="px-6 py-2 bg-white text-[#004261] border border-[#004261] text-sm font-medium rounded-md hover:bg-[#004261]/5 transition-colors flex items-center gap-2"
               >
-                {zipDownloading ? (
-                  <svg className="h-4 w-4 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                ) : (
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                )}
-                {zipDownloading ? "Wird erstellt…" : "Alles herunterladen (ZIP)"}
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Alles herunterladen (ZIP)
               </button>
             </div>
 

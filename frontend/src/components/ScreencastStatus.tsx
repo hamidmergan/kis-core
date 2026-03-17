@@ -12,7 +12,6 @@ interface ScreencastStatusProps {
   onRetry?: () => void;
   hasZip?: boolean;
   onZipDownload?: () => void;
-  zipDownloading?: boolean;
 }
 
 export default function ScreencastStatus({
@@ -25,7 +24,6 @@ export default function ScreencastStatus({
   onRetry,
   hasZip,
   onZipDownload,
-  zipDownloading,
 }: ScreencastStatusProps) {
   if (state === "idle") return null;
 
@@ -70,21 +68,13 @@ export default function ScreencastStatus({
             {hasZip && (
               <button
                 onClick={onZipDownload}
-                disabled={zipDownloading}
                 aria-label="Alles herunterladen (ZIP)"
-                className="px-4 py-2 bg-white text-[#004261] border border-[#004261] text-sm rounded-md hover:bg-[#004261]/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-white text-[#004261] border border-[#004261] text-sm rounded-md hover:bg-[#004261]/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
               >
-                {zipDownloading ? (
-                  <svg className="h-4 w-4 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                ) : (
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                )}
-                {zipDownloading ? "Wird erstellt…" : "Alles (ZIP)"}
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Alles (ZIP)
               </button>
             )}
             <button
