@@ -3,8 +3,8 @@ import Header from "@/components/Header";
 export default function DatenschutzPage() {
   return (
     <>
-      <Header />
-      <div className="max-w-2xl mx-auto px-4 py-10">
+      <Header showLogout />
+      <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Datenschutzerklärung</h1>
 

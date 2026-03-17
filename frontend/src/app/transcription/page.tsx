@@ -84,7 +84,7 @@ export default function TranscriptionPage() {
   return (
     <ProtectedRoute>
       <Header showLogout />
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Speech-to-Text</h1>
           <p className="text-sm text-gray-500 mb-6">
@@ -113,18 +113,20 @@ export default function TranscriptionPage() {
             </div>
           </div>
 
-          <div className="mb-6">
-            <button
-              onClick={handleSubmit}
-              disabled={!pendingFile || processing}
-              className="self-start px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {processing && (
-                <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
-              )}
-              {processing ? "Wird verarbeitet…" : "Transkription starten"}
-            </button>
-          </div>
+          {!doneJobUuid && (
+            <div className="mb-6">
+              <button
+                onClick={handleSubmit}
+                disabled={!pendingFile || processing}
+                className="self-start px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {processing && (
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
+                )}
+                {processing ? "Wird verarbeitet…" : "Transkription starten"}
+              </button>
+            </div>
+          )}
 
           {stallMessage && !errorMessage && (
             <p className="text-sm text-amber-600" role="status">{stallMessage}</p>
@@ -138,7 +140,7 @@ export default function TranscriptionPage() {
             <div className="mt-2 flex items-center gap-3">
               <button
                 onClick={handleDownload}
-                className="px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                className="px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
               >
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

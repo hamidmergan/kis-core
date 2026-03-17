@@ -202,7 +202,7 @@ export default function VideoDubbingPage() {
   return (
     <ProtectedRoute>
       <Header showLogout />
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Video-Dubbing</h1>
 
@@ -319,32 +319,34 @@ export default function VideoDubbingPage() {
           </div>
 
           {/* Submit */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={!file || isProcessing}
-              className="flex-1 px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Dubbing starten
-            </button>
-            {isProcessing && (
+          {state !== "done" && (
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  const uuid = currentJobUuidRef.current;
-                  currentJobUuidRef.current = null;
-                  abortControllerRef.current?.abort();
-                  if (uuid) { fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
-                  setState("idle");
-                }}
-                className="px-4 py-3 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2 shrink-0"
+                onClick={handleSubmit}
+                disabled={!file || isProcessing}
+                className="flex-1 px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Abbrechen
+                Dubbing starten
               </button>
-            )}
-          </div>
+              {isProcessing && (
+                <button
+                  onClick={() => {
+                    const uuid = currentJobUuidRef.current;
+                    currentJobUuidRef.current = null;
+                    abortControllerRef.current?.abort();
+                    if (uuid) { fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
+                    setState("idle");
+                  }}
+                  className="px-4 py-3 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2 shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Abbrechen
+                </button>
+              )}
+            </div>
+          )}
 
           {/* ── Status & Results ── */}
           {state !== "idle" && (

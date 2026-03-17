@@ -178,7 +178,7 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
     <button
       onClick={handleClick}
       disabled={busy}
-      className="inline-flex items-center gap-1 text-xs text-[#004261] bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full disabled:opacity-60 disabled:cursor-not-allowed"
+      className="text-xs text-[#004261] hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {busy ? (
         <svg className="w-3 h-3 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -186,9 +186,8 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
       ) : (
-        <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M7 2v7.586L4.707 7.293l-1.414 1.414L8 13.414l4.707-4.707-1.414-1.414L9 9.586V2H7z"/>
-          <path d="M3 14h10v-1.5H3V14z"/>
+        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
         </svg>
       )}
       {busy ? "Wird erstellt…" : label}
@@ -203,10 +202,9 @@ function DownloadButton({ href, filename, label }: { href?: string; filename?: s
 
 function DisabledChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-gray-400 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full cursor-not-allowed select-none">
-      <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M7 2v7.586L4.707 7.293l-1.414 1.414L8 13.414l4.707-4.707-1.414-1.414L9 9.586V2H7z"/>
-        <path d="M3 14h10v-1.5H3V14z"/>
+    <span className="text-xs text-gray-400 flex items-center gap-1 cursor-not-allowed select-none">
+      <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
       </svg>
       {label}
     </span>
@@ -590,7 +588,7 @@ export default function MeineJobsPage() {
   return (
     <>
       <Header showLogout />
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Meine Jobs</h2>
           <div className="flex items-center gap-2">

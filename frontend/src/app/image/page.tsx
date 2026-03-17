@@ -285,7 +285,7 @@ export default function ImagePage() {
   return (
     <ProtectedRoute>
       <Header showLogout />
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-xl font-bold text-gray-900 mb-1">Image</h1>
         <p className="text-sm text-gray-500 mb-6">
           Bilder generieren, bearbeiten und analysieren mit KI.
@@ -365,13 +365,15 @@ export default function ImagePage() {
               </div>
             </div>
 
-            <button
-              onClick={handleGenerate}
-              disabled={!genPrompt.trim() || genLoading}
-              className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {genLoading ? "Wird verarbeitet…" : "Bild generieren"}
-            </button>
+            {!genResults.length && (
+              <button
+                onClick={handleGenerate}
+                disabled={!genPrompt.trim() || genLoading}
+                className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {genLoading ? "Wird verarbeitet…" : "Bild generieren"}
+              </button>
+            )}
 
             {genLoading && <Spinner label={genSpinnerLabel} />}
             {genError && <p className="mt-4 text-sm text-red-600" role="alert">{genError}</p>}
@@ -392,7 +394,7 @@ export default function ImagePage() {
                           a.download = result.filename;
                           a.click();
                         }}
-                        className="w-full px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                        className="w-full px-3 py-1.5 bg-[#004261] text-white text-xs font-medium rounded-md hover:bg-[#003a56] transition-colors flex items-center justify-center gap-2"
                       >
                         <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -414,6 +416,12 @@ export default function ImagePage() {
                     Alle als ZIP
                   </a>
                 )}
+                <button
+                  onClick={() => { setGenResults([]); setGenJobUuid(null); }}
+                  className="mt-4 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Neu generieren
+                </button>
               </div>
             )}
           </section>
@@ -452,13 +460,15 @@ export default function ImagePage() {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none mb-4"
             />
 
-            <button
-              onClick={handleEditSubmit}
-              disabled={!editFile || !editPrompt.trim() || editLoading}
-              className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {editLoading ? "Wird verarbeitet…" : "Bild bearbeiten"}
-            </button>
+            {!editResultUrl && (
+              <button
+                onClick={handleEditSubmit}
+                disabled={!editFile || !editPrompt.trim() || editLoading}
+                className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {editLoading ? "Wird verarbeitet…" : "Bild bearbeiten"}
+              </button>
+            )}
 
             {editLoading && <Spinner label={editSpinnerLabel} />}
             {editError && <p className="mt-4 text-sm text-red-600" role="alert">{editError}</p>}
@@ -469,15 +479,23 @@ export default function ImagePage() {
                   alt="Bearbeitetes Bild"
                   className="w-full rounded-lg border border-gray-200 bg-gray-50"
                 />
-                <button
-                  onClick={handleEditDownload}
-                  className="mt-3 px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
-                >
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Bild
-                </button>
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    onClick={handleEditDownload}
+                    className="px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Bild
+                  </button>
+                  <button
+                    onClick={() => { setEditResultUrl(null); setEditResultFilename(null); }}
+                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Neu bearbeiten
+                  </button>
+                </div>
               </div>
             )}
           </section>
@@ -516,13 +534,15 @@ export default function ImagePage() {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#004261] focus:ring-1 focus:ring-[#004261] focus:outline-none mb-4"
             />
 
-            <button
-              onClick={handleAnalyzeSubmit}
-              disabled={!analyzeFile || analyzeLoading}
-              className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {analyzeLoading ? "Wird verarbeitet…" : "Analysieren"}
-            </button>
+            {!analyzeResultText && (
+              <button
+                onClick={handleAnalyzeSubmit}
+                disabled={!analyzeFile || analyzeLoading}
+                className="w-full px-4 py-3 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {analyzeLoading ? "Wird verarbeitet…" : "Analysieren"}
+              </button>
+            )}
 
             {analyzeLoading && <Spinner label={analyzeSpinnerLabel} />}
             {analyzeError && <p className="mt-4 text-sm text-red-600" role="alert">{analyzeError}</p>}
@@ -531,25 +551,33 @@ export default function ImagePage() {
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 mb-3">
                   <p className="text-sm text-gray-800 whitespace-pre-wrap">{analyzeResultText}</p>
                 </div>
-                <button
-                  onClick={() => {
-                    const blob = new Blob([analyzeResultText], { type: "text/plain" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = analyzeFile
-                      ? analyzeFile.name.replace(/\.[^.]+$/, "_analyse.txt")
-                      : "analyse.txt";
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="text-xs text-[#004261] hover:underline flex items-center gap-1"
-                >
-                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  TXT
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([analyzeResultText], { type: "text/plain" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = analyzeFile
+                        ? analyzeFile.name.replace(/\.[^.]+$/, "_analyse.txt")
+                        : "analyse.txt";
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    TXT
+                  </button>
+                  <button
+                    onClick={() => setAnalyzeResultText(null)}
+                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Neu analysieren
+                  </button>
+                </div>
               </div>
             )}
           </section>
