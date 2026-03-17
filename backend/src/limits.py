@@ -10,14 +10,14 @@
 # window_hours: Stunden bis Reset (startet wenn Limit erstmals erreicht wird)
 # label:        Anzeigename für Admin-UI und Fehlermeldungen
 QUOTA_DEFAULTS: dict[str, dict] = {
-    "tts":            {"limit": 30, "window_hours": 4, "label": "Text-to-Speech"},
+    "tts":            {"limit": 20, "window_hours": 4, "label": "Text-to-Speech"},
     "summary":        {"limit": 30, "window_hours": 4, "label": "Zusammenfassung"},
     "translate":      {"limit": 30, "window_hours": 4, "label": "Dokumentenübersetzung"},
     "transcription":  {"limit": 30, "window_hours": 4, "label": "Transkription"},
     "image_generate": {"limit": 30, "window_hours": 4, "label": "Bild-Generierung"},
     "image_edit":     {"limit": 30, "window_hours": 4, "label": "Bild-Bearbeitung"},
     "image_analyze":  {"limit": 30, "window_hours": 4, "label": "Bild-Analyse"},
-    "screencast":     {"limit": 30, "window_hours": 4, "label": "Screencast"},
+    "screencast":     {"limit": 20, "window_hours": 4, "label": "Screencast"},
 }
 
 # ─── Job-Verwaltung ────────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # allgemein (500 MB)
 TRANSLATE_MAX_UPLOAD_BYTES = 500 * 1024 * 1024   # Übersetzung (500 MB)
 MAX_TRANSCRIPTION_BYTES    = 500 * 1024 * 1024   # Audio-Upload (500 MB)
 MAX_IMAGE_BYTES            = 20  * 1024 * 1024   # Bild-Upload (20 MB)
-MAX_OUTPUT_VIDEO_BYTES     = 200 * 1024 * 1024   # Ausgabe-Video-Limit (200 MB)
+MAX_OUTPUT_VIDEO_BYTES     = 300 * 1024 * 1024   # Ausgabe-Video-Limit (200 MB)
 
 # ─── Zeichen-Limits (pro Anfrage, nicht pro Zeitfenster) ──────────────────────
 TTS_MAX_CHARS        = 100_000
@@ -38,6 +38,10 @@ TRANSLATE_MAX_CHARS  = 100_000
 SCRIPT_MAX_CHARS     = 100_000
 SUMMARY_MAX_CHARS    = 100_000
 SCREENCAST_MAX_CHARS = 100_000
+
+# ─── Bundle Download ───────────────────────────────────────────────────────────
+BUNDLE_INCLUDE_AUDIO  = False  # MP3s in ZIP einschließen
+BUNDLE_INCLUDE_IMAGES = False  # Slide-Bilder in ZIP einschließen
 
 # ─── Screencast ────────────────────────────────────────────────────────────────
 MAX_SCREENCAST_SLIDES          = 50

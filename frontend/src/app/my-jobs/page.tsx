@@ -447,6 +447,7 @@ export default function MeineJobsPage() {
   const [dateFrom, setDateFrom] = useState(() => ss("mj_from", ""));
   const [dateTo, setDateTo] = useState(() => ss("mj_to", ""));
   const [isAdmin, setIsAdmin] = useState(false);
+  const [enabledTools, setEnabledTools] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<MyJob | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -454,6 +455,10 @@ export default function MeineJobsPage() {
 
   useEffect(() => {
     checkAuthStatus().then((s) => setIsAdmin(s.is_admin ?? false));
+    fetch("/api/admin/tools", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setEnabledTools(new Set((d.tools ?? []).filter((t: { enabled: boolean }) => t.enabled).map((t: { key: string }) => t.key))))
+      .catch(() => {});
   }, []);
 
   // Debounce q and reset offset
@@ -642,7 +647,7 @@ export default function MeineJobsPage() {
               <option value="summary">Summarize</option>
               <option value="tts">Text-to-Speech</option>
               <option value="screencast">Screencast</option>
-              <option value="video_dubbing">Video-Dubbing</option>
+              {enabledTools.has("video_dubbing") && <option value="video_dubbing">Video-Dubbing</option>}
               <option value="image">Image</option>
             </select>
           </div>

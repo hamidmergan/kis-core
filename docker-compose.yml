@@ -93,6 +93,7 @@ services:
         max-file: "7"
 
   celery-worker-dubbing:
+    profiles: ["dubbing"]
     build: ./backend
     container_name: kis-celery-dubbing
     command: celery -A src.celery_app worker --queues=dubbing --autoscale=1,1 --loglevel=info
@@ -265,10 +266,31 @@ services:
       - ./ldap/seed.ldif:/assets/slapd/bootstrap/ldif/seed.ldif
       - kis-openldap-data:/var/lib/ldap
       - kis-openldap-config:/etc/ldap/slapd.d
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-D", "cn=admin,dc=th-luebeck,dc=de", "-w", "admin", "-b", "dc=th-luebeck,dc=de"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
-  phpldapadmin:
+  ldap-init:
     profiles: ["ldap"]
+    image: alpine:latest
+    container_name: kis-ldap-init
+    command: >
+      sh -c "
+        apk add --no-cache openldap-clients &&
+        ldapadd -x -H ldap://openldap -D 'cn=admin,dc=th-luebeck,dc=de' -w admin -f /seed/seed.ldif 2>&1 || true
+      "
+    volumes:
+      - ./ldap/seed.ldif:/seed/seed.ldif:ro
+    depends_on:
+      openldap:
+        condition: service_healthy
+    restart: "no"
+
+  phpldapadmin:
+    profiles: ["ldapadmin"]
     image: osixia/phpldapadmin:latest
     container_name: kis-phpldapadmin
     environment:

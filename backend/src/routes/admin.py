@@ -146,13 +146,25 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
 
 # --- Tool visibility ---
 
+_DEFAULT_DISABLED: set[str] = {"video_dubbing"}
+
+
 @router.get("/tools")
 async def get_tools(_user=Depends(get_current_user)):
     """Return all tools with their enabled/disabled state. Accessible by all logged-in users."""
     disabled = set(json.loads(db.get_setting("disabled_tools", "[]")))
+    enabled_overrides = set(json.loads(db.get_setting("enabled_tools_override", "[]")))
+
+    def _is_enabled(key: str) -> bool:
+        if key in disabled:
+            return False
+        if key in _DEFAULT_DISABLED and key not in enabled_overrides:
+            return False
+        return True
+
     return {
         "tools": [
-            {**t, "enabled": t["key"] not in disabled}
+            {**t, "enabled": _is_enabled(t["key"])}
             for t in _TOOLS_CONFIG
         ]
     }
@@ -165,11 +177,17 @@ async def toggle_tool(tool_key: str, body: ToggleToolRequest, _admin=Depends(get
     if tool_key not in valid_keys:
         raise HTTPException(status_code=400, detail="Unbekanntes Tool")
     disabled = set(json.loads(db.get_setting("disabled_tools", "[]")))
+    enabled_overrides = set(json.loads(db.get_setting("enabled_tools_override", "[]")))
     if body.enabled:
         disabled.discard(tool_key)
+        if tool_key in _DEFAULT_DISABLED:
+            enabled_overrides.add(tool_key)
     else:
-        disabled.add(tool_key)
+        enabled_overrides.discard(tool_key)
+        if tool_key not in _DEFAULT_DISABLED:
+            disabled.add(tool_key)
     db.set_setting("disabled_tools", json.dumps(list(disabled)))
+    db.set_setting("enabled_tools_override", json.dumps(list(enabled_overrides)))
     return {"ok": True}
 
 

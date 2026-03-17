@@ -14,7 +14,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
-from src.limits import MAX_QUEUED_SCREENCAST_JOBS
+from src.limits import MAX_QUEUED_SCREENCAST_JOBS, BUNDLE_INCLUDE_AUDIO, BUNDLE_INCLUDE_IMAGES
 from src.storage import USE_S3, delete_job_folder, file_exists, get_file, get_job_file, job_file_exists, load_result_json, load_result_meta, save_job_file, _job_folder_name
 
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -613,12 +613,13 @@ async def download_job_bundle(
             pass
 
         # Slide audios
-        for i in range(audio_count):
-            try:
-                audio_data = get_job_file(job_uuid, f"audio/slide_{i:03d}.mp3")
-                zf.writestr(f"Audios/slide_{i + 1:03d}.mp3", audio_data)
-            except Exception:
-                pass
+        if BUNDLE_INCLUDE_AUDIO:
+            for i in range(audio_count):
+                try:
+                    audio_data = get_job_file(job_uuid, f"audio/slide_{i:03d}.mp3")
+                    zf.writestr(f"Audios/slide_{i + 1:03d}.mp3", audio_data)
+                except Exception:
+                    pass
 
         # PPTX (corrected preferred, fallback translated)
         pptx_name = "corrected.pptx" if job_file_exists(job_uuid, "corrected.pptx") else "translated.pptx"

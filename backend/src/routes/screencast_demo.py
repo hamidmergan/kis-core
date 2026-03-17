@@ -2,7 +2,7 @@
 
 No computation, no Celery tasks, no PPTX parsing.
 Files are read from S3 under the 'demo/' prefix (production) or from
-backend/demo/ on the local filesystem (development / no S3 configured):
+backend/demo/ on the local filesystem when DEMO_LOCAL=true:
   demo/images/slide_001.png ...  → slide images
   demo/accepted_scripts.json     → scripts per slide (list[str])
   demo/output.mp4                → pre-rendered video
@@ -11,6 +11,7 @@ backend/demo/ on the local filesystem (development / no S3 configured):
 import base64
 import io
 import json
+import os
 import zipfile
 from pathlib import Path
 
@@ -21,13 +22,17 @@ from loguru import logger
 from pydantic import BaseModel
 
 from src.dependencies import get_current_user
-from src import database as db
-from src.storage import USE_S3, _S3_BUCKET, _s3
+from src.limits import BUNDLE_INCLUDE_AUDIO, BUNDLE_INCLUDE_IMAGES
+from src.storage import _S3_BUCKET, _s3
 
 router = APIRouter(tags=["screencast-demo"])
 
 DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo"
 _S3_DEMO_PREFIX = "demo"
+
+# DEMO_LOCAL=true  → liest aus backend/demo/ (lokal)
+# DEMO_LOCAL=false / nicht gesetzt → liest aus S3 demo/-Prefix (Server)
+DEMO_LOCAL = os.environ.get("DEMO_LOCAL", "false").lower() == "true"
 
 
 # ── Pydantic models ──────────────────────────────────────────────────────────
@@ -77,14 +82,13 @@ def _s3_list_keys(prefix: str) -> list[str]:
 # ── Helper functions ─────────────────────────────────────────────────────────
 
 def _require_demo_enabled() -> None:
-    if db.get_setting("demo_data", "false").lower() != "true":
-        raise HTTPException(status_code=403, detail="Demo-Modus ist nicht aktiviert")
+    pass
 
 
 def _load_accepted_scripts() -> list[str]:
     """Load scripts from accepted_scripts.json or render_scripts.json."""
     for fname in ("accepted_scripts.json", "render_scripts.json"):
-        if USE_S3:
+        if not DEMO_LOCAL:
             data_bytes = _s3_get(f"{_S3_DEMO_PREFIX}/{fname}")
             if data_bytes is None:
                 continue
@@ -113,7 +117,7 @@ def _load_accepted_scripts() -> list[str]:
 
 def _load_demo_images() -> list[str]:
     """Load slide images from demo/images/ as base64 strings."""
-    if USE_S3:
+    if not DEMO_LOCAL:
         prefix = f"{_S3_DEMO_PREFIX}/images/"
         keys = sorted(k for k in _s3_list_keys(prefix) if k.endswith(".png"))
         result = []
@@ -134,7 +138,7 @@ def _load_demo_images() -> list[str]:
 
 def _find_demo_video() -> str | Path | None:
     """Return S3 key or local Path for the pre-rendered demo video."""
-    if USE_S3:
+    if not DEMO_LOCAL:
         for name in ("output.mp4", "video.mp4"):
             key = f"{_S3_DEMO_PREFIX}/{name}"
             if _s3_exists(key):
@@ -151,7 +155,7 @@ def _find_demo_video() -> str | Path | None:
 
 
 def _demo_images_exist() -> bool:
-    if USE_S3:
+    if not DEMO_LOCAL:
         prefix = f"{_S3_DEMO_PREFIX}/images/"
         keys = [k for k in _s3_list_keys(prefix) if k.endswith(".png")]
         return bool(keys)
@@ -164,13 +168,12 @@ def _demo_images_exist() -> bool:
 @router.get("/screencast-demo/available")
 async def demo_available():
     """Check whether demo data is available."""
-    demo_enabled = db.get_setting("demo_data", "false").lower() == "true"
     images_exist = _demo_images_exist()
     video_path = _find_demo_video()
     return {
-        "available": demo_enabled and images_exist,
-        "has_video": demo_enabled and video_path is not None,
-        "demo_data_enabled": demo_enabled,
+        "available": images_exist,
+        "has_video": video_path is not None,
+        "demo_data_enabled": True,
         "pptx_exists": images_exist,
         "video_exists": video_path is not None,
     }
@@ -228,7 +231,7 @@ async def demo_render(body: DemoRenderRequest, _: dict = Depends(get_current_use
             detail="Kein Demo-Video gefunden (output.mp4 fehlt in demo/)",
         )
 
-    if USE_S3:
+    if not DEMO_LOCAL:
         video_bytes = _s3_get(str(video))
         if not video_bytes:
             raise HTTPException(status_code=404, detail="Demo-Video konnte nicht aus S3 gelesen werden")
@@ -254,7 +257,7 @@ async def demo_bundle(_: dict = Depends(get_current_user)):
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         video = _find_demo_video()
         if video:
-            if USE_S3:
+            if not DEMO_LOCAL:
                 data = _s3_get(str(video))
                 if data:
                     zf.writestr(str(video).split("/")[-1], data)
@@ -262,7 +265,7 @@ async def demo_bundle(_: dict = Depends(get_current_user)):
                 zf.write(Path(video), Path(video).name)
 
         for fname in ("accepted_scripts.json", "render_scripts.json"):
-            if USE_S3:
+            if not DEMO_LOCAL:
                 data = _s3_get(f"{_S3_DEMO_PREFIX}/{fname}")
                 if data:
                     zf.writestr(fname, data)
@@ -273,23 +276,35 @@ async def demo_bundle(_: dict = Depends(get_current_user)):
                     zf.write(p, fname)
                     break
 
-        if USE_S3:
+        if not DEMO_LOCAL:
             for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/") if k.endswith(".pptx")):
                 data = _s3_get(key)
                 if data:
                     zf.writestr(key.split("/")[-1], data)
-            for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/audio/") if True):
-                data = _s3_get(key)
-                if data:
-                    zf.writestr(f"audio/{key.split('/')[-1]}", data)
+            if BUNDLE_INCLUDE_AUDIO:
+                for key in sorted(_s3_list_keys(f"{_S3_DEMO_PREFIX}/audio/")):
+                    data = _s3_get(key)
+                    if data:
+                        zf.writestr(f"audio/{key.split('/')[-1]}", data)
+            if BUNDLE_INCLUDE_IMAGES:
+                for key in sorted(k for k in _s3_list_keys(f"{_S3_DEMO_PREFIX}/images/") if k.endswith(".png")):
+                    data = _s3_get(key)
+                    if data:
+                        zf.writestr(f"images/{key.split('/')[-1]}", data)
         else:
             for p in sorted(DEMO_DIR.glob("*.pptx")):
                 zf.write(p, p.name)
-            audio_dir = DEMO_DIR / "audio"
-            if audio_dir.exists():
-                for f in sorted(audio_dir.iterdir()):
-                    if f.is_file():
-                        zf.write(f, f"audio/{f.name}")
+            if BUNDLE_INCLUDE_AUDIO:
+                audio_dir = DEMO_DIR / "audio"
+                if audio_dir.exists():
+                    for f in sorted(audio_dir.iterdir()):
+                        if f.is_file():
+                            zf.write(f, f"audio/{f.name}")
+            if BUNDLE_INCLUDE_IMAGES:
+                images_dir = DEMO_DIR / "images"
+                if images_dir.exists():
+                    for f in sorted(images_dir.glob("*.png")):
+                        zf.write(f, f"images/{f.name}")
 
     buf.seek(0)
     data = buf.read()
