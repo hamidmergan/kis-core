@@ -18,6 +18,7 @@ export default function Footer({ compact }: { compact?: boolean }) {
               width={110}
               height={44}
               className="object-contain max-h-10"
+              style={{ width: "auto" }}
             />
           </a>
           <a href="https://www.th-luebeck.de/isy/" target="_blank" rel="noopener noreferrer" aria-label="ISY"
@@ -28,6 +29,7 @@ export default function Footer({ compact }: { compact?: boolean }) {
               width={80}
               height={44}
               className="object-contain max-h-10"
+              style={{ width: "auto" }}
             />
           </a>
         </div>
