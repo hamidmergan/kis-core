@@ -33,6 +33,8 @@ services:
       - kis-storage:/app/storage
     ports:
       - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       redis:
         condition: service_started
@@ -54,6 +56,8 @@ services:
     volumes:
       - ./backend/demo:/app/demo:ro
       - kis-storage:/app/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       redis:
         condition: service_started
@@ -74,6 +78,8 @@ services:
       - .env
     volumes:
       - kis-storage:/app/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       redis:
         condition: service_started
