@@ -1,5 +1,5 @@
 const API_BASE = "";
-const BACKEND_BASE = "http://localhost:8000";
+const BACKEND_BASE = "/api";
 
 export class QuotaError extends Error {
   quota_type: string;
