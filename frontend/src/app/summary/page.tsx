@@ -194,22 +194,33 @@ export default function ZusammenfassungPage() {
           )}
 
           {doneJobUuid && (
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={handleDownload}
-                className="px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
-              >
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Zusammenfassung
-              </button>
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Neue Datei
-              </button>
+            <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6" role="status" aria-live="polite">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-medium text-gray-900">Fertig! Download bereit</span>
+                </div>
+                {selectedFile && <p className="text-xs text-gray-500">{selectedFile.name}</p>}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDownload}
+                    className="px-4 py-2 bg-[#004261] text-white text-sm rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
+                  >
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Zusammenfassung
+                  </button>
+                  <button
+                    onClick={handleReset}
+                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
+                  >
+                    Neue Datei
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </section>
