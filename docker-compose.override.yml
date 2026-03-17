@@ -40,3 +40,21 @@ services:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - /app/node_modules
+
+  adminer:
+    profiles: []
+
+  minio:
+    profiles: []
+
+  kokoro:
+    profiles: []
+
+  ollama:
+    profiles: []
+
+  openldap:
+    profiles: []
+
+  phpldapadmin:
+    profiles: []
