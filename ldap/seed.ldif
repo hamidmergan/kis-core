@@ -2,18 +2,19 @@ dn: ou=people,dc=th-luebeck,dc=de
 objectClass: organizationalUnit
 ou: people
 
-dn: uid=a,ou=people,dc=th-luebeck,dc=de
+dn: uid=hamidAdmin,ou=people,dc=th-luebeck,dc=de
 objectClass: inetOrgPerson
-uid: a
-cn: Hans Müller
-sn: Müller
-mail: admin@th-luebeck.de
-userPassword: a
+uid: hamidAdmin
+cn: Hamid Mergan
+sn: Mergan
+mail: hamid.mergan@th-luebeck.de
+userPassword: HartRasur1199?
 
-dn: uid=b,ou=people,dc=th-luebeck,dc=de
+dn: uid=monique,ou=people,dc=th-luebeck,dc=de
 objectClass: inetOrgPerson
-uid: b
-cn: Jana Schmidt
-sn: Schmidt
-mail: j.schmidt@th-luebeck.de
-userPassword: b
+uid: monique
+cn: Monique Janneck
+sn: Janneck
+mail: m.j@th-luebeck.de
+userPassword: DEIN_PASSWORT
+
