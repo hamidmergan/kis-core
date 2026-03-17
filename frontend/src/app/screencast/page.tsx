@@ -234,6 +234,8 @@ function ScreencastPageInner() {
   const [targetLang, setTargetLang] = useState<string>("EN-US");
   const [fastMode, setFastMode] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminLoaded, setIsAdminLoaded] = useState(false);
+  const [showDemoLink, setShowDemoLink] = useState(false);
 
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
@@ -243,7 +245,15 @@ function ScreencastPageInner() {
   useEffect(() => {
     checkAuthStatus().then((status) => {
       setIsAdmin(!!status.is_admin);
+      setIsAdminLoaded(true);
     });
+    fetch("/api/admin/tools", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        const tool = (d.tools ?? []).find((t: { key: string; enabled: boolean }) => t.key === "screencast-demo");
+        setShowDemoLink(!tool || tool.enabled);
+      })
+      .catch(() => {});
   }, []);
 
   // ── Script input mode (user-prompt step) ──
@@ -1371,6 +1381,7 @@ function ScreencastPageInner() {
   const totalChars = slides.reduce((sum, s) => sum + (s.script?.length ?? 0), 0);
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
 
+
   return (
     <ProtectedRoute>
       <Header showLogout />
@@ -1500,9 +1511,14 @@ function ScreencastPageInner() {
         {/* ── Step: Upload ── */}
         {!resumeLoading && step === "upload" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h1 className="text-xl font-bold text-gray-900 mb-1">
-              Screencast erstellen
-            </h1>
+            <div className="flex items-baseline justify-between mb-1">
+              <h1 className="text-xl font-bold text-gray-900">Screencast erstellen</h1>
+              {showDemoLink && (
+                <a href="/screencast-demo" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors">
+                  Demo ansehen →
+                </a>
+              )}
+            </div>
             <p className="text-sm text-gray-500 mb-6">
               Laden Sie eine PowerPoint-Präsentation hoch. Die Präsentation wird
               per DeepL übersetzt und als vertontes Video exportiert.

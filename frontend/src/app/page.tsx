@@ -40,12 +40,6 @@ const ALL_WORKFLOWS = [
     description: "Aus PowerPoint-Dateien vertonte Videos mit übersetzten Folien generieren.",
     href: "/screencast",
   },
-  {
-    key: "screencast-demo",
-    title: "Screencast-Demo",
-    description: "Demo-Präsentation als vertontes Video ansehen und ausprobieren.",
-    href: "/screencast-demo",
-  },
 ];
 
 type Tool = { key: string; title: string; description: string; href: string; unavailable?: boolean };

@@ -568,7 +568,6 @@ function JobsTab() {
 // --- Settings: General toggles ---
 function GeneralSettingsSection() {
   const [whitelistEnabled, setWhitelistEnabled] = useState<boolean | null>(null);
-  const [demoData, setDemoData] = useState<boolean | null>(null);
   const [elevenlabsEnabled, setElevenlabsEnabled] = useState<boolean>(true);
   const [elevenlabsConfigured, setElevenlabsConfigured] = useState<boolean>(false);
   const [kokoroEnabled, setKokoroEnabled] = useState<boolean>(false);
@@ -581,7 +580,6 @@ function GeneralSettingsSection() {
       .then((r) => r.json())
       .then((d) => {
         setWhitelistEnabled(d.whitelist_enabled ?? true);
-        setDemoData(d.demo_data ?? false);
         setElevenlabsEnabled(d.elevenlabs_enabled ?? true);
         setElevenlabsConfigured(d.elevenlabs_configured ?? false);
         setKokoroEnabled(d.kokoro_enabled ?? true);
@@ -604,7 +602,7 @@ function GeneralSettingsSection() {
     }
   };
 
-  if (whitelistEnabled === null || demoData === null) return <Spinner />;
+  if (whitelistEnabled === null) return <Spinner />;
 
   return (
     <div className="space-y-4">
@@ -635,37 +633,6 @@ function GeneralSettingsSection() {
         {!whitelistEnabled && (
           <p className="mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
             Achtung: Alle TH-Mitarbeiter mit gültigem LDAP-Account können sich einloggen.
-          </p>
-        )}
-      </div>
-
-      {/* Demo-Modus */}
-      <div className="border border-gray-200 rounded-xl bg-white p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-800">Demo-Modus</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {demoData
-                ? "Aktiv — Demo-Screencast mit vorgefertigten Daten ist sichtbar."
-                : "Deaktiviert — Demo-Screencast ist ausgeblendet."}
-            </p>
-          </div>
-          <button
-            onClick={() => { const v = !demoData; setDemoData(v); patch({ demo_data: v }); }}
-            disabled={saving}
-            className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-              demoData ? "bg-[#004261]" : "bg-gray-300"
-            } disabled:opacity-50`}
-            aria-label="Demo-Modus umschalten"
-          >
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-              demoData ? "translate-x-5" : "translate-x-0"
-            }`} />
-          </button>
-        </div>
-        {demoData && (
-          <p className="mt-3 text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
-            Demo-Screencast ist für alle eingeloggten User sichtbar.
           </p>
         )}
       </div>
