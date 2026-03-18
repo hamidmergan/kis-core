@@ -24,12 +24,7 @@ interface MyJob {
   folder_name: string | null;
   tts_params?: { voice_id?: string; voice_label?: string; provider?: string } | null;
   is_generating_scripts?: boolean;
-}
-
-interface JobDetail {
-  result: Record<string, unknown> | null;
-  meta: Record<string, unknown> | null;
-  download_url: string | null;
+  meta?: Record<string, unknown> | null;
 }
 
 
@@ -188,9 +183,7 @@ function DisabledChip({ label }: { label: string }) {
   );
 }
 
-function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null }) {
-  const router = useRouter();
-
+function JobArtifacts({ job }: { job: MyJob }) {
   // screencast_translate: single-folder workflow — show artifacts for both phases
   if (job.tool === "screencast_translate") {
     if (job.status === "awaiting_user") {
@@ -223,7 +216,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
     }
 
     if (job.status === "success") {
-      const meta = detail?.meta as Record<string, unknown> | null;
+      const meta = (job.meta ?? null) as Record<string, unknown> | null;
       const audioId = meta?.audio_id as string | undefined;
       return (
         <div className="mt-3">
@@ -280,7 +273,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
 
   // screencast render/auto/demo: show all artifacts (legacy + auto mode)
   if (job.status === "success" && SCREENCAST_RENDER_TOOLS.has(job.tool)) {
-    const meta = detail?.meta as Record<string, unknown> | null;
+    const meta = (job.meta ?? null) as Record<string, unknown> | null;
     const audioId = meta?.audio_id as string | undefined;
 
     return (
@@ -320,7 +313,7 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
 
   // video_dubbing: show video + subtitles
   if (job.tool === "video_dubbing" && job.status === "success") {
-    const meta = detail?.meta as Record<string, unknown> | null;
+    const meta = (job.meta ?? null) as Record<string, unknown> | null;
     const srt = meta?.srt as string | undefined;
     const vtt = meta?.vtt as string | undefined;
     const txt = meta?.txt as string | undefined;
@@ -407,7 +400,6 @@ function JobArtifacts({ job, detail }: { job: MyJob; detail: JobDetail | null })
 
 export default function MeineJobsPage() {
   const [jobs, setJobs] = useState<MyJob[]>([]);
-  const [details, setDetails] = useState<Record<string, JobDetail>>({});
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -478,23 +470,6 @@ export default function MeineJobsPage() {
       const loaded: MyJob[] = data.jobs ?? [];
       setJobs(loaded);
       setTotal(data.total ?? 0);
-
-      // Fetch detail for completed jobs
-      const results = await Promise.all(
-        loaded
-          .filter((j) => j.status === "success")
-          .map((j) =>
-            fetch(`/api/jobs/${j.job_uuid}`, { credentials: "include" })
-              .then((r) => r.json())
-              .then((d) => ({ uuid: j.job_uuid, detail: { result: d.result, meta: d.meta, download_url: d.download_url } }))
-              .catch(() => null)
-          )
-      );
-      const map: Record<string, JobDetail> = {};
-      for (const r of results) {
-        if (r) map[r.uuid] = r.detail;
-      }
-      setDetails(map);
       setLastUpdated(new Date());
     } finally {
       setLoading(false);
@@ -675,7 +650,6 @@ export default function MeineJobsPage() {
             <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
               {jobs.map((job) => {
                 const expired = isExpired(job);
-                const detail = details[job.job_uuid] ?? null;
                 return (
                   <li key={job.job_uuid} className={`px-5 py-4 bg-white ${expired ? "opacity-50" : "hover:bg-gray-50"}`}>
                     <div className="flex items-stretch justify-between gap-4">
@@ -701,7 +675,7 @@ export default function MeineJobsPage() {
                         {job.status === "failed" && job.error && (
                           <p className="text-xs text-red-500 mt-1">{job.error}</p>
                         )}
-                        {!expired && <JobArtifacts job={job} detail={detail} />}
+                        {!expired && <JobArtifacts job={job} />}
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">
                         <StatusBadge status={job.status} expired={expired} isGeneratingScripts={job.is_generating_scripts} />

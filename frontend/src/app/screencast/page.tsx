@@ -2248,12 +2248,9 @@ function ScreencastPageInner() {
         {/* ── Step: TTS Settings ── */}
         {!resumeLoading && step === "tts-settings" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">
-              Spracheinstellungen
+            <h2 className="text-lg font-bold text-gray-900 mb-6">
+              Einstellungen
             </h2>
-            <p className="text-sm text-gray-500 mb-6">
-              Passen Sie Stimme, Geschwindigkeit und Pausen an.
-            </p>
 
             {/* TTS-Anbieter */}
             {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
@@ -2405,7 +2402,7 @@ function ScreencastPageInner() {
                     className="mt-0.5 h-4 w-4 text-[#004261] focus:ring-[#004261]"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-700">96 DPI – Geringe Qualität</span>
+                    <span className="text-sm font-medium text-gray-700">Geringe Qualität</span>
                     <p className="text-xs text-gray-400 mt-0.5">Schnellere Verarbeitung, geringere Bildschärfe</p>
                   </div>
                 </label>
@@ -2419,7 +2416,7 @@ function ScreencastPageInner() {
                     className="mt-0.5 h-4 w-4 text-[#004261] focus:ring-[#004261]"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-700">144 DPI – Standard</span>
+                    <span className="text-sm font-medium text-gray-700">Standard</span>
                     <p className="text-xs text-gray-400 mt-0.5">Empfohlen, gute Bildqualität</p>
                   </div>
                 </label>
@@ -2433,7 +2430,7 @@ function ScreencastPageInner() {
                     className="mt-0.5 h-4 w-4 text-[#004261] focus:ring-[#004261]"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-700">300 DPI – Maximale Qualität</span>
+                    <span className="text-sm font-medium text-gray-700">Maximale Qualität</span>
                     <p className="text-xs text-gray-400 mt-0.5">Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit</p>
                   </div>
                 </label>

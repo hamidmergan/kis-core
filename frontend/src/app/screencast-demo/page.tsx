@@ -969,8 +969,7 @@ function ScreencastDemoPageInner() {
         {/* ── Step: TTS Settings ── */}
         {step === "tts-settings" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Spracheinstellungen</h2>
-            <p className="text-sm text-gray-500 mb-6">Passen Sie Stimme, Geschwindigkeit und Pausen an.</p>
+            <h2 className="text-lg font-bold text-gray-900 mb-6">Einstellungen</h2>
 
             {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
               <div className="mb-2">
@@ -1046,9 +1045,9 @@ function ScreencastDemoPageInner() {
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-700">Bildqualität</p>
               <div className="flex flex-col gap-2">
-                {[{ val: 96, label: "96 DPI – Geringe Qualität", desc: "Schnellere Verarbeitung, geringere Bildschärfe" },
-                  { val: 144, label: "144 DPI – Standard", desc: "Empfohlen, gute Bildqualität" },
-                  { val: 300, label: "300 DPI – Maximale Qualität", desc: "Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit" }
+                {[{ val: 96, label: "Geringe Qualität", desc: "Schnellere Verarbeitung, geringere Bildschärfe" },
+                  { val: 144, label: "Standard", desc: "Empfohlen, gute Bildqualität" },
+                  { val: 300, label: "Maximale Qualität", desc: "Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit" }
                 ].map(({ val, label, desc }) => (
                   <label key={val} className="flex items-start gap-3 cursor-pointer">
                     <input type="radio" name="dpi" value={val} checked={dpi === val} onChange={() => setDpi(val)}

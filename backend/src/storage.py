@@ -410,18 +410,19 @@ def save_result_and_evict(job_uuid: str, result_path: str, result_filename: str)
 
 def cleanup_expired_files() -> int:
     """Delete storage folders and DB records for all expired jobs."""
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    import psycopg2.extras
     affected = 0
 
     with get_connection() as conn:
-        rows = conn.execute(
-            "SELECT job_uuid FROM jobs WHERE expires_at IS NOT NULL AND expires_at <= ?",
-            (now_str,),
-        ).fetchall()
-        for row in rows:
-            delete_job_folder(row["job_uuid"])
-            conn.execute("DELETE FROM jobs WHERE job_uuid = ?", (row["job_uuid"],))
-            affected += 1
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                "SELECT job_uuid FROM jobs WHERE expires_at IS NOT NULL AND expires_at <= NOW()",
+            )
+            rows = cur.fetchall()
+            for row in rows:
+                delete_job_folder(row["job_uuid"])
+                cur.execute("DELETE FROM jobs WHERE job_uuid = %s", (row["job_uuid"],))
+                affected += 1
         conn.commit()
 
     return affected

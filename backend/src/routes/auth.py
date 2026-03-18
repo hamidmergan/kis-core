@@ -37,7 +37,7 @@ async def login(body: LoginRequest, response: Response):
     else:
         active = 1  # whitelist disabled — all LDAP-authenticated users are allowed
 
-    # Step 3: Sync user with SQLite (create or update)
+    # Step 3: Sync user with database (create or update)
     db_user = database.get_user_by_username(ldap_username)
     if db_user is None:
         user_id = database.create_user(ldap_username, display_name, email, active)

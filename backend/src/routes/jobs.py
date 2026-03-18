@@ -104,6 +104,9 @@ def _dt(val) -> str | None:
     return val.isoformat() if hasattr(val, "isoformat") else val
 
 
+_META_TOOLS = {"screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render", "video_dubbing"}
+
+
 def _format_job_rows(jobs: list[dict]) -> list[dict]:
     """Format raw DB job rows into the standard API response format."""
     result = []
@@ -135,6 +138,10 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
             except Exception:
                 pass
 
+        meta = None
+        if job["status"] == "success" and tool in _META_TOOLS:
+            meta = load_result_meta(job["job_uuid"])
+
         result.append({
             "job_uuid": job["job_uuid"],
             "tool": tool,
@@ -153,6 +160,7 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
             "folder_name": folder_name,
             "tts_params": tts_params or None,
             "is_generating_scripts": is_generating_scripts,
+            "meta": meta,
         })
     return result
 
