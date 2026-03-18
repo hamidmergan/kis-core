@@ -1,13 +1,19 @@
 import Link from "next/link";
 import Image from "next/image";
 
-export default function Footer({ compact }: { compact?: boolean }) {
+export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
   return (
     <footer
-      className={`px-6 ${compact ? "pt-4" : "pt-12"} pb-4 text-base`}
+      className={`px-6 ${loggedIn ? "pt-8" : "pt-12"} pb-4 text-base`}
       style={{ backgroundColor: "#004261", color: "rgba(255,255,255,0.6)" }}
     >
       <div className="flex flex-col items-center gap-3 text-center">
+        {/* KI-Hinweis */}
+        {loggedIn && (
+          <p className="text-xs max-w-xl opacity-60 leading-relaxed mb-2">
+            Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
+          </p>
+        )}
         {/* Logos */}
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <a href="https://www.th-luebeck.de" target="_blank" rel="noopener noreferrer" aria-label="TH Lübeck"

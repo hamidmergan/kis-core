@@ -41,7 +41,31 @@ export default function DatenschutzPage() {
 
           <section className="mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-2">
-              3. Verarbeitung von Nutzer-Uploads und Job-Daten
+              3. Cookies und lokale Speicherung
+            </h2>
+            <p className="text-gray-600 mb-2">
+              Diese Plattform verwendet ausschließlich technisch notwendige Cookies und
+              Speichermechanismen:
+            </p>
+            <ul className="list-disc pl-6 text-gray-600 space-y-1">
+              <li>
+                <strong>Session-Cookie</strong> — Ein HttpOnly-Cookie zur Authentifizierung
+                (Gültigkeit: 24&nbsp;Stunden). Ohne dieses Cookie ist kein Login möglich.
+              </li>
+              <li>
+                <strong>SessionStorage</strong> — Temporäre Speicherung von Filtereinstellungen
+                im Browser (wird beim Schließen des Tabs automatisch gelöscht).
+              </li>
+            </ul>
+            <p className="text-gray-600 mt-2">
+              Es werden keine Tracking-, Analyse- oder Marketing-Cookies eingesetzt.
+              Es erfolgt keine Weitergabe von Cookie-Daten an Dritte.
+            </p>
+          </section>
+
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+              4. Verarbeitung von Nutzer-Uploads und Job-Daten
             </h2>
             <p className="text-gray-600 mb-2">
               Beim Nutzen der KI-Tools werden hochgeladene Dateien (z.&nbsp;B. Dokumente,
@@ -62,7 +86,7 @@ export default function DatenschutzPage() {
 
           <section className="mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-2">
-              4. Drittanbieter und externe KI-Dienste
+              5. Drittanbieter und externe KI-Dienste
             </h2>
             <p className="text-gray-600 mb-2">
               Zur Bereitstellung der KI-Funktionen werden Inhalte an externe Dienste übermittelt:
@@ -89,7 +113,7 @@ export default function DatenschutzPage() {
 
           <section className="mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-2">
-              5. Server-Logfiles
+              6. Server-Logfiles
             </h2>
             <p className="text-gray-600 mb-2">
               Beim Aufruf dieser Webseite werden durch den Webserver automatisch
@@ -107,7 +131,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">6. Rechtsgrundlage</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">7. Rechtsgrundlage</h2>
             <p className="text-gray-600">
               Die Verarbeitung erfolgt auf Grundlage von{" "}
               <strong>Art. 6 Abs. 1 lit. f DSGVO</strong> (berechtigtes Interesse) für
@@ -118,7 +142,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">7. Ihre Rechte</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">8. Ihre Rechte</h2>
             <p className="text-gray-600">
               Sie haben das Recht auf Auskunft, Berichtigung und Löschung Ihrer gespeicherten
               Daten. Bei Fragen wenden Sie sich an:{" "}
