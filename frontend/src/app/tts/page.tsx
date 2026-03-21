@@ -7,6 +7,7 @@ import TtsFileUpload from "@/components/TtsFileUpload";
 import TtsStatus from "@/components/TtsStatus";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import type { TTSState } from "@/types";
+import BackLink from "@/components/BackLink";
 
 interface Voice {
   voice_id: string;
@@ -240,6 +241,7 @@ export default function TtsPage() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <BackLink />
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Text-to-Speech</h1>
           <p className="text-sm text-gray-500 mb-6">

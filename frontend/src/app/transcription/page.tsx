@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TranscriptionFileUpload from "@/components/TranscriptionFileUpload";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
+import BackLink from "@/components/BackLink";
 
 const FORMAT_OPTIONS = [
   { value: "text", label: "Text (.txt)" },
@@ -85,6 +86,7 @@ export default function TranscriptionPage() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <BackLink />
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Speech-to-Text</h1>
           <p className="text-sm text-gray-500 mb-6">

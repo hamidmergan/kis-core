@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
+import BackLink from "@/components/BackLink";
 
 const ACCEPTED_EXTENSIONS = [".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
 const MAX_SIZE_MB = MAX_UPLOAD_MB;
@@ -109,6 +110,7 @@ export default function ZusammenfassungPage() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <BackLink />
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Summarize</h1>
           <p className="text-sm text-gray-500 mb-6">

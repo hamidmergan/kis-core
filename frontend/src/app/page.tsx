@@ -131,7 +131,7 @@ function WorkflowCard({ wf }: { wf: typeof ALL_WORKFLOWS[number] }) {
 }
 
 export default function HomePage() {
-  const [disabledTools, setDisabledTools] = useState<Set<string>>(new Set());
+  const [disabledTools, setDisabledTools] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/tools", { credentials: "include" })
@@ -142,8 +142,10 @@ export default function HomePage() {
         );
         setDisabledTools(disabled);
       })
-      .catch(() => {});
+      .catch(() => setDisabledTools(new Set()));
   }, []);
+
+  if (disabledTools === null) return null;
 
   const workflows = ALL_WORKFLOWS.filter((w) => !disabledTools.has(w.key));
   const tools = ALL_TOOLS.filter((t) => !disabledTools.has(t.key));

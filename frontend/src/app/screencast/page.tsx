@@ -9,6 +9,7 @@ import GlossarySelector from "@/components/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
+import BackLink from "@/components/BackLink";
 import type {
   ScreencastState,
   ScreencastStep,
@@ -1368,6 +1369,7 @@ function ScreencastPageInner() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <BackLink />
         {/* Step indicator */}
         {showStepIndicator && (
           <>

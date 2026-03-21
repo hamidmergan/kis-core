@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SignOut, UserCircleGear } from "@phosphor-icons/react";
+import { SignOut, UserCircleGear, House } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/JobsPanel";
 
@@ -28,7 +28,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
   return (
     <header style={{ backgroundColor: "#004261" }} className="py-3">
       <div className="max-w-5xl mx-auto px-4 flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Link
             href="/"
             aria-label="Zur Startseite"
@@ -36,11 +36,24 @@ export default function Header({ showLogout = false }: HeaderProps) {
           >
             KIS
           </Link>
+          {process.env.NODE_ENV === "development" && (
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f59e0b", color: "#000" }}>
+              DEV
+            </span>
+          )}
         </h1>
 
         {showLogout && (
           <div className="flex items-center gap-1.5">
             <JobsPanel />
+
+            <Link
+              href="/"
+              aria-label="Zur Übersicht"
+              className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <House size={18} weight="bold" />
+            </Link>
 
             {isAdmin && (
               <Link

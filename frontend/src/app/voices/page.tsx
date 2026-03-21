@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import BackLink from "@/components/BackLink";
 
 interface Voice {
   voice_id: string;
@@ -230,6 +231,7 @@ function StimmenPageInner() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <BackLink />
         <h1 className="text-xl font-bold text-gray-900 mb-1">Verfügbare Stimmen</h1>
 
         {/* Tabs */}

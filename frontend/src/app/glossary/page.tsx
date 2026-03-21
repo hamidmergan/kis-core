@@ -5,6 +5,7 @@ import { BookOpen, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/r
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useGlossaries, MAX_GLOSSARIES, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
+import BackLink from "@/components/BackLink";
 
 export default function GlossaryPage() {
   const { glossaries, createGlossary, updateGlossary, deleteGlossary } = useGlossaries();
@@ -147,6 +148,7 @@ export default function GlossaryPage() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <BackLink />
         <section>
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-xl font-bold text-gray-900">Glossary</h2>

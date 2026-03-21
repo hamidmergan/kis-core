@@ -7,6 +7,7 @@ import FileUpload from "@/components/FileUpload";
 import GlossarySelector from "@/components/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
+import BackLink from "@/components/BackLink";
 
 export default function UebersetzungPage() {
   const { mergeToApiJson } = useGlossaries();
@@ -105,6 +106,7 @@ export default function UebersetzungPage() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
+        <BackLink />
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Translate</h1>
           <p className="text-sm text-gray-500 mb-6">

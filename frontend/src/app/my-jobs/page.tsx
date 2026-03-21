@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
 import Header from "@/components/Header";
 import { getToolConfigByJobTool } from "@/lib/toolConfig";
+import BackLink from "@/components/BackLink";
 
 interface MyJob {
   job_uuid: string;
@@ -541,6 +542,7 @@ export default function MeineJobsPage() {
     <>
       <Header showLogout />
       <main className="max-w-4xl mx-auto px-4 py-8">
+        <BackLink />
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Meine Jobs</h2>
           <div className="flex items-center gap-2">
