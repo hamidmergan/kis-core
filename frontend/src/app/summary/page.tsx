@@ -76,6 +76,7 @@ export default function ZusammenfassungPage() {
         () => setStallMessage("Läuft noch – umfangreiche Inhalte können einige Minuten dauern…"),
         60_000,
       );
+      window.dispatchEvent(new Event("kis-jobs-changed"));
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");

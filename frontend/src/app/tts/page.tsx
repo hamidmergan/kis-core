@@ -198,6 +198,7 @@ export default function TtsPage() {
         60_000,
       );
 
+      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
       setTtsProgressLabel("Wird heruntergeladen…");
       const { blob, filename } = await downloadJobAsBlob(
         jobResult.job_uuid,

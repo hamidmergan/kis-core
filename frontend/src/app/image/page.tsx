@@ -170,6 +170,7 @@ export default function ImagePage() {
         () => setGenSpinnerLabel("Läuft noch – Bildgenerierung kann etwas länger dauern…"),
         60_000,
       );
+      window.dispatchEvent(new Event("kis-jobs-changed"));
       setGenJobUuid(data.job_uuid);
       const inlined = jobStatus.result as { images?: Array<{ b64_json: string; filename: string }> } | null;
       if (inlined?.images) {
@@ -224,6 +225,7 @@ export default function ImagePage() {
         () => setEditSpinnerLabel("Läuft noch – Bildbearbeitung kann etwas länger dauern…"),
         60_000,
       );
+      window.dispatchEvent(new Event("kis-jobs-changed"));
       const { blob, filename } = await downloadJobAsBlob(data.job_uuid);
       const url = URL.createObjectURL(blob);
       setEditResultUrl(url);
@@ -273,6 +275,7 @@ export default function ImagePage() {
         () => setAnalyzeSpinnerLabel("Läuft noch – Bildanalyse kann etwas länger dauern…"),
         60_000,
       );
+      window.dispatchEvent(new Event("kis-jobs-changed"));
       const { blob } = await downloadJobAsBlob(data.job_uuid);
       const text = await blob.text();
       setAnalyzeResultText(text);
