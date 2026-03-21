@@ -9,6 +9,7 @@ cn: Hans Müller
 sn: Müller
 mail: admin@th-luebeck.de
 userPassword: a
+employeeType: staff
 
 dn: uid=b,ou=people,dc=th-luebeck,dc=de
 objectClass: inetOrgPerson
@@ -17,3 +18,4 @@ cn: Jana Schmidt
 sn: Schmidt
 mail: j.schmidt@th-luebeck.de
 userPassword: b
+employeeType: student

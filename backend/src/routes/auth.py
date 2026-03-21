@@ -30,6 +30,7 @@ async def login(body: LoginRequest, response: Response):
     ldap_username = ldap_user["username"]  # confirmed by LDAP, not from body
     display_name = ldap_user["fullname"] or ldap_username
     email = ldap_user["email"] or None  # store NULL instead of empty string
+    role = ldap_user.get("role", "lecturer")
 
     whitelist_enabled = database.get_setting("whitelist_enabled", "true").lower() == "true"
     if whitelist_enabled:
@@ -40,10 +41,10 @@ async def login(body: LoginRequest, response: Response):
     # Step 3: Sync user with database (create or update)
     db_user = database.get_user_by_username(ldap_username)
     if db_user is None:
-        user_id = database.create_user(ldap_username, display_name, email, active)
+        user_id = database.create_user(ldap_username, display_name, email, active, role)
     else:
         user_id = db_user["id"]
-        database.update_user(user_id, display_name, email, active)
+        database.update_user(user_id, display_name, email, active, role)
 
     # Step 4: Check whitelist
     if not active:
@@ -56,6 +57,7 @@ async def login(body: LoginRequest, response: Response):
         "username": ldap_username,
         "display_name": display_name,
         "email": email or "",
+        "role": role,
     })
     response.set_cookie(
         key="session",
@@ -65,7 +67,7 @@ async def login(body: LoginRequest, response: Response):
         max_age=86400,
         secure=settings.production,
     )
-    return {"status": "ok", "username": ldap_username, "display_name": display_name}
+    return {"status": "ok", "username": ldap_username, "display_name": display_name, "role": role}
 
 
 @router.post("/logout")
@@ -90,4 +92,5 @@ async def auth_status(request: Request):
     settings = get_settings()
     email = data.get("email", "")
     is_admin = bool(email and email.lower() == settings.admin_email.lower())
-    return {"authenticated": True, "is_admin": is_admin, **data}
+    role = data.get("role", "lecturer")
+    return {"authenticated": True, "is_admin": is_admin, "role": role, **data}

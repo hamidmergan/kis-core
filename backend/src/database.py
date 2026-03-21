@@ -78,9 +78,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     display_name  TEXT NOT NULL,
                     email         TEXT,
                     active        INTEGER NOT NULL DEFAULT 1,
+                    role          TEXT NOT NULL DEFAULT 'lecturer',
                     created_at    TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'lecturer'")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS whitelist (
                     id         SERIAL PRIMARY KEY,
@@ -172,24 +174,24 @@ def get_user_by_id(user_id: int):
             return cur.fetchone()
 
 
-def create_user(ldap_username: str, display_name: str, email: str, active: int) -> int:
+def create_user(ldap_username: str, display_name: str, email: str, active: int, role: str = "lecturer") -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO users (ldap_username, display_name, email, active) VALUES (%s, %s, %s, %s) RETURNING id",
-                (ldap_username, display_name, email, active),
+                "INSERT INTO users (ldap_username, display_name, email, active, role) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                (ldap_username, display_name, email, active, role),
             )
             user_id = cur.fetchone()[0]
         conn.commit()
         return user_id
 
 
-def update_user(user_id: int, display_name: str, email: str, active: int) -> None:
+def update_user(user_id: int, display_name: str, email: str, active: int, role: str = "lecturer") -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE users SET display_name = %s, email = %s, active = %s WHERE id = %s",
-                (display_name, email, active, user_id),
+                "UPDATE users SET display_name = %s, email = %s, active = %s, role = %s WHERE id = %s",
+                (display_name, email, active, role, user_id),
             )
         conn.commit()
 

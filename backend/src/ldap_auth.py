@@ -38,6 +38,7 @@ def authenticate_user(username: str, password: str) -> dict | None:
             settings.ldap_attr_username,
             settings.ldap_attr_fullname,
             settings.ldap_attr_email,
+            settings.ldap_attr_affiliation,
         ],
     )
 
@@ -59,9 +60,17 @@ def authenticate_user(username: str, password: str) -> dict | None:
         val = user_entry[name].value if name in user_entry else ""
         return (val or "").strip()
 
+    affiliation = attr(settings.ldap_attr_affiliation)
+    lecturer_values = [v.strip() for v in settings.ldap_role_lecturer_values.split(",")]
+    if not affiliation or affiliation in lecturer_values:
+        role = "lecturer"
+    else:
+        role = "student"
+
     return {
         "username": attr(settings.ldap_attr_username),
         "fullname": attr(settings.ldap_attr_fullname),
         "email": attr(settings.ldap_attr_email),
         "dn": user_dn,
+        "role": role,
     }

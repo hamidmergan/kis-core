@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     ldap_attr_username: str = "uid"
     ldap_attr_fullname: str = "cn"
     ldap_attr_email: str = "mail"
+    ldap_attr_affiliation: str = "employeeType"
+    ldap_role_lecturer_values: str = "staff,faculty"
     ldap_use_ssl: bool = False
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
