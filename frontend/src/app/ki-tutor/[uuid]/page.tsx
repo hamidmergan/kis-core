@@ -17,12 +17,21 @@ import {
   Question,
   Wrench,
   X,
+  ArrowsCounterClockwise,
+  Scissors,
+  MagnifyingGlassPlus,
+  ListBullets,
+  Lightbulb,
+  BookOpenText,
+  GearSix,
 } from "@phosphor-icons/react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { checkAuthStatus } from "@/lib/auth";
 import type { AuthStatus } from "@/types";
 import { Document, Page as PdfPage, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/TextLayer.css";
+import "react-pdf/dist/Page/AnnotationLayer.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -149,11 +158,22 @@ function FileIcon({ filename }: { filename: string }) {
 
 // ─── PDF Viewer ────────────────────────────────────────────────────────────────
 
-function PdfViewer({ source, onClose, moduleUuid }: { source: ViewerState; onClose: () => void; moduleUuid: string }) {
+function PdfViewer({
+  source, onClose, moduleUuid, onAskWithSelection,
+}: {
+  source: ViewerState;
+  onClose: () => void;
+  moduleUuid: string;
+  onAskWithSelection?: (text: string) => void;
+}) {
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(source.page);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setPage(source.page), [source.page]);
 
@@ -166,17 +186,107 @@ function PdfViewer({ source, onClose, moduleUuid }: { source: ViewerState; onClo
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
+  }, [showSearch]);
+
+  // Text selection popup
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    function onMouseUp() {
+      setTimeout(() => {
+        const sel = window.getSelection();
+        const text = sel?.toString().trim() ?? "";
+        if (text.length > 5) {
+          const range = sel!.getRangeAt(0).getBoundingClientRect();
+          const cont = containerRef.current!.getBoundingClientRect();
+          setSelectionPopup({ x: range.left - cont.left + range.width / 2, y: range.top - cont.top - 8, text });
+        } else {
+          setSelectionPopup(null);
+        }
+      }, 10);
+    }
+    function onMouseDown(e: MouseEvent) {
+      // Don't clear popup if clicking the popup button itself
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-selection-popup]')) return;
+      setSelectionPopup(null);
+    }
+    el.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("mousedown", onMouseDown);
+    return () => { el.removeEventListener("mouseup", onMouseUp); el.removeEventListener("mousedown", onMouseDown); };
+  }, []);
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return;
+    try {
+      const pdfjsLib = await import("pdfjs-dist");
+      const pdf = await pdfjsLib.getDocument(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const pg = await pdf.getPage(i);
+        const content = await pg.getTextContent();
+        const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ").toLowerCase();
+        if (text.includes(q)) { setPage(i); break; }
+      }
+    } catch { /* ignore */ }
+  }
+
   return (
-    <div className="flex flex-col h-full" ref={containerRef}>
-      {/* Viewer header */}
-      <div
-        className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
+    <div className="flex flex-col h-full relative" ref={containerRef}>
+      {/* Selection popup */}
+      {selectionPopup && onAskWithSelection && (
+        <div
+          data-selection-popup
+          className="absolute z-50"
+          style={{ left: selectionPopup.x, top: selectionPopup.y, transform: "translate(-50%, -100%)", pointerEvents: "auto" }}
+        >
+          <div
+            className="grid grid-cols-2 gap-1 rounded-xl p-2 shadow-xl"
+            style={{ backgroundColor: "#004261", border: "1px solid rgba(255,255,255,0.15)", minWidth: 340 }}
+          >
+            {([
+              { label: "Umformulieren", Icon: ArrowsCounterClockwise, prompt: "Formuliere diese Textstelle in anderen Worten um, verständlich für Studierende:", minWords: 1 },
+              { label: "Kürzen", Icon: Scissors, prompt: "Kürze diesen Text auf das Wesentliche. Antworte nur mit dem gekürzten Text, ohne Erklärungen:", minWords: 3 },
+              { label: "Genauer ausführen", Icon: MagnifyingGlassPlus, prompt: "Führe diese Textstelle genauer aus. Erkläre die Konzepte ausführlich und gib konkrete Beispiele:", minWords: 1 },
+              { label: "Zusammenfassung", Icon: BookOpenText, prompt: "Fasse diese Textstelle kompakt zusammen und hebe die Kernaussagen hervor:", minWords: 1 },
+              { label: "Stichpunkte", Icon: ListBullets, prompt: "Wandle diese Textstelle in prägnante Stichpunkte um:", minWords: 1 },
+              { label: "Vereinfachen", Icon: Lightbulb, prompt: "Erkläre diese Textstelle auf einem einfachen Sprachniveau (B1-Niveau). Nutze kurze Sätze, einfache Wörter und vermeide komplizierte Fachausdrücke soweit möglich:", minWords: 1 },
+            ] as const).filter(({ minWords }) => selectionPopup.text.trim().split(/\s+/).length >= minWords)
+            .map(({ label, Icon, prompt }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => { onAskWithSelection(`${prompt}\n\n"${selectionPopup.text}"`); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white hover:bg-white/20 transition-colors w-full"
+                style={{ border: "1px solid rgba(255,255,255,0.15)" }}
+              >
+                <Icon size={13} weight="bold" />
+                {label}
+              </button>
+            ))}
+          </div>
+          <div style={{ width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "8px solid #004261", margin: "0 auto" }} />
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <FileIcon filename={source.filename} />
-        <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>
-          {source.filename}
-        </span>
+        <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>{source.filename}</span>
+        <button
+          type="button"
+          onClick={() => setShowSearch((v) => !v)}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+          style={{ backgroundColor: showSearch ? "#004261" : "var(--border)" }}
+          title="Im PDF suchen"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={showSearch ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </button>
         <button
           type="button"
           onClick={onClose}
@@ -187,51 +297,44 @@ function PdfViewer({ source, onClose, moduleUuid }: { source: ViewerState; onClo
         </button>
       </div>
 
+      {/* Search bar */}
+      {showSearch && (
+        <form onSubmit={handleSearch} className="flex items-center gap-2 px-4 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+          <input
+            ref={searchInputRef}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Text suchen und zur Seite springen…"
+            className="flex-1 text-sm bg-transparent focus:outline-none"
+            style={{ color: "var(--text)" }}
+          />
+          <button type="submit" className="text-xs font-semibold px-2 py-1 rounded-lg" style={{ backgroundColor: "rgba(0,66,97,0.1)", color: "#004261" }}>Suchen</button>
+          <button type="button" onClick={() => { setShowSearch(false); setSearchQuery(""); }}><X size={13} color="var(--muted)" /></button>
+        </form>
+      )}
+
       <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center">
         {containerWidth > 0 && (
           <Document
             file={`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`}
             onLoadSuccess={({ numPages: n }) => setNumPages(n)}
-            loading={
-              <div className="flex items-center justify-center py-10">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: "#004261" }} />
-              </div>
-            }
-            error={
-              <p className="text-sm text-center py-8" style={{ color: "#B91C1C" }}>
-                PDF konnte nicht geladen werden.
-              </p>
-            }
+            loading={<div className="flex items-center justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: "#004261" }} /></div>}
+            error={<p className="text-sm text-center py-8" style={{ color: "#B91C1C" }}>PDF konnte nicht geladen werden.</p>}
           >
-            <PdfPage pageNumber={page} width={containerWidth} renderTextLayer={false} renderAnnotationLayer={false} />
+            <PdfPage pageNumber={page} width={containerWidth} renderTextLayer renderAnnotationLayer={false} />
           </Document>
         )}
       </div>
 
       {numPages > 0 && (
-        <div
-          className="flex items-center justify-center gap-3 px-4 py-3 flex-shrink-0"
-          style={{ borderTop: "1px solid var(--border)" }}
-        >
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--border)" }}
-          >
+        <div className="flex items-center justify-center gap-3 px-4 py-3 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+          <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+            className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)" }}>
             <CaretLeft size={14} />
           </button>
-          <span className="text-sm tabular-nums" style={{ color: "var(--muted)" }}>
-            {page} / {numPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(numPages, p + 1))}
-            disabled={page >= numPages}
-            className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--border)" }}
-          >
+          <span className="text-sm tabular-nums" style={{ color: "var(--muted)" }}>{page} / {numPages}</span>
+          <button type="button" onClick={() => setPage((p) => Math.min(numPages, p + 1))} disabled={page >= numPages}
+            className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)" }}>
             <CaretRight size={14} />
           </button>
         </div>
@@ -449,6 +552,7 @@ function ChatPanel({
   onSend,
   onPillClick,
   moduleReady,
+  onClear,
 }: {
   messages: ChatMessage[];
   activeSourceIds: string[];
@@ -459,10 +563,18 @@ function ChatPanel({
   onSend: () => void;
   onPillClick: (sourceUuid: string, page: number, filename: string) => void;
   moduleReady: boolean;
+  onClear: () => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      isFirstRender.current = false;
+      return;
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
@@ -471,6 +583,40 @@ function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
+        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Chat</span>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setChatMenuOpen((v) => !v)}
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:opacity-70 transition-opacity"
+            style={{ color: "var(--muted)" }}
+            title="Optionen"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+            </svg>
+          </button>
+          {chatMenuOpen && (
+            <div
+              className="absolute right-0 top-8 z-50 rounded-xl py-1"
+              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
+            >
+              <button
+                type="button"
+                onClick={() => { onClear(); setChatMenuOpen(false); }}
+                disabled={messages.length === 0}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-black/5 disabled:opacity-40 transition-colors"
+                style={{ color: "var(--text)" }}
+              >
+                Chatprotokoll löschen
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
         {messages.length === 0 && !loading && (
@@ -570,7 +716,7 @@ function ChatPanel({
 
       {/* Input area */}
       <div
-        className="flex-shrink-0 px-4 py-4"
+        className="flex-shrink-0 px-6 pt-4 pb-0"
         style={{ borderTop: "1px solid var(--border)" }}
       >
         {!moduleReady && (
@@ -616,6 +762,9 @@ function ChatPanel({
             Shift+Enter für Zeilenumbruch
           </span>
         </div>
+        <p className="text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+          Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
+        </p>
       </div>
     </div>
   );
@@ -807,11 +956,12 @@ function QuizStudio({
 
 // ─── Studio Overview ──────────────────────────────────────────────────────────
 
-function StudioOverview({ onSelect, onMinimize }: { onSelect: (v: "lernkarten" | "quiz") => void; onMinimize: () => void }) {
+function StudioOverview({ onSelect, onMinimize, sprachtrainingActive }: { onSelect: (v: "lernkarten" | "quiz") => void; onMinimize: () => void; sprachtrainingActive: boolean }) {
+  const [studioTab, setStudioTab] = useState<"tools" | "sprachtraining">("tools");
   const tiles = [
-    { key: "lernkarten" as const, Icon: Cards, label: "Lernkarten", iconBg: "#DCFCE7", iconColor: "#166534" },
-    { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "#FEF9C3", iconColor: "#A16207" },
-    { key: null, Icon: Wrench, label: "Mehr Tools", iconBg: "#F1F5F9", iconColor: "#94A3B8", disabled: true },
+    { key: "lernkarten" as const, Icon: Cards, label: "Lernkarten", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
+    { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
+    { key: "pruefung" as const, Icon: BookOpenText, label: "Prüfungsfrage", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
   ];
 
   return (
@@ -821,7 +971,7 @@ function StudioOverview({ onSelect, onMinimize }: { onSelect: (v: "lernkarten" |
         className="flex items-center justify-between px-4 py-3 flex-shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        <span className="text-sm font-semibold tracking-wide" style={{ color: "var(--text)" }}>Studio</span>
+        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Studio</span>
         <button
           type="button"
           onClick={onMinimize}
@@ -833,35 +983,59 @@ function StudioOverview({ onSelect, onMinimize }: { onSelect: (v: "lernkarten" |
         </button>
       </div>
 
-      {/* Tile grid */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="grid grid-cols-2 gap-3">
-          {tiles.map((tile) => (
+      {/* Tabs */}
+      {sprachtrainingActive && (
+        <div className="flex flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          {(["tools", "sprachtraining"] as const).map((tab) => (
             <button
-              key={tile.key ?? "more"}
+              key={tab}
               type="button"
-              onClick={() => tile.key && onSelect(tile.key)}
-              disabled={tile.disabled}
-              className="flex flex-col items-center gap-2.5 p-4 rounded-2xl text-center transition-all hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed"
+              onClick={() => setStudioTab(tab)}
+              className="flex-1 py-2 text-xs font-medium transition-colors"
               style={{
-                backgroundColor: "var(--surface)",
-                border: "1px solid var(--border)",
-                opacity: tile.disabled ? 0.4 : 1,
+                color: studioTab === tab ? "#004261" : "var(--muted)",
+                borderBottom: studioTab === tab ? "2px solid #004261" : "2px solid transparent",
               }}
             >
+              {tab === "tools" ? "Lerntools" : "Sprachtraining"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Tile list */}
+      {studioTab === "tools" && (
+        <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-2">
+          {tiles.map((tile) => (
+            <button
+              key={tile.key}
+              type="button"
+              onClick={() => tile.key !== "pruefung" && onSelect(tile.key as "lernkarten" | "quiz")}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-black/5"
+              style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg)" }}
+            >
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: tile.iconBg }}
               >
-                <tile.Icon size={20} color={tile.iconColor} weight="bold" />
+                <tile.Icon size={16} color={tile.iconColor} weight="bold" />
               </div>
-              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
+              <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
                 {tile.label}
               </span>
             </button>
           ))}
         </div>
-      </div>
+      )}
+
+      {/* Sprachtraining Inhalt */}
+      {studioTab === "sprachtraining" && (
+        <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-3">
+          <p className="text-xs text-center py-8" style={{ color: "var(--muted)" }}>
+            Glossar &amp; Vokabeltest — coming soon
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -926,6 +1100,10 @@ export default function KiTutorModulePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+
+  const [showSettings, setShowSettings] = useState(false);
+  const [chatLang, setChatLang] = useState<"de" | "en">("de");
+  const [sprachtrainingActive, setSprachtrainingActive] = useState(false);
 
   const [studioView, setStudioView] = useState<StudioView>("overview");
   const [lernkarten, setLernkarten] = useState<LernKarte[]>([]);
@@ -1102,9 +1280,10 @@ export default function KiTutorModulePage() {
 
   // ─── Chat ──────────────────────────────────────────────────────────────────
 
-  async function sendChatMessage(content: string) {
+  async function sendChatMessage(content: string, directText = false) {
     const effectiveSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
-    if (!content.trim() || effectiveSourceIds.length === 0) return;
+    if (!content.trim()) return;
+    if (!directText && effectiveSourceIds.length === 0) return;
     setMessages((prev) => [...prev, { role: "user", content: content.trim() }]);
     setChatInput("");
     setChatLoading(true);
@@ -1113,7 +1292,11 @@ export default function KiTutorModulePage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: content.trim(), active_source_ids: effectiveSourceIds }),
+        body: JSON.stringify({
+          question: content.trim(),
+          active_source_ids: directText ? [] : effectiveSourceIds,
+          direct_text: directText,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -1126,6 +1309,12 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ } finally {
       setChatLoading(false);
     }
+  }
+
+  function handleAskWithSelection(prompt: string) {
+    if (isMobile) setActiveTab("chat");
+    else setPanels((prev) => ({ ...prev, chat: true }));
+    sendChatMessage(prompt, true);
   }
 
   function handlePillClick(sourceUuid: string, page: number, filename: string) {
@@ -1206,8 +1395,9 @@ export default function KiTutorModulePage() {
     ? { flex: `1 1 ${p2Width}px`, minWidth: MIN_PANEL, overflow: "hidden" }
     : { width: 48, flexShrink: 0, flexGrow: 0 };
 
+  const studioActive = studioView !== "overview";
   const p3Style: React.CSSProperties = panels.studio
-    ? { flex: `1 1 ${p3Width}px`, minWidth: MIN_PANEL, overflow: "hidden" }
+    ? { flex: `1 1 ${studioActive ? Math.max(p3Width, 480) : p3Width}px`, minWidth: studioActive ? 480 : MIN_PANEL, overflow: "hidden", transition: "min-width 0.3s ease" }
     : { width: 48, flexShrink: 0, flexGrow: 0 };
 
   if (!initialized) {
@@ -1231,12 +1421,76 @@ export default function KiTutorModulePage() {
         {/* Topbar — Desktop only */}
         {!isMobile && (
           <div
-            className="flex items-center px-5 flex-shrink-0"
+            className="flex items-center px-5 flex-shrink-0 relative"
             style={{ height: 48, borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}
           >
-            <span className="text-sm font-semibold truncate mr-4" style={{ color: "var(--text)" }}>
+            <span className="flex-1 text-sm font-semibold truncate mr-4" style={{ color: "var(--text)" }}>
               {moduleDetail?.title ?? ""}
             </span>
+            <button
+              type="button"
+              onClick={() => setShowSettings((v) => !v)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:opacity-70 transition-opacity flex-shrink-0"
+              style={{ backgroundColor: showSettings ? "rgba(0,66,97,0.1)" : "transparent", color: showSettings ? "#004261" : "var(--muted)" }}
+              title="Einstellungen"
+            >
+              <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
+            </button>
+
+            {/* Settings dropdown */}
+            {showSettings && (
+              <div
+                className="absolute right-4 top-12 z-50 rounded-xl shadow-lg"
+                style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", width: 260 }}
+              >
+                <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>Meine Einstellungen</p>
+                </div>
+                {/* Chat-Sprache */}
+                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Chat-Sprache</p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>Sprache der KI-Antworten</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {(["de", "en"] as const).map((lang) => (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() => setChatLang(lang)}
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors"
+                        style={{
+                          backgroundColor: chatLang === lang ? "#004261" : "var(--border)",
+                          color: chatLang === lang ? "white" : "var(--muted)",
+                        }}
+                      >
+                        {lang.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Sprachtraining */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Sprachtraining</p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>Zeigt Sprachtraining-Tab im Studio</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={sprachtrainingActive}
+                    onClick={() => setSprachtrainingActive((v) => !v)}
+                    className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+                    style={{ backgroundColor: sprachtrainingActive ? "#004261" : "#CBD5E1" }}
+                  >
+                    <span
+                      className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                      style={{ transform: sprachtrainingActive ? "translateX(16px)" : "translateX(0)" }}
+                    />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1280,7 +1534,7 @@ export default function KiTutorModulePage() {
             >
               {activeTab === "quellen" ? (
                 viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -1305,9 +1559,10 @@ export default function KiTutorModulePage() {
                   onSend={() => sendChatMessage(chatInput)}
                   onPillClick={handlePillClick}
                   moduleReady={moduleDetail?.status === "ready"}
+                  onClear={() => setMessages([])}
                 />
               ) : studioView === "overview" ? (
-                <StudioOverview onSelect={setStudioView} onMinimize={() => setActiveTab("chat")} />
+                <StudioOverview onSelect={setStudioView} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} />
               ) : studioView === "lernkarten" ? (
                 <LernkartenStudio
                   karten={lernkarten}
@@ -1339,7 +1594,7 @@ export default function KiTutorModulePage() {
                 {!panels.quellen ? (
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -1384,7 +1639,8 @@ export default function KiTutorModulePage() {
                     onInputChange={setChatInput}
                     onSend={() => sendChatMessage(chatInput)}
                     onPillClick={handlePillClick}
-                  moduleReady={moduleDetail?.status === "ready"}
+                    moduleReady={moduleDetail?.status === "ready"}
+                    onClear={() => setMessages([])}
                   />
                 )}
               </div>
@@ -1409,7 +1665,7 @@ export default function KiTutorModulePage() {
                 {!panels.studio ? (
                   <MiniStrip label="Studio" onClick={() => togglePanel("studio")} side="right" />
                 ) : studioView === "overview" ? (
-                  <StudioOverview onSelect={setStudioView} onMinimize={() => togglePanel("studio")} />
+                  <StudioOverview onSelect={setStudioView} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} />
                 ) : studioView === "lernkarten" ? (
                   <LernkartenStudio
                     karten={lernkarten}

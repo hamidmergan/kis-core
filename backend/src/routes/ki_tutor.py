@@ -76,6 +76,7 @@ class EnrollBody(BaseModel):
 class ChatBody(BaseModel):
     question: str
     active_source_ids: Optional[list[str]] = None
+    direct_text: Optional[bool] = False  # True = kein RAG, direkt LLM aufrufen
 
 
 # ─── Dozenten-Endpunkte ───────────────────────────────────────────────────────
@@ -367,31 +368,36 @@ async def chat(
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
 
-    # Embed question
-    from src.services.ki_tutor_embeddings import get_embedding_provider
-    provider = get_embedding_provider()
-    query_vector = provider.embed_one(body.question)
+    if body.direct_text:
+        # Kein RAG — direkt den Text bearbeiten (für Popup-Aktionen wie Kürzen, Umformulieren etc.)
+        chunks = []
+        system_prompt = "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus."
+        user_message = body.question
+    else:
+        # Embed question
+        from src.services.ki_tutor_embeddings import get_embedding_provider
+        provider = get_embedding_provider()
+        query_vector = provider.embed_one(body.question)
 
-    # Search similar chunks
-    chunks = db.search_similar_chunks(module["id"], query_vector, source_ids=source_ids, limit=5)
+        # Search similar chunks
+        chunks = db.search_similar_chunks(module["id"], query_vector, source_ids=source_ids, limit=5)
 
-    # Build context (max 4000 chars)
-    context_parts: list[str] = []
-    context_len = 0
-    for chunk in chunks:
-        part = chunk["content"]
-        if context_len + len(part) > 4000:
-            break
-        context_parts.append(part)
-        context_len += len(part)
-    context = "\n\n---\n\n".join(context_parts)
+        # Build context (max 4000 chars)
+        context_parts: list[str] = []
+        context_len = 0
+        for chunk in chunks:
+            part = chunk["content"]
+            if context_len + len(part) > 4000:
+                break
+            context_parts.append(part)
+            context_len += len(part)
+        context = "\n\n---\n\n".join(context_parts)
 
-    # Call KISSKI LLM
-    system_prompt = (
-        "Du bist ein KI-Tutor. Antworte ausschließlich auf Basis der gegebenen Quellen. "
-        "Nenne immer die Seitenzahl. Halluziniere nicht."
-    )
-    user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"
+        system_prompt = (
+            "Du bist ein KI-Tutor. Antworte ausschließlich auf Basis der gegebenen Quellen. "
+            "Nenne immer die Seitenzahl. Halluziniere nicht."
+        )
+        user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"
 
     try:
         response = kisski._client.chat.completions.create(
@@ -423,6 +429,7 @@ async def chat(
                     "filename": source["filename"],
                     "page_number": chunk["page_number"],
                 })
+    source_pages.sort(key=lambda x: x["page_number"])
 
     # Save messages
     db.save_ki_tutor_message(module["id"], user_id, "user", body.question)

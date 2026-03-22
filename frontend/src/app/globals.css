@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* PDF Text Layer: transparent but selectable */
+.react-pdf__Page__textContent {
+  color: transparent !important;
+  mix-blend-mode: multiply;
+}
+.react-pdf__Page__textContent span {
+  cursor: text;
+  user-select: text;
+}
+.react-pdf__Page__textContent ::selection {
+  background: rgba(0, 66, 97, 0.25);
+}
+
 /* ─── Brand tokens ─── */
 :root {
   --kb:   #004261;
