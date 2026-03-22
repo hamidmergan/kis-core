@@ -176,13 +176,14 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: Ico
 };
 
 function PdfViewer({
-  source, onClose, moduleUuid, onAskWithSelection, popupActions,
+  source, onClose, moduleUuid, onAskWithSelection, popupActions, onMinimize,
 }: {
   source: ViewerState;
   onClose: () => void;
   moduleUuid: string;
   onAskWithSelection?: (text: string, sourceInfo: { uuid: string; filename: string; page: number }) => void;
   popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
+  onMinimize?: () => void;
 }) {
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(source.page);
@@ -200,15 +201,28 @@ function PdfViewer({
   const [searchPdfSize, setSearchPdfSize] = useState({ w: 595, h: 842 });
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchOverlays, setSearchOverlays] = useState<Array<{ x: number; y: number; w: number; h: number; active: boolean }>>([]);
-  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string } | null>(null);
-
-  // Sync page when source.page changes (e.g. pill click while viewer is already open)
-  useEffect(() => { setPage(source.page); }, [source.page]);
+  const [searchOverlaysByPage, setSearchOverlaysByPage] = useState<Map<number, Array<{ x: number; y: number; w: number; h: number; active: boolean }>>>(new Map());
+  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; bottomY: number; text: string } | null>(null);
+  const isScrollingRef = useRef(false);
+  const pageRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Scroll to a specific page
+  function scrollToPage(p: number) {
+    const el = pageRefsMap.current.get(p);
+    if (el && scrollContainerRef.current) {
+      isScrollingRef.current = true;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => { isScrollingRef.current = false; }, 500);
+    }
+    setPage(p);
+  }
+
+  // Sync page when source.page changes (e.g. pill click while viewer is already open)
+  useEffect(() => { scrollToPage(source.page); }, [source.page]);
 
   // Fit-page base width: constrain by height so 100% = full page visible
   const fitWidth = containerHeight > 0
@@ -238,16 +252,41 @@ function PdfViewer({
     if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
   }, [showSearch]);
 
-  // Build overlays from backend search results for the current page
+  // IntersectionObserver to track which page is in view
   useEffect(() => {
-    setSearchOverlays([]);
+    if (numPages === 0) return;
+    const sc = scrollContainerRef.current;
+    if (!sc) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isScrollingRef.current) return;
+        let bestPage = 0;
+        let bestRatio = 0;
+        entries.forEach((entry) => {
+          const p = Number(entry.target.getAttribute("data-page"));
+          if (entry.intersectionRatio > bestRatio) {
+            bestPage = p;
+            bestRatio = entry.intersectionRatio;
+          }
+        });
+        if (bestPage > 0) setPage(bestPage);
+      },
+      { root: sc, threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+    pageRefsMap.current.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [numPages, renderWidth]);
+
+  // Build overlays from backend search results (grouped by page)
+  useEffect(() => {
+    setSearchOverlaysByPage(new Map());
     if (!searchQuery.trim() || searchMatches.length === 0 || containerWidth === 0) return;
 
     const scale = renderWidth / searchPdfSize.w;
-    const overlays: Array<{ x: number; y: number; w: number; h: number; active: boolean }> = [];
+    const byPage = new Map<number, Array<{ x: number; y: number; w: number; h: number; active: boolean }>>();
 
     searchMatches.forEach((match, idx) => {
-      if (match.page !== page) return;
+      const overlays = byPage.get(match.page) ?? [];
       match.rects.forEach((r) => overlays.push({
         x: r.x0 * scale,
         y: r.y0 * scale,
@@ -255,18 +294,17 @@ function PdfViewer({
         h: Math.max((r.y1 - r.y0) * scale, 4),
         active: idx === searchMatchIdx,
       }));
+      byPage.set(match.page, overlays);
     });
 
-    setSearchOverlays(overlays);
+    setSearchOverlaysByPage(byPage);
 
-    // Scroll active match to center
-    const active = overlays.find(o => o.active);
-    if (active && scrollContainerRef.current) {
-      const el = scrollContainerRef.current;
-      const targetScrollTop = active.y + 16 - el.clientHeight / 2 + active.h / 2;
-      setTimeout(() => el.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" }), 100);
+    // Scroll active match page into view
+    const activeMatch = searchMatches[searchMatchIdx];
+    if (activeMatch) {
+      scrollToPage(activeMatch.page);
     }
-  }, [searchMatches, searchMatchIdx, page, renderWidth, searchPdfSize.w]);
+  }, [searchMatches, searchMatchIdx, renderWidth, searchPdfSize.w]);
 
   // Native text selection popup
   useEffect(() => {
@@ -279,7 +317,7 @@ function PdfViewer({
         if (text.length > 5) {
           const range = sel!.getRangeAt(0).getBoundingClientRect();
           const cont = containerRef.current!.getBoundingClientRect();
-          setSelectionPopup({ x: range.left - cont.left + range.width / 2, y: range.top - cont.top - 8, text });
+          setSelectionPopup({ x: range.left - cont.left + range.width / 2, y: range.top - cont.top - 8, bottomY: range.bottom - cont.top + 8, text });
         } else {
           setSelectionPopup(null);
         }
@@ -308,7 +346,7 @@ function PdfViewer({
       if (matches.length > 0) {
         const idx = Math.max(0, Math.min(goToIdx, matches.length - 1));
         setSearchMatchIdx(idx);
-        setPage(matches[idx].page);
+        scrollToPage(matches[idx].page);
       }
     } catch { /* ignore */ } finally {
       setSearchLoading(false);
@@ -322,7 +360,7 @@ function PdfViewer({
     if (searchMatches.length > 0) {
       const nextIdx = (searchMatchIdx + 1) % searchMatches.length;
       setSearchMatchIdx(nextIdx);
-      setPage(searchMatches[nextIdx].page);
+      scrollToPage(searchMatches[nextIdx].page);
     } else {
       await runSearch(q, 0);
     }
@@ -332,42 +370,75 @@ function PdfViewer({
     if (searchMatches.length === 0) return;
     const nextIdx = (searchMatchIdx + dir + searchMatches.length) % searchMatches.length;
     setSearchMatchIdx(nextIdx);
-    setPage(searchMatches[nextIdx].page);
+    scrollToPage(searchMatches[nextIdx].page);
   }
 
   return (
     <div className="flex flex-col h-full relative" ref={containerRef}>
       {/* Selection popup */}
-      {selectionPopup && onAskWithSelection && (
-        <div
-          data-selection-popup
-          className="absolute z-50"
-          style={{ left: selectionPopup.x, top: selectionPopup.y, transform: "translate(-50%, -100%)", pointerEvents: "auto" }}
-        >
+      {selectionPopup && onAskWithSelection && (() => {
+        const flipped = selectionPopup.y < 220;
+        return (
           <div
-            className="flex flex-col gap-0.5 rounded-xl p-1.5 shadow-2xl backdrop-blur-md"
-            style={{ backgroundColor: "rgb(0,66,97)", border: "1px solid rgba(255,255,255,0.12)", minWidth: 200 }}
+            data-selection-popup
+            className="absolute z-50"
+            style={{
+              left: selectionPopup.x,
+              top: flipped ? selectionPopup.bottomY : selectionPopup.y,
+              transform: flipped ? "translate(-50%, 0%)" : "translate(-50%, -100%)",
+              pointerEvents: "auto",
+            }}
           >
-            {(popupActions ?? [])
-            .filter((a) => selectionPopup.text.trim().split(/\s+/).length >= a.min_words)
-            .map((a) => {
-              const Icon = ICON_MAP[a.icon] ?? Lightbulb;
-              return (
-                <button
-                  key={a.key}
-                  type="button"
-                  onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
-                >
-                  <span className="text-white/50"><Icon size={14} weight="bold" /></span>
-                  {a.label}
-                </button>
-              );
-            })}
+            {!flipped && (
+              <div
+                className="flex flex-col gap-0.5 rounded-xl p-1.5 shadow-2xl backdrop-blur-md"
+                style={{ backgroundColor: "rgb(0,66,97)", border: "1px solid rgba(255,255,255,0.12)", minWidth: 200 }}
+              >
+                {(popupActions ?? [])
+                .filter((a) => selectionPopup.text.trim().split(/\s+/).length >= a.min_words)
+                .map((a) => {
+                  const Icon = ICON_MAP[a.icon] ?? Lightbulb;
+                  return (
+                    <button
+                      key={a.key}
+                      type="button"
+                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
+                    >
+                      <span className="text-white/50"><Icon size={14} weight="bold" /></span>
+                      {a.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", ...(flipped ? { borderBottom: "8px solid rgb(0,66,97)", borderTop: "none" } : { borderTop: "8px solid rgb(0,66,97)", borderBottom: "none" }), margin: "0 auto" }} />
+            {flipped && (
+              <div
+                className="flex flex-col gap-0.5 rounded-xl p-1.5 shadow-2xl backdrop-blur-md"
+                style={{ backgroundColor: "rgb(0,66,97)", border: "1px solid rgba(255,255,255,0.12)", minWidth: 200 }}
+              >
+                {(popupActions ?? [])
+                .filter((a) => selectionPopup.text.trim().split(/\s+/).length >= a.min_words)
+                .map((a) => {
+                  const Icon = ICON_MAP[a.icon] ?? Lightbulb;
+                  return (
+                    <button
+                      key={a.key}
+                      type="button"
+                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
+                    >
+                      <span className="text-white/50"><Icon size={14} weight="bold" /></span>
+                      {a.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div style={{ width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "8px solid rgb(0,66,97)", margin: "0 auto" }} />
-        </div>
-      )}
+        );
+      })()}
 
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -409,13 +480,28 @@ function PdfViewer({
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
           </svg>
         </button>
+        {onMinimize && (
+          <button
+            type="button"
+            onClick={onMinimize}
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
+            style={{ backgroundColor: "var(--border)" }}
+            title="Panel minimieren"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
+            </svg>
+          </button>
+        )}
         <button
           type="button"
           onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
           style={{ backgroundColor: "var(--border)" }}
         >
-          <XIcon size={13} color="var(--muted)" />
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
         </button>
       </div>
 
@@ -467,16 +553,25 @@ function PdfViewer({
             loading={<div className="flex items-center justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: "#004261" }} /></div>}
             error={<p className="text-sm text-center py-8" style={{ color: "#B91C1C" }}>PDF konnte nicht geladen werden.</p>}
           >
-            <PdfPage pageNumber={page} width={renderWidth} renderTextLayer renderAnnotationLayer={false}>
-              {searchOverlays.map((ov, i) => (
-                <div key={i} style={{
-                  position: "absolute", left: ov.x, top: ov.y,
-                  width: Math.max(ov.w, 2), height: Math.max(ov.h, 4),
-                  backgroundColor: ov.active ? "rgba(255,140,0,0.65)" : "rgba(255,210,0,0.45)",
-                  borderRadius: 2, pointerEvents: "none", zIndex: 3,
-                }} />
-              ))}
-            </PdfPage>
+            {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
+              <div
+                key={pageNum}
+                data-page={pageNum}
+                ref={(el) => { if (el) pageRefsMap.current.set(pageNum, el); else pageRefsMap.current.delete(pageNum); }}
+                style={{ marginBottom: 12 }}
+              >
+                <PdfPage pageNumber={pageNum} width={renderWidth} renderTextLayer renderAnnotationLayer={false}>
+                  {(searchOverlaysByPage.get(pageNum) ?? []).map((ov, i) => (
+                    <div key={i} style={{
+                      position: "absolute", left: ov.x, top: ov.y,
+                      width: Math.max(ov.w, 2), height: Math.max(ov.h, 4),
+                      backgroundColor: ov.active ? "rgba(255,140,0,0.65)" : "rgba(255,210,0,0.45)",
+                      borderRadius: 2, pointerEvents: "none", zIndex: 3,
+                    }} />
+                  ))}
+                </PdfPage>
+              </div>
+            ))}
           </Document>
           </div>
         )}
@@ -484,7 +579,7 @@ function PdfViewer({
 
       {numPages > 0 && (
         <div className="flex items-center justify-center gap-3 px-4 py-3 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-          <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+          <button type="button" onClick={() => scrollToPage(Math.max(1, page - 1))} disabled={page <= 1}
             className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)" }}>
             <CaretLeft size={14} />
           </button>
@@ -496,7 +591,7 @@ function PdfViewer({
             onChange={(e) => setPageInput(e.target.value)}
             onBlur={() => {
               const v = parseInt(pageInput ?? "");
-              if (!isNaN(v) && v >= 1 && v <= numPages) setPage(v);
+              if (!isNaN(v) && v >= 1 && v <= numPages) scrollToPage(v);
               setPageInput(null);
             }}
             onKeyDown={(e) => {
@@ -506,7 +601,7 @@ function PdfViewer({
             style={{ width: 44, color: "var(--muted)", background: "transparent", border: "1px solid var(--border)", outline: "none", padding: "1px 4px" }}
           />
           <span className="text-sm" style={{ color: "var(--muted)" }}>/ {numPages}</span>
-          <button type="button" onClick={() => setPage((p) => Math.min(numPages, p + 1))} disabled={page >= numPages}
+          <button type="button" onClick={() => scrollToPage(Math.min(numPages, page + 1))} disabled={page >= numPages}
             className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)" }}>
             <CaretRight size={14} />
           </button>
@@ -1949,7 +2044,7 @@ export default function KiTutorModulePage() {
             >
               {activeTab === "quellen" ? (
                 viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} popupActions={popupActions} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} popupActions={popupActions} onMinimize={() => setActiveTab("chat")} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -2008,7 +2103,7 @@ export default function KiTutorModulePage() {
                 {!panels.quellen ? (
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} popupActions={popupActions} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} popupActions={popupActions} onMinimize={() => togglePanel("quellen")} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
