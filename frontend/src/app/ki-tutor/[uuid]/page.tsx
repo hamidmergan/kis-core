@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowSquareOut,
+  FileMagnifyingGlass,
   CaretLeft,
   CaretRight,
   Chat,
@@ -64,6 +64,7 @@ interface SourceRef {
   source_uuid: string;
   filename?: string;
   page_number: number;
+  source_text?: string;
 }
 
 interface ChatMessage {
@@ -88,6 +89,8 @@ interface ViewerState {
   uuid: string;
   filename: string;
   page: number;
+  highlightText?: string;
+  nonce?: number;
 }
 
 type StudioView = "overview" | "lernkarten" | "quiz";
@@ -181,7 +184,7 @@ function PdfViewer({
   source: ViewerState;
   onClose: () => void;
   moduleUuid: string;
-  onAskWithSelection?: (text: string, sourceInfo: { uuid: string; filename: string; page: number }) => void;
+  onAskWithSelection?: (text: string, sourceInfo: { uuid: string; filename: string; page: number; selectedText?: string }) => void;
   popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
   onMinimize?: () => void;
 }) {
@@ -216,13 +219,73 @@ function PdfViewer({
     if (el && scrollContainerRef.current) {
       isScrollingRef.current = true;
       el.scrollIntoView({ behavior: "smooth", block: "start" });
-      setTimeout(() => { isScrollingRef.current = false; }, 500);
+      setPage(p);
+      setTimeout(() => { isScrollingRef.current = false; }, 600);
+    } else {
+      setPage(p);
     }
-    setPage(p);
   }
 
-  // Sync page when source.page changes (e.g. pill click while viewer is already open)
-  useEffect(() => { scrollToPage(source.page); }, [source.page]);
+  // Sync page + highlight when source changes (e.g. pill click)
+  useEffect(() => {
+    if (source.nonce == null) return;
+    scrollToPage(source.page);
+    CSS.highlights?.delete("pill-highlight");
+    if (!source.highlightText || !CSS.highlights) return;
+
+    // Normalize: lowercase, strip whitespace/hyphens/soft-hyphens/punctuation → only letters+digits
+    const norm = (s: string) => s.toLowerCase().replace(/[\s\-\u00AD.,;:!?'"()[\]{}]+/g, "");
+    const needle = norm(source.highlightText);
+    if (needle.length < 3) return;
+    const searchKey = needle.slice(0, Math.min(60, needle.length));
+
+    function tryHighlight(): boolean {
+      CSS.highlights!.delete("pill-highlight");
+      const pageEl = pageRefsMap.current.get(source.page);
+      if (!pageEl) return false;
+      const textLayer = pageEl.querySelector(".textLayer");
+      if (!textLayer) return false;
+      const spans = Array.from(textLayer.querySelectorAll('span[role="presentation"]'));
+      if (spans.length === 0) return false;
+
+      // Build position map
+      const infos: { span: Element; start: number; len: number }[] = [];
+      let pos = 0;
+      for (const span of spans) {
+        const n = norm(span.textContent ?? "");
+        infos.push({ span, start: pos, len: n.length });
+        pos += n.length;
+      }
+      const fullNorm = infos.map((i) => norm(i.span.textContent ?? "")).join("");
+      const matchIdx = fullNorm.indexOf(searchKey);
+      if (matchIdx === -1) return false;
+      const matchEnd = matchIdx + needle.length;
+
+      // Collect overlapping spans
+      const ranges: Range[] = [];
+      for (const info of infos) {
+        const sEnd = info.start + info.len;
+        if (sEnd > matchIdx && info.start < matchEnd) {
+          const range = new Range();
+          range.selectNodeContents(info.span);
+          ranges.push(range);
+        }
+      }
+      if (ranges.length > 0) {
+        CSS.highlights!.set("pill-highlight", new Highlight(...ranges));
+        return true;
+      }
+      return false;
+    }
+
+    // Retry — TextLayer may still be rendering
+    let attempts = 0;
+    const iv = setInterval(() => {
+      attempts++;
+      if (tryHighlight() || attempts >= 8) clearInterval(iv);
+    }, 400);
+    return () => { clearInterval(iv); CSS.highlights?.delete("pill-highlight"); };
+  }, [source.nonce]);
 
   // Fit-page base width: constrain by height so 100% = full page visible
   const fitWidth = containerHeight > 0
@@ -257,17 +320,18 @@ function PdfViewer({
     if (numPages === 0) return;
     const sc = scrollContainerRef.current;
     if (!sc) return;
+    const ratios = new Map<number, number>();
     const observer = new IntersectionObserver(
       (entries) => {
         if (isScrollingRef.current) return;
-        let bestPage = 0;
-        let bestRatio = 0;
         entries.forEach((entry) => {
           const p = Number(entry.target.getAttribute("data-page"));
-          if (entry.intersectionRatio > bestRatio) {
-            bestPage = p;
-            bestRatio = entry.intersectionRatio;
-          }
+          ratios.set(p, entry.intersectionRatio);
+        });
+        let bestPage = 0;
+        let bestRatio = 0;
+        ratios.forEach((ratio, p) => {
+          if (ratio > bestRatio) { bestPage = p; bestRatio = ratio; }
         });
         if (bestPage > 0) setPage(bestPage);
       },
@@ -402,7 +466,7 @@ function PdfViewer({
                     <button
                       key={a.key}
                       type="button"
-                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
+                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page, selectedText: selectionPopup.text }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
                     >
                       <span className="text-white/50"><Icon size={14} weight="bold" /></span>
@@ -426,7 +490,7 @@ function PdfViewer({
                     <button
                       key={a.key}
                       type="button"
-                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
+                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page, selectedText: selectionPopup.text }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
                     >
                       <span className="text-white/50"><Icon size={14} weight="bold" /></span>
@@ -671,11 +735,11 @@ function SourcesPanel({
         <button
           type="button"
           onClick={onMinimize}
-          className="w-7 h-7 flex items-center justify-center rounded-lg hover:opacity-60 transition-opacity"
-          style={{ color: "var(--muted)" }}
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
           title="Panel minimieren"
         >
-          <SidebarSimple size={16} />
+          <SidebarSimple size={13} />
         </button>
       </div>
 
@@ -782,22 +846,22 @@ function SourcesPanel({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onOpenViewer(src); }}
-                  className="w-6 h-6 flex items-center justify-center rounded hover:opacity-70 transition-opacity"
-                  style={{ color: "#004261" }}
+                  className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                  style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
                   title="Im Viewer öffnen"
                 >
-                  <ArrowSquareOut size={14} />
+                  <FileMagnifyingGlass size={13} />
                 </button>
                 {isLecturer && (
                   <div className="relative" data-source-menu>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === src.uuid ? null : src.uuid); }}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:opacity-70 transition-opacity"
-                      style={{ color: "var(--muted)" }}
+                      className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                      style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
                       title="Optionen"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                       </svg>
                     </button>
@@ -848,7 +912,7 @@ function ChatPanel({
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
-  onPillClick: (sourceUuid: string, page: number, filename: string) => void;
+  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string) => void;
   moduleReady: boolean;
   onClear: () => void;
 }) {
@@ -895,8 +959,8 @@ function ChatPanel({
           <button
             type="button"
             onClick={() => setChatMenuOpen((v) => !v)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:opacity-70 transition-opacity"
-            style={{ color: "var(--muted)" }}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
             title="Optionen"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -960,7 +1024,7 @@ function ChatPanel({
                   <button
                     key={m.index}
                     type="button"
-                    onClick={() => onPillClick(sp.source_uuid, sp.page_number, getFilename(sp.source_uuid))}
+                    onClick={() => onPillClick(sp.source_uuid, sp.page_number, getFilename(sp.source_uuid), sp.source_text)}
                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
                     style={{ backgroundColor: "rgba(0,66,97,0.12)", color: "#004261" }}
                     title={`${getFilename(sp.source_uuid)}, S. ${sp.page_number}`}
@@ -1007,7 +1071,7 @@ function ChatPanel({
               style={
                 msg.role === "user"
                   ? { backgroundColor: "#004261", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap" }
-                  : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderBottomLeftRadius: 6 }
+                  : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6 }
               }
             >
               {msg.role === "assistant" ? (
@@ -1423,11 +1487,11 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive }: { onSele
         <button
           type="button"
           onClick={onMinimize}
-          className="w-7 h-7 flex items-center justify-center rounded-lg hover:opacity-60 transition-opacity"
-          style={{ color: "var(--muted)" }}
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
           title="Panel minimieren"
         >
-          <SidebarSimple size={16} style={{ transform: "scaleX(-1)" }} />
+          <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
         </button>
       </div>
 
@@ -1503,10 +1567,15 @@ function MiniStrip({ label, onClick, side }: { label: string; onClick: () => voi
       style={{ color: "var(--muted)" }}
       title={label}
     >
-      <SidebarSimple
-        size={18}
-        style={{ transform: side === "right" ? "scaleX(-1)" : "none", flexShrink: 0 }}
-      />
+      <span
+        className="w-7 h-7 flex items-center justify-center rounded-full"
+        style={{ backgroundColor: "var(--border)" }}
+      >
+        <SidebarSimple
+          size={13}
+          style={{ transform: side === "right" ? "scaleX(-1)" : "none", flexShrink: 0 }}
+        />
+      </span>
       <span
         className="text-[10px] font-semibold tracking-widest uppercase select-none"
         style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", color: "var(--muted)" }}
@@ -1739,10 +1808,10 @@ export default function KiTutorModulePage() {
     );
   }
 
-  function handleOpenViewer(source: Source, page = 1) {
+  function handleOpenViewer(source: Source, page = 1, highlightText?: string) {
     setPrevSelectedSourceIds(selectedSourceIds);
     setSelectedSourceIds([source.uuid]);
-    setViewerSource({ uuid: source.uuid, filename: source.filename, page });
+    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
   }
 
@@ -1791,7 +1860,7 @@ export default function KiTutorModulePage() {
 
   // ─── Chat ──────────────────────────────────────────────────────────────────
 
-  async function sendChatMessage(content: string, directText = false, sourceInfo?: { uuid: string; filename: string; page: number }) {
+  async function sendChatMessage(content: string, directText = false, sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string }) {
     const effectiveSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
     if (!content.trim()) return;
     if (!directText && effectiveSourceIds.length === 0) return;
@@ -1811,6 +1880,7 @@ export default function KiTutorModulePage() {
             source_uuid: sourceInfo.uuid,
             source_filename: sourceInfo.filename,
             source_page: sourceInfo.page,
+            source_text: sourceInfo.selectedText,
           }),
         }),
       });
@@ -1827,19 +1897,19 @@ export default function KiTutorModulePage() {
     }
   }
 
-  function handleAskWithSelection(prompt: string, sourceInfo?: { uuid: string; filename: string; page: number }) {
+  function handleAskWithSelection(prompt: string, sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string }) {
     if (isMobile) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
     sendChatMessage(prompt, true, sourceInfo);
   }
 
-  function handlePillClick(sourceUuid: string, page: number, filename: string) {
+  function handlePillClick(sourceUuid: string, page: number, filename: string, sourceText?: string) {
     const src = sources.find((s) => s.uuid === sourceUuid);
-    if (src) handleOpenViewer(src, page);
+    if (src) handleOpenViewer(src, page, sourceText);
     else {
       setPrevSelectedSourceIds(selectedSourceIds);
       setSelectedSourceIds([sourceUuid]);
-      setViewerSource({ uuid: sourceUuid, filename, page });
+      setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, nonce: Date.now() });
       setPanels((prev) => ({ ...prev, quellen: true }));
     }
   }
@@ -1939,8 +2009,8 @@ export default function KiTutorModulePage() {
             <button
               type="button"
               onClick={() => setShowSettings((v) => !v)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: showSettings ? "rgba(0,66,97,0.1)" : "transparent", color: showSettings ? "#004261" : "var(--muted)" }}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: showSettings ? "#004261" : "var(--border)", color: showSettings ? "white" : "var(--muted)" }}
               title="Einstellungen"
             >
               <GearSix size={17} weight={showSettings ? "fill" : "regular"} />

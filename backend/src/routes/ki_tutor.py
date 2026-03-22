@@ -98,6 +98,7 @@ class ChatBody(BaseModel):
     source_uuid: Optional[str] = None  # Quell-PDF UUID (bei Popup-Aktionen)
     source_filename: Optional[str] = None
     source_page: Optional[int] = None
+    source_text: Optional[str] = None  # Markierter Text (für Highlight bei Pill-Click)
 
 
 class UserSettingsBody(BaseModel):
@@ -453,6 +454,7 @@ async def chat(
             "source_uuid": body.source_uuid,
             "filename": body.source_filename or "",
             "page_number": body.source_page,
+            **({"source_text": body.source_text} if body.source_text else {}),
         })
     else:
         for chunk in chunks:

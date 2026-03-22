@@ -32,6 +32,10 @@
   background-color: rgba(255, 140, 0, 0.8);
   color: inherit;
 }
+::highlight(pill-highlight) {
+  background-color: rgba(0, 66, 97, 0.35);
+  color: transparent;
+}
 
 /* ─── Brand tokens ─── */
 :root {
