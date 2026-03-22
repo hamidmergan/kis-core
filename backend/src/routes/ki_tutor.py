@@ -400,7 +400,9 @@ async def chat(
 
         system_prompt = (
             "Du bist ein KI-Tutor. Antworte ausschließlich auf Basis der gegebenen Quellen. "
-            "Nenne immer die Seitenzahl. Halluziniere nicht."
+            "Füge nach jedem Satz oder Abschnitt, der auf eine Quelle zurückgreift, die Seitenzahl direkt im Text ein – "
+            "im Format [S. X], z.B. [S. 5] oder [S. 12]. Mehrere Seiten als separate Tags: [S. 3] [S. 7]. "
+            "Halluziniere nicht."
         )
         user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"
 
@@ -441,6 +443,83 @@ async def chat(
     db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages)
 
     return {"answer": answer, "source_pages": source_pages}
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/search")
+async def search_pdf(
+    module_uuid: str,
+    source_uuid: str,
+    q: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source = db.get_ki_tutor_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+
+    ext = Path(source["filename"]).suffix.lower()
+    if ext != ".pdf":
+        return {"matches": [], "page_width": 0, "page_height": 0}
+
+    import fitz  # pymupdf
+    import re
+    import unicodedata
+
+    # Normalize: NFKC (expands ligatures), remove line-break hyphens only, collapse whitespace
+    q_clean = unicodedata.normalize("NFKC", q)
+    q_clean = re.sub(r"-\r?\n\s*", "", q_clean)  # only line-break hyphens: "Lö-\nsungsansatz" → "Lösungsansatz"
+    q_clean = re.sub(r"\s+", " ", q_clean).strip()
+
+    if not q_clean:
+        return {"matches": [], "page_width": 0, "page_height": 0}
+
+    data = get_file(source["file_path"])
+    doc = fitz.open(stream=data, filetype="pdf")
+
+    matches = []
+    page_width = 0.0
+    page_height = 0.0
+
+    for page_num in range(doc.page_count):
+        pg = doc[page_num]
+        if page_width == 0:
+            page_width = pg.rect.width
+            page_height = pg.rect.height
+
+        found = pg.search_for(q_clean, flags=fitz.TEXT_DEHYPHENATE)
+        if not found:
+            continue
+
+        # Group rects that belong to the same multi-line match occurrence.
+        # pymupdf returns one rect per matched line — consecutive rects
+        # within 1.5x line height belong to the same match.
+        sorted_found = sorted(found, key=lambda r: (r.y0, r.x0))
+        groups: list[list] = [[sorted_found[0]]]
+        for rect in sorted_found[1:]:
+            prev = groups[-1][-1]
+            line_h = max(prev.height, rect.height, 10)
+            if rect.y0 - prev.y1 < line_h * 1.5:
+                groups[-1].append(rect)
+            else:
+                groups.append([rect])
+
+        for group in groups:
+            matches.append({
+                "page": page_num + 1,
+                "rects": [{"x0": r.x0, "y0": r.y0, "x1": r.x1, "y1": r.y1} for r in group],
+            })
+
+    doc.close()
+    return {"matches": matches, "page_width": page_width, "page_height": page_height}
 
 
 @router.get("/ki-tutor/modules/{module_uuid}/messages")

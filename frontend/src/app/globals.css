@@ -3,7 +3,6 @@
 /* PDF Text Layer: transparent but selectable */
 .react-pdf__Page__textContent {
   color: transparent !important;
-  mix-blend-mode: multiply;
 }
 .react-pdf__Page__textContent span {
   cursor: text;

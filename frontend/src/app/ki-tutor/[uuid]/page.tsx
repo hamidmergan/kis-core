@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -182,7 +182,8 @@ function PdfViewer({
   });
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchMatches, setSearchMatches] = useState<number[]>([]);
+  const [searchMatches, setSearchMatches] = useState<Array<{ page: number; rects: { x0: number; y0: number; x1: number; y1: number }[] }>>([]);
+  const [searchPdfSize, setSearchPdfSize] = useState({ w: 595, h: 842 });
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOverlays, setSearchOverlays] = useState<Array<{ x: number; y: number; w: number; h: number; active: boolean }>>([]);
@@ -221,98 +222,35 @@ function PdfViewer({
     if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
   }, [showSearch]);
 
-  // Coordinate-based search overlays using pdfjs text content positions
+  // Build overlays from backend search results for the current page
   useEffect(() => {
     setSearchOverlays([]);
-    const q = searchQuery.trim();
-    if (!q || containerWidth === 0) return;
-    let cancelled = false;
-    // Normalize unicode whitespace variants (non-breaking spaces etc.) to regular space
-    const norm = (s: string) => s.replace(/[\u00A0\u202F\u2009\u2007\u2008\u2002\u2003\u2004\u2005\u2006\u200A\u205F\u3000]/g, ' ');
-    (async () => {
-      try {
-        const pdfjsLib = await import("pdfjs-dist");
-        const pdf = await pdfjsLib.getDocument(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`).promise;
-        if (cancelled) return;
-        const pdfPage = await pdf.getPage(page);
-        const viewport = pdfPage.getViewport({ scale: 1 });
-        const fw = containerHeight > 0 ? Math.min(containerWidth, containerHeight * pdfPageRatio) : containerWidth;
-        const scale = (fw * zoomLevel) / viewport.width;
-        const textContent = await pdfPage.getTextContent();
-        if (cancelled) return;
+    if (!searchQuery.trim() || searchMatches.length === 0 || containerWidth === 0) return;
 
-        type ItemEntry = { normStr: string; x: number; y: number; w: number; h: number; offset: number };
-        const items: ItemEntry[] = [];
-        let concat = '';
+    const scale = renderWidth / searchPdfSize.w;
+    const overlays: Array<{ x: number; y: number; w: number; h: number; active: boolean }> = [];
 
-        let prevItem: any = null;
-        for (const item of textContent.items) {
-          if (!('str' in item) || !item.str) continue;
-          const normStr = norm(item.str);
-          const fontH: number = Math.abs(item.transform[3]) || item.height || 10;
-          // Geometry-aware spacing: only add virtual space if items are NOT adjacent
-          if (concat.length > 0 && prevItem) {
-            const hasTrailSpace = /\s$/.test(concat);
-            const hasLeadSpace = /^\s/.test(normStr);
-            if (!hasTrailSpace && !hasLeadSpace) {
-              const prevEndX = prevItem.transform[4] + prevItem.width;
-              const curStartX: number = item.transform[4];
-              const prevY: number = prevItem.transform[5];
-              const curY: number = item.transform[5];
-              const spaceThreshold = fontH * 0.25;
-              const gap = curStartX - prevEndX;
-              const diffY = Math.abs(curY - prevY);
-              // Add space if items are on different lines or have a visible gap between them
-              if (diffY > fontH * 0.3 || gap > spaceThreshold) concat += ' ';
-            }
-          }
-          items.push({ normStr, x: item.transform[4], y: item.transform[5], w: item.width, h: fontH, offset: concat.length });
-          concat += normStr;
-          prevItem = item;
-        }
+    searchMatches.forEach((match, idx) => {
+      if (match.page !== page) return;
+      match.rects.forEach((r) => overlays.push({
+        x: r.x0 * scale,
+        y: r.y0 * scale,
+        w: Math.max((r.x1 - r.x0) * scale, 4),
+        h: Math.max((r.y1 - r.y0) * scale, 4),
+        active: idx === searchMatchIdx,
+      }));
+    });
 
-        const lq = norm(q).toLowerCase();
-        const lower = concat.toLowerCase();
-        const overlays: Array<{ x: number; y: number; w: number; h: number; active: boolean }> = [];
-        let idx = 0, matchCount = 0;
+    setSearchOverlays(overlays);
 
-        while ((idx = lower.indexOf(lq, idx)) !== -1) {
-          const matchStart = idx;
-          const matchEnd = idx + lq.length;
-          const isActive = matchCount === 0; // first match on this page is active
-
-          for (const item of items) {
-            const itemEnd = item.offset + item.normStr.length;
-            if (item.offset >= matchEnd || itemEnd <= matchStart) continue;
-            const rStart = Math.max(matchStart, item.offset) - item.offset;
-            const rEnd = Math.min(matchEnd, itemEnd) - item.offset;
-            const frac0 = item.normStr.length > 0 ? rStart / item.normStr.length : 0;
-            const frac1 = item.normStr.length > 0 ? rEnd / item.normStr.length : 1;
-            // PDF y=0 is bottom of page; convert to top-origin screen coords
-            overlays.push({
-              x: (item.x + item.w * frac0) * scale,
-              y: (viewport.height - item.y - item.h * 1.1) * scale,
-              w: Math.max(item.w * (frac1 - frac0) * scale, 4),
-              h: item.h * 1.3 * scale,
-              active: isActive,
-            });
-          }
-          matchCount++;
-          idx += lq.length;
-        }
-        setSearchOverlays(overlays);
-
-        // Scroll to center the first (active) overlay
-        const firstOverlay = overlays.find(o => o.active);
-        if (firstOverlay && scrollContainerRef.current) {
-          const el = scrollContainerRef.current;
-          const targetScrollTop = firstOverlay.y + 16 - el.clientHeight / 2 + firstOverlay.h / 2;
-          setTimeout(() => el.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" }), 100);
-        }
-      } catch { /* ignore */ }
-    })();
-    return () => { cancelled = true; };
-  }, [searchQuery, page, containerWidth, containerHeight, pdfPageRatio, zoomLevel, moduleUuid, source.uuid, searchMatchIdx]);
+    // Scroll active match to center
+    const active = overlays.find(o => o.active);
+    if (active && scrollContainerRef.current) {
+      const el = scrollContainerRef.current;
+      const targetScrollTop = active.y + 16 - el.clientHeight / 2 + active.h / 2;
+      setTimeout(() => el.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" }), 100);
+    }
+  }, [searchMatches, searchMatchIdx, page, renderWidth, searchPdfSize.w]);
 
   // Text selection popup
   useEffect(() => {
@@ -345,36 +283,17 @@ function PdfViewer({
   async function runSearch(q: string, goToIdx = 0) {
     if (!q) return;
     setSearchLoading(true);
-    const normWs = (s: string) => s.replace(/[\u00A0\u202F\u2009\u2007\u2008\u2002\u2003\u2004\u2005\u2006\u200A\u205F\u3000]/g, ' ');
-    const nq = normWs(q).toLowerCase();
     try {
-      const pdfjsLib = await import("pdfjs-dist");
-      const pdf = await pdfjsLib.getDocument(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`).promise;
-      const matches: number[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const pg = await pdf.getPage(i);
-        const content = await pg.getTextContent();
-        let pgConcat = '';
-        let pgPrev: any = null;
-        for (const it of content.items) {
-          if (!('str' in it) || !it.str) continue;
-          const ns = normWs(it.str);
-          if (pgPrev && pgConcat.length > 0 && !/\s$/.test(pgConcat) && !/^\s/.test(ns)) {
-            const fh = Math.abs(it.transform[3]) || it.height || 10;
-            const gap = it.transform[4] - (pgPrev.transform[4] + pgPrev.width);
-            const diffY = Math.abs(it.transform[5] - pgPrev.transform[5]);
-            if (diffY > fh * 0.3 || gap > fh * 0.25) pgConcat += ' ';
-          }
-          pgConcat += ns;
-          pgPrev = it;
-        }
-        if (pgConcat.toLowerCase().includes(nq)) matches.push(i);
-      }
+      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/search?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error("search failed");
+      const data = await res.json();
+      const matches: Array<{ page: number; rects: { x0: number; y0: number; x1: number; y1: number }[] }> = data.matches;
       setSearchMatches(matches);
+      setSearchPdfSize({ w: data.page_width || 595, h: data.page_height || 842 });
       if (matches.length > 0) {
         const idx = Math.max(0, Math.min(goToIdx, matches.length - 1));
         setSearchMatchIdx(idx);
-        setPage(matches[idx]);
+        setPage(matches[idx].page);
       }
     } catch { /* ignore */ } finally {
       setSearchLoading(false);
@@ -383,13 +302,12 @@ function PdfViewer({
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
     if (!q) return;
     if (searchMatches.length > 0) {
-      // Already searched — go to next match
       const nextIdx = (searchMatchIdx + 1) % searchMatches.length;
       setSearchMatchIdx(nextIdx);
-      setPage(searchMatches[nextIdx]);
+      setPage(searchMatches[nextIdx].page);
     } else {
       await runSearch(q, 0);
     }
@@ -399,7 +317,7 @@ function PdfViewer({
     if (searchMatches.length === 0) return;
     const nextIdx = (searchMatchIdx + dir + searchMatches.length) % searchMatches.length;
     setSearchMatchIdx(nextIdx);
-    setPage(searchMatches[nextIdx]);
+    setPage(searchMatches[nextIdx].page);
   }
 
   return (
@@ -832,6 +750,13 @@ function ChatPanel({
   const isFirstRender = useRef(true);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const chatMenuRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+  }, [input]);
   useEffect(() => {
     if (!chatMenuOpen) return;
     function handle(e: MouseEvent) {
@@ -909,7 +834,49 @@ function ChatPanel({
           </div>
         )}
 
-        {messages.map((msg, i) => (
+        {messages.map((msg, i) => {
+          const msgSourcePages = msg.source_pages ?? [];
+
+          // Parse [S. X] tags from text nodes and replace with inline pill buttons
+          function parseCitations(text: string): React.ReactNode[] {
+            const pattern = /\[S\.\s*(\d+)\]/g;
+            const nodes: React.ReactNode[] = [];
+            let last = 0;
+            let m: RegExpExecArray | null;
+            while ((m = pattern.exec(text)) !== null) {
+              if (m.index > last) nodes.push(text.slice(last, m.index));
+              const pageNum = parseInt(m[1]);
+              const sp = msgSourcePages.find((s) => s.page_number === pageNum);
+              if (sp) {
+                nodes.push(
+                  <button
+                    key={m.index}
+                    type="button"
+                    onClick={() => onPillClick(sp.source_uuid, sp.page_number, getFilename(sp.source_uuid))}
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+                    style={{ backgroundColor: "rgba(0,66,97,0.12)", color: "#004261" }}
+                    title={`${getFilename(sp.source_uuid)}, S. ${sp.page_number}`}
+                  >
+                    <FilePdf size={8} weight="bold" />
+                    S. {pageNum}
+                  </button>
+                );
+              } else {
+                nodes.push(m[0]);
+              }
+              last = pattern.lastIndex;
+            }
+            if (last < text.length) nodes.push(text.slice(last));
+            return nodes;
+          }
+
+          function withCitations(children: React.ReactNode): React.ReactNode {
+            return React.Children.map(children, (child) =>
+              typeof child === "string" ? parseCitations(child) : child
+            );
+          }
+
+          return (
           <div
             key={msg.id ?? i}
             className={`flex flex-col gap-1.5 ${msg.role === "user" ? "items-end" : "items-start"}`}
@@ -938,14 +905,14 @@ function ChatPanel({
               {msg.role === "assistant" ? (
                 <ReactMarkdown
                   components={{
-                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                    p: ({ children }) => <p className="mb-2 last:mb-0">{withCitations(children)}</p>,
                     ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
                     ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                    li: ({ children }) => <li className="leading-relaxed">{withCitations(children)}</li>,
                     strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                    h1: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
-                    h2: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
-                    h3: ({ children }) => <p className="font-medium mb-1">{children}</p>,
+                    h1: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
+                    h2: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
+                    h3: ({ children }) => <p className="font-medium mb-1">{withCitations(children)}</p>,
                   }}
                 >
                   {msg.content}
@@ -954,25 +921,9 @@ function ChatPanel({
                 msg.content
               )}
             </div>
-            {msg.source_pages && msg.source_pages.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 max-w-[84%] mt-0.5">
-                {msg.source_pages.map((sp, j) => (
-                  <button
-                    key={j}
-                    type="button"
-                    onClick={() => onPillClick(sp.source_uuid, sp.page_number, getFilename(sp.source_uuid))}
-                    className="text-[11px] px-2.5 py-1 rounded-full font-medium hover:opacity-80 transition-opacity flex items-center gap-1"
-                    style={{ backgroundColor: "rgba(0,66,97,0.1)", color: "#004261" }}
-                    title={`${getFilename(sp.source_uuid)}, S. ${sp.page_number}`}
-                  >
-                    <FilePdf size={10} weight="bold" />
-                    S. {sp.page_number}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
-        ))}
+          );
+        })}
 
         {loading && (
           <div className="flex flex-col gap-1.5 items-start">
@@ -1024,6 +975,7 @@ function ChatPanel({
           style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
         >
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={(e) => {
@@ -1033,7 +985,7 @@ function ChatPanel({
             rows={1}
             disabled={loading}
             className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
-            style={{ color: "var(--text)", maxHeight: 120, overflowY: "auto" }}
+            style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
           />
           <button
             type="button"
