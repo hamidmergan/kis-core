@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowSquareOut,
@@ -171,15 +172,30 @@ function PdfViewer({
 }) {
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(source.page);
+  const [pageInput, setPageInput] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const [pdfPageRatio, setPdfPageRatio] = useState(595 / 842); // width/height, A4 default
+  const [zoomLevel, setZoomLevel] = useState(() => {
+    const saved = sessionStorage.getItem("pdf-zoom");
+    return saved ? parseFloat(saved) : 1;
+  });
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatches, setSearchMatches] = useState<number[]>([]);
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOverlays, setSearchOverlays] = useState<Array<{ x: number; y: number; w: number; h: number; active: boolean }>>([]);
   const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Fit-page base width: constrain by height so 100% = full page visible
+  const fitWidth = containerHeight > 0
+    ? Math.min(containerWidth, containerHeight * pdfPageRatio)
+    : containerWidth;
+  const renderWidth = Math.max(fitWidth * zoomLevel, 1);
 
   useEffect(() => setPage(source.page), [source.page]);
 
@@ -193,47 +209,110 @@ function PdfViewer({
   }, []);
 
   useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setContainerHeight(entry.contentRect.height));
+    ro.observe(el);
+    setContainerHeight(el.clientHeight - 32);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
   }, [showSearch]);
 
-  // Highlight search matches using CSS Highlight API (exact text, no DOM mutation)
+  // Coordinate-based search overlays using pdfjs text content positions
   useEffect(() => {
-    const hl = (CSS as any).highlights as Map<string, unknown> | undefined;
-    if (hl) { hl.delete('pdf-search'); hl.delete('pdf-search-active'); }
+    setSearchOverlays([]);
     const q = searchQuery.trim();
-    if (!q) return;
-    const apply = () => {
-      const textLayer = containerRef.current?.querySelector('.textLayer');
-      if (!textLayer) return;
-      const lq = q.toLowerCase();
-      const allRanges: Range[] = [];
-      const walker = document.createTreeWalker(textLayer, NodeFilter.SHOW_TEXT);
-      let node: Node | null;
-      while ((node = walker.nextNode())) {
-        const text = node.textContent ?? '';
-        const lower = text.toLowerCase();
-        let idx = 0;
+    if (!q || containerWidth === 0) return;
+    let cancelled = false;
+    // Normalize unicode whitespace variants (non-breaking spaces etc.) to regular space
+    const norm = (s: string) => s.replace(/[\u00A0\u202F\u2009\u2007\u2008\u2002\u2003\u2004\u2005\u2006\u200A\u205F\u3000]/g, ' ');
+    (async () => {
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        const pdf = await pdfjsLib.getDocument(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`).promise;
+        if (cancelled) return;
+        const pdfPage = await pdf.getPage(page);
+        const viewport = pdfPage.getViewport({ scale: 1 });
+        const fw = containerHeight > 0 ? Math.min(containerWidth, containerHeight * pdfPageRatio) : containerWidth;
+        const scale = (fw * zoomLevel) / viewport.width;
+        const textContent = await pdfPage.getTextContent();
+        if (cancelled) return;
+
+        type ItemEntry = { normStr: string; x: number; y: number; w: number; h: number; offset: number };
+        const items: ItemEntry[] = [];
+        let concat = '';
+
+        let prevItem: any = null;
+        for (const item of textContent.items) {
+          if (!('str' in item) || !item.str) continue;
+          const normStr = norm(item.str);
+          const fontH: number = Math.abs(item.transform[3]) || item.height || 10;
+          // Geometry-aware spacing: only add virtual space if items are NOT adjacent
+          if (concat.length > 0 && prevItem) {
+            const hasTrailSpace = /\s$/.test(concat);
+            const hasLeadSpace = /^\s/.test(normStr);
+            if (!hasTrailSpace && !hasLeadSpace) {
+              const prevEndX = prevItem.transform[4] + prevItem.width;
+              const curStartX: number = item.transform[4];
+              const prevY: number = prevItem.transform[5];
+              const curY: number = item.transform[5];
+              const spaceThreshold = fontH * 0.25;
+              const gap = curStartX - prevEndX;
+              const diffY = Math.abs(curY - prevY);
+              // Add space if items are on different lines or have a visible gap between them
+              if (diffY > fontH * 0.3 || gap > spaceThreshold) concat += ' ';
+            }
+          }
+          items.push({ normStr, x: item.transform[4], y: item.transform[5], w: item.width, h: fontH, offset: concat.length });
+          concat += normStr;
+          prevItem = item;
+        }
+
+        const lq = norm(q).toLowerCase();
+        const lower = concat.toLowerCase();
+        const overlays: Array<{ x: number; y: number; w: number; h: number; active: boolean }> = [];
+        let idx = 0, matchCount = 0;
+
         while ((idx = lower.indexOf(lq, idx)) !== -1) {
-          const r = document.createRange();
-          r.setStart(node, idx);
-          r.setEnd(node, idx + q.length);
-          allRanges.push(r);
+          const matchStart = idx;
+          const matchEnd = idx + lq.length;
+          const isActive = matchCount === 0; // first match on this page is active
+
+          for (const item of items) {
+            const itemEnd = item.offset + item.normStr.length;
+            if (item.offset >= matchEnd || itemEnd <= matchStart) continue;
+            const rStart = Math.max(matchStart, item.offset) - item.offset;
+            const rEnd = Math.min(matchEnd, itemEnd) - item.offset;
+            const frac0 = item.normStr.length > 0 ? rStart / item.normStr.length : 0;
+            const frac1 = item.normStr.length > 0 ? rEnd / item.normStr.length : 1;
+            // PDF y=0 is bottom of page; convert to top-origin screen coords
+            overlays.push({
+              x: (item.x + item.w * frac0) * scale,
+              y: (viewport.height - item.y - item.h * 1.1) * scale,
+              w: Math.max(item.w * (frac1 - frac0) * scale, 4),
+              h: item.h * 1.3 * scale,
+              active: isActive,
+            });
+          }
+          matchCount++;
           idx += lq.length;
         }
-      }
-      if (allRanges.length > 0 && hl) {
-        const HLClass = (window as any).Highlight;
-        hl.set('pdf-search', new HLClass(...allRanges));
-        hl.set('pdf-search-active', new HLClass(allRanges[searchMatchIdx] ?? allRanges[0]));
-      }
-    };
-    const timer = setTimeout(apply, 350);
-    return () => {
-      clearTimeout(timer);
-      const h = (CSS as any).highlights as Map<string, unknown> | undefined;
-      if (h) { h.delete('pdf-search'); h.delete('pdf-search-active'); }
-    };
-  }, [searchQuery, page, searchMatchIdx]);
+        setSearchOverlays(overlays);
+
+        // Scroll to center the first (active) overlay
+        const firstOverlay = overlays.find(o => o.active);
+        if (firstOverlay && scrollContainerRef.current) {
+          const el = scrollContainerRef.current;
+          const targetScrollTop = firstOverlay.y + 16 - el.clientHeight / 2 + firstOverlay.h / 2;
+          setTimeout(() => el.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" }), 100);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [searchQuery, page, containerWidth, containerHeight, pdfPageRatio, zoomLevel, moduleUuid, source.uuid, searchMatchIdx]);
 
   // Text selection popup
   useEffect(() => {
@@ -266,6 +345,8 @@ function PdfViewer({
   async function runSearch(q: string, goToIdx = 0) {
     if (!q) return;
     setSearchLoading(true);
+    const normWs = (s: string) => s.replace(/[\u00A0\u202F\u2009\u2007\u2008\u2002\u2003\u2004\u2005\u2006\u200A\u205F\u3000]/g, ' ');
+    const nq = normWs(q).toLowerCase();
     try {
       const pdfjsLib = await import("pdfjs-dist");
       const pdf = await pdfjsLib.getDocument(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`).promise;
@@ -273,8 +354,21 @@ function PdfViewer({
       for (let i = 1; i <= pdf.numPages; i++) {
         const pg = await pdf.getPage(i);
         const content = await pg.getTextContent();
-        const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ").toLowerCase();
-        if (text.includes(q)) matches.push(i);
+        let pgConcat = '';
+        let pgPrev: any = null;
+        for (const it of content.items) {
+          if (!('str' in it) || !it.str) continue;
+          const ns = normWs(it.str);
+          if (pgPrev && pgConcat.length > 0 && !/\s$/.test(pgConcat) && !/^\s/.test(ns)) {
+            const fh = Math.abs(it.transform[3]) || it.height || 10;
+            const gap = it.transform[4] - (pgPrev.transform[4] + pgPrev.width);
+            const diffY = Math.abs(it.transform[5] - pgPrev.transform[5]);
+            if (diffY > fh * 0.3 || gap > fh * 0.25) pgConcat += ' ';
+          }
+          pgConcat += ns;
+          pgPrev = it;
+        }
+        if (pgConcat.toLowerCase().includes(nq)) matches.push(i);
       }
       setSearchMatches(matches);
       if (matches.length > 0) {
@@ -363,6 +457,31 @@ function PdfViewer({
         </button>
         <button
           type="button"
+          onClick={() => setZoomLevel((z) => { const v = Math.max(0.5, +(z - 0.25).toFixed(2)); sessionStorage.setItem("pdf-zoom", String(v)); return v; })}
+          disabled={zoomLevel <= 0.5}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity disabled:opacity-30"
+          style={{ backgroundColor: "var(--border)" }}
+          title="Verkleinern"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" />
+          </svg>
+        </button>
+        <span className="text-xs tabular-nums flex-shrink-0" style={{ color: "var(--muted)", minWidth: 28, textAlign: "center" }}>{Math.round(zoomLevel * 100)}%</span>
+        <button
+          type="button"
+          onClick={() => setZoomLevel((z) => { const v = Math.min(3, +(z + 0.25).toFixed(2)); sessionStorage.setItem("pdf-zoom", String(v)); return v; })}
+          disabled={zoomLevel >= 3}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity disabled:opacity-30"
+          style={{ backgroundColor: "var(--border)" }}
+          title="Vergrößern"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
+          </svg>
+        </button>
+        <button
+          type="button"
           onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
           style={{ backgroundColor: "var(--border)" }}
@@ -403,16 +522,34 @@ function PdfViewer({
         </form>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center">
-        {containerWidth > 0 && (
+      <div ref={scrollContainerRef} className="flex-1 p-4" style={{ overflowY: "auto", overflowX: zoomLevel > 1 ? "auto" : "hidden" }}>
+        {containerWidth > 0 && containerHeight > 0 && (
+          <div style={{ width: renderWidth, margin: "0 auto" }}>
           <Document
             file={`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`}
-            onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+            onLoadSuccess={async (pdf) => {
+              setNumPages(pdf.numPages);
+              try {
+                const pg = await pdf.getPage(1);
+                const vp = pg.getViewport({ scale: 1 });
+                setPdfPageRatio(vp.width / vp.height);
+              } catch { /* ignore */ }
+            }}
             loading={<div className="flex items-center justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: "#004261" }} /></div>}
             error={<p className="text-sm text-center py-8" style={{ color: "#B91C1C" }}>PDF konnte nicht geladen werden.</p>}
           >
-            <PdfPage pageNumber={page} width={containerWidth} renderTextLayer renderAnnotationLayer={false} />
+            <PdfPage pageNumber={page} width={renderWidth} renderTextLayer renderAnnotationLayer={false}>
+              {searchOverlays.map((ov, i) => (
+                <div key={i} style={{
+                  position: "absolute", left: ov.x, top: ov.y,
+                  width: Math.max(ov.w, 2), height: Math.max(ov.h, 4),
+                  backgroundColor: ov.active ? "rgba(255,140,0,0.65)" : "rgba(255,210,0,0.45)",
+                  borderRadius: 2, pointerEvents: "none", zIndex: 3,
+                }} />
+              ))}
+            </PdfPage>
           </Document>
+          </div>
         )}
       </div>
 
@@ -422,7 +559,24 @@ function PdfViewer({
             className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)" }}>
             <CaretLeft size={14} />
           </button>
-          <span className="text-sm tabular-nums" style={{ color: "var(--muted)" }}>{page} / {numPages}</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={pageInput ?? page}
+            onFocus={(e) => { setPageInput(String(page)); e.target.select(); }}
+            onChange={(e) => setPageInput(e.target.value)}
+            onBlur={() => {
+              const v = parseInt(pageInput ?? "");
+              if (!isNaN(v) && v >= 1 && v <= numPages) setPage(v);
+              setPageInput(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            className="tabular-nums text-center text-sm rounded"
+            style={{ width: 44, color: "var(--muted)", background: "transparent", border: "1px solid var(--border)", outline: "none", padding: "1px 4px" }}
+          />
+          <span className="text-sm" style={{ color: "var(--muted)" }}>/ {numPages}</span>
           <button type="button" onClick={() => setPage((p) => Math.min(numPages, p + 1))} disabled={page >= numPages}
             className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)" }}>
             <CaretRight size={14} />
@@ -774,14 +928,31 @@ function ChatPanel({
               </div>
             )}
             <div
-              className="max-w-[84%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed"
+              className="max-w-[84%] px-4 py-3 rounded-2xl text-sm leading-relaxed"
               style={
                 msg.role === "user"
-                  ? { backgroundColor: "#004261", color: "white", borderBottomRightRadius: 6 }
+                  ? { backgroundColor: "#004261", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap" }
                   : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderBottomLeftRadius: 6 }
               }
             >
-              {msg.content}
+              {msg.role === "assistant" ? (
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+                    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    h1: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+                    h2: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+                    h3: ({ children }) => <p className="font-medium mb-1">{children}</p>,
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              ) : (
+                msg.content
+              )}
             </div>
             {msg.source_pages && msg.source_pages.length > 0 && (
               <div className="flex flex-wrap gap-1.5 max-w-[84%] mt-0.5">
@@ -849,7 +1020,7 @@ function ChatPanel({
           </div>
         )}
         <div
-          className="flex items-end gap-2 rounded-2xl px-4 py-3"
+          className="flex items-center gap-2 rounded-2xl px-4 py-3"
           style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
         >
           <textarea
@@ -858,7 +1029,7 @@ function ChatPanel({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
             }}
-            placeholder="Frage stellen… (Enter zum Senden)"
+            placeholder="Text eingeben…"
             rows={1}
             disabled={loading}
             className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
@@ -896,47 +1067,49 @@ function ChatPanel({
 
 function FlipCard({ front, back, flipped, onFlip }: { front: string; back: string; flipped: boolean; onFlip: () => void }) {
   return (
-    <div
-      style={{ perspective: 1000, height: 120, cursor: "pointer" }}
-      onClick={onFlip}
-      title="Klicken zum Umdrehen"
-    >
+    <div style={{ perspective: 1200, cursor: "pointer", userSelect: "none" }} onClick={onFlip}>
       <div
         style={{
-          position: "relative",
-          width: "100%",
-          height: "100%",
+          position: "relative", width: "100%", height: 260,
           transformStyle: "preserve-3d",
-          transition: "transform 0.45s cubic-bezier(0.4,0,0.2,1)",
+          transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
           transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
         }}
       >
+        {/* Front */}
         <div
           style={{
             position: "absolute", inset: 0, backfaceVisibility: "hidden",
-            backgroundColor: "var(--surface)", border: "1px solid var(--border)",
-            borderRadius: 12, display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", padding: "12px 16px", gap: 6,
+            borderRadius: 20, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            padding: "32px 28px", gap: 12,
+            backgroundColor: "var(--surface)",
+            border: "1px solid var(--border)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
           }}
         >
           <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--muted)" }}>
-            Vorderseite
+            Begriff
           </span>
-          <p className="text-xs text-center leading-snug" style={{ color: "var(--text)" }}>{front}</p>
+          <p className="text-base text-center leading-relaxed font-medium" style={{ color: "var(--text)" }}>{front}</p>
+          <span className="text-[10px] mt-4" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
         </div>
+        {/* Back */}
         <div
           style={{
             position: "absolute", inset: 0, backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
-            backgroundColor: "rgba(0,66,97,0.06)", border: "1.5px solid rgba(0,66,97,0.2)",
-            borderRadius: 12, display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", padding: "12px 16px", gap: 6,
+            borderRadius: 20, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            padding: "32px 28px", gap: 12,
+            backgroundColor: "#004261",
+            boxShadow: "0 4px 20px rgba(0,66,97,0.18)",
           }}
         >
-          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "rgba(0,66,97,0.5)" }}>
-            Rückseite
+          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Erklärung
           </span>
-          <p className="text-xs text-center leading-snug font-medium" style={{ color: "#004261" }}>{back}</p>
+          <p className="text-base text-center leading-relaxed font-medium" style={{ color: "white" }}>{back}</p>
         </div>
       </div>
     </div>
@@ -965,32 +1138,77 @@ function SubviewHeader({ title, onBack }: { title: string; onBack: () => void })
 }
 
 function LernkartenStudio({
-  karten, loading, flippedCards, onGenerate, onFlip, onBack,
+  karten, loading, onGenerate, onBack,
 }: {
-  karten: LernKarte[]; loading: boolean; flippedCards: Set<number>;
-  onGenerate: () => void; onFlip: (i: number) => void; onBack: () => void;
+  karten: LernKarte[]; loading: boolean;
+  onGenerate: () => void; onBack: () => void;
 }) {
+  const [index, setIndex] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+
+  useEffect(() => { setFlipped(false); }, [index, karten.length]);
+
+  const total = karten.length;
+  const card = karten[index];
+
   return (
     <div className="flex flex-col h-full">
       <SubviewHeader title="Lernkarten" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={loading}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "#004261" }}
-        >
-          {loading ? "Generieren…" : "🃏 Lernkarten generieren"}
-        </button>
-        {karten.length > 0 && (
-          <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>
-            Karte antippen zum Umdrehen
-          </p>
-        )}
-        {karten.map((k, i) => (
-          <FlipCard key={i} front={k.front} back={k.back} flipped={flippedCards.has(i)} onFlip={() => onFlip(i)} />
-        ))}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-5" style={{ maxWidth: 560 }}>
+          {/* Generate button */}
+          <button
+            type="button"
+            onClick={() => { onGenerate(); setIndex(0); setFlipped(false); }}
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#004261" }}
+          >
+            {loading ? "Generieren…" : total > 0 ? "Neu generieren" : "Lernkarten generieren"}
+          </button>
+
+          {total > 0 && card && (
+            <>
+              {/* Counter */}
+              <div className="text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
+                {index + 1} / {total}
+              </div>
+
+              {/* Card */}
+              <FlipCard front={card.front} back={card.back} flipped={flipped} onFlip={() => setFlipped(f => !f)} />
+
+              {/* Navigation */}
+              <div className="flex items-center justify-center gap-6">
+                <button
+                  type="button"
+                  onClick={() => setIndex(i => i - 1)}
+                  disabled={index === 0}
+                  className="w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-30 transition-opacity hover:opacity-70"
+                  style={{ backgroundColor: "var(--border)" }}
+                >
+                  <CaretLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFlipped(f => !f)}
+                  className="px-5 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
+                  style={{ backgroundColor: "var(--border)", color: "var(--text)" }}
+                >
+                  Umdrehen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIndex(i => i + 1)}
+                  disabled={index >= total - 1}
+                  className="w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-30 transition-opacity hover:opacity-70"
+                  style={{ backgroundColor: "var(--border)" }}
+                >
+                  <CaretRight size={18} />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1008,7 +1226,8 @@ function QuizStudio({
   return (
     <div className="flex flex-col h-full">
       <SubviewHeader title="Quiz" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full p-4 flex flex-col gap-4" style={{ maxWidth: 700 }}>
         <button
           type="button"
           onClick={onGenerate}
@@ -1071,6 +1290,7 @@ function QuizStudio({
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
@@ -1125,28 +1345,32 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive }: { onSele
         </div>
       )}
 
-      {/* Tile list */}
+      {/* Tile grid */}
       {studioTab === "tools" && (
-        <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-2">
-          {tiles.map((tile) => (
-            <button
-              key={tile.key}
-              type="button"
-              onClick={() => tile.key !== "pruefung" && onSelect(tile.key as "lernkarten" | "quiz")}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-black/5"
-              style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg)" }}
-            >
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: tile.iconBg }}
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex flex-wrap gap-2">
+            {tiles.map((tile) => (
+              <button
+                key={tile.key}
+                type="button"
+                onClick={() => tile.key !== "pruefung" && onSelect(tile.key as "lernkarten" | "quiz")}
+                className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl text-center transition-colors hover:brightness-95"
+                style={{
+                  flex: "1 1 110px",
+                  maxWidth: 160,
+                  minWidth: 110,
+                  minHeight: 90,
+                  backgroundColor: tile.iconBg,
+                  border: `1.5px solid ${tile.iconColor}33`,
+                }}
               >
-                <tile.Icon size={16} color={tile.iconColor} weight="bold" />
-              </div>
-              <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
-                {tile.label}
-              </span>
-            </button>
-          ))}
+                <tile.Icon size={20} color={tile.iconColor} weight="bold" />
+                <span className="text-xs font-semibold leading-tight" style={{ color: tile.iconColor }}>
+                  {tile.label}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1249,7 +1473,6 @@ export default function KiTutorModulePage() {
   const [studioView, setStudioView] = useState<StudioView>("overview");
   const [lernkarten, setLernkarten] = useState<LernKarte[]>([]);
   const [lernkartenLoading, setLernkartenLoading] = useState(false);
-  const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
@@ -1519,7 +1742,6 @@ export default function KiTutorModulePage() {
       if (res.ok) {
         const data = await res.json();
         setLernkarten(parseLernkarten(data.answer));
-        setFlippedCards(new Set());
       }
     } catch { /* ignore */ } finally {
       setLernkartenLoading(false);
@@ -1548,13 +1770,6 @@ export default function KiTutorModulePage() {
     }
   }
 
-  function toggleFlipCard(i: number) {
-    setFlippedCards((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i); else next.add(i);
-      return next;
-    });
-  }
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -1743,9 +1958,7 @@ export default function KiTutorModulePage() {
                 <LernkartenStudio
                   karten={lernkarten}
                   loading={lernkartenLoading}
-                  flippedCards={flippedCards}
                   onGenerate={generateLernkarten}
-                  onFlip={toggleFlipCard}
                   onBack={() => setStudioView("overview")}
                 />
               ) : (
@@ -1849,9 +2062,7 @@ export default function KiTutorModulePage() {
                   <LernkartenStudio
                     karten={lernkarten}
                     loading={lernkartenLoading}
-                    flippedCards={flippedCards}
                     onGenerate={generateLernkarten}
-                    onFlip={toggleFlipCard}
                     onBack={() => setStudioView("overview")}
                   />
                 ) : (
