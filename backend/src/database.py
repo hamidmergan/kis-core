@@ -222,6 +222,17 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     created_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_user_settings (
+                    id                   SERIAL PRIMARY KEY,
+                    module_id            INTEGER NOT NULL
+                                           REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id              INTEGER NOT NULL,
+                    chat_lang            TEXT NOT NULL DEFAULT 'de',
+                    sprachtraining_active BOOLEAN NOT NULL DEFAULT FALSE,
+                    UNIQUE (module_id, user_id)
+                )
+            """)
         conn.commit()
 
 
@@ -1404,3 +1415,32 @@ def get_ki_tutor_messages(
             )
             rows = cur.fetchall()
     return list(reversed([dict(row) for row in rows]))
+
+
+def get_ki_tutor_user_settings(module_id: int, user_id: int) -> dict:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM ki_tutor_user_settings WHERE module_id = %s AND user_id = %s",
+                (module_id, user_id),
+            )
+            row = cur.fetchone()
+    if row:
+        return dict(row)
+    return {"chat_lang": "de", "sprachtraining_active": False}
+
+
+def upsert_ki_tutor_user_settings(
+    module_id: int, user_id: int, chat_lang: str, sprachtraining_active: bool
+) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_user_settings (module_id, user_id, chat_lang, sprachtraining_active)
+                   VALUES (%s, %s, %s, %s)
+                   ON CONFLICT (module_id, user_id)
+                   DO UPDATE SET chat_lang = EXCLUDED.chat_lang,
+                                 sprachtraining_active = EXCLUDED.sprachtraining_active""",
+                (module_id, user_id, chat_lang, sprachtraining_active),
+            )
+        conn.commit()

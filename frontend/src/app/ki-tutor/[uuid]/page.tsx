@@ -16,7 +16,7 @@ import {
   Cards,
   Question,
   Wrench,
-  X,
+  XIcon,
   ArrowsCounterClockwise,
   Scissors,
   MagnifyingGlassPlus,
@@ -139,7 +139,11 @@ function SourceStatus({ status }: { status: string }) {
     );
   if (status === "ready")
     return <Check size={12} weight="bold" className="flex-shrink-0" style={{ color: "#15803D" }} />;
-  return <X size={12} weight="bold" className="flex-shrink-0" style={{ color: "#B91C1C" }} title={status === "failed" ? "Indizierung fehlgeschlagen" : undefined} />;
+  return (
+    <span title="Indizierung fehlgeschlagen" className="flex-shrink-0 inline-flex">
+      <XIcon size={12} weight="bold" style={{ color: "#B91C1C" }} />
+    </span>
+  );
 }
 
 // ─── File Icon ─────────────────────────────────────────────────────────────────
@@ -293,7 +297,7 @@ function PdfViewer({
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
           style={{ backgroundColor: "var(--border)" }}
         >
-          <X size={13} color="var(--muted)" />
+          <XIcon size={13} color="var(--muted)" />
         </button>
       </div>
 
@@ -309,7 +313,7 @@ function PdfViewer({
             style={{ color: "var(--text)" }}
           />
           <button type="submit" className="text-xs font-semibold px-2 py-1 rounded-lg" style={{ backgroundColor: "rgba(0,66,97,0.1)", color: "#004261" }}>Suchen</button>
-          <button type="button" onClick={() => { setShowSearch(false); setSearchQuery(""); }}><X size={13} color="var(--muted)" /></button>
+          <button type="button" onClick={() => { setShowSearch(false); setSearchQuery(""); }}><XIcon size={13} color="var(--muted)" /></button>
         </form>
       )}
 
@@ -942,7 +946,7 @@ function QuizStudio({
               </div>
               {answered && (
                 <p className="flex items-center gap-1 text-[11px] mt-2.5 font-semibold" style={{ color: isCorrect ? "#166534" : "#991B1B" }}>
-                  {isCorrect ? <Check size={12} weight="bold" /> : <X size={12} weight="bold" />}
+                  {isCorrect ? <Check size={12} weight="bold" /> : <XIcon size={12} weight="bold" />}
                   {isCorrect ? "Richtig!" : "Leider falsch."}
                 </p>
               )}
@@ -1076,14 +1080,23 @@ export default function KiTutorModulePage() {
   const [moduleDetail, setModuleDetail] = useState<ModuleDetail | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  const [panels, setPanels] = useState<Record<PanelKey, boolean>>({ quellen: true, chat: true, studio: true });
+  const [panels, setPanels] = useState<Record<PanelKey, boolean>>(() => {
+    if (typeof window === "undefined") return { quellen: true, chat: true, studio: true };
+    try {
+      const stored = localStorage.getItem(`ki-tutor-panels-${uuid}`);
+      if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return { quellen: true, chat: true, studio: true };
+  });
   const [p1Width, setP1Width] = useState(360);
   const [p2Width, setP2Width] = useState(500);
   const [p3Width, setP3Width] = useState(380);
   const [activeTab, setActiveTab] = useState<PanelKey>("chat");
   const [isMobile, setIsMobile] = useState(false);
-  const dragRef = useRef<{ divider: 1 | 2; startX: number; startA: number; startB: number } | null>(null);
   const panelContainerRef = useRef<HTMLDivElement>(null);
+  const p1Ref = useRef<HTMLDivElement>(null);
+  const p2Ref = useRef<HTMLDivElement>(null);
+  const p3Ref = useRef<HTMLDivElement>(null);
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
 
@@ -1142,6 +1155,14 @@ export default function KiTutorModulePage() {
         setSelectedSourceIds(srcs.filter((s) => s.status === "ready").map((s) => s.uuid));
 
         await loadMessages();
+
+        const settingsRes = await fetch(`/api/ki-tutor/modules/${uuid}/settings`, { credentials: "include" });
+        if (!cancelled && settingsRes.ok) {
+          const s = await settingsRes.json();
+          setChatLang(s.chat_lang ?? "de");
+          setSprachtrainingActive(s.sprachtraining_active ?? false);
+        }
+
         if (!cancelled) setInitialized(true);
       } catch {
         if (!cancelled) router.push("/ki-tutor");
@@ -1150,6 +1171,22 @@ export default function KiTutorModulePage() {
     init();
     return () => { cancelled = true; };
   }, [uuid, router, loadMessages]);
+
+  // Persist panel collapse state to localStorage
+  useEffect(() => {
+    try { localStorage.setItem(`ki-tutor-panels-${uuid}`, JSON.stringify(panels)); } catch { /* ignore */ }
+  }, [panels, uuid]);
+
+  // Persist settings to DB (only after init to avoid overwriting with defaults)
+  useEffect(() => {
+    if (!initialized) return;
+    fetch(`/api/ki-tutor/modules/${uuid}/settings`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_lang: chatLang, sprachtraining_active: sprachtrainingActive }),
+    }).catch(() => { /* ignore */ });
+  }, [chatLang, sprachtrainingActive, initialized, uuid]);
 
   useEffect(() => {
     const needsPoll = sources.some((s) => s.status === "indexing" || s.status === "pending");
@@ -1194,28 +1231,37 @@ export default function KiTutorModulePage() {
 
   function startDrag(divider: 1 | 2, e: React.MouseEvent) {
     e.preventDefault();
-    dragRef.current = {
-      divider,
-      startX: e.clientX,
-      startA: divider === 1 ? p1Width : p2Width,
-      startB: divider === 1 ? p2Width : p3Width,
-    };
-    function onMove(ev: MouseEvent) {
-      if (!dragRef.current) return;
-      const delta = ev.clientX - dragRef.current.startX;
-      if (dragRef.current.divider === 1) {
-        setP1Width(Math.max(MIN_PANEL, dragRef.current.startA + delta));
-        setP2Width(Math.max(MIN_PANEL, dragRef.current.startB - delta));
-      } else {
-        setP2Width(Math.max(MIN_PANEL, dragRef.current.startA + delta));
-        setP3Width(Math.max(MIN_PANEL, dragRef.current.startB - delta));
-      }
+    const refA = divider === 1 ? p1Ref : p2Ref;
+    const refB = divider === 1 ? p2Ref : p3Ref;
+    const startX = e.clientX;
+    const startA = divider === 1 ? p1Width : p2Width;
+    const startB = divider === 1 ? p2Width : p3Width;
+
+    function clampDelta(raw: number) {
+      return Math.min(startB - MIN_PANEL, Math.max(-(startA - MIN_PANEL), raw));
     }
-    function onUp() {
-      dragRef.current = null;
+
+    function onMove(ev: MouseEvent) {
+      if (!refA.current || !refB.current) return;
+      const d = clampDelta(ev.clientX - startX);
+      // Direct DOM write — no React re-render during drag
+      refA.current.style.flexBasis = `${startA + d}px`;
+      refB.current.style.flexBasis = `${startB - d}px`;
+    }
+
+    function onUp(ev: MouseEvent) {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      const d = clampDelta(ev.clientX - startX);
+      if (divider === 1) {
+        setP1Width(startA + d);
+        setP2Width(startB - d);
+      } else {
+        setP2Width(startA + d);
+        setP3Width(startB - d);
+      }
     }
+
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }
@@ -1588,6 +1634,7 @@ export default function KiTutorModulePage() {
             <>
               {/* Panel 1 — Quellen */}
               <div
+                ref={p1Ref}
                 className="flex flex-col overflow-hidden rounded-2xl"
                 style={{ ...p1Style, backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
               >
@@ -1624,6 +1671,7 @@ export default function KiTutorModulePage() {
 
               {/* Panel 2 — Chat */}
               <div
+                ref={p2Ref}
                 className="flex flex-col overflow-hidden rounded-2xl"
                 style={{ ...p2Style, backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
               >
@@ -1659,6 +1707,7 @@ export default function KiTutorModulePage() {
 
               {/* Panel 3 — Studio */}
               <div
+                ref={p3Ref}
                 className="flex flex-col overflow-hidden rounded-2xl"
                 style={{ ...p3Style, backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
               >

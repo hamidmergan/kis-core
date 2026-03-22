@@ -79,6 +79,11 @@ class ChatBody(BaseModel):
     direct_text: Optional[bool] = False  # True = kein RAG, direkt LLM aufrufen
 
 
+class UserSettingsBody(BaseModel):
+    chat_lang: str
+    sprachtraining_active: bool
+
+
 # ─── Dozenten-Endpunkte ───────────────────────────────────────────────────────
 
 @router.post("/ki-tutor/modules")
@@ -463,3 +468,43 @@ async def get_messages(
         }
         for m in messages
     ]
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/settings")
+async def get_user_settings(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    return db.get_ki_tutor_user_settings(module["id"], user_id)
+
+
+@router.patch("/ki-tutor/modules/{module_uuid}/settings")
+async def update_user_settings(
+    module_uuid: str,
+    body: UserSettingsBody,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    db.upsert_ki_tutor_user_settings(
+        module["id"], user_id, body.chat_lang, body.sprachtraining_active
+    )
+    return {"ok": True}
