@@ -12,7 +12,6 @@ import {
   PaperPlaneRight,
   Plus,
   SidebarSimple,
-  Trash,
   Cards,
   Question,
   Wrench,
@@ -175,6 +174,9 @@ function PdfViewer({
   const [containerWidth, setContainerWidth] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatches, setSearchMatches] = useState<number[]>([]);
+  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -193,6 +195,45 @@ function PdfViewer({
   useEffect(() => {
     if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
   }, [showSearch]);
+
+  // Highlight search matches using CSS Highlight API (exact text, no DOM mutation)
+  useEffect(() => {
+    const hl = (CSS as any).highlights as Map<string, unknown> | undefined;
+    if (hl) { hl.delete('pdf-search'); hl.delete('pdf-search-active'); }
+    const q = searchQuery.trim();
+    if (!q) return;
+    const apply = () => {
+      const textLayer = containerRef.current?.querySelector('.textLayer');
+      if (!textLayer) return;
+      const lq = q.toLowerCase();
+      const allRanges: Range[] = [];
+      const walker = document.createTreeWalker(textLayer, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        const text = node.textContent ?? '';
+        const lower = text.toLowerCase();
+        let idx = 0;
+        while ((idx = lower.indexOf(lq, idx)) !== -1) {
+          const r = document.createRange();
+          r.setStart(node, idx);
+          r.setEnd(node, idx + q.length);
+          allRanges.push(r);
+          idx += lq.length;
+        }
+      }
+      if (allRanges.length > 0 && hl) {
+        const HLClass = (window as any).Highlight;
+        hl.set('pdf-search', new HLClass(...allRanges));
+        hl.set('pdf-search-active', new HLClass(allRanges[searchMatchIdx] ?? allRanges[0]));
+      }
+    };
+    const timer = setTimeout(apply, 350);
+    return () => {
+      clearTimeout(timer);
+      const h = (CSS as any).highlights as Map<string, unknown> | undefined;
+      if (h) { h.delete('pdf-search'); h.delete('pdf-search-active'); }
+    };
+  }, [searchQuery, page, searchMatchIdx]);
 
   // Text selection popup
   useEffect(() => {
@@ -222,20 +263,49 @@ function PdfViewer({
     return () => { el.removeEventListener("mouseup", onMouseUp); el.removeEventListener("mousedown", onMouseDown); };
   }, []);
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const q = searchQuery.trim().toLowerCase();
+  async function runSearch(q: string, goToIdx = 0) {
     if (!q) return;
+    setSearchLoading(true);
     try {
       const pdfjsLib = await import("pdfjs-dist");
       const pdf = await pdfjsLib.getDocument(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`).promise;
+      const matches: number[] = [];
       for (let i = 1; i <= pdf.numPages; i++) {
         const pg = await pdf.getPage(i);
         const content = await pg.getTextContent();
         const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ").toLowerCase();
-        if (text.includes(q)) { setPage(i); break; }
+        if (text.includes(q)) matches.push(i);
       }
-    } catch { /* ignore */ }
+      setSearchMatches(matches);
+      if (matches.length > 0) {
+        const idx = Math.max(0, Math.min(goToIdx, matches.length - 1));
+        setSearchMatchIdx(idx);
+        setPage(matches[idx]);
+      }
+    } catch { /* ignore */ } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return;
+    if (searchMatches.length > 0) {
+      // Already searched — go to next match
+      const nextIdx = (searchMatchIdx + 1) % searchMatches.length;
+      setSearchMatchIdx(nextIdx);
+      setPage(searchMatches[nextIdx]);
+    } else {
+      await runSearch(q, 0);
+    }
+  }
+
+  function searchNav(dir: 1 | -1) {
+    if (searchMatches.length === 0) return;
+    const nextIdx = (searchMatchIdx + dir + searchMatches.length) % searchMatches.length;
+    setSearchMatchIdx(nextIdx);
+    setPage(searchMatches[nextIdx]);
   }
 
   return (
@@ -282,10 +352,10 @@ function PdfViewer({
         <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>{source.filename}</span>
         <button
           type="button"
-          onClick={() => setShowSearch((v) => !v)}
+          onClick={() => { setShowSearch((v) => { if (v) { setSearchQuery(""); setSearchMatches([]); setSearchMatchIdx(0); } return !v; }); }}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
           style={{ backgroundColor: showSearch ? "#004261" : "var(--border)" }}
-          title="Im PDF suchen"
+          title="Suchen"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={showSearch ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -303,17 +373,33 @@ function PdfViewer({
 
       {/* Search bar */}
       {showSearch && (
-        <form onSubmit={handleSearch} className="flex items-center gap-2 px-4 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+        <form onSubmit={handleSearch} className="flex items-center gap-2 px-3 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
           <input
             ref={searchInputRef}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Text suchen und zur Seite springen…"
-            className="flex-1 text-sm bg-transparent focus:outline-none"
+            onChange={(e) => { setSearchQuery(e.target.value); setSearchMatches([]); setSearchMatchIdx(0); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && e.shiftKey) { e.preventDefault(); searchNav(-1); } }}
+            placeholder="Suchen…"
+            className="flex-1 text-sm bg-transparent focus:outline-none min-w-0"
             style={{ color: "var(--text)" }}
           />
-          <button type="submit" className="text-xs font-semibold px-2 py-1 rounded-lg" style={{ backgroundColor: "rgba(0,66,97,0.1)", color: "#004261" }}>Suchen</button>
-          <button type="button" onClick={() => { setShowSearch(false); setSearchQuery(""); }}><XIcon size={13} color="var(--muted)" /></button>
+          {searchLoading && <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 flex-shrink-0" style={{ borderColor: "#004261" }} />}
+          {searchMatches.length > 0 && !searchLoading && (
+            <span className="text-xs flex-shrink-0 tabular-nums" style={{ color: "var(--muted)" }}>{searchMatchIdx + 1}/{searchMatches.length}</span>
+          )}
+          {searchMatches.length === 0 && !searchLoading && searchQuery.trim() && (
+            <span className="text-xs flex-shrink-0" style={{ color: "#B91C1C" }}>–</span>
+          )}
+          <button type="button" onClick={() => searchNav(-1)} disabled={searchMatches.length === 0}
+            className="w-6 h-6 flex items-center justify-center rounded disabled:opacity-30" title="Vorheriger Treffer (Shift+Enter)">
+            <CaretLeft size={12} />
+          </button>
+          <button type="submit" className="w-6 h-6 flex items-center justify-center rounded disabled:opacity-30" title="Nächster Treffer (Enter)">
+            <CaretRight size={12} />
+          </button>
+          <button type="button" onClick={() => { setShowSearch(false); setSearchQuery(""); setSearchMatches([]); setSearchMatchIdx(0); }}>
+            <XIcon size={13} color="var(--muted)" />
+          </button>
         </form>
       )}
 
@@ -371,7 +457,15 @@ function SourcesPanel({
   onMinimize: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!openMenuId) return;
+    function handle(e: MouseEvent) {
+      if (!(e.target as HTMLElement).closest("[data-source-menu]")) setOpenMenuId(null);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [openMenuId]);
 
   const allSelected = sources.length > 0 && sources.every((s) => selectedSourceIds.includes(s.uuid));
 
@@ -477,13 +571,8 @@ function SourcesPanel({
           sources.map((src) => (
             <div
               key={src.uuid}
-              className="group relative flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors"
-              style={{
-                borderBottom: "1px solid var(--border)",
-                backgroundColor: hoveredId === src.uuid ? "rgba(0,66,97,0.04)" : "transparent",
-              }}
-              onMouseEnter={() => setHoveredId(src.uuid)}
-              onMouseLeave={() => setHoveredId(null)}
+              className="relative flex items-center gap-3 px-4 py-2.5 transition-colors"
+              style={{ borderBottom: "1px solid var(--border)" }}
             >
               <input
                 type="checkbox"
@@ -501,7 +590,6 @@ function SourcesPanel({
                 {src.filename}
               </span>
 
-              {/* Hover actions */}
               {src.status === "failed" && src.error_message && (
                 <div
                   className="absolute left-4 right-4 top-full z-10 mt-1 rounded-lg px-3 py-2 text-[11px] leading-snug shadow-lg"
@@ -510,32 +598,49 @@ function SourcesPanel({
                   {src.error_message}
                 </div>
               )}
-              {hoveredId === src.uuid ? (
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onOpenViewer(src); }}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:opacity-70 transition-opacity"
-                    style={{ color: "#004261" }}
-                    title="Im Viewer öffnen"
-                  >
-                    <ArrowSquareOut size={14} />
-                  </button>
-                  {isLecturer && (
+
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <SourceStatus status={src.status} />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onOpenViewer(src); }}
+                  className="w-6 h-6 flex items-center justify-center rounded hover:opacity-70 transition-opacity"
+                  style={{ color: "#004261" }}
+                  title="Im Viewer öffnen"
+                >
+                  <ArrowSquareOut size={14} />
+                </button>
+                {isLecturer && (
+                  <div className="relative" data-source-menu>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); onDeleteSource(src.uuid); }}
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === src.uuid ? null : src.uuid); }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:opacity-70 transition-opacity"
-                      style={{ color: "#B91C1C" }}
-                      title="Löschen"
+                      style={{ color: "var(--muted)" }}
+                      title="Optionen"
                     >
-                      <Trash size={13} />
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                      </svg>
                     </button>
-                  )}
-                </div>
-              ) : (
-                <SourceStatus status={src.status} />
-              )}
+                    {openMenuId === src.uuid && (
+                      <div
+                        className="absolute right-0 top-7 z-50 rounded-xl py-1"
+                        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onDeleteSource(src.uuid); setOpenMenuId(null); }}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-black/5 transition-colors"
+                          style={{ color: "#B91C1C" }}
+                        >
+                          Löschen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ))
         )}
@@ -572,6 +677,15 @@ function ChatPanel({
   const bottomRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const chatMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    function handle(e: MouseEvent) {
+      if (!chatMenuRef.current?.contains(e.target as Node)) setChatMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [chatMenuOpen]);
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -590,7 +704,7 @@ function ChatPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
         <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Chat</span>
-        <div className="relative">
+        <div className="relative" ref={chatMenuRef}>
           <button
             type="button"
             onClick={() => setChatMenuOpen((v) => !v)}
@@ -622,7 +736,8 @@ function ChatPanel({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
+      <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto w-full px-6 py-6 flex flex-col gap-5" style={{ maxWidth: 720 }}>
         {messages.length === 0 && !loading && (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16">
             <div
@@ -717,12 +832,14 @@ function ChatPanel({
         )}
         <div ref={bottomRef} />
       </div>
+      </div>
 
       {/* Input area */}
       <div
         className="flex-shrink-0 px-6 pt-4 pb-0"
         style={{ borderTop: "1px solid var(--border)" }}
       >
+      <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
         {!moduleReady && (
           <div
             className="mb-2 rounded-xl px-3 py-2 text-[11px] text-center"
@@ -769,6 +886,7 @@ function ChatPanel({
         <p className="text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
           Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
         </p>
+      </div>
       </div>
     </div>
   );
@@ -1115,6 +1233,16 @@ export default function KiTutorModulePage() {
   const [chatLoading, setChatLoading] = useState(false);
 
   const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showSettings) return;
+    function handle(e: MouseEvent) {
+      if (!settingsRef.current?.contains(e.target as Node)) setShowSettings(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [showSettings]);
+
   const [chatLang, setChatLang] = useState<"de" | "en">("de");
   const [sprachtrainingActive, setSprachtrainingActive] = useState(false);
 
@@ -1473,10 +1601,11 @@ export default function KiTutorModulePage() {
             <span className="flex-1 text-sm font-semibold truncate mr-4" style={{ color: "var(--text)" }}>
               {moduleDetail?.title ?? ""}
             </span>
+            <div ref={settingsRef} className="relative flex-shrink-0">
             <button
               type="button"
               onClick={() => setShowSettings((v) => !v)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:opacity-70 transition-opacity flex-shrink-0"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:opacity-70 transition-opacity"
               style={{ backgroundColor: showSettings ? "rgba(0,66,97,0.1)" : "transparent", color: showSettings ? "#004261" : "var(--muted)" }}
               title="Einstellungen"
             >
@@ -1486,7 +1615,7 @@ export default function KiTutorModulePage() {
             {/* Settings dropdown */}
             {showSettings && (
               <div
-                className="absolute right-4 top-12 z-50 rounded-xl shadow-lg"
+                className="absolute right-0 top-10 z-50 rounded-xl shadow-lg"
                 style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", width: 260 }}
               >
                 <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -1537,6 +1666,7 @@ export default function KiTutorModulePage() {
                 </div>
               </div>
             )}
+            </div>
           </div>
         )}
 
