@@ -229,61 +229,75 @@ function PdfViewer({
   // Sync page + highlight when source changes (e.g. pill click)
   useEffect(() => {
     if (source.nonce == null) return;
-    scrollToPage(source.page);
     CSS.highlights?.delete("pill-highlight");
-    if (!source.highlightText || !CSS.highlights) return;
 
-    // Normalize: lowercase, strip whitespace/hyphens/soft-hyphens/punctuation → only letters+digits
-    const norm = (s: string) => s.toLowerCase().replace(/[\s\-\u00AD.,;:!?'"()[\]{}]+/g, "");
-    const needle = norm(source.highlightText);
-    if (needle.length < 3) return;
-    const searchKey = needle.slice(0, Math.min(60, needle.length));
+    // Normalize: lowercase, strip ALL digits + punctuation + whitespace (digits removed to handle footnote markers like ¹ or "Fächer1")
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-züöäßéèêëàâáãåæçðñõøùûúýþÿœ]/g, "");
+    const needle = source.highlightText ? norm(source.highlightText) : "";
+    const searchKey = needle.length >= 3 ? needle.slice(0, Math.min(60, needle.length)) : "";
 
-    function tryHighlight(): boolean {
-      CSS.highlights!.delete("pill-highlight");
+    function tryScrollAndHighlight(): boolean {
       const pageEl = pageRefsMap.current.get(source.page);
-      if (!pageEl) return false;
-      const textLayer = pageEl.querySelector(".textLayer");
-      if (!textLayer) return false;
-      const spans = Array.from(textLayer.querySelectorAll('span[role="presentation"]'));
-      if (spans.length === 0) return false;
+      if (!pageEl) return false; // page not rendered yet
 
-      // Build position map
-      const infos: { span: Element; start: number; len: number }[] = [];
-      let pos = 0;
-      for (const span of spans) {
-        const n = norm(span.textContent ?? "");
-        infos.push({ span, start: pos, len: n.length });
-        pos += n.length;
-      }
-      const fullNorm = infos.map((i) => norm(i.span.textContent ?? "")).join("");
-      const matchIdx = fullNorm.indexOf(searchKey);
-      if (matchIdx === -1) return false;
-      const matchEnd = matchIdx + needle.length;
+      // If we have text to highlight, try to find it
+      if (searchKey && CSS.highlights) {
+        CSS.highlights.delete("pill-highlight");
+        const textLayer = pageEl.querySelector(".textLayer");
+        if (!textLayer) return false; // text layer not ready
+        const spans = Array.from(textLayer.querySelectorAll('span[role="presentation"]'));
+        if (spans.length === 0) return false;
 
-      // Collect overlapping spans
-      const ranges: Range[] = [];
-      for (const info of infos) {
-        const sEnd = info.start + info.len;
-        if (sEnd > matchIdx && info.start < matchEnd) {
-          const range = new Range();
-          range.selectNodeContents(info.span);
-          ranges.push(range);
+        const infos: { span: Element; start: number; len: number }[] = [];
+        let pos = 0;
+        for (const span of spans) {
+          const n = norm(span.textContent ?? "");
+          infos.push({ span, start: pos, len: n.length });
+          pos += n.length;
+        }
+        const fullNorm = infos.map((i) => norm(i.span.textContent ?? "")).join("");
+        const matchIdx = fullNorm.indexOf(searchKey);
+        if (matchIdx === -1) {
+          // Text not found — just scroll to page
+          pageEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          return true;
+        }
+        const matchEnd = matchIdx + needle.length;
+
+        const ranges: Range[] = [];
+        let firstMatchSpan: Element | null = null;
+        for (const info of infos) {
+          const sEnd = info.start + info.len;
+          if (sEnd > matchIdx && info.start < matchEnd) {
+            if (!firstMatchSpan) firstMatchSpan = info.span;
+            const range = new Range();
+            range.selectNodeContents(info.span);
+            ranges.push(range);
+          }
+        }
+        if (ranges.length > 0) {
+          CSS.highlights.set("pill-highlight", new Highlight(...ranges));
+          // Scroll to the highlighted text, not the page top
+          if (firstMatchSpan) {
+            (firstMatchSpan as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          return true;
         }
       }
-      if (ranges.length > 0) {
-        CSS.highlights!.set("pill-highlight", new Highlight(...ranges));
-        return true;
-      }
-      return false;
+
+      // No highlight text — just scroll to page
+      pageEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      return true;
     }
 
-    // Retry — TextLayer may still be rendering
+    // Retry until page + text layer are rendered (PDF may still be loading)
     let attempts = 0;
     const iv = setInterval(() => {
       attempts++;
-      if (tryHighlight() || attempts >= 8) clearInterval(iv);
-    }, 400);
+      if (tryScrollAndHighlight() || attempts >= 20) clearInterval(iv);
+    }, 300);
+    // Also try immediately
+    tryScrollAndHighlight();
     return () => { clearInterval(iv); CSS.highlights?.delete("pill-highlight"); };
   }, [source.nonce]);
 
@@ -391,6 +405,7 @@ function PdfViewer({
       const target = e.target as HTMLElement;
       if (target.closest('[data-selection-popup]')) return;
       setSelectionPopup(null);
+      CSS.highlights?.delete("pill-highlight");
     }
     el.addEventListener("mouseup", onMouseUp);
     el.addEventListener("mousedown", onMouseDown);
