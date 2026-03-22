@@ -90,3 +90,67 @@ IMAGE_ANALYZE_DEFAULT = (
     "Rule 5: Do not use semicolons or any type of dash. Use only periods, commas and question marks.\n"
     "Rule 6: Respond in the same language as the primary text in the image content."
 )
+
+
+# ── KI-Tutor: System-Prompts ────────────────────────────────────────────────
+
+TUTOR_SYSTEM_DIRECT = (
+    "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus."
+)
+
+TUTOR_SYSTEM_RAG = (
+    "Du bist ein KI-Tutor. Antworte ausschließlich auf Basis der gegebenen Quellen. "
+    "Füge nach jedem Satz oder Abschnitt, der auf eine Quelle zurückgreift, die Seitenzahl direkt im Text ein – "
+    "im Format [S. X], z.B. [S. 5] oder [S. 12]. Mehrere Seiten als separate Tags: [S. 3] [S. 7]. "
+    "Halluziniere nicht."
+)
+
+
+# ── KI-Tutor: Popup-Aktionen ────────────────────────────────────────────────
+# Jede Aktion hat einen Schlüssel (key), ein Label für die UI und den Prompt.
+# Der markierte Text wird zur Laufzeit vom Frontend angehängt.
+
+TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [
+    {
+        "key": "rephrase",
+        "label": "Umformulieren",
+        "icon": "ArrowsCounterClockwise",
+        "prompt": "Formuliere diese Textstelle in anderen Worten um, verständlich für Studierende:",
+        "min_words": 3,
+    },
+    {
+        "key": "shorten",
+        "label": "Kürzen",
+        "icon": "Scissors",
+        "prompt": "Kürze diesen Text auf das Wesentliche. Antworte nur mit dem gekürzten Text, ohne Erklärungen:",
+        "min_words": 10,
+    },
+    {
+        "key": "elaborate",
+        "label": "Genauer ausführen",
+        "icon": "MagnifyingGlassPlus",
+        "prompt": "Führe diese Textstelle genauer aus. Erkläre die Konzepte ausführlich und gib konkrete Beispiele:",
+        "min_words": 1,
+    },
+    {
+        "key": "summarize",
+        "label": "Zusammenfassung",
+        "icon": "BookOpenText",
+        "prompt": "Fasse diese Textstelle kompakt zusammen und hebe die Kernaussagen hervor:",
+        "min_words": 15,
+    },
+    {
+        "key": "bullets",
+        "label": "Stichpunkte",
+        "icon": "ListBullets",
+        "prompt": "Wandle diese Textstelle in prägnante Stichpunkte um:",
+        "min_words": 10,
+    },
+    {
+        "key": "simplify",
+        "label": "Vereinfachen",
+        "icon": "Lightbulb",
+        "prompt": "Erkläre diese Textstelle auf einem einfachen Sprachniveau (B1-Niveau). Nutze kurze Sätze, einfache Wörter und vermeide komplizierte Fachausdrücke soweit möglich:",
+        "min_words": 3,
+    },
+]

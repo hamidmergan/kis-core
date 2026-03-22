@@ -13,11 +13,29 @@ from pydantic import BaseModel
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.storage import USE_S3, delete_file, get_file, save_file
+from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS
 
 router = APIRouter(tags=["ki-tutor"])
 
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".txt", ".md"}
 _MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
+
+
+@router.get("/ki-tutor/popup-actions")
+async def get_popup_actions():
+    """Liefert die konfigurierten Popup-Aktionen für den PDF-Viewer."""
+    return {
+        "actions": [
+            {
+                "key": a["key"],
+                "label": a["label"],
+                "icon": a["icon"],
+                "prompt": a["prompt"],
+                "min_words": a["min_words"],
+            }
+            for a in TUTOR_POPUP_ACTIONS
+        ]
+    }
 
 
 def _require_own_module(module_uuid: str, user_id: int) -> dict:
@@ -77,6 +95,9 @@ class ChatBody(BaseModel):
     question: str
     active_source_ids: Optional[list[str]] = None
     direct_text: Optional[bool] = False  # True = kein RAG, direkt LLM aufrufen
+    source_uuid: Optional[str] = None  # Quell-PDF UUID (bei Popup-Aktionen)
+    source_filename: Optional[str] = None
+    source_page: Optional[int] = None
 
 
 class UserSettingsBody(BaseModel):
@@ -376,7 +397,13 @@ async def chat(
     if body.direct_text:
         # Kein RAG — direkt den Text bearbeiten (für Popup-Aktionen wie Kürzen, Umformulieren etc.)
         chunks = []
-        system_prompt = "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus."
+        if body.source_page is not None:
+            system_prompt = (
+                f"{TUTOR_SYSTEM_DIRECT} "
+                f"Füge am Ende deiner Antwort die Quellenangabe [S. {body.source_page}] ein."
+            )
+        else:
+            system_prompt = TUTOR_SYSTEM_DIRECT
         user_message = body.question
     else:
         # Embed question
@@ -398,12 +425,7 @@ async def chat(
             context_len += len(part)
         context = "\n\n---\n\n".join(context_parts)
 
-        system_prompt = (
-            "Du bist ein KI-Tutor. Antworte ausschließlich auf Basis der gegebenen Quellen. "
-            "Füge nach jedem Satz oder Abschnitt, der auf eine Quelle zurückgreift, die Seitenzahl direkt im Text ein – "
-            "im Format [S. X], z.B. [S. 5] oder [S. 12]. Mehrere Seiten als separate Tags: [S. 3] [S. 7]. "
-            "Halluziniere nicht."
-        )
+        system_prompt = TUTOR_SYSTEM_RAG
         user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"
 
     try:
@@ -425,18 +447,26 @@ async def chat(
     all_sources = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
     source_pages: list[dict] = []
     seen: set[tuple] = set()
-    for chunk in chunks:
-        source = all_sources.get(chunk["source_id"])
-        if source:
-            key = (source["uuid"], chunk["page_number"])
-            if key not in seen:
-                seen.add(key)
-                source_pages.append({
-                    "source_uuid": source["uuid"],
-                    "filename": source["filename"],
-                    "page_number": chunk["page_number"],
-                })
-    source_pages.sort(key=lambda x: x["page_number"])
+    if body.direct_text and body.source_uuid and body.source_page is not None:
+        # Popup-Aktion: Quelle direkt aus der übergebenen Info
+        source_pages.append({
+            "source_uuid": body.source_uuid,
+            "filename": body.source_filename or "",
+            "page_number": body.source_page,
+        })
+    else:
+        for chunk in chunks:
+            source = all_sources.get(chunk["source_id"])
+            if source:
+                key = (source["uuid"], chunk["page_number"])
+                if key not in seen:
+                    seen.add(key)
+                    source_pages.append({
+                        "source_uuid": source["uuid"],
+                        "filename": source["filename"],
+                        "page_number": chunk["page_number"],
+                    })
+        source_pages.sort(key=lambda x: x["page_number"])
 
     # Save messages
     db.save_ki_tutor_message(module["id"], user_id, "user", body.question)

@@ -12,6 +12,9 @@ from src.tool_prompts import (
     SCRIPT_REFINE_DEFAULT as _PROMPT_SCRIPT_REFINE_DEFAULT,
     SUMMARY_DEFAULT as _PROMPT_SUMMARY_DEFAULT,
     IMAGE_ANALYZE_DEFAULT as _PROMPT_IMAGE_ANALYZE_DEFAULT,
+    TUTOR_SYSTEM_DIRECT as _PROMPT_TUTOR_SYSTEM_DIRECT,
+    TUTOR_SYSTEM_RAG as _PROMPT_TUTOR_SYSTEM_RAG,
+    TUTOR_POPUP_ACTIONS as _TUTOR_POPUP_ACTIONS,
 )
 from src.celery_app import celery_app
 from src.dependencies import get_admin_user, get_current_user
@@ -72,6 +75,30 @@ _PROMPT_REGISTRY = [
         "editable": False,
         "default": _PROMPT_IMAGE_ANALYZE_DEFAULT,
     },
+    {
+        "key": "prompt_tutor_system_direct",
+        "label": "KI-Tutor: System-Prompt (Popup-Aktionen)",
+        "description": "System-Prompt für Popup-Aktionen (Kürzen, Umformulieren etc.) im KI-Tutor. Wird bei markiertem Text verwendet.",
+        "editable": False,
+        "default": _PROMPT_TUTOR_SYSTEM_DIRECT,
+    },
+    {
+        "key": "prompt_tutor_system_rag",
+        "label": "KI-Tutor: System-Prompt (Chat / RAG)",
+        "description": "System-Prompt für den KI-Tutor-Chat mit Quellensuche (RAG). Steuert Quellenangaben und Halluzinationsverbot.",
+        "editable": False,
+        "default": _PROMPT_TUTOR_SYSTEM_RAG,
+    },
+    *[
+        {
+            "key": f"prompt_tutor_popup_{action['key']}",
+            "label": f"KI-Tutor Popup: {action['label']}",
+            "description": f"Prompt fuer die Popup-Aktion '{action['label']}' im KI-Tutor PDF-Viewer.",
+            "editable": False,
+            "default": action["prompt"],
+        }
+        for action in _TUTOR_POPUP_ACTIONS
+    ],
 ]
 
 

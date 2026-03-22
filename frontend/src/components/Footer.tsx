@@ -17,7 +17,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
         {/* Logos */}
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <a href="https://www.th-luebeck.de" target="_blank" rel="noopener noreferrer" aria-label="TH Lübeck"
-            className="flex items-center justify-center w-36 h-14 bg-white opacity-80 hover:opacity-100 transition-opacity px-3">
+            className="flex items-center justify-center w-36 h-14 bg-white hover:brightness-90 transition-all px-3">
             <Image
               src="/logos/logo-thl.jpg"
               alt="TH Lübeck"
@@ -28,7 +28,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
             />
           </a>
           <a href="https://www.th-luebeck.de/isy/" target="_blank" rel="noopener noreferrer" aria-label="ISY"
-            className="flex items-center justify-center w-36 h-14 bg-white opacity-80 hover:opacity-100 transition-opacity px-3">
+            className="flex items-center justify-center w-36 h-14 bg-white hover:brightness-90 transition-all px-3">
             <Image
               src="/logos/isy-logo.png"
               alt="ISY"

@@ -1,14 +1,25 @@
 @import "tailwindcss";
 
-/* PDF Text Layer: transparent but selectable */
-.react-pdf__Page__textContent {
-  color: transparent !important;
+/* PDF Text Layer — undo Tailwind Preflight damage */
+.react-pdf__Page canvas {
+  display: block;
 }
-.react-pdf__Page__textContent span {
+.react-pdf__Page .textLayer,
+.react-pdf__Page .textLayer * {
+  box-sizing: content-box;
+  border-style: none;
+}
+.react-pdf__Page .textLayer span[role="presentation"] {
+  padding-top: 0.3em;
+  padding-bottom: 0.3em;
+  margin-top: -0.3em;
+}
+.textLayer :is(span, br) {
+  color: transparent;
   cursor: text;
   user-select: text;
 }
-.react-pdf__Page__textContent ::selection {
+.textLayer ::selection {
   background: rgba(0, 66, 97, 0.25);
 }
 

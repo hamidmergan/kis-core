@@ -24,6 +24,10 @@ import {
   Lightbulb,
   BookOpenText,
   GearSix,
+  CaretDown,
+  CaretUp,
+  Copy,
+  type IconWeight,
 } from "@phosphor-icons/react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -162,13 +166,23 @@ function FileIcon({ filename }: { filename: string }) {
 
 // ─── PDF Viewer ────────────────────────────────────────────────────────────────
 
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: IconWeight }>> = {
+  ArrowsCounterClockwise,
+  Scissors,
+  MagnifyingGlassPlus,
+  BookOpenText,
+  ListBullets,
+  Lightbulb,
+};
+
 function PdfViewer({
-  source, onClose, moduleUuid, onAskWithSelection,
+  source, onClose, moduleUuid, onAskWithSelection, popupActions,
 }: {
   source: ViewerState;
   onClose: () => void;
   moduleUuid: string;
-  onAskWithSelection?: (text: string) => void;
+  onAskWithSelection?: (text: string, sourceInfo: { uuid: string; filename: string; page: number }) => void;
+  popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
 }) {
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(source.page);
@@ -188,6 +202,10 @@ function PdfViewer({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOverlays, setSearchOverlays] = useState<Array<{ x: number; y: number; w: number; h: number; active: boolean }>>([]);
   const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; text: string } | null>(null);
+
+  // Sync page when source.page changes (e.g. pill click while viewer is already open)
+  useEffect(() => { setPage(source.page); }, [source.page]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -197,8 +215,6 @@ function PdfViewer({
     ? Math.min(containerWidth, containerHeight * pdfPageRatio)
     : containerWidth;
   const renderWidth = Math.max(fitWidth * zoomLevel, 1);
-
-  useEffect(() => setPage(source.page), [source.page]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -252,7 +268,7 @@ function PdfViewer({
     }
   }, [searchMatches, searchMatchIdx, page, renderWidth, searchPdfSize.w]);
 
-  // Text selection popup
+  // Native text selection popup
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -270,7 +286,6 @@ function PdfViewer({
       }, 10);
     }
     function onMouseDown(e: MouseEvent) {
-      // Don't clear popup if clicking the popup button itself
       const target = e.target as HTMLElement;
       if (target.closest('[data-selection-popup]')) return;
       setSelectionPopup(null);
@@ -330,31 +345,27 @@ function PdfViewer({
           style={{ left: selectionPopup.x, top: selectionPopup.y, transform: "translate(-50%, -100%)", pointerEvents: "auto" }}
         >
           <div
-            className="grid grid-cols-2 gap-1 rounded-xl p-2 shadow-xl"
-            style={{ backgroundColor: "#004261", border: "1px solid rgba(255,255,255,0.15)", minWidth: 340 }}
+            className="flex flex-col gap-0.5 rounded-xl p-1.5 shadow-2xl backdrop-blur-md"
+            style={{ backgroundColor: "rgb(0,66,97)", border: "1px solid rgba(255,255,255,0.12)", minWidth: 200 }}
           >
-            {([
-              { label: "Umformulieren", Icon: ArrowsCounterClockwise, prompt: "Formuliere diese Textstelle in anderen Worten um, verständlich für Studierende:", minWords: 1 },
-              { label: "Kürzen", Icon: Scissors, prompt: "Kürze diesen Text auf das Wesentliche. Antworte nur mit dem gekürzten Text, ohne Erklärungen:", minWords: 3 },
-              { label: "Genauer ausführen", Icon: MagnifyingGlassPlus, prompt: "Führe diese Textstelle genauer aus. Erkläre die Konzepte ausführlich und gib konkrete Beispiele:", minWords: 1 },
-              { label: "Zusammenfassung", Icon: BookOpenText, prompt: "Fasse diese Textstelle kompakt zusammen und hebe die Kernaussagen hervor:", minWords: 1 },
-              { label: "Stichpunkte", Icon: ListBullets, prompt: "Wandle diese Textstelle in prägnante Stichpunkte um:", minWords: 1 },
-              { label: "Vereinfachen", Icon: Lightbulb, prompt: "Erkläre diese Textstelle auf einem einfachen Sprachniveau (B1-Niveau). Nutze kurze Sätze, einfache Wörter und vermeide komplizierte Fachausdrücke soweit möglich:", minWords: 1 },
-            ] as const).filter(({ minWords }) => selectionPopup.text.trim().split(/\s+/).length >= minWords)
-            .map(({ label, Icon, prompt }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => { onAskWithSelection(`${prompt}\n\n"${selectionPopup.text}"`); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white hover:bg-white/20 transition-colors w-full"
-                style={{ border: "1px solid rgba(255,255,255,0.15)" }}
-              >
-                <Icon size={13} weight="bold" />
-                {label}
-              </button>
-            ))}
+            {(popupActions ?? [])
+            .filter((a) => selectionPopup.text.trim().split(/\s+/).length >= a.min_words)
+            .map((a) => {
+              const Icon = ICON_MAP[a.icon] ?? Lightbulb;
+              return (
+                <button
+                  key={a.key}
+                  type="button"
+                  onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
+                >
+                  <span className="text-white/50"><Icon size={14} weight="bold" /></span>
+                  {a.label}
+                </button>
+              );
+            })}
           </div>
-          <div style={{ width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "8px solid #004261", margin: "0 auto" }} />
+          <div style={{ width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "8px solid rgb(0,66,97)", margin: "0 auto" }} />
         </div>
       )}
 
@@ -749,6 +760,8 @@ function ChatPanel({
   const bottomRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -879,7 +892,7 @@ function ChatPanel({
           return (
           <div
             key={msg.id ?? i}
-            className={`flex flex-col gap-1.5 ${msg.role === "user" ? "items-end" : "items-start"}`}
+            className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}
           >
             {msg.role === "assistant" && (
               <div className="flex items-center gap-2 mb-0.5">
@@ -895,7 +908,7 @@ function ChatPanel({
               </div>
             )}
             <div
-              className="max-w-[84%] px-4 py-3 rounded-2xl text-sm leading-relaxed"
+              className="max-w-[96%] px-4 py-3 rounded-2xl text-sm leading-relaxed"
               style={
                 msg.role === "user"
                   ? { backgroundColor: "#004261", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap" }
@@ -918,9 +931,55 @@ function ChatPanel({
                   {msg.content}
                 </ReactMarkdown>
               ) : (
-                msg.content
+                <>
+                  <div
+                    style={{
+                      maxHeight: expandedMsgs.has(i) ? "none" : "8em",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+                  {msg.content.split("\n").length > 5 || msg.content.length > 300 ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedMsgs((prev) => {
+                          const next = new Set(prev);
+                          next.has(i) ? next.delete(i) : next.add(i);
+                          return next;
+                        })
+                      }
+                      className="flex items-center gap-1 mt-1.5 text-[11px] opacity-70 hover:opacity-100 transition-opacity"
+                      style={{ color: "white" }}
+                    >
+                      {expandedMsgs.has(i) ? (
+                        <>
+                          <CaretUp size={12} /> Einklappen
+                        </>
+                      ) : (
+                        <>
+                          <CaretDown size={12} /> Mehr anzeigen
+                        </>
+                      )}
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
+                setCopiedIdx(i);
+                setTimeout(() => setCopiedIdx(null), 1500);
+              }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5"
+              style={{ color: "var(--muted)" }}
+              title="Kopieren"
+            >
+              {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
+            </button>
           </div>
           );
         })}
@@ -1422,6 +1481,8 @@ export default function KiTutorModulePage() {
   const [chatLang, setChatLang] = useState<"de" | "en">("de");
   const [sprachtrainingActive, setSprachtrainingActive] = useState(false);
 
+  const [popupActions, setPopupActions] = useState<{ key: string; label: string; icon: string; prompt: string; min_words: number }[]>([]);
+
   const [studioView, setStudioView] = useState<StudioView>("overview");
   const [lernkarten, setLernkarten] = useState<LernKarte[]>([]);
   const [lernkartenLoading, setLernkartenLoading] = useState(false);
@@ -1464,6 +1525,12 @@ export default function KiTutorModulePage() {
           const s = await settingsRes.json();
           setChatLang(s.chat_lang ?? "de");
           setSprachtrainingActive(s.sprachtraining_active ?? false);
+        }
+
+        const actionsRes = await fetch("/api/ki-tutor/popup-actions", { credentials: "include" });
+        if (!cancelled && actionsRes.ok) {
+          const d = await actionsRes.json();
+          setPopupActions(d.actions ?? []);
         }
 
         if (!cancelled) setInitialized(true);
@@ -1629,7 +1696,7 @@ export default function KiTutorModulePage() {
 
   // ─── Chat ──────────────────────────────────────────────────────────────────
 
-  async function sendChatMessage(content: string, directText = false) {
+  async function sendChatMessage(content: string, directText = false, sourceInfo?: { uuid: string; filename: string; page: number }) {
     const effectiveSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
     if (!content.trim()) return;
     if (!directText && effectiveSourceIds.length === 0) return;
@@ -1645,6 +1712,11 @@ export default function KiTutorModulePage() {
           question: content.trim(),
           active_source_ids: directText ? [] : effectiveSourceIds,
           direct_text: directText,
+          ...(sourceInfo && {
+            source_uuid: sourceInfo.uuid,
+            source_filename: sourceInfo.filename,
+            source_page: sourceInfo.page,
+          }),
         }),
       });
       if (res.ok) {
@@ -1660,10 +1732,10 @@ export default function KiTutorModulePage() {
     }
   }
 
-  function handleAskWithSelection(prompt: string) {
+  function handleAskWithSelection(prompt: string, sourceInfo?: { uuid: string; filename: string; page: number }) {
     if (isMobile) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
-    sendChatMessage(prompt, true);
+    sendChatMessage(prompt, true, sourceInfo);
   }
 
   function handlePillClick(sourceUuid: string, page: number, filename: string) {
@@ -1877,7 +1949,7 @@ export default function KiTutorModulePage() {
             >
               {activeTab === "quellen" ? (
                 viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} popupActions={popupActions} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -1936,7 +2008,7 @@ export default function KiTutorModulePage() {
                 {!panels.quellen ? (
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} popupActions={popupActions} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
