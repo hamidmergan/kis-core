@@ -1,24 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
       if (!status.authenticated) {
-        router.replace("/login");
+        router.replace("/");
       } else {
-        setAuthenticated(true);
+        const role = status.role ?? "lecturer";
+        const isKiTutor = pathname?.startsWith("/ki-tutor");
+        if (role === "student" && !isKiTutor) {
+          router.replace("/ki-tutor");
+        } else {
+          setAuthenticated(true);
+        }
       }
       setLoading(false);
     });
-  }, [router]);
+  }, [router, pathname]);
 
   if (loading) {
     return (

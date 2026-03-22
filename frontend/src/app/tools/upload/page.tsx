@@ -7,7 +7,7 @@ export default function UploadRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/");
+    router.replace("/tools");
   }, [router]);
 
   return null;

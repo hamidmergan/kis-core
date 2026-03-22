@@ -308,7 +308,7 @@ export default function TtsPage() {
             </div>
             {provider === "elevenlabs" && (
               <a
-                href="/voices"
+                href="/tools/tts/voices"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-[#004261] hover:underline"
@@ -318,7 +318,7 @@ export default function TtsPage() {
             )}
             {provider === "kokoro" && (
               <a
-                href="/voices?tab=kokoro"
+                href="/tools/tts/voices?tab=kokoro"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-[#004261] hover:underline"

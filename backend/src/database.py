@@ -71,6 +71,7 @@ def get_connection():
 def init_db(admin_email: Optional[str] = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
+            cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id            SERIAL PRIMARY KEY,
@@ -155,6 +156,72 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     "INSERT INTO whitelist (email) VALUES (%s) ON CONFLICT DO NOTHING",
                     (admin_email.strip().lower(),),
                 )
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_modules (
+                    id                   SERIAL PRIMARY KEY,
+                    uuid                 TEXT NOT NULL UNIQUE,
+                    user_id              INTEGER NOT NULL,
+                    title                TEXT NOT NULL,
+                    description          TEXT,
+                    is_active            BOOLEAN NOT NULL DEFAULT FALSE,
+                    status               TEXT NOT NULL DEFAULT 'pending',
+                    enroll_code          TEXT UNIQUE,
+                    enroll_code_expires  TIMESTAMP,
+                    embedding_model      TEXT NOT NULL DEFAULT '',
+                    embedding_fingerprint TEXT,
+                    created_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at           TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_enrollments (
+                    id             SERIAL PRIMARY KEY,
+                    module_id      INTEGER NOT NULL
+                                     REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id        INTEGER NOT NULL,
+                    enrolled_until TIMESTAMP,
+                    created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+                    UNIQUE (module_id, user_id)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_sources (
+                    id              SERIAL PRIMARY KEY,
+                    uuid            TEXT NOT NULL UNIQUE,
+                    module_id       INTEGER NOT NULL
+                                      REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    filename        TEXT NOT NULL,
+                    file_path       TEXT NOT NULL,
+                    file_type       TEXT NOT NULL,
+                    status          TEXT NOT NULL DEFAULT 'pending',
+                    chunk_count     INTEGER NOT NULL DEFAULT 0,
+                    embedding_model TEXT NOT NULL DEFAULT '',
+                    created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_chunks (
+                    id          SERIAL PRIMARY KEY,
+                    source_id   INTEGER NOT NULL
+                                  REFERENCES ki_tutor_sources(id) ON DELETE CASCADE,
+                    page_number INTEGER NOT NULL,
+                    content     TEXT NOT NULL,
+                    embedding   vector(1536),
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_messages (
+                    id           SERIAL PRIMARY KEY,
+                    module_id    INTEGER NOT NULL
+                                   REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id      INTEGER NOT NULL,
+                    role         TEXT NOT NULL,
+                    content      TEXT NOT NULL,
+                    source_pages JSONB,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
         conn.commit()
 
 
@@ -1020,3 +1087,320 @@ def quota_get_all_overrides() -> list[dict]:
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
+
+
+# --- KI Tutor: Modules ---
+
+def create_ki_tutor_module(user_id: int, title: str, description: str | None) -> str:
+    import uuid as _uuid
+    module_uuid = str(_uuid.uuid4())
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_modules (uuid, user_id, title, description)
+                   VALUES (%s, %s, %s, %s)""",
+                (module_uuid, user_id, title, description),
+            )
+        conn.commit()
+    return module_uuid
+
+
+def get_ki_tutor_module(uuid: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_modules WHERE uuid = %s", (uuid,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_ki_tutor_module_by_id(id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_modules WHERE id = %s", (id,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_ki_tutor_modules_by_user(user_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM ki_tutor_modules WHERE user_id = %s ORDER BY created_at DESC",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_ki_tutor_modules_for_student(user_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT m.* FROM ki_tutor_modules m
+                   JOIN ki_tutor_enrollments e ON e.module_id = m.id
+                   WHERE e.user_id = %s AND m.is_active = TRUE
+                   ORDER BY m.created_at DESC""",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def update_ki_tutor_module(
+    uuid: str, title: str, description: str | None, is_active: bool
+) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_modules
+                   SET title = %s, description = %s, is_active = %s, updated_at = NOW()
+                   WHERE uuid = %s""",
+                (title, description, is_active, uuid),
+            )
+        conn.commit()
+
+
+def update_ki_tutor_module_status(
+    uuid: str,
+    status: str,
+    embedding_model: str | None = None,
+    embedding_fingerprint: str | None = None,
+) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_modules
+                   SET status = %s,
+                       embedding_model = COALESCE(%s, embedding_model),
+                       embedding_fingerprint = COALESCE(%s, embedding_fingerprint),
+                       updated_at = NOW()
+                   WHERE uuid = %s""",
+                (status, embedding_model, embedding_fingerprint, uuid),
+            )
+        conn.commit()
+
+
+def set_ki_tutor_module_enroll_code(
+    uuid: str, code: str, expires_at: datetime
+) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_modules
+                   SET enroll_code = %s, enroll_code_expires = %s, updated_at = NOW()
+                   WHERE uuid = %s""",
+                (code, expires_at, uuid),
+            )
+        conn.commit()
+
+
+def delete_ki_tutor_module(uuid: str) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_modules WHERE uuid = %s", (uuid,))
+        conn.commit()
+
+
+# --- KI Tutor: Enrollments ---
+
+def enroll_student(
+    module_id: int, user_id: int, enrolled_until: datetime | None
+) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_enrollments (module_id, user_id, enrolled_until)
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (module_id, user_id) DO NOTHING""",
+                (module_id, user_id, enrolled_until),
+            )
+            inserted = cur.rowcount
+        conn.commit()
+    return inserted > 0
+
+
+def is_student_enrolled(module_id: int, user_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM ki_tutor_enrollments WHERE module_id = %s AND user_id = %s",
+                (module_id, user_id),
+            )
+            return cur.fetchone() is not None
+
+
+def get_module_by_enroll_code(code: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM ki_tutor_modules
+                   WHERE enroll_code = %s AND enroll_code_expires > NOW()""",
+                (code,),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+# --- KI Tutor: Sources ---
+
+def create_ki_tutor_source(
+    module_id: int, uuid: str, filename: str, file_path: str, file_type: str
+) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_sources
+                   (module_id, uuid, filename, file_path, file_type)
+                   VALUES (%s, %s, %s, %s, %s)
+                   RETURNING id""",
+                (module_id, uuid, filename, file_path, file_type),
+            )
+            source_id = cur.fetchone()[0]
+        conn.commit()
+    return source_id
+
+
+def get_ki_tutor_source(uuid: str) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_sources WHERE uuid = %s", (uuid,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_ki_tutor_sources_by_module(module_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM ki_tutor_sources WHERE module_id = %s ORDER BY created_at ASC",
+                (module_id,),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def update_ki_tutor_source_status(
+    uuid: str,
+    status: str,
+    chunk_count: int | None = None,
+    embedding_model: str | None = None,
+    error_message: str | None = None,
+) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_sources
+                   SET status = %s,
+                       chunk_count = COALESCE(%s, chunk_count),
+                       embedding_model = COALESCE(%s, embedding_model),
+                       error_message = COALESCE(%s, error_message)
+                   WHERE uuid = %s""",
+                (status, chunk_count, embedding_model, error_message, uuid),
+            )
+        conn.commit()
+
+
+def delete_ki_tutor_source(uuid: str) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_sources WHERE uuid = %s", (uuid,))
+        conn.commit()
+
+
+# --- KI Tutor: Chunks ---
+
+def create_ki_tutor_chunk(
+    source_id: int, page_number: int, content: str
+) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_chunks (source_id, page_number, content)
+                   VALUES (%s, %s, %s)
+                   RETURNING id""",
+                (source_id, page_number, content),
+            )
+            chunk_id = cur.fetchone()[0]
+        conn.commit()
+    return chunk_id
+
+
+def update_chunk_embedding(chunk_id: int, embedding: list[float]) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ki_tutor_chunks SET embedding = %s::vector WHERE id = %s",
+                (str(embedding), chunk_id),
+            )
+        conn.commit()
+
+
+def search_similar_chunks(
+    module_id: int,
+    query_embedding: list[float],
+    source_ids: list[int] | None = None,
+    limit: int = 5,
+) -> list[dict]:
+    params: list = [str(query_embedding), module_id]
+    source_filter = ""
+    if source_ids is not None:
+        source_filter = "AND s.id = ANY(%s)"
+        params.append(source_ids)
+    params.append(limit)
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                f"""SELECT c.id, c.source_id, c.page_number, c.content,
+                           c.embedding <=> %s::vector AS distance
+                    FROM ki_tutor_chunks c
+                    JOIN ki_tutor_sources s ON s.id = c.source_id
+                    WHERE s.module_id = %s {source_filter}
+                      AND c.embedding IS NOT NULL
+                    ORDER BY distance ASC
+                    LIMIT %s""",
+                params,
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+# --- KI Tutor: Messages ---
+
+def save_ki_tutor_message(
+    module_id: int,
+    user_id: int,
+    role: str,
+    content: str,
+    source_pages: list | dict | None = None,
+) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_messages
+                   (module_id, user_id, role, content, source_pages)
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (
+                    module_id,
+                    user_id,
+                    role,
+                    content,
+                    json.dumps(source_pages) if source_pages is not None else None,
+                ),
+            )
+        conn.commit()
+
+
+def get_ki_tutor_messages(
+    module_id: int, user_id: int, limit: int = 20
+) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM ki_tutor_messages
+                   WHERE module_id = %s AND user_id = %s
+                   ORDER BY created_at DESC
+                   LIMIT %s""",
+                (module_id, user_id, limit),
+            )
+            rows = cur.fetchall()
+    return list(reversed([dict(row) for row in rows]))

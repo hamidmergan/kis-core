@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     kisski_api_key: str = ""
     kisski_base_url: str = "https://chat-ai.academiccloud.de/v1"
     kisski_model: str = "qwen3-30b-a3b-instruct-2507"
+    kisski_embedding_model: str = "e5-mistral-7b-instruct"
+    tutor_embedding_provider: str = "kisski"
 
     # LLM Provider: "kisski" oder "ollama"
     llm_provider: str = "kisski"

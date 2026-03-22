@@ -50,6 +50,11 @@ export const TOOL_CONFIG: Record<string, { color: string; image: string | null; 
     image: "/tools/summarize-img.png",
     jobTools: ["summary"],
   },
+  "ki-tutor": {
+    color: "#004261",
+    image: null,
+    jobTools: [],
+  },
 };
 
 /** Returns the tool config for a given job.tool string */

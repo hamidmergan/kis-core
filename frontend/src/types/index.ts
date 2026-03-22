@@ -5,6 +5,7 @@ export interface AuthStatus {
   display_name?: string;
   email?: string;
   is_admin?: boolean;
+  role?: string;
 }
 
 export interface LoginResponse {

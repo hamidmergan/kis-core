@@ -6,7 +6,7 @@ services:
     # No ports exposed - only accessible via internal Docker network
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: kis-postgres
     env_file:
       - .env

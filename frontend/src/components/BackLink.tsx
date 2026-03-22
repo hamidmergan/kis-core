@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function BackLink() {
   return (
     <Link
-      href="/"
+      href="/tools"
       className="inline-flex items-center gap-1.5 text-sm font-medium mb-6 transition-colors group"
       style={{ color: "var(--kb)" }}
     >

@@ -12,6 +12,7 @@ celery_app = Celery(
         "src.tasks.screencast_tasks",
         "src.tasks.video_dubbing_tasks",
         "src.tasks.watchdog_tasks",
+        "src.tasks.ki_tutor_tasks",
     ],
 )
 
@@ -40,6 +41,7 @@ celery_app.conf.update(
         "video_dubbing.download": {"queue": "dubbing"},
         "video_dubbing.poll": {"queue": "dubbing"},
         "watchdog.check": {"queue": "general"},
+        "ki_tutor.index_source": {"queue": "general"},
     },
     beat_schedule={
         "poll-dubbing-jobs": {

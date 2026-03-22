@@ -5,6 +5,11 @@ const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  webpack: (config) => {
+    // Required for react-pdf (pdfjs-dist uses canvas which doesn't exist in SSR)
+    config.resolve.alias.canvas = false;
+    return config;
+  },
   experimental: {
     middlewareClientMaxBodySize: "500mb",
     proxyTimeout: 600000, // 10 min – für lokale Ollama-Generierung
@@ -126,6 +131,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/screencast-demo/:path*",
         destination: `${backendUrl}/screencast-demo/:path*`,
+      },
+      {
+        source: "/api/ki-tutor/:path*",
+        destination: `${backendUrl}/ki-tutor/:path*`,
       },
       {
         source: "/docs",

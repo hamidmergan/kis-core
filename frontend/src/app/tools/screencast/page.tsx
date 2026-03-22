@@ -1498,7 +1498,7 @@ function ScreencastPageInner() {
             <div className="flex items-baseline justify-between mb-1">
               <h1 className="text-xl font-bold text-gray-900">Screencast erstellen</h1>
               {showDemoLink && (
-                <a href="/screencast-demo" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors">
+                <a href="/tools/screencast-demo" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors">
                   Demo ansehen →
                 </a>
               )}
@@ -2318,7 +2318,7 @@ function ScreencastPageInner() {
               </div>
               {ttsProvider === "elevenlabs" && (
                 <a
-                  href="/voices"
+                  href="/tools/tts/voices"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-[#004261] hover:underline"
@@ -2328,7 +2328,7 @@ function ScreencastPageInner() {
               )}
               {ttsProvider === "kokoro" && (
                 <a
-                  href="/voices?tab=kokoro"
+                  href="/tools/tts/voices?tab=kokoro"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-[#004261] hover:underline"

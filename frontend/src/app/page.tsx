@@ -1,279 +1,134 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  SubtitlesIcon,
-  TranslateIcon,
-  SpeakerHighIcon,
-  FilmSlateIcon,
-  ImageSquareIcon,
-  BookIcon,
-  ArticleIcon,
-  VideoIcon,
-  PresentationChartIcon,
-} from "@phosphor-icons/react";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import { TOOL_CONFIG } from "@/lib/toolConfig";
-
-const WORKFLOW_ICONS: Record<string, React.ElementType> = {
-  screencast: PresentationChartIcon,
-  "screencast-demo": FilmSlateIcon,
-};
-
-const TOOL_ICONS: Record<string, React.ElementType> = {
-  translation: TranslateIcon,
-  tts: SpeakerHighIcon,
-  transcription: SubtitlesIcon,
-  video_dubbing: VideoIcon,
-  image: ImageSquareIcon,
-  glossary: BookIcon,
-  summary: ArticleIcon,
-};
-
-const ALL_WORKFLOWS = [
-  {
-    key: "screencast",
-    title: "Screencast",
-    description: "Aus PowerPoint-Dateien vertonte Videos mit übersetzten Folien generieren.",
-    href: "/screencast",
-  },
-];
-
-type Tool = { key: string; title: string; description: string; href: string; unavailable?: boolean };
-
-const ALL_TOOLS: Tool[] = [
-  { key: "translation",   title: "Translate",      description: "Dokumente in andere Sprachen übersetzen.", href: "/translation" },
-  { key: "tts",           title: "Text-to-Speech", description: "Texte und Dokumente in Audio umwandeln.", href: "/tts" },
-  { key: "transcription", title: "Speech-to-Text", description: "Audio- und Videoinhalte in Text oder Untertitel umwandeln.", href: "/transcription" },
-  { key: "video_dubbing", title: "Video-Dubbing",  description: "Videos in andere Sprachen synchronisieren.", href: "/video-dubbing", unavailable: true },
-  { key: "image",         title: "Image",          description: "Bilder erstellen, bearbeiten oder analysieren.", href: "/image" },
-  { key: "summary",       title: "Summarize",      description: "Dokumente und Medieninhalte zusammenfassen.", href: "/summary" },
-  { key: "glossary",      title: "Glossary",       description: "Begriffslisten für Übersetzungen und Skripte verwalten.", href: "/glossary" },
-];
-
-function ToolImage({ toolKey, title }: { toolKey: string; title: string }) {
-  const cfg = TOOL_CONFIG[toolKey];
-  if (cfg?.image) {
-    const containPadding = toolKey === "tts" ? "p-4" : toolKey === "image" ? "p-2" : ["summary", "transcription", "translation", "glossary"].includes(toolKey) ? "p-1" : null;
-    return (
-      <div className="relative w-full h-36 overflow-hidden flex items-center justify-center">
-        <Image
-          src={cfg.image}
-          alt={title}
-          fill
-          className={containPadding ? `object-contain ${containPadding}` : "object-cover"}
-          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          loading="eager"
-        />
-      </div>
-    );
-  }
-  // Fallback: colour gradient + icon
-  const Icon = TOOL_ICONS[toolKey] ?? WORKFLOW_ICONS[toolKey] ?? ArticleIcon;
-  const color = cfg?.color ?? "#668DA0";
-  return (
-    <div
-      className="w-full h-36 flex items-center justify-center"
-      style={{ background: `linear-gradient(135deg, ${color}22 0%, ${color}11 100%)` }}
-    >
-      <Icon size={48} weight="duotone" color={color} />
-    </div>
-  );
-}
-
-function WorkflowCard({ wf }: { wf: typeof ALL_WORKFLOWS[number] }) {
-  const cfg = TOOL_CONFIG[wf.key];
-  const color = cfg?.color ?? "#7C3AED";
-  const Icon = WORKFLOW_ICONS[wf.key] ?? PresentationChartIcon;
-
-  return (
-    <Link
-      href={wf.href}
-      className="group flex rounded-xl overflow-hidden transition-all duration-200"
-      style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
-      onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
-      onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
-    >
-      {/* Image — left column, fixed width */}
-      <div className="relative w-52 flex-shrink-0 overflow-hidden">
-        {cfg?.image ? (
-          <Image
-            src={cfg.image}
-            alt={wf.title}
-            fill
-            className="object-cover"
-            sizes="208px"
-            priority
-          />
-        ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ background: `linear-gradient(135deg, ${color}22 0%, ${color}11 100%)` }}
-          >
-            <Icon size={48} weight="duotone" color={color} />
-          </div>
-        )}
-      </div>
-
-      {/* Text — right column */}
-      <div className="flex flex-col justify-center p-6">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-          <h2 className="text-base font-semibold" style={{ color: "var(--text)" }}>{wf.title}</h2>
-        </div>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>{wf.description}</p>
-      </div>
-    </Link>
-  );
-}
+import { useRouter } from "next/navigation";
+import { login, checkAuthStatus } from "@/lib/auth";
 
 export default function HomePage() {
-  const [disabledTools, setDisabledTools] = useState<Set<string> | null>(null);
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/tools", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => {
-        const disabled = new Set<string>(
-          (d.tools ?? []).filter((t: { enabled: boolean }) => !t.enabled).map((t: { key: string }) => t.key)
-        );
-        setDisabledTools(disabled);
-      })
-      .catch(() => setDisabledTools(new Set()));
-  }, []);
+    checkAuthStatus().then((status) => {
+      if (status.authenticated) {
+        const role = status.role ?? "lecturer";
+        router.replace(role === "student" ? "/ki-tutor" : "/tools");
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [router]);
 
-  if (disabledTools === null) return null;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
-  const workflows = ALL_WORKFLOWS.filter((w) => !disabledTools.has(w.key));
-  const tools = ALL_TOOLS.filter((t) => !disabledTools.has(t.key));
+    try {
+      await login(username.trim(), password);
+      const status = await checkAuthStatus();
+      const role = status.role ?? "lecturer";
+      router.push(role === "student" ? "/ki-tutor" : "/tools");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message === "account_not_activated") {
+        router.push("/pending");
+      } else {
+        setError("Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (checking) return null;
 
   return (
-    <ProtectedRoute>
-      <Header showLogout />
+    <main className="flex items-center justify-center min-h-[80vh] px-4">
+      <div className="w-full max-w-sm">
+        <h1 className="text-2xl font-bold text-gray-900 text-center mb-6">Willkommen bei KIS</h1>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Anmelden</h2>
 
-      <div className="max-w-5xl mx-auto px-4 pt-10 pb-20 lg:pt-15 lg:pb-30">
-
-        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
-
-        {/* ── Workflows ── */}
-        {workflows.length > 0 && (
-          <section className="mb-12">
-            <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: "var(--muted)" }}>
-              Workflows
-            </p>
-            <div className="flex flex-col gap-4">
-              {workflows.map((wf) => {
-                const cfg = TOOL_CONFIG[wf.key];
-                const color = cfg?.color ?? "#7C3AED";
-                const Icon = WORKFLOW_ICONS[wf.key] ?? PresentationChartIcon;
-                return (
-                  <Link
-                    key={wf.href}
-                    href={wf.href}
-                    className="group flex flex-col sm:flex-row sm:min-h-40 lg:min-h-45 rounded-xl overflow-hidden transition-all duration-200"
-                    style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
-                  >
-                    {/* Bild — oben (mobile) / links (desktop) */}
-                    <div className="relative h-40 sm:h-auto sm:w-64 sm:self-stretch flex-shrink-0 overflow-hidden">
-                      {cfg?.image ? (
-                        <Image
-                          src={cfg.image}
-                          alt={wf.title}
-                          fill
-                          className="object-contain p-0"
-                          sizes="(max-width: 640px) 100vw, 256px"
-                          priority
-                        />
-                      ) : (
-                        <div
-                          className="w-full h-full flex items-center justify-center"
-                          style={{ background: `linear-gradient(135deg, ${color}22 0%, ${color}11 100%)` }}
-                        >
-                          <Icon size={48} weight="duotone" color={color} />
-                        </div>
-                      )}
-                    </div>
-                    {/* Text — unten (mobile) / rechts (desktop) */}
-                    <div className="flex flex-col justify-center px-8 py-7">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                        <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>{wf.title}</h2>
-                      </div>
-                      <p className="text-base" style={{ color: "var(--muted)" }}>{wf.description}</p>
-                    </div>
-                  </Link>
-                );
-              })}
+          <form onSubmit={handleSubmit} aria-label="Anmeldeformular" className="space-y-4">
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                Benutzername
+              </label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                autoFocus
+                required
+                disabled={loading}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#004261] focus:border-transparent disabled:opacity-50"
+              />
             </div>
-          </section>
-        )}
 
-        {/* ── Tools ── */}
-        {tools.length > 0 && (
-          <section>
-            <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: "var(--muted)" }}>
-              Tools
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {tools.map((tool) => {
-                const cfg = TOOL_CONFIG[tool.key];
-                const color = cfg?.color ?? "#668DA0";
-
-                if (tool.unavailable) {
-                  return (
-                    <div
-                      key={tool.href}
-                      className="rounded-xl overflow-hidden opacity-50 cursor-not-allowed"
-                      style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
-                    >
-                      <ToolImage toolKey={tool.key} title={tool.title} />
-                      <div className="p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                          <h3 className="text-base font-semibold" style={{ color: "var(--muted)" }}>{tool.title}</h3>
-                          <span
-                            className="ml-auto text-xs px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
-                          >
-                            Nicht verfügbar
-                          </span>
-                        </div>
-                        <p className="text-base" style={{ color: "var(--muted)" }}>{tool.description}</p>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <Link
-                    key={tool.href}
-                    href={tool.href}
-                    className="group block rounded-xl overflow-hidden transition-all duration-200"
-                    style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
-                  >
-                    <ToolImage toolKey={tool.key} title={tool.title} />
-                    <div className="px-4 pt-0 pb-4">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                        <h3 className="text-base font-semibold" style={{ color: "var(--text)" }}>{tool.title}</h3>
-                      </div>
-                      <p className="text-base" style={{ color: "var(--muted)" }}>{tool.description}</p>
-                    </div>
-                  </Link>
-                );
-              })}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Passwort
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                  disabled={loading}
+                  aria-describedby={error ? "login-error" : undefined}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#004261] focus:border-transparent disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
-          </section>
-        )}
 
+            {error && (
+              <p id="login-error" className="text-sm text-red-600" role="alert">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !username.trim() || !password}
+              className="w-full px-4 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
+            >
+              {loading ? "Wird angemeldet..." : "Anmelden"}
+            </button>
+          </form>
+        </div>
       </div>
-    </ProtectedRoute>
+    </main>
   );
 }

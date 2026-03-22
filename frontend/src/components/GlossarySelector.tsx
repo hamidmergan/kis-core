@@ -33,7 +33,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
       <div className="mb-4">
         <p className="text-sm text-gray-400">
           Noch kein Glossar erstellt →{" "}
-          <Link href="/glossary" className="text-[#004261] hover:underline">
+          <Link href="/tools/glossary" className="text-[#004261] hover:underline">
             Glossare verwalten
           </Link>
         </p>

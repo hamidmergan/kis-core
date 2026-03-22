@@ -10,7 +10,7 @@ from src.database import init_db, reset_stuck_jobs
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
 from src.storage import USE_S3, cleanup_expired_files, init_storage
-from src.routes import admin, auth, health, image, jobs, screencast, screencast_demo, summary, transcription, translate, tts, video_dubbing
+from src.routes import admin, auth, health, image, jobs, ki_tutor, screencast, screencast_demo, summary, transcription, translate, tts, video_dubbing
 
 
 def _configure_logging() -> None:
@@ -81,7 +81,7 @@ def create_app() -> FastAPI:
     # Allow direct browser requests (bypassing Next.js proxy for large uploads)
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=["http://localhost:3000", "http://localhost:3001"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -100,6 +100,7 @@ def create_app() -> FastAPI:
     application.include_router(screencast_demo.router)
     application.include_router(summary.router)
     application.include_router(jobs.router)
+    application.include_router(ki_tutor.router)
     application.include_router(admin.router)
 
     return application

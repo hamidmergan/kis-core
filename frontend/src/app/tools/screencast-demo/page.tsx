@@ -1016,10 +1016,10 @@ function ScreencastDemoPageInner() {
                   </select>
                 </div>
                 {ttsProvider === "elevenlabs" && (
-                  <a href="/voices" target="_blank" rel="noopener noreferrer" className="text-sm text-[#004261] hover:underline">Stimmen anhören →</a>
+                  <a href="/tools/tts/voices" target="_blank" rel="noopener noreferrer" className="text-sm text-[#004261] hover:underline">Stimmen anhören →</a>
                 )}
                 {ttsProvider === "kokoro" && (
-                  <a href="/voices?tab=kokoro" target="_blank" rel="noopener noreferrer" className="text-sm text-[#004261] hover:underline">Stimmen anhören →</a>
+                  <a href="/tools/tts/voices?tab=kokoro" target="_blank" rel="noopener noreferrer" className="text-sm text-[#004261] hover:underline">Stimmen anhören →</a>
                 )}
               </div>
             )}
