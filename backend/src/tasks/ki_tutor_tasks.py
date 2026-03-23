@@ -56,7 +56,8 @@ def run_index_source(self, source_uuid: str):
         fingerprint = compute_fingerprint(provider)
 
         from src.config import Settings
-        embedding_model = Settings().kisski_embedding_model
+        _s = Settings()
+        embedding_model = _s.ollama_embedding_model if _s.tutor_embedding_provider == "ollama" else _s.kisski_embedding_model
 
         # 4. Fetch file from storage
         import os
@@ -114,8 +115,10 @@ def run_index_source(self, source_uuid: str):
                 )
                 logger.info("KI Tutor: module {} is now ready", module["uuid"])
 
-        # 10. Trigger paragraph summary + TOC generation (async, non-blocking)
-        if file_type == "pdf":
+        # 10. Trigger paragraph summary generation (async, non-blocking)
+        # Skip for Ollama: LLM summaries take minutes on local hardware
+        from src.config import Settings as _S
+        if file_type == "pdf" and _S().llm_provider != "ollama":
             run_generate_summaries.delay(source_uuid)
 
     except Exception as e:
@@ -176,16 +179,19 @@ def run_generate_summaries(self, source_uuid: str):
         lang = _detect_language(sample)
 
         # 3. Build LLM client
-        from openai import OpenAI
+        from langfuse.openai import OpenAI
         from src.config import Settings
         s = Settings()
         client = OpenAI(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, max_retries=0, timeout=30)
         model = s.effective_llm_model
         extra_body = {"think": False} if s.llm_provider == "ollama" else {}
 
-        # 4. Generate summaries in batches of 5 (with retry on rate limit)
+        # 4. Generate summaries in batches (with retry on rate limit)
         import time as _time
-        _BATCH = 5
+        # Ollama local: larger batches → fewer LLM calls → faster overall
+        _BATCH = 10 if s.llm_provider == "ollama" else 5
+        # Ollama needs more timeout (slow local hardware); KISSKI is fast
+        _TIMEOUT = 120 if s.llm_provider == "ollama" else 30
         _MAX_RETRIES = 3
         all_summaries: list[str] = []
         for i in range(0, len(paragraphs), _BATCH):
@@ -203,8 +209,8 @@ def run_generate_summaries(self, source_uuid: str):
                             {"role": "user", "content": "\n\n".join(user_parts)},
                         ],
                         temperature=0.1,
-                        max_tokens=1000,
-                        timeout=30,
+                        max_tokens=_BATCH * 150,
+                        timeout=_TIMEOUT,
                         extra_body=extra_body or None,
                     )
                     break

@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from loguru import logger
-from openai import OpenAI
+from langfuse.openai import OpenAI
 
 # ── Audio chunking constants ───────────────────────────────────────────────────
 

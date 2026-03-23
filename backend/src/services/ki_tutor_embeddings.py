@@ -23,7 +23,7 @@ class KisskiEmbeddingProvider(EmbeddingProvider):
     _BATCH_SIZE = 100
 
     def __init__(self) -> None:
-        from openai import OpenAI
+        from langfuse.openai import OpenAI
         from src.config import Settings
         s = Settings()
         self._client = OpenAI(api_key=s.kisski_api_key, base_url=s.kisski_base_url)
@@ -57,25 +57,25 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     — the OpenAI-compat /v1/embeddings endpoint ignores Modelfile parameters.
     """
 
-    # Ollama sums token lengths across all batch inputs against num_ctx → send 1 at a time
-    _BATCH_SIZE = 1
+    # 600-char chunks ≈ 240 tokens each; batch of 5 ≈ 1200 tokens < 2048 limit → safe
+    _BATCH_SIZE = 5
     # nomic-bert context_length=2048 tokens; German BERT subword-tokenizer ~2-3 chars/token
     # → 1000 chars ≈ 400-500 tokens, safely within limit
     _NUM_CTX = 2048
 
     def __init__(self) -> None:
-        import urllib.parse
         from src.config import Settings
+        from langfuse import Langfuse
         s = Settings()
-        # Derive base URL without /v1 suffix
         base = s.ollama_base_url.rstrip("/")
         if base.endswith("/v1"):
             base = base[:-3]
         self._embed_url = base + "/api/embed"
         self._model = s.ollama_embedding_model
+        self._langfuse = Langfuse()
 
-    # nomic-bert: 2048 token ctx, German BERT subword ~2-3 chars/token → 1000 chars ≈ 400-500 tokens
-    _MAX_CHARS = 1000
+    # Safety net only — chunker now produces ≤600 char chunks, this should never trigger
+    _MAX_CHARS = 700
 
     def _truncate(self, text: str) -> str:
         if len(text) <= self._MAX_CHARS:
@@ -97,6 +97,12 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
                 "input": batch,
                 "options": {"num_ctx": self._NUM_CTX},
             }).encode()
+            generation = self._langfuse.generation(
+                name="ollama-embed",
+                model=self._model,
+                model_parameters={"num_ctx": self._NUM_CTX},
+                input=batch,
+            )
             for attempt in range(2):
                 try:
                     req = urllib.request.Request(
@@ -107,7 +113,12 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
                     )
                     with urllib.request.urlopen(req, timeout=120) as resp:
                         data = json.loads(resp.read())
-                    results.extend(data["embeddings"])
+                    batch_results = data["embeddings"]
+                    results.extend(batch_results)
+                    generation.end(
+                        output=f"{len(batch_results)} embedding(s), dim={len(batch_results[0]) if batch_results else 0}",
+                        usage={"input": sum(len(t) for t in batch), "unit": "CHARACTERS"},
+                    )
                     break
                 except urllib.error.HTTPError as e:
                     body = e.read().decode(errors="replace")
@@ -115,13 +126,16 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
                     if attempt == 0:
                         time.sleep(3)
                     else:
+                        generation.end(level="ERROR", status_message=f"HTTP {e.code}: {body}")
                         raise RuntimeError(f"Ollama embedding request failed: {e} – {body}") from e
                 except Exception as e:
                     if attempt == 0:
                         logger.warning("Ollama embed batch {}/{} failed: {} – retrying in 3s", i, len(texts), e)
                         time.sleep(3)
                     else:
+                        generation.end(level="ERROR", status_message=str(e))
                         raise RuntimeError(f"Ollama embedding request failed: {e}") from e
+
         return results
 
 

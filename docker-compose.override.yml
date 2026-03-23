@@ -55,5 +55,11 @@ services:
   ldap-init:
     profiles: []
 
+  langfuse-db-init:
+    profiles: []
+
+  langfuse:
+    profiles: []
+
   phpldapadmin:
     profiles: ["ldapadmin"]
