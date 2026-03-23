@@ -50,16 +50,89 @@ class KisskiEmbeddingProvider(EmbeddingProvider):
         return results
 
 
-def get_embedding_provider() -> EmbeddingProvider:
-    """Return the configured embedding provider.
+class OllamaEmbeddingProvider(EmbeddingProvider):
+    """Embedding client using Ollama's native /api/embed API.
 
-    Currently only 'kisski' is supported.
-    # TODO: add LocalEmbeddingProvider branch when local model support is added.
+    Uses the native endpoint (not OpenAI-compat) so we can pass options.num_ctx
+    — the OpenAI-compat /v1/embeddings endpoint ignores Modelfile parameters.
     """
+
+    # Ollama sums token lengths across all batch inputs against num_ctx → send 1 at a time
+    _BATCH_SIZE = 1
+    # nomic-bert context_length=2048 tokens; German BERT subword-tokenizer ~2-3 chars/token
+    # → 1000 chars ≈ 400-500 tokens, safely within limit
+    _NUM_CTX = 2048
+
+    def __init__(self) -> None:
+        import urllib.parse
+        from src.config import Settings
+        s = Settings()
+        # Derive base URL without /v1 suffix
+        base = s.ollama_base_url.rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        self._embed_url = base + "/api/embed"
+        self._model = s.ollama_embedding_model
+
+    # nomic-bert: 2048 token ctx, German BERT subword ~2-3 chars/token → 1000 chars ≈ 400-500 tokens
+    _MAX_CHARS = 1000
+
+    def _truncate(self, text: str) -> str:
+        if len(text) <= self._MAX_CHARS:
+            return text
+        cut = text[:self._MAX_CHARS].rsplit(None, 1)[0]
+        logger.debug("Ollama embed: truncated {} → {} chars", len(text), len(cut))
+        return cut
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        import json
+        import urllib.request
+        import urllib.error
+        results: list[list[float]] = []
+        truncated = [self._truncate(t) for t in texts]
+        for i in range(0, len(truncated), self._BATCH_SIZE):
+            batch = truncated[i: i + self._BATCH_SIZE]
+            payload = json.dumps({
+                "model": self._model,
+                "input": batch,
+                "options": {"num_ctx": self._NUM_CTX},
+            }).encode()
+            for attempt in range(2):
+                try:
+                    req = urllib.request.Request(
+                        self._embed_url,
+                        data=payload,
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=120) as resp:
+                        data = json.loads(resp.read())
+                    results.extend(data["embeddings"])
+                    break
+                except urllib.error.HTTPError as e:
+                    body = e.read().decode(errors="replace")
+                    logger.warning("Ollama embed HTTP {}: lens={} body={}", e.code, [len(t) for t in batch], body)
+                    if attempt == 0:
+                        time.sleep(3)
+                    else:
+                        raise RuntimeError(f"Ollama embedding request failed: {e} – {body}") from e
+                except Exception as e:
+                    if attempt == 0:
+                        logger.warning("Ollama embed batch {}/{} failed: {} – retrying in 3s", i, len(texts), e)
+                        time.sleep(3)
+                    else:
+                        raise RuntimeError(f"Ollama embedding request failed: {e}") from e
+        return results
+
+
+def get_embedding_provider() -> EmbeddingProvider:
+    """Return the configured embedding provider."""
     from src.config import Settings
     provider = Settings().tutor_embedding_provider
     if provider == "kisski":
         return KisskiEmbeddingProvider()
+    if provider == "ollama":
+        return OllamaEmbeddingProvider()
     raise ValueError(f"Unknown tutor_embedding_provider: {provider!r}")
 
 

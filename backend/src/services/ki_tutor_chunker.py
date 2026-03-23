@@ -95,6 +95,187 @@ def _extract_pptx(file_path: str) -> list[dict]:
     return chunks
 
 
+def _is_toc_page(blocks: list[dict]) -> bool:
+    """Detect if a page is a table of contents by looking for dotted leader patterns."""
+    import re
+    toc_pattern = re.compile(r'\.{4,}\s*\d+\s*$')  # "........12"
+    matches = sum(1 for b in blocks if toc_pattern.search(b["content"]))
+    return matches >= 3  # 3+ lines with dotted leaders = TOC page
+
+
+def _get_dominant_font_size(block_dict: dict) -> float:
+    """Get the most common font size in a block (by character count)."""
+    size_chars: dict[float, int] = {}
+    for line in block_dict.get("lines", []):
+        for span in line.get("spans", []):
+            size = round(span["size"], 1)
+            size_chars[size] = size_chars.get(size, 0) + len(span["text"])
+    if not size_chars:
+        return 0.0
+    return max(size_chars, key=size_chars.get)  # type: ignore[arg-type]
+
+
+def _should_skip_block(bbox: tuple, content: str, font_size: float,
+                       body_font_size: float, page_width: float, page_height: float) -> str | None:
+    """Return a reason string if this block should be skipped, else None."""
+    word_count = len(content.split())
+
+    # Very short blocks (page numbers, single labels)
+    if word_count < 5:
+        return "too_short"
+
+    # Headings: larger font than body AND short text
+    if font_size > body_font_size + 0.5 and word_count < 25:
+        return "heading"
+
+    # Footnotes: smaller font AND positioned in bottom 15%
+    rel_y1 = bbox[3] / page_height if page_height > 0 else 1
+    if font_size < body_font_size - 0.5 and rel_y1 > 0.85:
+        return "footnote"
+
+    # Header/footer areas
+    rel_y0 = bbox[1] / page_height if page_height > 0 else 0
+    if (rel_y0 < 0.05 or rel_y1 > 0.95) and word_count < 15:
+        return "header_footer"
+
+    # Very narrow blocks (margin annotations)
+    block_width = bbox[2] - bbox[0]
+    if block_width < page_width * 0.2:
+        return "narrow"
+
+    return None
+
+
+def extract_paragraphs_with_bbox(file_path: str) -> list[dict]:
+    """Extract text paragraphs with bounding boxes from a PDF.
+
+    Adjacent blocks with same font size and small vertical gaps are merged
+    into visual paragraphs. Each visual paragraph gets exactly 1 summary.
+    Headings, TOC pages, footnotes, and images are skipped.
+
+    Returns list of dicts with keys:
+      - page_number (int, 1-indexed)
+      - block_index (int, 0-indexed within page)
+      - bbox        (dict with x0, y0, x1, y1 in PDF coordinates)
+      - content     (str)
+    """
+    import fitz
+    doc = fitz.open(file_path)
+    paragraphs: list[dict] = []
+
+    # First pass: determine the body font size across the document
+    all_font_sizes: dict[float, int] = {}
+    for page in doc:
+        page_dict = page.get_text("dict")
+        for block in page_dict["blocks"]:
+            if block["type"] != 0:
+                continue
+            for line in block["lines"]:
+                for span in line["spans"]:
+                    size = round(span["size"], 1)
+                    all_font_sizes[size] = all_font_sizes.get(size, 0) + len(span["text"])
+    body_font_size = max(all_font_sizes, key=all_font_sizes.get) if all_font_sizes else 10.0  # type: ignore[arg-type]
+    # Typical line height for the body font
+    line_height = body_font_size * 1.4
+
+    # Second pass: extract and merge paragraphs
+    for page_num, page in enumerate(doc, start=1):
+        page_dict = page.get_text("dict")
+        page_width = page.rect.width
+        page_height = page.rect.height
+
+        # Collect all text blocks with metadata
+        page_blocks: list[dict] = []
+        for block in page_dict["blocks"]:
+            if block["type"] != 0:
+                continue
+            lines_text = []
+            for line in block["lines"]:
+                spans_text = "".join(span["text"] for span in line["spans"])
+                lines_text.append(spans_text.strip())
+            content = " ".join(line for line in lines_text if line).strip()
+            if content:
+                font_size = _get_dominant_font_size(block)
+                page_blocks.append({
+                    "bbox": block["bbox"],
+                    "content": content,
+                    "font_size": font_size,
+                })
+
+        # Skip TOC pages entirely
+        if _is_toc_page(page_blocks):
+            continue
+
+        # Filter out non-paragraph blocks, then merge adjacent ones
+        body_blocks: list[dict] = []
+        for pb in page_blocks:
+            skip = _should_skip_block(
+                pb["bbox"], pb["content"], pb["font_size"],
+                body_font_size, page_width, page_height,
+            )
+            if skip is None:
+                body_blocks.append(pb)
+
+        # Merge blocks that belong to the same visual paragraph:
+        # - Small vertical gap (< 1.5x line height)
+        # - Same font size (within 0.5pt)
+        # Note: left margin check is relaxed — tables have different indents
+        # but blocks within them belong together if they're vertically close
+        merged: list[dict] = []
+        for block in body_blocks:
+            if not merged:
+                merged.append({
+                    "bboxes": [block["bbox"]],
+                    "content": block["content"],
+                    "font_size": block["font_size"],
+                })
+                continue
+
+            prev = merged[-1]
+            prev_bbox = prev["bboxes"][-1]
+            curr_bbox = block["bbox"]
+
+            gap = curr_bbox[1] - prev_bbox[3]  # vertical gap
+            same_font = abs(block["font_size"] - prev["font_size"]) < 0.5
+            # Horizontally overlapping = likely same column/paragraph area
+            h_overlap = curr_bbox[2] > prev_bbox[0] and curr_bbox[0] < prev_bbox[2]
+
+            if 0 <= gap < line_height * 0.8 and same_font and h_overlap:
+                # Same paragraph — merge
+                prev["bboxes"].append(curr_bbox)
+                prev["content"] += " " + block["content"]
+            else:
+                # New paragraph
+                merged.append({
+                    "bboxes": [block["bbox"]],
+                    "content": block["content"],
+                    "font_size": block["font_size"],
+                })
+
+        # Build final paragraphs with tight bboxes
+        # Skip paragraphs that are too short to benefit from a summary
+        _MIN_SUMMARY_WORDS = 20
+        for idx, m in enumerate(merged):
+            word_count = len(m["content"].split())
+            if word_count < _MIN_SUMMARY_WORDS:
+                continue
+            bboxes = m["bboxes"]
+            paragraphs.append({
+                "page_number": page_num,
+                "block_index": idx,
+                "bbox": {
+                    "x0": min(b[0] for b in bboxes),
+                    "y0": bboxes[0][1],
+                    "x1": max(b[2] for b in bboxes),
+                    "y1": bboxes[-1][3],
+                },
+                "content": m["content"],
+            })
+
+    doc.close()
+    return paragraphs
+
+
 def _extract_text(file_path: str) -> list[dict]:
     with open(file_path, encoding="utf-8", errors="replace") as f:
         text = f.read()

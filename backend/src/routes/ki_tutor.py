@@ -477,6 +477,70 @@ async def chat(
     return {"answer": answer, "source_pages": source_pages}
 
 
+@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/toc")
+async def get_pdf_toc(
+    module_uuid: str,
+    source_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Liefert das gespeicherte Inhaltsverzeichnis aus der DB."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source = db.get_ki_tutor_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+
+    return {"toc": source.get("toc") or []}
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/summaries")
+async def get_paragraph_summaries(
+    module_uuid: str,
+    source_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Return paragraph summaries with bounding boxes for annotation rendering."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source = db.get_ki_tutor_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+
+    summaries = db.get_paragraph_summaries_by_source(source["id"])
+
+    by_page: dict[int, list] = {}
+    for s in summaries:
+        page = s["page_number"]
+        if page not in by_page:
+            by_page[page] = []
+        by_page[page].append({
+            "block_index": s["block_index"],
+            "bbox": {"x0": s["bbox_x0"], "y0": s["bbox_y0"], "x1": s["bbox_x1"], "y1": s["bbox_y1"]},
+            "summary": s["summary"],
+        })
+
+    return {
+        "status": source.get("summaries_status", "none"),
+        "pages": by_page,
+    }
+
+
 @router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/search")
 async def search_pdf(
     module_uuid: str,

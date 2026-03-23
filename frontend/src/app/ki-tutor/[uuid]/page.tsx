@@ -178,6 +178,53 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: Ico
   Lightbulb,
 };
 
+function AnnotationMarker({ top, height, summary }: { top: number; height: number; summary: string }) {
+  if (!summary || summary.trim().toUpperCase() === "SKIP") return null;
+  // Calculate max lines that fit in the available height (font 10px, line-height 1.3 = 13px per line)
+  const maxLines = Math.max(Math.floor(height / 13), 1);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top,
+        left: 4,
+        right: 0,
+        height,
+        display: "flex",
+        gap: 6,
+        overflow: "hidden",
+      }}
+    >
+      {/* Vertical bar spanning the full paragraph height */}
+      <div style={{ width: 2, height: "100%", backgroundColor: "rgba(0,66,97,0.25)", borderRadius: 1, flexShrink: 0 }} />
+      {/* Label centered vertically */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          overflow: "hidden",
+          maxHeight: "100%",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            lineHeight: 1.3,
+            color: "#7A9BAD",
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: maxLines,
+            WebkitBoxOrient: "vertical" as const,
+          }}
+          title={summary}
+        >
+          {summary}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PdfViewer({
   source, onClose, moduleUuid, onAskWithSelection, popupActions, onMinimize,
 }: {
@@ -194,6 +241,7 @@ function PdfViewer({
   const [containerWidth, setContainerWidth] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
   const [pdfPageRatio, setPdfPageRatio] = useState(595 / 842); // width/height, A4 default
+  const [pdfOriginalWidth, setPdfOriginalWidth] = useState(595); // original PDF page width in points
   const [zoomLevel, setZoomLevel] = useState(() => {
     const saved = sessionStorage.getItem("pdf-zoom");
     return saved ? parseFloat(saved) : 1;
@@ -206,6 +254,13 @@ function PdfViewer({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOverlaysByPage, setSearchOverlaysByPage] = useState<Map<number, Array<{ x: number; y: number; w: number; h: number; active: boolean }>>>(new Map());
   const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; bottomY: number; text: string } | null>(null);
+  const [showToc, setShowToc] = useState(false);
+  const [tocEntries, setTocEntries] = useState<Array<{ level: number; title: string; page: number }>>([]);
+  const [tocLoaded, setTocLoaded] = useState(false);
+  const [showAnnotations, setShowAnnotations] = useState(false);
+  const [pageSummaries, setPageSummaries] = useState<Record<number, Array<{ block_index: number; bbox: { x0: number; y0: number; x1: number; y1: number }; summary: string }>>>({});
+  const [summariesStatus, setSummariesStatus] = useState<string>("none");
+  const [summariesLoaded, setSummariesLoaded] = useState(false);
   const isScrollingRef = useRef(false);
   const pageRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -301,11 +356,70 @@ function PdfViewer({
     return () => { clearInterval(iv); CSS.highlights?.delete("pill-highlight"); };
   }, [source.nonce]);
 
+  // Fetch TOC on mount
+  useEffect(() => {
+    if (tocLoaded) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/toc`);
+        if (res.ok) {
+          const data = await res.json();
+          console.log("[toc] response:", data.toc?.length, "entries", data.toc?.slice(0, 3));
+          setTocEntries(data.toc ?? []);
+        } else {
+          console.log("[toc] fetch failed:", res.status);
+        }
+      } catch (e) { console.log("[toc] error:", e); } finally {
+        setTocLoaded(true);
+      }
+    })();
+  }, [moduleUuid, source.uuid, tocLoaded]);
+
+  // Lazy-fetch paragraph summaries when toggle is activated, poll while generating
+  useEffect(() => {
+    if (!showAnnotations) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchSummaries = async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/summaries`, { credentials: "include" });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setSummariesStatus(data.status);
+          if (data.status === "ready") {
+            const pages: Record<number, Array<{ block_index: number; bbox: { x0: number; y0: number; x1: number; y1: number }; summary: string }>> = {};
+            for (const [k, v] of Object.entries(data.pages)) {
+              pages[Number(k)] = v as typeof pages[number];
+            }
+            setPageSummaries(pages);
+            setSummariesLoaded(true);
+          } else if (data.status === "generating") {
+            // Poll every 10 seconds while generating
+            timer = setTimeout(fetchSummaries, 10000);
+          } else {
+            setSummariesLoaded(true);
+          }
+        }
+      } catch { /* ignore */ }
+    };
+
+    if (!summariesLoaded) fetchSummaries();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [showAnnotations, summariesLoaded, moduleUuid, source.uuid]);
+
+  // Annotation column width
+  const isGenerating = showAnnotations && summariesStatus === "generating";
+  const hasAnnotations = showAnnotations && (Object.keys(pageSummaries).length > 0 || isGenerating || summariesStatus === "rate_limited" || summariesStatus === "failed");
+  const annotationColumnWidth = hasAnnotations ? Math.max(150, Math.min(220, containerWidth * 0.2)) : 0;
+  const pdfAvailableWidth = containerWidth - annotationColumnWidth - (hasAnnotations ? 12 : 0);
+
   // Fit-page base width: constrain by height so 100% = full page visible
   const fitWidth = containerHeight > 0
-    ? Math.min(containerWidth, containerHeight * pdfPageRatio)
-    : containerWidth;
+    ? Math.min(pdfAvailableWidth, containerHeight * pdfPageRatio)
+    : pdfAvailableWidth;
   const renderWidth = Math.max(fitWidth * zoomLevel, 1);
+  const annotationScale = renderWidth / pdfOriginalWidth;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -534,6 +648,28 @@ function PdfViewer({
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </button>
+        {tocEntries.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowToc((v) => !v)}
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            style={{ backgroundColor: showToc ? "#004261" : "var(--border)" }}
+            title="Inhaltsverzeichnis"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={showToc ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" /><line x1="3" y1="18" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowAnnotations((v) => !v)}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+          style={{ backgroundColor: showAnnotations ? "#004261" : "var(--border)" }}
+          title="Zusammenfassungen"
+        >
+          <BookOpenText size={13} weight="bold" color={showAnnotations ? "white" : "var(--muted)"} />
+        </button>
         <button
           type="button"
           onClick={() => setZoomLevel((z) => { const v = Math.max(0.5, +(z - 0.25).toFixed(2)); sessionStorage.setItem("pdf-zoom", String(v)); return v; })}
@@ -616,9 +752,34 @@ function PdfViewer({
         </form>
       )}
 
-      <div ref={scrollContainerRef} className="flex-1 p-4" style={{ overflowY: "auto", overflowX: zoomLevel > 1 ? "auto" : "hidden" }}>
+      {/* TOC Panel */}
+      {showToc && tocEntries.length > 0 && (
+        <div className="flex-shrink-0 overflow-y-auto scrollbar-hide" style={{ maxHeight: "40%", borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+          <div className="py-1.5">
+            {tocEntries.map((entry, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => { scrollToPage(entry.page); setShowToc(false); }}
+                className="w-full text-left px-4 py-1.5 text-sm hover:bg-black/5 transition-colors truncate"
+                style={{
+                  paddingLeft: `${12 + (entry.level - 1) * 16}px`,
+                  color: page === entry.page ? "#004261" : "var(--text)",
+                  fontWeight: entry.level === 1 ? 600 : 400,
+                  fontSize: entry.level === 1 ? "0.8125rem" : "0.75rem",
+                }}
+                title={`${entry.title} — S. ${entry.page}`}
+              >
+                {entry.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div ref={scrollContainerRef} className="flex-1 p-4" style={{ overflowY: "auto", overflowX: (zoomLevel > 1 || hasAnnotations) ? "auto" : "hidden" }}>
         {containerWidth > 0 && containerHeight > 0 && (
-          <div style={{ width: renderWidth, margin: "0 auto" }}>
+          <div style={{ width: renderWidth + (hasAnnotations ? annotationColumnWidth + 12 : 0), margin: "0 auto" }}>
           <Document
             file={`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`}
             onLoadSuccess={async (pdf) => {
@@ -627,6 +788,7 @@ function PdfViewer({
                 const pg = await pdf.getPage(1);
                 const vp = pg.getViewport({ scale: 1 });
                 setPdfPageRatio(vp.width / vp.height);
+                setPdfOriginalWidth(vp.width);
               } catch { /* ignore */ }
             }}
             loading={<div className="flex items-center justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: "#004261" }} /></div>}
@@ -637,18 +799,71 @@ function PdfViewer({
                 key={pageNum}
                 data-page={pageNum}
                 ref={(el) => { if (el) pageRefsMap.current.set(pageNum, el); else pageRefsMap.current.delete(pageNum); }}
-                style={{ marginBottom: 12 }}
+                style={{ marginBottom: 12, display: "flex", gap: hasAnnotations ? 12 : 0 }}
               >
-                <PdfPage pageNumber={pageNum} width={renderWidth} renderTextLayer renderAnnotationLayer={false}>
-                  {(searchOverlaysByPage.get(pageNum) ?? []).map((ov, i) => (
-                    <div key={i} style={{
-                      position: "absolute", left: ov.x, top: ov.y,
-                      width: Math.max(ov.w, 2), height: Math.max(ov.h, 4),
-                      backgroundColor: ov.active ? "rgba(255,140,0,0.65)" : "rgba(255,210,0,0.45)",
-                      borderRadius: 2, pointerEvents: "none", zIndex: 3,
-                    }} />
-                  ))}
-                </PdfPage>
+                <div style={{ width: renderWidth, flexShrink: 0, position: "relative" }}>
+                  <PdfPage pageNumber={pageNum} width={renderWidth} renderTextLayer renderAnnotationLayer={false}>
+                    {(searchOverlaysByPage.get(pageNum) ?? []).map((ov, i) => (
+                      <div key={i} style={{
+                        position: "absolute", left: ov.x, top: ov.y,
+                        width: Math.max(ov.w, 2), height: Math.max(ov.h, 4),
+                        backgroundColor: ov.active ? "rgba(255,140,0,0.65)" : "rgba(255,210,0,0.45)",
+                        borderRadius: 2, pointerEvents: "none", zIndex: 3,
+                      }} />
+                    ))}
+                  </PdfPage>
+                </div>
+                {hasAnnotations && (
+                  <div style={{ width: annotationColumnWidth, flexShrink: 0, position: "relative" }}>
+                    {isGenerating && pageNum === 1 && (
+                      <div style={{
+                        padding: "12px 8px",
+                        fontSize: 11,
+                        color: "#7A9BAD",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}>
+                        <div style={{
+                          width: 14, height: 14, border: "2px solid #7A9BAD", borderTopColor: "transparent",
+                          borderRadius: "50%", animation: "spin 1s linear infinite",
+                        }} />
+                        Zusammenfassungen werden erstellt…
+                      </div>
+                    )}
+                    {pageNum === 1 && summariesStatus === "rate_limited" && (
+                      <div style={{
+                        padding: "12px 8px",
+                        fontSize: 11,
+                        color: "#C4820E",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}>
+                        ⚠ KI-API Limit erreicht. Bitte später erneut versuchen.
+                      </div>
+                    )}
+                    {pageNum === 1 && summariesStatus === "failed" && (
+                      <div style={{
+                        padding: "12px 8px",
+                        fontSize: 11,
+                        color: "#C44040",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}>
+                        Zusammenfassungen konnten nicht erstellt werden.
+                      </div>
+                    )}
+                    {pageSummaries[pageNum]?.map((ann) => {
+                      const top = ann.bbox.y0 * annotationScale;
+                      const height = Math.max((ann.bbox.y1 - ann.bbox.y0) * annotationScale, 24);
+                      return (
+                        <AnnotationMarker key={ann.block_index} top={top} height={height} summary={ann.summary} />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
           </Document>

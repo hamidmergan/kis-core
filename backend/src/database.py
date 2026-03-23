@@ -196,8 +196,17 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     status          TEXT NOT NULL DEFAULT 'pending',
                     chunk_count     INTEGER NOT NULL DEFAULT 0,
                     embedding_model TEXT NOT NULL DEFAULT '',
+                    toc             JSONB,
                     created_at      TIMESTAMP NOT NULL DEFAULT NOW()
                 )
+            """)
+            # Migration: add toc column if missing
+            cur.execute("""
+                ALTER TABLE ki_tutor_sources ADD COLUMN IF NOT EXISTS toc JSONB
+            """)
+            # Migration: add summaries_status column if missing
+            cur.execute("""
+                ALTER TABLE ki_tutor_sources ADD COLUMN IF NOT EXISTS summaries_status TEXT NOT NULL DEFAULT 'none'
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_chunks (
@@ -206,7 +215,29 @@ def init_db(admin_email: Optional[str] = None) -> None:
                                   REFERENCES ki_tutor_sources(id) ON DELETE CASCADE,
                     page_number INTEGER NOT NULL,
                     content     TEXT NOT NULL,
-                    embedding   vector(1536),
+                    embedding   vector,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            # Migration: drop fixed-dimension constraint so any embedding model can be used
+            cur.execute("""
+                ALTER TABLE ki_tutor_chunks
+                    ALTER COLUMN embedding TYPE vector
+                    USING embedding::vector
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_paragraph_summaries (
+                    id          SERIAL PRIMARY KEY,
+                    source_id   INTEGER NOT NULL
+                                  REFERENCES ki_tutor_sources(id) ON DELETE CASCADE,
+                    page_number INTEGER NOT NULL,
+                    block_index INTEGER NOT NULL,
+                    bbox_x0     REAL NOT NULL,
+                    bbox_y0     REAL NOT NULL,
+                    bbox_x1     REAL NOT NULL,
+                    bbox_y1     REAL NOT NULL,
+                    content     TEXT NOT NULL,
+                    summary     TEXT NOT NULL,
                     created_at  TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
@@ -1311,6 +1342,17 @@ def update_ki_tutor_source_status(
         conn.commit()
 
 
+def update_ki_tutor_source_toc(uuid: str, toc: list[dict]) -> None:
+    import json
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ki_tutor_sources SET toc = %s WHERE uuid = %s",
+                (json.dumps(toc), uuid),
+            )
+        conn.commit()
+
+
 def delete_ki_tutor_source(uuid: str) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -1444,3 +1486,57 @@ def upsert_ki_tutor_user_settings(
                 (module_id, user_id, chat_lang, sprachtraining_active),
             )
         conn.commit()
+
+
+# --- KI Tutor: Paragraph Summaries ---
+
+def update_ki_tutor_source_summaries_status(uuid: str, status: str) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ki_tutor_sources SET summaries_status = %s WHERE uuid = %s",
+                (status, uuid),
+            )
+        conn.commit()
+
+
+def bulk_create_paragraph_summaries(source_id: int, summaries: list[dict]) -> None:
+    if not summaries:
+        return
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            values = []
+            params: list = []
+            for s in summaries:
+                values.append("(%s, %s, %s, %s, %s, %s, %s, %s, %s)")
+                params.extend([
+                    source_id,
+                    s["page_number"],
+                    s["block_index"],
+                    s["bbox"]["x0"],
+                    s["bbox"]["y0"],
+                    s["bbox"]["x1"],
+                    s["bbox"]["y1"],
+                    s["content"],
+                    s["summary"],
+                ])
+            cur.execute(
+                f"""INSERT INTO ki_tutor_paragraph_summaries
+                    (source_id, page_number, block_index, bbox_x0, bbox_y0, bbox_x1, bbox_y1, content, summary)
+                    VALUES {', '.join(values)}""",
+                params,
+            )
+        conn.commit()
+
+
+def get_paragraph_summaries_by_source(source_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM ki_tutor_paragraph_summaries
+                   WHERE source_id = %s
+                   ORDER BY page_number, block_index""",
+                (source_id,),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
