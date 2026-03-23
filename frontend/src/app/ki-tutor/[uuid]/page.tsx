@@ -410,7 +410,7 @@ function PdfViewer({
 
   // Annotation column width
   const isGenerating = showAnnotations && summariesStatus === "generating";
-  const hasAnnotations = showAnnotations && (Object.keys(pageSummaries).length > 0 || isGenerating || summariesStatus === "rate_limited" || summariesStatus === "failed");
+  const hasAnnotations = showAnnotations && (Object.keys(pageSummaries).length > 0 || isGenerating || summariesStatus === "none" || summariesStatus === "rate_limited" || summariesStatus === "failed");
   const annotationColumnWidth = hasAnnotations ? Math.max(150, Math.min(220, containerWidth * 0.2)) : 0;
   const pdfAvailableWidth = containerWidth - annotationColumnWidth - (hasAnnotations ? 12 : 0);
 
@@ -841,6 +841,26 @@ function PdfViewer({
                         gap: 6,
                       }}>
                         ⚠ KI-API Limit erreicht. Bitte später erneut versuchen.
+                      </div>
+                    )}
+                    {pageNum === 1 && summariesStatus === "none" && (
+                      <div style={{ padding: "12px 8px", fontSize: 11, color: "#7A9BAD" }}>
+                        <div style={{ marginBottom: 8 }}>Noch keine Zusammenfassungen.</div>
+                        <button
+                          onClick={async () => {
+                            setSummariesStatus("generating");
+                            setSummariesLoaded(false);
+                            await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, {
+                              method: "POST", credentials: "include",
+                            });
+                          }}
+                          style={{
+                            fontSize: 11, padding: "4px 8px", borderRadius: 4, border: "1px solid #7A9BAD",
+                            background: "transparent", color: "#7A9BAD", cursor: "pointer",
+                          }}
+                        >
+                          Erstellen
+                        </button>
                       </div>
                     )}
                     {pageNum === 1 && summariesStatus === "failed" && (

@@ -541,6 +541,35 @@ async def get_paragraph_summaries(
     }
 
 
+@router.post("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/summaries/generate")
+async def trigger_paragraph_summaries(
+    module_uuid: str,
+    source_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Manually trigger paragraph summary generation for a source."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    if module["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source = db.get_ki_tutor_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+    if source["file_type"] != "pdf":
+        raise HTTPException(status_code=400, detail="Nur für PDF-Dateien verfügbar")
+
+    status = source.get("summaries_status", "none")
+    if status == "generating":
+        return {"status": "generating"}
+
+    from src.tasks.ki_tutor_tasks import run_generate_summaries
+    run_generate_summaries.delay(source_uuid)
+    return {"status": "generating"}
+
+
 @router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/search")
 async def search_pdf(
     module_uuid: str,

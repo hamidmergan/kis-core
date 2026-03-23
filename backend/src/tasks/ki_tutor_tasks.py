@@ -116,9 +116,7 @@ def run_index_source(self, source_uuid: str):
                 logger.info("KI Tutor: module {} is now ready", module["uuid"])
 
         # 10. Trigger paragraph summary generation (async, non-blocking)
-        # Skip for Ollama: LLM summaries take minutes on local hardware
-        from src.config import Settings as _S
-        if file_type == "pdf" and _S().llm_provider != "ollama":
+        if file_type == "pdf":
             run_generate_summaries.delay(source_uuid)
 
     except Exception as e:
@@ -128,23 +126,19 @@ def run_index_source(self, source_uuid: str):
 
 
 _SUMMARY_SYSTEM = (
-    "You write extremely condensed margin notes for academic/project paragraphs.\n"
+    "You write margin notes for PDF paragraphs. The reader must understand the content without reading the main text.\n"
     "Rules:\n"
-    "- Write exactly ONE summary per paragraph. Maximum length: 25% of the original character count.\n"
-    "- Use dense nominal style. No introductory phrases like 'Das Ziel ist...', 'Es geht um...'.\n"
+    "- Write exactly ONE note per paragraph. Maximum length: 25% of the original character count.\n"
+    "- No full sentences. Use logical groups: Name/Title, core goal, key number or measure.\n"
     "- No semicolons (;), no em-dashes (—).\n"
-    "- Focus on STRATEGIC content: goals, target groups, methods, key findings, concrete measures, specific numbers.\n"
-    "- Keep specific terms and figures (e.g. B1-Niveau, 49% Abbruchquote, TH Lübeck).\n"
-    "- Don't paraphrase the surface — extract the specific, actionable core.\n"
-    "  BAD:  'Das Projekt fördert Internationalisierung.'\n"
-    "  GOOD: 'Deutschsprachige Studiengänge für internationale Studierende (B1-Niveau), Qualifizierung als Fachkräfte für deutschen Arbeitsmarkt'\n"
-    "- Add value beyond what a heading already says. Don't just repeat the section title.\n"
+    "- Focus on Key Facts that stick immediately when skimming: names, numbers, goals, measures.\n"
+    "- Keep specific terms and figures exactly as in the source.\n"
     "- Skip filler (headers only, page numbers, table of contents, footnotes, image captions) — write SKIP.\n"
     "- Write in {lang}.\n"
-    "Output format: one summary per line, prefixed with the paragraph number.\n"
-    "1. Pilotprojekt KI-gestützte Lehrmaßnahmen: englische Untertitel, integrierte Sprachqualifizierung, digitales Coaching\n"
+    "Output format: one note per line, prefixed with the paragraph number.\n"
+    "1. KI-Tutor TH Lübeck: KI-gestützte Lernhilfe, Zielgruppe int. Studierende, Pilotstart WS 2024\n"
     "2. SKIP\n"
-    "3. Studienabbruchquote internationaler Studierender 49% vs. 27% deutsche, Verbleibequote unter 50%. Finanzielle Probleme, Sprachkenntnisse, fehlende Netzwerke als Ursachen\n"
+    "3. Abbruchquote 49% (int.) vs. 27% (deutsch), Ursachen: Sprache, Finanzen, fehlende Netzwerke\n"
     "Do not add any other text."
 )
 
