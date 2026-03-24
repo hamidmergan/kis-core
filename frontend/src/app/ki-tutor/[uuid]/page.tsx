@@ -178,10 +178,12 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: Ico
   Lightbulb,
 };
 
-function AnnotationMarker({ top, height, summary }: { top: number; height: number; summary: string }) {
+function AnnotationMarker({ top, height, summary, zoomLevel = 1 }: { top: number; height: number; summary: string; zoomLevel?: number }) {
   if (!summary || summary.trim().toUpperCase() === "SKIP") return null;
-  // Calculate max lines that fit in the available height (font 10px, line-height 1.3 = 13px per line)
-  const maxLines = Math.max(Math.floor(height / 13), 1);
+  const baseFontSize = 8;
+  const fontSize = baseFontSize * Math.max(zoomLevel, 0.75);
+  const lineH = fontSize * 1.3;
+  const maxLines = Math.max(Math.floor(height / lineH), 1);
   return (
     <div
       style={{
@@ -208,7 +210,7 @@ function AnnotationMarker({ top, height, summary }: { top: number; height: numbe
       >
         <div
           style={{
-            fontSize: 10,
+            fontSize,
             lineHeight: 1.3,
             color: "#7A9BAD",
             overflow: "hidden",
@@ -875,13 +877,20 @@ function PdfViewer({
                         Zusammenfassungen konnten nicht erstellt werden.
                       </div>
                     )}
-                    {pageSummaries[pageNum]?.map((ann) => {
-                      const top = ann.bbox.y0 * annotationScale;
-                      const height = Math.max((ann.bbox.y1 - ann.bbox.y0) * annotationScale, 24);
-                      return (
-                        <AnnotationMarker key={ann.block_index} top={top} height={height} summary={ann.summary} />
-                      );
-                    })}
+                    {(() => {
+                      let prevBottom = 0;
+                      return pageSummaries[pageNum]?.map((ann) => {
+                        let top = ann.bbox.y0 * annotationScale;
+                        const rawHeight = Math.max((ann.bbox.y1 - ann.bbox.y0) * annotationScale, 24);
+                        // Push down if overlapping with previous annotation
+                        if (top < prevBottom) top = prevBottom;
+                        const height = rawHeight;
+                        prevBottom = top + height;
+                        return (
+                          <AnnotationMarker key={ann.block_index} top={top} height={height} summary={ann.summary} zoomLevel={zoomLevel} />
+                        );
+                      });
+                    })()}
                   </div>
                 )}
               </div>
@@ -1100,7 +1109,7 @@ function SourcesPanel({
                   style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
                   title="Im Viewer öffnen"
                 >
-                  <FileMagnifyingGlass size={13} />
+                  <FileMagnifyingGlass size={17} />
                 </button>
                 {isLecturer && (
                   <div className="relative" data-source-menu>
@@ -1111,7 +1120,7 @@ function SourcesPanel({
                       style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
                       title="Optionen"
                     >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                       </svg>
                     </button>

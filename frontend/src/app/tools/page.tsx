@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   SubtitlesIcon,
@@ -54,13 +55,13 @@ const ALL_TOOLS: Tool[] = [
   { key: "image",         title: "Image",          description: "Bilder erstellen, bearbeiten oder analysieren.", href: "/tools/image" },
   { key: "summary",       title: "Summarize",      description: "Dokumente und Medieninhalte zusammenfassen.", href: "/tools/summarize" },
   { key: "glossary",      title: "Glossary",       description: "Begriffslisten für Übersetzungen und Skripte verwalten.", href: "/tools/glossary" },
-  { key: "ki-tutor",      title: "KI Tutor",       description: "Interaktive Lernmodule mit KI-Chat für Studierende erstellen.", href: "/ki-tutor" },
+  { key: "ki-tutor",      title: "KI Tutor",       description: "Interaktive Lernmodule mit KI-Chat erstellen.", href: "/ki-tutor" },
 ];
 
 function ToolImage({ toolKey, title }: { toolKey: string; title: string }) {
   const cfg = TOOL_CONFIG[toolKey];
   if (cfg?.image) {
-    const containPadding = toolKey === "tts" ? "p-4" : toolKey === "image" ? "p-2" : ["summary", "transcription", "translation", "glossary"].includes(toolKey) ? "p-1" : null;
+    const containPadding = toolKey === "tts" ? "p-4" : toolKey === "image" ? "p-2" : toolKey === "ki-tutor" ? "p-3" : ["summary", "transcription", "translation", "glossary"].includes(toolKey) ? "p-1" : null;
     return (
       <div className="relative w-full h-36 overflow-hidden flex items-center justify-center">
         <Image
@@ -88,6 +89,7 @@ function ToolImage({ toolKey, title }: { toolKey: string; title: string }) {
 }
 
 export default function ToolsPage() {
+  const router = useRouter();
   const [disabledTools, setDisabledTools] = useState<Set<string> | null>(null);
 
   useEffect(() => {
@@ -127,13 +129,13 @@ export default function ToolsPage() {
                 const color = cfg?.color ?? "#7C3AED";
                 const Icon = WORKFLOW_ICONS[wf.key] ?? PresentationChartIcon;
                 return (
-                  <Link
+                  <div
                     key={wf.href}
-                    href={wf.href}
-                    className="group flex flex-col sm:flex-row sm:min-h-40 lg:min-h-45 rounded-xl overflow-hidden transition-all duration-200"
+                    className="group flex flex-col sm:flex-row sm:min-h-40 lg:min-h-45 rounded-xl overflow-hidden transition-all duration-200 cursor-pointer select-text"
                     style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
+                    onClick={(e) => { if (window.getSelection()?.toString()) return; router.push(wf.href); }}
                   >
                     {/* Bild — oben (mobile) / links (desktop) */}
                     <div className="relative h-40 sm:h-auto sm:w-64 sm:self-stretch flex-shrink-0 overflow-hidden">
@@ -163,7 +165,7 @@ export default function ToolsPage() {
                       </div>
                       <p className="text-base" style={{ color: "var(--muted)" }}>{wf.description}</p>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
@@ -207,13 +209,13 @@ export default function ToolsPage() {
                 }
 
                 return (
-                  <Link
+                  <div
                     key={tool.href}
-                    href={tool.href}
-                    className="group block rounded-xl overflow-hidden transition-all duration-200"
+                    className="group block rounded-xl overflow-hidden transition-all duration-200 cursor-pointer select-text"
                     style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
+                    onClick={(e) => { if (window.getSelection()?.toString()) return; router.push(tool.href); }}
                   >
                     <ToolImage toolKey={tool.key} title={tool.title} />
                     <div className="px-4 pt-0 pb-4">
@@ -223,7 +225,7 @@ export default function ToolsPage() {
                       </div>
                       <p className="text-base" style={{ color: "var(--muted)" }}>{tool.description}</p>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

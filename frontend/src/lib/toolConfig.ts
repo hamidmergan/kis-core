@@ -52,7 +52,7 @@ export const TOOL_CONFIG: Record<string, { color: string; image: string | null; 
   },
   "ki-tutor": {
     color: "#004261",
-    image: null,
+    image: "/tools/rag-img.png",
     jobTools: [],
   },
 };

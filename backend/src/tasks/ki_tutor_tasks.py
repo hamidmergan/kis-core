@@ -126,19 +126,40 @@ def run_index_source(self, source_uuid: str):
 
 
 _SUMMARY_SYSTEM = (
-    "You write margin notes for PDF paragraphs. The reader must understand the content without reading the main text.\n"
+    "You are a study assistant writing margin notes for a university PDF reader sidebar.\n"
+    "Each paragraph gets exactly ONE note that helps a student grasp the point without reading the full text.\n\n"
     "Rules:\n"
-    "- Write exactly ONE note per paragraph. Maximum length: 25% of the original character count.\n"
-    "- No full sentences. Use logical groups: Name/Title, core goal, key number or measure.\n"
-    "- No semicolons (;), no em-dashes (—).\n"
-    "- Focus on Key Facts that stick immediately when skimming: names, numbers, goals, measures.\n"
-    "- Keep specific terms and figures exactly as in the source.\n"
-    "- Skip filler (headers only, page numbers, table of contents, footnotes, image captions) — write SKIP.\n"
-    "- Write in {lang}.\n"
+    "- State what the paragraph CLAIMS or SHOWS — always use a verb. Then add the most specific detail "
+    "(number, comparison, name, finding).\n"
+    "- Every note must be a complete thought. NEVER write keyword-only lists.\n"
+    "- Specificity test: if your note could apply to a different paragraph on the same topic, add the "
+    "distinguishing detail.\n"
+    "- Length: 1-2 sentences, max 280 characters. Abbreviations OK.\n"
+    "- Keep numbers, names, abbreviations exactly as in the source.\n"
+    "- Tables: summarize the WHOLE table in one note, not each row.\n"
+    "- Skip filler (headers only, page numbers, TOC, footnotes, captions) — write SKIP.\n"
+    "- Write in {lang}.\n\n"
+    "BAD (keyword list, no verb, too generic):\n"
+    "  'Integration, Qualifizierung, MINT-Defizit'\n"
+    "BAD (could apply to any paragraph about the topic):\n"
+    "  'Herausforderungen internationaler Studierender werden beschrieben'\n\n"
+    "GOOD examples by paragraph type:\n"
+    "- Data/evidence: 'Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. (Bachelor). "
+    "65 % wollen in DE bleiben, tatsächlich schaffen es weniger als 50 %.'\n"
+    "- Claim/argument: 'KIS-Projekt setzt KI und Digitalisierung ein, um Lehre für int. Gruppen "
+    "zu verbessern und Studienerfolgsquote zu erhöhen.'\n"
+    "- Definition: 'Formatives Assessment = bewertungsfreie Lernstandserhebung während des Semesters, "
+    "Gegensatz zu summativ (Klausur).'\n"
+    "- Methodology: 'Mixed-Methods-Design: Online-Befragung (n=1200) + 15 Leitfadeninterviews, "
+    "Auswertung nach Mayring.'\n\n"
     "Output format: one note per line, prefixed with the paragraph number.\n"
-    "1. KI-Tutor TH Lübeck: KI-gestützte Lernhilfe, Zielgruppe int. Studierende, Pilotstart WS 2024\n"
+    "1. KI-Tutor an TH Lübeck unterstützt int. Studierende ab Pilot WS 2024 mit KI-gestützter Lehre.\n"
     "2. SKIP\n"
-    "3. Abbruchquote 49% (int.) vs. 27% (deutsch), Ursachen: Sprache, Finanzen, fehlende Netzwerke\n"
+    "3. Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. Hauptursachen: Finanzen, "
+    "Sprache, fehlende Netzwerke, Admin-Hürden.\n"
+    "4. Innovationsgrad wird nach drei Kriterien bewertet: Neuheit, Transformativität und Adaptivität.\n\n"
+    "Self-check before output: Does each note contain a verb? Does it mention something specific? "
+    "Could a student understand the paragraph's point from this note alone?\n"
     "Do not add any other text."
 )
 
@@ -192,7 +213,7 @@ def run_generate_summaries(self, source_uuid: str):
             batch = paragraphs[i:i + _BATCH]
             user_parts = []
             for j, p in enumerate(batch, 1):
-                user_parts.append(f"{j}. {p['content'][:1500]}")
+                user_parts.append(f"{j}. {p['content'][:2500]}")
 
             for attempt in range(_MAX_RETRIES):
                 try:
@@ -203,7 +224,7 @@ def run_generate_summaries(self, source_uuid: str):
                             {"role": "user", "content": "\n\n".join(user_parts)},
                         ],
                         temperature=0.1,
-                        max_tokens=_BATCH * 150,
+                        max_tokens=_BATCH * 250,
                         timeout=_TIMEOUT,
                         extra_body=extra_body or None,
                     )
@@ -224,6 +245,34 @@ def run_generate_summaries(self, source_uuid: str):
                 "KI Tutor: summarized paragraphs {}-{}/{} for source {}",
                 i + 1, i + len(batch), len(paragraphs), source_uuid,
             )
+
+        # 4b. Retry empty summaries individually
+        _MIN_RETRY_WORDS = 15
+        for idx, (summ, par) in enumerate(zip(all_summaries, paragraphs)):
+            if summ.strip() and summ.strip().upper() != "SKIP":
+                continue
+            if len(par["content"].split()) < _MIN_RETRY_WORDS:
+                continue
+            logger.info("KI Tutor: retrying empty summary for paragraph {} (p{})", idx, par["page_number"])
+            try:
+                retry_resp = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": _SUMMARY_SYSTEM.format(lang=lang)},
+                        {"role": "user", "content": f"1. {par['content'][:2500]}"},
+                    ],
+                    temperature=0.1,
+                    max_tokens=300,
+                    timeout=_TIMEOUT,
+                    extra_body=extra_body or None,
+                )
+                retry_text = retry_resp.choices[0].message.content or ""
+                retry_parsed = _parse_numbered_summaries(retry_text, 1)
+                if retry_parsed[0].strip() and retry_parsed[0].strip().upper() != "SKIP":
+                    all_summaries[idx] = retry_parsed[0]
+                    logger.info("KI Tutor: retry succeeded for paragraph {}: {!r}", idx, retry_parsed[0][:80])
+            except Exception:
+                logger.warning("KI Tutor: retry failed for paragraph {}", idx)
 
         # 5. Save summaries to DB
         db.bulk_create_paragraph_summaries(
