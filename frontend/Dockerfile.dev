@@ -5,4 +5,5 @@ RUN npm ci
 COPY . .
 EXPOSE 3000
 ENV NODE_ENV=development
+ENV NODE_OPTIONS=--max-http-header-size=65536
 CMD ["npm", "run", "dev"]

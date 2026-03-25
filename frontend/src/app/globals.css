@@ -3,6 +3,10 @@
 /* PDF Text Layer — undo Tailwind Preflight damage */
 .react-pdf__Page canvas {
   display: block;
+  user-select: none;
+}
+.react-pdf__Page {
+  user-select: none;
 }
 .react-pdf__Page .textLayer,
 .react-pdf__Page .textLayer * {

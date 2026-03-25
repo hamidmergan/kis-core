@@ -20,13 +20,15 @@ def _detect_language(text: str) -> str:
 
 
 def _parse_numbered_summaries(text: str, expected_count: int) -> list[str]:
-    """Parse '1. summary\\n2. summary\\n...' format."""
-    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
-    result = []
-    for line in lines:
-        m = re.match(r"^\d+[\.)]\s*(.+)$", line)
-        if m:
-            result.append(m.group(1).strip())
+    """Parse '1. summary\\n2. summary\\n...' format.
+
+    Handles multi-line summaries by collecting all text between numbered prefixes.
+    """
+    # Split into numbered sections: "1. ...", "2. ...", etc.
+    parts = re.split(r"(?m)^\s*\d+[\.)]\s*", text.strip())
+    # First element is empty (text before first number) — drop it
+    parts = [p.strip().replace("\n", " ") for p in parts if p.strip()]
+    result = parts[:expected_count]
     while len(result) < expected_count:
         result.append("")
     return result[:expected_count]
@@ -125,47 +127,16 @@ def run_index_source(self, source_uuid: str):
         raise
 
 
-_SUMMARY_SYSTEM = (
-    "You are a study assistant writing margin notes for a university PDF reader sidebar.\n"
-    "Each paragraph gets exactly ONE note that helps a student grasp the point without reading the full text.\n\n"
-    "Rules:\n"
-    "- State what the paragraph CLAIMS or SHOWS — always use a verb. Then add the most specific detail "
-    "(number, comparison, name, finding).\n"
-    "- Every note must be a complete thought. NEVER write keyword-only lists.\n"
-    "- Specificity test: if your note could apply to a different paragraph on the same topic, add the "
-    "distinguishing detail.\n"
-    "- Length: 1-2 sentences, max 280 characters. Abbreviations OK.\n"
-    "- Keep numbers, names, abbreviations exactly as in the source.\n"
-    "- Tables: summarize the WHOLE table in one note, not each row.\n"
-    "- Skip filler (headers only, page numbers, TOC, footnotes, captions) — write SKIP.\n"
-    "- Write in {lang}.\n\n"
-    "BAD (keyword list, no verb, too generic):\n"
-    "  'Integration, Qualifizierung, MINT-Defizit'\n"
-    "BAD (could apply to any paragraph about the topic):\n"
-    "  'Herausforderungen internationaler Studierender werden beschrieben'\n\n"
-    "GOOD examples by paragraph type:\n"
-    "- Data/evidence: 'Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. (Bachelor). "
-    "65 % wollen in DE bleiben, tatsächlich schaffen es weniger als 50 %.'\n"
-    "- Claim/argument: 'KIS-Projekt setzt KI und Digitalisierung ein, um Lehre für int. Gruppen "
-    "zu verbessern und Studienerfolgsquote zu erhöhen.'\n"
-    "- Definition: 'Formatives Assessment = bewertungsfreie Lernstandserhebung während des Semesters, "
-    "Gegensatz zu summativ (Klausur).'\n"
-    "- Methodology: 'Mixed-Methods-Design: Online-Befragung (n=1200) + 15 Leitfadeninterviews, "
-    "Auswertung nach Mayring.'\n\n"
-    "Output format: one note per line, prefixed with the paragraph number.\n"
-    "1. KI-Tutor an TH Lübeck unterstützt int. Studierende ab Pilot WS 2024 mit KI-gestützter Lehre.\n"
-    "2. SKIP\n"
-    "3. Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. Hauptursachen: Finanzen, "
-    "Sprache, fehlende Netzwerke, Admin-Hürden.\n"
-    "4. Innovationsgrad wird nach drei Kriterien bewertet: Neuheit, Transformativität und Adaptivität.\n\n"
-    "Self-check before output: Does each note contain a verb? Does it mention something specific? "
-    "Could a student understand the paragraph's point from this note alone?\n"
-    "Do not add any other text."
+from src.tool_prompts import (
+    TUTOR_SUMMARY_PAGE_SYSTEM_SMALL as _SUMMARY_SYSTEM_SMALL,
+    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    TUTOR_SUMMARY_PAGE_SYSTEM_LARGE as _SUMMARY_SYSTEM_LARGE,
+    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
 )
 
 @celery_app.task(bind=True, name="ki_tutor.generate_summaries", queue="general")
 def run_generate_summaries(self, source_uuid: str):
-    """Generate AI paragraph summaries for a PDF source."""
+    """Generate AI page-level summaries for a PDF source."""
     try:
         source = db.get_ki_tutor_source(source_uuid)
         if source is None:
@@ -175,56 +146,56 @@ def run_generate_summaries(self, source_uuid: str):
             return
 
         db.update_ki_tutor_source_summaries_status(source_uuid, "generating")
-        logger.info("KI Tutor: generating summaries for source {}", source_uuid)
+        logger.info("KI Tutor: generating page summaries for source {}", source_uuid)
 
-        # 1. Extract paragraphs with bounding boxes
+        # 1. Extract text per page
         import os
         suffix = os.path.splitext(source["filename"])[1] or ".pdf"
         with open_input_file(source["file_path"], suffix=suffix) as local_path:
-            from src.services.ki_tutor_chunker import extract_paragraphs_with_bbox
-            paragraphs = extract_paragraphs_with_bbox(local_path)
+            from src.services.ki_tutor_chunker import extract_page_texts
+            pages = extract_page_texts(local_path)
 
-        if not paragraphs:
+        if not pages:
             db.update_ki_tutor_source_summaries_status(source_uuid, "ready")
-            logger.info("KI Tutor: no paragraphs found for {}", source_uuid)
+            logger.info("KI Tutor: no pages with text found for {}", source_uuid)
             return
 
         # 2. Detect language
-        sample = " ".join(p["content"][:200] for p in paragraphs[:3])
+        sample = " ".join(p["content"][:200] for p in pages[:3])
         lang = _detect_language(sample)
 
-        # 3. Build LLM client
+        # 3. Build LLM client + select prompt by provider
         from langfuse.openai import OpenAI
         from src.config import Settings
         s = Settings()
-        client = OpenAI(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, max_retries=0, timeout=30)
+        client = OpenAI(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, max_retries=0, timeout=90)
         model = s.effective_llm_model
-        extra_body = {"think": False} if s.llm_provider == "ollama" else {}
+        is_small = s.llm_provider == "ollama"
+        extra_body = {"think": False} if is_small else {}
 
-        # 4. Generate summaries in batches (with retry on rate limit)
+        # 4. Generate summaries — one page per request for reliable output
         import time as _time
-        # Ollama local: larger batches → fewer LLM calls → faster overall
-        _BATCH = 10 if s.llm_provider == "ollama" else 5
-        # Ollama needs more timeout (slow local hardware); KISSKI is fast
-        _TIMEOUT = 120 if s.llm_provider == "ollama" else 30
+        _TIMEOUT = 120 if is_small else 90
         _MAX_RETRIES = 3
         all_summaries: list[str] = []
-        for i in range(0, len(paragraphs), _BATCH):
-            batch = paragraphs[i:i + _BATCH]
-            user_parts = []
-            for j, p in enumerate(batch, 1):
-                user_parts.append(f"{j}. {p['content'][:2500]}")
+        for i, p in enumerate(pages):
+            if is_small:
+                sys_msg = _SUMMARY_SYSTEM_SMALL
+                user_msg = _SUMMARY_USER_SMALL.format(lang=lang, content=p["content"][:3000])
+            else:
+                sys_msg = _SUMMARY_SYSTEM_LARGE.format(lang=lang)
+                user_msg = _SUMMARY_USER_LARGE.format(content=p["content"][:3000])
 
             for attempt in range(_MAX_RETRIES):
                 try:
                     response = client.chat.completions.create(
                         model=model,
                         messages=[
-                            {"role": "system", "content": _SUMMARY_SYSTEM.format(lang=lang)},
-                            {"role": "user", "content": "\n\n".join(user_parts)},
+                            {"role": "system", "content": sys_msg},
+                            {"role": "user", "content": user_msg},
                         ],
                         temperature=0.1,
-                        max_tokens=_BATCH * 250,
+                        max_tokens=2048 if is_small else 512,
                         timeout=_TIMEOUT,
                         extra_body=extra_body or None,
                     )
@@ -238,60 +209,37 @@ def run_generate_summaries(self, source_uuid: str):
                     else:
                         raise
 
-            answer = response.choices[0].message.content or ""
-            batch_summaries = _parse_numbered_summaries(answer, len(batch))
-            all_summaries.extend(batch_summaries)
+            answer = (response.choices[0].message.content or "").strip()
+            # Strip <think> blocks that qwen3 may emit despite think=False
+            answer = re.sub(r"<think>.*?</think>", "", answer, flags=re.DOTALL).strip()
+            # Strip leading number prefix if model echoes it (e.g. "1. summary")
+            answer = re.sub(r"^\s*\d+[\.)]\s*", "", answer).strip()
+            logger.debug("KI Tutor: page {} summary: {!r}", p["page_number"], answer[:300])
+            all_summaries.append(answer)
             logger.info(
-                "KI Tutor: summarized paragraphs {}-{}/{} for source {}",
-                i + 1, i + len(batch), len(paragraphs), source_uuid,
+                "KI Tutor: summarized page {}/{} for source {}",
+                i + 1, len(pages), source_uuid,
             )
 
-        # 4b. Retry empty summaries individually
-        _MIN_RETRY_WORDS = 15
-        for idx, (summ, par) in enumerate(zip(all_summaries, paragraphs)):
-            if summ.strip() and summ.strip().upper() != "SKIP":
-                continue
-            if len(par["content"].split()) < _MIN_RETRY_WORDS:
-                continue
-            logger.info("KI Tutor: retrying empty summary for paragraph {} (p{})", idx, par["page_number"])
-            try:
-                retry_resp = client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": _SUMMARY_SYSTEM.format(lang=lang)},
-                        {"role": "user", "content": f"1. {par['content'][:2500]}"},
-                    ],
-                    temperature=0.1,
-                    max_tokens=300,
-                    timeout=_TIMEOUT,
-                    extra_body=extra_body or None,
-                )
-                retry_text = retry_resp.choices[0].message.content or ""
-                retry_parsed = _parse_numbered_summaries(retry_text, 1)
-                if retry_parsed[0].strip() and retry_parsed[0].strip().upper() != "SKIP":
-                    all_summaries[idx] = retry_parsed[0]
-                    logger.info("KI Tutor: retry succeeded for paragraph {}: {!r}", idx, retry_parsed[0][:80])
-            except Exception:
-                logger.warning("KI Tutor: retry failed for paragraph {}", idx)
-
-        # 5. Save summaries to DB
+        # 5. Save summaries to DB (block_index=0, bbox=full page placeholder)
         db.bulk_create_paragraph_summaries(
             source_id=source["id"],
             summaries=[
                 {
                     "page_number": p["page_number"],
-                    "block_index": p["block_index"],
-                    "bbox": p["bbox"],
-                    "content": p["content"],
+                    "block_index": 0,
+                    "bbox": {"x0": 0, "y0": 0, "x1": 0, "y1": 0},
+                    "content": p["content"][:500],
                     "summary": s,
                 }
-                for p, s in zip(paragraphs, all_summaries)
+                for p, s in zip(pages, all_summaries)
+                if s.strip() and s.strip().upper() != "SKIP"
             ],
         )
 
         # 6. Done
         db.update_ki_tutor_source_summaries_status(source_uuid, "ready")
-        logger.info("KI Tutor: summaries ready for source {} ({} paragraphs)", source_uuid, len(paragraphs))
+        logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
 
     except Exception as e:
         err_str = str(e)

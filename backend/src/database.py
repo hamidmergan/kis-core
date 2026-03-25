@@ -1529,6 +1529,16 @@ def bulk_create_paragraph_summaries(source_id: int, summaries: list[dict]) -> No
         conn.commit()
 
 
+def delete_paragraph_summaries_by_source(source_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ki_tutor_paragraph_summaries WHERE source_id = %s",
+                (source_id,),
+            )
+        conn.commit()
+
+
 def get_paragraph_summaries_by_source(source_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:

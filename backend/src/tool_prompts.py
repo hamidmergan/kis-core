@@ -110,21 +110,47 @@ TUTOR_SYSTEM_RAG = (
 # Jede Aktion hat einen Schlüssel (key), ein Label für die UI und den Prompt.
 # Der markierte Text wird zur Laufzeit vom Frontend angehängt.
 
+# ── KI-Tutor: Seitenzusammenfassungen (kleine Modelle, z.B. Ollama) ────────
+TUTOR_SUMMARY_PAGE_SYSTEM_SMALL = (
+    "You summarize university lecture pages. "
+    "Reply with ONLY the summary, nothing else."
+)
+
+TUTOR_SUMMARY_PAGE_USER_SMALL = (
+    "/no_think\n"
+    "Fasse diese Seite in 2-3 Sätzen auf {lang} zusammen. "
+    "Nenne konkrete Details wie Zahlen, Namen und Ergebnisse.\n\n"
+    "{content}"
+)
+
+# ── KI-Tutor: Seitenzusammenfassungen (große Modelle, z.B. KISSKI) ────────
+TUTOR_SUMMARY_PAGE_SYSTEM_LARGE = (
+    "You are a precision summarizer for university lecture pages.\n"
+    "Your summaries appear as margin notes — students read them INSTEAD of the full page.\n\n"
+    "RULES:\n"
+    "- 2-3 sentences, max 400 characters.\n"
+    "- Pack maximum specific information: numbers, percentages, names, findings, comparisons.\n"
+    "- Every word must earn its place — no filler ('this page discusses', 'an overview of').\n"
+    "- Use active verbs. Never write keyword-only lists.\n"
+    "- Preserve exact numbers, names, and abbreviations from the source.\n"
+    "- Write in {lang}.\n\n"
+    "FORBIDDEN — output will be rejected if you:\n"
+    "- Add commentary, greetings, explanations, or meta-text.\n"
+    "- Offer help or ask questions.\n"
+    "- Use markdown formatting (no **, no ##, no bullet points).\n"
+    "- Write anything other than the summary itself.\n\n"
+    "GOOD:\n"
+    "Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. (Bachelor). "
+    "65 % wollen nach Studium in DE bleiben, unter 50 % schaffen es. "
+    "Hauptursachen: Finanzen, Sprache, fehlende Netzwerke.\n\n"
+    "BAD (too generic, no specifics):\n"
+    "Herausforderungen internationaler Studierender werden beschrieben."
+)
+
+TUTOR_SUMMARY_PAGE_USER_LARGE = "Summarize this page:\n\n{content}"
+
+
 TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [
-    {
-        "key": "rephrase",
-        "label": "Umformulieren",
-        "icon": "ArrowsCounterClockwise",
-        "prompt": "Formuliere diese Textstelle in anderen Worten um, verständlich für Studierende:",
-        "min_words": 3,
-    },
-    {
-        "key": "shorten",
-        "label": "Kürzen",
-        "icon": "Scissors",
-        "prompt": "Kürze diesen Text auf das Wesentliche. Antworte nur mit dem gekürzten Text, ohne Erklärungen:",
-        "min_words": 10,
-    },
     {
         "key": "elaborate",
         "label": "Genauer ausführen",
@@ -136,15 +162,15 @@ TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [
         "key": "summarize",
         "label": "Zusammenfassung",
         "icon": "BookOpenText",
-        "prompt": "Fasse diese Textstelle kompakt zusammen und hebe die Kernaussagen hervor:",
-        "min_words": 15,
+        "prompt": "Fasse diese Textstelle kompakt zusammen, kürze auf das Wesentliche und hebe die Kernaussagen hervor:",
+        "min_words": 10,
     },
     {
         "key": "bullets",
         "label": "Stichpunkte",
         "icon": "ListBullets",
         "prompt": "Wandle diese Textstelle in prägnante Stichpunkte um:",
-        "min_words": 10,
+        "min_words": 5,
     },
     {
         "key": "simplify",

@@ -15,6 +15,10 @@ from src.tool_prompts import (
     TUTOR_SYSTEM_DIRECT as _PROMPT_TUTOR_SYSTEM_DIRECT,
     TUTOR_SYSTEM_RAG as _PROMPT_TUTOR_SYSTEM_RAG,
     TUTOR_POPUP_ACTIONS as _TUTOR_POPUP_ACTIONS,
+    TUTOR_SUMMARY_PAGE_SYSTEM_SMALL as _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM_SMALL,
+    TUTOR_SUMMARY_PAGE_USER_SMALL as _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
+    TUTOR_SUMMARY_PAGE_SYSTEM_LARGE as _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM_LARGE,
+    TUTOR_SUMMARY_PAGE_USER_LARGE as _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
 )
 from src.celery_app import celery_app
 from src.dependencies import get_admin_user, get_current_user
@@ -88,6 +92,34 @@ _PROMPT_REGISTRY = [
         "description": "System-Prompt für den KI-Tutor-Chat mit Quellensuche (RAG). Steuert Quellenangaben und Halluzinationsverbot.",
         "editable": False,
         "default": _PROMPT_TUTOR_SYSTEM_RAG,
+    },
+    {
+        "key": "prompt_tutor_summary_page_system_small",
+        "label": "KI-Tutor: Seitenzusammenfassung System (kleine Modelle)",
+        "description": "System-Prompt für Seitenzusammenfassungen mit kleinen LLMs (z.B. Ollama qwen3:8b).",
+        "editable": False,
+        "default": _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM_SMALL,
+    },
+    {
+        "key": "prompt_tutor_summary_page_user_small",
+        "label": "KI-Tutor: Seitenzusammenfassung User (kleine Modelle)",
+        "description": "User-Prompt mit Platzhaltern {lang} und {content}. Enthält /no_think für qwen3.",
+        "editable": False,
+        "default": _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
+    },
+    {
+        "key": "prompt_tutor_summary_page_system_large",
+        "label": "KI-Tutor: Seitenzusammenfassung System (große Modelle)",
+        "description": "System-Prompt für Seitenzusammenfassungen mit großen LLMs (z.B. KISSKI qwen3-235b). Platzhalter {lang}.",
+        "editable": False,
+        "default": _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM_LARGE,
+    },
+    {
+        "key": "prompt_tutor_summary_page_user_large",
+        "label": "KI-Tutor: Seitenzusammenfassung User (große Modelle)",
+        "description": "User-Prompt für große Modelle. Platzhalter {content}.",
+        "editable": False,
+        "default": _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
     },
     *[
         {

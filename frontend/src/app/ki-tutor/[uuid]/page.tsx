@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import { useParams, useRouter } from "next/navigation";
 import {
   FileMagnifyingGlass,
@@ -178,54 +180,6 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: Ico
   Lightbulb,
 };
 
-function AnnotationMarker({ top, height, summary, zoomLevel = 1 }: { top: number; height: number; summary: string; zoomLevel?: number }) {
-  if (!summary || summary.trim().toUpperCase() === "SKIP") return null;
-  const baseFontSize = 8;
-  const fontSize = baseFontSize * Math.max(zoomLevel, 0.75);
-  const lineH = fontSize * 1.3;
-  const maxLines = Math.max(Math.floor(height / lineH), 1);
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top,
-        left: 4,
-        right: 0,
-        height,
-        display: "flex",
-        gap: 6,
-        overflow: "hidden",
-      }}
-    >
-      {/* Vertical bar spanning the full paragraph height */}
-      <div style={{ width: 2, height: "100%", backgroundColor: "rgba(0,66,97,0.25)", borderRadius: 1, flexShrink: 0 }} />
-      {/* Label centered vertically */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          overflow: "hidden",
-          maxHeight: "100%",
-        }}
-      >
-        <div
-          style={{
-            fontSize,
-            lineHeight: 1.3,
-            color: "#7A9BAD",
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: maxLines,
-            WebkitBoxOrient: "vertical" as const,
-          }}
-          title={summary}
-        >
-          {summary}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function PdfViewer({
   source, onClose, moduleUuid, onAskWithSelection, popupActions, onMinimize,
@@ -260,7 +214,10 @@ function PdfViewer({
   const [tocEntries, setTocEntries] = useState<Array<{ level: number; title: string; page: number }>>([]);
   const [tocLoaded, setTocLoaded] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(false);
-  const [pageSummaries, setPageSummaries] = useState<Record<number, Array<{ block_index: number; bbox: { x0: number; y0: number; x1: number; y1: number }; summary: string }>>>({});
+  const [mdMode, setMdMode] = useState(false);
+  const [mdContent, setMdContent] = useState<string | null>(null);
+  const [mdLoading, setMdLoading] = useState(false);
+  const [pageSummaries, setPageSummaries] = useState<Record<number, string>>({});
   const [summariesStatus, setSummariesStatus] = useState<string>("none");
   const [summariesLoaded, setSummariesLoaded] = useState(false);
   const isScrollingRef = useRef(false);
@@ -390,9 +347,9 @@ function PdfViewer({
           const data = await res.json();
           setSummariesStatus(data.status);
           if (data.status === "ready") {
-            const pages: Record<number, Array<{ block_index: number; bbox: { x0: number; y0: number; x1: number; y1: number }; summary: string }>> = {};
+            const pages: Record<number, string> = {};
             for (const [k, v] of Object.entries(data.pages)) {
-              pages[Number(k)] = v as typeof pages[number];
+              pages[Number(k)] = v as string;
             }
             setPageSummaries(pages);
             setSummariesLoaded(true);
@@ -421,7 +378,6 @@ function PdfViewer({
     ? Math.min(pdfAvailableWidth, containerHeight * pdfPageRatio)
     : pdfAvailableWidth;
   const renderWidth = Math.max(fitWidth * zoomLevel, 1);
-  const annotationScale = renderWidth / pdfOriginalWidth;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -506,13 +462,25 @@ function PdfViewer({
     if (!el) return;
     function onMouseUp() {
       setTimeout(() => {
-        const sel = window.getSelection();
-        const text = sel?.toString().trim() ?? "";
-        if (text.length > 5) {
-          const range = sel!.getRangeAt(0).getBoundingClientRect();
-          const cont = containerRef.current!.getBoundingClientRect();
-          setSelectionPopup({ x: range.left - cont.left + range.width / 2, y: range.top - cont.top - 8, bottomY: range.bottom - cont.top + 8, text });
-        } else {
+        try {
+          const sel = window.getSelection();
+          const text = sel?.toString().trim() ?? "";
+          if (text.length > 5 && sel!.rangeCount > 0) {
+            // Clamp selection to text layer content only
+            const anchor = sel!.anchorNode;
+            if (!anchor?.parentElement?.closest(".textLayer")) { setSelectionPopup(null); return; }
+            const rng = sel!.getRangeAt(0);
+            const rects = rng.getClientRects();
+            // Filter to rects inside text layer elements only
+            const textRects = Array.from(rects).filter(r => r.width > 0 && r.height > 0);
+            const rect = textRects.length > 0 ? textRects[textRects.length - 1] : rng.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) { setSelectionPopup(null); return; }
+            const cont = containerRef.current!.getBoundingClientRect();
+            setSelectionPopup({ x: rect.left - cont.left + rect.width / 2, y: rect.top - cont.top - 8, bottomY: rect.bottom - cont.top + 8, text });
+          } else {
+            setSelectionPopup(null);
+          }
+        } catch {
           setSelectionPopup(null);
         }
       }, 10);
@@ -523,9 +491,11 @@ function PdfViewer({
       setSelectionPopup(null);
       CSS.highlights?.delete("pill-highlight");
     }
+    function onScroll() { setSelectionPopup(null); CSS.highlights?.delete("pill-highlight"); }
     el.addEventListener("mouseup", onMouseUp);
-    el.addEventListener("mousedown", onMouseDown);
-    return () => { el.removeEventListener("mouseup", onMouseUp); el.removeEventListener("mousedown", onMouseDown); };
+    el.addEventListener("scroll", onScroll, true);
+    document.addEventListener("mousedown", onMouseDown);
+    return () => { el.removeEventListener("mouseup", onMouseUp); el.removeEventListener("scroll", onScroll, true); document.removeEventListener("mousedown", onMouseDown); };
   }, []);
 
   async function runSearch(q: string, goToIdx = 0) {
@@ -674,6 +644,26 @@ function PdfViewer({
         </button>
         <button
           type="button"
+          onClick={() => {
+            if (!mdMode && mdContent === null) {
+              setMdLoading(true);
+              fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/markdown`)
+                .then((r) => r.json())
+                .then((d) => { setMdContent(d.markdown ?? ""); setMdLoading(false); })
+                .catch(() => { setMdContent("_Fehler beim Laden._"); setMdLoading(false); });
+            }
+            setMdMode((v) => !v);
+          }}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+          style={{ backgroundColor: mdMode ? "#004261" : "var(--border)" }}
+          title="Markdown-Ansicht"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={mdMode ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 6h16M4 10h10M4 14h12M4 18h8" />
+          </svg>
+        </button>
+        <button
+          type="button"
           onClick={() => setZoomLevel((z) => { const v = Math.max(0.5, +(z - 0.25).toFixed(2)); sessionStorage.setItem("pdf-zoom", String(v)); return v; })}
           disabled={zoomLevel <= 0.5}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity disabled:opacity-30"
@@ -779,7 +769,37 @@ function PdfViewer({
         </div>
       )}
 
-      <div ref={scrollContainerRef} className="flex-1 p-4" style={{ overflowY: "auto", overflowX: (zoomLevel > 1 || hasAnnotations) ? "auto" : "hidden" }}>
+      {mdMode && (
+        <div className="flex-1 p-6 overflow-y-auto" style={{ color: "var(--text)", fontSize: 14, lineHeight: 1.7 }}>
+          {mdLoading ? (
+            <div className="flex items-center justify-center h-full gap-2" style={{ color: "var(--muted)" }}>
+              <span className="inline-block h-4 w-4 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: "#004261", borderRightColor: "#004261" }} />
+              Wird konvertiert…
+            </div>
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeRaw]}
+              components={{
+                h1: ({ children }) => <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12, color: "var(--text)" }}>{children}</h1>,
+                h2: ({ children }) => <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 10, marginTop: 20, color: "var(--text)" }}>{children}</h2>,
+                h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, marginTop: 16, color: "var(--text)" }}>{children}</h3>,
+                p: ({ children }) => <p style={{ marginBottom: 10 }}>{children}</p>,
+                table: ({ children }) => <table style={{ borderCollapse: "collapse", width: "100%", marginBottom: 12, fontSize: 13 }}>{children}</table>,
+                th: ({ children }) => <th style={{ border: "1px solid var(--border)", padding: "4px 8px", backgroundColor: "var(--surface)", textAlign: "left" }}>{children}</th>,
+                td: ({ children }) => <td style={{ border: "1px solid var(--border)", padding: "4px 8px" }}>{children}</td>,
+                img: ({ src, alt }) => <img src={src} alt={alt ?? ""} style={{ maxWidth: "100%", borderRadius: 4, marginBlock: 8 }} />,
+                hr: () => <hr style={{ border: "none", borderTop: "1px solid var(--border)", marginBlock: 16 }} />,
+                code: ({ children }) => <code style={{ backgroundColor: "var(--surface)", padding: "1px 4px", borderRadius: 3, fontSize: 12, fontFamily: "monospace" }}>{children}</code>,
+              }}
+            >
+              {mdContent ?? ""}
+            </ReactMarkdown>
+          )}
+        </div>
+      )}
+
+      <div ref={scrollContainerRef} className="flex-1 p-4" style={{ display: mdMode ? "none" : undefined, overflowY: "auto", overflowX: (zoomLevel > 1 || hasAnnotations) ? "auto" : "hidden" }}>
         {containerWidth > 0 && containerHeight > 0 && (
           <div style={{ width: renderWidth + (hasAnnotations ? annotationColumnWidth + 12 : 0), margin: "0 auto" }}>
           <Document
@@ -842,12 +862,12 @@ function PdfViewer({
                         alignItems: "center",
                         gap: 6,
                       }}>
-                        ⚠ KI-API Limit erreicht. Bitte später erneut versuchen.
+                        KI-API Limit erreicht. Bitte später erneut versuchen.
                       </div>
                     )}
-                    {pageNum === 1 && summariesStatus === "none" && (
+                    {pageNum === 1 && !isGenerating && (
                       <div style={{ padding: "12px 8px", fontSize: 11, color: "#7A9BAD" }}>
-                        <div style={{ marginBottom: 8 }}>Noch keine Zusammenfassungen.</div>
+                        {summariesStatus === "none" && <div style={{ marginBottom: 8 }}>Noch keine Zusammenfassungen.</div>}
                         <button
                           onClick={async () => {
                             setSummariesStatus("generating");
@@ -861,36 +881,30 @@ function PdfViewer({
                             background: "transparent", color: "#7A9BAD", cursor: "pointer",
                           }}
                         >
-                          Erstellen
+                          {summariesStatus === "none" ? "Erstellen" : "Neu erstellen"}
                         </button>
                       </div>
                     )}
                     {pageNum === 1 && summariesStatus === "failed" && (
                       <div style={{
-                        padding: "12px 8px",
+                        padding: "0 8px 4px",
                         fontSize: 11,
                         color: "#C44040",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
                       }}>
-                        Zusammenfassungen konnten nicht erstellt werden.
+                        Letzte Generierung fehlgeschlagen.
                       </div>
                     )}
-                    {(() => {
-                      let prevBottom = 0;
-                      return pageSummaries[pageNum]?.map((ann) => {
-                        let top = ann.bbox.y0 * annotationScale;
-                        const rawHeight = Math.max((ann.bbox.y1 - ann.bbox.y0) * annotationScale, 24);
-                        // Push down if overlapping with previous annotation
-                        if (top < prevBottom) top = prevBottom;
-                        const height = rawHeight;
-                        prevBottom = top + height;
-                        return (
-                          <AnnotationMarker key={ann.block_index} top={top} height={height} summary={ann.summary} zoomLevel={zoomLevel} />
-                        );
-                      });
-                    })()}
+                    {pageSummaries[pageNum] && (
+                      <div style={{
+                        padding: "12px 8px",
+                        fontSize: Math.max(8 * zoomLevel, 7),
+                        lineHeight: 1.4,
+                        color: "#7A9BAD",
+                      }}>
+                        <div style={{ width: 2, height: "100%", position: "absolute", left: 0, top: 0, backgroundColor: "rgba(0,66,97,0.25)", borderRadius: 1 }} />
+                        <div style={{ paddingLeft: 8 }}>{pageSummaries[pageNum]}</div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

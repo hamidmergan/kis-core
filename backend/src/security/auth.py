@@ -23,4 +23,3 @@ async def verify_auth(request: Request):
             return
 
     raise HTTPException(status_code=401, detail="Nicht authentifiziert")
-

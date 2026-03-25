@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
-from src.storage import USE_S3, delete_file, get_file, save_file
+from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS
 
 router = APIRouter(tags=["ki-tutor"])
@@ -507,7 +507,7 @@ async def get_paragraph_summaries(
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Return paragraph summaries with bounding boxes for annotation rendering."""
+    """Return page-level summaries for the sidebar."""
     user_id = current_user["user_id"]
     module = db.get_ki_tutor_module(module_uuid)
     if not module:
@@ -524,16 +524,9 @@ async def get_paragraph_summaries(
 
     summaries = db.get_paragraph_summaries_by_source(source["id"])
 
-    by_page: dict[int, list] = {}
+    by_page: dict[int, str] = {}
     for s in summaries:
-        page = s["page_number"]
-        if page not in by_page:
-            by_page[page] = []
-        by_page[page].append({
-            "block_index": s["block_index"],
-            "bbox": {"x0": s["bbox_x0"], "y0": s["bbox_y0"], "x1": s["bbox_x1"], "y1": s["bbox_y1"]},
-            "summary": s["summary"],
-        })
+        by_page[s["page_number"]] = s["summary"]
 
     return {
         "status": source.get("summaries_status", "none"),
@@ -564,6 +557,10 @@ async def trigger_paragraph_summaries(
     status = source.get("summaries_status", "none")
     if status == "generating":
         return {"status": "generating"}
+
+    # Delete old summaries so regeneration starts fresh
+    db.delete_paragraph_summaries_by_source(source["id"])
+    db.update_ki_tutor_source_summaries_status(source_uuid, "generating")
 
     from src.tasks.ki_tutor_tasks import run_generate_summaries
     run_generate_summaries.delay(source_uuid)
@@ -599,8 +596,9 @@ async def search_pdf(
     import re
     import unicodedata
 
-    # Normalize: NFKC (expands ligatures), remove line-break hyphens only, collapse whitespace
-    q_clean = unicodedata.normalize("NFKC", q)
+    # Strip superscript/subscript chars BEFORE NFKC (which would convert ² → 2)
+    q_clean = re.sub(r'[\u00B9\u00B2\u00B3\u2070-\u209F\u2080-\u208E]', '', q)
+    q_clean = unicodedata.normalize("NFKC", q_clean)
     q_clean = re.sub(r"-\r?\n\s*", "", q_clean)  # only line-break hyphens: "Lö-\nsungsansatz" → "Lösungsansatz"
     q_clean = re.sub(r"\s+", " ", q_clean).strip()
 
@@ -645,6 +643,141 @@ async def search_pdf(
 
     doc.close()
     return {"matches": matches, "page_width": page_width, "page_height": page_height}
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/markdown")
+async def convert_source_to_markdown(
+    module_uuid: str,
+    source_uuid: str,
+    force: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    """Convert a PDF source to Markdown via KISSKI Docling API.
+
+    Before sending to Docling the PDF is pre-processed with PyMuPDF: any invisible
+    OCR text layer that lies on top of rasterised image blocks is redacted so that
+    Docling never sees it.  Images from the Docling response are saved to storage
+    and referenced as proper URLs in the returned Markdown.
+    """
+    import httpx
+    import re
+    from src.config import Settings
+
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source = db.get_ki_tutor_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+
+    ext = Path(source["filename"]).suffix.lower()
+    if ext != ".pdf":
+        raise HTTPException(status_code=400, detail="Nur für PDF-Dateien verfügbar")
+
+    md_path = str(Path(source["file_path"]).with_suffix(".md"))
+
+    if not force and file_exists(md_path):
+        cached = get_file(md_path).decode("utf-8")
+        return {"markdown": cached}
+
+    data = get_file(source["file_path"])
+
+    # Strip OCR text layers that lie inside image regions before sending to Docling
+    clean_pdf = _strip_image_text_layer(data)
+
+    s = Settings()
+    if not s.kisski_api_key:
+        raise HTTPException(status_code=500, detail="KISSKI API Key nicht konfiguriert")
+
+    base_url = s.kisski_base_url.rstrip("/")
+    convert_url = f"{base_url}/documents/convert?do_ocr=false&extract_tables_as_images=false"
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                convert_url,
+                headers={"Authorization": f"Bearer {s.kisski_api_key}", "accept": "application/json"},
+                files={"document": (source["filename"], clean_pdf, "application/pdf")},
+            )
+        response.raise_for_status()
+        result = response.json()
+    except httpx.HTTPStatusError as e:
+        logger.warning("KISSKI Docling API Fehler {}: {} — Fallback auf PyMuPDF", e.response.status_code, e.response.text)
+        return _markdown_fallback(data)
+    except Exception as e:
+        logger.warning("KISSKI Docling API nicht erreichbar: {} — Fallback auf PyMuPDF", e)
+        return _markdown_fallback(data)
+
+    markdown: str = result.get("markdown", "")
+    logger.info("Docling response: markdown_len={}", len(markdown))
+
+    if USE_S3:
+        from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
+        _s3().put_object(Bucket=_S3_BUCKET, Key=md_path, Body=markdown.encode("utf-8"))
+    else:
+        Path(md_path).write_text(markdown, encoding="utf-8")
+
+    return {"markdown": markdown}
+
+
+
+
+
+def _strip_image_text_layer(pdf_bytes: bytes) -> bytes:
+    """Remove invisible OCR text layers that lie on top of rasterised image blocks.
+
+    PDFs processed by OCR tools often contain a text layer positioned directly
+    over image regions.  This text is technically selectable but visually hidden
+    beneath the image.  Docling reads it as regular document text.
+
+    We identify image block regions (type=1 in PyMuPDF's page dict), add a redaction
+    annotation over each one, and apply redactions with text removal only — the image
+    pixels are preserved.  The cleaned PDF bytes are returned for sending to Docling.
+    """
+    import fitz
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    redacted = False
+    for page_num, page in enumerate(doc, start=1):
+        page_dict = page.get_text("dict")
+        image_rects = [
+            fitz.Rect(block["bbox"])
+            for block in page_dict["blocks"]
+            if block["type"] == 1
+        ]
+        if image_rects:
+            logger.info("_strip_image_text_layer p{}: {} image regions found", page_num, len(image_rects))
+        for rect in image_rects:
+            page.add_redact_annot(rect)
+            redacted = True
+        if image_rects:
+            # images=PDF_REDACT_IMAGE_NONE keeps the image pixels, only text is removed
+            page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+    result_bytes = doc.tobytes() if redacted else pdf_bytes
+    doc.close()
+    if not redacted:
+        logger.info("_strip_image_text_layer: no image regions found in PDF, sending as-is")
+    return result_bytes
+
+
+def _markdown_fallback(pdf_bytes: bytes) -> dict:
+    """Fallback: extract plain text from PDF via PyMuPDF, skipping image regions."""
+    import fitz
+    clean = _strip_image_text_layer(pdf_bytes)
+    doc = fitz.open(stream=clean, filetype="pdf")
+    pages = []
+    for i, page in enumerate(doc, start=1):
+        text = page.get_text().strip()
+        if text:
+            pages.append(f"## Seite {i}\n\n{text}")
+    doc.close()
+    return {"markdown": "\n\n---\n\n".join(pages) or "_Kein lesbarer Text gefunden._"}
 
 
 @router.get("/ki-tutor/modules/{module_uuid}/messages")
