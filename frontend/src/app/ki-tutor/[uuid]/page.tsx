@@ -35,14 +35,7 @@ import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { checkAuthStatus } from "@/lib/auth";
 import type { AuthStatus } from "@/types";
-import { Document, Page as PdfPage, pdfjs } from "react-pdf";
-import "react-pdf/dist/Page/TextLayer.css";
-import "react-pdf/dist/Page/AnnotationLayer.css";
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,6 +173,16 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: Ico
   Lightbulb,
 };
 
+// Map Phosphor icon names → EmbedPDF built-in icon names
+const EMBEDPDF_ICON_MAP: Record<string, string> = {
+  Lightbulb: "info",
+  ArrowsCounterClockwise: "arrowBackUp",
+  Scissors: "redact",
+  MagnifyingGlassPlus: "search",
+  BookOpenText: "file",
+  ListBullets: "listTree",
+};
+
 
 function PdfViewer({
   source, onClose, moduleUuid, onAskWithSelection, popupActions, onMinimize,
@@ -191,129 +194,30 @@ function PdfViewer({
   popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
   onMinimize?: () => void;
 }) {
-  const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(source.page);
-  const [pageInput, setPageInput] = useState<string | null>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(0);
-  const [pdfPageRatio, setPdfPageRatio] = useState(595 / 842); // width/height, A4 default
-  const [pdfOriginalWidth, setPdfOriginalWidth] = useState(595); // original PDF page width in points
-  const [zoomLevel, setZoomLevel] = useState(() => {
-    const saved = sessionStorage.getItem("pdf-zoom");
-    return saved ? parseFloat(saved) : 1;
-  });
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchMatches, setSearchMatches] = useState<Array<{ page: number; rects: { x0: number; y0: number; x1: number; y1: number }[] }>>([]);
-  const [searchPdfSize, setSearchPdfSize] = useState({ w: 595, h: 842 });
-  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchOverlaysByPage, setSearchOverlaysByPage] = useState<Map<number, Array<{ x: number; y: number; w: number; h: number; active: boolean }>>>(new Map());
-  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; bottomY: number; text: string; page: number } | null>(null);
   const [showToc, setShowToc] = useState(false);
   const [tocEntries, setTocEntries] = useState<Array<{ level: number; title: string; page: number }>>([]);
   const [tocLoaded, setTocLoaded] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(false);
-  const [mdMode, setMdMode] = useState(false);
-  const [mdContent, setMdContent] = useState<string | null>(null);
-  const [mdLoading, setMdLoading] = useState(false);
   const [pageSummaries, setPageSummaries] = useState<Record<number, string>>({});
   const [summariesStatus, setSummariesStatus] = useState<string>("none");
   const [summariesLoaded, setSummariesLoaded] = useState(false);
-  const isScrollingRef = useRef(false);
-  const pageRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
-
+  const [mdMode, setMdMode] = useState(false);
+  const [mdContent, setMdContent] = useState<string | null>(null);
+  const [mdLoading, setMdLoading] = useState(false);
+  const viewerRef = useRef<PDFViewerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Scroll to a specific page
-  function scrollToPage(p: number) {
-    const el = pageRefsMap.current.get(p);
-    if (el && scrollContainerRef.current) {
-      isScrollingRef.current = true;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      setPage(p);
-      setTimeout(() => { isScrollingRef.current = false; }, 600);
-    } else {
-      setPage(p);
-    }
-  }
-
-  // Sync page + highlight when source changes (e.g. pill click)
-  useEffect(() => {
-    if (source.nonce == null) return;
-    CSS.highlights?.delete("pill-highlight");
-
-    // Normalize: lowercase, strip ALL digits + punctuation + whitespace (digits removed to handle footnote markers like ¹ or "Fächer1")
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-züöäßéèêëàâáãåæçðñõøùûúýþÿœ]/g, "");
-    const needle = source.highlightText ? norm(source.highlightText) : "";
-    const searchKey = needle.length >= 3 ? needle.slice(0, Math.min(60, needle.length)) : "";
-
-    function tryScrollAndHighlight(): boolean {
-      const pageEl = pageRefsMap.current.get(source.page);
-      if (!pageEl) return false; // page not rendered yet
-
-      // If we have text to highlight, try to find it
-      if (searchKey && CSS.highlights) {
-        CSS.highlights.delete("pill-highlight");
-        const textLayer = pageEl.querySelector(".textLayer");
-        if (!textLayer) return false; // text layer not ready
-        const spans = Array.from(textLayer.querySelectorAll('span[role="presentation"]'));
-        if (spans.length === 0) return false;
-
-        const infos: { span: Element; start: number; len: number }[] = [];
-        let pos = 0;
-        for (const span of spans) {
-          const n = norm(span.textContent ?? "");
-          infos.push({ span, start: pos, len: n.length });
-          pos += n.length;
-        }
-        const fullNorm = infos.map((i) => norm(i.span.textContent ?? "")).join("");
-        const matchIdx = fullNorm.indexOf(searchKey);
-        if (matchIdx === -1) {
-          // Text not found — just jump to page
-          pageEl.scrollIntoView({ behavior: "instant", block: "start" });
-          return true;
-        }
-        const matchEnd = matchIdx + needle.length;
-
-        const ranges: Range[] = [];
-        let firstMatchSpan: Element | null = null;
-        for (const info of infos) {
-          const sEnd = info.start + info.len;
-          if (sEnd > matchIdx && info.start < matchEnd) {
-            if (!firstMatchSpan) firstMatchSpan = info.span;
-            const range = new Range();
-            range.selectNodeContents(info.span);
-            ranges.push(range);
-          }
-        }
-        if (ranges.length > 0) {
-          CSS.highlights.set("pill-highlight", new Highlight(...ranges));
-          // Jump to the highlighted text, not the page top
-          if (firstMatchSpan) {
-            (firstMatchSpan as HTMLElement).scrollIntoView({ behavior: "instant", block: "center" });
-          }
-          return true;
-        }
-      }
-
-      // No highlight text — just jump to page
-      pageEl.scrollIntoView({ behavior: "instant", block: "start" });
-      return true;
-    }
-
-    // Retry until page + text layer are rendered (PDF may still be loading)
-    let attempts = 0;
-    const iv = setInterval(() => {
-      attempts++;
-      if (tryScrollAndHighlight() || attempts >= 20) clearInterval(iv);
-    }, 300);
-    // Also try immediately
-    tryScrollAndHighlight();
-    return () => { clearInterval(iv); CSS.highlights?.delete("pill-highlight"); };
-  }, [source.nonce]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registryRef = useRef<any>(null);
+  const sourcePageRef = useRef(source.page);
+  sourcePageRef.current = source.page;
+  // Stable refs so command actions always have latest values without re-initializing EmbedPDF
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+  const onAskWithSelectionRef = useRef(onAskWithSelection);
+  onAskWithSelectionRef.current = onAskWithSelection;
+  const popupActionsRef = useRef(popupActions);
+  popupActionsRef.current = popupActions;
 
   // Fetch TOC on mount
   useEffect(() => {
@@ -323,38 +227,34 @@ function PdfViewer({
         const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/toc`);
         if (res.ok) {
           const data = await res.json();
-          console.log("[toc] response:", data.toc?.length, "entries", data.toc?.slice(0, 3));
           setTocEntries(data.toc ?? []);
-        } else {
-          console.log("[toc] fetch failed:", res.status);
         }
-      } catch (e) { console.log("[toc] error:", e); } finally {
+      } catch { /* ignore */ } finally {
         setTocLoaded(true);
       }
     })();
   }, [moduleUuid, source.uuid, tocLoaded]);
 
-  // Lazy-fetch paragraph summaries when toggle is activated, poll while generating
+  // Lazy-fetch summaries when toggle is activated, poll while generating
   useEffect(() => {
     if (!showAnnotations) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-
     const fetchSummaries = async () => {
       try {
-        const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/summaries`, { credentials: "include" });
+        const res = await fetch(
+          `/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/summaries`,
+          { credentials: "include" },
+        );
         if (res.ok && !cancelled) {
           const data = await res.json();
           setSummariesStatus(data.status);
           if (data.status === "ready") {
             const pages: Record<number, string> = {};
-            for (const [k, v] of Object.entries(data.pages)) {
-              pages[Number(k)] = v as string;
-            }
+            for (const [k, v] of Object.entries(data.pages)) pages[Number(k)] = v as string;
             setPageSummaries(pages);
             setSummariesLoaded(true);
           } else if (data.status === "generating") {
-            // Poll every 10 seconds while generating
             timer = setTimeout(fetchSummaries, 10000);
           } else {
             setSummariesLoaded(true);
@@ -362,400 +262,157 @@ function PdfViewer({
         }
       } catch { /* ignore */ }
     };
-
     if (!summariesLoaded) fetchSummaries();
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, [showAnnotations, summariesLoaded, moduleUuid, source.uuid]);
 
-  // Annotation column width
-  const isGenerating = showAnnotations && summariesStatus === "generating";
-  const hasAnnotations = showAnnotations && (Object.keys(pageSummaries).length > 0 || isGenerating || summariesStatus === "none" || summariesStatus === "rate_limited" || summariesStatus === "failed");
-  const annotationColumnWidth = hasAnnotations ? Math.max(150, Math.min(220, containerWidth * 0.2)) : 0;
-  const pdfAvailableWidth = containerWidth - annotationColumnWidth - (hasAnnotations ? 12 : 0);
-
-  // Fit-page base width: constrain by height so 100% = full page visible
-  const fitWidth = containerHeight > 0
-    ? Math.min(pdfAvailableWidth, containerHeight * pdfPageRatio)
-    : pdfAvailableWidth;
-  const renderWidth = Math.max(fitWidth * zoomLevel, 1);
-
+  // Scroll to page when nonce changes (pill click on same document)
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width - 32));
-    ro.observe(el);
-    setContainerWidth(el.clientWidth - 32);
-    return () => ro.disconnect();
-  }, []);
+    if (source.nonce == null) return;
+    const scroll = registryRef.current?.getPlugin?.("scroll")?.provides?.();
+    if (scroll) scroll.scrollToPage({ pageNumber: source.page, behavior: "instant" });
+  }, [source.nonce, source.page]);
 
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setContainerHeight(entry.contentRect.height));
-    ro.observe(el);
-    setContainerHeight(el.clientHeight - 32);
-    return () => ro.disconnect();
-  }, []);
+  const handleReady = useCallback((registry: unknown) => {
+    registryRef.current = registry;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reg = registry as any;
 
-  useEffect(() => {
-    if (showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
-  }, [showSearch]);
+    // Track current page
+    const scroll = reg.getPlugin?.("scroll")?.provides?.();
+    if (scroll) {
+      scroll.onPageChange(({ pageNumber }: { pageNumber: number }) => setPage(pageNumber));
+      const unsub = scroll.onLayoutReady?.(() => {
+        const p = sourcePageRef.current;
+        if (p > 1) scroll.scrollToPage({ pageNumber: p, behavior: "instant" });
+        unsub?.();
+      });
+    }
 
-  // IntersectionObserver to track which page is in view
-  useEffect(() => {
-    if (numPages === 0) return;
-    const sc = scrollContainerRef.current;
-    if (!sc) return;
-    const ratios = new Map<number, number>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (isScrollingRef.current) return;
-        entries.forEach((entry) => {
-          const p = Number(entry.target.getAttribute("data-page"));
-          ratios.set(p, entry.intersectionRatio);
-        });
-        let bestPage = 0;
-        let bestRatio = 0;
-        ratios.forEach((ratio, p) => {
-          if (ratio > bestRatio) { bestPage = p; bestRatio = ratio; }
-        });
-        if (bestPage > 0) setPage(bestPage);
+    // Register KI actions as commands in EmbedPDF's selection menu
+    const actions = popupActionsRef.current;
+    if (!actions?.length || !onAskWithSelectionRef.current) return;
+    const commands = reg.getPlugin?.("commands")?.provides?.();
+    const ui = reg.getPlugin?.("ui")?.provides?.();
+    if (!commands || !ui) return;
+
+    for (const action of actions) {
+      commands.registerCommand({
+        id: `kis.${action.key}`,
+        label: action.label,
+        description: action.label,
+        icon: EMBEDPDF_ICON_MAP[action.icon] ?? "info",
+        iconProps: { title: action.label },
+        categories: ["kis-actions"],
+        action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sel = (r as any).getPlugin?.("selection")?.provides?.();
+          if (!sel) return;
+          const textTask = sel.getSelectedText?.(documentId);
+          const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
+          promise.then((lines: string[]) => {
+            const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
+            if (text.trim().split(/\s+/).length < action.min_words) return;
+            const bRects: Array<{ page: number }> = sel.getBoundingRects?.(documentId) ?? [];
+            const selPage = bRects.length > 0 ? bRects[0].page + 1 : 1;
+            onAskWithSelectionRef.current?.(
+              `${action.prompt}\n\n"${text}"`,
+              { uuid: sourceRef.current.uuid, filename: sourceRef.current.filename, page: selPage, selectedText: text },
+            );
+          }).catch(() => { /* ignore */ });
+        },
+      });
+    }
+
+    // Append KI actions to EmbedPDF's built-in text selection menu
+    const existingSchema = ui.getSchema?.();
+    const existingItems: unknown[] = existingSchema?.selectionMenus?.selection?.items ?? [];
+    ui.mergeSchema?.({
+      selectionMenus: {
+        selection: {
+          id: "selection",
+          items: [
+            ...existingItems,
+            { type: "divider", id: "kis-divider", categories: ["kis-actions"] },
+            ...actions.map(a => ({
+              type: "command-button",
+              id: `kis.${a.key}`,
+              commandId: `kis.${a.key}`,
+              variant: "icon",
+              categories: ["kis-actions"],
+            })),
+          ],
+        },
       },
-      { root: sc, threshold: [0, 0.25, 0.5, 0.75, 1] },
-    );
-    pageRefsMap.current.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [numPages, renderWidth]);
-
-  // Build overlays from backend search results (grouped by page)
-  useEffect(() => {
-    setSearchOverlaysByPage(new Map());
-    if (!searchQuery.trim() || searchMatches.length === 0 || containerWidth === 0) return;
-
-    const scale = renderWidth / searchPdfSize.w;
-    const byPage = new Map<number, Array<{ x: number; y: number; w: number; h: number; active: boolean }>>();
-
-    searchMatches.forEach((match, idx) => {
-      const overlays = byPage.get(match.page) ?? [];
-      match.rects.forEach((r) => overlays.push({
-        x: r.x0 * scale,
-        y: r.y0 * scale,
-        w: Math.max((r.x1 - r.x0) * scale, 4),
-        h: Math.max((r.y1 - r.y0) * scale, 4),
-        active: idx === searchMatchIdx,
-      }));
-      byPage.set(match.page, overlays);
     });
-
-    setSearchOverlaysByPage(byPage);
-
-    // Scroll active match page into view
-    const activeMatch = searchMatches[searchMatchIdx];
-    if (activeMatch) {
-      scrollToPage(activeMatch.page);
-    }
-  }, [searchMatches, searchMatchIdx, renderWidth, searchPdfSize.w]);
-
-  // Native text selection popup
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    function onMouseUp() {
-      setTimeout(() => {
-        try {
-          const sel = window.getSelection();
-          const text = sel?.toString().trim() ?? "";
-          if (text.length > 5 && sel!.rangeCount > 0) {
-            // Clamp selection to text layer content only
-            const anchor = sel!.anchorNode;
-            if (!anchor?.parentElement?.closest(".textLayer")) { setSelectionPopup(null); return; }
-            // Seitenzahl aus dem Anchor-Node bestimmen (nicht IntersectionObserver)
-            const anchorPage = Number(anchor?.parentElement?.closest("[data-page]")?.getAttribute("data-page")) || page;
-            const rng = sel!.getRangeAt(0);
-            const rects = rng.getClientRects();
-            // Filter to rects inside text layer elements only
-            const textRects = Array.from(rects).filter(r => r.width > 0 && r.height > 0);
-            const rect = textRects.length > 0 ? textRects[textRects.length - 1] : rng.getBoundingClientRect();
-            if (rect.width === 0 && rect.height === 0) { setSelectionPopup(null); return; }
-            const cont = containerRef.current!.getBoundingClientRect();
-            setSelectionPopup({ x: rect.left - cont.left + rect.width / 2, y: rect.top - cont.top - 8, bottomY: rect.bottom - cont.top + 8, text, page: anchorPage });
-          } else {
-            setSelectionPopup(null);
-          }
-        } catch {
-          setSelectionPopup(null);
-        }
-      }, 10);
-    }
-    function onMouseDown(e: MouseEvent) {
-      const target = e.target as HTMLElement;
-      if (target.closest('[data-selection-popup]')) return;
-      setSelectionPopup(null);
-      window.getSelection()?.removeAllRanges();
-      CSS.highlights?.delete("pill-highlight");
-    }
-    function onScroll() { setSelectionPopup(null); CSS.highlights?.delete("pill-highlight"); }
-    el.addEventListener("mouseup", onMouseUp);
-    el.addEventListener("scroll", onScroll, true);
-    document.addEventListener("mousedown", onMouseDown);
-    return () => { el.removeEventListener("mouseup", onMouseUp); el.removeEventListener("scroll", onScroll, true); document.removeEventListener("mousedown", onMouseDown); };
-  }, []);
-
-  async function runSearch(q: string, goToIdx = 0) {
-    if (!q) return;
-    setSearchLoading(true);
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/search?q=${encodeURIComponent(q)}`);
-      if (!res.ok) throw new Error("search failed");
-      const data = await res.json();
-      const matches: Array<{ page: number; rects: { x0: number; y0: number; x1: number; y1: number }[] }> = data.matches;
-      setSearchMatches(matches);
-      setSearchPdfSize({ w: data.page_width || 595, h: data.page_height || 842 });
-      if (matches.length > 0) {
-        const idx = Math.max(0, Math.min(goToIdx, matches.length - 1));
-        setSearchMatchIdx(idx);
-        scrollToPage(matches[idx].page);
-      }
-    } catch { /* ignore */ } finally {
-      setSearchLoading(false);
-    }
-  }
-
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const q = searchQuery.trim();
-    if (!q) return;
-    if (searchMatches.length > 0) {
-      const nextIdx = (searchMatchIdx + 1) % searchMatches.length;
-      setSearchMatchIdx(nextIdx);
-      scrollToPage(searchMatches[nextIdx].page);
-    } else {
-      await runSearch(q, 0);
-    }
-  }
-
-  function searchNav(dir: 1 | -1) {
-    if (searchMatches.length === 0) return;
-    const nextIdx = (searchMatchIdx + dir + searchMatches.length) % searchMatches.length;
-    setSearchMatchIdx(nextIdx);
-    scrollToPage(searchMatches[nextIdx].page);
-  }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex flex-col h-full relative" ref={containerRef}>
-      {/* Selection popup */}
-      {selectionPopup && onAskWithSelection && (() => {
-        const flipped = selectionPopup.y < 220;
-        return (
-          <div
-            data-selection-popup
-            className="absolute z-50"
-            style={{
-              left: selectionPopup.x,
-              top: flipped ? selectionPopup.bottomY : selectionPopup.y,
-              transform: flipped ? "translate(-50%, 0%)" : "translate(-50%, -100%)",
-              pointerEvents: "auto",
-            }}
-          >
-            {!flipped && (
-              <div
-                className="flex flex-col gap-0.5 rounded-xl p-1.5 shadow-2xl backdrop-blur-md"
-                style={{ backgroundColor: "rgb(0,66,97)", border: "1px solid rgba(255,255,255,0.12)", minWidth: 200 }}
-              >
-                {(popupActions ?? [])
-                .filter((a) => selectionPopup.text.trim().split(/\s+/).length >= a.min_words)
-                .map((a) => {
-                  const Icon = ICON_MAP[a.icon] ?? Lightbulb;
-                  return (
-                    <button
-                      key={a.key}
-                      type="button"
-                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page: selectionPopup.page, selectedText: selectionPopup.text }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
-                    >
-                      <span className="text-white/50"><Icon size={14} weight="bold" /></span>
-                      {a.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <div style={{ width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", ...(flipped ? { borderBottom: "8px solid rgb(0,66,97)", borderTop: "none" } : { borderTop: "8px solid rgb(0,66,97)", borderBottom: "none" }), margin: "0 auto" }} />
-            {flipped && (
-              <div
-                className="flex flex-col gap-0.5 rounded-xl p-1.5 shadow-2xl backdrop-blur-md"
-                style={{ backgroundColor: "rgb(0,66,97)", border: "1px solid rgba(255,255,255,0.12)", minWidth: 200 }}
-              >
-                {(popupActions ?? [])
-                .filter((a) => selectionPopup.text.trim().split(/\s+/).length >= a.min_words)
-                .map((a) => {
-                  const Icon = ICON_MAP[a.icon] ?? Lightbulb;
-                  return (
-                    <button
-                      key={a.key}
-                      type="button"
-                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page: selectionPopup.page, selectedText: selectionPopup.text }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
-                    >
-                      <span className="text-white/50"><Icon size={14} weight="bold" /></span>
-                      {a.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <FileIcon filename={source.filename} />
         <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>{source.filename}</span>
-        <button
-          type="button"
-          onClick={() => { setShowSearch((v) => { if (v) { setSearchQuery(""); setSearchMatches([]); setSearchMatchIdx(0); } return !v; }); }}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: showSearch ? "#004261" : "var(--border)" }}
-          title="Suchen"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={showSearch ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </button>
         {tocEntries.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowToc((v) => !v)}
+          <button type="button" onClick={() => setShowToc(v => !v)}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: showToc ? "#004261" : "var(--border)" }}
-            title="Inhaltsverzeichnis"
-          >
+            style={{ backgroundColor: showToc ? "#004261" : "var(--border)" }} title="Inhaltsverzeichnis">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={showToc ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" /><line x1="3" y1="18" x2="18" y2="18" />
             </svg>
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setShowAnnotations((v) => !v)}
+        <button type="button" onClick={() => setShowAnnotations(v => !v)}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: showAnnotations ? "#004261" : "var(--border)" }}
-          title="Zusammenfassungen"
-        >
+          style={{ backgroundColor: showAnnotations ? "#004261" : "var(--border)" }} title="Zusammenfassungen">
           <BookOpenText size={13} weight="bold" color={showAnnotations ? "white" : "var(--muted)"} />
         </button>
-        <button
-          type="button"
+        <button type="button"
           onClick={() => {
             if (!mdMode && mdContent === null) {
               setMdLoading(true);
               fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/markdown`)
-                .then((r) => r.json())
-                .then((d) => { setMdContent(d.markdown ?? ""); setMdLoading(false); })
+                .then(r => r.json())
+                .then(d => { setMdContent(d.markdown ?? ""); setMdLoading(false); })
                 .catch(() => { setMdContent("_Fehler beim Laden._"); setMdLoading(false); });
             }
-            setMdMode((v) => !v);
+            setMdMode(v => !v);
           }}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: mdMode ? "#004261" : "var(--border)" }}
-          title="Markdown-Ansicht"
-        >
+          style={{ backgroundColor: mdMode ? "#004261" : "var(--border)" }} title="Markdown-Ansicht">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={mdMode ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 6h16M4 10h10M4 14h12M4 18h8" />
           </svg>
         </button>
-        <button
-          type="button"
-          onClick={() => setZoomLevel((z) => { const v = Math.max(0.5, +(z - 0.25).toFixed(2)); sessionStorage.setItem("pdf-zoom", String(v)); return v; })}
-          disabled={zoomLevel <= 0.5}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity disabled:opacity-30"
-          style={{ backgroundColor: "var(--border)" }}
-          title="Verkleinern"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" />
-          </svg>
-        </button>
-        <span className="text-xs tabular-nums flex-shrink-0" style={{ color: "var(--muted)", minWidth: 28, textAlign: "center" }}>{Math.round(zoomLevel * 100)}%</span>
-        <button
-          type="button"
-          onClick={() => setZoomLevel((z) => { const v = Math.min(3, +(z + 0.25).toFixed(2)); sessionStorage.setItem("pdf-zoom", String(v)); return v; })}
-          disabled={zoomLevel >= 3}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity disabled:opacity-30"
-          style={{ backgroundColor: "var(--border)" }}
-          title="Vergrößern"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
-          </svg>
-        </button>
         {onMinimize && (
-          <button
-            type="button"
-            onClick={onMinimize}
+          <button type="button" onClick={onMinimize}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
-            style={{ backgroundColor: "var(--border)" }}
-            title="Panel minimieren"
-          >
+            style={{ backgroundColor: "var(--border)" }} title="Panel minimieren">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
             </svg>
           </button>
         )}
-        <button
-          type="button"
-          onClick={onClose}
+        <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--border)" }}
-        >
+          style={{ backgroundColor: "var(--border)" }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
       </div>
 
-      {/* Search bar */}
-      {showSearch && (
-        <form onSubmit={handleSearch} className="flex items-center gap-2 px-3 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
-          <input
-            ref={searchInputRef}
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setSearchMatches([]); setSearchMatchIdx(0); }}
-            onKeyDown={(e) => { if (e.key === "Enter" && e.shiftKey) { e.preventDefault(); searchNav(-1); } }}
-            placeholder="Suchen…"
-            className="flex-1 text-sm bg-transparent focus:outline-none min-w-0"
-            style={{ color: "var(--text)" }}
-          />
-          {searchLoading && <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 flex-shrink-0" style={{ borderColor: "#004261" }} />}
-          {searchMatches.length > 0 && !searchLoading && (
-            <span className="text-xs flex-shrink-0 tabular-nums" style={{ color: "var(--muted)" }}>{searchMatchIdx + 1}/{searchMatches.length}</span>
-          )}
-          {searchMatches.length === 0 && !searchLoading && searchQuery.trim() && (
-            <span className="text-xs flex-shrink-0" style={{ color: "#B91C1C" }}>–</span>
-          )}
-          <button type="button" onClick={() => searchNav(-1)} disabled={searchMatches.length === 0}
-            className="w-6 h-6 flex items-center justify-center rounded disabled:opacity-30" title="Vorheriger Treffer (Shift+Enter)">
-            <CaretLeft size={12} />
-          </button>
-          <button type="submit" className="w-6 h-6 flex items-center justify-center rounded disabled:opacity-30" title="Nächster Treffer (Enter)">
-            <CaretRight size={12} />
-          </button>
-          <button type="button" onClick={() => { setShowSearch(false); setSearchQuery(""); setSearchMatches([]); setSearchMatchIdx(0); }}>
-            <XIcon size={13} color="var(--muted)" />
-          </button>
-        </form>
-      )}
-
       {/* TOC Panel */}
       {showToc && tocEntries.length > 0 && (
         <div className="flex-shrink-0 overflow-y-auto scrollbar-hide" style={{ maxHeight: "40%", borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
           <div className="py-1.5">
             {tocEntries.map((entry, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => { scrollToPage(entry.page); setShowToc(false); }}
+              <button key={i} type="button"
+                onClick={() => {
+                  setShowToc(false);
+                  const scroll = registryRef.current?.getPlugin?.("scroll")?.provides?.();
+                  if (scroll) scroll.scrollToPage({ pageNumber: entry.page, behavior: "smooth" });
+                }}
                 className="w-full text-left px-4 py-1.5 text-sm hover:bg-black/5 transition-colors truncate"
                 style={{
                   paddingLeft: `${12 + (entry.level - 1) * 16}px`,
@@ -772,6 +429,7 @@ function PdfViewer({
         </div>
       )}
 
+      {/* Markdown mode */}
       {mdMode && (
         <div className="flex-1 p-6 overflow-y-auto" style={{ color: "var(--text)", fontSize: 14, lineHeight: 1.7 }}>
           {mdLoading ? (
@@ -780,170 +438,36 @@ function PdfViewer({
               Wird konvertiert…
             </div>
           ) : (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeRaw]}
-              components={{
-                h1: ({ children }) => <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12, color: "var(--text)" }}>{children}</h1>,
-                h2: ({ children }) => <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 10, marginTop: 20, color: "var(--text)" }}>{children}</h2>,
-                h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, marginTop: 16, color: "var(--text)" }}>{children}</h3>,
-                p: ({ children }) => <p style={{ marginBottom: 10 }}>{children}</p>,
-                table: ({ children }) => <table style={{ borderCollapse: "collapse", width: "100%", marginBottom: 12, fontSize: 13 }}>{children}</table>,
-                th: ({ children }) => <th style={{ border: "1px solid var(--border)", padding: "4px 8px", backgroundColor: "var(--surface)", textAlign: "left" }}>{children}</th>,
-                td: ({ children }) => <td style={{ border: "1px solid var(--border)", padding: "4px 8px" }}>{children}</td>,
-                img: ({ src, alt }) => <img src={src} alt={alt ?? ""} style={{ maxWidth: "100%", borderRadius: 4, marginBlock: 8 }} />,
-                hr: () => <hr style={{ border: "none", borderTop: "1px solid var(--border)", marginBlock: 16 }} />,
-                code: ({ children }) => <code style={{ backgroundColor: "var(--surface)", padding: "1px 4px", borderRadius: 3, fontSize: 12, fontFamily: "monospace" }}>{children}</code>,
-              }}
-            >
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={{
+              h1: ({ children }) => <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12, color: "var(--text)" }}>{children}</h1>,
+              h2: ({ children }) => <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 10, marginTop: 20, color: "var(--text)" }}>{children}</h2>,
+              h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, marginTop: 16, color: "var(--text)" }}>{children}</h3>,
+              p: ({ children }) => <p style={{ marginBottom: 10 }}>{children}</p>,
+              table: ({ children }) => <table style={{ borderCollapse: "collapse", width: "100%", marginBottom: 12, fontSize: 13 }}>{children}</table>,
+              th: ({ children }) => <th style={{ border: "1px solid var(--border)", padding: "4px 8px", backgroundColor: "var(--surface)", textAlign: "left" }}>{children}</th>,
+              td: ({ children }) => <td style={{ border: "1px solid var(--border)", padding: "4px 8px" }}>{children}</td>,
+              img: ({ src, alt }) => <img src={src} alt={alt ?? ""} style={{ maxWidth: "100%", borderRadius: 4, marginBlock: 8 }} />,
+              hr: () => <hr style={{ border: "none", borderTop: "1px solid var(--border)", marginBlock: 16 }} />,
+              code: ({ children }) => <code style={{ backgroundColor: "var(--surface)", padding: "1px 4px", borderRadius: 3, fontSize: 12, fontFamily: "monospace" }}>{children}</code>,
+            }}>
               {mdContent ?? ""}
             </ReactMarkdown>
           )}
         </div>
       )}
 
-      <div ref={scrollContainerRef} className="flex-1 p-4" style={{ display: mdMode ? "none" : undefined, overflowY: "auto", overflowX: "auto", minWidth: 0 }}>
-        {containerWidth > 0 && containerHeight > 0 && (
-          <div style={{ width: renderWidth + (hasAnnotations ? annotationColumnWidth + 12 : 0), minWidth: hasAnnotations ? 500 : 300, margin: "0 auto" }}>
-          <Document
-            file={`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`}
-            onLoadSuccess={async (pdf) => {
-              setNumPages(pdf.numPages);
-              try {
-                const pg = await pdf.getPage(1);
-                const vp = pg.getViewport({ scale: 1 });
-                setPdfPageRatio(vp.width / vp.height);
-                setPdfOriginalWidth(vp.width);
-              } catch { /* ignore */ }
-            }}
-            loading={<div className="flex items-center justify-center py-10"><div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: "#004261" }} /></div>}
-            error={<p className="text-sm text-center py-8" style={{ color: "#B91C1C" }}>PDF konnte nicht geladen werden.</p>}
-          >
-            {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
-              <div
-                key={pageNum}
-                data-page={pageNum}
-                ref={(el) => { if (el) pageRefsMap.current.set(pageNum, el); else pageRefsMap.current.delete(pageNum); }}
-                style={{ marginBottom: 12, display: "flex", gap: hasAnnotations ? 12 : 0 }}
-              >
-                <div style={{ width: renderWidth, flexShrink: 0, position: "relative" }}>
-                  <PdfPage pageNumber={pageNum} width={renderWidth} renderTextLayer renderAnnotationLayer={false}>
-                    {(searchOverlaysByPage.get(pageNum) ?? []).map((ov, i) => (
-                      <div key={i} style={{
-                        position: "absolute", left: ov.x, top: ov.y,
-                        width: Math.max(ov.w, 2), height: Math.max(ov.h, 4),
-                        backgroundColor: ov.active ? "rgba(255,140,0,0.65)" : "rgba(255,210,0,0.45)",
-                        borderRadius: 2, pointerEvents: "none", zIndex: 3,
-                      }} />
-                    ))}
-                  </PdfPage>
-                </div>
-                {hasAnnotations && (
-                  <div style={{ width: annotationColumnWidth, flexShrink: 0, position: "relative" }}>
-                    {isGenerating && pageNum === 1 && (
-                      <div style={{
-                        padding: "12px 8px",
-                        fontSize: 11,
-                        color: "#7A9BAD",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                      }}>
-                        <div className="animate-spin rounded-full border-2 border-[#7A9BAD] border-t-transparent flex-shrink-0" style={{ width: 14, height: 14, minWidth: 14, minHeight: 14 }} />
-                        Zusammenfassungen werden erstellt…
-                      </div>
-                    )}
-                    {pageNum === 1 && summariesStatus === "rate_limited" && (
-                      <div style={{
-                        padding: "12px 8px",
-                        fontSize: 11,
-                        color: "#C4820E",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                      }}>
-                        KI-API Limit erreicht. Bitte später erneut versuchen.
-                      </div>
-                    )}
-                    {pageNum === 1 && !isGenerating && (
-                      <div style={{ padding: "12px 8px", fontSize: 11, color: "#7A9BAD" }}>
-                        {summariesStatus === "none" && <div style={{ marginBottom: 8 }}>Noch keine Zusammenfassungen.</div>}
-                        <button
-                          onClick={async () => {
-                            setSummariesStatus("generating");
-                            setSummariesLoaded(false);
-                            await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, {
-                              method: "POST", credentials: "include",
-                            });
-                          }}
-                          style={{
-                            fontSize: 11, padding: "4px 8px", borderRadius: 4, border: "1px solid #7A9BAD",
-                            background: "transparent", color: "#7A9BAD", cursor: "pointer",
-                          }}
-                        >
-                          {summariesStatus === "none" ? "Zusammenfassungen erstellen" : "Zusammenfassungen neu erstellen"}
-                        </button>
-                      </div>
-                    )}
-                    {pageNum === 1 && summariesStatus === "failed" && (
-                      <div style={{
-                        padding: "0 8px 4px",
-                        fontSize: 11,
-                        color: "#C44040",
-                      }}>
-                        Letzte Generierung fehlgeschlagen.
-                      </div>
-                    )}
-                    {pageSummaries[pageNum] && (
-                      <div style={{
-                        padding: "12px 8px",
-                        fontSize: Math.max(8 * zoomLevel, 15),
-                        lineHeight: 1.4,
-                        color: "#7A9BAD",
-                      }}>
-                        <div style={{ width: 2, height: "100%", position: "absolute", left: 0, top: 0, backgroundColor: "rgba(0,66,97,0.25)", borderRadius: 1 }} />
-                        <div style={{ paddingLeft: 8 }}>{pageSummaries[pageNum]}</div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </Document>
-          </div>
-        )}
+      {/* PDF Viewer */}
+      <div key={source.uuid} style={{ flex: 1, position: "relative", display: mdMode ? "none" : undefined, minHeight: 0 }}>
+        <PDFViewer
+          ref={viewerRef}
+          config={{
+            src: `/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`,
+            worker: true,
+          }}
+          style={{ width: "100%", height: "100%" }}
+          onReady={handleReady}
+        />
       </div>
-
-      {numPages > 0 && (
-        <div className="flex items-center justify-center gap-3 px-4 py-3 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
-          <button type="button" onClick={() => scrollToPage(Math.max(1, page - 1))} disabled={page <= 1}
-            className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)" }}>
-            <CaretLeft size={14} />
-          </button>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={pageInput ?? page}
-            onFocus={(e) => { setPageInput(String(page)); e.target.select(); }}
-            onChange={(e) => setPageInput(e.target.value)}
-            onBlur={() => {
-              const v = parseInt(pageInput ?? "");
-              if (!isNaN(v) && v >= 1 && v <= numPages) scrollToPage(v);
-              setPageInput(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            className="tabular-nums text-center text-sm rounded"
-            style={{ width: 44, color: "var(--muted)", background: "transparent", border: "1px solid var(--border)", outline: "none", padding: "1px 4px" }}
-          />
-          <span className="text-sm" style={{ color: "var(--muted)" }}>/ {numPages}</span>
-          <button type="button" onClick={() => scrollToPage(Math.min(numPages, page + 1))} disabled={page >= numPages}
-            className="w-8 h-8 flex items-center justify-center rounded-full disabled:opacity-30 hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)" }}>
-            <CaretRight size={14} />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
