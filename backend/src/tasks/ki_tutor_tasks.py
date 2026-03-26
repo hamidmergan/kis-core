@@ -1,5 +1,6 @@
 """Celery tasks for KI Tutor – indexing source documents."""
 
+import concurrent.futures
 import re
 
 from loguru import logger
@@ -7,6 +8,24 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
+from src.limits import (
+    TUTOR_SUMMARY_MAX_RETRIES,
+    TUTOR_SUMMARY_TIMEOUT_SMALL,
+    TUTOR_SUMMARY_TIMEOUT_LARGE,
+    TUTOR_SUMMARY_MAX_TOKENS_SMALL,
+    TUTOR_SUMMARY_MAX_TOKENS_LARGE,
+    TUTOR_SUMMARY_MAX_TOKENS_BATCH,
+    TUTOR_SUMMARY_CONTENT_MAX_CHARS,
+    TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL,
+    TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE,
+    TUTOR_SUMMARY_BATCH_SIZE,
+)
+from src.tool_prompts import (
+    TUTOR_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+)
 
 
 def _detect_language(text: str) -> str:
@@ -32,6 +51,91 @@ def _parse_numbered_summaries(text: str, expected_count: int) -> list[str]:
     while len(result) < expected_count:
         result.append("")
     return result[:expected_count]
+
+
+def _clean_summary(text: str) -> str:
+    """Strip <think> blocks and leading number prefix."""
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    # Unclosed <think> — model hit max_tokens while still reasoning
+    if "<think>" in text:
+        text = text[:text.index("<think>")].strip()
+    text = re.sub(r"^\s*\d+[\.)]\s*", "", text).strip()
+    return text
+
+
+def _call_llm_with_retry(client, model, messages, temperature, max_tokens, timeout, extra_body):
+    """Make an LLM call with retry on rate limits / timeouts."""
+    import time as _time
+    for attempt in range(TUTOR_SUMMARY_MAX_RETRIES):
+        try:
+            return client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=timeout,
+                extra_body=extra_body or None,
+            )
+        except Exception as e:
+            err_str = str(e)
+            if ("429" in err_str or "timeout" in err_str.lower()) and attempt < TUTOR_SUMMARY_MAX_RETRIES - 1:
+                wait = 30 * (attempt + 1)
+                logger.warning(
+                    "KI Tutor summaries: rate limit/timeout, retry in {}s ({}/{})",
+                    wait, attempt + 1, TUTOR_SUMMARY_MAX_RETRIES,
+                )
+                _time.sleep(wait)
+            else:
+                raise
+
+
+def _summarize_page(client, model, p, is_small, extra_body, lang):
+    """Summarize a single page. Returns summary string."""
+    sys_msg = _SUMMARY_SYSTEM.format(lang=lang)
+    if is_small:
+        user_msg = _SUMMARY_USER_SMALL.format(lang=lang, content=p["content"][:TUTOR_SUMMARY_CONTENT_MAX_CHARS])
+    else:
+        user_msg = _SUMMARY_USER_LARGE.format(lang=lang, content=p["content"][:TUTOR_SUMMARY_CONTENT_MAX_CHARS])
+
+    timeout = TUTOR_SUMMARY_TIMEOUT_SMALL if is_small else TUTOR_SUMMARY_TIMEOUT_LARGE
+    max_tokens = TUTOR_SUMMARY_MAX_TOKENS_SMALL if is_small else TUTOR_SUMMARY_MAX_TOKENS_LARGE
+
+    resp = _call_llm_with_retry(
+        client, model,
+        [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}],
+        temperature=0.1, max_tokens=max_tokens, timeout=timeout, extra_body=extra_body,
+    )
+    summary = _clean_summary(resp.choices[0].message.content or "")
+    logger.debug("KI Tutor: page {} summary: {!r}", p["page_number"], summary[:300])
+    return summary
+
+
+def _summarize_batch(client, model, pages_batch, lang):
+    """Summarize a batch of pages in one request. Returns list[str] (one per page)."""
+    n = len(pages_batch)
+    sys_msg = _SUMMARY_SYSTEM.format(lang=lang)
+    pages_text = "\n\n".join(
+        f"---PAGE {i + 1}---\n{p['content'][:TUTOR_SUMMARY_CONTENT_MAX_CHARS]}"
+        for i, p in enumerate(pages_batch)
+    )
+    user_msg = _SUMMARY_BATCH_USER.format(n=n, lang=lang, pages=pages_text)
+
+    resp = _call_llm_with_retry(
+        client, model,
+        [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}],
+        temperature=0.1, max_tokens=TUTOR_SUMMARY_MAX_TOKENS_BATCH,
+        timeout=TUTOR_SUMMARY_TIMEOUT_LARGE, extra_body={},
+    )
+    content = resp.choices[0].message.content or ""
+    # Strip <think> blocks (some models ignore think=False)
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    # Unclosed <think> — keep only what's before it
+    if "<think>" in content:
+        content = content[:content.index("<think>")].strip()
+    summaries = _parse_numbered_summaries(content, n)
+    for i, (p, s) in enumerate(zip(pages_batch, summaries)):
+        logger.debug("KI Tutor: batch page {} summary: {!r}", p["page_number"], s[:300])
+    return summaries
 
 
 @celery_app.task(bind=True, name="ki_tutor.index_source", queue="general")
@@ -127,13 +231,6 @@ def run_index_source(self, source_uuid: str):
         raise
 
 
-from src.tool_prompts import (
-    TUTOR_SUMMARY_PAGE_SYSTEM_SMALL as _SUMMARY_SYSTEM_SMALL,
-    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_SYSTEM_LARGE as _SUMMARY_SYSTEM_LARGE,
-    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-)
-
 @celery_app.task(bind=True, name="ki_tutor.generate_summaries", queue="general")
 def run_generate_summaries(self, source_uuid: str):
     """Generate AI page-level summaries for a PDF source."""
@@ -164,62 +261,51 @@ def run_generate_summaries(self, source_uuid: str):
         sample = " ".join(p["content"][:200] for p in pages[:3])
         lang = _detect_language(sample)
 
-        # 3. Build LLM client + select prompt by provider
+        # 3. Build LLM client
         from langfuse.openai import OpenAI
         from src.config import Settings
         s = Settings()
         client = OpenAI(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, max_retries=0, timeout=90)
         model = s.effective_llm_model
         is_small = s.llm_provider == "ollama"
-        extra_body = {"think": False} if is_small else {}
+        extra_body = {}
 
-        # 4. Generate summaries — one page per request for reliable output
-        import time as _time
-        _TIMEOUT = 120 if is_small else 90
-        _MAX_RETRIES = 3
-        all_summaries: list[str] = []
-        for i, p in enumerate(pages):
-            if is_small:
-                sys_msg = _SUMMARY_SYSTEM_SMALL
-                user_msg = _SUMMARY_USER_SMALL.format(lang=lang, content=p["content"][:3000])
-            else:
-                sys_msg = _SUMMARY_SYSTEM_LARGE.format(lang=lang)
-                user_msg = _SUMMARY_USER_LARGE.format(content=p["content"][:3000])
+        # 4. Generate summaries
+        #    Small models (ollama): parallel single-page requests
+        #    Large models (cloud):  parallel batches of TUTOR_SUMMARY_BATCH_SIZE pages
+        all_summaries: list[str] = [""] * len(pages)
 
-            for attempt in range(_MAX_RETRIES):
-                try:
-                    response = client.chat.completions.create(
-                        model=model,
-                        messages=[
-                            {"role": "system", "content": sys_msg},
-                            {"role": "user", "content": user_msg},
-                        ],
-                        temperature=0.1,
-                        max_tokens=2048 if is_small else 512,
-                        timeout=_TIMEOUT,
-                        extra_body=extra_body or None,
+        if is_small:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL) as executor:
+                futures = {
+                    executor.submit(_summarize_page, client, model, p, True, extra_body, lang): i
+                    for i, p in enumerate(pages)
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    idx = futures[future]
+                    all_summaries[idx] = future.result()
+                    logger.info(
+                        "KI Tutor: summarized page {}/{} for source {}",
+                        idx + 1, len(pages), source_uuid,
                     )
-                    break
-                except Exception as api_err:
-                    err_str = str(api_err)
-                    if ("429" in err_str or "timeout" in err_str.lower()) and attempt < _MAX_RETRIES - 1:
-                        wait = 30 * (attempt + 1)
-                        logger.warning("KI Tutor: rate limited/timeout, retrying in {}s (attempt {}/{})...", wait, attempt + 1, _MAX_RETRIES)
-                        _time.sleep(wait)
-                    else:
-                        raise
-
-            answer = (response.choices[0].message.content or "").strip()
-            # Strip <think> blocks that qwen3 may emit despite think=False
-            answer = re.sub(r"<think>.*?</think>", "", answer, flags=re.DOTALL).strip()
-            # Strip leading number prefix if model echoes it (e.g. "1. summary")
-            answer = re.sub(r"^\s*\d+[\.)]\s*", "", answer).strip()
-            logger.debug("KI Tutor: page {} summary: {!r}", p["page_number"], answer[:300])
-            all_summaries.append(answer)
-            logger.info(
-                "KI Tutor: summarized page {}/{} for source {}",
-                i + 1, len(pages), source_uuid,
-            )
+        else:
+            batches = [pages[i:i + TUTOR_SUMMARY_BATCH_SIZE] for i in range(0, len(pages), TUTOR_SUMMARY_BATCH_SIZE)]
+            batch_summaries: list[list[str]] = [[]] * len(batches)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
+                futures = {
+                    executor.submit(_summarize_batch, client, model, batch, lang): i
+                    for i, batch in enumerate(batches)
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    bidx = futures[future]
+                    batch_summaries[bidx] = future.result()
+                    start = bidx * TUTOR_SUMMARY_BATCH_SIZE + 1
+                    end = min(start + TUTOR_SUMMARY_BATCH_SIZE - 1, len(pages))
+                    logger.info(
+                        "KI Tutor: summarized pages {}-{}/{} for source {}",
+                        start, end, len(pages), source_uuid,
+                    )
+            all_summaries = [s for batch in batch_summaries for s in batch]
 
         # 5. Save summaries to DB (block_index=0, bbox=full page placeholder)
         db.bulk_create_paragraph_summaries(
@@ -233,7 +319,7 @@ def run_generate_summaries(self, source_uuid: str):
                     "summary": s,
                 }
                 for p, s in zip(pages, all_summaries)
-                if s.strip() and s.strip().upper() != "SKIP"
+                if s.strip()
             ],
         )
 

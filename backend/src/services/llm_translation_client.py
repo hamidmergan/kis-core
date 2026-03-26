@@ -66,8 +66,6 @@ class LLMTranslationClient:
         self._glossary = glossary or {}
 
     def _extra_body(self) -> dict:
-        if self._provider == "ollama":
-            return {"think": False}
         return {}
 
     def translate_text(self, text: str, source_lang: str, target_lang: str) -> str:

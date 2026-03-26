@@ -897,7 +897,7 @@ function PdfViewer({
                     {pageSummaries[pageNum] && (
                       <div style={{
                         padding: "12px 8px",
-                        fontSize: Math.max(8 * zoomLevel, 7),
+                        fontSize: Math.max(8 * zoomLevel, 15),
                         lineHeight: 1.4,
                         color: "#7A9BAD",
                       }}>

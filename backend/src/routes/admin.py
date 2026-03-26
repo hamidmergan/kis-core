@@ -15,10 +15,10 @@ from src.tool_prompts import (
     TUTOR_SYSTEM_DIRECT as _PROMPT_TUTOR_SYSTEM_DIRECT,
     TUTOR_SYSTEM_RAG as _PROMPT_TUTOR_SYSTEM_RAG,
     TUTOR_POPUP_ACTIONS as _TUTOR_POPUP_ACTIONS,
-    TUTOR_SUMMARY_PAGE_SYSTEM_SMALL as _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM_SMALL,
+    TUTOR_SUMMARY_PAGE_SYSTEM as _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM,
     TUTOR_SUMMARY_PAGE_USER_SMALL as _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_SYSTEM_LARGE as _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM_LARGE,
     TUTOR_SUMMARY_PAGE_USER_LARGE as _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
+    TUTOR_SUMMARY_PAGE_BATCH_USER as _PROMPT_TUTOR_SUMMARY_PAGE_BATCH_USER,
 )
 from src.celery_app import celery_app
 from src.dependencies import get_admin_user, get_current_user
@@ -94,11 +94,11 @@ _PROMPT_REGISTRY = [
         "default": _PROMPT_TUTOR_SYSTEM_RAG,
     },
     {
-        "key": "prompt_tutor_summary_page_system_small",
-        "label": "KI-Tutor: Seitenzusammenfassung System (kleine Modelle)",
-        "description": "System-Prompt für Seitenzusammenfassungen mit kleinen LLMs (z.B. Ollama qwen3:8b).",
+        "key": "prompt_tutor_summary_page_system",
+        "label": "KI-Tutor: Seitenzusammenfassung System",
+        "description": "System-Prompt für Seitenzusammenfassungen (alle Modelle). Platzhalter {lang}.",
         "editable": False,
-        "default": _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM_SMALL,
+        "default": _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM,
     },
     {
         "key": "prompt_tutor_summary_page_user_small",
@@ -108,18 +108,18 @@ _PROMPT_REGISTRY = [
         "default": _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
     },
     {
-        "key": "prompt_tutor_summary_page_system_large",
-        "label": "KI-Tutor: Seitenzusammenfassung System (große Modelle)",
-        "description": "System-Prompt für Seitenzusammenfassungen mit großen LLMs (z.B. KISSKI qwen3-235b). Platzhalter {lang}.",
-        "editable": False,
-        "default": _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM_LARGE,
-    },
-    {
         "key": "prompt_tutor_summary_page_user_large",
         "label": "KI-Tutor: Seitenzusammenfassung User (große Modelle)",
         "description": "User-Prompt für große Modelle. Platzhalter {content}.",
         "editable": False,
         "default": _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
+    },
+    {
+        "key": "prompt_tutor_summary_page_batch_user",
+        "label": "KI-Tutor: Seitenzusammenfassung User (Batch, große Modelle)",
+        "description": "User-Prompt für Batch-Verarbeitung (mehrere Seiten pro Request). Platzhalter {n} und {pages}.",
+        "editable": False,
+        "default": _PROMPT_TUTOR_SUMMARY_PAGE_BATCH_USER,
     },
     *[
         {

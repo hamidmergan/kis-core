@@ -215,14 +215,12 @@ class KisskiClient:
     def __init__(self, api_key: str, base_url: str, model: str, provider: str = "kisski"):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
+        self._extra_body: dict = {}
         if provider == "ollama":
-            # Disable thinking mode (Qwen3 default) to keep output parseable
-            self._extra_body: dict = {"think": False}
             self._batch_max_workers: int = 3
             self._batch_timeout: float = 180.0
             self._batch_size: int = 3
         else:
-            self._extra_body = {}
             self._batch_max_workers = 3
             self._batch_timeout = 180.0
             self._batch_size = 3

@@ -110,44 +110,48 @@ TUTOR_SYSTEM_RAG = (
 # Jede Aktion hat einen Schlüssel (key), ein Label für die UI und den Prompt.
 # Der markierte Text wird zur Laufzeit vom Frontend angehängt.
 
-# ── KI-Tutor: Seitenzusammenfassungen (kleine Modelle, z.B. Ollama) ────────
-TUTOR_SUMMARY_PAGE_SYSTEM_SMALL = (
-    "You summarize university lecture pages. "
-    "Reply with ONLY the summary, nothing else."
+# ── KI-Tutor: Seitenzusammenfassungen ──────────────────────────────────────
+TUTOR_SUMMARY_PAGE_SYSTEM = (
+    "You are a precision summarizer.\n\n"
+    "RULES:\n"
+    "- Target length: ~25 % of the source text length.\n"
+    "- Hard limit: never exceed 400 characters.\n"
+    "- Use ONLY information from the provided text. Never add external knowledge.\n"
+    "- Start directly — never with 'The text...', 'This page...', 'Der Text...'.\n"
+    "- Label-style starts where fitting: 'Ziel:', 'Ergebnis:', 'Kontakt:'.\n"
+    "- Pack specific information: numbers, percentages, names, findings.\n"
+    "- Every word must earn its place — no filler.\n"
+    "- No bibliographic metadata: no ISBN, DOI, URLs, email addresses.\n"
+    "- No markdown formatting.\n"
+    "- Write in {lang}.\n\n"
+    "GOOD:\n"
+    "Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. (Bachelor). "
+    "65 % wollen nach Studium in DE bleiben, unter 50 % schaffen es. "
+    "Hauptursachen: Finanzen, Sprache, fehlende Netzwerke.\n\n"
+    "BAD:\n"
+    "Herausforderungen internationaler Studierender werden beschrieben."
 )
 
 TUTOR_SUMMARY_PAGE_USER_SMALL = (
     "/no_think\n"
     "Fasse diese Seite in 2-3 Sätzen auf {lang} zusammen. "
-    "Nenne konkrete Details wie Zahlen, Namen und Ergebnisse.\n\n"
+    "Nur Informationen aus dem Text verwenden, nichts hinzufügen. "
+    "Beginne direkt, nicht mit 'Der Text...' oder 'Diese Seite...'. "
+    "Keine ISBN, DOI, URLs oder E-Mail-Adressen.\n\n"
     "{content}"
 )
 
-# ── KI-Tutor: Seitenzusammenfassungen (große Modelle, z.B. KISSKI) ────────
-TUTOR_SUMMARY_PAGE_SYSTEM_LARGE = (
-    "You are a precision summarizer for university lecture pages.\n"
-    "Your summaries appear as margin notes — students read them INSTEAD of the full page.\n\n"
-    "RULES:\n"
-    "- 2-3 sentences, max 400 characters.\n"
-    "- Pack maximum specific information: numbers, percentages, names, findings, comparisons.\n"
-    "- Every word must earn its place — no filler ('this page discusses', 'an overview of').\n"
-    "- Use active verbs. Never write keyword-only lists.\n"
-    "- Preserve exact numbers, names, and abbreviations from the source.\n"
-    "- Write in {lang}.\n\n"
-    "FORBIDDEN — output will be rejected if you:\n"
-    "- Add commentary, greetings, explanations, or meta-text.\n"
-    "- Offer help or ask questions.\n"
-    "- Use markdown formatting (no **, no ##, no bullet points).\n"
-    "- Write anything other than the summary itself.\n\n"
-    "GOOD:\n"
-    "Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. (Bachelor). "
-    "65 % wollen nach Studium in DE bleiben, unter 50 % schaffen es. "
-    "Hauptursachen: Finanzen, Sprache, fehlende Netzwerke.\n\n"
-    "BAD (too generic, no specifics):\n"
-    "Herausforderungen internationaler Studierender werden beschrieben."
-)
+TUTOR_SUMMARY_PAGE_USER_LARGE = "Summarize this page in {lang}:\n\n{content}"
 
-TUTOR_SUMMARY_PAGE_USER_LARGE = "Summarize this page:\n\n{content}"
+TUTOR_SUMMARY_PAGE_BATCH_USER = (
+    "Summarize each of the {n} pages below in {lang}.\n"
+    "Return ONLY a numbered list — one entry per page, max 400 characters each.\n"
+    "Format exactly:\n"
+    "1. <summary>\n"
+    "2. <summary>\n"
+    "...\n\n"
+    "{pages}"
+)
 
 
 TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [

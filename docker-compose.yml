@@ -29,6 +29,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./backend/src:/app/src:ro
       - ./backend/demo:/app/demo:ro
       - kis-storage:/app/storage
     ports:
@@ -54,6 +55,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./backend/src:/app/src:ro
       - ./backend/demo:/app/demo:ro
       - kis-storage:/app/storage
     extra_hosts:
@@ -77,6 +79,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./backend/src:/app/src:ro
       - kis-storage:/app/storage
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -100,6 +103,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./backend/src:/app/src:ro
       - kis-storage:/app/storage
     depends_on:
       redis:
@@ -120,6 +124,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./backend/src:/app/src:ro
       - kis-celerybeat:/app/data
     depends_on:
       redis:

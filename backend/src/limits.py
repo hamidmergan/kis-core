@@ -63,3 +63,15 @@ SCREENCAST_TIME_LIMIT           = 3720   # 62 min
 
 SCREENCAST_AUTO_SOFT_TIME_LIMIT = 7200   # 2h (translate + scripts + TTS + render)
 SCREENCAST_AUTO_TIME_LIMIT      = 7320   # 2h 2min
+
+# ─── KI-Tutor Seitenzusammenfassungen ─────────────────────────────────────────
+TUTOR_SUMMARY_MAX_RETRIES             = 3
+TUTOR_SUMMARY_TIMEOUT_SMALL           = 120    # ollama, Sekunden pro Request
+TUTOR_SUMMARY_TIMEOUT_LARGE           = 90     # cloud/kisski, Sekunden pro Request
+TUTOR_SUMMARY_MAX_TOKENS_SMALL        = 2048   # ollama, Einzel-Seite (inkl. Think-Overhead)
+TUTOR_SUMMARY_MAX_TOKENS_LARGE        = 2048   # cloud, Einzel-Seite
+TUTOR_SUMMARY_MAX_TOKENS_BATCH        = 8192   # cloud, Batch: Think-Block (~3k) + N × 400 Zeichen
+TUTOR_SUMMARY_CONTENT_MAX_CHARS       = 3000   # max. Zeichen pro Seite an LLM
+TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL  = 5      # ollama: parallele Einzel-Requests
+TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE  = 3      # cloud: parallele Batch-Requests
+TUTOR_SUMMARY_BATCH_SIZE              = 10      # Seiten pro Batch-Request (große Modelle)

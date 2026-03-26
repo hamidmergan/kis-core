@@ -1,5 +1,7 @@
 """Document chunker for KI Tutor – extracts text chunks from PDF, DOCX, PPTX, TXT, and MD files."""
 
+import re
+
 from loguru import logger
 
 # Chunk sizes per embedding provider:
@@ -142,12 +144,25 @@ def _extract_pptx(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
     return chunks
 
 
-def _is_toc_page(blocks: list[dict]) -> bool:
-    """Detect if a page is a table of contents by looking for dotted leader patterns."""
-    import re
-    toc_pattern = re.compile(r'\.{4,}\s*\d+\s*$')  # "........12"
-    matches = sum(1 for b in blocks if toc_pattern.search(b["content"]))
-    return matches >= 3  # 3+ lines with dotted leaders = TOC page
+_STRUCTURAL_KEYWORDS = re.compile(
+    r"^("
+    r"table of contents|contents|inhaltsverzeichnis"
+    r"|references|bibliography|literaturverzeichnis|quellenverzeichnis|literatur"
+    r"|list of figures|list of tables|abbildungsverzeichnis|tabellenverzeichnis"
+    r")$",
+    re.IGNORECASE,
+)
+
+_TOC_DOTTED = re.compile(r"\.{4,}\s*\d+\s*$")          # "........12"
+def _is_structural_page(blocks: list[dict]) -> bool:
+    """Detect structural pages: TOC, references, list of figures/tables."""
+    first = blocks[0]["content"].strip()
+    if _STRUCTURAL_KEYWORDS.match(first):
+        return True
+    dotted = sum(1 for b in blocks if _TOC_DOTTED.search(b["content"]))
+    if dotted >= 3:
+        return True
+    return False
 
 
 
@@ -184,16 +199,15 @@ def extract_page_texts(file_path: str) -> list[dict]:
         if not page_blocks:
             continue
 
-        # Skip TOC pages
-        if _is_toc_page(page_blocks):
-            logger.info("extract_page_texts: skipping TOC page {}", page_num)
+        # Skip structural pages (TOC, references, list of figures/tables)
+        if _is_structural_page(page_blocks):
+            logger.info("extract_page_texts: skipping structural page {}", page_num)
             continue
 
         # Join all text on the page
         full_text = " ".join(b["content"] for b in page_blocks).strip()
 
         # Strip leading page number (e.g. "11 Arbeitspaket..." → "Arbeitspaket...")
-        import re
         full_text = re.sub(rf'^{page_num}\s+', '', full_text)
         word_count = len(full_text.split())
 
