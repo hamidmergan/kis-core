@@ -98,6 +98,11 @@ TUTOR_SYSTEM_DIRECT = (
     "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus."
 )
 
+TUTOR_SYSTEM_DIRECT_WITH_CONTEXT = (
+    "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus. "
+    "Nutze den bereitgestellten Kontext aus dem Dokument, um eine fundierte und ausführliche Antwort zu geben."
+)
+
 TUTOR_SYSTEM_RAG = (
     "Du bist ein KI-Tutor. Antworte ausschließlich auf Basis der gegebenen Quellen. "
     "Füge nach jedem Satz oder Abschnitt, der auf eine Quelle zurückgreift, die Seitenzahl direkt im Text ein – "
@@ -166,7 +171,7 @@ TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [
         "key": "summarize",
         "label": "Zusammenfassung",
         "icon": "BookOpenText",
-        "prompt": "Fasse diese Textstelle kompakt zusammen, kürze auf das Wesentliche und hebe die Kernaussagen hervor:",
+        "prompt": "Fasse diese Textstelle in maximal 2-3 Sätzen zusammen. Verwende höchstens halb so viele Wörter wie der Originaltext. Fließtext, keine Stichpunkte:",
         "min_words": 10,
     },
     {

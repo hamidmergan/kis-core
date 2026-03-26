@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
-from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS
+from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_DIRECT_WITH_CONTEXT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS
 
 router = APIRouter(tags=["ki-tutor"])
 
@@ -395,37 +395,40 @@ async def chat(
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
 
-    if body.direct_text:
-        # Kein RAG — direkt den Text bearbeiten (für Popup-Aktionen wie Kürzen, Umformulieren etc.)
-        chunks = []
-        if body.source_page is not None:
-            system_prompt = (
-                f"{TUTOR_SYSTEM_DIRECT} "
-                f"Füge am Ende deiner Antwort die Quellenangabe [S. {body.source_page}] ein."
-            )
-        else:
-            system_prompt = TUTOR_SYSTEM_DIRECT
-        user_message = body.question
+    # Embed question & RAG – gleiche Logik für Chat und Popup-Aktionen
+    from src.services.ki_tutor_embeddings import get_embedding_provider
+    provider = get_embedding_provider()
+
+    # Bei Popup-Aktionen den markierten Text als Query nutzen (bessere Chunk-Treffer)
+    embed_text = body.source_text if body.source_text else body.question
+    query_vector = provider.embed_one(embed_text)
+
+    # Bei Popup-Aktionen nur in der Quell-Datei suchen
+    search_source_ids = source_ids
+    if body.source_uuid:
+        popup_source = db.get_ki_tutor_source(body.source_uuid)
+        if popup_source:
+            search_source_ids = [popup_source["id"]]
+
+    chunks = db.search_similar_chunks(module["id"], query_vector, source_ids=search_source_ids, limit=5)
+
+    # Build context (max 4000 chars)
+    context_parts: list[str] = []
+    context_len = 0
+    for chunk in chunks:
+        part = chunk["content"]
+        if context_len + len(part) > 4000:
+            break
+        context_parts.append(part)
+        context_len += len(part)
+    context = "\n\n---\n\n".join(context_parts)
+
+    # Popup-Aktionen: User hat Text selbst markiert → Quelle nur einmal am Ende
+    if body.source_text:
+        system_prompt = TUTOR_SYSTEM_DIRECT_WITH_CONTEXT
+        page_ref = f" [S. {body.source_page}]" if body.source_page else ""
+        user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
     else:
-        # Embed question
-        from src.services.ki_tutor_embeddings import get_embedding_provider
-        provider = get_embedding_provider()
-        query_vector = provider.embed_one(body.question)
-
-        # Search similar chunks
-        chunks = db.search_similar_chunks(module["id"], query_vector, source_ids=source_ids, limit=5)
-
-        # Build context (max 4000 chars)
-        context_parts: list[str] = []
-        context_len = 0
-        for chunk in chunks:
-            part = chunk["content"]
-            if context_len + len(part) > 4000:
-                break
-            context_parts.append(part)
-            context_len += len(part)
-        context = "\n\n---\n\n".join(context_parts)
-
         system_prompt = TUTOR_SYSTEM_RAG
         user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"
 
@@ -444,19 +447,23 @@ async def chat(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM-Fehler: {e}") from e
 
-    # Build source_pages from returned chunks
-    all_sources = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
+    # Build source_pages
     source_pages: list[dict] = []
-    seen: set[tuple] = set()
-    if body.direct_text and body.source_uuid and body.source_page is not None:
-        # Popup-Aktion: Quelle direkt aus der übergebenen Info
+
+    if body.source_text and body.source_uuid and body.source_page:
+        # Popup-Aktion: eine Quelle mit markiertem Text für Highlight bei Klick
         source_pages.append({
             "source_uuid": body.source_uuid,
             "filename": body.source_filename or "",
             "page_number": body.source_page,
-            **({"source_text": body.source_text} if body.source_text else {}),
+            "source_text": body.source_text,
         })
+        # Klickbare Referenz an Antwort anhängen
+        answer += f" [S. {body.source_page}]"
     else:
+        # Normaler Chat: Quellen aus RAG-Chunks
+        all_sources = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
+        seen: set[tuple] = set()
         for chunk in chunks:
             source = all_sources.get(chunk["source_id"])
             if source:
@@ -596,9 +603,8 @@ async def search_pdf(
     import re
     import unicodedata
 
-    # Strip superscript/subscript chars BEFORE NFKC (which would convert ² → 2)
-    q_clean = re.sub(r'[\u00B9\u00B2\u00B3\u2070-\u209F\u2080-\u208E]', '', q)
-    q_clean = unicodedata.normalize("NFKC", q_clean)
+    # NFC preserves superscript chars (²,³) so they match the PDF text layer
+    q_clean = unicodedata.normalize("NFC", q)
     q_clean = re.sub(r"-\r?\n\s*", "", q_clean)  # only line-break hyphens: "Lö-\nsungsansatz" → "Lösungsansatz"
     q_clean = re.sub(r"\s+", " ", q_clean).strip()
 

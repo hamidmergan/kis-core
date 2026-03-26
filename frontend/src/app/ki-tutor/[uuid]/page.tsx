@@ -209,7 +209,7 @@ function PdfViewer({
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOverlaysByPage, setSearchOverlaysByPage] = useState<Map<number, Array<{ x: number; y: number; w: number; h: number; active: boolean }>>>(new Map());
-  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; bottomY: number; text: string } | null>(null);
+  const [selectionPopup, setSelectionPopup] = useState<{ x: number; y: number; bottomY: number; text: string; page: number } | null>(null);
   const [showToc, setShowToc] = useState(false);
   const [tocEntries, setTocEntries] = useState<Array<{ level: number; title: string; page: number }>>([]);
   const [tocLoaded, setTocLoaded] = useState(false);
@@ -272,8 +272,8 @@ function PdfViewer({
         const fullNorm = infos.map((i) => norm(i.span.textContent ?? "")).join("");
         const matchIdx = fullNorm.indexOf(searchKey);
         if (matchIdx === -1) {
-          // Text not found — just scroll to page
-          pageEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          // Text not found — just jump to page
+          pageEl.scrollIntoView({ behavior: "instant", block: "start" });
           return true;
         }
         const matchEnd = matchIdx + needle.length;
@@ -291,16 +291,16 @@ function PdfViewer({
         }
         if (ranges.length > 0) {
           CSS.highlights.set("pill-highlight", new Highlight(...ranges));
-          // Scroll to the highlighted text, not the page top
+          // Jump to the highlighted text, not the page top
           if (firstMatchSpan) {
-            (firstMatchSpan as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+            (firstMatchSpan as HTMLElement).scrollIntoView({ behavior: "instant", block: "center" });
           }
           return true;
         }
       }
 
-      // No highlight text — just scroll to page
-      pageEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      // No highlight text — just jump to page
+      pageEl.scrollIntoView({ behavior: "instant", block: "start" });
       return true;
     }
 
@@ -469,6 +469,8 @@ function PdfViewer({
             // Clamp selection to text layer content only
             const anchor = sel!.anchorNode;
             if (!anchor?.parentElement?.closest(".textLayer")) { setSelectionPopup(null); return; }
+            // Seitenzahl aus dem Anchor-Node bestimmen (nicht IntersectionObserver)
+            const anchorPage = Number(anchor?.parentElement?.closest("[data-page]")?.getAttribute("data-page")) || page;
             const rng = sel!.getRangeAt(0);
             const rects = rng.getClientRects();
             // Filter to rects inside text layer elements only
@@ -476,7 +478,7 @@ function PdfViewer({
             const rect = textRects.length > 0 ? textRects[textRects.length - 1] : rng.getBoundingClientRect();
             if (rect.width === 0 && rect.height === 0) { setSelectionPopup(null); return; }
             const cont = containerRef.current!.getBoundingClientRect();
-            setSelectionPopup({ x: rect.left - cont.left + rect.width / 2, y: rect.top - cont.top - 8, bottomY: rect.bottom - cont.top + 8, text });
+            setSelectionPopup({ x: rect.left - cont.left + rect.width / 2, y: rect.top - cont.top - 8, bottomY: rect.bottom - cont.top + 8, text, page: anchorPage });
           } else {
             setSelectionPopup(null);
           }
@@ -489,6 +491,7 @@ function PdfViewer({
       const target = e.target as HTMLElement;
       if (target.closest('[data-selection-popup]')) return;
       setSelectionPopup(null);
+      window.getSelection()?.removeAllRanges();
       CSS.highlights?.delete("pill-highlight");
     }
     function onScroll() { setSelectionPopup(null); CSS.highlights?.delete("pill-highlight"); }
@@ -567,7 +570,7 @@ function PdfViewer({
                     <button
                       key={a.key}
                       type="button"
-                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page, selectedText: selectionPopup.text }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
+                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page: selectionPopup.page, selectedText: selectionPopup.text }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
                     >
                       <span className="text-white/50"><Icon size={14} weight="bold" /></span>
@@ -591,7 +594,7 @@ function PdfViewer({
                     <button
                       key={a.key}
                       type="button"
-                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page, selectedText: selectionPopup.text }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
+                      onClick={() => { onAskWithSelection(`${a.prompt}\n\n"${selectionPopup.text}"`, { uuid: source.uuid, filename: source.filename, page: selectionPopup.page, selectedText: selectionPopup.text }); setSelectionPopup(null); window.getSelection()?.removeAllRanges(); }}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-neutral-200 hover:bg-white/10 transition-colors w-full"
                     >
                       <span className="text-white/50"><Icon size={14} weight="bold" /></span>
@@ -799,9 +802,9 @@ function PdfViewer({
         </div>
       )}
 
-      <div ref={scrollContainerRef} className="flex-1 p-4" style={{ display: mdMode ? "none" : undefined, overflowY: "auto", overflowX: (zoomLevel > 1 || hasAnnotations) ? "auto" : "hidden" }}>
+      <div ref={scrollContainerRef} className="flex-1 p-4" style={{ display: mdMode ? "none" : undefined, overflowY: "auto", overflowX: "auto", minWidth: 0 }}>
         {containerWidth > 0 && containerHeight > 0 && (
-          <div style={{ width: renderWidth + (hasAnnotations ? annotationColumnWidth + 12 : 0), margin: "0 auto" }}>
+          <div style={{ width: renderWidth + (hasAnnotations ? annotationColumnWidth + 12 : 0), minWidth: hasAnnotations ? 500 : 300, margin: "0 auto" }}>
           <Document
             file={`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`}
             onLoadSuccess={async (pdf) => {
@@ -846,10 +849,7 @@ function PdfViewer({
                         alignItems: "center",
                         gap: 6,
                       }}>
-                        <div style={{
-                          width: 14, height: 14, border: "2px solid #7A9BAD", borderTopColor: "transparent",
-                          borderRadius: "50%", animation: "spin 1s linear infinite",
-                        }} />
+                        <div className="animate-spin rounded-full border-2 border-[#7A9BAD] border-t-transparent flex-shrink-0" style={{ width: 14, height: 14, minWidth: 14, minHeight: 14 }} />
                         Zusammenfassungen werden erstellt…
                       </div>
                     )}
@@ -881,7 +881,7 @@ function PdfViewer({
                             background: "transparent", color: "#7A9BAD", cursor: "pointer",
                           }}
                         >
-                          {summariesStatus === "none" ? "Erstellen" : "Neu erstellen"}
+                          {summariesStatus === "none" ? "Zusammenfassungen erstellen" : "Zusammenfassungen neu erstellen"}
                         </button>
                       </div>
                     )}
