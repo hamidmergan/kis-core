@@ -225,6 +225,15 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     ALTER COLUMN embedding TYPE vector
                     USING embedding::vector
             """)
+            # Hybrid Search: tsvector column for BM25-style keyword search
+            cur.execute("""
+                ALTER TABLE ki_tutor_chunks
+                    ADD COLUMN IF NOT EXISTS search_vector tsvector
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chunks_search
+                ON ki_tutor_chunks USING gin(search_vector)
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_paragraph_summaries (
                     id          SERIAL PRIMARY KEY,
@@ -264,6 +273,24 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     UNIQUE (module_id, user_id)
                 )
             """)
+        conn.commit()
+
+    # Backfill tsvector for existing chunks (separate transaction)
+    from loguru import logger as _log
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM ki_tutor_chunks WHERE search_vector IS NULL")
+            null_count = cur.fetchone()[0]
+            if null_count > 0:
+                _log.info("Backfilling search_vector for {} chunks...", null_count)
+                cur.execute("""
+                    UPDATE ki_tutor_chunks
+                    SET search_vector = to_tsvector('german', content)
+                    WHERE search_vector IS NULL
+                """)
+                _log.info("search_vector backfill done.")
+            else:
+                _log.info("search_vector: all chunks already populated.")
         conn.commit()
 
 
@@ -1368,10 +1395,10 @@ def create_ki_tutor_chunk(
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO ki_tutor_chunks (source_id, page_number, content)
-                   VALUES (%s, %s, %s)
+                """INSERT INTO ki_tutor_chunks (source_id, page_number, content, search_vector)
+                   VALUES (%s, %s, %s, to_tsvector('german', %s))
                    RETURNING id""",
-                (source_id, page_number, content),
+                (source_id, page_number, content, content),
             )
             chunk_id = cur.fetchone()[0]
         conn.commit()
@@ -1415,6 +1442,94 @@ def search_similar_chunks(
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
+
+
+def hybrid_search_chunks(
+    module_id: int,
+    query_text: str,
+    query_embedding: list[float],
+    source_ids: list[int] | None = None,
+    limit: int = 15,
+    rrf_k: int = 60,
+) -> list[dict]:
+    """Hybrid search: combines vector similarity + BM25 keyword search via RRF."""
+    from loguru import logger
+
+    source_filter = ""
+    source_param: list = []
+    if source_ids is not None:
+        source_filter = "AND s.id = ANY(%s)"
+        source_param = [source_ids]
+
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # 1) Vector search (top 40)
+            cur.execute(
+                f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
+                        ORDER BY c.embedding <=> %s::vector
+                    ) AS rank
+                    FROM ki_tutor_chunks c
+                    JOIN ki_tutor_sources s ON s.id = c.source_id
+                    WHERE s.module_id = %s {source_filter}
+                      AND c.embedding IS NOT NULL
+                    ORDER BY c.embedding <=> %s::vector
+                    LIMIT 40""",
+                [str(query_embedding), module_id] + source_param + [str(query_embedding)],
+            )
+            vec_rows = cur.fetchall()
+            vec_pages = sorted(set(r["page_number"] for r in vec_rows))
+            logger.info("Hybrid Vector: {} hits, Seiten: {}", len(vec_rows), vec_pages)
+
+            # 2) Keyword search (top 40) — OR-Verknüpfung damit einzelne Suchbegriffe matchen
+            cur.execute(
+                f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
+                        ORDER BY ts_rank_cd(c.search_vector,
+                            (regexp_replace(plainto_tsquery('german', %s)::text, ' & ', ' | ', 'g'))::tsquery
+                        ) DESC
+                    ) AS rank
+                    FROM ki_tutor_chunks c
+                    JOIN ki_tutor_sources s ON s.id = c.source_id
+                    WHERE s.module_id = %s {source_filter}
+                      AND c.search_vector IS NOT NULL
+                      AND c.search_vector @@ (regexp_replace(plainto_tsquery('german', %s)::text, ' & ', ' | ', 'g'))::tsquery
+                    LIMIT 40""",
+                [query_text, module_id] + source_param + [query_text],
+            )
+            kw_rows = cur.fetchall()
+            kw_pages = sorted(set(r["page_number"] for r in kw_rows))
+            logger.info("Hybrid Keyword: {} hits, Seiten: {}", len(kw_rows), kw_pages)
+
+            # 3) RRF fusion
+            scores: dict[int, float] = {}
+            for row in vec_rows:
+                scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+            for row in kw_rows:
+                scores[row["id"]] = scores.get(row["id"], 0) + 1.0 / (rrf_k + row["rank"])
+
+            if not scores:
+                return []
+
+            # Fetch full chunk data for top results
+            top_ids = sorted(scores, key=lambda i: scores[i], reverse=True)[:limit]
+            cur.execute(
+                """SELECT id, source_id, page_number, content
+                   FROM ki_tutor_chunks WHERE id = ANY(%s)""",
+                (top_ids,),
+            )
+            chunk_map = {r["id"]: dict(r) for r in cur.fetchall()}
+
+            # Return in score order
+            results = []
+            for cid in top_ids:
+                if cid in chunk_map:
+                    chunk = chunk_map[cid]
+                    chunk["hybrid_score"] = scores[cid]
+                    results.append(chunk)
+
+            rrf_pages = sorted(set(c["page_number"] for c in results))
+            logger.info("Hybrid RRF: {} final chunks, Seiten: {}", len(results), rrf_pages)
+
+    return results
 
 
 # --- KI Tutor: Messages ---

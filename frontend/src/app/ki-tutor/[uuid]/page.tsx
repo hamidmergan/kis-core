@@ -1292,23 +1292,22 @@ function ChatPanel({
               if (m.index > last) nodes.push(text.slice(last, m.index));
               const pageNum = parseInt(m[1]);
               const sp = msgSourcePages.find((s) => s.page_number === pageNum);
-              if (sp) {
-                nodes.push(
-                  <button
-                    key={m.index}
-                    type="button"
-                    onClick={() => onPillClick(sp.source_uuid, sp.page_number, getFilename(sp.source_uuid), sp.source_text)}
-                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-                    style={{ backgroundColor: "rgba(0,66,97,0.12)", color: "#004261" }}
-                    title={`${getFilename(sp.source_uuid)}, S. ${sp.page_number}`}
-                  >
-                    <FilePdf size={8} weight="bold" />
-                    S. {pageNum}
-                  </button>
-                );
-              } else {
-                nodes.push(m[0]);
-              }
+              // Fallback: wenn Seite nicht in source_pages, erste verfügbare Source nutzen
+              const fallbackUuid = sp?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? selectedSourceIds[0] ?? "";
+              const fallbackFilename = sp ? getFilename(sp.source_uuid) : (msgSourcePages[0] ? getFilename(msgSourcePages[0].source_uuid) : "");
+              nodes.push(
+                <button
+                  key={m.index}
+                  type="button"
+                  onClick={() => onPillClick(fallbackUuid, pageNum, fallbackFilename, sp?.source_text)}
+                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+                  style={{ backgroundColor: "rgba(0,66,97,0.12)", color: "#004261" }}
+                  title={`${fallbackFilename}, S. ${pageNum}`}
+                >
+                  <FilePdf size={8} weight="bold" />
+                  S. {pageNum}
+                </button>
+              );
               last = pattern.lastIndex;
             }
             if (last < text.length) nodes.push(text.slice(last));
@@ -1349,6 +1348,7 @@ function ChatPanel({
             >
               {msg.role === "assistant" ? (
                 <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
                   components={{
                     p: ({ children }) => <p className="mb-2 last:mb-0">{withCitations(children)}</p>,
                     ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
@@ -1358,6 +1358,10 @@ function ChatPanel({
                     h1: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
                     h2: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
                     h3: ({ children }) => <p className="font-medium mb-1">{withCitations(children)}</p>,
+                    table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                    thead: ({ children }) => <thead className="border-b border-current/20">{children}</thead>,
+                    th: ({ children }) => <th className="text-left px-2 py-1 font-semibold">{children}</th>,
+                    td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{withCitations(children)}</td>,
                   }}
                 >
                   {msg.content}

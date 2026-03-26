@@ -410,24 +410,52 @@ async def chat(
         if popup_source:
             search_source_ids = [popup_source["id"]]
 
-    chunks = db.search_similar_chunks(module["id"], query_vector, source_ids=search_source_ids, limit=5)
+    # Hybrid Search: Vector + Keyword mit RRF
+    chunks = db.hybrid_search_chunks(
+        module["id"], embed_text, query_vector,
+        source_ids=search_source_ids, limit=20,
+    )
+    # Debug: welche Seiten hat die Hybrid Search gefunden?
+    found_pages = sorted(set(c["page_number"] for c in chunks))
+    logger.info("Hybrid Search: {} chunks, Seiten: {}, Query: '{}'", len(chunks), found_pages, embed_text[:80])
 
-    # Build context (max 4000 chars)
+    # Source-Diversity: bei mehreren aktiven Quellen sicherstellen,
+    # dass jede Quelle mindestens vertreten ist
+    if source_ids and len(source_ids) > 1:
+        seen_sources: set[int] = set()
+        diverse_chunks: list[dict] = []
+        remaining: list[dict] = []
+        for chunk in chunks:
+            if chunk["source_id"] not in seen_sources:
+                seen_sources.add(chunk["source_id"])
+                diverse_chunks.append(chunk)
+            else:
+                remaining.append(chunk)
+        # Auffüllen mit restlichen Chunks nach Score
+        chunks = diverse_chunks + remaining
+
+    # Build context (max 16000 chars) — Seitenzahl pro Chunk mitgeben
     context_parts: list[str] = []
     context_len = 0
     for chunk in chunks:
-        part = chunk["content"]
-        if context_len + len(part) > 4000:
+        part = f"[S. {chunk['page_number']}]\n{chunk['content']}"
+        if context_len + len(part) > 16000:
             break
         context_parts.append(part)
         context_len += len(part)
     context = "\n\n---\n\n".join(context_parts)
 
-    # Popup-Aktionen: User hat Text selbst markiert → Quelle nur einmal am Ende
+    # Popup-Aktionen: User hat Text selbst markiert
     if body.source_text:
-        system_prompt = TUTOR_SYSTEM_DIRECT_WITH_CONTEXT
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
-        user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
+        # "Genauer ausführen" braucht RAG-Kontext, die anderen arbeiten nur mit dem markierten Text
+        elaborate_prompt = TUTOR_POPUP_ACTIONS[0]["prompt"]
+        if body.question.startswith(str(elaborate_prompt)):
+            system_prompt = TUTOR_SYSTEM_DIRECT_WITH_CONTEXT
+            user_message = f"{body.question}\n\nMarkierter Text (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}\n\nWeiterer Kontext aus dem Dokument:\n{context}"
+        else:
+            system_prompt = TUTOR_SYSTEM_DIRECT
+            user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
     else:
         system_prompt = TUTOR_SYSTEM_RAG
         user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"

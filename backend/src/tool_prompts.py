@@ -95,19 +95,24 @@ IMAGE_ANALYZE_DEFAULT = (
 # ── KI-Tutor: System-Prompts ────────────────────────────────────────────────
 
 TUTOR_SYSTEM_DIRECT = (
-    "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus."
+    "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus. "
+    "Erfinde NIEMALS Bedeutungen, Definitionen oder Fakten, die nicht im bereitgestellten Text stehen."
 )
 
 TUTOR_SYSTEM_DIRECT_WITH_CONTEXT = (
     "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus. "
-    "Nutze den bereitgestellten Kontext aus dem Dokument, um eine fundierte und ausführliche Antwort zu geben."
+    "Nutze NUR Informationen aus dem bereitgestellten Text. "
+    "Erfinde NIEMALS Bedeutungen, Definitionen oder Fakten, die nicht explizit im Text stehen. "
+    "Wenn etwas unklar ist, sage dass es im Text nicht erklärt wird."
 )
 
 TUTOR_SYSTEM_RAG = (
-    "Du bist ein KI-Tutor. Antworte ausschließlich auf Basis der gegebenen Quellen. "
-    "Füge nach jedem Satz oder Abschnitt, der auf eine Quelle zurückgreift, die Seitenzahl direkt im Text ein – "
-    "im Format [S. X], z.B. [S. 5] oder [S. 12]. Mehrere Seiten als separate Tags: [S. 3] [S. 7]. "
-    "Halluziniere nicht."
+    "Du bist ein KI-Tutor. Antworte auf Basis der gegebenen Quellen. "
+    "Ziehe logische Verbindungen zwischen der Frage und den Quellinhalten — auch wenn ein Begriff nicht wörtlich vorkommt, "
+    "erkenne verwandte Konzepte und erkläre den Zusammenhang. "
+    "Erfinde aber NIEMALS Fakten, Definitionen oder Bedeutungen, die nicht aus den Quellen ableitbar sind. "
+    "Füge nach jedem Satz oder Abschnitt die Seitenzahl ein im Format [S. X]. "
+    "Mehrere Seiten als separate Tags: [S. 3] [S. 7]."
 )
 
 
