@@ -46,15 +46,25 @@ _NON_ENGLISH = {
 @router.get("/tts/providers")
 async def get_tts_providers():
     """Return which TTS providers are currently enabled and reachable (public endpoint)."""
-    from src.dependencies import is_elevenlabs_enabled, is_kokoro_enabled, get_kokoro_client
+    from src.dependencies import is_elevenlabs_enabled, is_kokoro_enabled, get_kokoro_client, is_mylab_enabled, get_mylab_client, is_thorsten_enabled, get_thorsten_client
     kokoro_enabled = is_kokoro_enabled()
     if kokoro_enabled:
         client = get_kokoro_client()
         kokoro_enabled = bool(client and client.is_available())
+    mylab_enabled = is_mylab_enabled()
+    if mylab_enabled:
+        client = get_mylab_client()
+        mylab_enabled = bool(client and client.is_available())
+    thorsten_enabled = is_thorsten_enabled()
+    if thorsten_enabled:
+        client = get_thorsten_client()
+        thorsten_enabled = bool(client and client.is_available())
     return {
         "elevenlabs_enabled": is_elevenlabs_enabled(),
         "fish_speech_enabled": False,
         "kokoro_enabled": kokoro_enabled,
+        "mylab_enabled": mylab_enabled,
+        "thorsten_enabled": thorsten_enabled,
     }
 
 
@@ -69,8 +79,13 @@ async def kokoro_preview(body: dict, _user=Depends(get_current_user)):
     if not client or not client.is_available():
         raise HTTPException(status_code=503, detail="Kokoro Server nicht erreichbar")
     voice_id = body.get("voice_id", "af_heart")
+    # Deutschen Preview-Text für deutsche Stimmen verwenden
+    if voice_id.startswith(("df_", "dm_")):
+        preview_text = "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
+    else:
+        preview_text = "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
     audio = client.synthesize_chunk(
-        "Hello! This is a preview of the selected voice. I hope you enjoy the sound.",
+        preview_text,
         voice_id=voice_id,
         speed=1.0,
     )
@@ -84,6 +99,65 @@ async def list_kokoro_voices():
     if not is_kokoro_enabled():
         return {"voices": []}
     client = get_kokoro_client()
+    if not client or not client.is_available():
+        return {"voices": []}
+    return {"voices": client.get_voices()}
+
+
+@router.post("/mylab/preview")
+async def mylab_preview(body: dict, _user=Depends(get_current_user)):
+    """Synthesize a short preview sample for a myLab voice."""
+    from fastapi.responses import Response as FastAPIResponse
+    from src.dependencies import is_mylab_enabled, get_mylab_client
+    if not is_mylab_enabled():
+        raise HTTPException(status_code=400, detail="myLab TTS nicht aktiv")
+    client = get_mylab_client()
+    if not client or not client.is_available():
+        raise HTTPException(status_code=503, detail="myLab TTS Server nicht erreichbar")
+    voice_id = body.get("voice_id", "alloy")
+    audio = client.synthesize_chunk(
+        "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen.",
+        voice_id=voice_id,
+        speed=1.0,
+    )
+    return FastAPIResponse(content=audio, media_type="audio/mpeg")
+
+
+@router.get("/mylab/voices")
+async def list_mylab_voices():
+    """Return all available myLab TTS voices."""
+    from src.dependencies import is_mylab_enabled, get_mylab_client
+    if not is_mylab_enabled():
+        return {"voices": []}
+    client = get_mylab_client()
+    if not client or not client.is_available():
+        return {"voices": []}
+    return {"voices": client.get_voices()}
+
+
+@router.post("/thorsten/preview")
+async def thorsten_preview(body: dict, _user=Depends(get_current_user)):
+    """Synthesize a short preview sample for Thorsten voice."""
+    from fastapi.responses import Response as FastAPIResponse
+    from src.dependencies import is_thorsten_enabled, get_thorsten_client
+    if not is_thorsten_enabled():
+        raise HTTPException(status_code=400, detail="Thorsten TTS nicht aktiv")
+    client = get_thorsten_client()
+    if not client or not client.is_available():
+        raise HTTPException(status_code=503, detail="Thorsten TTS Server nicht erreichbar")
+    audio = client.synthesize_chunk(
+        "Hallo! Dies ist eine Vorschau der Thorsten-Stimme. Ich hoffe, sie gefällt Ihnen.",
+    )
+    return FastAPIResponse(content=audio, media_type="audio/wav")
+
+
+@router.get("/thorsten/voices")
+async def list_thorsten_voices():
+    """Return available Thorsten voices."""
+    from src.dependencies import is_thorsten_enabled, get_thorsten_client
+    if not is_thorsten_enabled():
+        return {"voices": []}
+    client = get_thorsten_client()
     if not client or not client.is_available():
         return {"voices": []}
     return {"voices": client.get_voices()}
@@ -141,7 +215,7 @@ async def text_to_speech(
     request: Request,
     file: UploadFile = File(...),
     voice_id: str = Form(""),
-    speed: float = Form(0.9),
+    speed: float = Form(1.0),
     stability: float = Form(0.70),
     similarity_boost: float = Form(0.60),
     style: float = Form(0.20),
@@ -199,6 +273,20 @@ async def text_to_speech(
         kokoro_client = get_kokoro_client()
         if not kokoro_client or not kokoro_client.is_available():
             raise HTTPException(status_code=503, detail="Kokoro Server nicht erreichbar")
+    elif provider == "mylab":
+        from src.dependencies import is_mylab_enabled, get_mylab_client
+        if not is_mylab_enabled():
+            raise HTTPException(status_code=400, detail="myLab TTS ist nicht aktiviert")
+        mylab_client = get_mylab_client()
+        if not mylab_client or not mylab_client.is_available():
+            raise HTTPException(status_code=503, detail="myLab TTS Server nicht erreichbar")
+    elif provider == "thorsten":
+        from src.dependencies import is_thorsten_enabled, get_thorsten_client
+        if not is_thorsten_enabled():
+            raise HTTPException(status_code=400, detail="Thorsten TTS ist nicht aktiviert")
+        thorsten_client = get_thorsten_client()
+        if not thorsten_client or not thorsten_client.is_available():
+            raise HTTPException(status_code=503, detail="Thorsten TTS Server nicht erreichbar")
     else:
         from src.dependencies import is_elevenlabs_enabled
         if not is_elevenlabs_enabled():

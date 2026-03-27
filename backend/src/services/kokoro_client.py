@@ -118,72 +118,105 @@ class KokoroClient:
             )
         return response.content
 
-    # Feste Stimmliste als Fallback (Kokoro v1.0, Apache 2.0)
+    # Sprachzuordnung anhand des Kokoro Voice-ID Prefix
+    _LANGUAGE_MAP = {
+        "af_": {"language": "English", "accent": "American", "gender": "Female"},
+        "am_": {"language": "English", "accent": "American", "gender": "Male"},
+        "bf_": {"language": "English", "accent": "British",  "gender": "Female"},
+        "bm_": {"language": "English", "accent": "British",  "gender": "Male"},
+        "df_": {"language": "Deutsch", "accent": "Deutsch",  "gender": "Female"},
+        "dm_": {"language": "Deutsch", "accent": "Deutsch",  "gender": "Male"},
+        "ff_": {"language": "Français", "accent": "Français", "gender": "Female"},
+        "fm_": {"language": "Français", "accent": "Français", "gender": "Male"},
+        "ef_": {"language": "Español", "accent": "Español",  "gender": "Female"},
+        "em_": {"language": "Español", "accent": "Español",  "gender": "Male"},
+        "if_": {"language": "Italiano", "accent": "Italiano", "gender": "Female"},
+        "im_": {"language": "Italiano", "accent": "Italiano", "gender": "Male"},
+        "pf_": {"language": "Português", "accent": "Português", "gender": "Female"},
+        "pm_": {"language": "Português", "accent": "Português", "gender": "Male"},
+        "jf_": {"language": "Japanese", "accent": "Japanese", "gender": "Female"},
+        "jm_": {"language": "Japanese", "accent": "Japanese", "gender": "Male"},
+        "zf_": {"language": "Chinese", "accent": "Chinese",  "gender": "Female"},
+        "zm_": {"language": "Chinese", "accent": "Chinese",  "gender": "Male"},
+        "hf_": {"language": "Hindi",   "accent": "Hindi",    "gender": "Female"},
+        "hm_": {"language": "Hindi",   "accent": "Hindi",    "gender": "Male"},
+        "kf_": {"language": "Korean",  "accent": "Korean",   "gender": "Female"},
+        "km_": {"language": "Korean",  "accent": "Korean",   "gender": "Male"},
+    }
+
+    # Nur Englisch + Deutsch als unterstützte Sprachen
+    _SUPPORTED_PREFIXES = ("af_", "am_", "bf_", "bm_", "df_", "dm_")
+
+    # Feste Stimmliste als Fallback (Kokoro v1.0+, Apache 2.0)
     _BUILTIN_VOICES = [
-        {"voice_id": "af_heart",    "name": "Heart",    "accent": "American", "gender": "Female"},
-        {"voice_id": "af_alloy",    "name": "Alloy",    "accent": "American", "gender": "Female"},
-        {"voice_id": "af_aoede",    "name": "Aoede",    "accent": "American", "gender": "Female"},
-        {"voice_id": "af_bella",    "name": "Bella",    "accent": "American", "gender": "Female"},
-        {"voice_id": "af_jessica",  "name": "Jessica",  "accent": "American", "gender": "Female"},
-        {"voice_id": "af_kore",     "name": "Kore",     "accent": "American", "gender": "Female"},
-        {"voice_id": "af_nicole",   "name": "Nicole",   "accent": "American", "gender": "Female"},
-        {"voice_id": "af_nova",     "name": "Nova",     "accent": "American", "gender": "Female"},
-        {"voice_id": "af_river",    "name": "River",    "accent": "American", "gender": "Female"},
-        {"voice_id": "af_sarah",    "name": "Sarah",    "accent": "American", "gender": "Female"},
-        {"voice_id": "af_sky",      "name": "Sky",      "accent": "American", "gender": "Female"},
-        {"voice_id": "am_adam",     "name": "Adam",     "accent": "American", "gender": "Male"},
-        {"voice_id": "am_echo",     "name": "Echo",     "accent": "American", "gender": "Male"},
-        {"voice_id": "am_eric",     "name": "Eric",     "accent": "American", "gender": "Male"},
-        {"voice_id": "am_fenrir",   "name": "Fenrir",   "accent": "American", "gender": "Male"},
-        {"voice_id": "am_liam",     "name": "Liam",     "accent": "American", "gender": "Male"},
-        {"voice_id": "am_michael",  "name": "Michael",  "accent": "American", "gender": "Male"},
-        {"voice_id": "am_onyx",     "name": "Onyx",     "accent": "American", "gender": "Male"},
-        {"voice_id": "am_puck",     "name": "Puck",     "accent": "American", "gender": "Male"},
-        {"voice_id": "am_santa",    "name": "Santa",    "accent": "American", "gender": "Male"},
-        {"voice_id": "bf_emma",     "name": "Emma",     "accent": "British",  "gender": "Female"},
-        {"voice_id": "bf_isabella", "name": "Isabella", "accent": "British",  "gender": "Female"},
-        {"voice_id": "bf_alice",    "name": "Alice",    "accent": "British",  "gender": "Female"},
-        {"voice_id": "bf_lily",     "name": "Lily",     "accent": "British",  "gender": "Female"},
-        {"voice_id": "bm_george",   "name": "George",   "accent": "British",  "gender": "Male"},
-        {"voice_id": "bm_fable",    "name": "Fable",    "accent": "British",  "gender": "Male"},
-        {"voice_id": "bm_lewis",    "name": "Lewis",    "accent": "British",  "gender": "Male"},
-        {"voice_id": "bm_daniel",   "name": "Daniel",   "accent": "British",  "gender": "Male"},
+        # Englisch — American
+        {"voice_id": "af_heart",    "name": "Heart",    "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_alloy",    "name": "Alloy",    "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_aoede",    "name": "Aoede",    "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_bella",    "name": "Bella",    "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_jessica",  "name": "Jessica",  "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_kore",     "name": "Kore",     "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_nicole",   "name": "Nicole",   "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_nova",     "name": "Nova",     "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_river",    "name": "River",    "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_sarah",    "name": "Sarah",    "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "af_sky",      "name": "Sky",      "language": "English", "accent": "American", "gender": "Female"},
+        {"voice_id": "am_adam",     "name": "Adam",     "language": "English", "accent": "American", "gender": "Male"},
+        {"voice_id": "am_echo",     "name": "Echo",     "language": "English", "accent": "American", "gender": "Male"},
+        {"voice_id": "am_eric",     "name": "Eric",     "language": "English", "accent": "American", "gender": "Male"},
+        {"voice_id": "am_fenrir",   "name": "Fenrir",   "language": "English", "accent": "American", "gender": "Male"},
+        {"voice_id": "am_liam",     "name": "Liam",     "language": "English", "accent": "American", "gender": "Male"},
+        {"voice_id": "am_michael",  "name": "Michael",  "language": "English", "accent": "American", "gender": "Male"},
+        {"voice_id": "am_onyx",     "name": "Onyx",     "language": "English", "accent": "American", "gender": "Male"},
+        {"voice_id": "am_puck",     "name": "Puck",     "language": "English", "accent": "American", "gender": "Male"},
+        {"voice_id": "am_santa",    "name": "Santa",    "language": "English", "accent": "American", "gender": "Male"},
+        # Englisch — British
+        {"voice_id": "bf_emma",     "name": "Emma",     "language": "English", "accent": "British",  "gender": "Female"},
+        {"voice_id": "bf_isabella", "name": "Isabella", "language": "English", "accent": "British",  "gender": "Female"},
+        {"voice_id": "bf_alice",    "name": "Alice",    "language": "English", "accent": "British",  "gender": "Female"},
+        {"voice_id": "bf_lily",     "name": "Lily",     "language": "English", "accent": "British",  "gender": "Female"},
+        {"voice_id": "bm_george",   "name": "George",   "language": "English", "accent": "British",  "gender": "Male"},
+        {"voice_id": "bm_fable",    "name": "Fable",    "language": "English", "accent": "British",  "gender": "Male"},
+        {"voice_id": "bm_lewis",    "name": "Lewis",    "language": "English", "accent": "British",  "gender": "Male"},
+        {"voice_id": "bm_daniel",   "name": "Daniel",   "language": "English", "accent": "British",  "gender": "Male"},
+        # Deutsch
+        {"voice_id": "df_eva",      "name": "Eva",      "language": "Deutsch", "accent": "Deutsch",  "gender": "Female"},
+        {"voice_id": "df_dora",     "name": "Dora",     "language": "Deutsch", "accent": "Deutsch",  "gender": "Female"},
+        {"voice_id": "dm_florian",  "name": "Florian",  "language": "Deutsch", "accent": "Deutsch",  "gender": "Male"},
+        {"voice_id": "dm_hans",     "name": "Hans",     "language": "Deutsch", "accent": "Deutsch",  "gender": "Male"},
     ]
 
-    _ENGLISH_PREFIXES = ("af_", "am_", "bf_", "bm_")
+    @classmethod
+    def _is_supported(cls, voice_id: str) -> bool:
+        return any(voice_id.startswith(p) for p in cls._SUPPORTED_PREFIXES)
 
     @classmethod
-    def _is_english(cls, voice_id: str) -> bool:
-        return any(voice_id.startswith(p) for p in cls._ENGLISH_PREFIXES)
-
-    @staticmethod
-    def _normalize_voice_id(voice_id: str) -> dict:
-        """Konvertiert z.B. 'af_alloy' → {voice_id, name='Alloy', accent='American', gender='Female'}."""
-        accent = "British" if voice_id.startswith("b") else "American"
-        gender = "Female" if len(voice_id) > 1 and voice_id[1] == "f" else "Male"
+    def _normalize_voice_id(cls, voice_id: str) -> dict:
+        """Konvertiert z.B. 'af_alloy' → {voice_id, name, language, accent, gender}."""
+        prefix = voice_id[:3] if len(voice_id) >= 3 else ""
+        info = cls._LANGUAGE_MAP.get(prefix, {"language": "Unknown", "accent": "Unknown", "gender": "Unknown"})
         name = voice_id[3:].replace("_", " ").title() if len(voice_id) > 3 else voice_id
-        return {"voice_id": voice_id, "name": name, "accent": accent, "gender": gender}
+        return {"voice_id": voice_id, "name": name, **info}
 
     def get_voices(self) -> list[dict]:
         """Stimmliste vom Server abrufen, Fallback auf eingebettete Liste.
-        Gibt nur englische Stimmen zurück (af_, am_, bf_, bm_).
+        Gibt Englisch + Deutsch Stimmen zurück.
         """
         try:
             with httpx.Client(timeout=5.0) as client:
                 resp = client.get(f"{self._base_url}/v1/audio/voices", headers=self._headers())
             if resp.status_code == 200:
                 data = resp.json()
-                # Kokoro-FastAPI liefert {"voices": [...]} mit Strings oder Dicts
                 voices_raw = data.get("voices") or data.get("data", [])
                 if voices_raw:
                     normalized = []
                     for v in voices_raw:
                         if isinstance(v, str):
-                            if self._is_english(v):
+                            if self._is_supported(v):
                                 normalized.append(self._normalize_voice_id(v))
                         elif isinstance(v, dict):
                             vid = v.get("id") or v.get("voice_id", "")
-                            if self._is_english(vid):
+                            if self._is_supported(vid):
                                 normalized.append(self._normalize_voice_id(vid))
                     if normalized:
                         return normalized

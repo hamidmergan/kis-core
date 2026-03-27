@@ -36,14 +36,6 @@ TRANSCRIPTION_EXTENSIONS = {
 }
 
 
-VIDEO_DUBBING_VIDEO_EXTENSIONS = {
-    ".mp4": "video/mp4",
-}
-
-VIDEO_DUBBING_AUDIO_EXTENSIONS = {
-    ".mp3": "audio/mpeg",
-}
-
 SUBTITLE_EXTENSIONS = {
     ".srt": "application/x-subrip",
     ".vtt": "text/vtt",

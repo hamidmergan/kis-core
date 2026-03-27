@@ -44,7 +44,6 @@ _TOOL_LABELS = {
     "screencast_translate": "Screencast-Übersetzung",
     "screencast_auto": "Screencast (Auto)",
     "tts": "Text-to-Speech",
-    "video_dubbing": "Video-Dubbing",
     "translation": "Übersetzung",
     "transcription": "Transkription",
     "image_generate": "Bild-Generierung",
@@ -71,7 +70,6 @@ async def check_job_limit(
     _TOOL_GROUP_TOOLS = {
         "screencast": ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"],
         "tts": ["tts"],
-        "video_dubbing": ["video_dubbing"],
     }
 
     _TOOL_GROUP_LIMITS = {
@@ -104,7 +102,7 @@ def _dt(val) -> str | None:
     return val.isoformat() if hasattr(val, "isoformat") else val
 
 
-_META_TOOLS = {"screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render", "video_dubbing"}
+_META_TOOLS = {"screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"}
 
 
 def _format_job_rows(jobs: list[dict]) -> list[dict]:

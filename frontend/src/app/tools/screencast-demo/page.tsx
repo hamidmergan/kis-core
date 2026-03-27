@@ -113,7 +113,7 @@ function ScreencastDemoPageInner() {
   const [ttsSettingsError, setTtsSettingsError] = useState("");
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const [step, setStep] = useState<ScreencastStep>("upload");
-  const [speed, setSpeed] = useState(0.9);
+  const [speed, setSpeed] = useState(1.0);
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [dpi, setDpi] = useState(144);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
@@ -132,11 +132,13 @@ function ScreencastDemoPageInner() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
+  const [mylabVoices, setMylabVoices] = useState<Array<{ voice_id: string; name: string; description: string }>>([]);
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro">("kokoro");
+  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro" | "mylab">("kokoro");
   const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
   const [fishSpeechEnabled, setFishSpeechEnabled] = useState(false);
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
+  const [mylabEnabled, setMylabEnabled] = useState(false);
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [audioId, setAudioId] = useState<string>("");
   const [, setAudioCount] = useState(0);
@@ -160,11 +162,13 @@ function ScreencastDemoPageInner() {
   }, []);
 
   useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
+    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setFishSpeechEnabled(data.fish_speech_enabled);
       setKokoroEnabled(data.kokoro_enabled ?? false);
+      setMylabEnabled(data.mylab_enabled ?? false);
       if (data.kokoro_enabled) setTtsProvider("kokoro");
+      else if (data.mylab_enabled) setTtsProvider("mylab");
       else if (data.fish_speech_enabled) setTtsProvider("fish_speech");
       else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
       if (data.elevenlabs_enabled) {
@@ -178,6 +182,13 @@ function ScreencastDemoPageInner() {
           .then((kData) => {
             setKokoroVoices(kData.voices ?? []);
             if (kData.voices?.length > 0) setVoiceId(kData.voices[0].voice_id);
+          }).catch(() => {});
+      }
+      if (data.mylab_enabled) {
+        api.getJson<{ voices: Array<{ voice_id: string; name: string; description: string }> }>("/api/mylab/voices")
+          .then((mData) => {
+            setMylabVoices(mData.voices ?? []);
+            if (mData.voices?.length > 0 && !data.kokoro_enabled) setVoiceId(mData.voices[0].voice_id);
           }).catch(() => {});
       }
     }).catch(() => { setElevenlabsEnabled(true); }).finally(() => { setProvidersLoaded(true); });
@@ -972,27 +983,29 @@ function ScreencastDemoPageInner() {
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <h2 className="text-lg font-bold text-gray-900 mb-6">Einstellungen</h2>
 
-            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
+            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
               <div className="mb-2">
                 <label htmlFor="sc-provider-select" className="block text-sm font-medium text-gray-700 mb-2">TTS-Anbieter</label>
                 <select id="sc-provider-select" value={ttsProvider}
                   onChange={(e) => {
-                    const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro";
+                    const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro" | "mylab";
                     setTtsProvider(p);
                     if (p === "fish_speech") setVoiceId("default");
                     else if (p === "kokoro" && kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
+                    else if (p === "mylab" && mylabVoices.length > 0) setVoiceId(mylabVoices[0].voice_id);
                     else if (p === "elevenlabs" && voices.length > 0) setVoiceId(voices[0].voice_id);
                   }}
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261]"
                 >
                   {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
+                  {mylabEnabled && <option value="mylab">THL myLab (XTTS-v2)</option>}
                   {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
                   {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
                 </select>
               </div>
             )}
 
-            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
+            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
               <div className="mb-6 mt-4 space-y-3">
                 <div>
                   <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">Stimme</label>
@@ -1007,6 +1020,10 @@ function ScreencastDemoPageInner() {
                         const flag = v.accent === "American" ? "🇺🇸" : v.accent === "British" ? "🇬🇧" : "";
                         return <option key={v.voice_id} value={v.voice_id}>{flag} {v.name}</option>;
                       })
+                    ) : ttsProvider === "mylab" ? (
+                      mylabVoices.map((v) => (
+                        <option key={v.voice_id} value={v.voice_id}>{v.name} – {v.description}</option>
+                      ))
                     ) : (
                       voices.map((v) => {
                         const desc = translateDesc(v.description);
@@ -1020,6 +1037,9 @@ function ScreencastDemoPageInner() {
                 )}
                 {ttsProvider === "kokoro" && (
                   <a href="/tools/tts/voices?tab=kokoro" target="_blank" rel="noopener noreferrer" className="text-sm text-[#004261] hover:underline">Stimmen anhören →</a>
+                )}
+                {ttsProvider === "mylab" && (
+                  <a href="/tools/tts/voices?tab=mylab" target="_blank" rel="noopener noreferrer" className="text-sm text-[#004261] hover:underline">Stimmen anhören →</a>
                 )}
               </div>
             )}

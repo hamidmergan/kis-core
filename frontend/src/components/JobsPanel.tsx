@@ -357,7 +357,7 @@ export default function JobsPanel() {
                           <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
                           {job.tts_params?.voice_label || job.tts_params?.provider ? (
                             <p className="text-xs text-gray-400 truncate mt-0.5">
-                              {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
+                              {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "mylab" ? "THL myLab" : job.tts_params.provider === "thorsten" ? "Thorsten" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
                               {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
                             </p>
                           ) : null}
@@ -384,7 +384,7 @@ export default function JobsPanel() {
                                 <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
-                                {SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate" ? "MP4" : job.tool === "image_generate" ? (job.result_filename?.endsWith(".json") ? "ZIP" : "PNG") : job.tool === "image_edit" ? "PNG" : job.tool === "image_analyze" ? "TXT" : job.tool === "tts" ? "MP3" : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary" || job.tool === "video_dubbing") ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei") : "Datei"}
+                                {SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate" ? "MP4" : job.tool === "image_generate" ? (job.result_filename?.endsWith(".json") ? "ZIP" : "PNG") : job.tool === "image_edit" ? "PNG" : job.tool === "image_analyze" ? "TXT" : job.tool === "tts" ? "MP3" : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary") ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei") : "Datei"}
                               </button>
                               {(SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate") && (
                                 <button

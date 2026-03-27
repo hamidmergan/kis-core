@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from loguru import logger
+from langfuse.decorators import langfuse_context, observe
 from langfuse.openai import OpenAI
 
 # ── Audio chunking constants ───────────────────────────────────────────────────
@@ -215,6 +216,8 @@ class KisskiClient:
     def __init__(self, api_key: str, base_url: str, model: str, provider: str = "kisski"):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
+        self._provider = provider
+        self._base_url = base_url
         self._extra_body: dict = {}
         if provider == "ollama":
             self._batch_max_workers: int = 3
@@ -614,8 +617,12 @@ class KisskiClient:
                 return _merge_vtt(ordered)
             return " ".join(text for text, _ in ordered).strip()
 
+    @observe(name="whisper-transcribe")
     def transcribe(self, file_path: str, response_format: str = "text") -> str:
         """Transcribe audio in its original language using KISSKI Whisper."""
+        langfuse_context.update_current_observation(
+            metadata={"provider": self._provider, "base_url": self._base_url, "model": "whisper-large-v2"},
+        )
         try:
             with open(file_path, "rb") as f:
                 result = str(self._client.audio.transcriptions.create(
@@ -631,19 +638,12 @@ class KisskiClient:
                 raise
             raise RuntimeError(f"KISSKI Whisper API error: {e}") from e
 
+    @observe(name="whisper-translate")
     def transcribe_and_translate(self, file_path: str, response_format: str = "text") -> str:
-        """Transcribe audio and translate to English using KISSKI Whisper.
-
-        Args:
-            file_path: Path to the audio file.
-            response_format: Output format – "text", "srt", or "vtt".
-
-        Returns:
-            English translation of the audio content in the requested format.
-
-        Raises:
-            RuntimeError: If the Whisper API returns an error.
-        """
+        """Transcribe audio and translate to English using KISSKI Whisper."""
+        langfuse_context.update_current_observation(
+            metadata={"provider": self._provider, "base_url": self._base_url, "model": "whisper-large-v2"},
+        )
         try:
             with open(file_path, "rb") as f:
                 response = self._client.audio.translations.create(

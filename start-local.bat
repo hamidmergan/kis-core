@@ -1,6 +1,6 @@
 @echo off
 rem Lokale Entwicklung — alle optionalen Services aktiv
-set PROFILES=--profile minio --profile adminer --profile ldap --profile ldapadmin --profile kokoro-gpu --profile ollama --profile langfuse
+set PROFILES=--profile minio --profile adminer --profile ldap --profile ldapadmin --profile kokoro-gpu --profile ollama --profile langfuse --profile thorsten
 
 if "%1"=="down" (
     docker compose %PROFILES% down

@@ -11,6 +11,7 @@
   "dependencies": {
     "@embedpdf/react-pdf-viewer": "^2.10.0",
     "@phosphor-icons/react": "^2.1.10",
+    "mind-elixir": "^5.9.3",
     "next": "^15.1.0",
     "nextjs-toploader": "^3.9.17",
     "react": "^19.0.0",

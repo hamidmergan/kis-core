@@ -17,7 +17,7 @@ export default function HomePage() {
     checkAuthStatus().then((status) => {
       if (status.authenticated) {
         const role = status.role ?? "lecturer";
-        router.replace(role === "student" ? "/ki-tutor" : "/tools");
+        router.replace("/ki-tutor");
       } else {
         setChecking(false);
       }
@@ -32,8 +32,7 @@ export default function HomePage() {
     try {
       await login(username.trim(), password);
       const status = await checkAuthStatus();
-      const role = status.role ?? "lecturer";
-      router.push(role === "student" ? "/ki-tutor" : "/tools");
+      router.push("/ki-tutor");
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {

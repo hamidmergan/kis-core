@@ -168,6 +168,91 @@ TUTOR_SUMMARY_PAGE_BATCH_USER = (
 )
 
 
+TUTOR_MINDMAP_PROMPT = (
+    "Du bist ein Experte für Wissensstrukturierung. Erstelle eine hierarchische Mindmap aus dem gegebenen Text.\n\n"
+    "Antworte NUR mit einem JSON-Objekt in genau diesem Format (4 Ebenen):\n"
+    "{\n"
+    '  "topic": "Zentrales Thema",\n'
+    '  "children": [\n'
+    "    {\n"
+    '      "topic": "Hauptthema 1",\n'
+    '      "children": [\n'
+    "        {\n"
+    '          "topic": "Unterthema 1a",\n'
+    '          "children": [\n'
+    '            { "topic": "Detail 1a-i" },\n'
+    '            { "topic": "Detail 1a-ii" }\n'
+    "          ]\n"
+    "        },\n"
+    '        { "topic": "Unterthema 1b" }\n'
+    "      ]\n"
+    "    }\n"
+    "  ]\n"
+    "}\n\n"
+    "Struktur:\n"
+    "- Ebene 1 (Root): Übergreifendes Thema das den gesamten Inhalt zusammenfasst\n"
+    "- Ebene 2: Maximal 5-7 Hauptthemen\n"
+    "- Ebene 3: Maximal 3-5 Unterthemen pro Hauptthema\n"
+    "- Ebene 4: Maximal 2-3 Details pro Unterthema (optional, nur bei Bedarf)\n\n"
+    "Regeln:\n"
+    "- Kurze, prägnante Beschriftungen (max 6 Wörter pro Knoten)\n"
+    "- Nur Informationen aus dem gegebenen Text verwenden\n"
+    "- Bei mehreren thematisch unterschiedlichen Quellen: Root als verbindenden Oberbegriff wählen, Hauptthemen nach Themenbereichen aufteilen\n"
+    "- Bei einer einzelnen Quelle: Root = Kernthema des Dokuments\n"
+    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+)
+
+TUTOR_LERNKARTEN_PROMPT = (
+    "Du bist ein Experte für Lernmaterialien. Erstelle Lernkarten (Flashcards) aus dem gegebenen Text.\n\n"
+    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "{\n"
+    '  "title": "Kurzer Titel der das Thema zusammenfasst",\n'
+    '  "cards": [\n'
+    "    {\n"
+    '      "front": "Frage oder Begriff",\n'
+    '      "back": "Antwort oder Erklärung",\n'
+    '      "source_label": "Dateiname der Quelle",\n'
+    '      "page_number": 5\n'
+    "    }\n"
+    "  ]\n"
+    "}\n\n"
+    "Regeln:\n"
+    "- Erstelle genau {count} Lernkarten\n"
+    "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
+    "- Vorderseite: Kurze, prägnante Frage oder ein zentraler Begriff (max 15 Wörter)\n"
+    "- Rückseite: Klare, verständliche Erklärung (max 2-3 Sätze)\n"
+    "- source_label und page_number MÜSSEN aus den [Quellenname, S. X] Tags im Context stammen\n"
+    "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
+    "- Mischung aus Definitionsfragen, Verständnisfragen und Anwendungsfragen\n"
+    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+)
+
+
+TUTOR_DATENTABELLE_PROMPT = (
+    "Du bist ein Experte für Datenextraktion und Strukturierung. "
+    "Analysiere den gegebenen Text und erstelle eine strukturierte Datentabelle.\n\n"
+    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "{\n"
+    '  "title": "Beschreibender Tabellentitel",\n'
+    '  "columns": ["Spalte1", "Spalte2", "Spalte3"],\n'
+    '  "rows": [\n'
+    '    { "cells": ["Wert1", "Wert2", "Wert3"], "sources": [1] },\n'
+    '    { "cells": ["Wert4", "Wert5", "Wert6"], "sources": [1, 2] }\n'
+    "  ]\n"
+    "}\n\n"
+    "Regeln:\n"
+    "- Wähle sinnvolle Spalten, die den Inhalt am besten strukturieren\n"
+    "- Mindestens 3, maximal 8 Spalten\n"
+    "- Jede Zeile enthält ein 'cells'-Array (gleiche Länge wie 'columns') und ein 'sources'-Array mit den Quellennummern\n"
+    "- Verwende die Quellennummern [Q1], [Q2] etc. aus dem Kontext für das 'sources'-Feld (nur die Zahl, z.B. [1, 2])\n"
+    "- Extrahiere so viele Zeilen wie der Text hergibt (keine erfundenen Daten)\n"
+    "- Der Titel soll den Tabelleninhalt kurz beschreiben\n"
+    "- Halte Zellenwerte prägnant aber informativ\n"
+    "- Nur Informationen aus dem gegebenen Text verwenden\n"
+    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+)
+
+
 TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [
     {
         "key": "elaborate",

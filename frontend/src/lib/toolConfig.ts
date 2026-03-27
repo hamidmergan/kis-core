@@ -30,11 +30,6 @@ export const TOOL_CONFIG: Record<string, { color: string; image: string | null; 
     image: "/tools/stt-img.png",
     jobTools: ["transcription"],
   },
-  video_dubbing: {
-    color: "#6366F1",   // Soft indigo (unavailable)
-    image: null,
-    jobTools: ["video_dubbing"],
-  },
   image: {
     color: "#059669",   // Emerald
     image: "/tools/image-img.png",

@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Footer from "./Footer";
 
-const GUEST_PATHS = ["/login", "/pending"];
+const GUEST_PATHS = ["/", "/login", "/pending"];
 const NO_FOOTER_PREFIXES = ["/ki-tutor/"];
 
 export default function FooterWrapper() {

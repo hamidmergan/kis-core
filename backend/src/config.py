@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     kokoro_base_url: str = ""
     kokoro_api_key: str = ""
 
+    # myLab TTS (TH Lübeck, Coqui XTTS-v2) — leer = deaktiviert
+    mylab_tts_base_url: str = ""
+    mylab_tts_model: str = "tts-1-hd"
+
+    # Thorsten TTS (lokaler Docker, Coqui VITS) — leer = deaktiviert
+    thorsten_base_url: str = ""
+
+    # myLab Plattform (TH Lübeck) — gemeinsame Base-URL für Whisper, Image, Embeddings, OCR
+    mylab_base_url: str = ""
+
     # Security
     session_secret: str = "change-me-in-production"
 

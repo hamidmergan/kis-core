@@ -24,8 +24,6 @@ export type TTSState = "idle" | "uploading" | "processing" | "done" | "error";
 
 export type TranscriptionState = "idle" | "uploading" | "processing" | "done" | "error";
 
-export type VideoDubbingState = "idle" | "uploading" | "processing" | "done" | "error";
-
 export type ScreencastState = "idle" | "uploading" | "processing" | "done" | "error";
 
 export type SummaryState = "idle" | "processing" | "done" | "error";

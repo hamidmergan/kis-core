@@ -46,6 +46,9 @@ services:
   kokoro:
     profiles: []
 
+  thorsten:
+    profiles: []
+
   ollama:
     profiles: []
 

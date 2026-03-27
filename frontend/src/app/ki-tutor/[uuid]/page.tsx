@@ -1,5 +1,6 @@
 "use client";
 
+import "mind-elixir/style.css";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
@@ -26,10 +27,23 @@ import {
   ListBullets,
   Lightbulb,
   BookOpenText,
+  ChartBar,
+  Table,
+  TreeStructure,
   GearSix,
   CaretDown,
   CaretUp,
   Copy,
+  NotePencil,
+  Trash,
+  Translate,
+  Book,
+  TextAa,
+  Exam,
+  ArrowCounterClockwise,
+  Target,
+  TrendUp,
+  WarningCircle,
   type IconWeight,
 } from "@phosphor-icons/react";
 import Header from "@/components/Header";
@@ -56,6 +70,12 @@ registerIcons({
   "ph-lightbulb": {
     viewBox: "0 0 256 256",
     path: "M180,232a12,12,0,0,1-12,12H88a12,12,0,0,1,0-24h80A12,12,0,0,1,180,232Zm40-128a91.51,91.51,0,0,1-35.17,72.35A12.26,12.26,0,0,0,180,186v2a20,20,0,0,1-20,20H96a20,20,0,0,1-20-20v-2a12,12,0,0,0-4.7-9.51A91.57,91.57,0,0,1,36,104.52C35.73,54.69,76,13.2,125.79,12A92,92,0,0,1,220,104Zm-24,0a68,68,0,0,0-69.65-68C89.56,36.88,59.8,67.55,60,104.38a67.71,67.71,0,0,0,26.1,53.19A35.87,35.87,0,0,1,100,184h56.1A36.13,36.13,0,0,1,170,157.49,67.68,67.68,0,0,0,196,104Zm-20.07-5.32a48.5,48.5,0,0,0-31.91-40,12,12,0,0,0-8,22.62,24.31,24.31,0,0,1,16.09,20,12,12,0,0,0,23.86-2.64Z",
+    fill: "primary",
+    stroke: "none",
+  },
+  "ph-chat-circle": {
+    viewBox: "0 0 256 256",
+    path: "M128,20A108,108,0,0,0,31.85,177.23L21,209.66A20,20,0,0,0,46.34,235l32.43-10.81A108,108,0,1,0,128,20Zm0,192a84,84,0,0,1-42.06-11.27,12,12,0,0,0-6-1.62,12.1,12.1,0,0,0-3.8.62l-29.79,9.93,9.93-29.79a12,12,0,0,0-1-9.81A84,84,0,1,1,128,212Z",
     fill: "primary",
     stroke: "none",
   },
@@ -120,8 +140,104 @@ interface ViewerState {
   nonce?: number;
 }
 
-type StudioView = "overview" | "lernkarten" | "quiz";
+interface DatentabelleData {
+  title: string;
+  columns: string[];
+  rows: { cells: string[]; sources: number[] }[];
+}
+
+interface DatentabelleSource {
+  number: number;
+  filename: string;
+}
+
+type StudioView = "overview" | "lernkarten" | "quiz" | "infografik" | "datentabelle" | "mindmap" | "notizen";
 type PanelKey = "quellen" | "chat" | "studio";
+
+interface GlossaryEntry {
+  id: number;
+  term_de: string;
+  term_en: string;
+  definition: string;
+  example_sentence?: string;
+  page_number?: number;
+}
+
+interface ClozeExercise {
+  glossary_entry_id: number;
+  sentence: string;
+  answer: string;
+  options: string[];
+  page_number?: number;
+}
+
+interface VocabTestQuestion {
+  glossary_entry_id: number;
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation?: string;
+}
+
+interface VocabAnalyticsSummary {
+  sources: {
+    source_uuid: string;
+    filename: string;
+    total_terms: number;
+    mastered_terms: number;
+    practiced_terms: number;
+    total_correct: number;
+    total_attempts: number;
+    last_practiced: string | null;
+  }[];
+  weak_terms: {
+    entry_id: number;
+    term_de: string;
+    term_en: string;
+    filename: string;
+    attempts: number;
+    correct_count: number;
+  }[];
+}
+
+type SprachtrainingView = "overview" | "glossar" | "karteikarten" | "lueckentext" | "vokabeltest" | "ergebnisse"
+  | "lk-sets" | "lk-learn" | "lk-complete"
+  | "cl-sets" | "cl-learn" | "cl-complete"
+  | "vt-sets" | "vt-learn" | "vt-complete"
+  | "create-set";
+
+interface ExerciseItem {
+  id: number;
+  set_id: number;
+  position: number;
+  front: string;
+  back: string;
+  options?: string[];
+  correct_idx?: number;
+  source_label?: string;
+  page_number?: number;
+  explanation?: string;
+}
+
+interface ExerciseSet {
+  id: number;
+  module_id: number;
+  user_id: number;
+  tool: string;
+  title: string;
+  mode: string;
+  source_uuid?: string;
+  card_count: number;
+  created_at: string;
+  progress_pct?: number;
+  items?: ExerciseItem[];
+}
+
+interface StreakInfo {
+  current_streak: number;
+  max_streak: number;
+  last_active_date: string | null;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -218,12 +334,13 @@ const EMBEDPDF_ICON_MAP: Record<string, string> = {
 
 
 function PdfViewer({
-  source, onClose, moduleUuid, onAskWithSelection, popupActions, onMinimize,
+  source, onClose, moduleUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize,
 }: {
   source: ViewerState;
   onClose: () => void;
   moduleUuid: string;
   onAskWithSelection?: (text: string, sourceInfo: { uuid: string; filename: string; page: number; selectedText?: string }) => void;
+  onCustomQuestion?: (selectedText: string) => void;
   popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
   onMinimize?: () => void;
 }) {
@@ -245,6 +362,8 @@ function PdfViewer({
   sourceRef.current = source;
   const onAskWithSelectionRef = useRef(onAskWithSelection);
   onAskWithSelectionRef.current = onAskWithSelection;
+  const onCustomQuestionRef = useRef(onCustomQuestion);
+  onCustomQuestionRef.current = onCustomQuestion;
   const popupActionsRef = useRef(popupActions);
   popupActionsRef.current = popupActions;
 
@@ -341,6 +460,31 @@ function PdfViewer({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const reg = registry as any;
 
+    // Match scrollbar width to app (5px instead of default 8px)
+    const injectScrollbarStyle = () => {
+      const embedEl = containerRef.current?.querySelector("embedpdf-container");
+      const shadow = embedEl?.shadowRoot;
+      if (shadow && !shadow.querySelector("[data-kis-scrollbar]")) {
+        const s = document.createElement("style");
+        s.setAttribute("data-kis-scrollbar", "");
+        s.textContent = `
+          :host *::-webkit-scrollbar { width: 5px !important; height: 5px !important; }
+          :host *::-webkit-scrollbar-track { background: transparent !important; }
+          :host *::-webkit-scrollbar-thumb { background: #d8d8d8 !important; border-radius: 999px !important; }
+          :host *::-webkit-scrollbar-thumb:hover { background: #bbb !important; }
+          :host * { scrollbar-width: thin !important; scrollbar-color: #d8d8d8 transparent !important; }
+        `;
+        shadow.appendChild(s);
+        return true;
+      }
+      return false;
+    };
+    if (!injectScrollbarStyle()) {
+      // Shadow DOM might not be ready yet — retry briefly
+      const t = setInterval(() => { if (injectScrollbarStyle()) clearInterval(t); }, 100);
+      setTimeout(() => clearInterval(t), 3000);
+    }
+
     // Track current page
     const scroll = reg.getPlugin?.("scroll")?.provides?.();
     if (scroll) {
@@ -405,6 +549,35 @@ function PdfViewer({
       }
     }
 
+    // Register custom question command – prefills chat input with selected text
+    commands.registerCommand({
+      id: "kis.custom-question",
+      label: "Frage stellen",
+      description: "Frage stellen",
+      icon: "ph-chat-circle",
+      iconProps: { title: "Frage stellen" },
+      categories: ["kis-actions"],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      visible: ({ state, documentId }: any) => {
+        const doc = state?.plugins?.selection?.documents?.[documentId];
+        if (!doc?.slices) return true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
+        return totalChars > 0;
+      },
+      action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sel = (r as any).getPlugin?.("selection")?.provides?.();
+        if (!sel) return;
+        const textTask = sel.getSelectedText?.(documentId);
+        const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
+        promise.then((lines: string[]) => {
+          const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
+          onCustomQuestionRef.current?.(text);
+        }).catch(() => { /* ignore */ });
+      },
+    });
+
     // Register summary toggle command (opens EmbedPDF sidebar like comments)
     commands.registerCommand({
       id: "kis.toggle-summaries",
@@ -440,6 +613,8 @@ function PdfViewer({
           id: "selection",
           items: [
             ...existingSelItems,
+            { type: "divider", id: "kis-custom-divider", categories: ["kis-actions"] },
+            { type: "command-button", id: "kis.custom-question", commandId: "kis.custom-question", variant: "icon", categories: ["kis-actions"] },
             ...(actions?.length ? [
               { type: "divider", id: "kis-divider", categories: ["kis-actions"] },
               ...actions.map(a => ({
@@ -499,6 +674,14 @@ function PdfViewer({
             worker: true,
             search: { showAllResults: false },
             annotations: { locked: { type: "all" } },
+            theme: {
+              light: {
+                scrollbar: { track: "transparent", thumb: "#d8d8d8", thumbHover: "#bbb" },
+              },
+              dark: {
+                scrollbar: { track: "transparent", thumb: "#d8d8d8", thumbHover: "#bbb" },
+              },
+            },
           }}
           style={{ width: "100%", height: "100%" }}
           onReady={handleReady}
@@ -508,7 +691,7 @@ function PdfViewer({
       {sidebarTarget && createPortal(
         <div style={{ height: "100%", display: "flex", flexDirection: "column", fontFamily: "inherit" }}>
           <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--color-border-default, #e5e7eb)", fontWeight: 600, fontSize: 12, color: "var(--color-fg-primary, #1f2937)" }}>
-            Seite {page} – Übersicht
+            Seite {page} – Zusammenfassung
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: 12, fontSize: 12, lineHeight: 1.6, color: "var(--color-fg-primary, #1f2937)" }}>
             {summariesStatus === "generating" && !pageSummaries[page] ? (
@@ -516,7 +699,7 @@ function PdfViewer({
             ) : pageSummaries[page] ? (
               <div dangerouslySetInnerHTML={{ __html: pageSummaries[page].replace(/\n/g, "<br/>") }} />
             ) : (
-              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Keine Übersicht für diese Seite.</span>
+              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Keine Zusammenfassung für diese Seite.</span>
             )}
           </div>
         </div>,
@@ -755,6 +938,9 @@ function ChatPanel({
   onPillClick,
   moduleReady,
   onClear,
+  externalTextareaRef,
+  onSaveNote,
+  onMinimize,
 }: {
   messages: ChatMessage[];
   activeSourceIds: string[];
@@ -766,14 +952,23 @@ function ChatPanel({
   onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string) => void;
   moduleReady: boolean;
   onClear: () => void;
+  externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  onSaveNote?: (content: string) => void;
+  onMinimize?: () => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [savedNoteIdx, setSavedNoteIdx] = useState<number | null>(null);
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Sync internal textarea ref → external ref so parent can focus it
+  const textareaCallbackRef = useCallback((el: HTMLTextAreaElement | null) => {
+    (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+    if (externalTextareaRef) (externalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+  }, [externalTextareaRef]);
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -806,6 +1001,7 @@ function ChatPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
         <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Chat</span>
+        <div className="flex items-center gap-1.5">
         <div className="relative" ref={chatMenuRef}>
           <button
             type="button"
@@ -834,6 +1030,18 @@ function ChatPanel({
               </button>
             </div>
           )}
+        </div>
+        {onMinimize && (
+          <button
+            type="button"
+            onClick={onMinimize}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
+            title="Panel minimieren"
+          >
+            <SidebarSimple size={13} />
+          </button>
+        )}
         </div>
       </div>
 
@@ -875,7 +1083,7 @@ function ChatPanel({
 
               // Resolve source via qmap (preferred) or fallback to source_pages
               const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
-              const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? selectedSourceIds[0] ?? "";
+              const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
               const filename = qEntry?.filename ?? getFilename(sourceUuid);
               const sp = msgSourcePages.find(s => s.source_uuid === sourceUuid && s.page_number === pageNum);
 
@@ -930,7 +1138,20 @@ function ChatPanel({
                   : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6 }
               }
             >
-              {msg.role === "assistant" ? (
+              {msg.role === "assistant" && !msg.content ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex gap-1">
+                    {[0, 1, 2].map((n) => (
+                      <span
+                        key={n}
+                        className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
+                        style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
+                      />
+                    ))}
+                  </span>
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>Denkt nach…</span>
+                </span>
+              ) : msg.role === "assistant" ? (
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
@@ -948,7 +1169,15 @@ function ChatPanel({
                     td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{withCitations(children)}</td>,
                   }}
                 >
-                  {msg.content}
+                  {(() => {
+                    const seen = new Set<string>();
+                    return msg.content.replace(/\s*\[(?:Q(\d+),\s*)?S\.\s*(\d+)\]/g, (m, q, p) => {
+                      const k = `${q ?? ""}:${p}`;
+                      if (seen.has(k)) return "";
+                      seen.add(k);
+                      return m;
+                    });
+                  })()}
                 </ReactMarkdown>
               ) : (
                 <>
@@ -1006,38 +1235,27 @@ function ChatPanel({
               >
                 {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
               </button>
+              {msg.role === "assistant" && onSaveNote && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSaveNote(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
+                    setSavedNoteIdx(i);
+                    setTimeout(() => setSavedNoteIdx(null), 1500);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5"
+                  style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
+                  title="Als Notiz speichern"
+                >
+                  {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                </button>
+              )}
             </div>
           </div>
           );
         })}
 
-        {loading && (
-          <div className="flex flex-col gap-1.5 items-start">
-            <div className="flex items-center gap-2 mb-0.5">
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-                style={{ backgroundColor: "#004261" }}
-              >
-                KI
-              </div>
-            </div>
-            <div
-              className="px-4 py-3 rounded-2xl text-sm flex items-center gap-2"
-              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderBottomLeftRadius: 6 }}
-            >
-              <span className="inline-flex gap-1">
-                {[0, 1, 2].map((n) => (
-                  <span
-                    key={n}
-                    className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
-                    style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
-                  />
-                ))}
-              </span>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>Denkt nach…</span>
-            </div>
-          </div>
-        )}
+        {/* Loading indicator removed – streaming messages show inline dots */}
         <div ref={bottomRef} />
       </div>
       </div>
@@ -1061,7 +1279,7 @@ function ChatPanel({
           style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
         >
           <textarea
-            ref={textareaRef}
+            ref={textareaCallbackRef}
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={(e) => {
@@ -1175,77 +1393,526 @@ function SubviewHeader({ title, onBack }: { title: string; onBack: () => void })
   );
 }
 
-function LernkartenStudio({
-  karten, loading, onGenerate, onBack,
+// ─── Exercise Sets Overview (shared for all 3 tools) ────────────────────────
+
+function ExerciseSetsOverview({
+  title, sets, onBack, onSelect, onCreate, onDelete,
 }: {
-  karten: LernKarte[]; loading: boolean;
-  onGenerate: () => void; onBack: () => void;
+  title: string; sets: ExerciseSet[];
+  onBack: () => void; onSelect: (s: ExerciseSet) => void;
+  onCreate: () => void; onDelete: (id: number) => void;
 }) {
+  const circumference = Math.PI * 2 * 11.5;
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title={title} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto p-3">
+        {sets.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 py-16 px-6">
+            <Cards size={32} weight="duotone" color="var(--muted)" style={{ opacity: 0.5 }} />
+            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Noch keine Sets</p>
+            <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>Erstelle dein erstes Set aus dem Glossar oder einer Quelle.</p>
+            <button type="button" onClick={onCreate}
+              className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
+              style={{ backgroundColor: "#004261", boxShadow: "0 2px 8px rgba(0,66,97,0.2)" }}>
+              <Plus size={13} weight="bold" /> Neues Set
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between px-1 mb-2">
+              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{sets.length} Sets</span>
+              <span className="text-[10px]" style={{ color: "var(--muted)" }}>{sets.reduce((s, e) => s + e.card_count, 0)} Karten</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {sets.map((s) => {
+                const pct = s.progress_pct ?? 0;
+                const offset = circumference * (1 - pct / 100);
+                return (
+                  <div key={s.id} onClick={() => onSelect(s)}
+                    className="bg-white rounded-xl p-3 flex flex-col gap-1.5 cursor-pointer transition-all hover:shadow-md relative overflow-hidden group"
+                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)" }}>
+                    <div className="absolute top-0 left-0 right-0 h-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundColor: "#004261" }} />
+                    <div className="flex items-start justify-between gap-1.5">
+                      <span className="text-[11px] font-semibold leading-snug flex-1" style={{ color: "var(--text)" }}>{s.title}</span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{ backgroundColor: "rgba(0,66,97,0.07)", color: "#004261" }}>{s.card_count}</span>
+                    </div>
+                    <span className="text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md w-fit"
+                      style={s.mode === "glossar"
+                        ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
+                        : { color: "#534AB7", backgroundColor: "rgba(83,74,183,0.08)" }}>
+                      {s.mode === "glossar" ? "Glossar" : "Quelle"}
+                    </span>
+                    <span className="text-[9px]" style={{ color: "var(--muted)" }}>
+                      {new Date(s.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}
+                    </span>
+                    <div className="flex items-center justify-between mt-auto">
+                      <div className="flex gap-0.5 flex-wrap flex-1" />
+                      <div className="relative shrink-0" style={{ width: 30, height: 30 }}>
+                        <svg viewBox="0 0 30 30" style={{ transform: "rotate(-90deg)", width: 30, height: 30 }}>
+                          <circle cx="15" cy="15" r="11.5" fill="none" stroke="var(--border)" strokeWidth="3" />
+                          <circle cx="15" cy="15" r="11.5" fill="none"
+                            stroke={pct >= 100 ? "#1a8a5c" : "#004261"} strokeWidth="3" strokeLinecap="round"
+                            strokeDasharray={circumference} strokeDashoffset={offset}
+                            style={{ transition: "stroke-dashoffset 1s ease" }} />
+                        </svg>
+                        <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold"
+                          style={{ color: pct >= 100 ? "#1a8a5c" : "var(--text-secondary)" }}>{pct}%</span>
+                      </div>
+                    </div>
+                    {/* Delete on hover */}
+                    <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
+                      className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                      style={{ backgroundColor: "var(--border)" }}>
+                      <Trash size={10} color="var(--text)" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-center mt-3">
+              <button type="button" onClick={onCreate}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-semibold transition-all hover:opacity-80"
+                style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)", border: "1.5px dashed rgba(0,66,97,0.14)" }}>
+                <Plus size={12} weight="bold" /> Neues Set
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Lernkarten Learn View ──────────────────────────────────────────────────
+
+function LernkartenLearnView({
+  exerciseSet, onBack, onComplete, onAskChat,
+}: {
+  exerciseSet: ExerciseSet;
+  onBack: () => void;
+  onComplete: (results: { item_id: number; correct: boolean }[]) => void;
+  onAskChat: (text: string) => void;
+}) {
+  const items = exerciseSet.items || [];
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [results, setResults] = useState<{ item_id: number; correct: boolean }[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [animating, setAnimating] = useState(false);
 
-  useEffect(() => { setFlipped(false); }, [index, karten.length]);
+  const total = items.length;
+  const card = items[index];
 
-  const total = karten.length;
-  const card = karten[index];
+  useEffect(() => { setFlipped(false); }, [index]);
+
+  function answer(correct: boolean) {
+    if (!card || animating) return;
+    const newResults = [...results, { item_id: card.id, correct }];
+    setResults(newResults);
+    if (correct) setStreak((s) => s + 1);
+    else setStreak(0);
+
+    if (index >= total - 1) {
+      onComplete(newResults);
+      return;
+    }
+    setAnimating(true);
+    setTimeout(() => {
+      setIndex((i) => i + 1);
+      setFlipped(false);
+      setAnimating(false);
+    }, 280);
+  }
+
+  if (!card) return null;
+  const progressPct = ((index + 1) / total) * 100;
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Lernkarten" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-5" style={{ maxWidth: 560 }}>
-          {/* Generate button */}
-          <button
-            type="button"
-            onClick={() => { onGenerate(); setIndex(0); setFlipped(false); }}
-            disabled={loading}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "#004261" }}
-          >
-            {loading ? "Generieren…" : total > 0 ? "Neu generieren" : "Lernkarten generieren"}
-          </button>
-
-          {total > 0 && card && (
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+        <button type="button" onClick={onBack}
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+          style={{ backgroundColor: "var(--border)" }}>
+          <CaretLeft size={13} />
+        </button>
+        <span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span>
+        {streak > 0 && (
+          <span className="text-[10px] font-semibold px-2 py-1 rounded-full flex items-center gap-1"
+            style={{ color: "#c4820e", backgroundColor: "rgba(196,130,14,0.08)" }}>
+            🔥 {streak}
+          </span>
+        )}
+      </div>
+      {/* Progress */}
+      <div className="px-4 pb-2.5 pt-2" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+        <div className="text-center text-[10px] font-semibold mb-1.5" style={{ color: "var(--muted)" }}>{index + 1} / {total}</div>
+        <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, #004261, #0891b2)" }} />
+        </div>
+      </div>
+      {/* Card */}
+      <div className="flex-1 flex flex-col items-center px-4 py-3 gap-4">
+        <div style={{ perspective: 1200, width: "100%", cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
+          <div style={{
+            position: "relative", width: "100%", height: 230, transformStyle: "preserve-3d",
+            transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
+            transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+          }}>
+            {/* Front */}
+            <div style={{
+              position: "absolute", inset: 0, backfaceVisibility: "hidden", borderRadius: 16,
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              padding: "24px 20px", gap: 8, backgroundColor: "var(--surface)",
+              border: "1px solid var(--border)", boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
+            }}>
+              <span className="text-[8px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Begriff</span>
+              <p className="text-sm text-center leading-relaxed font-medium" style={{ color: "var(--text)" }}>{card.front}</p>
+              <span className="text-[9px] mt-auto" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
+            </div>
+            {/* Back */}
+            <div style={{
+              position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
+              borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              padding: "24px 20px", gap: 8, background: "linear-gradient(145deg, #004261, #003350)",
+              boxShadow: "0 4px 20px rgba(0,66,97,0.2)",
+            }}>
+              <span className="text-[8px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Erklärung</span>
+              <p className="text-[12px] text-center leading-relaxed" style={{ color: "white" }}>{card.back}</p>
+              {/* Source chip + Chat button */}
+              <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+                {card.source_label && (
+                  <span className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full"
+                    style={{ color: "rgba(255,255,255,0.55)", backgroundColor: "rgba(255,255,255,0.1)" }}>
+                    <FilePdf size={9} weight="bold" /> {card.source_label}{card.page_number ? `, S. ${card.page_number}` : ""}
+                  </span>
+                )}
+                <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Erkläre mir: „${card.front}"`); }}
+                  className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border-none cursor-pointer transition-all hover:opacity-100"
+                  style={{ color: "rgba(255,255,255,0.55)", backgroundColor: "rgba(255,255,255,0.1)" }}>
+                  <Chat size={10} weight="bold" /> Erkläre mir das
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Actions */}
+        <div className="flex items-center justify-center gap-6 min-h-[48px]">
+          {flipped ? (
             <>
-              {/* Counter */}
-              <div className="text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
-                {index + 1} / {total}
-              </div>
-
-              {/* Card */}
-              <FlipCard front={card.front} back={card.back} flipped={flipped} onFlip={() => setFlipped(f => !f)} />
-
-              {/* Navigation */}
-              <div className="flex items-center justify-center gap-6">
-                <button
-                  type="button"
-                  onClick={() => setIndex(i => i - 1)}
-                  disabled={index === 0}
-                  className="w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-30 transition-opacity hover:opacity-70"
-                  style={{ backgroundColor: "var(--border)" }}
-                >
-                  <CaretLeft size={18} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFlipped(f => !f)}
-                  className="px-5 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-                  style={{ backgroundColor: "var(--border)", color: "var(--text)" }}
-                >
-                  Umdrehen
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIndex(i => i + 1)}
-                  disabled={index >= total - 1}
-                  className="w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-30 transition-opacity hover:opacity-70"
-                  style={{ backgroundColor: "var(--border)" }}
-                >
-                  <CaretRight size={18} />
-                </button>
-              </div>
+              <button type="button" onClick={() => answer(false)} title="Nochmal"
+                className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                style={{ border: "2px solid #d4453a", color: "#d4453a", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
+                <XIcon size={18} weight="bold" />
+              </button>
+              <button type="button" onClick={() => answer(true)} title="Gewusst!"
+                className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                style={{ border: "2px solid #1a8a5c", color: "#1a8a5c", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
+                <Check size={18} weight="bold" />
+              </button>
             </>
+          ) : (
+            <button type="button" onClick={() => setFlipped(true)}
+              className="px-6 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+              style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
+              Antwort zeigen
+            </button>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Exercise Completion Screen ─────────────────────────────────────────────
+
+function ExerciseCompletion({
+  title, results, total, onRetryWrong, onBack,
+}: {
+  title: string; results: { item_id: number; correct: boolean }[];
+  total: number; onRetryWrong: () => void; onBack: () => void;
+}) {
+  const correct = results.filter((r) => r.correct).length;
+  const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title={title} onBack={onBack} />
+      <div className="flex-1 flex flex-col items-center justify-center px-6 gap-2">
+        {/* Animated check */}
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2"
+          style={{ backgroundColor: "#1a8a5c", boxShadow: "0 4px 20px rgba(26,138,92,0.25)" }}>
+          <Check size={30} weight="bold" color="white" />
+        </div>
+        <h3 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Geschafft!</h3>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          <strong style={{ color: "#1a8a5c" }}>{correct} / {total}</strong> gewusst — <strong style={{ color: "#1a8a5c" }}>{pct}%</strong>
+        </p>
+        <div className="flex gap-2 mt-4">
+          {correct < total && (
+            <button type="button" onClick={onRetryWrong}
+              className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+              style={{ color: "#004261", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
+              Falsche wiederholen
+            </button>
+          )}
+          <button type="button" onClick={onBack}
+            className="px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
+            style={{ backgroundColor: "#004261" }}>
+            Zur Übersicht
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Multiple Choice Exercise View (Lückentext + Vokabeltest) ───────────────
+
+function MCExerciseView({
+  exerciseSet, tool, onBack, onComplete, onAskChat,
+}: {
+  exerciseSet: ExerciseSet;
+  tool: "lueckentext" | "vokabeltest";
+  onBack: () => void;
+  onComplete: (results: { item_id: number; correct: boolean }[]) => void;
+  onAskChat: (text: string) => void;
+}) {
+  const items = exerciseSet.items || [];
+  const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [results, setResults] = useState<{ item_id: number; correct: boolean }[]>([]);
+  const [streak, setStreak] = useState(0);
+
+  const total = items.length;
+  const card = items[index];
+  const answered = selected !== null;
+  const isCorrect = answered && selected === card?.correct_idx;
+
+  function select(optIdx: number) {
+    if (answered || !card) return;
+    setSelected(optIdx);
+    const correct = optIdx === card.correct_idx;
+    const newResults = [...results, { item_id: card.id, correct }];
+    setResults(newResults);
+    if (correct) setStreak((s) => s + 1);
+    else setStreak(0);
+
+    // Auto-advance after delay
+    setTimeout(() => {
+      if (index >= total - 1) {
+        onComplete(newResults);
+      } else {
+        setIndex((i) => i + 1);
+        setSelected(null);
+      }
+    }, 1200);
+  }
+
+  if (!card) return null;
+  const progressPct = ((index + 1) / total) * 100;
+  const options = card.options || [];
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+        <button type="button" onClick={onBack}
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+          style={{ backgroundColor: "var(--border)" }}>
+          <CaretLeft size={13} />
+        </button>
+        <span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span>
+        <span className="text-[10px] font-medium px-2 py-1 rounded-full"
+          style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
+          {index + 1} / {total}
+        </span>
+        {streak > 0 && (
+          <span className="text-[10px] font-semibold px-2 py-1 rounded-full"
+            style={{ color: "#c4820e", backgroundColor: "rgba(196,130,14,0.08)" }}>
+            🔥 {streak}
+          </span>
+        )}
+      </div>
+      {/* Progress */}
+      <div className="px-4 pb-2.5" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+        <div className="h-1 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--border)" }}>
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, #004261, #0891b2)" }} />
+        </div>
+      </div>
+      {/* Question Card */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="mx-auto w-full" style={{ maxWidth: 480 }}>
+          <div className="rounded-xl p-4 flex flex-col gap-3" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
+            <span className="text-[9px] font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+              Frage {index + 1} von {total}
+            </span>
+            {/* Question text */}
+            {tool === "lueckentext" ? (
+              <p className="text-[13px] leading-relaxed" style={{ color: "var(--text)" }}
+                dangerouslySetInnerHTML={{
+                  __html: card.front.replace(
+                    /___+/g,
+                    answered
+                      ? `<span style="font-weight:600;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 3px">${card.back}</span>`
+                      : '<span style="display:inline-block;min-width:60px;border-bottom:2px dashed #004261;color:#004261;font-weight:600;padding:0 3px">___________</span>'
+                  ),
+                }}
+              />
+            ) : (
+              <p className="text-[13px] font-semibold leading-snug" style={{ color: "var(--text)" }}>{card.front}</p>
+            )}
+            {/* Options */}
+            <div className="flex flex-col gap-1.5 mt-1">
+              {options.map((opt, oi) => {
+                const isThis = selected === oi;
+                const isRight = oi === card.correct_idx;
+                let borderColor = "var(--border)";
+                let bg = "var(--bg)";
+                let dotBg = "var(--border)";
+                let dotColor = "var(--muted)";
+                if (answered && isRight) { borderColor = "#1a8a5c"; bg = "rgba(26,138,92,0.08)"; dotBg = "#1a8a5c"; dotColor = "#fff"; }
+                else if (answered && isThis && !isRight) { borderColor = "#d4453a"; bg = "rgba(212,69,58,0.07)"; dotBg = "#d4453a"; dotColor = "#fff"; }
+                return (
+                  <button key={oi} type="button" onClick={() => select(oi)}
+                    disabled={answered}
+                    className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all"
+                    style={{ border: `1.5px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.5 : 1 }}>
+                    <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
+                      style={{ backgroundColor: dotBg, color: dotColor }}>
+                      {String.fromCharCode(65 + oi)}
+                    </span>
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Feedback */}
+            {answered && (
+              <div className="text-[10px] font-medium px-3 py-2 rounded-lg"
+                style={isCorrect
+                  ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
+                  : { color: "#d4453a", backgroundColor: "rgba(212,69,58,0.07)" }}>
+                {isCorrect ? "✓ Richtig!" : `✗ Richtig wäre: ${card.back}`}
+              </div>
+            )}
+            {/* Explanation (Vokabeltest) */}
+            {answered && tool === "vokabeltest" && card.explanation && (
+              <div className="text-[10px] leading-relaxed p-2.5 rounded-lg"
+                style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)", borderLeft: "3px solid #004261" }}>
+                {card.explanation}
+              </div>
+            )}
+            {/* Source chip */}
+            {card.source_label && (
+              <div className="mt-1">
+                <span className="inline-flex items-center gap-1 text-[9px] font-medium px-2 py-0.5 rounded-full"
+                  style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
+                  <FilePdf size={9} weight="bold" /> {card.source_label}{card.page_number ? `, S. ${card.page_number}` : ""}
+                </span>
+              </div>
+            )}
+            {/* Chat button */}
+            {answered && (
+              <button type="button" onClick={() => onAskChat(`Erkläre mir: „${tool === "lueckentext" ? card.back : card.front}"`)}
+                className="self-end flex items-center gap-1 text-[9px] font-medium px-2.5 py-1 rounded-full transition-all hover:opacity-80"
+                style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
+                <Chat size={10} weight="bold" /> Erkläre mir das
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Create Set Modal ───────────────────────────────────────────────────────
+
+function CreateSetModal({
+  tool, glossaryCount, selectedSource, creating,
+  onClose, onCreate,
+}: {
+  tool: string; glossaryCount: number; selectedSource?: { uuid: string; filename: string } | null;
+  creating: boolean;
+  onClose: () => void;
+  onCreate: (mode: string, count: number) => void;
+}) {
+  const [mode, setMode] = useState<"glossar" | "quelle">("glossar");
+  const [count, setCount] = useState(10);
+  const toolLabels: Record<string, string> = { lernkarten: "Lernkarten-Set", lueckentext: "Lückentext-Set", vokabeltest: "Vokabeltest" };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
+      <div className="rounded-2xl p-5 w-[340px]" style={{ backgroundColor: "var(--surface)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)" }}
+        onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>Neues {toolLabels[tool] || "Set"} erstellen</h3>
+
+        {/* Mode */}
+        <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>Quelle</div>
+        <div className="flex flex-col gap-1.5 mb-3">
+          <button type="button" onClick={() => setMode("glossar")}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
+            style={mode === "glossar"
+              ? { border: "1.5px solid #004261", backgroundColor: "rgba(0,66,97,0.07)", color: "var(--text)" }
+              : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }}>
+            <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
+              style={{ borderColor: mode === "glossar" ? "#004261" : "var(--border)" }}>
+              {mode === "glossar" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#004261" }} />}
+            </div>
+            Aus Glossar <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
+          </button>
+          <button type="button" onClick={() => selectedSource && setMode("quelle")}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
+            style={{
+              ...(mode === "quelle"
+                ? { border: "1.5px solid #004261", backgroundColor: "rgba(0,66,97,0.07)" }
+                : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)" }),
+              color: "var(--text)",
+              opacity: selectedSource ? 1 : 0.4,
+              pointerEvents: selectedSource ? "auto" : "none",
+            }}>
+            <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
+              style={{ borderColor: mode === "quelle" ? "#004261" : "var(--border)" }}>
+              {mode === "quelle" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#004261" }} />}
+            </div>
+            Aus ausgewählter Quelle {selectedSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={selectedSource.filename} style={{ color: "var(--muted)" }}>({selectedSource.filename})</span>}
+          </button>
+          {!selectedSource && (
+            <p className="text-[10px] ml-5" style={{ color: "#c4820e" }}>
+              Wähle links eine Quelle aus, um aus ihr zu generieren.
+            </p>
+          )}
+        </div>
+
+        {/* Count */}
+        <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>Anzahl</div>
+        <div className="flex gap-1.5 mb-4">
+          {[5, 10, 15].map((n) => (
+            <button key={n} type="button" onClick={() => setCount(n)}
+              className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-center"
+              style={count === n
+                ? { border: "1.5px solid #004261", backgroundColor: "rgba(0,66,97,0.07)", color: "#004261" }
+                : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }}>
+              {n}
+            </button>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose}
+            className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+            style={{ color: "#004261", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
+            Abbrechen
+          </button>
+          <button type="button" onClick={() => onCreate(mode, count)} disabled={creating}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: "#004261" }}>
+            {creating ? <ArrowsCounterClockwise size={13} className="animate-spin" /> : <Plus size={13} weight="bold" />}
+            {creating ? "Generieren…" : "Erstellen"}
+          </button>
         </div>
       </div>
     </div>
@@ -1334,14 +2001,1105 @@ function QuizStudio({
   );
 }
 
+// ─── Placeholder Studio (coming soon) ────────────────────────────────────────
+
+function PlaceholderStudio({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title={title} onBack={onBack} />
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-xs" style={{ color: "var(--muted)" }}>Coming soon</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Datentabelle Studio ─────────────────────────────────────────────────────
+
+function DatentabelleStudio({
+  table, sources, loading, onGenerate, onBack,
+}: {
+  table: DatentabelleData | null;
+  sources: DatentabelleSource[];
+  loading: boolean;
+  onGenerate: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Datentabelle" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 900 }}>
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#004261" }}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <Table size={16} weight="bold" />
+              {loading ? "Generieren…" : table ? "Neu generieren" : "Datentabelle generieren"}
+            </span>
+          </button>
+
+          {table && (
+            <>
+              {/* Title */}
+              <p className="text-xs font-semibold" style={{ color: "var(--text)" }}>{table.title}</p>
+              <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                Basierend auf {sources.length} Quelle{sources.length !== 1 ? "n" : ""}
+              </p>
+
+              {/* Table */}
+              <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid var(--border)" }}>
+                <table className="w-full border-collapse text-xs" style={{ minWidth: 500 }}>
+                  <thead>
+                    <tr>
+                      {table.columns.map((col, i) => (
+                        <th
+                          key={i}
+                          className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap"
+                          style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261", borderBottom: "1px solid var(--border)" }}
+                        >
+                          {col}
+                        </th>
+                      ))}
+                      <th
+                        className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap"
+                        style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261", borderBottom: "1px solid var(--border)" }}
+                      >
+                        Quelle
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {table.rows.map((row, ri) => (
+                      <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "var(--bg)" : "var(--surface)" }}>
+                        {row.cells.map((cell, ci) => (
+                          <td
+                            key={ci}
+                            className="px-3 py-2 align-top leading-snug"
+                            style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}
+                          >
+                            {cell}
+                          </td>
+                        ))}
+                        <td
+                          className="px-3 py-2 align-top whitespace-nowrap"
+                          style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)" }}
+                        >
+                          {row.sources.map((s) => `[${s}]`).join(", ")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Source legend */}
+              {sources.length > 0 && (
+                <div className="flex flex-col gap-1 pt-2">
+                  {sources.map((s) => (
+                    <p key={s.number} className="text-[11px] leading-snug" style={{ color: "var(--muted)" }}>
+                      [{s.number}] {s.filename}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Mindmap Studio ──────────────────────────────────────────────────────────
+
+interface MindmapNodeData {
+  topic: string;
+  children?: MindmapNodeData[];
+}
+
+function MindmapStudio({
+  mindmap, loading, onGenerate, onBack,
+}: {
+  mindmap: MindmapNodeData | null;
+  loading: boolean;
+  onGenerate: () => void;
+  onBack: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const meInstanceRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!mindmap || !containerRef.current) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const MindElixir = (await import("mind-elixir")).default;
+      if (cancelled || !containerRef.current) return;
+
+      // Convert our data to mind-elixir format
+      let nodeId = 0;
+      function convert(node: MindmapNodeData): any {
+        const id = `node-${nodeId++}`;
+        const result: any = { id, topic: node.topic };
+        if (node.children && node.children.length > 0) {
+          result.children = node.children.map(convert);
+        }
+        return result;
+      }
+
+      const data = {
+        nodeData: convert(mindmap),
+      };
+
+      // Clear previous instance
+      containerRef.current.innerHTML = "";
+
+      const baseTheme = MindElixir.THEME;
+      const me = new MindElixir({
+        el: containerRef.current,
+        direction: MindElixir.SIDE,
+        editable: false,
+        contextMenu: false,
+        toolBar: false,
+        keypress: false,
+        allowUndo: false,
+        theme: {
+          ...baseTheme,
+          name: "kis-mindmap",
+          palette: ["#004261", "#0E7490", "#166534", "#A16207", "#534AB7", "#B91C1C"],
+        },
+      });
+
+      me.init(data);
+
+      // Collapse all nodes initially (only root expanded)
+      const root = me.nodeData;
+      function collapseAll(node: any) {
+        if (node.children && node.children.length > 0) {
+          node.expanded = false;
+          node.children.forEach(collapseAll);
+        }
+      }
+      if (root.children) {
+        root.children.forEach((child: any) => collapseAll(child));
+      }
+      me.refresh();
+
+      meInstanceRef.current = me;
+    })();
+
+    return () => {
+      cancelled = true;
+      meInstanceRef.current = null;
+    };
+  }, [mindmap]);
+
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Mindmap" onBack={onBack} />
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {!mindmap && !loading && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
+            <TreeStructure size={36} weight="duotone" color="var(--muted)" />
+            <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
+              Generiere eine Mindmap aus deinen ausgewählten Quellen.
+            </p>
+            <button
+              type="button"
+              onClick={onGenerate}
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-85"
+              style={{ backgroundColor: "#004261" }}
+            >
+              Mindmap erstellen
+            </button>
+          </div>
+        )}
+        {loading && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+              <p className="text-xs" style={{ color: "var(--muted)" }}>Mindmap wird generiert…</p>
+            </div>
+          </div>
+        )}
+        {mindmap && !loading && (
+          <>
+            <div className="flex items-center justify-end gap-2 px-3 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+              <button
+                type="button"
+                onClick={onGenerate}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-opacity hover:opacity-70"
+                style={{ backgroundColor: "var(--border)", color: "var(--text)" }}
+              >
+                <ArrowsCounterClockwise size={12} weight="bold" />
+                Neu generieren
+              </button>
+            </div>
+            <div
+              ref={containerRef}
+              className="flex-1"
+              style={{ minHeight: 300 }}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Notizen Studio ──────────────────────────────────────────────────────────
+
+interface Note { id: number; content: string; created_at: string | null }
+
+function NotizenStudio({
+  notes, onAdd, onDelete, onBack,
+}: {
+  notes: Note[]; onAdd: (content: string) => void; onDelete: (id: number) => void; onBack: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+  }, [draft]);
+
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Notizen" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
+          {/* New note input */}
+          <div
+            className="flex gap-2 items-end rounded-xl p-2"
+            style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
+          >
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && draft.trim()) { e.preventDefault(); onAdd(draft.trim()); setDraft(""); }
+              }}
+              placeholder="Neue Notiz…"
+              rows={1}
+              className="flex-1 text-sm resize-none focus:outline-none bg-transparent"
+              style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
+            />
+            <button
+              type="button"
+              onClick={() => { if (draft.trim()) { onAdd(draft.trim()); setDraft(""); } }}
+              disabled={!draft.trim()}
+              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-white disabled:opacity-40 transition-opacity hover:opacity-85"
+              style={{ backgroundColor: "#004261" }}
+              title="Notiz speichern"
+            >
+              <Plus size={14} weight="bold" />
+            </button>
+          </div>
+
+          {/* Notes list */}
+          {notes.length === 0 && (
+            <p className="text-xs text-center py-8" style={{ color: "var(--muted)" }}>
+              Noch keine Notizen. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.
+            </p>
+          )}
+          {notes.map((note) => (
+            <div
+              key={note.id}
+              className="group relative rounded-xl p-3"
+              style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
+            >
+              <button
+                type="button"
+                onClick={() => onDelete(note.id)}
+                className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100"
+                style={{ color: "#ef4444" }}
+                title="Notiz löschen"
+              >
+                <Trash size={13} />
+              </button>
+              <div className="text-sm whitespace-pre-wrap pr-6" style={{ color: "var(--text)" }}>
+                {note.content}
+              </div>
+              {note.created_at && (
+                <div className="text-[10px] mt-2" style={{ color: "var(--muted)" }}>
+                  {new Date(note.created_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sprachtraining: Glossar ──────────────────────────────────────────────────
+
+function GlossarView({
+  entries, loading, onGenerate, onBack,
+}: {
+  entries: GlossaryEntry[]; loading: boolean;
+  onGenerate: () => void; onBack: () => void;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Glossar" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#004261" }}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <Book size={16} weight="bold" />
+              {loading ? "Extrahiere Begriffe…" : entries.length > 0 ? "Neu generieren" : "Glossar generieren"}
+            </span>
+          </button>
+
+          {entries.length > 0 && (
+            <div
+              className="rounded-xl px-3 py-2 text-center text-xs font-medium"
+              style={{ backgroundColor: "rgba(0,66,97,0.06)", color: "#004261" }}
+            >
+              {entries.length} Fachbegriffe extrahiert
+            </div>
+          )}
+
+          {entries.length === 0 && !loading && (
+            <p className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>
+              Noch kein Glossar generiert. Klicke oben um Fachbegriffe zu extrahieren.
+            </p>
+          )}
+
+          {entries.map((entry) => (
+            <div
+              key={entry.id}
+              className="rounded-xl p-4 flex flex-col gap-2"
+              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{entry.term_de}</span>
+                  <span className="text-xs font-medium ml-2" style={{ color: "#004261" }}>{entry.term_en}</span>
+                </div>
+                {entry.page_number && (
+                  <span className="text-[10px] font-medium flex-shrink-0 px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}>
+                    S. {entry.page_number}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text)", opacity: 0.8 }}>
+                {entry.definition}
+              </p>
+              {entry.example_sentence && (
+                <p className="text-[11px] italic leading-relaxed" style={{ color: "var(--muted)" }}>
+                  „{entry.example_sentence}"
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sprachtraining: Karteikarten ────────────────────────────────────────────
+
+function VocabFlashcards({
+  entries, onBack, onFinish,
+}: {
+  entries: GlossaryEntry[];
+  onBack: () => void;
+  onFinish: (results: { glossary_entry_id: number; correct: boolean }[]) => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [results, setResults] = useState<{ glossary_entry_id: number; correct: boolean }[]>([]);
+  const [finished, setFinished] = useState(false);
+
+  useEffect(() => { setFlipped(false); }, [index]);
+
+  const card = entries[index];
+  const total = entries.length;
+  const correctCount = results.filter((r) => r.correct).length;
+
+  function handleAnswer(correct: boolean) {
+    const newResults = [...results, { glossary_entry_id: card.id, correct }];
+    setResults(newResults);
+    if (index + 1 < total) {
+      setIndex(index + 1);
+    } else {
+      setFinished(true);
+      onFinish(newResults);
+    }
+  }
+
+  const wrongEntries = finished
+    ? results.filter((r) => !r.correct).map((r) => entries.find((e) => e.id === r.glossary_entry_id)).filter(Boolean) as GlossaryEntry[]
+    : [];
+
+  if (finished) {
+    return (
+      <div className="flex flex-col h-full">
+        <SubviewHeader title="Karteikarten" onBack={onBack} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
+            <div className="text-center">
+              <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
+              <p className="text-3xl font-bold mt-2" style={{ color: "#004261" }}>
+                {correctCount} / {total}
+              </p>
+              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                {Math.round((correctCount / total) * 100)}% gewusst
+              </p>
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${(correctCount / total) * 100}%`, backgroundColor: "#22c55e" }}
+              />
+            </div>
+
+            {wrongEntries.length > 0 && (
+              <div className="w-full rounded-xl p-4" style={{ backgroundColor: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                <p className="text-xs font-semibold mb-2" style={{ color: "#B91C1C" }}>
+                  <WarningCircle size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-2px" }} />
+                  Nochmal lernen:
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {wrongEntries.map((e) => (
+                    <div key={e.id} className="flex items-center gap-2 text-xs" style={{ color: "var(--text)" }}>
+                      <span className="font-semibold">{e.term_de}</span>
+                      <span style={{ color: "var(--muted)" }}>—</span>
+                      <span style={{ color: "var(--muted)" }}>{e.term_en}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 w-full">
+              {wrongEntries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setIndex(0); setResults([]); setFinished(false); }}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#B91C1C", border: "1px solid rgba(239,68,68,0.2)" }}
+                >
+                  <ArrowCounterClockwise size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
+                  Alle nochmal
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onBack}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "var(--border)", color: "var(--text)" }}
+              >
+                Zurück
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Karteikarten" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
+          {/* Counter */}
+          <div className="text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
+            {index + 1} / {total}
+          </div>
+
+          {/* Card */}
+          {card && (
+            <button
+              type="button"
+              onClick={() => setFlipped(!flipped)}
+              className="w-full rounded-2xl p-6 text-center transition-all cursor-pointer"
+              style={{
+                minHeight: 180,
+                backgroundColor: flipped ? "rgba(0,66,97,0.04)" : "var(--surface)",
+                border: `2px solid ${flipped ? "#004261" : "var(--border)"}`,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              {!flipped ? (
+                <>
+                  <span className="text-lg font-bold" style={{ color: "var(--text)" }}>{card.term_de}</span>
+                  <span className="text-[11px]" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#004261" }}>
+                    {card.term_en}
+                  </span>
+                  <span className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>
+                    {card.definition}
+                  </span>
+                  {card.page_number && (
+                    <span className="text-[10px] mt-1" style={{ color: "var(--muted)" }}>S. {card.page_number}</span>
+                  )}
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Answer buttons */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => handleAnswer(false)}
+              className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#B91C1C", border: "1px solid rgba(239,68,68,0.2)" }}
+            >
+              <XIcon size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
+              Nochmal
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAnswer(true)}
+              className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "rgba(34,197,94,0.1)", color: "#166534", border: "1px solid rgba(34,197,94,0.2)" }}
+            >
+              <Check size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
+              Gewusst
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sprachtraining: Lückentext ──────────────────────────────────────────────
+
+function LueckentextView({
+  exercises, loading, onGenerate, onBack, onFinish,
+}: {
+  exercises: ClozeExercise[]; loading: boolean;
+  onGenerate: () => void; onBack: () => void;
+  onFinish: (results: { glossary_entry_id: number; correct: boolean }[]) => void;
+}) {
+  const [current, setCurrent] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [finished, setFinished] = useState(false);
+
+  const total = exercises.length;
+  const ex = exercises[current];
+
+  function handleSelect(optIdx: number) {
+    if (answers[current] !== undefined) return;
+    const newAnswers = { ...answers, [current]: optIdx };
+    setAnswers(newAnswers);
+
+    // Auto-advance after short delay
+    if (current + 1 < total) {
+      setTimeout(() => setCurrent(current + 1), 1200);
+    } else {
+      setTimeout(() => {
+        setFinished(true);
+        const results = exercises.map((e, i) => ({
+          glossary_entry_id: e.glossary_entry_id,
+          correct: e.options[newAnswers[i]] === e.answer,
+        }));
+        onFinish(results);
+      }, 1200);
+    }
+  }
+
+  const correctCount = Object.entries(answers).filter(
+    ([i, optIdx]) => exercises[Number(i)]?.options[optIdx] === exercises[Number(i)]?.answer
+  ).length;
+
+  if (finished) {
+    return (
+      <div className="flex flex-col h-full">
+        <SubviewHeader title="Lückentext" onBack={onBack} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
+            <div className="text-center">
+              <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
+              <p className="text-3xl font-bold mt-2" style={{ color: "#004261" }}>
+                {correctCount} / {total}
+              </p>
+              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                {Math.round((correctCount / total) * 100)}% richtig
+              </p>
+            </div>
+            <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+              <div className="h-full rounded-full" style={{ width: `${(correctCount / total) * 100}%`, backgroundColor: "#22c55e" }} />
+            </div>
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "#004261" }}
+              >
+                Neue Übung
+              </button>
+              <button type="button" onClick={onBack}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "var(--border)", color: "var(--text)" }}
+              >
+                Zurück
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Lückentext" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
+          <button
+            type="button"
+            onClick={() => { onGenerate(); setCurrent(0); setAnswers({}); setFinished(false); }}
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#004261" }}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <TextAa size={16} weight="bold" />
+              {loading ? "Generiere…" : "Lückentext starten"}
+            </span>
+          </button>
+
+          {ex && !loading && (
+            <>
+              <div className="text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Frage {current + 1} / {total}
+              </div>
+
+              <div className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+                <p className="text-sm leading-relaxed font-medium mb-4" style={{ color: "var(--text)" }}>
+                  {ex.sentence}
+                </p>
+                <div className="flex flex-col gap-2">
+                  {ex.options.map((opt, oi) => {
+                    const answered = answers[current] !== undefined;
+                    const isCorrect = opt === ex.answer;
+                    const isSelected = answers[current] === oi;
+                    let bg = "var(--bg)";
+                    let border = "var(--border)";
+                    let color = "var(--text)";
+                    if (answered) {
+                      if (isCorrect) { bg = "#DCFCE7"; border = "#86EFAC"; color = "#166534"; }
+                      else if (isSelected) { bg = "#FEE2E2"; border = "#FCA5A5"; color = "#991B1B"; }
+                    }
+                    return (
+                      <button
+                        key={oi}
+                        type="button"
+                        onClick={() => handleSelect(oi)}
+                        disabled={answered}
+                        className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium disabled:cursor-default transition-colors"
+                        style={{ backgroundColor: bg, border: `1px solid ${border}`, color }}
+                      >
+                        {["A", "B", "C", "D"][oi]}. {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+                {answers[current] !== undefined && (
+                  <p className="flex items-center gap-1 text-[11px] mt-3 font-semibold"
+                    style={{ color: ex.options[answers[current]] === ex.answer ? "#166534" : "#991B1B" }}
+                  >
+                    {ex.options[answers[current]] === ex.answer
+                      ? <><Check size={12} weight="bold" /> Richtig!</>
+                      : <><XIcon size={12} weight="bold" /> Die richtige Antwort ist: {ex.answer}</>}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sprachtraining: Vokabeltest ─────────────────────────────────────────────
+
+function VokabeltestView({
+  questions, loading, onGenerate, onBack, onFinish,
+}: {
+  questions: VocabTestQuestion[]; loading: boolean;
+  onGenerate: () => void; onBack: () => void;
+  onFinish: (results: { glossary_entry_id: number; correct: boolean }[]) => void;
+}) {
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [current, setCurrent] = useState(0);
+  const [finished, setFinished] = useState(false);
+
+  const total = questions.length;
+  const q = questions[current];
+
+  function handleSelect(optIdx: number) {
+    if (answers[current] !== undefined) return;
+    const newAnswers = { ...answers, [current]: optIdx };
+    setAnswers(newAnswers);
+
+    if (current + 1 < total) {
+      setTimeout(() => setCurrent(current + 1), 1500);
+    } else {
+      setTimeout(() => {
+        setFinished(true);
+        const results = questions.map((qq, i) => ({
+          glossary_entry_id: qq.glossary_entry_id,
+          correct: newAnswers[i] === qq.correct_index,
+        }));
+        onFinish(results);
+      }, 1500);
+    }
+  }
+
+  const correctCount = Object.entries(answers).filter(
+    ([i, optIdx]) => questions[Number(i)]?.correct_index === optIdx
+  ).length;
+
+  if (finished) {
+    return (
+      <div className="flex flex-col h-full">
+        <SubviewHeader title="Vokabeltest" onBack={onBack} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
+            <div className="text-center">
+              <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
+              <p className="text-3xl font-bold mt-2" style={{ color: "#004261" }}>
+                {correctCount} / {total}
+              </p>
+              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+                {Math.round((correctCount / total) * 100)}% richtig
+              </p>
+            </div>
+            <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+              <div className="h-full rounded-full" style={{ width: `${(correctCount / total) * 100}%`, backgroundColor: "#22c55e" }} />
+            </div>
+            <div className="flex gap-2 w-full">
+              <button type="button"
+                onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "#004261" }}
+              >
+                Neuer Test
+              </button>
+              <button type="button" onClick={onBack}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "var(--border)", color: "var(--text)" }}
+              >
+                Zurück
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Vokabeltest" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
+          <button
+            type="button"
+            onClick={() => { onGenerate(); setCurrent(0); setAnswers({}); setFinished(false); }}
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#004261" }}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <Exam size={16} weight="bold" />
+              {loading ? "Generiere…" : "Vokabeltest starten"}
+            </span>
+          </button>
+
+          {q && !loading && (
+            <>
+              <div className="text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
+                Frage {current + 1} / {total}
+              </div>
+
+              <div className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+                <p className="text-sm font-semibold mb-4 leading-snug" style={{ color: "var(--text)" }}>
+                  {q.question}
+                </p>
+                <div className="flex flex-col gap-2">
+                  {q.options.map((opt, oi) => {
+                    const answered = answers[current] !== undefined;
+                    const isCorrect = oi === q.correct_index;
+                    const isSelected = answers[current] === oi;
+                    let bg = "var(--bg)";
+                    let border = "var(--border)";
+                    let color = "var(--text)";
+                    if (answered) {
+                      if (isCorrect) { bg = "#DCFCE7"; border = "#86EFAC"; color = "#166534"; }
+                      else if (isSelected && !isCorrect) { bg = "#FEE2E2"; border = "#FCA5A5"; color = "#991B1B"; }
+                    }
+                    return (
+                      <button
+                        key={oi}
+                        type="button"
+                        onClick={() => handleSelect(oi)}
+                        disabled={answered}
+                        className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium disabled:cursor-default transition-colors"
+                        style={{ backgroundColor: bg, border: `1px solid ${border}`, color }}
+                      >
+                        {["A", "B", "C", "D"][oi]}. {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+                {answers[current] !== undefined && q.explanation && (
+                  <p className="text-[11px] mt-3 leading-relaxed p-2 rounded-lg" style={{ backgroundColor: "rgba(0,66,97,0.05)", color: "#004261" }}>
+                    {q.explanation}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sprachtraining: Ergebnisse & Analytics ──────────────────────────────────
+
+function ErgebnisseView({
+  analytics, loading, onBack, onRefresh,
+}: {
+  analytics: VocabAnalyticsSummary | null; loading: boolean;
+  onBack: () => void; onRefresh: () => void;
+}) {
+  const hasData = analytics && (analytics.sources.length > 0 || analytics.weak_terms.length > 0);
+
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Ergebnisse" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
+          {!hasData && !loading && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 py-16 px-6">
+              <ChartBar size={32} weight="duotone" color="var(--muted)" style={{ opacity: 0.5 }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Noch keine Ergebnisse</p>
+              <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>Schließe Übungen ab, um deinen Fortschritt hier zu sehen.</p>
+            </div>
+          )}
+
+          {loading && (
+            <div className="flex-1 flex items-center justify-center py-16">
+              <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+            </div>
+          )}
+
+          {/* Weak terms alert */}
+          {hasData && analytics!.weak_terms.length > 0 && (
+            <div className="rounded-xl p-4" style={{ backgroundColor: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.12)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Target size={16} weight="bold" color="#B91C1C" />
+                <span className="text-xs font-bold" style={{ color: "#B91C1C" }}>Schwächen erkannt — diese Begriffe üben</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {analytics.weak_terms.map((w) => {
+                  const rate = w.attempts > 0 ? Math.round((w.correct_count / w.attempts) * 100) : 0;
+                  return (
+                    <div key={w.entry_id} className="flex items-center justify-between rounded-lg px-3 py-2"
+                      style={{ backgroundColor: "rgba(239,68,68,0.06)" }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{w.term_de}</span>
+                        <span className="text-[10px] ml-1.5" style={{ color: "var(--muted)" }}>{w.term_en}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-12 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(239,68,68,0.15)" }}>
+                          <div className="h-full rounded-full" style={{ width: `${rate}%`, backgroundColor: "#ef4444" }} />
+                        </div>
+                        <span className="text-[10px] font-bold" style={{ color: "#B91C1C" }}>{rate}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Per-source analytics */}
+          {hasData && analytics!.sources.map((src) => {
+            const rate = src.total_attempts > 0 ? Math.round((src.total_correct / src.total_attempts) * 100) : 0;
+            const masteredPct = src.total_terms > 0 ? Math.round((src.mastered_terms / src.total_terms) * 100) : 0;
+            return (
+              <div key={src.source_uuid} className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+                <p className="text-xs font-bold truncate mb-3" style={{ color: "var(--text)" }}>
+                  {src.filename}
+                </p>
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(0,66,97,0.04)" }}>
+                    <p className="text-lg font-bold" style={{ color: "#004261" }}>{src.total_terms}</p>
+                    <p className="text-[10px]" style={{ color: "var(--muted)" }}>Begriffe</p>
+                  </div>
+                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(34,197,94,0.06)" }}>
+                    <p className="text-lg font-bold" style={{ color: "#166534" }}>{src.mastered_terms}</p>
+                    <p className="text-[10px]" style={{ color: "var(--muted)" }}>Gemeistert</p>
+                  </div>
+                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(234,179,8,0.06)" }}>
+                    <p className="text-lg font-bold" style={{ color: "#A16207" }}>{src.total_attempts}</p>
+                    <p className="text-[10px]" style={{ color: "var(--muted)" }}>Versuche</p>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
+                    <div className="h-full rounded-full transition-all" style={{
+                      width: `${masteredPct}%`,
+                      backgroundColor: masteredPct >= 70 ? "#22c55e" : masteredPct >= 40 ? "#eab308" : "#ef4444",
+                    }} />
+                  </div>
+                  <span className="text-[10px] font-bold flex-shrink-0" style={{
+                    color: masteredPct >= 70 ? "#166534" : masteredPct >= 40 ? "#A16207" : "#B91C1C",
+                  }}>
+                    {masteredPct}%
+                  </span>
+                </div>
+
+                {src.total_attempts > 0 && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <TrendUp size={11} weight="bold" style={{ color: "var(--muted)" }} />
+                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                      Trefferquote: {rate}% · Zuletzt: {src.last_practiced
+                        ? new Date(src.last_practiced).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })
+                        : "—"}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sprachtraining: Overview ────────────────────────────────────────────────
+
+function SprachtrainingOverview({
+  activeSourceCount, glossaryCount, onNavigate,
+}: {
+  activeSourceCount: number;
+  glossaryCount: number;
+  onNavigate: (view: SprachtrainingView) => void;
+}) {
+  const noSources = activeSourceCount === 0;
+
+  const tiles = [
+    { key: "glossar" as const, Icon: Book, label: "Glossar", desc: glossaryCount > 0 ? `${glossaryCount} / 150` : "Generieren", iconBg: "rgba(0,66,97,0.08)", iconColor: "#004261" },
+    { key: "lk-sets" as const, Icon: Cards, label: "Lernkarten", desc: "Sets", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
+    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Sets", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
+    { key: "vt-sets" as const, Icon: Exam, label: "Vokabeltest", desc: "Sets", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
+    { key: "ergebnisse" as const, Icon: ChartBar, label: "Ergebnisse", desc: "Fortschritt", iconBg: "rgba(219,234,254,0.7)", iconColor: "#1E40AF" },
+  ];
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+        {/* Active sources info */}
+        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+          style={{
+            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : activeSourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(0,66,97,0.06)",
+            color: noSources ? "#B91C1C" : activeSourceCount > 1 ? "#c4820e" : "#004261",
+          }}
+        >
+          <FilePdf size={13} weight="bold" />
+          {noSources
+            ? "Keine Quelle ausgewählt"
+            : activeSourceCount === 1
+              ? "1 Quelle ausgewählt"
+              : `${activeSourceCount} Quellen ausgewählt — nur die erste wird genutzt`}
+          {glossaryCount > 0 && (
+            <span className="ml-auto font-bold">{glossaryCount} / 150 Glossar</span>
+          )}
+        </div>
+
+        {/* Tool tiles */}
+        <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
+          {tiles.map((tile) => {
+            const disabled = noSources;
+            return (
+              <button
+                key={tile.key}
+                type="button"
+                onClick={() => !disabled && onNavigate(tile.key)}
+                disabled={disabled}
+                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl text-center transition-all hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  minHeight: 85,
+                  backgroundColor: tile.iconBg,
+                  border: `1.5px solid ${tile.iconColor}22`,
+                }}
+              >
+                <tile.Icon size={20} color={tile.iconColor} weight="bold" />
+                <span className="text-xs font-semibold leading-tight" style={{ color: tile.iconColor }}>
+                  {tile.label}
+                </span>
+                <span className="text-[10px]" style={{ color: tile.iconColor, opacity: 0.7 }}>
+                  {tile.desc}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {glossaryCount === 0 && !noSources && (
+          <p className="text-[10px] text-center px-2" style={{ color: "var(--muted)" }}>
+            Generiere zuerst ein Glossar, um Karteikarten, Lückentext und Vokabeltest zu nutzen.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Studio Overview ──────────────────────────────────────────────────────────
 
-function StudioOverview({ onSelect, onMinimize, sprachtrainingActive }: { onSelect: (v: "lernkarten" | "quiz") => void; onMinimize: () => void; sprachtrainingActive: boolean }) {
+function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode }) {
   const [studioTab, setStudioTab] = useState<"tools" | "sprachtraining">("tools");
   const tiles = [
     { key: "lernkarten" as const, Icon: Cards, label: "Lernkarten", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
     { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
-    { key: "pruefung" as const, Icon: BookOpenText, label: "Prüfungsfrage", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
+    { key: "infografik" as const, Icon: ChartBar, label: "Infografik", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
+    { key: "datentabelle" as const, Icon: Table, label: "Datentabelle", iconBg: "rgba(255,237,213,0.7)", iconColor: "#C2410C" },
+    { key: "mindmap" as const, Icon: TreeStructure, label: "Mindmap", iconBg: "rgba(236,254,255,0.7)", iconColor: "#0E7490" },
+    { key: "notizen" as const, Icon: NotePencil, label: "Notizen", iconBg: "rgba(219,234,254,0.7)", iconColor: "#1E40AF" },
   ];
 
   return (
@@ -1386,12 +3144,12 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive }: { onSele
       {/* Tile grid */}
       {studioTab === "tools" && (
         <div className="flex-1 overflow-y-auto p-3">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
             {tiles.map((tile) => (
               <button
                 key={tile.key}
                 type="button"
-                onClick={() => tile.key !== "pruefung" && onSelect(tile.key as "lernkarten" | "quiz")}
+                onClick={() => onSelect(tile.key as StudioView)}
                 className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl text-center transition-colors hover:brightness-95"
                 style={{
                   minHeight: 90,
@@ -1411,10 +3169,8 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive }: { onSele
 
       {/* Sprachtraining Inhalt */}
       {studioTab === "sprachtraining" && (
-        <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-3">
-          <p className="text-xs text-center py-8" style={{ color: "var(--muted)" }}>
-            Glossar &amp; Vokabeltest — coming soon
-          </p>
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {sprachtrainingContent}
         </div>
       )}
     </div>
@@ -1482,7 +3238,7 @@ export default function KiTutorModulePage() {
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
 
-  const MIN_PANEL = 240;
+  const MIN_PANEL = 160;
   const MOBILE_BREAKPOINT = 768;
 
   const [sources, setSources] = useState<Source[]>([]);
@@ -1495,6 +3251,7 @@ export default function KiTutorModulePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -1508,6 +3265,7 @@ export default function KiTutorModulePage() {
   }, [showSettings]);
 
   const [chatLang, setChatLang] = useState<"de" | "en">("de");
+  const [studioEnabled, setStudioEnabled] = useState(true);
   const [sprachtrainingActive, setSprachtrainingActive] = useState(false);
 
   const [popupActions, setPopupActions] = useState<{ key: string; label: string; icon: string; prompt: string; min_words: number }[]>([]);
@@ -1518,6 +3276,33 @@ export default function KiTutorModulePage() {
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [quizLoading, setQuizLoading] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
+  const [mindmapData, setMindmapData] = useState<MindmapNodeData | null>(null);
+  const [mindmapLoading, setMindmapLoading] = useState(false);
+  const [datentabelle, setDatentabelle] = useState<DatentabelleData | null>(null);
+  const [datentabelleSources, setDatentabelleSources] = useState<DatentabelleSource[]>([]);
+  const [datentabelleLoading, setDatentabelleLoading] = useState(false);
+  const [notes, setNotes] = useState<Note[]>([]);
+
+  // ─── Sprachtraining State ─────────────────────────────────────────────────
+  const [sprachView, setSprachView] = useState<SprachtrainingView>("overview");
+  const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
+  const [glossaryLoading, setGlossaryLoading] = useState(false);
+  const [clozeExercises, setClozeExercises] = useState<ClozeExercise[]>([]);
+  const [clozeLoading, setClozeLoading] = useState(false);
+  const [vocabQuestions, setVocabQuestions] = useState<VocabTestQuestion[]>([]);
+  const [vocabLoading, setVocabLoading] = useState(false);
+  const [vocabAnalytics, setVocabAnalytics] = useState<VocabAnalyticsSummary | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [sprachSourceUuid, setSprachSourceUuid] = useState("");
+
+  // ─── Exercise Sets State ─────────────────────────────────────────────────
+  const [exerciseSets, setExerciseSets] = useState<ExerciseSet[]>([]);
+  const [activeSet, setActiveSet] = useState<ExerciseSet | null>(null);
+  const [setCreating, setSetCreating] = useState(false);
+  const [createSetTool, setCreateSetTool] = useState<string>("lernkarten");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [streakInfo, setStreakInfo] = useState<StreakInfo>({ current_streak: 0, max_streak: 0, last_active_date: null });
+  const [glossaryCount, setGlossaryCount] = useState(0);
 
   // ─── Init ──────────────────────────────────────────────────────────────────
 
@@ -1553,6 +3338,7 @@ export default function KiTutorModulePage() {
         if (!cancelled && settingsRes.ok) {
           const s = await settingsRes.json();
           setChatLang(s.chat_lang ?? "de");
+          setStudioEnabled(s.studio_enabled ?? true);
           setSprachtrainingActive(s.sprachtraining_active ?? false);
         }
 
@@ -1562,6 +3348,9 @@ export default function KiTutorModulePage() {
           setPopupActions(d.actions ?? []);
         }
 
+        const notesRes = await fetch(`/api/ki-tutor/modules/${uuid}/notes`, { credentials: "include" });
+        if (!cancelled && notesRes.ok) setNotes(await notesRes.json());
+
         if (!cancelled) setInitialized(true);
       } catch {
         if (!cancelled) router.push("/ki-tutor");
@@ -1570,6 +3359,11 @@ export default function KiTutorModulePage() {
     init();
     return () => { cancelled = true; };
   }, [uuid, router, loadMessages]);
+
+  // Reset mobile tab if studio is disabled
+  useEffect(() => {
+    if (!studioEnabled && activeTab === "studio") setActiveTab("chat");
+  }, [studioEnabled, activeTab]);
 
   // Persist panel collapse state to localStorage
   useEffect(() => {
@@ -1583,9 +3377,9 @@ export default function KiTutorModulePage() {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_lang: chatLang, sprachtraining_active: sprachtrainingActive }),
+      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, sprachtraining_active: sprachtrainingActive }),
     }).catch(() => { /* ignore */ });
-  }, [chatLang, sprachtrainingActive, initialized, uuid]);
+  }, [chatLang, studioEnabled, sprachtrainingActive, initialized, uuid]);
 
   useEffect(() => {
     const needsPoll = sources.some((s) => s.status === "indexing" || s.status === "pending");
@@ -1726,15 +3520,28 @@ export default function KiTutorModulePage() {
   // ─── Chat ──────────────────────────────────────────────────────────────────
 
   async function sendChatMessage(content: string, directText = false, sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string }) {
+    // Strip leftover citation markers from pasted AI text
+    content = content.replace(/\s*\[(?:Q\d+,\s*)?S\.\s*\d+\]/g, "");
     const effectiveSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
     if (!content.trim()) return;
     if (!directText && effectiveSourceIds.length === 0) return;
-    const msgSourceCount = directText ? 0 : effectiveSourceIds.length;
+    const msgSourceCount = directText ? 1 : effectiveSourceIds.length;
     setMessages((prev) => [...prev, { role: "user", content: content.trim(), sourceCount: msgSourceCount }]);
     setChatInput("");
     setChatLoading(true);
+    // Add placeholder assistant message for streaming
+    setMessages((prev) => [...prev, { role: "assistant", content: "", sourceCount: msgSourceCount }]);
+
+    const updateLast = (patch: Partial<ChatMessage>) =>
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last) updated[updated.length - 1] = { ...last, ...patch };
+        return updated;
+      });
+
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/chat`, {
+      const res = await fetch(`/api/ki-tutor-stream/${uuid}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -1750,15 +3557,66 @@ export default function KiTutorModulePage() {
           }),
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages((prev) => [...prev, { role: "assistant", content: data.answer, source_pages: data.source_pages, source_qmap: data.source_qmap, sourceCount: msgSourceCount }]);
+      if (res.ok && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        // Batch token updates at screen refresh rate for smooth rendering
+        let pendingTokens = "";
+        let rafId: number | null = null;
+        const flushTokens = () => {
+          if (!pendingTokens) return;
+          const chunk = pendingTokens;
+          pendingTokens = "";
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last) updated[updated.length - 1] = { ...last, content: last.content + chunk };
+            return updated;
+          });
+        };
+
+        const processLine = (line: string) => {
+          if (!line.startsWith("data: ")) return;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.token) {
+              pendingTokens += evt.token;
+              if (rafId == null) {
+                rafId = requestAnimationFrame(() => { flushTokens(); rafId = null; });
+              }
+            } else if (evt.done) {
+              // Flush remaining tokens before applying metadata
+              if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
+              flushTokens();
+              updateLast({ source_pages: evt.source_pages, source_qmap: evt.source_qmap });
+            } else if (evt.error) {
+              updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
+            }
+          } catch { /* skip malformed lines */ }
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) processLine(line);
+        }
+        // Process remaining buffer (e.g. the done event)
+        if (buffer.trim()) processLine(buffer);
+        // Final flush of any remaining tokens
+        if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
+        flushTokens();
       } else if (res.status === 409) {
-        setMessages((prev) => [...prev, { role: "assistant", content: "Das Modul wird noch indiziert. Bitte warte einen Moment und versuche es erneut." }]);
+        updateLast({ content: "Das Modul wird noch indiziert. Bitte warte einen Moment und versuche es erneut." });
       } else {
-        setMessages((prev) => [...prev, { role: "assistant", content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." }]);
+        updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
       }
-    } catch { /* ignore */ } finally {
+    } catch {
+      updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
+    } finally {
       setChatLoading(false);
     }
   }
@@ -1767,6 +3625,14 @@ export default function KiTutorModulePage() {
     if (isMobile) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
     sendChatMessage(prompt, true, sourceInfo);
+  }
+
+  function handleCustomQuestion(selectedText: string) {
+    if (isMobile) setActiveTab("chat");
+    else setPanels((prev) => ({ ...prev, chat: true }));
+    setChatInput(`"${selectedText}"\n\n`);
+    // Focus textarea after React renders the new input
+    setTimeout(() => chatTextareaRef.current?.focus(), 50);
   }
 
   function handlePillClick(sourceUuid: string, page: number, filename: string, sourceText?: string) {
@@ -1823,6 +3689,478 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ } finally {
       setQuizLoading(false);
     }
+  }
+
+  const mindmapPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopMindmapPolling() {
+    if (mindmapPollRef.current) { clearInterval(mindmapPollRef.current); mindmapPollRef.current = null; }
+  }
+
+  function startMindmapPolling(mindmapId: number) {
+    stopMindmapPolling();
+    setMindmapLoading(true);
+    mindmapPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmap/${mindmapId}`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "success" && data.mindmap) {
+          setMindmapData(data.mindmap);
+          setMindmapLoading(false);
+          stopMindmapPolling();
+        } else if (data.status === "failed") {
+          console.error("Mindmap failed:", data.error);
+          setMindmapLoading(false);
+          stopMindmapPolling();
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+  }
+
+  // Load existing mindmap on mount + resume polling if pending/running
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmap`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "success" && data.mindmap) {
+          setMindmapData(data.mindmap);
+        } else if (data.id && (data.status === "pending" || data.status === "running")) {
+          startMindmapPolling(data.id);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => stopMindmapPolling();
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function generateMindmap() {
+    if (selectedSourceIds.length === 0) return;
+    setMindmapLoading(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmap/generate`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 5) }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        startMindmapPolling(data.mindmap_id);
+      } else {
+        const err = await res.text();
+        console.error("Mindmap generate error:", res.status, err);
+        setMindmapLoading(false);
+      }
+    } catch {
+      setMindmapLoading(false);
+    }
+  }
+
+  async function generateDatentabelle() {
+    if (selectedSourceIds.length === 0) return;
+    setDatentabelleLoading(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/generate`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active_source_ids: selectedSourceIds }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDatentabelle(data.table);
+        setDatentabelleSources(data.sources || []);
+      }
+    } catch { /* ignore */ } finally {
+      setDatentabelleLoading(false);
+    }
+  }
+
+  // ─── Sprachtraining Functions ────────────────────────────────────────────
+
+  // Active sources for sprachtraining (max 3, from left panel checkboxes)
+  const sprachActiveIds = selectedSourceIds.slice(0, 3);
+
+  async function loadGlossary() {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setGlossary(data.entries || []);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function generateGlossary() {
+    if (sprachActiveIds.length === 0) return;
+    setGlossaryLoading(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary/generate`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active_source_ids: sprachActiveIds }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGlossary(data.entries || []);
+      }
+    } catch { /* ignore */ } finally {
+      setGlossaryLoading(false);
+    }
+  }
+
+  async function generateCloze() {
+    if (sprachActiveIds.length === 0) return;
+    setClozeLoading(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercises/cloze`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active_source_ids: sprachActiveIds }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClozeExercises(data.exercises || []);
+      }
+    } catch { /* ignore */ } finally {
+      setClozeLoading(false);
+    }
+  }
+
+  async function generateVocabTest() {
+    if (sprachActiveIds.length === 0) return;
+    setVocabLoading(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercises/vocab-test`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active_source_ids: sprachActiveIds }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVocabQuestions(data.exercises || []);
+      }
+    } catch { /* ignore */ } finally {
+      setVocabLoading(false);
+    }
+  }
+
+  async function submitVocabProgress(results: { glossary_entry_id: number; correct: boolean }[], exerciseType: string) {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/vocab-progress`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          results: results.map((r) => ({ ...r, exercise_type: exerciseType })),
+        }),
+      });
+    } catch { /* ignore */ }
+  }
+
+  async function loadVocabAnalytics() {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/vocab-analytics`, { credentials: "include" });
+      if (res.ok) {
+        setVocabAnalytics(await res.json());
+      }
+    } catch { /* ignore */ } finally {
+      setAnalyticsLoading(false);
+    }
+  }
+
+  // ─── Exercise Sets Functions ──────────────────────────────────────────────
+
+  async function loadExerciseSets(tool?: string) {
+    try {
+      const url = tool
+        ? `/api/ki-tutor/modules/${uuid}/exercise-sets?tool=${tool}`
+        : `/api/ki-tutor/modules/${uuid}/exercise-sets`;
+      const res = await fetch(url, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setExerciseSets(data.sets || []);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function loadExerciseSet(setId: number) {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${setId}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setActiveSet(data.set);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function createExerciseSet(tool: string, mode: string, count: number, sourceUuid?: string) {
+    setSetCreating(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tool, mode, count, source_uuid: sourceUuid }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActiveSet(data.set);
+        loadExerciseSets(tool);
+        return data.set as ExerciseSet;
+      }
+    } catch { /* ignore */ } finally {
+      setSetCreating(false);
+    }
+    return null;
+  }
+
+  async function deleteExerciseSet(setId: number, tool: string) {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${setId}`, {
+        method: "DELETE", credentials: "include",
+      });
+      loadExerciseSets(tool);
+    } catch { /* ignore */ }
+  }
+
+  async function submitSetProgress(setId: number, results: { item_id: number; correct: boolean }[]) {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${setId}/progress`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ results }),
+      });
+      loadStreak();
+    } catch { /* ignore */ }
+  }
+
+  async function loadStreak() {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/streak`, { credentials: "include" });
+      if (res.ok) setStreakInfo(await res.json());
+    } catch { /* ignore */ }
+  }
+
+  async function loadGlossaryCount() {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary-count`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setGlossaryCount(data.count);
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Load glossary + sets + streak on mount
+  useEffect(() => {
+    loadGlossary();
+    loadStreak();
+    loadGlossaryCount();
+  }, [uuid]);
+
+  // Build the sprachtraining content tree
+  // Helper: selected source for create-set modal
+  const selectedSourceForSet = (() => {
+    if (selectedSourceIds.length === 0) return null;
+    const src = sources.find((s) => s.uuid === selectedSourceIds[0]);
+    return src ? { uuid: src.uuid, filename: src.filename } : null;
+  })();
+
+  const sprachtrainingContent = (() => {
+    switch (sprachView) {
+      case "glossar":
+        return (
+          <GlossarView
+            entries={glossary}
+            loading={glossaryLoading}
+            onGenerate={generateGlossary}
+            onBack={() => setSprachView("overview")}
+          />
+        );
+      case "karteikarten":
+        return (
+          <VocabFlashcards
+            entries={glossary}
+            onBack={() => setSprachView("overview")}
+            onFinish={(results) => submitVocabProgress(results, "flashcard")}
+          />
+        );
+      case "lueckentext":
+        return (
+          <LueckentextView
+            exercises={clozeExercises}
+            loading={clozeLoading}
+            onGenerate={generateCloze}
+            onBack={() => setSprachView("overview")}
+            onFinish={(results) => submitVocabProgress(results, "cloze")}
+          />
+        );
+      case "vokabeltest":
+        return (
+          <VokabeltestView
+            questions={vocabQuestions}
+            loading={vocabLoading}
+            onGenerate={generateVocabTest}
+            onBack={() => setSprachView("overview")}
+            onFinish={(results) => submitVocabProgress(results, "vocab_test")}
+          />
+        );
+      case "ergebnisse":
+        return (
+          <ErgebnisseView
+            analytics={vocabAnalytics}
+            loading={analyticsLoading}
+            onBack={() => setSprachView("overview")}
+            onRefresh={loadVocabAnalytics}
+          />
+        );
+      // ─── Lernkarten Sets Flow ──────────────────────────────
+      case "lk-sets":
+        return (
+          <ExerciseSetsOverview
+            title="Lernkarten"
+            sets={exerciseSets.filter((s) => s.tool === "lernkarten")}
+            onBack={() => { setSprachView("overview"); }}
+            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("lk-learn")); }}
+            onCreate={() => { setCreateSetTool("lernkarten"); setShowCreateModal(true); }}
+            onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
+          />
+        );
+      case "lk-learn":
+        return activeSet ? (
+          <LernkartenLearnView
+            exerciseSet={activeSet}
+            onBack={() => { setSprachView("lk-sets"); setActiveSet(null); }}
+            onComplete={(results) => {
+              submitSetProgress(activeSet.id, results);
+              setSprachView("lk-complete");
+            }}
+            onAskChat={(text) => {
+              setChatInput(text);
+              // Switch to chat panel
+            }}
+          />
+        ) : null;
+      case "lk-complete":
+        return activeSet ? (
+          <ExerciseCompletion
+            title={activeSet.title}
+            results={[]}
+            total={activeSet.card_count}
+            onRetryWrong={() => setSprachView("lk-learn")}
+            onBack={() => { setSprachView("lk-sets"); setActiveSet(null); loadExerciseSets("lernkarten"); }}
+          />
+        ) : null;
+      // ─── Lückentext Sets Flow ──────────────────────────────
+      case "cl-sets":
+        return (
+          <ExerciseSetsOverview
+            title="Lückentext"
+            sets={exerciseSets.filter((s) => s.tool === "lueckentext")}
+            onBack={() => setSprachView("overview")}
+            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("cl-learn")); }}
+            onCreate={() => { setCreateSetTool("lueckentext"); setShowCreateModal(true); }}
+            onDelete={(id) => deleteExerciseSet(id, "lueckentext")}
+          />
+        );
+      case "cl-learn":
+        return activeSet ? (
+          <MCExerciseView
+            exerciseSet={activeSet}
+            tool="lueckentext"
+            onBack={() => { setSprachView("cl-sets"); setActiveSet(null); }}
+            onComplete={(results) => {
+              submitSetProgress(activeSet.id, results);
+              setSprachView("cl-complete");
+            }}
+            onAskChat={(text) => setChatInput(text)}
+          />
+        ) : null;
+      case "cl-complete":
+        return activeSet ? (
+          <ExerciseCompletion
+            title={activeSet.title}
+            results={[]}
+            total={activeSet.card_count}
+            onRetryWrong={() => setSprachView("cl-learn")}
+            onBack={() => { setSprachView("cl-sets"); setActiveSet(null); loadExerciseSets("lueckentext"); }}
+          />
+        ) : null;
+      // ─── Vokabeltest Sets Flow ─────────────────────────────
+      case "vt-sets":
+        return (
+          <ExerciseSetsOverview
+            title="Vokabeltest"
+            sets={exerciseSets.filter((s) => s.tool === "vokabeltest")}
+            onBack={() => setSprachView("overview")}
+            onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("vt-learn")); }}
+            onCreate={() => { setCreateSetTool("vokabeltest"); setShowCreateModal(true); }}
+            onDelete={(id) => deleteExerciseSet(id, "vokabeltest")}
+          />
+        );
+      case "vt-learn":
+        return activeSet ? (
+          <MCExerciseView
+            exerciseSet={activeSet}
+            tool="vokabeltest"
+            onBack={() => { setSprachView("vt-sets"); setActiveSet(null); }}
+            onComplete={(results) => {
+              submitSetProgress(activeSet.id, results);
+              setSprachView("vt-complete");
+            }}
+            onAskChat={(text) => setChatInput(text)}
+          />
+        ) : null;
+      case "vt-complete":
+        return activeSet ? (
+          <ExerciseCompletion
+            title={activeSet.title}
+            results={[]}
+            total={activeSet.card_count}
+            onRetryWrong={() => setSprachView("vt-learn")}
+            onBack={() => { setSprachView("vt-sets"); setActiveSet(null); loadExerciseSets("vokabeltest"); }}
+          />
+        ) : null;
+      default:
+        return (
+          <SprachtrainingOverview
+            activeSourceCount={selectedSourceIds.length}
+            glossaryCount={glossaryCount || glossary.length}
+            onNavigate={(view) => {
+              if (view === "ergebnisse") loadVocabAnalytics();
+              if (view === "lk-sets") loadExerciseSets("lernkarten");
+              if (view === "cl-sets") loadExerciseSets("lueckentext");
+              if (view === "vt-sets") loadExerciseSets("vokabeltest");
+              setSprachView(view);
+            }}
+          />
+        );
+    }
+  })();
+
+  async function addNote(content: string) {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/notes`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (res.ok) {
+        const note = await res.json();
+        setNotes((prev) => [note, ...prev]);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function deleteNote(noteId: number) {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/notes/${noteId}`, {
+        method: "DELETE", credentials: "include",
+      });
+      if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    } catch { /* ignore */ }
   }
 
 
@@ -1924,8 +4262,28 @@ export default function KiTutorModulePage() {
                     ))}
                   </div>
                 </div>
+                {/* Studio-Panel */}
+                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Studio</p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>Studio-Panel anzeigen</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={studioEnabled}
+                    onClick={() => setStudioEnabled((v) => !v)}
+                    className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+                    style={{ backgroundColor: studioEnabled ? "#004261" : "#CBD5E1" }}
+                  >
+                    <span
+                      className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                      style={{ transform: studioEnabled ? "translateX(16px)" : "translateX(0)" }}
+                    />
+                  </button>
+                </div>
                 {/* Sprachtraining */}
-                <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center justify-between px-4 py-3" style={{ opacity: studioEnabled ? 1 : 0.4 }}>
                   <div>
                     <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Sprachtraining</p>
                     <p className="text-xs" style={{ color: "var(--muted)" }}>Zeigt Sprachtraining-Tab im Studio</p>
@@ -1934,13 +4292,14 @@ export default function KiTutorModulePage() {
                     type="button"
                     role="switch"
                     aria-checked={sprachtrainingActive}
-                    onClick={() => setSprachtrainingActive((v) => !v)}
+                    onClick={() => studioEnabled && setSprachtrainingActive((v) => !v)}
+                    disabled={!studioEnabled}
                     className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
-                    style={{ backgroundColor: sprachtrainingActive ? "#004261" : "#CBD5E1" }}
+                    style={{ backgroundColor: sprachtrainingActive && studioEnabled ? "#004261" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
                   >
                     <span
                       className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
-                      style={{ transform: sprachtrainingActive ? "translateX(16px)" : "translateX(0)" }}
+                      style={{ transform: sprachtrainingActive && studioEnabled ? "translateX(16px)" : "translateX(0)" }}
                     />
                   </button>
                 </div>
@@ -1967,7 +4326,7 @@ export default function KiTutorModulePage() {
             className="flex"
             style={{ borderBottom: "1px solid var(--border)" }}
           >
-            {(["quellen", "chat", "studio"] as PanelKey[]).map((key) => (
+            {(["quellen", "chat", ...(studioEnabled ? ["studio"] : [])] as PanelKey[]).map((key) => (
               <button
                 key={key}
                 type="button"
@@ -2002,7 +4361,7 @@ export default function KiTutorModulePage() {
             >
               {activeTab === "quellen" ? (
                 viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} popupActions={popupActions} onMinimize={() => setActiveTab("chat")} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onMinimize={() => setActiveTab("chat")} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -2028,16 +4387,39 @@ export default function KiTutorModulePage() {
                   onPillClick={handlePillClick}
                   moduleReady={moduleDetail?.status === "ready"}
                   onClear={() => { fetch(`/api/ki-tutor/modules/${uuid}/messages`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
+                  externalTextareaRef={chatTextareaRef}
+                  onSaveNote={addNote}
                 />
               ) : studioView === "overview" ? (
-                <StudioOverview onSelect={setStudioView} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} />
+                <StudioOverview onSelect={setStudioView} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} />
               ) : studioView === "lernkarten" ? (
-                <LernkartenStudio
-                  karten={lernkarten}
-                  loading={lernkartenLoading}
-                  onGenerate={generateLernkarten}
+                <ExerciseSetsOverview
+                  title="Lernkarten"
+                  sets={exerciseSets.filter((s) => s.tool === "lernkarten")}
+                  onBack={() => setStudioView("overview")}
+                  onSelect={(s) => { loadExerciseSet(s.id); }}
+                  onCreate={() => { setCreateSetTool("lernkarten"); setShowCreateModal(true); }}
+                  onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
+                />
+              ) : studioView === "notizen" ? (
+                <NotizenStudio
+                  notes={notes}
+                  onAdd={addNote}
+                  onDelete={deleteNote}
                   onBack={() => setStudioView("overview")}
                 />
+              ) : studioView === "infografik" ? (
+                <PlaceholderStudio title="Infografik" onBack={() => setStudioView("overview")} />
+              ) : studioView === "datentabelle" ? (
+                <DatentabelleStudio
+                    table={datentabelle}
+                    sources={datentabelleSources}
+                    loading={datentabelleLoading}
+                    onGenerate={generateDatentabelle}
+                    onBack={() => setStudioView("overview")}
+                  />
+              ) : studioView === "mindmap" ? (
+                <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} />
               ) : (
                 <QuizStudio
                   questions={quiz}
@@ -2061,7 +4443,7 @@ export default function KiTutorModulePage() {
                 {!panels.quellen ? (
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} popupActions={popupActions} onMinimize={() => togglePanel("quellen")} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onMinimize={() => togglePanel("quellen")} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -2109,54 +4491,104 @@ export default function KiTutorModulePage() {
                     onPillClick={handlePillClick}
                     moduleReady={moduleDetail?.status === "ready"}
                     onClear={() => { fetch(`/api/ki-tutor/modules/${uuid}/messages`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
+                    externalTextareaRef={chatTextareaRef}
+                    onSaveNote={addNote}
+                    onMinimize={() => togglePanel("chat")}
                   />
                 )}
               </div>
 
-              {/* Drag handle 2 */}
-              <div
-                className="group flex-shrink-0 flex items-center justify-center"
-                style={{ width: 8, cursor: panels.chat && panels.studio ? "col-resize" : "default" }}
-                onMouseDown={(e) => panels.chat && panels.studio && startDrag(2, e)}
-              >
+              {studioEnabled && (
+                <>
+                {/* Drag handle 2 */}
                 <div
-                  className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ height: 48, backgroundColor: "#004261" }}
-                />
-              </div>
+                  className="group flex-shrink-0 flex items-center justify-center"
+                  style={{ width: 8, cursor: panels.chat && panels.studio ? "col-resize" : "default" }}
+                  onMouseDown={(e) => panels.chat && panels.studio && startDrag(2, e)}
+                >
+                  <div
+                    className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ height: 48, backgroundColor: "#004261" }}
+                  />
+                </div>
 
-              {/* Panel 3 — Studio */}
-              <div
-                ref={p3Ref}
-                className="flex flex-col overflow-hidden rounded-2xl"
-                style={{ ...p3Style, backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
-              >
-                {!panels.studio ? (
-                  <MiniStrip label="Studio" onClick={() => togglePanel("studio")} side="right" />
-                ) : studioView === "overview" ? (
-                  <StudioOverview onSelect={setStudioView} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} />
-                ) : studioView === "lernkarten" ? (
-                  <LernkartenStudio
-                    karten={lernkarten}
-                    loading={lernkartenLoading}
-                    onGenerate={generateLernkarten}
-                    onBack={() => setStudioView("overview")}
-                  />
-                ) : (
-                  <QuizStudio
-                    questions={quiz}
-                    loading={quizLoading}
-                    answers={quizAnswers}
-                    onGenerate={generateQuiz}
-                    onAnswer={(qi, ai) => setQuizAnswers((prev) => ({ ...prev, [qi]: ai }))}
-                    onBack={() => setStudioView("overview")}
-                  />
-                )}
-              </div>
+                {/* Panel 3 — Studio */}
+                <div
+                  ref={p3Ref}
+                  className="flex flex-col overflow-hidden rounded-2xl"
+                  style={{ ...p3Style, backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
+                >
+                  {!panels.studio ? (
+                    <MiniStrip label="Studio" onClick={() => togglePanel("studio")} side="right" />
+                  ) : studioView === "overview" ? (
+                    <StudioOverview onSelect={setStudioView} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} />
+                  ) : studioView === "lernkarten" ? (
+                    <ExerciseSetsOverview
+                      title="Lernkarten"
+                      sets={exerciseSets.filter((s) => s.tool === "lernkarten")}
+                      onBack={() => setStudioView("overview")}
+                      onSelect={(s) => { loadExerciseSet(s.id); }}
+                      onCreate={() => { setCreateSetTool("lernkarten"); setShowCreateModal(true); }}
+                      onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
+                    />
+                  ) : studioView === "notizen" ? (
+                    <NotizenStudio
+                      notes={notes}
+                      onAdd={addNote}
+                      onDelete={deleteNote}
+                      onBack={() => setStudioView("overview")}
+                    />
+                  ) : studioView === "infografik" ? (
+                    <PlaceholderStudio title="Infografik" onBack={() => setStudioView("overview")} />
+                  ) : studioView === "datentabelle" ? (
+                    <DatentabelleStudio
+                      table={datentabelle}
+                      sources={datentabelleSources}
+                      loading={datentabelleLoading}
+                      onGenerate={generateDatentabelle}
+                      onBack={() => setStudioView("overview")}
+                    />
+                  ) : studioView === "mindmap" ? (
+                    <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} />
+                  ) : (
+                    <QuizStudio
+                      questions={quiz}
+                      loading={quizLoading}
+                      answers={quizAnswers}
+                      onGenerate={generateQuiz}
+                      onAnswer={(qi, ai) => setQuizAnswers((prev) => ({ ...prev, [qi]: ai }))}
+                      onBack={() => setStudioView("overview")}
+                    />
+                  )}
+                </div>
+                </>
+              )}
             </>
           )}
         </div>
       </div>
+      {/* Create Set Modal */}
+      {showCreateModal && (
+        <CreateSetModal
+          tool={createSetTool}
+          glossaryCount={glossaryCount || glossary.length}
+          selectedSource={selectedSourceForSet}
+          creating={setCreating}
+          onClose={() => setShowCreateModal(false)}
+          onCreate={async (mode, count) => {
+            const newSet = await createExerciseSet(
+              createSetTool, mode, count,
+              mode === "quelle" ? selectedSourceIds[0] : undefined,
+            );
+            setShowCreateModal(false);
+            if (newSet) {
+              setActiveSet(newSet);
+              const learnView = `${createSetTool === "lernkarten" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-learn` as SprachtrainingView;
+              setSprachView(learnView);
+            }
+          }}
+        />
+      )}
     </ProtectedRoute>
   );
 }

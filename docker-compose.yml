@@ -95,28 +95,6 @@ services:
         max-size: "10m"
         max-file: "7"
 
-  celery-worker-dubbing:
-    profiles: ["dubbing"]
-    build: ./backend
-    container_name: kis-celery-dubbing
-    command: celery -A src.celery_app worker --queues=dubbing --autoscale=1,1 --loglevel=info
-    env_file:
-      - .env
-    volumes:
-      - ./backend/src:/app/src:ro
-      - kis-storage:/app/storage
-    depends_on:
-      redis:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "7"
-
   celery-beat:
     build: ./backend
     container_name: kis-celery-beat
@@ -218,6 +196,26 @@ services:
       - API_KEY=${KOKORO_API_KEY:-kokoro-local-key}
     ports:
       - "8880:8880"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+  thorsten:
+    profiles: ["thorsten"]
+    build: ./thorsten
+    container_name: kis-thorsten
+    ports:
+      - "5002:5002"
     deploy:
       resources:
         reservations:

@@ -312,60 +312,6 @@ function JobArtifacts({ job }: { job: MyJob }) {
     );
   }
 
-  // video_dubbing: show video + subtitles
-  if (job.tool === "video_dubbing" && job.status === "success") {
-    const meta = (job.meta ?? null) as Record<string, unknown> | null;
-    const srt = meta?.srt as string | undefined;
-    const vtt = meta?.vtt as string | undefined;
-    const txt = meta?.txt as string | undefined;
-    const baseName = job.original_filename.replace(/\.[^.]+$/, "") || "dubbed";
-
-    return (
-      <div className="mt-3 space-y-2">
-        {job.has_download && (
-          <div className="flex flex-wrap gap-2">
-            <DownloadChip
-              href={`/api/jobs/${job.job_uuid}/download`}
-              filename={`${baseName}_synchronisation.mp4`}
-              label="Video"
-            />
-          </div>
-        )}
-        {(srt || vtt || txt) && (
-          <div className="flex flex-wrap gap-2 items-center">
-            {(srt || vtt) && (
-              <>
-                <span className="text-xs text-gray-400">Untertitel:</span>
-                {srt && (
-                  <DownloadChip
-                    onClick={() => downloadText(srt, `${baseName}_untertitel.srt`, "application/x-subrip")}
-                    label="SRT"
-                  />
-                )}
-                {vtt && (
-                  <DownloadChip
-                    onClick={() => downloadText(vtt, `${baseName}_untertitel.vtt`, "text/vtt")}
-                    label="VTT"
-                  />
-                )}
-              </>
-            )}
-            {txt && (
-              <>
-                {(srt || vtt) && <span className="text-gray-300">·</span>}
-                <span className="text-xs text-gray-400">Transkript:</span>
-                <DownloadChip
-                  onClick={() => downloadText(txt, `${baseName}_transkript.txt`, "text/plain")}
-                  label="TXT"
-                />
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // Generic fallback: any job with a downloadable result
   if (job.status === "success" && job.has_download) {
     const downloadLabel =
@@ -599,7 +545,6 @@ export default function MeineJobsPage() {
               <option value="summary">Summarize</option>
               <option value="tts">Text-to-Speech</option>
               <option value="screencast">Screencast</option>
-              {enabledTools.has("video_dubbing") && <option value="video_dubbing">Video-Dubbing</option>}
               <option value="image">Image</option>
             </select>
           </div>
@@ -666,7 +611,7 @@ export default function MeineJobsPage() {
                         <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
                         {job.tts_params?.voice_label || job.tts_params?.provider ? (
                           <p className="text-xs text-gray-400 mt-0.5">
-                            {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
+                            {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "mylab" ? "THL myLab" : job.tts_params.provider === "thorsten" ? "Thorsten" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
                             {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
                           </p>
                         ) : null}

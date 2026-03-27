@@ -49,7 +49,7 @@ class DemoGenerateScriptsRequest(BaseModel):
 class DemoRenderRequest(BaseModel):
     translate_job_uuid: str = ""
     dpi: int = 100
-    speed: float = 0.9
+    speed: float = 1.0
     slide_pause: float = 0.5
     voice_id: str = ""
     voice_label: str = ""

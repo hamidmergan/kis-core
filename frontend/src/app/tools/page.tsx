@@ -12,9 +12,7 @@ import {
   ImageSquareIcon,
   BookIcon,
   ArticleIcon,
-  VideoIcon,
   PresentationChartIcon,
-  GraduationCapIcon,
 } from "@phosphor-icons/react";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -29,11 +27,9 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   translation: TranslateIcon,
   tts: SpeakerHighIcon,
   transcription: SubtitlesIcon,
-  video_dubbing: VideoIcon,
   image: ImageSquareIcon,
   glossary: BookIcon,
   summary: ArticleIcon,
-  "ki-tutor": GraduationCapIcon,
 };
 
 const ALL_WORKFLOWS = [
@@ -51,11 +47,9 @@ const ALL_TOOLS: Tool[] = [
   { key: "translation",   title: "Translate",      description: "Dokumente in andere Sprachen übersetzen.", href: "/tools/translate" },
   { key: "tts",           title: "Text-to-Speech", description: "Texte und Dokumente in Audio umwandeln.", href: "/tools/tts" },
   { key: "transcription", title: "Speech-to-Text", description: "Audio- und Videoinhalte in Text oder Untertitel umwandeln.", href: "/tools/stt" },
-  // { key: "video_dubbing", title: "Video-Dubbing",  description: "Videos in andere Sprachen synchronisieren.", href: "/tools/video-dubbing", unavailable: true },
   { key: "image",         title: "Image",          description: "Bilder erstellen, bearbeiten oder analysieren.", href: "/tools/image" },
   { key: "summary",       title: "Summarize",      description: "Dokumente und Medieninhalte zusammenfassen.", href: "/tools/summarize" },
   { key: "glossary",      title: "Glossary",       description: "Begriffslisten für Übersetzungen und Skripte verwalten.", href: "/tools/glossary" },
-  { key: "ki-tutor",      title: "KI Tutor",       description: "Interaktive Lernmodule mit KI-Chat erstellen.", href: "/ki-tutor" },
 ];
 
 function ToolImage({ toolKey, title }: { toolKey: string; title: string }) {
@@ -115,7 +109,7 @@ export default function ToolsPage() {
 
       <div className="max-w-5xl mx-auto px-4 pt-10 pb-20 lg:pt-15 lg:pb-30">
 
-        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
+        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Tools</h1>
 
         {/* ── Workflows ── */}
         {workflows.length > 0 && (

@@ -66,6 +66,7 @@ const PAUSE_OPTIONS = [
 const KOKORO_ACCENT_LABEL: Record<string, string> = {
   "American": "🇺🇸",
   "British": "🇬🇧",
+  "Deutsch": "🇩🇪",
 };
 
 export default function TtsPage() {
@@ -78,25 +79,32 @@ export default function TtsPage() {
   const [ttsProgressLabel, setTtsProgressLabel] = useState<string>("");
 
   // Provider
-  const [provider, setProvider] = useState<"elevenlabs" | "kokoro">("elevenlabs");
+  const [provider, setProvider] = useState<"elevenlabs" | "kokoro" | "mylab" | "thorsten">("elevenlabs");
   const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
+  const [mylabEnabled, setMylabEnabled] = useState(false);
+  const [thorstenEnabled, setThorstenEnabled] = useState(false);
   const [providersLoaded, setProvidersLoaded] = useState(false);
 
   // Voice selection
   const [voices, setVoices] = useState<Voice[]>([]);
-  const [kokoroVoices, setKokoroVoices] = useState<Array<{voice_id: string; name: string; accent: string; gender: string}>>([]);
+  const [kokoroVoices, setKokoroVoices] = useState<Array<{voice_id: string; name: string; language?: string; accent: string; gender: string}>>([]);
+  const [mylabVoices, setMylabVoices] = useState<Array<{voice_id: string; name: string; description: string}>>([]);
   const [voiceId, setVoiceId] = useState("");
 
   // Audio settings
-  const [speed, setSpeed] = useState(0.9);
+  const [speed, setSpeed] = useState(1.0);
   const [pausePreset, setPausePreset] = useState("medium");
 
   useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
+    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean; thorsten_enabled: boolean }>("/api/tts/providers").then((data) => {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setKokoroEnabled(data.kokoro_enabled ?? false);
+      setMylabEnabled(data.mylab_enabled ?? false);
+      setThorstenEnabled(data.thorsten_enabled ?? false);
       if (!data.elevenlabs_enabled && data.kokoro_enabled) setProvider("kokoro");
+      else if (!data.elevenlabs_enabled && !data.kokoro_enabled && data.mylab_enabled) setProvider("mylab");
+      else if (!data.elevenlabs_enabled && !data.kokoro_enabled && !data.mylab_enabled && data.thorsten_enabled) setProvider("thorsten");
       if (data.elevenlabs_enabled) {
         api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
           setVoices(vData.voices);
@@ -107,6 +115,12 @@ export default function TtsPage() {
         api.getJson<{ voices: Array<{voice_id: string; name: string; accent: string; gender: string}> }>("/api/kokoro/voices")
           .then((d) => {
             setKokoroVoices(d.voices);
+          }).catch(() => {});
+      }
+      if (data.mylab_enabled) {
+        api.getJson<{ voices: Array<{voice_id: string; name: string; description: string}> }>("/api/mylab/voices")
+          .then((d) => {
+            setMylabVoices(d.voices);
           }).catch(() => {});
       }
     }).catch(() => {
@@ -120,10 +134,14 @@ export default function TtsPage() {
   useEffect(() => {
     if (provider === "kokoro") {
       if (kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
+    } else if (provider === "mylab") {
+      if (mylabVoices.length > 0) setVoiceId(mylabVoices[0].voice_id);
+    } else if (provider === "thorsten") {
+      setVoiceId("thorsten");
     } else {
       if (voices.length > 0) setVoiceId(voices[0].voice_id);
     }
-  }, [provider, voices, kokoroVoices]);
+  }, [provider, voices, kokoroVoices, mylabVoices, thorstenEnabled]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
@@ -133,7 +151,7 @@ export default function TtsPage() {
   }, []);
 
   const isProcessing = ttsState === "uploading" || ttsState === "processing";
-  const noProvider = providersLoaded && !elevenlabsEnabled && !kokoroEnabled;
+  const noProvider = providersLoaded && !elevenlabsEnabled && !kokoroEnabled && !mylabEnabled && !thorstenEnabled;
 
   const handleTtsFileSelected = useCallback((file: File) => {
     setPendingFile(file);
@@ -155,6 +173,10 @@ export default function TtsPage() {
     try {
       const voiceLabel = provider === "kokoro"
         ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
+        : provider === "mylab"
+        ? (mylabVoices.find(x => x.voice_id === voiceId)?.name ?? voiceId)
+        : provider === "thorsten"
+        ? "Thorsten"
         : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
 
       const formData = new FormData();
@@ -246,7 +268,7 @@ export default function TtsPage() {
         <section>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Text-to-Speech</h1>
           <p className="text-sm text-gray-500 mb-6">
-            Laden Sie ein Dokument hoch und lassen Sie den Inhalt auf Englisch als MP3-Audiodatei vorlesen.
+            Laden Sie ein Dokument hoch und lassen Sie den Inhalt als MP3-Audiodatei vorlesen.
           </p>
 
           <TtsFileUpload
@@ -259,7 +281,7 @@ export default function TtsPage() {
           )}
 
           {/* Provider */}
-          {providersLoaded && (elevenlabsEnabled || kokoroEnabled) && (
+          {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled || thorstenEnabled) && (
           <div className="mt-6 mb-2">
             <label htmlFor="provider-select" className="block text-sm font-medium text-gray-700 mb-2">
               TTS-Anbieter
@@ -267,18 +289,20 @@ export default function TtsPage() {
             <select
               id="provider-select"
               value={provider}
-              onChange={(e) => setProvider(e.target.value as "elevenlabs" | "kokoro")}
+              onChange={(e) => setProvider(e.target.value as "elevenlabs" | "kokoro" | "mylab" | "thorsten")}
               disabled={isProcessing}
               className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
               {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
+              {mylabEnabled && <option value="mylab">THL myLab (XTTS-v2)</option>}
+              {thorstenEnabled && <option value="thorsten">Thorsten (Deutsch, lokal)</option>}
             </select>
           </div>
           )}
 
           {/* Stimme */}
-          {providersLoaded && (elevenlabsEnabled || kokoroEnabled) && (
+          {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled || thorstenEnabled) && (
           <div className="mt-4 mb-6 space-y-3">
             <div>
               <label htmlFor="voice-select" className="block text-sm font-medium text-gray-700 mb-2">
@@ -296,6 +320,14 @@ export default function TtsPage() {
                     {KOKORO_ACCENT_LABEL[v.accent] ?? ""} {v.name}
                   </option>
                 ))}
+                {provider === "mylab" && mylabVoices.map((v) => (
+                  <option key={v.voice_id} value={v.voice_id}>
+                    {v.name} – {v.description}
+                  </option>
+                ))}
+                {provider === "thorsten" && (
+                  <option value="thorsten">Thorsten – Neutral, klar</option>
+                )}
                 {provider === "elevenlabs" && voices.map((v) => {
                   const desc = translateDesc(v.description);
                   return (
@@ -319,6 +351,16 @@ export default function TtsPage() {
             {provider === "kokoro" && (
               <a
                 href="/tools/tts/voices?tab=kokoro"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[#004261] hover:underline"
+              >
+                Stimmen anhören →
+              </a>
+            )}
+            {provider === "mylab" && (
+              <a
+                href="/tools/tts/voices?tab=mylab"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-[#004261] hover:underline"

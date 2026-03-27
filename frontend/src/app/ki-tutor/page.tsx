@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import BackLink from "@/components/BackLink";
 import { checkAuthStatus } from "@/lib/auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -585,9 +584,9 @@ function LecturerView() {
       )}
 
       <div className="mb-8">
-        <BackLink />
-        <div className="flex items-center justify-between mt-2">
-          <h1 className="text-3xl font-bold" style={{ color: "var(--text)" }}>KI Tutor</h1>
+        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold" style={{ color: "var(--text)" }}>Meine Module</h2>
           <button
             type="button"
             onClick={() => setShowCreate(true)}
@@ -687,7 +686,8 @@ function StudentView() {
 
   return (
     <>
-      <h1 className="text-3xl font-bold mb-8" style={{ color: "var(--text)" }}>Meine Module</h1>
+      <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
+      <h2 className="text-xl font-semibold mb-8" style={{ color: "var(--text)" }}>Meine Module</h2>
 
       {/* Enroll form */}
       <section

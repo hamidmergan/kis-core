@@ -78,6 +78,22 @@ def _get_tts_client(provider: str = "elevenlabs"):
         if not client or not client.is_available():
             raise RuntimeError("Kokoro Server nicht erreichbar")
         return client
+    elif provider == "mylab":
+        from src.dependencies import is_mylab_enabled, get_mylab_client
+        if not is_mylab_enabled():
+            raise RuntimeError("myLab TTS ist nicht aktiviert")
+        client = get_mylab_client()
+        if not client or not client.is_available():
+            raise RuntimeError("myLab TTS Server nicht erreichbar")
+        return client
+    elif provider == "thorsten":
+        from src.dependencies import is_thorsten_enabled, get_thorsten_client
+        if not is_thorsten_enabled():
+            raise RuntimeError("Thorsten TTS ist nicht aktiviert")
+        client = get_thorsten_client()
+        if not client or not client.is_available():
+            raise RuntimeError("Thorsten TTS Server nicht erreichbar")
+        return client
     else:
         from src.services.elevenlabs_client import ElevenLabsClient
         from src.config import Settings

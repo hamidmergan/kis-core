@@ -1,6 +1,6 @@
 # KIS
 
-Webbasierter Übersetzungs- und Medienservice für Dokumente der TH Lübeck. Übersetzt DOCX, PPTX, MD, TEX und PDF automatisch von Deutsch nach Englisch – mit Glossar für konsistente Fachbegriffe. Zusätzlich: Text-to-Speech, Skript-Generierung, Transkription, Video-Dubbing und automatische Screencast-Erstellung aus PPTX-Dateien.
+Webbasierter Übersetzungs- und Medienservice für Dokumente der TH Lübeck. Übersetzt DOCX, PPTX, MD, TEX und PDF automatisch von Deutsch nach Englisch – mit Glossar für konsistente Fachbegriffe. Zusätzlich: Text-to-Speech, Skript-Generierung, Transkription und automatische Screencast-Erstellung aus PPTX-Dateien.
 
 ## Architektur
 
@@ -81,14 +81,6 @@ Transkribiert Audio- und Videodateien zu Text (via KISSKI Whisper).
 - Ausgabeformate: Text, SRT, VTT
 - Unterstützt diverse Audio-/Videoformate
 
-### Video-Dubbing
-
-Synchronisierte Videovertonung in andere Sprachen (via ElevenLabs API).
-
-- 12 unterstützte Sprachen
-- Option zur Entfernung von Hintergrundaudio
-- MP4-Upload und -Download
-
 ### Screencast-Erstellung
 
 Erstellt automatisch ein Screencast-Video aus einer PPTX-Präsentation: Übersetzung → Skript-Generierung → TTS → Video-Rendering.
@@ -144,7 +136,6 @@ Längere Begriffe werden bevorzugt zuerst ersetzt, um Überschneidungen zu verme
 | Screencast-Übersetzung (PPTX-Schritt) | ✅ | Gleiche Logik wie Dokumentübersetzung |
 | Transkription | ❌ | Direkter KISSKI-Whisper-Aufruf, kein Glossar |
 | Text-to-Speech | ❌ | ElevenLabs-Aufruf, kein Glossar |
-| Video-Dubbing | ❌ | ElevenLabs-Aufruf, kein Glossar |
 | Skript-Generierung | ✅ | Glossar-Einträge werden als Terminologie-Anweisung in den LLM-System-Prompt eingefügt (kein Token-Ersatz) |
 
 ## API-Endpunkte
@@ -160,7 +151,6 @@ Längere Begriffe werden bevorzugt zuerst ersetzt, um Überschneidungen zu verme
 | `/tts` | POST | Text-to-Speech (Dokument → MP3) |
 | `/script` | POST | Skript-Generierung (Dokument → Sprechertext) |
 | `/transcription` | POST | Audio/Video-Transkription |
-| `/video-dubbing` | POST | Video-Dubbing |
 | `/screencast` | POST | Screencast (Auto-Modus) |
 | `/screencast/translate` | POST | Screencast: PPTX übersetzen + Texte/Bilder extrahieren |
 | `/screencast/extract-texts` | POST | Screencast: Texte aus PPTX extrahieren |
@@ -175,7 +165,7 @@ Längere Begriffe werden bevorzugt zuerst ersetzt, um Überschneidungen zu verme
 | `DEEPL_API_KEY` | DeepL API Key | – |
 | `SOURCE_LANG` | Quellsprache | `DE` |
 | `TARGET_LANG` | Zielsprache | `EN-US` |
-| `ELEVENLABS_API_KEY` | ElevenLabs API Key (TTS, Dubbing) | – |
+| `ELEVENLABS_API_KEY` | ElevenLabs API Key (TTS) | – |
 | `KISSKI_API_KEY` | KISSKI LLM API Key (Skripte, Transkription) | – |
 | `KISSKI_BASE_URL` | KISSKI API Base-URL | `https://chat-ai.academiccloud.de/v1` |
 | `KISSKI_MODEL` | KISSKI LLM-Modell | `qwen3-30b-a3b-instruct-2507` |

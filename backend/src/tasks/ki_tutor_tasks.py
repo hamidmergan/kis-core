@@ -3,6 +3,7 @@
 import concurrent.futures
 import re
 
+from langfuse.decorators import langfuse_context, observe
 from loguru import logger
 
 from src.celery_app import celery_app
@@ -25,6 +26,7 @@ from src.tool_prompts import (
     TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
     TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
     TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    TUTOR_MINDMAP_PROMPT,
 )
 
 
@@ -232,6 +234,7 @@ def run_index_source(self, source_uuid: str):
 
 
 @celery_app.task(bind=True, name="ki_tutor.generate_summaries", queue="general")
+@observe(name="ki-tutor-summaries")
 def run_generate_summaries(self, source_uuid: str):
     """Generate AI page-level summaries for a PDF source."""
     try:
@@ -269,6 +272,9 @@ def run_generate_summaries(self, source_uuid: str):
         model = s.effective_llm_model
         is_small = s.llm_provider == "ollama"
         extra_body = {}
+        langfuse_context.update_current_observation(
+            metadata={"provider": s.llm_provider, "base_url": s.effective_llm_base_url, "model": model},
+        )
 
         # 4. Generate summaries
         #    Small models (ollama): parallel single-page requests
@@ -335,3 +341,84 @@ def run_generate_summaries(self, source_uuid: str):
             status = "failed"
         logger.error("KI Tutor: summary generation {} for {}: {}", status, source_uuid, e)
         db.update_ki_tutor_source_summaries_status(source_uuid, status)
+
+
+@celery_app.task(bind=True, name="ki_tutor.generate_mindmap", queue="general",
+                 soft_time_limit=300, time_limit=360)
+@observe(name="ki-tutor-mindmap")
+def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str]):
+    """Generate a mindmap from source summaries as a background job."""
+    import json as _json
+
+    try:
+        db.update_ki_tutor_mindmap(mindmap_id, "running")
+        logger.info("KI Tutor: generating mindmap {}", mindmap_id)
+
+        # 1. Build context from page summaries (with fallback to chunks)
+        context_parts: list[str] = []
+        for sid, suuid in zip(source_ids, source_uuids):
+            source = db.get_ki_tutor_source(suuid)
+            source_label = source["filename"] if source else f"Quelle"
+            summaries = db.get_paragraph_summaries_by_source(sid)
+            if summaries:
+                pages: dict[int, list[str]] = {}
+                for s in summaries:
+                    pages.setdefault(s["page_number"], []).append(s["summary"])
+                parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+                context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+            else:
+                chunks = db.get_chunks_by_source(sid)
+                if chunks:
+                    parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
+                    context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+
+        if not context_parts:
+            db.update_ki_tutor_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
+            return
+
+        # Fair budget split per source
+        budget_per_source = 16000 // len(source_ids)
+        trimmed_parts = [p[:budget_per_source] for p in context_parts]
+        context = "\n\n".join(trimmed_parts)
+
+        # 2. Call LLM
+        from langfuse.openai import OpenAI
+        from src.config import Settings
+        s = Settings()
+        client = OpenAI(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, max_retries=0, timeout=240)
+        model = s.effective_llm_model
+        langfuse_context.update_current_observation(
+            metadata={"provider": s.llm_provider, "base_url": s.effective_llm_base_url, "model": model},
+        )
+
+        messages = [
+            {"role": "system", "content": TUTOR_MINDMAP_PROMPT},
+            {"role": "user", "content": f"/no_think\nErstelle eine Mindmap aus folgenden Quellen:\n\n{context}"},
+        ]
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.2,
+        )
+
+        raw = response.choices[0].message.content
+        if not raw:
+            db.update_ki_tutor_mindmap(mindmap_id, "failed", error="LLM returned empty content")
+            return
+
+        answer = raw.strip()
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        mindmap = _json.loads(answer)
+        if not isinstance(mindmap, dict) or "topic" not in mindmap:
+            db.update_ki_tutor_mindmap(mindmap_id, "failed", error="Invalid mindmap format")
+            return
+
+        db.update_ki_tutor_mindmap(mindmap_id, "success", mindmap=mindmap)
+        logger.info("KI Tutor: mindmap {} generated successfully", mindmap_id)
+
+    except Exception as e:
+        logger.error("KI Tutor: mindmap {} generation failed: {}", mindmap_id, e)
+        db.update_ki_tutor_mindmap(mindmap_id, "failed", error=str(e))

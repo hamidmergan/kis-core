@@ -74,12 +74,28 @@ def run_tts(
         # Hard-stop: reject if provider was disabled between submit and execution
         if requested_provider == "kokoro" and not is_kokoro_enabled():
             raise RuntimeError("Kokoro TTS wurde deaktiviert.")
-        elif requested_provider not in ("kokoro",) and not is_elevenlabs_enabled():
+        elif requested_provider == "mylab":
+            from src.dependencies import is_mylab_enabled
+            if not is_mylab_enabled():
+                raise RuntimeError("myLab TTS wurde deaktiviert.")
+        elif requested_provider == "thorsten":
+            from src.dependencies import is_thorsten_enabled
+            if not is_thorsten_enabled():
+                raise RuntimeError("Thorsten TTS wurde deaktiviert.")
+        elif requested_provider not in ("kokoro", "mylab") and not is_elevenlabs_enabled():
             raise RuntimeError("ElevenLabs wurde deaktiviert.")
 
         if requested_provider == "kokoro" and bool(settings.kokoro_base_url):
             from src.services.kokoro_client import KokoroClient, _split_text
             client = KokoroClient(settings.kokoro_base_url)
+            chunks = _split_text(text)
+        elif requested_provider == "mylab" and bool(settings.mylab_tts_base_url):
+            from src.services.mylab_client import MyLabClient, _split_text
+            client = MyLabClient(settings.mylab_tts_base_url, model=settings.mylab_tts_model)
+            chunks = _split_text(text)
+        elif requested_provider == "thorsten" and bool(settings.thorsten_base_url):
+            from src.services.thorsten_client import ThorstenClient, _split_text
+            client = ThorstenClient(settings.thorsten_base_url)
             chunks = _split_text(text)
         else:
             from src.services.elevenlabs_client import ElevenLabsClient, _split_text, _insert_pauses
@@ -139,7 +155,7 @@ def run_tts(
             logger.warning("TTS {} network error, retry {}/{} in {}s: {}", job_uuid, self.request.retries + 1, self.max_retries, wait, e)
             raise self.retry(exc=e, countdown=wait)
         logger.error("TTS {} gave up after {} retries: {}", job_uuid, self.max_retries, e)
-        provider_name = {"kokoro": "Kokoro"}.get(provider, "ElevenLabs")
+        provider_name = {"kokoro": "Kokoro", "mylab": "myLab TTS", "thorsten": "Thorsten"}.get(provider, "ElevenLabs")
         db.update_job_status(job_uuid, "failed", error_message=f"{provider_name} war ~90 Minuten nicht erreichbar. Bitte 'Wiederholen' klicken wenn der Dienst wieder verfügbar ist.")
         raise
 

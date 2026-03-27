@@ -10,7 +10,6 @@ celery_app = Celery(
         "src.tasks.tts_tasks",
         "src.tasks.general_tasks",
         "src.tasks.screencast_tasks",
-        "src.tasks.video_dubbing_tasks",
         "src.tasks.watchdog_tasks",
         "src.tasks.ki_tutor_tasks",
     ],
@@ -37,17 +36,10 @@ celery_app.conf.update(
         "screencast.render": {"queue": "screencast"},
         "screencast.auto": {"queue": "screencast"},
         "screencast.demo_render": {"queue": "screencast"},
-        "video_dubbing.submit": {"queue": "dubbing"},
-        "video_dubbing.download": {"queue": "dubbing"},
-        "video_dubbing.poll": {"queue": "dubbing"},
         "watchdog.check": {"queue": "general"},
         "ki_tutor.index_source": {"queue": "general"},
     },
     beat_schedule={
-        "poll-dubbing-jobs": {
-            "task": "video_dubbing.poll",
-            "schedule": 15.0,  # every 15 seconds
-        },
         "watchdog-stuck-jobs": {
             "task": "watchdog.check",
             "schedule": 5.0,  # every 5 seconds

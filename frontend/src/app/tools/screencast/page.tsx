@@ -175,7 +175,7 @@ function ScreencastPageInner() {
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [speed, setSpeed] = useState(0.9);
+  const [speed, setSpeed] = useState(1.0);
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [dpi, setDpi] = useState(144);
   // Per-slide AI regeneration state
@@ -222,10 +222,12 @@ function ScreencastPageInner() {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro">("kokoro");
+  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro" | "mylab">("kokoro");
   const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
   const [fishSpeechEnabled, setFishSpeechEnabled] = useState(false);
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
+  const [mylabEnabled, setMylabEnabled] = useState(false);
+  const [mylabVoices, setMylabVoices] = useState<Array<{ voice_id: string; name: string; description: string }>>([]);
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [audioId, setAudioId] = useState<string>("");
   const [audioCount, setAudioCount] = useState(0);
@@ -339,12 +341,14 @@ function ScreencastPageInner() {
 
   // ── Fetch available voices + providers ──
   useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean }>("/api/tts/providers").then((data) => {
+    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setFishSpeechEnabled(data.fish_speech_enabled);
       setKokoroEnabled(data.kokoro_enabled ?? false);
-      // Default priority: kokoro > fish_speech > elevenlabs
+      setMylabEnabled(data.mylab_enabled ?? false);
+      // Default priority: kokoro > mylab > fish_speech > elevenlabs
       if (data.kokoro_enabled) setTtsProvider("kokoro");
+      else if (data.mylab_enabled) setTtsProvider("mylab");
       else if (data.fish_speech_enabled) setTtsProvider("fish_speech");
       else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
       if (data.elevenlabs_enabled) {
@@ -359,6 +363,15 @@ function ScreencastPageInner() {
             setKokoroVoices(kData.voices ?? []);
             if (kData.voices?.length > 0) {
               setVoiceId(kData.voices[0].voice_id);
+            }
+          }).catch(() => {});
+      }
+      if (data.mylab_enabled) {
+        api.getJson<{ voices: Array<{ voice_id: string; name: string; description: string }> }>("/api/mylab/voices")
+          .then((mData) => {
+            setMylabVoices(mData.voices ?? []);
+            if (mData.voices?.length > 0 && !data.kokoro_enabled) {
+              setVoiceId(mData.voices[0].voice_id);
             }
           }).catch(() => {});
       }
@@ -2255,7 +2268,7 @@ function ScreencastPageInner() {
             </h2>
 
             {/* TTS-Anbieter */}
-            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
+            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
             <div className="mb-2">
               <label htmlFor="sc-provider-select" className="block text-sm font-medium text-gray-700 mb-2">
                 TTS-Anbieter
@@ -2264,15 +2277,17 @@ function ScreencastPageInner() {
                 id="sc-provider-select"
                 value={ttsProvider}
                 onChange={(e) => {
-                  const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro";
+                  const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro" | "mylab";
                   setTtsProvider(p);
                   if (p === "fish_speech") setVoiceId("default");
                   else if (p === "kokoro" && kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
+                  else if (p === "mylab" && mylabVoices.length > 0) setVoiceId(mylabVoices[0].voice_id);
                   else if (p === "elevenlabs" && voices.length > 0) setVoiceId(voices[0].voice_id);
                 }}
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#004261] focus:ring-1 focus:ring-[#004261]"
               >
                 {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
+                {mylabEnabled && <option value="mylab">THL myLab (XTTS-v2)</option>}
                 {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
                 {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
               </select>
@@ -2280,7 +2295,7 @@ function ScreencastPageInner() {
             )}
 
             {/* Stimme */}
-            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled) && (
+            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
             <div className="mb-6 mt-4 space-y-3">
               <div>
                 <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">
@@ -2304,6 +2319,12 @@ function ScreencastPageInner() {
                         </option>
                       );
                     })
+                  ) : ttsProvider === "mylab" ? (
+                    mylabVoices.map((v) => (
+                      <option key={v.voice_id} value={v.voice_id}>
+                        {v.name} – {v.description}
+                      </option>
+                    ))
                   ) : (
                     voices.map((v) => {
                       const desc = translateDesc(v.description);
@@ -2329,6 +2350,16 @@ function ScreencastPageInner() {
               {ttsProvider === "kokoro" && (
                 <a
                   href="/tools/tts/voices?tab=kokoro"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#004261] hover:underline"
+                >
+                  Stimmen anhören →
+                </a>
+              )}
+              {ttsProvider === "mylab" && (
+                <a
+                  href="/tools/tts/voices?tab=mylab"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-[#004261] hover:underline"
@@ -2725,19 +2756,20 @@ function ScreencastPageInner() {
             <div className="fixed inset-0 z-40" />
 
             {/* Panel — Bottom Sheet mobile, right-anchored sidebar on desktop */}
-            <div className={`fixed z-50 bg-white shadow-2xl flex flex-col overflow-hidden sm:inset-auto sm:top-16 sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl ${regenMessages.length > 0 ? "inset-0 rounded-none" : "inset-x-0 bottom-0 rounded-t-2xl max-h-[60vh]"}`}>
+            <div className={`fixed z-50 shadow-2xl flex flex-col overflow-hidden sm:inset-auto sm:top-16 sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl ${regenMessages.length > 0 ? "inset-0 rounded-none" : "inset-x-0 bottom-0 rounded-t-2xl max-h-[60vh]"}`} style={{ backgroundColor: "var(--bg)" }}>
 
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
                 <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center">
-                    <svg className="w-3.5 h-3.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                    </svg>
-                  </span>
-                  <span className="text-sm font-medium text-gray-800">KI-Assistent · Folie {regeneratingSlide + 1}</span>
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                    style={{ backgroundColor: "#004261" }}
+                  >
+                    KI
+                  </div>
+                  <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>KI-Assistent · Folie {regeneratingSlide + 1}</span>
                 </div>
-                <button onClick={closeRegen} className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                <button onClick={closeRegen} className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
@@ -2748,8 +2780,8 @@ function ScreencastPageInner() {
                 {/* Markierung als Kontext-Chip oben */}
                 {regenAnchorText && (
                   <div className="flex justify-center">
-                    <div className="w-full bg-purple-50 border border-purple-100 rounded-xl px-3 py-1.5 text-xs text-gray-700 italic">
-                      <span className="text-purple-500">✦</span> „{regenAnchorText}"
+                    <div className="w-full rounded-xl px-3 py-1.5 text-xs italic" style={{ backgroundColor: "rgba(0,66,97,0.06)", color: "var(--text)", border: "1px solid var(--border)" }}>
+                      <span style={{ color: "#004261" }}>✦</span> „{regenAnchorText}"
                     </div>
                   </div>
                 )}
@@ -2759,17 +2791,23 @@ function ScreencastPageInner() {
                   const isUser = msg.role === "user";
                   const isLastAssistant = !isUser && idx === regenMessages.length - 1;
                   return (
-                    <div key={idx} className={`flex gap-2 items-start ${isUser ? "justify-end" : "justify-start"}`}>
+                    <div key={idx} className={`flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
                       {!isUser && (
-                        <span className="w-6 h-6 rounded-full bg-purple-100 flex-shrink-0 flex items-center justify-center mt-0.5">
-                          <svg className="w-3 h-3 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                          </svg>
-                        </span>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <div
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                            style={{ backgroundColor: "#004261" }}
+                          >
+                            KI
+                          </div>
+                          <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
+                            KI-Assistent
+                          </span>
+                        </div>
                       )}
-                      <div className={`${isUser ? "max-w-[85%]" : "flex-1 min-w-0"} space-y-2 ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+                      <div className={`${isUser ? "max-w-[85%]" : "max-w-[96%]"} space-y-2 ${isUser ? "items-end" : "items-start"} flex flex-col`}>
                         {isUser ? (
-                          <div className="bg-gray-200 text-gray-900 text-sm px-3 py-2 rounded-2xl rounded-tr-sm leading-relaxed">
+                          <div className="text-sm px-4 py-3 rounded-2xl leading-relaxed" style={{ backgroundColor: "#004261", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap" }}>
                             {msg.content}
                           </div>
                         ) : (
@@ -2777,19 +2815,20 @@ function ScreencastPageInner() {
                             <RegenTextarea
                               value={msg.content}
                               onChange={(v) => setRegenMessages(regenMessages.map((m, i) => i === idx ? { ...m, content: v } : m))}
-                              className="text-sm text-gray-900 bg-purple-50 rounded-2xl rounded-tl-sm px-3 py-2 border-0 focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none leading-relaxed w-full overflow-y-auto"
+                              className="text-sm rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#004261]/30 resize-none leading-relaxed w-full overflow-y-auto"
+                              style={{ backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6 }}
                             />
                             {isLastAssistant && (
                               <div className="flex flex-wrap gap-1.5">
                                 {regenAnchorText ? (
                                   <>
-                                    <button onClick={() => applyRegen(regeneratingSlide, "replace-selection", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Markierung ersetzen</button>
-                                    <button onClick={() => applyRegen(regeneratingSlide, "insert-before", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Davor</button>
-                                    <button onClick={() => applyRegen(regeneratingSlide, "insert-after", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Danach</button>
-                                    <button onClick={() => applyRegen(regeneratingSlide, "replace-all", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Ganzes Skript</button>
+                                    <button onClick={() => applyRegen(regeneratingSlide, "replace-selection", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}>Markierung ersetzen</button>
+                                    <button onClick={() => applyRegen(regeneratingSlide, "insert-before", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}>Davor</button>
+                                    <button onClick={() => applyRegen(regeneratingSlide, "insert-after", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}>Danach</button>
+                                    <button onClick={() => applyRegen(regeneratingSlide, "replace-all", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(0,66,97,0.05)", color: "var(--muted)" }}>Ganzes Skript</button>
                                   </>
                                 ) : (
-                                  <button onClick={() => applyRegen(regeneratingSlide, "replace-all", msg.content)} className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">Ersetzen</button>
+                                  <button onClick={() => applyRegen(regeneratingSlide, "replace-all", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}>Ersetzen</button>
                                 )}
                               </div>
                             )}
@@ -2802,17 +2841,27 @@ function ScreencastPageInner() {
 
                 {/* Typing indicator */}
                 {regenLoading && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-purple-100 flex-shrink-0 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                      </svg>
-                    </span>
-                    <span className="flex gap-1">
-                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                    </span>
+                  <div className="flex items-start gap-2">
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      style={{ backgroundColor: "#004261" }}
+                    >
+                      KI
+                    </div>
+                    <div className="px-4 py-3 rounded-2xl text-sm" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderTopLeftRadius: 6 }}>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="inline-flex gap-1">
+                          {[0, 1, 2].map((n) => (
+                            <span
+                              key={n}
+                              className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
+                              style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
+                            />
+                          ))}
+                        </span>
+                        <span className="text-xs" style={{ color: "var(--muted)" }}>Denkt nach…</span>
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -2820,21 +2869,26 @@ function ScreencastPageInner() {
               </div>
 
               {/* Input area */}
-              <div className="border-t border-gray-100 px-3 py-3">
-                <div className="flex items-end gap-2 bg-gray-50 rounded-2xl px-3 py-2 focus-within:ring-2 focus-within:ring-purple-300 transition-all">
+              <div className="px-4 pt-4 pb-3" style={{ borderTop: "1px solid var(--border)" }}>
+                <div
+                  className="flex items-center gap-2 rounded-2xl px-4 py-3"
+                  style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+                >
                   <textarea
                     value={regenPrompt}
                     onChange={(e) => setRegenPrompt(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!regenLoading) runRegen(regeneratingSlide); }}}
                     rows={1}
-                    placeholder="Anweisung eingeben… (Enter zum Senden)"
+                    placeholder="Text eingeben…"
                     autoFocus
-                    className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none leading-relaxed max-h-32 overflow-y-auto"
+                    className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
+                    style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
                   />
                   <button
                     onClick={() => runRegen(regeneratingSlide)}
                     disabled={regenLoading}
-                    className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-40 transition-colors"
+                    className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
+                    style={{ backgroundColor: "#004261" }}
                   >
                     {regenLoading ? (
                       <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -2845,6 +2899,11 @@ function ScreencastPageInner() {
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
                     )}
                   </button>
+                </div>
+                <div className="flex items-center justify-end mt-2 px-1">
+                  <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+                    Shift+Enter für Zeilenumbruch
+                  </span>
                 </div>
               </div>
             </div>

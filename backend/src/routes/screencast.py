@@ -204,7 +204,7 @@ class RenderRequest(BaseModel):
     slide_images_b64: list[str] = []
     voice_id: str = ""
     voice_label: str = ""
-    speed: float = 0.9
+    speed: float = 1.0
     slide_pause: float = 0.5
     dpi: int = 100
     provider: str = "elevenlabs"
@@ -721,7 +721,7 @@ async def screencast(
     file: UploadFile = File(...),
     voice_id: str = Form(""),
     voice_label: str = Form(""),
-    speed: float = Form(0.9),
+    speed: float = Form(1.0),
     dpi: int = Form(100),
     glossary_json: str = Form(""),
     provider: str = Form("elevenlabs"),

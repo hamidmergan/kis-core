@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import { checkAuthStatus } from "@/lib/auth";
 
-type Tab = "pending" | "whitelist" | "users" | "jobs" | "settings" | "prompts" | "quota";
+type Tab = "pending" | "whitelist" | "users" | "jobs" | "stats" | "settings" | "prompts" | "quota";
 
 interface PendingUser {
   id: number;
@@ -384,6 +384,153 @@ function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
   );
 }
 
+// --- Tab: Statistiken ---
+interface ToolStat {
+  tool: string;
+  label: string;
+  total: number;
+  success: number;
+  failed: number;
+  avg_seconds: number | null;
+}
+interface DayStat { day: string; count: number; }
+interface UserStat { name: string; count: number; }
+interface StatsData {
+  by_tool: ToolStat[];
+  by_day: DayStat[];
+  top_users: UserStat[];
+  days: number;
+}
+
+function StatsTab() {
+  const [data, setData] = useState<StatsData | null>(null);
+  const [days, setDays] = useState(30);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/admin/stats?days=${days}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .finally(() => setLoading(false));
+  }, [days]);
+
+  if (loading) return <p className="text-sm text-gray-500">Laden…</p>;
+  if (!data) return <p className="text-sm text-red-500">Fehler beim Laden</p>;
+
+  const totalJobs = data.by_tool.reduce((s, t) => s + t.total, 0);
+  const totalSuccess = data.by_tool.reduce((s, t) => s + t.success, 0);
+  const totalFailed = data.by_tool.reduce((s, t) => s + t.failed, 0);
+  const maxDay = Math.max(...data.by_day.map((d) => d.count), 1);
+
+  return (
+    <div className="space-y-6">
+      {/* Zeitraum-Auswahl */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-500">Zeitraum:</span>
+        {[7, 30, 90].map((d) => (
+          <button key={d} onClick={() => setDays(d)}
+            className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-[#004261] text-white border-[#004261]" : "border-gray-300 text-gray-600 hover:border-gray-400"}`}>
+            {d} Tage
+          </button>
+        ))}
+      </div>
+
+      {/* Übersicht-Karten */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Gesamt</p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{totalJobs}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Erfolgreich</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{totalSuccess}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Fehlgeschlagen</p>
+          <p className="text-2xl font-bold text-red-600 mt-1">{totalFailed}</p>
+        </div>
+      </div>
+
+      {/* Jobs pro Tag — Mini-Balkendiagramm */}
+      {data.by_day.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Jobs pro Tag</h3>
+          <div className="flex items-end gap-[2px] h-24">
+            {data.by_day.map((d) => (
+              <div key={d.day} className="flex-1 group relative flex flex-col items-center justify-end h-full">
+                <div className="absolute -top-5 hidden group-hover:block text-[10px] bg-gray-800 text-white px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                  {d.day.slice(5)}: {d.count}
+                </div>
+                <div className="w-full bg-[#004261] rounded-t-sm transition-all"
+                  style={{ height: `${Math.max((d.count / maxDay) * 100, 2)}%` }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Jobs pro Tool */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <h3 className="text-sm font-medium text-gray-700 p-4 pb-2">Jobs pro Tool</h3>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
+              <th className="px-4 py-2">Tool</th>
+              <th className="px-4 py-2 text-right">Gesamt</th>
+              <th className="px-4 py-2 text-right">Erfolg</th>
+              <th className="px-4 py-2 text-right">Fehler</th>
+              <th className="px-4 py-2 text-right">Ø Dauer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.by_tool.map((t) => (
+              <tr key={t.tool} className="border-b border-gray-50 hover:bg-gray-50">
+                <td className="px-4 py-2 font-medium text-gray-700">{t.label}</td>
+                <td className="px-4 py-2 text-right text-gray-600">{t.total}</td>
+                <td className="px-4 py-2 text-right text-green-600">{t.success}</td>
+                <td className="px-4 py-2 text-right text-red-600">{t.failed || "–"}</td>
+                <td className="px-4 py-2 text-right text-gray-500">
+                  {t.avg_seconds != null
+                    ? t.avg_seconds >= 60
+                      ? `${Math.round(t.avg_seconds / 60)} min`
+                      : `${Math.round(t.avg_seconds)} s`
+                    : "–"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Top User */}
+      {data.top_users.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <h3 className="text-sm font-medium text-gray-700 p-4 pb-2">Top User</h3>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
+                <th className="px-4 py-2">#</th>
+                <th className="px-4 py-2">User</th>
+                <th className="px-4 py-2 text-right">Jobs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.top_users.map((u, i) => (
+                <tr key={u.name} className="border-b border-gray-50 hover:bg-gray-50">
+                  <td className="px-4 py-2 text-gray-400">{i + 1}</td>
+                  <td className="px-4 py-2 text-gray-700">{u.name}</td>
+                  <td className="px-4 py-2 text-right text-gray-600">{u.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Tab: All Jobs ---
 function JobsTab() {
   const [jobs, setJobs] = useState<AdminJob[]>([]);
@@ -565,14 +712,65 @@ function JobsTab() {
   );
 }
 
+// --- Reusable provider toggle row ---
+function ProviderToggle({ label, enabled, configured, available, envHint, saving, settingKey, onToggle }: {
+  label: string; enabled: boolean; configured: boolean; available?: boolean; envHint?: string;
+  saving: boolean; settingKey: string; onToggle: (key: string, val: boolean) => void;
+}) {
+  const statusText = !configured
+    ? "Nicht konfiguriert."
+    : !enabled
+      ? "Deaktiviert — wird nicht angezeigt."
+      : available === false
+        ? "Aktiviert — Server nicht erreichbar."
+        : "Aktiv — als Anbieter wählbar.";
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="text-sm text-gray-700">{label}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{statusText}</p>
+        {!configured && envHint && (
+          <p className="mt-1 text-xs text-gray-400"><code className="font-mono">{envHint}</code> nicht gesetzt</p>
+        )}
+      </div>
+      <button
+        onClick={() => onToggle(settingKey, !enabled)}
+        disabled={saving || !configured}
+        title={!configured && envHint ? `${envHint} ist nicht in .env gesetzt` : undefined}
+        className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+          enabled ? "bg-[#004261]" : "bg-gray-300"
+        } disabled:opacity-50 disabled:cursor-not-allowed`}
+      >
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+          enabled ? "translate-x-5" : "translate-x-0"
+        }`} />
+      </button>
+    </div>
+  );
+}
+
+function ProviderSection({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="border border-gray-200 rounded-xl bg-white p-5">
+      <p className="text-sm font-medium text-gray-800 mb-1">{title}</p>
+      {hint && <p className="text-xs text-gray-400 mb-4">{hint}</p>}
+      {!hint && <div className="mb-3" />}
+      <div className="space-y-4">
+        {React.Children.toArray(children).flatMap((child, i, arr) =>
+          i < arr.length - 1
+            ? [child, <div key={`sep-${i}`} className="border-t border-gray-100" />]
+            : [child]
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Settings: General toggles ---
 function GeneralSettingsSection() {
   const [whitelistEnabled, setWhitelistEnabled] = useState<boolean | null>(null);
-  const [elevenlabsEnabled, setElevenlabsEnabled] = useState<boolean>(true);
-  const [elevenlabsConfigured, setElevenlabsConfigured] = useState<boolean>(false);
-  const [kokoroEnabled, setKokoroEnabled] = useState<boolean>(false);
-  const [kokoroConfigured, setKokoroConfigured] = useState<boolean>(false);
-  const [kokoroAvailable, setKokoroAvailable] = useState<boolean>(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [s, setS] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -580,11 +778,7 @@ function GeneralSettingsSection() {
       .then((r) => r.json())
       .then((d) => {
         setWhitelistEnabled(d.whitelist_enabled ?? true);
-        setElevenlabsEnabled(d.elevenlabs_enabled ?? true);
-        setElevenlabsConfigured(d.elevenlabs_configured ?? false);
-        setKokoroEnabled(d.kokoro_enabled ?? true);
-        setKokoroConfigured(d.kokoro_configured ?? false);
-        setKokoroAvailable(d.kokoro_available ?? false);
+        setS(d);
       });
   }, []);
 
@@ -601,6 +795,15 @@ function GeneralSettingsSection() {
       setSaving(false);
     }
   };
+
+  const toggle = (key: string, val: boolean) => {
+    setS((prev) => ({ ...prev, [`${key}_enabled`]: val }));
+    patch({ [key]: val });
+  };
+
+  const P = (props: Omit<Parameters<typeof ProviderToggle>[0], "saving" | "onToggle">) => (
+    <ProviderToggle {...props} saving={saving} onToggle={toggle} />
+  );
 
   if (whitelistEnabled === null) return <Spinner />;
 
@@ -638,74 +841,48 @@ function GeneralSettingsSection() {
       </div>
 
       {/* TTS-Anbieter */}
-      <div className="border border-gray-200 rounded-xl bg-white p-5">
-        <p className="text-sm font-medium text-gray-800 mb-4">TTS-Anbieter</p>
-        <div className="space-y-4">
-          {/* ElevenLabs */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-gray-700">ElevenLabs</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {elevenlabsEnabled
-                  ? "Aktiv — als Anbieter wählbar."
-                  : "Deaktiviert — wird nicht angezeigt."}
-              </p>
-              {!elevenlabsConfigured && (
-                <p className="mt-1 text-xs text-gray-400">
-                  <code className="font-mono">ELEVENLABS_API_KEY</code> nicht gesetzt
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => { const v = !elevenlabsEnabled; setElevenlabsEnabled(v); patch({ elevenlabs_enabled: v }); }}
-              disabled={saving || !elevenlabsConfigured}
-              title={!elevenlabsConfigured ? "ELEVENLABS_API_KEY ist nicht in .env gesetzt" : undefined}
-              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                elevenlabsEnabled ? "bg-[#004261]" : "bg-gray-300"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-              aria-label="ElevenLabs umschalten"
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                elevenlabsEnabled ? "translate-x-5" : "translate-x-0"
-              }`} />
-            </button>
-          </div>
+      <ProviderSection title="Text-to-Speech">
+        <P label="ElevenLabs" settingKey="elevenlabs_enabled" enabled={s.elevenlabs_enabled ?? false} configured={s.elevenlabs_configured ?? false} envHint="ELEVENLABS_API_KEY" />
+        <P label="Kokoro TTS" settingKey="kokoro_enabled" enabled={s.kokoro_enabled ?? false} configured={s.kokoro_configured ?? false} available={s.kokoro_available} envHint="KOKORO_BASE_URL" />
+        <P label="THL myLab (XTTS-v2)" settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" />
+        <P label="Thorsten (deutsch, lokal)" settingKey="thorsten_enabled" enabled={s.thorsten_enabled ?? false} configured={s.thorsten_configured ?? false} available={s.thorsten_available} envHint="THORSTEN_BASE_URL" />
+      </ProviderSection>
 
-          <div className="border-t border-gray-100" />
+      {/* Transkription */}
+      <ProviderSection title="Transkription (Speech-to-Text)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+        <P label="KISSKI (Whisper)" settingKey="kisski_whisper_enabled" enabled={s.kisski_whisper_enabled ?? true} configured={s.kisski_whisper_configured ?? false} envHint="KISSKI_API_KEY" />
+        <P label="THL myLab (Whisper-3-large)" settingKey="mylab_whisper_enabled" enabled={s.mylab_whisper_enabled ?? false} configured={s.mylab_whisper_configured ?? false} available={s.mylab_whisper_available} envHint="MYLAB_BASE_URL" />
+      </ProviderSection>
 
-          {/* Kokoro */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-gray-700">Kokoro TTS</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {!kokoroEnabled
-                  ? "Deaktiviert — wird nicht angezeigt."
-                  : kokoroAvailable
-                    ? "Aktiv — als Anbieter wählbar."
-                    : "Aktiviert — Server nicht erreichbar."}
-              </p>
-              {!kokoroConfigured && (
-                <p className="mt-1 text-xs text-gray-400">
-                  <code className="font-mono">KOKORO_BASE_URL</code> nicht gesetzt
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => { const v = !kokoroEnabled; setKokoroEnabled(v); patch({ kokoro_enabled: v }); }}
-              disabled={saving || !kokoroConfigured}
-              title={!kokoroConfigured ? "KOKORO_BASE_URL ist nicht in .env gesetzt" : undefined}
-              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                kokoroEnabled ? "bg-[#004261]" : "bg-gray-300"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-              aria-label="Kokoro TTS umschalten"
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                kokoroEnabled ? "translate-x-5" : "translate-x-0"
-              }`} />
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Embeddings */}
+      <ProviderSection title="Embeddings (KI-Tutor)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+        <P label="KISSKI (e5-mistral-7b)" settingKey="kisski_embedding_enabled" enabled={s.kisski_embedding_enabled ?? true} configured={s.kisski_embedding_configured ?? false} envHint="KISSKI_API_KEY" />
+        <P label="THL myLab (qwen3-embedding-4b)" settingKey="mylab_embedding_enabled" enabled={s.mylab_embedding_enabled ?? false} configured={s.mylab_embedding_configured ?? false} available={s.mylab_embedding_available} envHint="MYLAB_BASE_URL" />
+      </ProviderSection>
+
+      {/* Bild-Generierung */}
+      <ProviderSection title="Bild-Generierung" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+        <P label="KISSKI (Flux)" settingKey="kisski_image_gen_enabled" enabled={s.kisski_image_gen_enabled ?? true} configured={s.kisski_image_gen_configured ?? false} envHint="KISSKI_API_KEY" />
+        <P label="THL myLab (Flux.1-dev)" settingKey="mylab_image_gen_enabled" enabled={s.mylab_image_gen_enabled ?? false} configured={s.mylab_image_gen_configured ?? false} available={s.mylab_image_gen_available} envHint="MYLAB_BASE_URL" />
+      </ProviderSection>
+
+      {/* Bild-Analyse */}
+      <ProviderSection title="Bild-Analyse" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+        <P label="KISSKI (qwen3-vl)" settingKey="kisski_image_analyze_enabled" enabled={s.kisski_image_analyze_enabled ?? true} configured={s.kisski_image_analyze_configured ?? false} envHint="KISSKI_API_KEY" />
+        <P label="THL myLab (qwen3-vl-8b)" settingKey="mylab_image_analyze_enabled" enabled={s.mylab_image_analyze_enabled ?? false} configured={s.mylab_image_analyze_configured ?? false} available={s.mylab_image_analyze_available} envHint="MYLAB_BASE_URL" />
+      </ProviderSection>
+
+      {/* Bild-Bearbeitung */}
+      <ProviderSection title="Bild-Bearbeitung" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+        <P label="KISSKI (Flux)" settingKey="kisski_image_edit_enabled" enabled={s.kisski_image_edit_enabled ?? true} configured={s.kisski_image_edit_configured ?? false} envHint="KISSKI_API_KEY" />
+        <P label="THL myLab (Flux.1-Kontext)" settingKey="mylab_image_edit_enabled" enabled={s.mylab_image_edit_enabled ?? false} configured={s.mylab_image_edit_configured ?? false} available={s.mylab_image_edit_available} envHint="MYLAB_BASE_URL" />
+      </ProviderSection>
+
+      {/* OCR */}
+      <ProviderSection title="OCR (Texterkennung)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+        <P label="KISSKI (Docling)" settingKey="kisski_ocr_enabled" enabled={s.kisski_ocr_enabled ?? true} configured={s.kisski_ocr_configured ?? false} envHint="KISSKI_API_KEY" />
+        <P label="THL myLab (Nanonets OCR2 3B)" settingKey="mylab_ocr_enabled" enabled={s.mylab_ocr_enabled ?? false} configured={s.mylab_ocr_configured ?? false} available={s.mylab_ocr_available} envHint="MYLAB_BASE_URL" />
+      </ProviderSection>
     </div>
   );
 }
@@ -1149,6 +1326,7 @@ export default function AdminPage() {
     { key: "whitelist", label: "Whitelist" },
     { key: "users", label: "Alle User" },
     { key: "jobs", label: "Alle Jobs" },
+    { key: "stats", label: "Statistiken" },
   ];
 
   return (
@@ -1177,6 +1355,7 @@ export default function AdminPage() {
         {tab === "whitelist" && <WhitelistTab adminEmail={adminEmail} />}
         {tab === "users" && <UsersTab onOpenQuota={openQuotaForUser} />}
         {tab === "jobs" && <JobsTab />}
+        {tab === "stats" && <StatsTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "prompts" && <PromptsTab />}
         {tab === "quota" && <QuotaTab targetUserId={quotaTargetId} onConsumed={() => setQuotaTargetId(null)} onBack={() => setTab("users")} />}

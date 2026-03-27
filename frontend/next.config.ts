@@ -57,6 +57,22 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/kokoro/preview`,
       },
       {
+        source: "/api/mylab/voices",
+        destination: `${backendUrl}/mylab/voices`,
+      },
+      {
+        source: "/api/mylab/preview",
+        destination: `${backendUrl}/mylab/preview`,
+      },
+      {
+        source: "/api/thorsten/voices",
+        destination: `${backendUrl}/thorsten/voices`,
+      },
+      {
+        source: "/api/thorsten/preview",
+        destination: `${backendUrl}/thorsten/preview`,
+      },
+      {
         source: "/api/voices",
         destination: `${backendUrl}/voices`,
       },
@@ -115,10 +131,6 @@ const nextConfig: NextConfig = {
       {
         source: "/api/script",
         destination: `${backendUrl}/script`,
-      },
-      {
-        source: "/api/video-dubbing",
-        destination: `${backendUrl}/video-dubbing`,
       },
       {
         source: "/api/screencast",

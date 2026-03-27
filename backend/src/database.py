@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
+from psycopg2.extras import RealDictCursor
 
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 
@@ -251,6 +252,20 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_mindmaps (
+                    id          SERIAL PRIMARY KEY,
+                    module_id   INTEGER NOT NULL
+                                  REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id     INTEGER NOT NULL,
+                    source_ids  JSONB NOT NULL,
+                    status      TEXT NOT NULL DEFAULT 'pending',
+                    mindmap     JSONB,
+                    error       TEXT,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_messages (
                     id           SERIAL PRIMARY KEY,
                     module_id    INTEGER NOT NULL
@@ -269,9 +284,120 @@ def init_db(admin_email: Optional[str] = None) -> None:
                                            REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
                     user_id              INTEGER NOT NULL,
                     chat_lang            TEXT NOT NULL DEFAULT 'de',
+                    studio_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
                     sprachtraining_active BOOLEAN NOT NULL DEFAULT FALSE,
                     UNIQUE (module_id, user_id)
                 )
+            """)
+            cur.execute("ALTER TABLE ki_tutor_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_notes (
+                    id         SERIAL PRIMARY KEY,
+                    module_id  INTEGER NOT NULL
+                                 REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id    INTEGER NOT NULL,
+                    content    TEXT NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_glossary_entries (
+                    id               SERIAL PRIMARY KEY,
+                    source_id        INTEGER NOT NULL
+                                       REFERENCES ki_tutor_sources(id) ON DELETE CASCADE,
+                    term_de          TEXT NOT NULL,
+                    term_en          TEXT NOT NULL,
+                    definition       TEXT NOT NULL,
+                    example_sentence TEXT,
+                    page_number      INTEGER,
+                    created_at       TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_vocab_progress (
+                    id                SERIAL PRIMARY KEY,
+                    glossary_entry_id INTEGER NOT NULL
+                                        REFERENCES ki_tutor_glossary_entries(id) ON DELETE CASCADE,
+                    user_id           INTEGER NOT NULL,
+                    exercise_type     TEXT NOT NULL,
+                    correct           BOOLEAN NOT NULL,
+                    answered_at       TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_glossary_source
+                ON ki_tutor_glossary_entries(source_id)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_vocab_progress_user
+                ON ki_tutor_vocab_progress(user_id, glossary_entry_id)
+            """)
+            # ─── Exercise Sets ──────────────────────────────────
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_exercise_sets (
+                    id          SERIAL PRIMARY KEY,
+                    module_id   INTEGER NOT NULL
+                                  REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id     INTEGER NOT NULL,
+                    tool        TEXT NOT NULL,
+                    title       TEXT NOT NULL,
+                    mode        TEXT NOT NULL DEFAULT 'glossar',
+                    source_uuid TEXT,
+                    card_count  INTEGER NOT NULL DEFAULT 0,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_exercise_items (
+                    id          SERIAL PRIMARY KEY,
+                    set_id      INTEGER NOT NULL
+                                  REFERENCES ki_tutor_exercise_sets(id) ON DELETE CASCADE,
+                    position    INTEGER NOT NULL DEFAULT 0,
+                    front       TEXT NOT NULL,
+                    back        TEXT NOT NULL,
+                    options     JSONB,
+                    correct_idx INTEGER,
+                    source_label TEXT,
+                    page_number INTEGER,
+                    explanation TEXT
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_exercise_progress (
+                    id          SERIAL PRIMARY KEY,
+                    set_id      INTEGER NOT NULL
+                                  REFERENCES ki_tutor_exercise_sets(id) ON DELETE CASCADE,
+                    item_id     INTEGER NOT NULL
+                                  REFERENCES ki_tutor_exercise_items(id) ON DELETE CASCADE,
+                    user_id     INTEGER NOT NULL,
+                    correct     BOOLEAN NOT NULL,
+                    answered_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            # ─── Streak Tracking ────────────────────────────────
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_streaks (
+                    id              SERIAL PRIMARY KEY,
+                    module_id       INTEGER NOT NULL
+                                      REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id         INTEGER NOT NULL,
+                    current_streak  INTEGER NOT NULL DEFAULT 0,
+                    max_streak      INTEGER NOT NULL DEFAULT 0,
+                    last_active_date DATE,
+                    UNIQUE (module_id, user_id)
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_exercise_sets_module_user
+                ON ki_tutor_exercise_sets(module_id, user_id)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_exercise_items_set
+                ON ki_tutor_exercise_items(set_id)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_exercise_progress_set_user
+                ON ki_tutor_exercise_progress(set_id, user_id)
             """)
         conn.commit()
 
@@ -819,19 +945,61 @@ def get_all_jobs(
     return [dict(row) for row in rows], total
 
 
-def get_pending_dubbing_jobs() -> list[dict]:
-    """Return all running dubbing jobs waiting for ElevenLabs (step='dubbing')."""
+def get_job_stats(days: int = 30) -> dict:
+    """Aggregated job statistics for the admin dashboard."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT job_uuid, progress FROM jobs
-                   WHERE tool = 'video_dubbing'
-                   AND status = 'running'
-                   AND progress LIKE %s""",
-                ('%"step": "dubbing"%',),
-            )
-            rows = cur.fetchall()
-        return [dict(row) for row in rows]
+            # 1. Jobs per tool + status
+            cur.execute("""
+                SELECT tool, status, COUNT(*) AS cnt
+                FROM jobs
+                WHERE created_at >= NOW() - INTERVAL '%s days'
+                GROUP BY tool, status
+                ORDER BY tool, status
+            """, (days,))
+            by_tool_status = [dict(r) for r in cur.fetchall()]
+
+            # 2. Jobs per day (last N days)
+            cur.execute("""
+                SELECT (created_at AT TIME ZONE 'Europe/Berlin')::date AS day,
+                       COUNT(*) AS cnt
+                FROM jobs
+                WHERE created_at >= NOW() - INTERVAL '%s days'
+                GROUP BY day ORDER BY day
+            """, (days,))
+            by_day = [{"day": str(r["day"]), "count": r["cnt"]} for r in cur.fetchall()]
+
+            # 3. Top users
+            cur.execute("""
+                SELECT u.display_name, u.ldap_username, COUNT(*) AS cnt
+                FROM jobs j
+                JOIN users u ON j.user_id = u.id
+                WHERE j.created_at >= NOW() - INTERVAL '%s days'
+                GROUP BY u.display_name, u.ldap_username
+                ORDER BY cnt DESC LIMIT 10
+            """, (days,))
+            top_users = [
+                {"name": r["display_name"] or r["ldap_username"], "count": r["cnt"]}
+                for r in cur.fetchall()
+            ]
+
+            # 4. Avg duration per tool (only completed jobs)
+            cur.execute("""
+                SELECT tool,
+                       ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - started_at)))::numeric, 1) AS avg_sec
+                FROM jobs
+                WHERE status = 'success' AND started_at IS NOT NULL AND completed_at IS NOT NULL
+                  AND created_at >= NOW() - INTERVAL '%s days'
+                GROUP BY tool ORDER BY tool
+            """, (days,))
+            avg_duration = {r["tool"]: float(r["avg_sec"]) for r in cur.fetchall()}
+
+    return {
+        "by_tool_status": by_tool_status,
+        "by_day": by_day,
+        "top_users": top_users,
+        "avg_duration": avg_duration,
+    }
 
 
 def update_job_status(
@@ -1620,23 +1788,60 @@ def get_ki_tutor_user_settings(module_id: int, user_id: int) -> dict:
             row = cur.fetchone()
     if row:
         return dict(row)
-    return {"chat_lang": "de", "sprachtraining_active": False}
+    return {"chat_lang": "de", "studio_enabled": True, "sprachtraining_active": False}
 
 
 def upsert_ki_tutor_user_settings(
-    module_id: int, user_id: int, chat_lang: str, sprachtraining_active: bool
+    module_id: int, user_id: int, chat_lang: str, studio_enabled: bool, sprachtraining_active: bool
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO ki_tutor_user_settings (module_id, user_id, chat_lang, sprachtraining_active)
-                   VALUES (%s, %s, %s, %s)
+                """INSERT INTO ki_tutor_user_settings (module_id, user_id, chat_lang, studio_enabled, sprachtraining_active)
+                   VALUES (%s, %s, %s, %s, %s)
                    ON CONFLICT (module_id, user_id)
                    DO UPDATE SET chat_lang = EXCLUDED.chat_lang,
+                                 studio_enabled = EXCLUDED.studio_enabled,
                                  sprachtraining_active = EXCLUDED.sprachtraining_active""",
-                (module_id, user_id, chat_lang, sprachtraining_active),
+                (module_id, user_id, chat_lang, studio_enabled, sprachtraining_active),
             )
         conn.commit()
+
+
+# --- KI Tutor: Notes ---
+
+def get_ki_tutor_notes(module_id: int, user_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT id, content, created_at FROM ki_tutor_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
+                (module_id, user_id),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+
+def create_ki_tutor_note(module_id: int, user_id: int, content: str) -> dict:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "INSERT INTO ki_tutor_notes (module_id, user_id, content) VALUES (%s, %s, %s) RETURNING id, content, created_at",
+                (module_id, user_id, content),
+            )
+            row = dict(cur.fetchone())
+        conn.commit()
+        return row
+
+
+def delete_ki_tutor_note(note_id: int, user_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ki_tutor_notes WHERE id = %s AND user_id = %s",
+                (note_id, user_id),
+            )
+            deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
 
 
 # --- KI Tutor: Paragraph Summaries ---
@@ -1701,3 +1906,457 @@ def get_paragraph_summaries_by_source(source_id: int) -> list[dict]:
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
+
+
+# --- KI Tutor: Mindmaps ---
+
+def create_ki_tutor_mindmap(module_id: int, user_id: int, source_ids: list[int]) -> int:
+    """Create a pending mindmap record, return its id."""
+    import json as _json
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_mindmaps (module_id, user_id, source_ids, status)
+                   VALUES (%s, %s, %s, 'pending') RETURNING id""",
+                (module_id, user_id, _json.dumps(source_ids)),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return row[0]
+
+
+def update_ki_tutor_mindmap(mindmap_id: int, status: str, mindmap: dict | None = None, error: str | None = None) -> None:
+    import json as _json
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_mindmaps
+                   SET status = %s, mindmap = %s, error = %s, updated_at = NOW()
+                   WHERE id = %s""",
+                (status, _json.dumps(mindmap) if mindmap else None, error, mindmap_id),
+            )
+        conn.commit()
+
+
+def get_ki_tutor_mindmap(mindmap_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_mindmaps WHERE id = %s", (mindmap_id,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_latest_ki_tutor_mindmap(module_id: int, user_id: int) -> dict | None:
+    """Get the most recent mindmap for a module/user."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM ki_tutor_mindmaps
+                   WHERE module_id = %s AND user_id = %s
+                   ORDER BY created_at DESC LIMIT 1""",
+                (module_id, user_id),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+# --- KI Tutor: Chunks by Source ---
+
+def get_chunks_by_source(source_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, page_number, content
+                   FROM ki_tutor_chunks
+                   WHERE source_id = %s
+                   ORDER BY page_number, id""",
+                (source_id,),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+
+# --- KI Tutor: Glossary ---
+
+def get_ki_tutor_glossary(source_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, term_de, term_en, definition, example_sentence, page_number
+                   FROM ki_tutor_glossary_entries
+                   WHERE source_id = %s ORDER BY term_de""",
+                (source_id,),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+
+def get_ki_tutor_glossary_by_module(module_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT g.id, g.term_de, g.term_en, g.definition, g.example_sentence, g.page_number
+                   FROM ki_tutor_glossary_entries g
+                   JOIN ki_tutor_sources s ON s.id = g.source_id
+                   WHERE s.module_id = %s
+                   ORDER BY g.term_de""",
+                (module_id,),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+
+def bulk_create_glossary_entries(source_id: int, entries: list[dict]) -> list[dict]:
+    if not entries:
+        return []
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Clear existing entries for this source
+            cur.execute("DELETE FROM ki_tutor_glossary_entries WHERE source_id = %s", (source_id,))
+            values = []
+            params: list = []
+            for e in entries:
+                values.append("(%s, %s, %s, %s, %s, %s)")
+                params.extend([
+                    source_id,
+                    e["term_de"],
+                    e["term_en"],
+                    e["definition"],
+                    e.get("example_sentence", ""),
+                    e.get("page_number"),
+                ])
+            cur.execute(
+                f"""INSERT INTO ki_tutor_glossary_entries
+                    (source_id, term_de, term_en, definition, example_sentence, page_number)
+                    VALUES {', '.join(values)}
+                    RETURNING id, term_de, term_en, definition, example_sentence, page_number""",
+                params,
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+        conn.commit()
+        return rows
+
+
+def delete_ki_tutor_glossary(source_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_glossary_entries WHERE source_id = %s", (source_id,))
+        conn.commit()
+
+
+# --- KI Tutor: Vocab Progress ---
+
+def record_vocab_progress(glossary_entry_id: int, user_id: int, exercise_type: str, correct: bool) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_vocab_progress
+                   (glossary_entry_id, user_id, exercise_type, correct)
+                   VALUES (%s, %s, %s, %s)""",
+                (glossary_entry_id, user_id, exercise_type, correct),
+            )
+        conn.commit()
+
+
+def bulk_record_vocab_progress(records: list[dict]) -> None:
+    if not records:
+        return
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            values = []
+            params: list = []
+            for r in records:
+                values.append("(%s, %s, %s, %s)")
+                params.extend([r["glossary_entry_id"], r["user_id"], r["exercise_type"], r["correct"]])
+            cur.execute(
+                f"""INSERT INTO ki_tutor_vocab_progress
+                    (glossary_entry_id, user_id, exercise_type, correct)
+                    VALUES {', '.join(values)}""",
+                params,
+            )
+        conn.commit()
+
+
+def get_vocab_analytics(module_id: int, user_id: int) -> list[dict]:
+    """Get per-entry analytics across all sources in a module."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT
+                       g.id AS entry_id,
+                       g.source_id,
+                       g.term_de,
+                       g.term_en,
+                       s.filename,
+                       COUNT(p.id) AS total_attempts,
+                       COUNT(p.id) FILTER (WHERE p.correct) AS correct_count,
+                       COUNT(p.id) FILTER (WHERE NOT p.correct) AS wrong_count,
+                       MAX(p.answered_at) AS last_practiced
+                   FROM ki_tutor_glossary_entries g
+                   JOIN ki_tutor_sources s ON s.id = g.source_id
+                   LEFT JOIN ki_tutor_vocab_progress p
+                     ON p.glossary_entry_id = g.id AND p.user_id = %s
+                   WHERE s.module_id = %s
+                   GROUP BY g.id, g.source_id, g.term_de, g.term_en, s.filename
+                   ORDER BY
+                     CASE WHEN COUNT(p.id) = 0 THEN 0
+                          ELSE COUNT(p.id) FILTER (WHERE p.correct)::float / COUNT(p.id)
+                     END ASC,
+                     g.term_de""",
+                (user_id, module_id),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+
+def get_vocab_analytics_summary(module_id: int, user_id: int) -> dict:
+    """Get aggregated analytics summary per source."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT
+                       s.uuid AS source_uuid,
+                       s.filename,
+                       COUNT(DISTINCT g.id) AS total_terms,
+                       COUNT(DISTINCT g.id) FILTER (
+                         WHERE (SELECT COUNT(*) FILTER (WHERE p2.correct)
+                                FROM ki_tutor_vocab_progress p2
+                                WHERE p2.glossary_entry_id = g.id AND p2.user_id = %s) >= 2
+                       ) AS mastered_terms,
+                       COUNT(DISTINCT p.glossary_entry_id) FILTER (WHERE p.id IS NOT NULL) AS practiced_terms,
+                       COALESCE(SUM(CASE WHEN p.correct THEN 1 ELSE 0 END), 0) AS total_correct,
+                       COUNT(p.id) AS total_attempts,
+                       MAX(p.answered_at) AS last_practiced
+                   FROM ki_tutor_sources s
+                   JOIN ki_tutor_glossary_entries g ON g.source_id = s.id
+                   LEFT JOIN ki_tutor_vocab_progress p
+                     ON p.glossary_entry_id = g.id AND p.user_id = %s
+                   WHERE s.module_id = %s
+                   GROUP BY s.uuid, s.filename
+                   ORDER BY s.filename""",
+                (user_id, user_id, module_id),
+            )
+            sources = [dict(r) for r in cur.fetchall()]
+
+            # Weak terms: less than 50% correct rate with at least 1 attempt
+            cur.execute(
+                """SELECT
+                       g.id AS entry_id,
+                       g.term_de,
+                       g.term_en,
+                       s.filename,
+                       COUNT(p.id) AS attempts,
+                       COUNT(p.id) FILTER (WHERE p.correct) AS correct_count
+                   FROM ki_tutor_glossary_entries g
+                   JOIN ki_tutor_sources s ON s.id = g.source_id
+                   JOIN ki_tutor_vocab_progress p
+                     ON p.glossary_entry_id = g.id AND p.user_id = %s
+                   WHERE s.module_id = %s
+                   GROUP BY g.id, g.term_de, g.term_en, s.filename
+                   HAVING COUNT(p.id) FILTER (WHERE p.correct)::float / COUNT(p.id) < 0.5
+                   ORDER BY COUNT(p.id) FILTER (WHERE p.correct)::float / COUNT(p.id) ASC
+                   LIMIT 10""",
+                (user_id, module_id),
+            )
+            weak_terms = [dict(r) for r in cur.fetchall()]
+
+    return {"sources": sources, "weak_terms": weak_terms}
+
+
+# ─── Exercise Sets ────────────────────────────────────────────────────────────
+
+
+def create_exercise_set(
+    module_id: int, user_id: int, tool: str, title: str,
+    mode: str, source_uuid: str | None, items: list[dict],
+) -> dict:
+    """Create an exercise set with its items. Returns the set with items."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_exercise_sets
+                   (module_id, user_id, tool, title, mode, source_uuid, card_count)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                (module_id, user_id, tool, title, mode, source_uuid, len(items)),
+            )
+            ex_set = dict(cur.fetchone())
+            created_items = []
+            for i, item in enumerate(items):
+                cur.execute(
+                    """INSERT INTO ki_tutor_exercise_items
+                       (set_id, position, front, back, options, correct_idx,
+                        source_label, page_number, explanation)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                    (
+                        ex_set["id"], i,
+                        item["front"], item["back"],
+                        json.dumps(item.get("options")) if item.get("options") else None,
+                        item.get("correct_idx"),
+                        item.get("source_label"),
+                        item.get("page_number"),
+                        item.get("explanation"),
+                    ),
+                )
+                created_items.append(dict(cur.fetchone()))
+        conn.commit()
+    ex_set["items"] = created_items
+    return ex_set
+
+
+def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> list[dict]:
+    """List exercise sets for a user in a module, optionally filtered by tool."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if tool:
+                cur.execute(
+                    """SELECT s.*,
+                              COALESCE(
+                                ROUND(COUNT(p.id) FILTER (WHERE p.correct)::numeric
+                                      / NULLIF(COUNT(DISTINCT p.item_id), 0) * 100), 0
+                              ) AS progress_pct
+                       FROM ki_tutor_exercise_sets s
+                       LEFT JOIN ki_tutor_exercise_progress p
+                         ON p.set_id = s.id AND p.user_id = s.user_id
+                       WHERE s.module_id = %s AND s.user_id = %s AND s.tool = %s
+                       GROUP BY s.id ORDER BY s.created_at DESC""",
+                    (module_id, user_id, tool),
+                )
+            else:
+                cur.execute(
+                    """SELECT s.*,
+                              COALESCE(
+                                ROUND(COUNT(p.id) FILTER (WHERE p.correct)::numeric
+                                      / NULLIF(COUNT(DISTINCT p.item_id), 0) * 100), 0
+                              ) AS progress_pct
+                       FROM ki_tutor_exercise_sets s
+                       LEFT JOIN ki_tutor_exercise_progress p
+                         ON p.set_id = s.id AND p.user_id = s.user_id
+                       WHERE s.module_id = %s AND s.user_id = %s
+                       GROUP BY s.id ORDER BY s.created_at DESC""",
+                    (module_id, user_id),
+                )
+            return [dict(r) for r in cur.fetchall()]
+
+
+def get_exercise_set_with_items(set_id: int) -> dict | None:
+    """Get a single set with all its items."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_exercise_sets WHERE id = %s", (set_id,))
+            ex_set = cur.fetchone()
+            if not ex_set:
+                return None
+            ex_set = dict(ex_set)
+            cur.execute(
+                "SELECT * FROM ki_tutor_exercise_items WHERE set_id = %s ORDER BY position",
+                (set_id,),
+            )
+            ex_set["items"] = [dict(r) for r in cur.fetchall()]
+            return ex_set
+
+
+def delete_exercise_set(set_id: int) -> bool:
+    """Delete an exercise set and all related data."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_exercise_sets WHERE id = %s RETURNING id", (set_id,))
+            deleted = cur.fetchone() is not None
+        conn.commit()
+    return deleted
+
+
+def record_exercise_progress(set_id: int, item_id: int, user_id: int, correct: bool) -> None:
+    """Record a single exercise answer."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_exercise_progress
+                   (set_id, item_id, user_id, correct) VALUES (%s, %s, %s, %s)""",
+                (set_id, item_id, user_id, correct),
+            )
+        conn.commit()
+
+
+def bulk_record_exercise_progress(set_id: int, user_id: int, results: list[dict]) -> None:
+    """Record multiple exercise answers at once."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for r in results:
+                cur.execute(
+                    """INSERT INTO ki_tutor_exercise_progress
+                       (set_id, item_id, user_id, correct) VALUES (%s, %s, %s, %s)""",
+                    (set_id, r["item_id"], user_id, r["correct"]),
+                )
+        conn.commit()
+
+
+# ─── Streak Tracking ──────────────────────────────────────────────────────────
+
+
+def update_streak(module_id: int, user_id: int) -> dict:
+    """Update streak for today. Returns current and max streak."""
+    from datetime import date, timedelta
+    today = date.today()
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM ki_tutor_streaks WHERE module_id = %s AND user_id = %s",
+                (module_id, user_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                cur.execute(
+                    """INSERT INTO ki_tutor_streaks
+                       (module_id, user_id, current_streak, max_streak, last_active_date)
+                       VALUES (%s, %s, 1, 1, %s) RETURNING *""",
+                    (module_id, user_id, today),
+                )
+                result = dict(cur.fetchone())
+            else:
+                row = dict(row)
+                last = row["last_active_date"]
+                if last == today:
+                    result = row
+                elif last == today - timedelta(days=1):
+                    new_streak = row["current_streak"] + 1
+                    new_max = max(row["max_streak"], new_streak)
+                    cur.execute(
+                        """UPDATE ki_tutor_streaks
+                           SET current_streak = %s, max_streak = %s, last_active_date = %s
+                           WHERE id = %s RETURNING *""",
+                        (new_streak, new_max, today, row["id"]),
+                    )
+                    result = dict(cur.fetchone())
+                else:
+                    cur.execute(
+                        """UPDATE ki_tutor_streaks
+                           SET current_streak = 1, last_active_date = %s
+                           WHERE id = %s RETURNING *""",
+                        (today, row["id"]),
+                    )
+                    result = dict(cur.fetchone())
+        conn.commit()
+    return result
+
+
+def get_streak(module_id: int, user_id: int) -> dict:
+    """Get current streak info."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM ki_tutor_streaks WHERE module_id = %s AND user_id = %s",
+                (module_id, user_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return {"current_streak": 0, "max_streak": 0, "last_active_date": None}
+            return dict(row)
+
+
+def get_glossary_count(module_id: int) -> int:
+    """Get total glossary entry count for a module."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT COUNT(*) FROM ki_tutor_glossary_entries g
+                   JOIN ki_tutor_sources s ON s.id = g.source_id
+                   WHERE s.module_id = %s""",
+                (module_id,),
+            )
+            return cur.fetchone()[0]

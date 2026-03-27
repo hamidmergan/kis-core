@@ -70,9 +70,9 @@ label[for] {
 @source inline("object-contain p-1 p-2 p-4");
 
 @utility scrollbar-hide {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  &::-webkit-scrollbar { display: none; }
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  &::-webkit-scrollbar { display: none !important; }
 }
 
 /* ─── Global scrollbar styling ─── */

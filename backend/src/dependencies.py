@@ -108,6 +108,40 @@ def is_kokoro_enabled() -> bool:
     return db.get_setting("kokoro_enabled", "true").lower() == "true"
 
 
+def get_thorsten_client():
+    from src.services.thorsten_client import ThorstenClient
+    settings = get_settings()
+    if not settings.thorsten_base_url:
+        return None
+    return ThorstenClient(settings.thorsten_base_url)
+
+
+def is_thorsten_enabled() -> bool:
+    """Gibt True zurück wenn Thorsten TTS konfiguriert UND vom Admin freigeschaltet."""
+    from src import database as db
+    settings = get_settings()
+    if not settings.thorsten_base_url:
+        return False
+    return db.get_setting("thorsten_enabled", "true").lower() == "true"
+
+
+def get_mylab_client():
+    from src.services.mylab_client import MyLabClient
+    settings = get_settings()
+    if not settings.mylab_tts_base_url:
+        return None
+    return MyLabClient(settings.mylab_tts_base_url, model=settings.mylab_tts_model)
+
+
+def is_mylab_enabled() -> bool:
+    """Gibt True zurück wenn myLab TTS konfiguriert UND vom Admin freigeschaltet."""
+    from src import database as db
+    settings = get_settings()
+    if not settings.mylab_tts_base_url:
+        return False
+    return db.get_setting("mylab_enabled", "true").lower() == "true"
+
+
 def get_deepl_client():
     from src.services.deepl_client import DeepLClient
     settings = get_settings()

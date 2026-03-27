@@ -35,9 +35,30 @@ class AddWhitelistRequest(BaseModel):
 class UpdateSettingsRequest(BaseModel):
     whitelist_enabled: bool | None = None
     demo_data: bool | None = None
+    # TTS
     elevenlabs_enabled: bool | None = None
     fish_speech_enabled: bool | None = None
     kokoro_enabled: bool | None = None
+    mylab_enabled: bool | None = None
+    thorsten_enabled: bool | None = None
+    # Transkription
+    kisski_whisper_enabled: bool | None = None
+    mylab_whisper_enabled: bool | None = None
+    # Embeddings
+    kisski_embedding_enabled: bool | None = None
+    mylab_embedding_enabled: bool | None = None
+    # Bild-Generierung
+    kisski_image_gen_enabled: bool | None = None
+    mylab_image_gen_enabled: bool | None = None
+    # Bild-Analyse
+    kisski_image_analyze_enabled: bool | None = None
+    mylab_image_analyze_enabled: bool | None = None
+    # Bild-Bearbeitung
+    kisski_image_edit_enabled: bool | None = None
+    mylab_image_edit_enabled: bool | None = None
+    # OCR
+    kisski_ocr_enabled: bool | None = None
+    mylab_ocr_enabled: bool | None = None
 
 
 class ToggleToolRequest(BaseModel):
@@ -140,7 +161,6 @@ _TOOLS_CONFIG = [
     {"key": "translation",   "label": "Dokumentenübersetzung"},
     {"key": "tts",           "label": "Text-to-Speech"},
     {"key": "transcription", "label": "Transkription"},
-    {"key": "video_dubbing", "label": "Video-Dubbing"},
     {"key": "image",         "label": "Bild-KI"},
     {"key": "glossary",      "label": "Glossare"},
     {"key": "summary",       "label": "Zusammenfassung"},
@@ -168,23 +188,109 @@ def _check_kokoro_available(settings) -> bool:
         return False
 
 
+def _check_mylab_available(settings) -> bool:
+    if not settings.mylab_tts_base_url:
+        return False
+    try:
+        from src.services.mylab_client import MyLabClient
+        return MyLabClient(settings.mylab_tts_base_url).is_available()
+    except Exception:
+        return False
+
+
+def _check_thorsten_available(settings) -> bool:
+    if not settings.thorsten_base_url:
+        return False
+    try:
+        from src.services.thorsten_client import ThorstenClient
+        return ThorstenClient(settings.thorsten_base_url).is_available()
+    except Exception:
+        return False
+
+
+def _check_mylab_base_available(settings) -> bool:
+    """Prüft ob die myLab-Plattform erreichbar ist (für Whisper, Image, Embeddings, OCR)."""
+    url = settings.mylab_base_url or settings.mylab_tts_base_url
+    if not url:
+        return False
+    try:
+        import httpx
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(f"{url.rstrip('/')}/v1/models")
+        return resp.status_code < 500
+    except Exception:
+        return False
+
+
 # --- Settings ---
 
 @router.get("/settings")
 async def get_settings(_admin=Depends(get_admin_user)):
     from src.dependencies import get_settings as _get_settings
     app_settings = _get_settings()
+
+    kisski_configured = bool(app_settings.kisski_api_key)
+    ollama_configured = bool(app_settings.ollama_base_url)
+    mylab_base_configured = bool(app_settings.mylab_base_url or app_settings.mylab_tts_base_url)
+    mylab_base_available = _check_mylab_base_available(app_settings) if mylab_base_configured else False
+
+    def _enabled(key: str, default: str = "true") -> bool:
+        return db.get_setting(key, default).lower() == "true"
+
     return {
-        "whitelist_enabled": db.get_setting("whitelist_enabled", "true").lower() == "true",
-        "demo_data": db.get_setting("demo_data", "false").lower() == "true",
-        "elevenlabs_enabled": db.get_setting("elevenlabs_enabled", "true").lower() == "true",
+        "whitelist_enabled": _enabled("whitelist_enabled"),
+        "demo_data": _enabled("demo_data", "false"),
+        # ── TTS ──
+        "elevenlabs_enabled": _enabled("elevenlabs_enabled"),
         "elevenlabs_configured": bool(app_settings.elevenlabs_api_key),
-        "fish_speech_enabled": db.get_setting("fish_speech_enabled", "true").lower() == "true",
+        "fish_speech_enabled": _enabled("fish_speech_enabled"),
         "fish_speech_configured": bool(app_settings.fish_speech_base_url),
         "fish_speech_available": _check_fish_speech_available(app_settings),
-        "kokoro_enabled": db.get_setting("kokoro_enabled", "true").lower() == "true",
+        "kokoro_enabled": _enabled("kokoro_enabled"),
         "kokoro_configured": bool(app_settings.kokoro_base_url),
         "kokoro_available": _check_kokoro_available(app_settings),
+        "mylab_enabled": _enabled("mylab_enabled"),
+        "mylab_configured": bool(app_settings.mylab_tts_base_url),
+        "mylab_available": _check_mylab_available(app_settings),
+        "thorsten_enabled": _enabled("thorsten_enabled"),
+        "thorsten_configured": bool(app_settings.thorsten_base_url),
+        "thorsten_available": _check_thorsten_available(app_settings),
+        # ── Transkription ──
+        "kisski_whisper_enabled": _enabled("kisski_whisper_enabled"),
+        "kisski_whisper_configured": kisski_configured,
+        "mylab_whisper_enabled": _enabled("mylab_whisper_enabled"),
+        "mylab_whisper_configured": mylab_base_configured,
+        "mylab_whisper_available": mylab_base_available,
+        # ── Embeddings ──
+        "kisski_embedding_enabled": _enabled("kisski_embedding_enabled"),
+        "kisski_embedding_configured": kisski_configured,
+        "mylab_embedding_enabled": _enabled("mylab_embedding_enabled"),
+        "mylab_embedding_configured": mylab_base_configured,
+        "mylab_embedding_available": mylab_base_available,
+        # ── Bild-Generierung ──
+        "kisski_image_gen_enabled": _enabled("kisski_image_gen_enabled"),
+        "kisski_image_gen_configured": kisski_configured,
+        "mylab_image_gen_enabled": _enabled("mylab_image_gen_enabled"),
+        "mylab_image_gen_configured": mylab_base_configured,
+        "mylab_image_gen_available": mylab_base_available,
+        # ── Bild-Analyse ──
+        "kisski_image_analyze_enabled": _enabled("kisski_image_analyze_enabled"),
+        "kisski_image_analyze_configured": kisski_configured,
+        "mylab_image_analyze_enabled": _enabled("mylab_image_analyze_enabled"),
+        "mylab_image_analyze_configured": mylab_base_configured,
+        "mylab_image_analyze_available": mylab_base_available,
+        # ── Bild-Bearbeitung ──
+        "kisski_image_edit_enabled": _enabled("kisski_image_edit_enabled"),
+        "kisski_image_edit_configured": kisski_configured,
+        "mylab_image_edit_enabled": _enabled("mylab_image_edit_enabled"),
+        "mylab_image_edit_configured": mylab_base_configured,
+        "mylab_image_edit_available": mylab_base_available,
+        # ── OCR ──
+        "kisski_ocr_enabled": _enabled("kisski_ocr_enabled"),
+        "kisski_ocr_configured": kisski_configured,
+        "mylab_ocr_enabled": _enabled("mylab_ocr_enabled", "false"),
+        "mylab_ocr_configured": mylab_base_configured,
+        "mylab_ocr_available": mylab_base_available,
     }
 
 
@@ -200,12 +306,46 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("fish_speech_enabled", "true" if body.fish_speech_enabled else "false")
     if body.kokoro_enabled is not None:
         db.set_setting("kokoro_enabled", "true" if body.kokoro_enabled else "false")
+    if body.mylab_enabled is not None:
+        db.set_setting("mylab_enabled", "true" if body.mylab_enabled else "false")
+    if body.thorsten_enabled is not None:
+        db.set_setting("thorsten_enabled", "true" if body.thorsten_enabled else "false")
+    # Transkription
+    if body.kisski_whisper_enabled is not None:
+        db.set_setting("kisski_whisper_enabled", "true" if body.kisski_whisper_enabled else "false")
+    if body.mylab_whisper_enabled is not None:
+        db.set_setting("mylab_whisper_enabled", "true" if body.mylab_whisper_enabled else "false")
+    # Embeddings
+    if body.kisski_embedding_enabled is not None:
+        db.set_setting("kisski_embedding_enabled", "true" if body.kisski_embedding_enabled else "false")
+    if body.mylab_embedding_enabled is not None:
+        db.set_setting("mylab_embedding_enabled", "true" if body.mylab_embedding_enabled else "false")
+    # Bild-Generierung
+    if body.kisski_image_gen_enabled is not None:
+        db.set_setting("kisski_image_gen_enabled", "true" if body.kisski_image_gen_enabled else "false")
+    if body.mylab_image_gen_enabled is not None:
+        db.set_setting("mylab_image_gen_enabled", "true" if body.mylab_image_gen_enabled else "false")
+    # Bild-Analyse
+    if body.kisski_image_analyze_enabled is not None:
+        db.set_setting("kisski_image_analyze_enabled", "true" if body.kisski_image_analyze_enabled else "false")
+    if body.mylab_image_analyze_enabled is not None:
+        db.set_setting("mylab_image_analyze_enabled", "true" if body.mylab_image_analyze_enabled else "false")
+    # Bild-Bearbeitung
+    if body.kisski_image_edit_enabled is not None:
+        db.set_setting("kisski_image_edit_enabled", "true" if body.kisski_image_edit_enabled else "false")
+    if body.mylab_image_edit_enabled is not None:
+        db.set_setting("mylab_image_edit_enabled", "true" if body.mylab_image_edit_enabled else "false")
+    # OCR
+    if body.kisski_ocr_enabled is not None:
+        db.set_setting("kisski_ocr_enabled", "true" if body.kisski_ocr_enabled else "false")
+    if body.mylab_ocr_enabled is not None:
+        db.set_setting("mylab_ocr_enabled", "true" if body.mylab_ocr_enabled else "false")
     return {"ok": True}
 
 
 # --- Tool visibility ---
 
-_DEFAULT_DISABLED: set[str] = {"video_dubbing"}
+_DEFAULT_DISABLED: set[str] = set()
 
 
 @router.get("/tools")
@@ -313,6 +453,39 @@ async def remove_whitelist(email: str, _admin=Depends(get_admin_user)):
     return {"ok": True}
 
 
+# --- Stats ---
+
+@router.get("/stats")
+async def get_stats(
+    days: int = Query(default=30, ge=1, le=365),
+    _admin=Depends(get_admin_user),
+):
+    raw = db.get_job_stats(days)
+
+    # Pivot by_tool_status into {tool: {total, success, failed}}
+    tools: dict[str, dict] = {}
+    for row in raw["by_tool_status"]:
+        t = row["tool"]
+        if t not in tools:
+            tools[t] = {"tool": t, "label": _TOOL_LABELS.get(t, t), "total": 0, "success": 0, "failed": 0}
+        tools[t]["total"] += row["cnt"]
+        if row["status"] == "success":
+            tools[t]["success"] = row["cnt"]
+        elif row["status"] == "failed":
+            tools[t]["failed"] = row["cnt"]
+
+    # Add avg duration
+    for t, info in tools.items():
+        info["avg_seconds"] = raw["avg_duration"].get(t)
+
+    return {
+        "by_tool": sorted(tools.values(), key=lambda x: x["total"], reverse=True),
+        "by_day": raw["by_day"],
+        "top_users": raw["top_users"],
+        "days": days,
+    }
+
+
 # --- Jobs ---
 
 _TOOL_LABELS = {
@@ -321,7 +494,6 @@ _TOOL_LABELS = {
     "screencast_translate": "Screencast-Übersetzung",
     "screencast_auto": "Screencast (Auto)",
     "tts": "Text-to-Speech",
-    "video_dubbing": "Video-Dubbing",
     "translation": "Übersetzung",
     "transcription": "Transkription",
     "image_generate": "Bild-Generierung",

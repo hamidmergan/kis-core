@@ -1,6 +1,8 @@
 """KI Tutor routes – Dozenten- und Studenten-Endpunkte."""
 
+import json
 import uuid
+from collections.abc import Generator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -10,12 +12,22 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
 
+from langfuse.decorators import langfuse_context, observe
+
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
-from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_DIRECT_WITH_CONTEXT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS
+from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_DIRECT_WITH_CONTEXT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS, TUTOR_MINDMAP_PROMPT, TUTOR_LERNKARTEN_PROMPT, TUTOR_DATENTABELLE_PROMPT
 
 router = APIRouter(tags=["ki-tutor"])
+
+
+def _trace_kisski(kisski, name: str) -> None:
+    """Update current Langfuse observation with provider metadata."""
+    langfuse_context.update_current_observation(
+        metadata={"provider": kisski._provider, "base_url": kisski._base_url, "model": kisski._model},
+        name=name,
+    )
 
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".txt", ".md"}
 _MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
@@ -103,7 +115,12 @@ class ChatBody(BaseModel):
 
 class UserSettingsBody(BaseModel):
     chat_lang: str
+    studio_enabled: bool = True
     sprachtraining_active: bool
+
+
+class NoteBody(BaseModel):
+    content: str
 
 
 # ─── Dozenten-Endpunkte ───────────────────────────────────────────────────────
@@ -360,12 +377,14 @@ async def stream_source_file(
 
 
 @router.post("/ki-tutor/modules/{module_uuid}/chat")
+@observe(name="ki-tutor-chat")
 async def chat(
     module_uuid: str,
     body: ChatBody,
     current_user: dict = Depends(get_current_user),
     kisski=Depends(get_kisski_client),
 ):
+    _trace_kisski(kisski, "ki-tutor-chat")
     user_id = current_user["user_id"]
     module = db.get_ki_tutor_module(module_uuid)
     if not module:
@@ -486,33 +505,18 @@ async def chat(
 
     messages.append({"role": "user", "content": user_message})
 
-    try:
-        response = kisski._client.chat.completions.create(
-            model=kisski._model,
-            messages=messages,
-            temperature=0.2,
-            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
-        )
-        answer = response.choices[0].message.content or ""
-        answer = answer.strip()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"LLM-Fehler: {e}") from e
-
-    # Build source_pages
+    # Build source_pages before streaming so we can send them at the end
     source_pages: list[dict] = []
+    is_popup = bool(body.source_text and body.source_uuid and body.source_page)
 
-    if body.source_text and body.source_uuid and body.source_page:
-        # Popup-Aktion: eine Quelle mit markiertem Text für Highlight bei Klick
+    if is_popup:
         source_pages.append({
             "source_uuid": body.source_uuid,
             "filename": body.source_filename or "",
             "page_number": body.source_page,
             "source_text": body.source_text,
         })
-        # Klickbare Referenz an Antwort anhängen
-        answer += f" [S. {body.source_page}]"
     else:
-        # Normaler Chat: Quellen aus RAG-Chunks (mit Textsnippet für Highlight)
         all_sources = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
         seen: set[tuple] = set()
         for chunk in chunks:
@@ -521,7 +525,6 @@ async def chat(
                 key = (source["uuid"], chunk["page_number"])
                 if key not in seen:
                     seen.add(key)
-                    # First ~120 chars of chunk as highlight text for pill navigation
                     snippet = (chunk.get("content") or "")[:120].strip()
                     source_pages.append({
                         "source_uuid": source["uuid"],
@@ -531,11 +534,44 @@ async def chat(
                     })
         source_pages.sort(key=lambda x: x["page_number"])
 
-    # Save messages
-    db.save_ki_tutor_message(module["id"], user_id, "user", body.question)
-    db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages)
+    def _stream() -> Generator[str, None, None]:
+        answer_parts: list[str] = []
+        try:
+            stream = kisski._client.chat.completions.create(
+                model=kisski._model,
+                messages=messages,
+                temperature=0.2,
+                stream=True,
+                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+            )
+            for chunk_resp in stream:
+                delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
+                if delta and delta.content:
+                    answer_parts.append(delta.content)
+                    yield f"data: {json.dumps({'token': delta.content})}\n\n"
+        except Exception as e:
+            logger.error("LLM stream error: {}", e)
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            return
 
-    return {"answer": answer, "source_pages": source_pages, "source_qmap": source_qmap}
+        answer = "".join(answer_parts).strip()
+        if is_popup:
+            suffix = f" [S. {body.source_page}]"
+            answer += suffix
+            yield f"data: {json.dumps({'token': suffix})}\n\n"
+
+        # Save messages
+        db.save_ki_tutor_message(module["id"], user_id, "user", body.question)
+        db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages)
+
+        # Send final metadata event
+        yield f"data: {json.dumps({'done': True, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/toc")
@@ -922,6 +958,1073 @@ async def update_user_settings(
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     db.upsert_ki_tutor_user_settings(
-        module["id"], user_id, body.chat_lang, body.sprachtraining_active
+        module["id"], user_id, body.chat_lang, body.studio_enabled, body.sprachtraining_active
     )
     return {"ok": True}
+
+
+# ─── Notizen ─────────────────────────────────────────────────────────────────
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/notes")
+async def get_notes(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    notes = db.get_ki_tutor_notes(module["id"], user_id)
+    return [
+        {
+            "id": n["id"],
+            "content": n["content"],
+            "created_at": n["created_at"].isoformat() if n["created_at"] else None,
+        }
+        for n in notes
+    ]
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/notes")
+async def create_note(
+    module_uuid: str,
+    body: NoteBody,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    note = db.create_ki_tutor_note(module["id"], user_id, body.content.strip())
+    return {
+        "id": note["id"],
+        "content": note["content"],
+        "created_at": note["created_at"].isoformat() if note["created_at"] else None,
+    }
+
+
+@router.delete("/ki-tutor/modules/{module_uuid}/notes/{note_id}")
+async def delete_note(
+    module_uuid: str,
+    note_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    deleted = db.delete_ki_tutor_note(note_id, user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Notiz nicht gefunden")
+    return {"ok": True}
+
+
+# ─── Sprachtraining: Glossar ─────────────────────────────────────────────────
+
+
+_GLOSSARY_PROMPT = """Du bist ein Fachsprachen-Experte. Extrahiere die wichtigsten Fachbegriffe aus dem folgenden Text.
+
+Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
+[
+  {
+    "term_de": "Deutscher Fachbegriff",
+    "term_en": "English translation",
+    "definition": "Kurze Definition auf Deutsch (1-2 Sätze)",
+    "example_sentence": "Ein Beispielsatz aus dem Text, der den Begriff verwendet",
+    "page_number": 5
+  }
+]
+
+Regeln:
+- Extrahiere 10-20 Fachbegriffe (die wichtigsten und häufigsten)
+- Nur echte Fachbegriffe, keine allgemeinen Wörter
+- Definition muss präzise und verständlich sein (B1-B2 Niveau)
+- example_sentence muss ein echter Satz aus dem gegebenen Text sein
+- page_number ist die Seitenzahl, auf der der Begriff vorkommt
+- Antworte NUR mit dem JSON-Array, kein anderer Text"""
+
+
+class VocabProgressBody(BaseModel):
+    results: list[dict]  # [{glossary_entry_id, exercise_type, correct}]
+
+
+class GlossaryGenerateBody(BaseModel):
+    active_source_ids: list[str]  # max 3 source UUIDs
+
+
+class ExerciseGenerateBody(BaseModel):
+    active_source_ids: list[str]
+
+
+def _resolve_source_ids(module: dict, source_uuids: list[str], max_count: int = 3) -> list[int]:
+    """Resolve source UUIDs to DB IDs, enforce max count."""
+    if len(source_uuids) > max_count:
+        raise HTTPException(status_code=400, detail=f"Maximal {max_count} Quellen erlaubt")
+    ids = []
+    for suuid in source_uuids:
+        source = db.get_ki_tutor_source(suuid)
+        if source and source["module_id"] == module["id"] and source["status"] == "ready":
+            ids.append(source["id"])
+    if not ids:
+        raise HTTPException(status_code=400, detail="Keine gültigen Quellen ausgewählt")
+    return ids
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/glossary")
+async def get_glossary(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    entries = db.get_ki_tutor_glossary_by_module(module["id"])
+    return {"entries": entries}
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/glossary/generate")
+@observe(name="ki-tutor-glossary")
+async def generate_glossary(
+    module_uuid: str,
+    body: GlossaryGenerateBody,
+    current_user: dict = Depends(get_current_user),
+    kisski=Depends(get_kisski_client),
+):
+    _trace_kisski(kisski, "ki-tutor-glossary")
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source_ids = _resolve_source_ids(module, body.active_source_ids)
+
+    # Gather chunks from all selected sources
+    all_chunks: list[dict] = []
+    for sid in source_ids:
+        all_chunks.extend(db.get_chunks_by_source(sid))
+    if not all_chunks:
+        raise HTTPException(status_code=400, detail="Keine Chunks vorhanden")
+
+    # Build context (max ~12000 chars)
+    context_parts: list[str] = []
+    context_len = 0
+    for chunk in all_chunks:
+        part = f"[S. {chunk['page_number']}]\n{chunk['content']}"
+        if context_len + len(part) > 12000:
+            break
+        context_parts.append(part)
+        context_len += len(part)
+    context = "\n\n---\n\n".join(context_parts)
+
+    messages = [
+        {"role": "system", "content": _GLOSSARY_PROMPT},
+        {"role": "user", "content": f"Extrahiere Fachbegriffe aus folgendem Text:\n\n{context}"},
+    ]
+
+    try:
+        response = kisski._client.chat.completions.create(
+            model=kisski._model,
+            messages=messages,
+            temperature=0.1,
+            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        )
+        answer = response.choices[0].message.content.strip()
+
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        entries_raw = json.loads(answer)
+        if not isinstance(entries_raw, list):
+            raise ValueError("Expected JSON array")
+
+        # Delete old glossary for these sources, then create new
+        for sid in source_ids:
+            db.delete_ki_tutor_glossary(sid)
+
+        # Store entries against the first source (primary)
+        entries = db.bulk_create_glossary_entries(source_ids[0], entries_raw)
+        return {"entries": entries}
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error("Glossary parse error: {} — raw: {}", e, answer[:500] if answer else "empty")
+        raise HTTPException(status_code=500, detail="Glossar konnte nicht generiert werden")
+    except Exception as e:
+        logger.error("Glossary generation error: {}", e)
+        raise HTTPException(status_code=500, detail="Glossar-Generierung fehlgeschlagen")
+
+
+# ─── Mindmap generieren ──────────────────────────────────────────────────────
+
+
+class MindmapGenerateBody(BaseModel):
+    active_source_ids: list[str]
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/mindmap/generate")
+async def generate_mindmap(
+    module_uuid: str,
+    body: MindmapGenerateBody,
+    current_user: dict = Depends(get_current_user),
+):
+    """Queue mindmap generation as a background Celery task."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source_ids = _resolve_source_ids(module, body.active_source_ids, max_count=5)
+
+    # Build uuid→id mapping for the task
+    source_uuids = []
+    for suuid in body.active_source_ids:
+        s = db.get_ki_tutor_source(suuid)
+        if s and s["id"] in source_ids:
+            source_uuids.append(suuid)
+
+    # Create DB record
+    mindmap_id = db.create_ki_tutor_mindmap(module["id"], user_id, source_ids)
+
+    # Queue Celery task
+    from src.tasks.ki_tutor_tasks import run_generate_mindmap
+    run_generate_mindmap.delay(mindmap_id, source_ids, source_uuids)
+
+    return {"mindmap_id": mindmap_id, "status": "pending"}
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/mindmap/{mindmap_id}")
+async def get_mindmap(
+    module_uuid: str,
+    mindmap_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    """Poll mindmap generation status."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    mindmap = db.get_ki_tutor_mindmap(mindmap_id)
+    if not mindmap or mindmap["module_id"] != module["id"]:
+        raise HTTPException(status_code=404, detail="Mindmap nicht gefunden")
+
+    return {
+        "id": mindmap["id"],
+        "status": mindmap["status"],
+        "mindmap": mindmap["mindmap"],
+        "error": mindmap["error"],
+    }
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/mindmap")
+async def get_latest_mindmap(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Get the latest mindmap for this module."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    mindmap = db.get_latest_ki_tutor_mindmap(module["id"], user_id)
+    if not mindmap:
+        return {"id": None, "status": None, "mindmap": None, "error": None}
+
+    return {
+        "id": mindmap["id"],
+        "status": mindmap["status"],
+        "mindmap": mindmap["mindmap"],
+        "error": mindmap["error"],
+    }
+
+
+# ─── Lernkarten generieren ───────────────────────────────────────────────────
+
+
+class LernkartenGenerateBody(BaseModel):
+    active_source_ids: list[str]
+    count: int = 10
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/lernkarten/generate")
+@observe(name="ki-tutor-lernkarten")
+async def generate_lernkarten(
+    module_uuid: str,
+    body: LernkartenGenerateBody,
+    current_user: dict = Depends(get_current_user),
+    kisski=Depends(get_kisski_client),
+):
+    _trace_kisski(kisski, "ki-tutor-lernkarten")
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source_ids = _resolve_source_ids(module, body.active_source_ids, max_count=5)
+
+    # Build context with fair budget per source
+    budget_per_source = 16000 // len(source_ids)
+    context_parts: list[str] = []
+    for i, sid in enumerate(source_ids, 1):
+        source = None
+        for suuid in body.active_source_ids:
+            s = db.get_ki_tutor_source(suuid)
+            if s and s["id"] == sid:
+                source = s
+                break
+        source_label = source["filename"] if source else f"Quelle {i}"
+        summaries = db.get_paragraph_summaries_by_source(sid)
+        if summaries:
+            pages: dict[int, list[str]] = {}
+            for s in summaries:
+                pages.setdefault(s["page_number"], []).append(s["summary"])
+            parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+            part = f"--- {source_label} ---\n" + "\n".join(parts)
+        else:
+            chunks = db.get_chunks_by_source(sid)
+            if chunks:
+                parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
+                part = f"--- {source_label} ---\n" + "\n".join(parts)
+            else:
+                continue
+        if len(part) > budget_per_source:
+            part = part[:budget_per_source]
+        context_parts.append(part)
+
+    if not context_parts:
+        raise HTTPException(status_code=400, detail="Keine Inhalte vorhanden")
+
+    context = "\n\n".join(context_parts)
+    prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(body.count))
+
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": f"Erstelle Lernkarten aus folgenden Quellen:\n\n{context}"},
+    ]
+
+    try:
+        response = kisski._client.chat.completions.create(
+            model=kisski._model,
+            messages=messages,
+            temperature=0.3,
+            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        )
+        answer = response.choices[0].message.content.strip()
+
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        lernkarten = json.loads(answer)
+        if not isinstance(lernkarten, dict) or "cards" not in lernkarten:
+            raise ValueError("Expected JSON object with 'cards' key")
+
+        return {"lernkarten": lernkarten}
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error("Lernkarten parse error: {} — raw: {}", e, answer[:500] if answer else "empty")
+        raise HTTPException(status_code=500, detail="Lernkarten konnten nicht generiert werden")
+    except Exception as e:
+        logger.error("Lernkarten generation error: {}", e)
+        raise HTTPException(status_code=500, detail="Lernkarten-Generierung fehlgeschlagen")
+
+
+# ─── Datentabelle generieren ─────────────────────────────────────────────────
+
+
+class DatentabelleGenerateBody(BaseModel):
+    active_source_ids: list[str]
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/datentabelle/generate")
+@observe(name="ki-tutor-datentabelle")
+async def generate_datentabelle(
+    module_uuid: str,
+    body: DatentabelleGenerateBody,
+    current_user: dict = Depends(get_current_user),
+    kisski=Depends(get_kisski_client),
+):
+    _trace_kisski(kisski, "ki-tutor-datentabelle")
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source_ids = _resolve_source_ids(module, body.active_source_ids, max_count=5)
+
+    # Build context with source numbering for citations
+    source_map: dict[int, dict] = {}
+    for idx, suuid in enumerate(body.active_source_ids):
+        src = db.get_ki_tutor_source(suuid)
+        if src and src["id"] in source_ids:
+            source_map[src["id"]] = {"number": idx + 1, "filename": src["filename"], "uuid": suuid}
+
+    context_parts: list[str] = []
+    context_len = 0
+    for sid in source_ids:
+        chunks = db.get_chunks_by_source(sid)
+        qnum = source_map.get(sid, {}).get("number", 1)
+        for chunk in chunks:
+            part = f"[Q{qnum}, S. {chunk['page_number']}]\n{chunk['content']}"
+            if context_len + len(part) > 15000:
+                break
+            context_parts.append(part)
+            context_len += len(part)
+
+    if not context_parts:
+        raise HTTPException(status_code=400, detail="Keine Chunks vorhanden")
+
+    context = "\n\n---\n\n".join(context_parts)
+
+    # Build source legend for prompt
+    source_legend = "\n".join(
+        f"[Q{info['number']}] = {info['filename']}"
+        for info in sorted(source_map.values(), key=lambda x: x["number"])
+    )
+
+    messages = [
+        {"role": "system", "content": TUTOR_DATENTABELLE_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"Quellen:\n{source_legend}\n\n"
+                f"Erstelle eine strukturierte Datentabelle aus folgendem Text:\n\n{context}"
+            ),
+        },
+    ]
+
+    try:
+        response = kisski._client.chat.completions.create(
+            model=kisski._model,
+            messages=messages,
+            temperature=0.2,
+            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        )
+        answer = response.choices[0].message.content.strip()
+
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        table_data = json.loads(answer)
+        if not isinstance(table_data, dict) or "columns" not in table_data or "rows" not in table_data:
+            raise ValueError("Expected JSON with 'columns' and 'rows'")
+
+        # Attach source info for frontend
+        sources_list = [
+            {"number": info["number"], "filename": info["filename"]}
+            for info in sorted(source_map.values(), key=lambda x: x["number"])
+        ]
+
+        return {"table": table_data, "sources": sources_list}
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error("Datentabelle parse error: {} — raw: {}", e, answer[:500] if answer else "empty")
+        raise HTTPException(status_code=500, detail="Datentabelle konnte nicht generiert werden")
+    except Exception as e:
+        logger.error("Datentabelle generation error: {}", e)
+        raise HTTPException(status_code=500, detail="Datentabelle-Generierung fehlgeschlagen")
+
+
+# ─── Sprachtraining: Übungen generieren ──────────────────────────────────────
+
+
+_CLOZE_PROMPT = """Du bist ein Sprachtrainer. Erstelle Lückentext-Übungen aus den gegebenen Fachbegriffen und dem Textkontext.
+
+Für jeden Begriff erstelle EINE Lückentext-Aufgabe im folgenden JSON-Format:
+[
+  {
+    "glossary_entry_id": 42,
+    "sentence": "Ein __________ wandelt Wechselstrom in Gleichstrom um.",
+    "answer": "Gleichrichter",
+    "options": ["Transformator", "Gleichrichter", "Kondensator", "Widerstand"],
+    "page_number": 14
+  }
+]
+
+Regeln:
+- Verwende echte Sätze aus dem Kontext oder paraphrasiere sie leicht
+- Der Lückentext muss den Fachbegriff als Antwort haben
+- Gib genau 4 Optionen, die korrekte Antwort muss enthalten sein
+- Die falschen Optionen müssen plausibel sein (gleiche Wortart, ähnliches Themenfeld)
+- Antworte NUR mit dem JSON-Array"""
+
+
+_VOCAB_TEST_PROMPT = """Du bist ein Sprachtrainer. Erstelle einen Vokabeltest zu den gegebenen Fachbegriffen.
+
+Für jeden Begriff erstelle EINE Multiple-Choice-Frage im folgenden JSON-Format:
+[
+  {
+    "glossary_entry_id": 42,
+    "question": "Was bedeutet 'Impedance' auf Deutsch?",
+    "options": ["Kapazität", "Impedanz", "Induktivität", "Leitfähigkeit"],
+    "correct_index": 1,
+    "explanation": "Impedanz ist der Wechselstromwiderstand eines Bauteils. (S. 23)"
+  }
+]
+
+Regeln:
+- Mische die Fragerichtungen: DE→EN, EN→DE, Begriff→Definition, Definition→Begriff
+- Gib genau 4 Optionen pro Frage
+- correct_index ist der 0-basierte Index der richtigen Antwort
+- explanation enthält eine kurze Erklärung mit Seitenverweis
+- Antworte NUR mit dem JSON-Array"""
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/exercises/cloze")
+@observe(name="ki-tutor-cloze")
+async def generate_cloze(
+    module_uuid: str,
+    body: ExerciseGenerateBody,
+    current_user: dict = Depends(get_current_user),
+    kisski=Depends(get_kisski_client),
+):
+    _trace_kisski(kisski, "ki-tutor-cloze")
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source_ids = _resolve_source_ids(module, body.active_source_ids)
+
+    entries = db.get_ki_tutor_glossary_by_module(module["id"])
+    if not entries:
+        raise HTTPException(status_code=400, detail="Kein Glossar vorhanden")
+
+    # Get chunks from selected sources for context
+    all_chunks: list[dict] = []
+    for sid in source_ids:
+        all_chunks.extend(db.get_chunks_by_source(sid))
+    context_parts = [f"[S. {c['page_number']}] {c['content']}" for c in all_chunks[:15]]
+    context = "\n\n".join(context_parts)
+
+    glossary_info = json.dumps([
+        {"id": e["id"], "term_de": e["term_de"], "term_en": e["term_en"],
+         "definition": e["definition"], "page_number": e["page_number"]}
+        for e in entries
+    ], ensure_ascii=False)
+
+    messages = [
+        {"role": "system", "content": _CLOZE_PROMPT},
+        {"role": "user", "content": f"Fachbegriffe:\n{glossary_info}\n\nTextkontext:\n{context}"},
+    ]
+
+    try:
+        response = kisski._client.chat.completions.create(
+            model=kisski._model, messages=messages, temperature=0.3,
+            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        )
+        answer = response.choices[0].message.content.strip()
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        exercises = json.loads(answer)
+        return {"exercises": exercises}
+    except Exception as e:
+        logger.error("Cloze generation error: {}", e)
+        raise HTTPException(status_code=500, detail="Lückentext-Generierung fehlgeschlagen")
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/exercises/vocab-test")
+@observe(name="ki-tutor-vocab-test")
+async def generate_vocab_test(
+    module_uuid: str,
+    body: ExerciseGenerateBody,
+    current_user: dict = Depends(get_current_user),
+    kisski=Depends(get_kisski_client),
+):
+    _trace_kisski(kisski, "ki-tutor-vocab-test")
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    entries = db.get_ki_tutor_glossary_by_module(module["id"])
+    if not entries:
+        raise HTTPException(status_code=400, detail="Kein Glossar vorhanden")
+
+    glossary_info = json.dumps([
+        {"id": e["id"], "term_de": e["term_de"], "term_en": e["term_en"],
+         "definition": e["definition"], "page_number": e["page_number"]}
+        for e in entries
+    ], ensure_ascii=False)
+
+    messages = [
+        {"role": "system", "content": _VOCAB_TEST_PROMPT},
+        {"role": "user", "content": f"Erstelle einen Vokabeltest zu diesen Fachbegriffen:\n{glossary_info}"},
+    ]
+
+    try:
+        response = kisski._client.chat.completions.create(
+            model=kisski._model, messages=messages, temperature=0.3,
+            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        )
+        answer = response.choices[0].message.content.strip()
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        exercises = json.loads(answer)
+        return {"exercises": exercises}
+    except Exception as e:
+        logger.error("Vocab test generation error: {}", e)
+        raise HTTPException(status_code=500, detail="Vokabeltest-Generierung fehlgeschlagen")
+
+
+# ─── Sprachtraining: Progress & Analytics ─────────────────────────────────────
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/vocab-progress")
+async def record_progress(
+    module_uuid: str,
+    body: VocabProgressBody,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    records = [
+        {
+            "glossary_entry_id": r["glossary_entry_id"],
+            "user_id": user_id,
+            "exercise_type": r["exercise_type"],
+            "correct": r["correct"],
+        }
+        for r in body.results
+    ]
+    db.bulk_record_vocab_progress(records)
+    return {"ok": True}
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/vocab-analytics")
+async def get_analytics(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    return db.get_vocab_analytics_summary(module["id"], user_id)
+
+
+# ─── Exercise Sets CRUD ──────────────────────────────────────────────────────
+
+GLOSSARY_LIMIT = 150
+
+
+class CreateSetBody(BaseModel):
+    tool: str  # "lernkarten" | "lueckentext" | "vokabeltest"
+    mode: str = "glossar"  # "glossar" | "quelle"
+    source_uuid: Optional[str] = None
+    count: int = 10
+
+
+class ExerciseProgressBody(BaseModel):
+    results: list[dict]  # [{"item_id": int, "correct": bool}]
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/exercise-sets")
+async def create_exercise_set(
+    module_uuid: str,
+    body: CreateSetBody,
+    current_user: dict = Depends(get_current_user),
+    kisski=Depends(get_kisski_client),
+):
+    """Create a new exercise set from glossary or a source."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    if body.mode == "glossar":
+        # Generate from glossary entries
+        glossary = db.get_ki_tutor_glossary_by_module(module["id"])
+        if not glossary:
+            raise HTTPException(status_code=400, detail="Kein Glossar vorhanden")
+        import random
+        selected = random.sample(glossary, min(body.count, len(glossary)))
+
+        if body.tool == "lernkarten":
+            items = [
+                {
+                    "front": e["term_de"],
+                    "back": f"{e['term_en']} — {e['definition']}",
+                    "source_label": e.get("filename", ""),
+                    "page_number": e.get("page_number"),
+                }
+                for e in selected
+            ]
+            title = f"Lernkarten ({len(items)} Begriffe)"
+        elif body.tool == "lueckentext":
+            # Use LLM to generate cloze sentences from glossary terms
+            terms_text = "\n".join(
+                f"- {e['term_de']} ({e['term_en']}): {e['definition']}"
+                for e in selected
+            )
+            messages = [
+                {"role": "system", "content": (
+                    "Du erstellst Lückentext-Übungen. Für jeden Begriff erstelle einen Satz "
+                    "mit einer Lücke, die durch den Begriff gefüllt werden muss.\n\n"
+                    "Antworte NUR mit einem JSON-Array:\n"
+                    '[{"sentence": "Der Prozess der ___ reduziert Redundanz.", '
+                    '"answer": "Normalisierung", '
+                    '"options": ["Indexierung", "Normalisierung", "Partitionierung", "Denormalisierung"], '
+                    '"correct_idx": 1, '
+                    '"term_de": "Normalisierung", '
+                    '"page_number": 12}]\n\n'
+                    "Regeln:\n"
+                    "- Genau 4 Optionen pro Frage, eine davon korrekt\n"
+                    "- correct_idx = Index der richtigen Option (0-3)\n"
+                    "- Sätze auf Deutsch, klar und verständlich\n"
+                    "- ___ als Lücken-Platzhalter im Satz\n"
+                    "- Antworte NUR mit dem JSON-Array"
+                )},
+                {"role": "user", "content": f"Erstelle Lückentext-Übungen für diese Begriffe:\n\n{terms_text}"},
+            ]
+            response = kisski._client.chat.completions.create(
+                model=kisski._model, messages=messages, temperature=0.3,
+                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+            )
+            answer = response.choices[0].message.content.strip()
+            if answer.startswith("```"):
+                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            exercises = json.loads(answer)
+            items = [
+                {
+                    "front": ex["sentence"],
+                    "back": ex["answer"],
+                    "options": ex["options"],
+                    "correct_idx": ex["correct_idx"],
+                    "source_label": next((e.get("filename", "") for e in selected if e["term_de"] == ex.get("term_de")), ""),
+                    "page_number": ex.get("page_number"),
+                }
+                for ex in exercises
+            ]
+            title = f"Lückentext ({len(items)} Aufgaben)"
+        elif body.tool == "vokabeltest":
+            # Use LLM to generate vocab MC questions
+            terms_text = "\n".join(
+                f"- {e['term_de']} ({e['term_en']}): {e['definition']}"
+                for e in selected
+            )
+            messages = [
+                {"role": "system", "content": (
+                    "Du erstellst Vokabeltest-Fragen (Multiple Choice). "
+                    "Für jeden Begriff erstelle eine Frage mit 4 Optionen.\n\n"
+                    "Antworte NUR mit einem JSON-Array:\n"
+                    '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
+                    '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
+                    '"correct_idx": 1, '
+                    '"explanation": "Normalization ist der Prozess...", '
+                    '"term_de": "Normalisierung", '
+                    '"page_number": 12}]\n\n'
+                    "Regeln:\n"
+                    "- Mische verschiedene Fragetypen: DE→EN, EN→DE, Definitions-Fragen\n"
+                    "- Genau 4 Optionen, eine korrekt\n"
+                    "- correct_idx = Index der richtigen Option (0-3)\n"
+                    "- Kurze Erklärung pro Frage\n"
+                    "- Antworte NUR mit dem JSON-Array"
+                )},
+                {"role": "user", "content": f"Erstelle Vokabeltest-Fragen für diese Begriffe:\n\n{terms_text}"},
+            ]
+            response = kisski._client.chat.completions.create(
+                model=kisski._model, messages=messages, temperature=0.3,
+                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+            )
+            answer = response.choices[0].message.content.strip()
+            if answer.startswith("```"):
+                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            questions = json.loads(answer)
+            items = [
+                {
+                    "front": q["question"],
+                    "back": q["options"][q["correct_idx"]],
+                    "options": q["options"],
+                    "correct_idx": q["correct_idx"],
+                    "explanation": q.get("explanation"),
+                    "source_label": next((e.get("filename", "") for e in selected if e["term_de"] == q.get("term_de")), ""),
+                    "page_number": q.get("page_number"),
+                }
+                for q in questions
+            ]
+            title = f"Vokabeltest ({len(items)} Fragen)"
+        else:
+            raise HTTPException(status_code=400, detail="Unbekannter Tool-Typ")
+
+    elif body.mode == "quelle":
+        # Generate from source content (uses dedicated endpoints logic)
+        if not body.source_uuid:
+            raise HTTPException(status_code=400, detail="Keine Quelle angegeben")
+        source = db.get_ki_tutor_source(body.source_uuid)
+        if not source:
+            raise HTTPException(status_code=404, detail="Quelle nicht gefunden")
+
+        # Build context from source
+        source_label = source["filename"]
+        summaries = db.get_paragraph_summaries_by_source(source["id"])
+        if summaries:
+            pages: dict[int, list[str]] = {}
+            for s in summaries:
+                pages.setdefault(s["page_number"], []).append(s["summary"])
+            parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+            context = "\n".join(parts)
+        else:
+            chunks = db.get_chunks_by_source(source["id"])
+            if not chunks:
+                raise HTTPException(status_code=400, detail="Keine Inhalte in dieser Quelle")
+            parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:30]]
+            context = "\n".join(parts)
+        if len(context) > 16000:
+            context = context[:16000]
+
+        if body.tool == "lernkarten":
+            prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(body.count))
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": f"Erstelle Lernkarten aus folgender Quelle:\n\n{context}"},
+            ]
+            response = kisski._client.chat.completions.create(
+                model=kisski._model, messages=messages, temperature=0.3,
+                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+            )
+            answer = response.choices[0].message.content.strip()
+            if answer.startswith("```"):
+                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            data = json.loads(answer)
+            items = [
+                {
+                    "front": c["front"],
+                    "back": c["back"],
+                    "source_label": c.get("source_label", source_label),
+                    "page_number": c.get("page_number"),
+                }
+                for c in data.get("cards", [])
+            ]
+            title = data.get("title", f"Lernkarten aus {source_label}")
+        else:
+            # Cloze / Vocab from source — use same LLM prompts as glossar mode
+            # but with source context instead of glossary terms
+            tool_prompt = (
+                "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
+            )
+            if body.tool == "lueckentext":
+                tool_prompt += (
+                    "Erstelle Lückentext-Übungen. Antworte NUR mit einem JSON-Array:\n"
+                    '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
+                    '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
+                    '"source_label": "Dateiname", "page_number": 5}]\n'
+                    f"Erstelle genau {body.count} Übungen."
+                )
+            else:
+                tool_prompt += (
+                    "Erstelle Multiple-Choice Vokabeltest-Fragen. Antworte NUR mit einem JSON-Array:\n"
+                    '[{"question": "Frage?", "options": ["A", "B", "C", "D"], '
+                    '"correct_idx": 0, "explanation": "Erklärung", '
+                    '"source_label": "Dateiname", "page_number": 5}]\n'
+                    f"Erstelle genau {body.count} Fragen."
+                )
+            messages = [
+                {"role": "system", "content": tool_prompt},
+                {"role": "user", "content": f"Quelle:\n\n{context}"},
+            ]
+            response = kisski._client.chat.completions.create(
+                model=kisski._model, messages=messages, temperature=0.3,
+                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+            )
+            answer = response.choices[0].message.content.strip()
+            if answer.startswith("```"):
+                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            exercises = json.loads(answer)
+            if body.tool == "lueckentext":
+                items = [
+                    {
+                        "front": ex["sentence"],
+                        "back": ex["answer"],
+                        "options": ex["options"],
+                        "correct_idx": ex["correct_idx"],
+                        "source_label": ex.get("source_label", source_label),
+                        "page_number": ex.get("page_number"),
+                    }
+                    for ex in exercises
+                ]
+                title = f"Lückentext aus {source_label}"
+            else:
+                items = [
+                    {
+                        "front": q["question"],
+                        "back": q["options"][q["correct_idx"]],
+                        "options": q["options"],
+                        "correct_idx": q["correct_idx"],
+                        "explanation": q.get("explanation"),
+                        "source_label": q.get("source_label", source_label),
+                        "page_number": q.get("page_number"),
+                    }
+                    for q in exercises
+                ]
+                title = f"Vokabeltest aus {source_label}"
+    else:
+        raise HTTPException(status_code=400, detail="Unbekannter Modus")
+
+    if not items:
+        raise HTTPException(status_code=500, detail="Keine Übungen generiert")
+
+    ex_set = db.create_exercise_set(
+        module_id=module["id"], user_id=user_id, tool=body.tool,
+        title=title, mode=body.mode, source_uuid=body.source_uuid,
+        items=items,
+    )
+
+    # Update streak
+    db.update_streak(module["id"], user_id)
+
+    return {"set": ex_set}
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/exercise-sets")
+async def list_exercise_sets(
+    module_uuid: str,
+    tool: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    return {"sets": db.get_exercise_sets(module["id"], user_id, tool)}
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/exercise-sets/{set_id}")
+async def get_exercise_set(
+    module_uuid: str,
+    set_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    ex_set = db.get_exercise_set_with_items(set_id)
+    if not ex_set:
+        raise HTTPException(status_code=404, detail="Set nicht gefunden")
+    return {"set": ex_set}
+
+
+@router.delete("/ki-tutor/modules/{module_uuid}/exercise-sets/{set_id}")
+async def delete_exercise_set_endpoint(
+    module_uuid: str,
+    set_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    if not db.delete_exercise_set(set_id):
+        raise HTTPException(status_code=404, detail="Set nicht gefunden")
+    return {"ok": True}
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/exercise-sets/{set_id}/progress")
+async def record_set_progress(
+    module_uuid: str,
+    set_id: int,
+    body: ExerciseProgressBody,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    db.bulk_record_exercise_progress(set_id, user_id, body.results)
+    db.update_streak(module["id"], user_id)
+    return {"ok": True}
+
+
+# ─── Streak ──────────────────────────────────────────────────────────────────
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/streak")
+async def get_streak_endpoint(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    streak = db.get_streak(module["id"], user_id)
+    return streak
+
+
+# ─── Glossar Count & Limit ───────────────────────────────────────────────────
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/glossary-count")
+async def get_glossary_count_endpoint(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    count = db.get_glossary_count(module["id"])
+    return {"count": count, "limit": GLOSSARY_LIMIT}
