@@ -110,9 +110,13 @@ TUTOR_SYSTEM_RAG = (
     "Du bist ein KI-Tutor. Antworte auf Basis der gegebenen Quellen. "
     "Ziehe logische Verbindungen zwischen der Frage und den Quellinhalten — auch wenn ein Begriff nicht wörtlich vorkommt, "
     "erkenne verwandte Konzepte und erkläre den Zusammenhang. "
+    "Wenn in den Quellen Kontaktdaten (E-Mail, Telefon, Adresse, Webseite) zu einer gefragten Person oder Organisation stehen, gib diese mit an. "
     "Erfinde aber NIEMALS Fakten, Definitionen oder Bedeutungen, die nicht aus den Quellen ableitbar sind. "
-    "Füge nach jedem Satz oder Abschnitt die Seitenzahl ein im Format [S. X]. "
-    "Mehrere Seiten als separate Tags: [S. 3] [S. 7]."
+    "Erwähne NUR Seiten, die direkt relevante Informationen zur Frage enthalten. "
+    "Füge KEINE Hinweise, Disclaimers oder Kommentare zu irrelevanten Seiten hinzu. "
+    "Jede Quelle ist mit [QN, S. X] gekennzeichnet (N = Quellennummer, X = Seitenzahl). "
+    "Füge nach jedem Satz oder Abschnitt die Quellenangabe im EXAKT gleichen Format ein: [Q1, S. 3] [Q2, S. 7]. "
+    "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S."
 )
 
 
@@ -168,14 +172,14 @@ TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [
     {
         "key": "elaborate",
         "label": "Genauer ausführen",
-        "icon": "MagnifyingGlassPlus",
+        "icon": "Binoculars",
         "prompt": "Führe diese Textstelle genauer aus. Erkläre die Konzepte ausführlich und gib konkrete Beispiele:",
         "min_words": 1,
     },
     {
         "key": "summarize",
         "label": "Zusammenfassung",
-        "icon": "BookOpenText",
+        "icon": "FunnelSimple",
         "prompt": "Fasse diese Textstelle in maximal 2-3 Sätzen zusammen. Verwende höchstens halb so viele Wörter wie der Originaltext. Fließtext, keine Stichpunkte:",
         "min_words": 10,
     },

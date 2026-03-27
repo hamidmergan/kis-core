@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   FileMagnifyingGlass,
@@ -36,6 +37,29 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { checkAuthStatus } from "@/lib/auth";
 import type { AuthStatus } from "@/types";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
+import { registerIcons } from "@embedpdf/snippet";
+
+// Register Phosphor icons as custom EmbedPDF icons for the selection popup
+registerIcons({
+  "ph-binoculars": {
+    viewBox: "0 0 256 256",
+    path: "M241,150.65s0,0,0-.05a51.33,51.33,0,0,0-2.53-5.9L196.93,50.18a12,12,0,0,0-2.5-3.65,36,36,0,0,0-50.92,0A12,12,0,0,0,140,55V76H116V55a12,12,0,0,0-3.51-8.48,36,36,0,0,0-50.92,0,12,12,0,0,0-2.5,3.65L17.53,144.7A51.33,51.33,0,0,0,15,150.6s0,0,0,.05A52,52,0,1,0,116,168V100h24v68a52,52,0,1,0,101-17.35ZM80,62.28a12,12,0,0,1,12-1.22v63.15a51.9,51.9,0,0,0-35.9-7.62ZM64,196a28,28,0,1,1,28-28A28,28,0,0,1,64,196ZM164,61.06a12.06,12.06,0,0,1,12,1.22l23.87,54.31a51.9,51.9,0,0,0-35.9,7.62ZM192,196a28,28,0,1,1,28-28A28,28,0,0,1,192,196Z",
+    fill: "primary",
+    stroke: "none",
+  },
+  "ph-funnel-simple": {
+    viewBox: "0 0 256 256",
+    path: "M204,136a12,12,0,0,1-12,12H64a12,12,0,0,1,0-24H192A12,12,0,0,1,204,136Zm28-60H24a12,12,0,0,0,0,24H232a12,12,0,0,0,0-24Zm-80,96H104a12,12,0,0,0,0,24h48a12,12,0,0,0,0-24Z",
+    fill: "primary",
+    stroke: "none",
+  },
+  "ph-lightbulb": {
+    viewBox: "0 0 256 256",
+    path: "M180,232a12,12,0,0,1-12,12H88a12,12,0,0,1,0-24h80A12,12,0,0,1,180,232Zm40-128a91.51,91.51,0,0,1-35.17,72.35A12.26,12.26,0,0,0,180,186v2a20,20,0,0,1-20,20H96a20,20,0,0,1-20-20v-2a12,12,0,0,0-4.7-9.51A91.57,91.57,0,0,1,36,104.52C35.73,54.69,76,13.2,125.79,12A92,92,0,0,1,220,104Zm-24,0a68,68,0,0,0-69.65-68C89.56,36.88,59.8,67.55,60,104.38a67.71,67.71,0,0,0,26.1,53.19A35.87,35.87,0,0,1,100,184h56.1A36.13,36.13,0,0,1,170,157.49,67.68,67.68,0,0,0,196,104Zm-20.07-5.32a48.5,48.5,0,0,0-31.91-40,12,12,0,0,0-8,22.62,24.31,24.31,0,0,1,16.09,20,12,12,0,0,0,23.86-2.64Z",
+    fill: "primary",
+    stroke: "none",
+  },
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,11 +86,19 @@ interface SourceRef {
   source_text?: string;
 }
 
+interface SourceQmap {
+  qnum: number;
+  uuid: string;
+  filename: string;
+}
+
 interface ChatMessage {
   id?: string;
   role: "user" | "assistant";
   content: string;
   source_pages?: SourceRef[];
+  source_qmap?: SourceQmap[];
+  sourceCount?: number;
 }
 
 interface LernKarte {
@@ -139,8 +171,7 @@ function SourceStatus({ status }: { status: string }) {
         title={status === "pending" ? "Warte auf Verarbeitung" : "Wird indiziert"}
       />
     );
-  if (status === "ready")
-    return <Check size={12} weight="bold" className="flex-shrink-0" style={{ color: "#15803D" }} />;
+  if (status === "ready") return null;
   return (
     <span title="Indizierung fehlgeschlagen" className="flex-shrink-0 inline-flex">
       <XIcon size={12} weight="bold" style={{ color: "#B91C1C" }} />
@@ -173,14 +204,16 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: Ico
   Lightbulb,
 };
 
-// Map Phosphor icon names → EmbedPDF built-in icon names
+// Map Phosphor icon names → EmbedPDF icon names (built-in or custom registered)
 const EMBEDPDF_ICON_MAP: Record<string, string> = {
-  Lightbulb: "info",
+  Binoculars: "ph-binoculars",
+  FunnelSimple: "ph-funnel-simple",
+  ListBullets: "listTree",
+  Lightbulb: "ph-lightbulb",
   ArrowsCounterClockwise: "arrowBackUp",
   Scissors: "redact",
   MagnifyingGlassPlus: "search",
   BookOpenText: "file",
-  ListBullets: "listTree",
 };
 
 
@@ -195,16 +228,12 @@ function PdfViewer({
   onMinimize?: () => void;
 }) {
   const [page, setPage] = useState(source.page);
-  const [showToc, setShowToc] = useState(false);
-  const [tocEntries, setTocEntries] = useState<Array<{ level: number; title: string; page: number }>>([]);
-  const [tocLoaded, setTocLoaded] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(false);
   const [pageSummaries, setPageSummaries] = useState<Record<number, string>>({});
   const [summariesStatus, setSummariesStatus] = useState<string>("none");
   const [summariesLoaded, setSummariesLoaded] = useState(false);
-  const [mdMode, setMdMode] = useState(false);
-  const [mdContent, setMdContent] = useState<string | null>(null);
-  const [mdLoading, setMdLoading] = useState(false);
+  const [sidebarTarget, setSidebarTarget] = useState<Element | null>(null);
+  const [registryReady, setRegistryReady] = useState(false);
   const viewerRef = useRef<PDFViewerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,21 +248,23 @@ function PdfViewer({
   const popupActionsRef = useRef(popupActions);
   popupActionsRef.current = popupActions;
 
-  // Fetch TOC on mount
+
+  // Watch for EmbedPDF summary sidebar DOM (shadow root) to sync React state + portal target
   useEffect(() => {
-    if (tocLoaded) return;
-    (async () => {
-      try {
-        const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/toc`);
-        if (res.ok) {
-          const data = await res.json();
-          setTocEntries(data.toc ?? []);
-        }
-      } catch { /* ignore */ } finally {
-        setTocLoaded(true);
-      }
-    })();
-  }, [moduleUuid, source.uuid, tocLoaded]);
+    if (!registryReady) return;
+    const embedEl = containerRef.current?.querySelector("embedpdf-container");
+    const shadow = embedEl?.shadowRoot;
+    if (!shadow) return;
+    const check = () => {
+      const el = shadow.querySelector('[data-sidebar-id="summary-panel"]');
+      setSidebarTarget(prev => (el === prev ? prev : (el as Element | null)));
+      setShowAnnotations(!!el);
+    };
+    check();
+    const obs = new MutationObserver(check);
+    obs.observe(shadow, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, [registryReady]);
 
   // Lazy-fetch summaries when toggle is activated, poll while generating
   useEffect(() => {
@@ -266,15 +297,47 @@ function PdfViewer({
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, [showAnnotations, summariesLoaded, moduleUuid, source.uuid]);
 
-  // Scroll to page when nonce changes (pill click on same document)
+  // Scroll to page + highlight text when nonce changes (pill click on same document)
   useEffect(() => {
     if (source.nonce == null) return;
-    const scroll = registryRef.current?.getPlugin?.("scroll")?.provides?.();
-    if (scroll) scroll.scrollToPage({ pageNumber: source.page, behavior: "instant" });
-  }, [source.nonce, source.page]);
+    const reg = registryRef.current;
+    if (!reg) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scroll = reg.getPlugin?.("scroll")?.provides?.() as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const search = reg.getPlugin?.("search")?.provides?.() as any;
+
+    // Always scroll immediately for instant feedback
+    scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
+
+    if (!source.highlightText || !search) return;
+
+    // Use EmbedPDF's built-in search to highlight the text (default yellow)
+    const task = search.searchAllPages?.(source.highlightText);
+    const promise: Promise<unknown> = task?.toPromise?.() ?? Promise.resolve(null);
+    promise.then((result: unknown) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const results: any[] = Array.isArray(result) ? result : ((result as any)?.results ?? []);
+      if (!results.length) return;
+
+      // Prefer first match on the exact target page, fall back to nearest page after
+      const targetIdx = (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pageOf = (r: any) => r.pageIndex != null ? r.pageIndex + 1 : (r.pageNumber ?? 1);
+        const exact = results.findIndex(r => pageOf(r) === source.page);
+        if (exact >= 0) return exact;
+        const after = results.findIndex(r => pageOf(r) >= source.page);
+        return after >= 0 ? after : 0;
+      })();
+
+      search.goToResult?.(targetIdx);
+    }).catch(() => { /* ignore — scroll already happened */ });
+  }, [source.nonce, source.page, source.highlightText]);
 
   const handleReady = useCallback((registry: unknown) => {
     registryRef.current = registry;
+    setRegistryReady(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const reg = registry as any;
 
@@ -289,59 +352,116 @@ function PdfViewer({
       });
     }
 
+    // Clear search highlight when user clicks empty space or starts a new selection
+    const selectionForClear = reg.getPlugin?.("selection")?.provides?.();
+    const searchForClear = reg.getPlugin?.("search")?.provides?.();
+    if (selectionForClear && searchForClear) {
+      selectionForClear.onEmptySpaceClick?.(() => searchForClear.stopSearch?.());
+      selectionForClear.onBeginSelection?.(() => searchForClear.stopSearch?.());
+    }
+
     // Register KI actions as commands in EmbedPDF's selection menu
-    const actions = popupActionsRef.current;
-    if (!actions?.length || !onAskWithSelectionRef.current) return;
     const commands = reg.getPlugin?.("commands")?.provides?.();
     const ui = reg.getPlugin?.("ui")?.provides?.();
     if (!commands || !ui) return;
 
-    for (const action of actions) {
-      commands.registerCommand({
-        id: `kis.${action.key}`,
-        label: action.label,
-        description: action.label,
-        icon: EMBEDPDF_ICON_MAP[action.icon] ?? "info",
-        iconProps: { title: action.label },
-        categories: ["kis-actions"],
-        action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
+    const actions = popupActionsRef.current;
+    if (actions?.length && onAskWithSelectionRef.current) {
+      for (const action of actions) {
+        commands.registerCommand({
+          id: `kis.${action.key}`,
+          label: action.label,
+          description: action.label,
+          icon: EMBEDPDF_ICON_MAP[action.icon] ?? "info",
+          iconProps: { title: action.label },
+          categories: ["kis-actions"],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const sel = (r as any).getPlugin?.("selection")?.provides?.();
-          if (!sel) return;
-          const textTask = sel.getSelectedText?.(documentId);
-          const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
-          promise.then((lines: string[]) => {
-            const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
-            if (text.trim().split(/\s+/).length < action.min_words) return;
-            const bRects: Array<{ page: number }> = sel.getBoundingRects?.(documentId) ?? [];
-            const selPage = bRects.length > 0 ? bRects[0].page + 1 : 1;
-            onAskWithSelectionRef.current?.(
-              `${action.prompt}\n\n"${text}"`,
-              { uuid: sourceRef.current.uuid, filename: sourceRef.current.filename, page: selPage, selectedText: text },
-            );
-          }).catch(() => { /* ignore */ });
-        },
-      });
+          visible: ({ state, documentId }: any) => {
+            const doc = state?.plugins?.selection?.documents?.[documentId];
+            if (!doc?.slices) return true;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
+            if (action.min_words <= 1) return totalChars > 0;
+            // Average word ~6 chars; use conservative factor of 4
+            return totalChars >= action.min_words * 4;
+          },
+          action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sel = (r as any).getPlugin?.("selection")?.provides?.();
+            if (!sel) return;
+            const textTask = sel.getSelectedText?.(documentId);
+            const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
+            promise.then((lines: string[]) => {
+              const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
+              const bRects: Array<{ page: number }> = sel.getBoundingRects?.(documentId) ?? [];
+              const selPage = bRects.length > 0 ? bRects[0].page + 1 : 1;
+              onAskWithSelectionRef.current?.(
+                `${action.prompt}\n\n"${text}"`,
+                { uuid: sourceRef.current.uuid, filename: sourceRef.current.filename, page: selPage, selectedText: text },
+              );
+            }).catch(() => { /* ignore */ });
+          },
+        });
+      }
     }
 
-    // Append KI actions to EmbedPDF's built-in text selection menu
+    // Register summary toggle command (opens EmbedPDF sidebar like comments)
+    commands.registerCommand({
+      id: "kis.toggle-summaries",
+      label: "Zusammenfassungen",
+      description: "Zusammenfassungen",
+      icon: "listTree",
+      categories: ["panel", "panel-summaries"],
+      action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const uiCap = (r as any).getPlugin?.("ui")?.provides?.();
+        uiCap?.forDocument?.(documentId)?.toggleSidebar?.("right", "main", "summary-panel");
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      active: ({ state, documentId }: any) => {
+        const sidebar = state?.plugins?.ui?.documents?.[documentId]?.activeSidebars?.["right-main"];
+        return sidebar?.isOpen && sidebar?.sidebarId === "summary-panel";
+      },
+    });
+
+    // Merge: add KI actions to selection menu + summary button to main toolbar
     const existingSchema = ui.getSchema?.();
-    const existingItems: unknown[] = existingSchema?.selectionMenus?.selection?.items ?? [];
+    const existingSelItems: unknown[] = existingSchema?.selectionMenus?.selection?.items ?? [];
+    const mainToolbar = existingSchema?.toolbars?.["main-toolbar"];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newToolbarItems = mainToolbar?.items?.map((item: any) =>
+      item.id === "right-group"
+        ? { ...item, items: [...(item.items ?? []), { type: "command-button", id: "summaries-button", commandId: "kis.toggle-summaries", variant: "icon", categories: ["panel", "panel-summaries"] }] }
+        : item,
+    );
     ui.mergeSchema?.({
       selectionMenus: {
         selection: {
           id: "selection",
           items: [
-            ...existingItems,
-            { type: "divider", id: "kis-divider", categories: ["kis-actions"] },
-            ...actions.map(a => ({
-              type: "command-button",
-              id: `kis.${a.key}`,
-              commandId: `kis.${a.key}`,
-              variant: "icon",
-              categories: ["kis-actions"],
-            })),
+            ...existingSelItems,
+            ...(actions?.length ? [
+              { type: "divider", id: "kis-divider", categories: ["kis-actions"] },
+              ...actions.map(a => ({
+                type: "command-button",
+                id: `kis.${a.key}`,
+                commandId: `kis.${a.key}`,
+                variant: "icon",
+                categories: ["kis-actions"],
+              })),
+            ] : []),
           ],
+        },
+      },
+      ...(newToolbarItems ? { toolbars: { "main-toolbar": { ...mainToolbar, items: newToolbarItems } } } : {}),
+      sidebars: {
+        "summary-panel": {
+          id: "summary-panel",
+          position: { placement: "right", slot: "main", order: 1 },
+          content: { type: "tabs", tabs: [] },
+          width: "250px",
+          collapsible: true,
+          defaultOpen: false,
         },
       },
     });
@@ -351,39 +471,13 @@ function PdfViewer({
     <div className="flex flex-col h-full relative" ref={containerRef}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+        <button type="button" onClick={onClose}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+          style={{ backgroundColor: "var(--border)" }} title="Zurück">
+          <CaretLeft size={13} weight="bold" color="var(--muted)" />
+        </button>
         <FileIcon filename={source.filename} />
         <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>{source.filename}</span>
-        {tocEntries.length > 0 && (
-          <button type="button" onClick={() => setShowToc(v => !v)}
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: showToc ? "#004261" : "var(--border)" }} title="Inhaltsverzeichnis">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={showToc ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" /><line x1="3" y1="18" x2="18" y2="18" />
-            </svg>
-          </button>
-        )}
-        <button type="button" onClick={() => setShowAnnotations(v => !v)}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: showAnnotations ? "#004261" : "var(--border)" }} title="Zusammenfassungen">
-          <BookOpenText size={13} weight="bold" color={showAnnotations ? "white" : "var(--muted)"} />
-        </button>
-        <button type="button"
-          onClick={() => {
-            if (!mdMode && mdContent === null) {
-              setMdLoading(true);
-              fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/markdown`)
-                .then(r => r.json())
-                .then(d => { setMdContent(d.markdown ?? ""); setMdLoading(false); })
-                .catch(() => { setMdContent("_Fehler beim Laden._"); setMdLoading(false); });
-            }
-            setMdMode(v => !v);
-          }}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: mdMode ? "#004261" : "var(--border)" }} title="Markdown-Ansicht">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={mdMode ? "white" : "var(--muted)"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 6h16M4 10h10M4 14h12M4 18h8" />
-          </svg>
-        </button>
         {onMinimize && (
           <button type="button" onClick={onMinimize}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
@@ -393,81 +487,41 @@ function PdfViewer({
             </svg>
           </button>
         )}
-        <button type="button" onClick={onClose}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--border)" }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
       </div>
 
-      {/* TOC Panel */}
-      {showToc && tocEntries.length > 0 && (
-        <div className="flex-shrink-0 overflow-y-auto scrollbar-hide" style={{ maxHeight: "40%", borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
-          <div className="py-1.5">
-            {tocEntries.map((entry, i) => (
-              <button key={i} type="button"
-                onClick={() => {
-                  setShowToc(false);
-                  const scroll = registryRef.current?.getPlugin?.("scroll")?.provides?.();
-                  if (scroll) scroll.scrollToPage({ pageNumber: entry.page, behavior: "smooth" });
-                }}
-                className="w-full text-left px-4 py-1.5 text-sm hover:bg-black/5 transition-colors truncate"
-                style={{
-                  paddingLeft: `${12 + (entry.level - 1) * 16}px`,
-                  color: page === entry.page ? "#004261" : "var(--text)",
-                  fontWeight: entry.level === 1 ? 600 : 400,
-                  fontSize: entry.level === 1 ? "0.8125rem" : "0.75rem",
-                }}
-                title={`${entry.title} — S. ${entry.page}`}
-              >
-                {entry.title}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Markdown mode */}
-      {mdMode && (
-        <div className="flex-1 p-6 overflow-y-auto" style={{ color: "var(--text)", fontSize: 14, lineHeight: 1.7 }}>
-          {mdLoading ? (
-            <div className="flex items-center justify-center h-full gap-2" style={{ color: "var(--muted)" }}>
-              <span className="inline-block h-4 w-4 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: "#004261", borderRightColor: "#004261" }} />
-              Wird konvertiert…
-            </div>
-          ) : (
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={{
-              h1: ({ children }) => <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12, color: "var(--text)" }}>{children}</h1>,
-              h2: ({ children }) => <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 10, marginTop: 20, color: "var(--text)" }}>{children}</h2>,
-              h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, marginTop: 16, color: "var(--text)" }}>{children}</h3>,
-              p: ({ children }) => <p style={{ marginBottom: 10 }}>{children}</p>,
-              table: ({ children }) => <table style={{ borderCollapse: "collapse", width: "100%", marginBottom: 12, fontSize: 13 }}>{children}</table>,
-              th: ({ children }) => <th style={{ border: "1px solid var(--border)", padding: "4px 8px", backgroundColor: "var(--surface)", textAlign: "left" }}>{children}</th>,
-              td: ({ children }) => <td style={{ border: "1px solid var(--border)", padding: "4px 8px" }}>{children}</td>,
-              img: ({ src, alt }) => <img src={src} alt={alt ?? ""} style={{ maxWidth: "100%", borderRadius: 4, marginBlock: 8 }} />,
-              hr: () => <hr style={{ border: "none", borderTop: "1px solid var(--border)", marginBlock: 16 }} />,
-              code: ({ children }) => <code style={{ backgroundColor: "var(--surface)", padding: "1px 4px", borderRadius: 3, fontSize: 12, fontFamily: "monospace" }}>{children}</code>,
-            }}>
-              {mdContent ?? ""}
-            </ReactMarkdown>
-          )}
-        </div>
-      )}
 
       {/* PDF Viewer */}
-      <div key={source.uuid} style={{ flex: 1, position: "relative", display: mdMode ? "none" : undefined, minHeight: 0 }}>
+      <div key={source.uuid} style={{ flex: 1, position: "relative", minHeight: 0 }}>
         <PDFViewer
           ref={viewerRef}
           config={{
             src: `/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`,
             worker: true,
+            search: { showAllResults: false },
+            annotations: { locked: { type: "all" } },
           }}
           style={{ width: "100%", height: "100%" }}
           onReady={handleReady}
         />
       </div>
+      {/* Summary content portaled into EmbedPDF's sidebar (shadow DOM) */}
+      {sidebarTarget && createPortal(
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", fontFamily: "inherit" }}>
+          <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--color-border-default, #e5e7eb)", fontWeight: 600, fontSize: 12, color: "var(--color-fg-primary, #1f2937)" }}>
+            Seite {page} – Übersicht
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: 12, fontSize: 12, lineHeight: 1.6, color: "var(--color-fg-primary, #1f2937)" }}>
+            {summariesStatus === "generating" && !pageSummaries[page] ? (
+              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Wird generiert…</span>
+            ) : pageSummaries[page] ? (
+              <div dangerouslySetInnerHTML={{ __html: pageSummaries[page].replace(/\n/g, "<br/>") }} />
+            ) : (
+              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Keine Übersicht für diese Seite.</span>
+            )}
+          </div>
+        </div>,
+        sidebarTarget,
+      )}
     </div>
   );
 }
@@ -638,7 +692,7 @@ function SourcesPanel({
                 </div>
               )}
 
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <SourceStatus status={src.status} />
                 <button
                   type="button"
@@ -806,27 +860,33 @@ function ChatPanel({
         {messages.map((msg, i) => {
           const msgSourcePages = msg.source_pages ?? [];
 
-          // Parse [S. X] tags from text nodes and replace with inline pill buttons
+          // Parse [QN, S. X] and legacy [S. X] tags → inline pill buttons
+          const msgQmap = msg.source_qmap ?? [];
           function parseCitations(text: string): React.ReactNode[] {
-            const pattern = /\[S\.\s*(\d+)\]/g;
+            // Matches [Q1, S. 2] or [S. 2]
+            const pattern = /\[(?:Q(\d+),\s*)?S\.\s*(\d+)\]/g;
             const nodes: React.ReactNode[] = [];
             let last = 0;
             let m: RegExpExecArray | null;
             while ((m = pattern.exec(text)) !== null) {
               if (m.index > last) nodes.push(text.slice(last, m.index));
-              const pageNum = parseInt(m[1]);
-              const sp = msgSourcePages.find((s) => s.page_number === pageNum);
-              // Fallback: wenn Seite nicht in source_pages, erste verfügbare Source nutzen
-              const fallbackUuid = sp?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? selectedSourceIds[0] ?? "";
-              const fallbackFilename = sp ? getFilename(sp.source_uuid) : (msgSourcePages[0] ? getFilename(msgSourcePages[0].source_uuid) : "");
+              const qNum = m[1] ? parseInt(m[1]) : null;
+              const pageNum = parseInt(m[2]);
+
+              // Resolve source via qmap (preferred) or fallback to source_pages
+              const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
+              const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? selectedSourceIds[0] ?? "";
+              const filename = qEntry?.filename ?? getFilename(sourceUuid);
+              const sp = msgSourcePages.find(s => s.source_uuid === sourceUuid && s.page_number === pageNum);
+
               nodes.push(
                 <button
                   key={m.index}
                   type="button"
-                  onClick={() => onPillClick(fallbackUuid, pageNum, fallbackFilename, sp?.source_text)}
+                  onClick={() => onPillClick(sourceUuid, pageNum, filename, sp?.source_text)}
                   className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
                   style={{ backgroundColor: "rgba(0,66,97,0.12)", color: "#004261" }}
-                  title={`${fallbackFilename}, S. ${pageNum}`}
+                  title={`${filename}, S. ${pageNum}`}
                 >
                   <FilePdf size={8} weight="bold" />
                   S. {pageNum}
@@ -927,19 +987,26 @@ function ChatPanel({
                 </>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
-                setCopiedIdx(i);
-                setTimeout(() => setCopiedIdx(null), 1500);
-              }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5"
-              style={{ color: "var(--muted)" }}
-              title="Kopieren"
-            >
-              {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
-            </button>
+            <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+              {msg.sourceCount != null && msg.sourceCount > 0 && (
+                <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                  {msg.sourceCount} {msg.sourceCount === 1 ? "Quelle" : "Quellen"}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
+                  setCopiedIdx(i);
+                  setTimeout(() => setCopiedIdx(null), 1500);
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5"
+                style={{ color: "var(--muted)" }}
+                title="Kopieren"
+              >
+                {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
+              </button>
+            </div>
           </div>
           );
         })}
@@ -1319,7 +1386,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive }: { onSele
       {/* Tile grid */}
       {studioTab === "tools" && (
         <div className="flex-1 overflow-y-auto p-3">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {tiles.map((tile) => (
               <button
                 key={tile.key}
@@ -1327,9 +1394,6 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive }: { onSele
                 onClick={() => tile.key !== "pruefung" && onSelect(tile.key as "lernkarten" | "quiz")}
                 className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl text-center transition-colors hover:brightness-95"
                 style={{
-                  flex: "1 1 110px",
-                  maxWidth: 160,
-                  minWidth: 110,
                   minHeight: 90,
                   backgroundColor: tile.iconBg,
                   border: `1.5px solid ${tile.iconColor}33`,
@@ -1665,7 +1729,8 @@ export default function KiTutorModulePage() {
     const effectiveSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
     if (!content.trim()) return;
     if (!directText && effectiveSourceIds.length === 0) return;
-    setMessages((prev) => [...prev, { role: "user", content: content.trim() }]);
+    const msgSourceCount = directText ? 0 : effectiveSourceIds.length;
+    setMessages((prev) => [...prev, { role: "user", content: content.trim(), sourceCount: msgSourceCount }]);
     setChatInput("");
     setChatLoading(true);
     try {
@@ -1687,7 +1752,7 @@ export default function KiTutorModulePage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMessages((prev) => [...prev, { role: "assistant", content: data.answer, source_pages: data.source_pages }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: data.answer, source_pages: data.source_pages, source_qmap: data.source_qmap, sourceCount: msgSourceCount }]);
       } else if (res.status === 409) {
         setMessages((prev) => [...prev, { role: "assistant", content: "Das Modul wird noch indiziert. Bitte warte einen Moment und versuche es erneut." }]);
       } else {
@@ -1803,10 +1868,20 @@ export default function KiTutorModulePage() {
             className="flex items-center px-5 flex-shrink-0 relative"
             style={{ height: 48, borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}
           >
-            <span className="flex-1 text-sm font-semibold truncate mr-4" style={{ color: "var(--text)" }}>
-              {moduleDetail?.title ?? ""}
+            <Link
+              href="/ki-tutor"
+              className="inline-flex items-center gap-1 text-xs font-medium transition-colors group flex-shrink-0"
+              style={{ color: "var(--kb)" }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
+              Zurück
+            </Link>
+            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-base font-bold truncate px-16" style={{ color: "var(--text)" }}>
+                {moduleDetail?.title ?? ""}
+              </span>
             </span>
-            <div ref={settingsRef} className="relative flex-shrink-0">
+            <div ref={settingsRef} className="relative flex-shrink-0 ml-auto">
             <button
               type="button"
               onClick={() => setShowSettings((v) => !v)}
@@ -1877,9 +1952,20 @@ export default function KiTutorModulePage() {
 
         {/* Tab bar — Mobile only */}
         {isMobile && (
+          <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
+          <div className="px-4 pt-2 pb-1">
+            <Link
+              href="/ki-tutor"
+              className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors group"
+              style={{ color: "var(--kb)" }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
+              Zurück
+            </Link>
+          </div>
           <div
-            className="flex flex-shrink-0"
-            style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}
+            className="flex"
+            style={{ borderBottom: "1px solid var(--border)" }}
           >
             {(["quellen", "chat", "studio"] as PanelKey[]).map((key) => (
               <button
@@ -1898,6 +1984,7 @@ export default function KiTutorModulePage() {
                 )}
               </button>
             ))}
+          </div>
           </div>
         )}
 
@@ -1940,7 +2027,7 @@ export default function KiTutorModulePage() {
                   onSend={() => sendChatMessage(chatInput)}
                   onPillClick={handlePillClick}
                   moduleReady={moduleDetail?.status === "ready"}
-                  onClear={() => setMessages([])}
+                  onClear={() => { fetch(`/api/ki-tutor/modules/${uuid}/messages`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
                 />
               ) : studioView === "overview" ? (
                 <StudioOverview onSelect={setStudioView} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} />
@@ -2021,7 +2108,7 @@ export default function KiTutorModulePage() {
                     onSend={() => sendChatMessage(chatInput)}
                     onPillClick={handlePillClick}
                     moduleReady={moduleDetail?.status === "ready"}
-                    onClear={() => setMessages([])}
+                    onClear={() => { fetch(`/api/ki-tutor/modules/${uuid}/messages`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
                   />
                 )}
               </div>

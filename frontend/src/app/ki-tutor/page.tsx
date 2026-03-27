@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BackLink from "@/components/BackLink";
@@ -29,53 +30,28 @@ interface StudentModule {
   created_at: string | null;
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+// ─── Help Tooltip ────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
-  pending:  { label: "Ausstehend",      bg: "#F1F5F9", color: "#64748B" },
-  indexing: { label: "Wird indiziert",  bg: "#FEF9C3", color: "#A16207" },
-  ready:    { label: "Bereit",          bg: "#DCFCE7", color: "#166534" },
-  failed:   { label: "Fehler",          bg: "#FEE2E2", color: "#991B1B" },
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, bg: "#F1F5F9", color: "#64748B" };
+function HelpTooltip({ text }: { text: string }) {
   return (
-    <span
-      className="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
-      style={{ backgroundColor: cfg.bg, color: cfg.color }}
-    >
-      {cfg.label}
+    <span className="relative group inline-flex">
+      <svg
+        className="w-3.5 h-3.5 cursor-help"
+        style={{ color: "var(--muted)" }}
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <circle cx="8" cy="8" r="6.5" />
+        <path d="M6 6.5a2 2 0 1 1 2.5 1.94V9.5" strokeLinecap="round" />
+        <circle cx="8.25" cy="11.5" r="0.5" fill="currentColor" stroke="none" />
+      </svg>
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded-lg px-3 py-2 w-64 text-center shadow-lg z-20 leading-relaxed pointer-events-none whitespace-normal break-words">
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+      </span>
     </span>
-  );
-}
-
-// ─── Toggle ───────────────────────────────────────────────────────────────────
-
-function Toggle({
-  checked,
-  onChange,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-      style={{ backgroundColor: checked ? "#004261" : "#CBD5E1" }}
-    >
-      <span
-        className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
-        style={{ transform: checked ? "translateX(16px)" : "translateX(0)" }}
-      />
-    </button>
   );
 }
 
@@ -171,7 +147,7 @@ function CreateModuleModal({
               rows={2}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)", color: "var(--text)" }}
-              placeholder="Optional"
+              placeholder="z. B. Sommersemester 2026, Grundlagen der Programmierung"
             />
           </div>
           <div>
@@ -264,13 +240,16 @@ function RenewCodeModal({
         className="w-full max-w-sm rounded-xl p-6 shadow-xl"
         style={{ backgroundColor: "var(--surface)" }}
       >
-        <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text)" }}>
-          Code erneuern
+        <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text)" }}>
+          Neuen Einschreibelink erstellen
         </h2>
+        <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
+          Der aktuelle Link wird ungültig. Studierende, die bereits eingeschrieben sind, behalten ihren Zugang.
+        </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
-              Neues Ablaufdatum <span style={{ color: "#E11D48" }}>*</span>
+              Gültig bis <span style={{ color: "#E11D48" }}>*</span>
             </label>
             <input
               type="date"
@@ -298,7 +277,7 @@ function RenewCodeModal({
               className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
               style={{ backgroundColor: "#004261" }}
             >
-              {loading ? "Erneuern…" : "Erneuern"}
+              {loading ? "Erstellen…" : "Erstellen"}
             </button>
           </div>
         </form>
@@ -323,6 +302,14 @@ function ModuleCard({
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showRenew, setShowRenew] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const enrollLink = module.enroll_code
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/ki-tutor?code=${module.enroll_code}`
+    : null;
 
   const expiresDate = module.enroll_code_expires
     ? new Date(module.enroll_code_expires).toLocaleDateString("de-DE", {
@@ -332,16 +319,34 @@ function ModuleCard({
       })
     : null;
 
+  // Close overflow menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
   async function handleToggle(v: boolean) {
     setToggling(true);
     await onToggleActive(module.uuid, v);
     setToggling(false);
   }
 
-  async function handleDelete() {
-    if (!confirm(`Modul "${module.title}" wirklich löschen?`)) return;
+  async function handleDeleteConfirm() {
     setDeleting(true);
     await onDelete(module.uuid);
+  }
+
+  async function handleCopyLink() {
+    if (!enrollLink) return;
+    try {
+      await navigator.clipboard.writeText(enrollLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
   }
 
   return (
@@ -350,83 +355,162 @@ function ModuleCard({
         <RenewCodeModal
           moduleUuid={module.uuid}
           onClose={() => setShowRenew(false)}
-          onRenewed={(code, expires) => {
-            onRenewed(module.uuid, code, expires);
-          }}
+          onRenewed={(code, expires) => onRenewed(module.uuid, code, expires)}
         />
       )}
-      <div
-        className="rounded-xl p-5 flex flex-col gap-3"
-        style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
-      >
-        {/* Header */}
-        <div className="flex items-start gap-3 justify-between">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-base truncate" style={{ color: "var(--text)" }}>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Modul löschen?</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              <span className="font-medium">{module.title}</span>
+            </p>
+            <p className="text-sm text-red-600 mb-6">
+              Das Modul und alle zugehörigen Daten werden unwiderruflich gelöscht.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+              >
+                {deleting ? "..." : "Löschen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-gray-200 p-5 transition-shadow hover:shadow-md">
+        {/* Row 1: Header */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <h3 className="text-base font-semibold truncate" style={{ color: "var(--text)" }}>
               {module.title}
             </h3>
-            {module.description && (
-              <p className="text-sm mt-0.5 line-clamp-2" style={{ color: "var(--muted)" }}>
-                {module.description}
-              </p>
+            {/* Active pill */}
+            <button
+              onClick={() => handleToggle(!module.is_active)}
+              disabled={toggling}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap disabled:opacity-50 ${
+                module.is_active
+                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${module.is_active ? "bg-emerald-500" : "bg-gray-400"}`} />
+              {module.is_active ? "Aktiv" : "Inaktiv"}
+            </button>
+            <HelpTooltip text="Wenn aktiv, können sich Studierende mit dem Einschreibelink einschreiben und das Modul nutzen. Klicken zum Umschalten." />
+            {/* Sources pill */}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 whitespace-nowrap">
+              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3h10v12H3zM6 1v4M10 1v4M6 9h4M6 12h2" />
+              </svg>
+              {module.source_count} {module.source_count === 1 ? "Quelle" : "Quellen"}
+            </span>
+          </div>
+
+          {/* Overflow menu */}
+          <div className="relative shrink-0" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                <circle cx="8" cy="3" r="1.5" />
+                <circle cx="8" cy="8" r="1.5" />
+                <circle cx="8" cy="13" r="1.5" />
+              </svg>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                <button
+                  onClick={() => { setMenuOpen(false); setShowRenew(true); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 text-gray-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6.5 9.5l3-3M7 11l-1.3 1.3a2.12 2.12 0 0 1-3-3L4 8m5-1l1.3-1.3a2.12 2.12 0 0 1 3 3L12 10" />
+                  </svg>
+                  Neuen Link erstellen
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 4h12M5 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4M6.5 7v5M9.5 7v5M3 4l1 9.5a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5L13 4" />
+                  </svg>
+                  Modul löschen
+                </button>
+              </div>
             )}
           </div>
-          <StatusBadge status={module.status} />
         </div>
 
-        {/* Meta */}
-        <div className="flex items-center gap-4 text-sm" style={{ color: "var(--muted)" }}>
-          <span>{module.source_count} {module.source_count === 1 ? "Source" : "Sources"}</span>
-          <div className="flex items-center gap-2">
-            <span>Aktiv</span>
-            <Toggle checked={module.is_active} onChange={handleToggle} disabled={toggling} />
-          </div>
-        </div>
-
-        {/* Enroll code */}
-        {module.enroll_code && (
-          <div
-            className="rounded-lg px-3 py-2 flex items-center gap-2 text-sm"
-            style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}
-          >
-            <span style={{ color: "var(--muted)" }}>Code:</span>
-            <code className="font-mono font-semibold tracking-wider" style={{ color: "var(--text)" }}>
-              {module.enroll_code}
-            </code>
-            {expiresDate && (
-              <span className="ml-auto text-xs" style={{ color: "var(--muted)" }}>
-                bis {expiresDate}
-              </span>
-            )}
-          </div>
+        {/* Row 2: Description */}
+        {module.description && (
+          <p className="text-sm mt-1.5" style={{ color: "var(--muted)" }}>
+            {module.description}
+          </p>
         )}
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 pt-1">
+        {/* Row 3: Enrollment link + CTA */}
+        <div className="flex items-center justify-between gap-3 mt-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {enrollLink && (
+              <>
+                <button
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-0 min-w-0 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-all cursor-pointer overflow-hidden group"
+                  title="Klicken zum Kopieren"
+                >
+                  <span className="px-2.5 py-1.5 text-xs font-mono text-gray-500 truncate">{enrollLink}</span>
+                  <span className="flex items-center px-2 py-1.5 border-l border-gray-200 text-gray-400 group-hover:text-[#004261] transition-colors">
+                    {copied ? (
+                      <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 8.5l3.5 3.5 6.5-8" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="5" y="5" width="8" height="8" rx="1.5" />
+                        <path d="M3 11V3.5A.5.5 0 0 1 3.5 3H11" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+                {copied && <span className="text-xs text-green-600 font-medium whitespace-nowrap">Kopiert!</span>}
+                {expiresDate && !copied && (
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap">
+                    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="12" height="11" rx="1.5" />
+                      <path d="M5 1v3M11 1v3M2 7h12" />
+                    </svg>
+                    bis {expiresDate}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+
           <Link
             href={`/ki-tutor/${module.uuid}`}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium text-white"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white shrink-0 transition-colors hover:opacity-90"
             style={{ backgroundColor: "#004261" }}
           >
             Öffnen
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8h10M9 4l4 4-4 4" />
+            </svg>
           </Link>
-          <button
-            type="button"
-            onClick={() => setShowRenew(true)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium"
-            style={{ backgroundColor: "var(--border)", color: "var(--text)" }}
-          >
-            Code erneuern
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={deleting}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium ml-auto disabled:opacity-50"
-            style={{ backgroundColor: "#FEE2E2", color: "#991B1B" }}
-          >
-            {deleting ? "Löschen…" : "Löschen"}
-          </button>
         </div>
       </div>
     </>
@@ -544,11 +628,18 @@ function LecturerView() {
 // ─── Student View ─────────────────────────────────────────────────────────────
 
 function StudentView() {
+  const searchParams = useSearchParams();
   const [modules, setModules] = useState<StudentModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrollCode, setEnrollCode] = useState("");
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
+
+  // Auto-fill enrollment code from URL ?code= parameter
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (code) setEnrollCode(code);
+  }, [searchParams]);
 
   const loadModules = useCallback(async () => {
     try {
@@ -643,36 +734,27 @@ function StudentView() {
           Du bist noch in keinem Modul eingeschrieben.
         </p>
       ) : (
-        <div className="flex flex-col gap-4">
+        <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
           {modules.map((m) => (
-            <div
-              key={m.uuid}
-              className="rounded-xl p-5 flex items-center justify-between gap-4"
-              style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className="font-semibold text-base truncate" style={{ color: "var(--text)" }}>
-                    {m.title}
-                  </h3>
-                  <StatusBadge status={m.status} />
+            <li key={m.uuid} className="px-5 py-4 bg-white hover:bg-gray-50">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-medium text-gray-800 truncate">{m.title}</h3>
+                  {m.description && (
+                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{m.description}</p>
+                  )}
                 </div>
-                {m.description && (
-                  <p className="text-sm line-clamp-2" style={{ color: "var(--muted)" }}>
-                    {m.description}
-                  </p>
-                )}
+                <Link
+                  href={`/ki-tutor/${m.uuid}`}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                  style={{ backgroundColor: "#004261" }}
+                >
+                  Öffnen
+                </Link>
               </div>
-              <Link
-                href={`/ki-tutor/${m.uuid}`}
-                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium text-white"
-                style={{ backgroundColor: "#004261" }}
-              >
-                Öffnen
-              </Link>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </>
   );
@@ -691,7 +773,7 @@ export default function KiTutorPage() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-5xl mx-auto px-4 pt-10 pb-20 lg:pt-15 lg:pb-30">
-        {role !== null && (role === "lecturer" ? <LecturerView /> : <StudentView />)}
+        {role !== null && (role === "lecturer" ? <LecturerView /> : <Suspense><StudentView /></Suspense>)}
       </div>
     </ProtectedRoute>
   );

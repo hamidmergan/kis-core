@@ -1499,6 +1499,32 @@ def hybrid_search_chunks(
             kw_pages = sorted(set(r["page_number"] for r in kw_rows))
             logger.info("Hybrid Keyword: {} hits, Seiten: {}", len(kw_rows), kw_pages)
 
+            # 2b) Exact substring fallback (catches proper names / non-German terms)
+            _stop = {"der","die","das","ein","eine","und","oder","ist","hat","war","wer","was","wie","wo",
+                      "mit","von","für","auf","aus","bei","den","dem","des","als","nach","über","vor","bis",
+                      "wenn","dass","aber","auch","noch","nur","doch","sehr","wird","sind","kann","mehr",
+                      "nicht","sich","gibt","diese","einer","einem","einen","welche","welcher","welches"}
+            words = [w for w in query_text.split() if len(w) >= 2 and w.lower() not in _stop]
+            if words:
+                ilike_clauses = " AND ".join(["c.content ILIKE %s"] * len(words))
+                ilike_params = [f"%{w}%" for w in words]
+                cur.execute(
+                    f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
+                            ORDER BY c.id
+                        ) AS rank
+                        FROM ki_tutor_chunks c
+                        JOIN ki_tutor_sources s ON s.id = c.source_id
+                        WHERE s.module_id = %s {source_filter}
+                          AND {ilike_clauses}
+                        LIMIT 20""",
+                    [module_id] + source_param + ilike_params,
+                )
+                ilike_rows = cur.fetchall()
+                if ilike_rows:
+                    ilike_pages = sorted(set(r["page_number"] for r in ilike_rows))
+                    logger.info("Hybrid ILIKE: {} hits, Seiten: {}", len(ilike_rows), ilike_pages)
+                    kw_rows = kw_rows + ilike_rows
+
             # 3) RRF fusion
             scores: dict[int, float] = {}
             for row in vec_rows:
@@ -1554,6 +1580,16 @@ def save_ki_tutor_message(
                     content,
                     json.dumps(source_pages) if source_pages is not None else None,
                 ),
+            )
+        conn.commit()
+
+
+def delete_ki_tutor_messages(module_id: int, user_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM ki_tutor_messages WHERE module_id = %s AND user_id = %s",
+                (module_id, user_id),
             )
         conn.commit()
 

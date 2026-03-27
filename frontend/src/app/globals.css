@@ -27,19 +27,6 @@
   background: rgba(0, 66, 97, 0.25);
 }
 
-/* PDF Search Highlights — CSS Highlight API */
-::highlight(pdf-search) {
-  background-color: rgba(255, 210, 0, 0.55);
-  color: inherit;
-}
-::highlight(pdf-search-active) {
-  background-color: rgba(255, 140, 0, 0.8);
-  color: inherit;
-}
-::highlight(pill-highlight) {
-  background-color: rgba(0, 66, 97, 0.35);
-  color: transparent;
-}
 
 /* ─── Brand tokens ─── */
 :root {

@@ -434,11 +434,26 @@ async def chat(
         # Auffüllen mit restlichen Chunks nach Score
         chunks = diverse_chunks + remaining
 
-    # Build context (max 16000 chars) — Seitenzahl pro Chunk mitgeben
+    # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
+    all_sources_list = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
+    source_id_to_qnum: dict[int, int] = {}
+    source_qmap: list[dict] = []  # [{qnum, uuid, filename}, ...]
+    qnum_counter = 0
+    for chunk in chunks:
+        sid = chunk["source_id"]
+        if sid not in source_id_to_qnum:
+            qnum_counter += 1
+            source_id_to_qnum[sid] = qnum_counter
+            src = all_sources_list.get(sid)
+            if src:
+                source_qmap.append({"qnum": qnum_counter, "uuid": src["uuid"], "filename": src["filename"]})
+
+    # Build context (max 16000 chars) — Quellennummer + Seitenzahl pro Chunk
     context_parts: list[str] = []
     context_len = 0
     for chunk in chunks:
-        part = f"[S. {chunk['page_number']}]\n{chunk['content']}"
+        qn = source_id_to_qnum.get(chunk["source_id"], 1)
+        part = f"[Q{qn}, S. {chunk['page_number']}]\n{chunk['content']}"
         if context_len + len(part) > 16000:
             break
         context_parts.append(part)
@@ -460,13 +475,21 @@ async def chat(
         system_prompt = TUTOR_SYSTEM_RAG
         user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"
 
+    # Build multi-turn messages: system + history + current question
+    messages: list[dict] = [{"role": "system", "content": system_prompt}]
+
+    # Include recent chat history for follow-up questions (skip for popup actions)
+    if not body.source_text:
+        history = db.get_ki_tutor_messages(module["id"], user_id, limit=10)
+        for msg in history:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+
+    messages.append({"role": "user", "content": user_message})
+
     try:
         response = kisski._client.chat.completions.create(
             model=kisski._model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
+            messages=messages,
             temperature=0.2,
             **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
         )
@@ -489,7 +512,7 @@ async def chat(
         # Klickbare Referenz an Antwort anhängen
         answer += f" [S. {body.source_page}]"
     else:
-        # Normaler Chat: Quellen aus RAG-Chunks
+        # Normaler Chat: Quellen aus RAG-Chunks (mit Textsnippet für Highlight)
         all_sources = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
         seen: set[tuple] = set()
         for chunk in chunks:
@@ -498,10 +521,13 @@ async def chat(
                 key = (source["uuid"], chunk["page_number"])
                 if key not in seen:
                     seen.add(key)
+                    # First ~120 chars of chunk as highlight text for pill navigation
+                    snippet = (chunk.get("content") or "")[:120].strip()
                     source_pages.append({
                         "source_uuid": source["uuid"],
                         "filename": source["filename"],
                         "page_number": chunk["page_number"],
+                        "source_text": snippet,
                     })
         source_pages.sort(key=lambda x: x["page_number"])
 
@@ -509,7 +535,7 @@ async def chat(
     db.save_ki_tutor_message(module["id"], user_id, "user", body.question)
     db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages)
 
-    return {"answer": answer, "source_pages": source_pages}
+    return {"answer": answer, "source_pages": source_pages, "source_qmap": source_qmap}
 
 
 @router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/toc")
@@ -812,6 +838,26 @@ def _markdown_fallback(pdf_bytes: bytes) -> dict:
             pages.append(f"## Seite {i}\n\n{text}")
     doc.close()
     return {"markdown": "\n\n---\n\n".join(pages) or "_Kein lesbarer Text gefunden._"}
+
+
+@router.delete("/ki-tutor/modules/{module_uuid}/messages")
+async def delete_messages(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    db.delete_ki_tutor_messages(module["id"], user_id)
+    logger.info("KI Tutor: chat cleared for module {} by user {}", module_uuid, user_id)
+    return {"cleared": True}
 
 
 @router.get("/ki-tutor/modules/{module_uuid}/messages")
