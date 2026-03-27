@@ -344,6 +344,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     mode        TEXT NOT NULL DEFAULT 'glossar',
                     source_uuid TEXT,
                     card_count  INTEGER NOT NULL DEFAULT 0,
+                    status      TEXT NOT NULL DEFAULT 'generating',
                     created_at  TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
@@ -2041,6 +2042,15 @@ def delete_ki_tutor_glossary(source_id: int) -> None:
         conn.commit()
 
 
+def delete_glossary_entry(entry_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_glossary_entries WHERE id = %s RETURNING id", (entry_id,))
+            deleted = cur.fetchone() is not None
+        conn.commit()
+    return deleted
+
+
 # --- KI Tutor: Vocab Progress ---
 
 def record_vocab_progress(glossary_entry_id: int, user_id: int, exercise_type: str, correct: bool) -> None:
@@ -2171,8 +2181,8 @@ def create_exercise_set(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """INSERT INTO ki_tutor_exercise_sets
-                   (module_id, user_id, tool, title, mode, source_uuid, card_count)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                   (module_id, user_id, tool, title, mode, source_uuid, card_count, status)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, 'ready') RETURNING *""",
                 (module_id, user_id, tool, title, mode, source_uuid, len(items)),
             )
             ex_set = dict(cur.fetchone())
@@ -2197,6 +2207,66 @@ def create_exercise_set(
         conn.commit()
     ex_set["items"] = created_items
     return ex_set
+
+
+def create_exercise_set_placeholder(
+    module_id: int, user_id: int, tool: str, title: str,
+    mode: str, source_uuid: str | None,
+) -> dict:
+    """Create a placeholder set with status='generating'. Returns the set."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_exercise_sets
+                   (module_id, user_id, tool, title, mode, source_uuid, card_count, status)
+                   VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating') RETURNING *""",
+                (module_id, user_id, tool, title, mode, source_uuid),
+            )
+            ex_set = dict(cur.fetchone())
+        conn.commit()
+    return ex_set
+
+
+def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
+    """Add items to a placeholder set and mark as ready."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            for i, item in enumerate(items):
+                cur.execute(
+                    """INSERT INTO ki_tutor_exercise_items
+                       (set_id, position, front, back, options, correct_idx,
+                        source_label, page_number, explanation)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        set_id, i,
+                        item["front"], item["back"],
+                        json.dumps(item.get("options")) if item.get("options") else None,
+                        item.get("correct_idx"),
+                        item.get("source_label"),
+                        item.get("page_number"),
+                        item.get("explanation"),
+                    ),
+                )
+            cur.execute(
+                """UPDATE ki_tutor_exercise_sets
+                   SET status = 'ready', title = %s, card_count = %s
+                   WHERE id = %s RETURNING *""",
+                (title, len(items), set_id),
+            )
+            ex_set = dict(cur.fetchone())
+        conn.commit()
+    return ex_set
+
+
+def fail_exercise_set(set_id: int) -> None:
+    """Mark a set as failed."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ki_tutor_exercise_sets SET status = 'failed' WHERE id = %s",
+                (set_id,),
+            )
+        conn.commit()
 
 
 def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> list[dict]:

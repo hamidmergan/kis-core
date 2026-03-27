@@ -1178,6 +1178,137 @@ async def generate_glossary(
         raise HTTPException(status_code=500, detail="Glossar-Generierung fehlgeschlagen")
 
 
+@router.delete("/ki-tutor/modules/{module_uuid}/glossary/{entry_id}")
+async def delete_glossary_entry_endpoint(
+    module_uuid: str,
+    entry_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    if not db.delete_glossary_entry(entry_id):
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    return {"ok": True}
+
+
+# ─── Glossar: Aus Markierung extrahieren ─────────────────────────────────────
+
+_GLOSSARY_EXTRACT_PROMPT = """Du bist ein Fachsprachen-Experte. Analysiere den markierten Text und extrahiere daraus Fachbegriffe für ein Glossar.
+
+Antworte NUR mit einem JSON-Array:
+[
+  {
+    "term_de": "Deutscher Fachbegriff",
+    "term_en": "English translation",
+    "definition": "Kurze Definition auf Deutsch (1-2 Sätze)",
+    "example_sentence": "Beispielsatz mit dem Begriff"
+  }
+]
+
+Regeln:
+- Nur echte Fachbegriffe extrahieren — KEINE allgemeinen Wörter (und, oder, ist, der, die, das, er, sie, es, etc.)
+- Keine Füllwörter, Pronomen, Artikel, Konjunktionen oder Präpositionen
+- Maximal 5 Begriffe pro Markierung
+- Wenn der Text KEINE Fachbegriffe enthält, antworte mit einem leeren Array: []
+- Definition muss präzise und verständlich sein
+- Antworte NUR mit dem JSON-Array"""
+
+
+class GlossaryExtractBody(BaseModel):
+    text: str
+    source_uuid: str
+    page_number: int
+
+
+@router.post("/ki-tutor/modules/{module_uuid}/glossary/extract")
+async def extract_glossary_from_selection(
+    module_uuid: str,
+    body: GlossaryExtractBody,
+    current_user: dict = Depends(get_current_user),
+    kisski=Depends(get_kisski_client),
+):
+    """Extract glossary terms from a PDF text selection."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    # Check glossary limit
+    current_count = db.get_glossary_count(module["id"])
+    if current_count >= GLOSSARY_LIMIT:
+        return {"added": 0, "message": "Glossar voll (150 / 150) — entferne Begriffe um neue hinzuzufügen."}
+
+    # Truncate to 300 chars
+    text = body.text[:300].strip()
+    if not text:
+        return {"added": 0, "message": "Kein Text markiert."}
+
+    # Find the source
+    source = db.get_ki_tutor_source(body.source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail="Quelle nicht gefunden")
+
+    # Get existing terms to avoid duplicates
+    existing = db.get_ki_tutor_glossary_by_module(module["id"])
+    existing_terms = {e["term_de"].lower() for e in existing}
+
+    # Ask LLM to extract terms
+    try:
+        messages = [
+            {"role": "system", "content": _GLOSSARY_EXTRACT_PROMPT},
+            {"role": "user", "content": f"Markierter Text:\n\n{text}"},
+        ]
+        response = kisski._client.chat.completions.create(
+            model=kisski._model, messages=messages, temperature=0.2,
+            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        )
+        answer = response.choices[0].message.content.strip()
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        terms = json.loads(answer)
+        if not isinstance(terms, list):
+            return {"added": 0, "message": "Keine Fachbegriffe erkannt."}
+
+        # Filter duplicates and limit
+        remaining_slots = GLOSSARY_LIMIT - current_count
+        new_entries = []
+        for t in terms[:5]:
+            if not t.get("term_de"):
+                continue
+            if t["term_de"].lower() in existing_terms:
+                continue
+            new_entries.append({
+                "term_de": t["term_de"],
+                "term_en": t.get("term_en", ""),
+                "definition": t.get("definition", ""),
+                "example_sentence": t.get("example_sentence", ""),
+                "page_number": body.page_number,
+            })
+            existing_terms.add(t["term_de"].lower())
+            if len(new_entries) >= remaining_slots:
+                break
+
+        if not new_entries:
+            return {"added": 0, "message": "Keine neuen Fachbegriffe erkannt."}
+
+        db.bulk_create_glossary_entries(source["id"], new_entries)
+        count = len(new_entries)
+        return {
+            "added": count,
+            "message": f"{count} Begriff{'e' if count > 1 else ''} zum Glossar hinzugefügt.",
+            "entries": new_entries,
+        }
+    except (json.JSONDecodeError, ValueError):
+        return {"added": 0, "message": "Keine Fachbegriffe erkannt."}
+    except Exception as e:
+        logger.error("Glossary extract error: {}", e)
+        raise HTTPException(status_code=500, detail="Extraktion fehlgeschlagen")
+
+
 # ─── Mindmap generieren ──────────────────────────────────────────────────────
 
 
@@ -1685,14 +1816,201 @@ class ExerciseProgressBody(BaseModel):
     results: list[dict]  # [{"item_id": int, "correct": bool}]
 
 
+def _generate_exercise_set_bg(set_id: int, module: dict, body_tool: str, body_mode: str, body_count: int, body_source_uuid: str | None, kisski_client):
+    """Background task: generate items for an exercise set."""
+    try:
+        items = []
+        title = "Wird generiert…"
+
+        if body_mode == "glossar":
+            glossary = db.get_ki_tutor_glossary_by_module(module["id"])
+            if not glossary:
+                db.fail_exercise_set(set_id)
+                return
+            import random
+            selected = random.sample(glossary, min(body_count, len(glossary)))
+
+            if body_tool == "lernkarten":
+                items = [
+                    {"front": e["term_de"], "back": f"{e['term_en']} — {e['definition']}",
+                     "source_label": e.get("filename", ""), "page_number": e.get("page_number")}
+                    for e in selected
+                ]
+                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+            elif body_tool == "lueckentext":
+                terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
+                messages = [
+                    {"role": "system", "content": (
+                        "Du erstellst Lückentext-Übungen. Für jeden Begriff erstelle einen Satz "
+                        "mit einer Lücke, die durch den Begriff gefüllt werden muss.\n\n"
+                        "Antworte NUR mit einem JSON-Array:\n"
+                        '[{"sentence": "Der Prozess der ___ reduziert Redundanz.", '
+                        '"answer": "Normalisierung", '
+                        '"options": ["Indexierung", "Normalisierung", "Partitionierung", "Denormalisierung"], '
+                        '"correct_idx": 1, "term_de": "Normalisierung", "page_number": 12}]\n\n'
+                        "Regeln:\n- Genau 4 Optionen pro Frage, eine davon korrekt\n"
+                        "- correct_idx = Index der richtigen Option (0-3)\n"
+                        "- ___ als Lücken-Platzhalter\n- Antworte NUR mit dem JSON-Array"
+                    )},
+                    {"role": "user", "content": f"Erstelle Lückentext-Übungen:\n\n{terms_text}"},
+                ]
+                response = kisski_client._client.chat.completions.create(
+                    model=kisski_client._model, messages=messages, temperature=0.3,
+                    **(kisski_client._extra_body and {"extra_body": kisski_client._extra_body} or {}),
+                )
+                answer = response.choices[0].message.content.strip()
+                if answer.startswith("```"): answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+                exercises = json.loads(answer)
+                items = [
+                    {"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
+                     "correct_idx": ex["correct_idx"],
+                     "source_label": next((e.get("filename", "") for e in selected if e["term_de"] == ex.get("term_de")), ""),
+                     "page_number": ex.get("page_number")}
+                    for ex in exercises
+                ]
+                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+            elif body_tool == "vokabeltest":
+                terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
+                messages = [
+                    {"role": "system", "content": (
+                        "Du erstellst Vokabeltest-Fragen (Multiple Choice).\n\n"
+                        "Antworte NUR mit einem JSON-Array:\n"
+                        '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
+                        '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
+                        '"correct_idx": 1, "explanation": "Normalization ist...", '
+                        '"term_de": "Normalisierung", "page_number": 12}]\n\n'
+                        "Regeln:\n- Mische DE→EN, EN→DE, Definitionsfragen\n"
+                        "- Genau 4 Optionen, eine korrekt\n- correct_idx = 0-3\n"
+                        "- Antworte NUR mit dem JSON-Array"
+                    )},
+                    {"role": "user", "content": f"Erstelle Vokabeltest-Fragen:\n\n{terms_text}"},
+                ]
+                response = kisski_client._client.chat.completions.create(
+                    model=kisski_client._model, messages=messages, temperature=0.3,
+                    **(kisski_client._extra_body and {"extra_body": kisski_client._extra_body} or {}),
+                )
+                answer = response.choices[0].message.content.strip()
+                if answer.startswith("```"): answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+                questions = json.loads(answer)
+                items = [
+                    {"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
+                     "correct_idx": q["correct_idx"], "explanation": q.get("explanation"),
+                     "source_label": next((e.get("filename", "") for e in selected if e["term_de"] == q.get("term_de")), ""),
+                     "page_number": q.get("page_number")}
+                    for q in questions
+                ]
+                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+
+        elif body_mode == "quelle":
+            if not body_source_uuid:
+                db.fail_exercise_set(set_id)
+                return
+            source = db.get_ki_tutor_source(body_source_uuid)
+            if not source:
+                db.fail_exercise_set(set_id)
+                return
+            source_label = source["filename"]
+            summaries = db.get_paragraph_summaries_by_source(source["id"])
+            if summaries:
+                pages: dict[int, list[str]] = {}
+                for s in summaries:
+                    pages.setdefault(s["page_number"], []).append(s["summary"])
+                parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+                context = "\n".join(parts)
+            else:
+                chunks = db.get_chunks_by_source(source["id"])
+                if not chunks:
+                    db.fail_exercise_set(set_id)
+                    return
+                parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:30]]
+                context = "\n".join(parts)
+            if len(context) > 16000:
+                context = context[:16000]
+
+            if body_tool == "lernkarten":
+                prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(body_count))
+                messages = [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": f"Erstelle Lernkarten aus folgender Quelle:\n\n{context}"},
+                ]
+                response = kisski_client._client.chat.completions.create(
+                    model=kisski_client._model, messages=messages, temperature=0.3,
+                    **(kisski_client._extra_body and {"extra_body": kisski_client._extra_body} or {}),
+                )
+                answer = response.choices[0].message.content.strip()
+                if answer.startswith("```"): answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+                data = json.loads(answer)
+                items = [
+                    {"front": c["front"], "back": c["back"],
+                     "source_label": c.get("source_label", source_label), "page_number": c.get("page_number")}
+                    for c in data.get("cards", [])
+                ]
+                title = data.get("title", source_label)
+            else:
+                tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
+                if body_tool == "lueckentext":
+                    tool_prompt += (
+                        "Erstelle Lückentext-Übungen. Antworte NUR mit einem JSON-Array:\n"
+                        '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
+                        '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
+                        '"source_label": "Dateiname", "page_number": 5}]\n'
+                        f"Erstelle genau {body_count} Übungen."
+                    )
+                else:
+                    tool_prompt += (
+                        "Erstelle Multiple-Choice Vokabeltest-Fragen. Antworte NUR mit einem JSON-Array:\n"
+                        '[{"question": "Frage?", "options": ["A", "B", "C", "D"], '
+                        '"correct_idx": 0, "explanation": "Erklärung", '
+                        '"source_label": "Dateiname", "page_number": 5}]\n'
+                        f"Erstelle genau {body_count} Fragen."
+                    )
+                messages = [
+                    {"role": "system", "content": tool_prompt},
+                    {"role": "user", "content": f"Quelle:\n\n{context}"},
+                ]
+                response = kisski_client._client.chat.completions.create(
+                    model=kisski_client._model, messages=messages, temperature=0.3,
+                    **(kisski_client._extra_body and {"extra_body": kisski_client._extra_body} or {}),
+                )
+                answer = response.choices[0].message.content.strip()
+                if answer.startswith("```"): answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+                exercises = json.loads(answer)
+                if body_tool == "lueckentext":
+                    items = [
+                        {"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
+                         "correct_idx": ex["correct_idx"],
+                         "source_label": ex.get("source_label", source_label), "page_number": ex.get("page_number")}
+                        for ex in exercises
+                    ]
+                else:
+                    items = [
+                        {"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
+                         "correct_idx": q["correct_idx"], "explanation": q.get("explanation"),
+                         "source_label": q.get("source_label", source_label), "page_number": q.get("page_number")}
+                        for q in exercises
+                    ]
+                title = source_label
+
+        if not items:
+            db.fail_exercise_set(set_id)
+            return
+
+        db.finalize_exercise_set(set_id, title, items)
+    except Exception as e:
+        logger.error("Background exercise set generation failed for set {}: {}", set_id, e)
+        db.fail_exercise_set(set_id)
+
+
 @router.post("/ki-tutor/modules/{module_uuid}/exercise-sets")
 async def create_exercise_set(
     module_uuid: str,
     body: CreateSetBody,
+    background_tasks: "BackgroundTasks" = None,
     current_user: dict = Depends(get_current_user),
     kisski=Depends(get_kisski_client),
 ):
-    """Create a new exercise set from glossary or a source."""
+    """Create a new exercise set — returns immediately, generates in background."""
+    from fastapi import BackgroundTasks as _BT
     user_id = current_user["user_id"]
     module = db.get_ki_tutor_module(module_uuid)
     if not module:
@@ -1703,248 +2021,25 @@ async def create_exercise_set(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    if body.mode == "glossar":
-        # Generate from glossary entries
-        glossary = db.get_ki_tutor_glossary_by_module(module["id"])
-        if not glossary:
-            raise HTTPException(status_code=400, detail="Kein Glossar vorhanden")
-        import random
-        selected = random.sample(glossary, min(body.count, len(glossary)))
+    if body.mode == "quelle" and not body.source_uuid:
+        raise HTTPException(status_code=400, detail="Keine Quelle angegeben")
 
-        if body.tool == "lernkarten":
-            items = [
-                {
-                    "front": e["term_de"],
-                    "back": f"{e['term_en']} — {e['definition']}",
-                    "source_label": e.get("filename", ""),
-                    "page_number": e.get("page_number"),
-                }
-                for e in selected
-            ]
-            title = f"Lernkarten ({len(items)} Begriffe)"
-        elif body.tool == "lueckentext":
-            # Use LLM to generate cloze sentences from glossary terms
-            terms_text = "\n".join(
-                f"- {e['term_de']} ({e['term_en']}): {e['definition']}"
-                for e in selected
-            )
-            messages = [
-                {"role": "system", "content": (
-                    "Du erstellst Lückentext-Übungen. Für jeden Begriff erstelle einen Satz "
-                    "mit einer Lücke, die durch den Begriff gefüllt werden muss.\n\n"
-                    "Antworte NUR mit einem JSON-Array:\n"
-                    '[{"sentence": "Der Prozess der ___ reduziert Redundanz.", '
-                    '"answer": "Normalisierung", '
-                    '"options": ["Indexierung", "Normalisierung", "Partitionierung", "Denormalisierung"], '
-                    '"correct_idx": 1, '
-                    '"term_de": "Normalisierung", '
-                    '"page_number": 12}]\n\n'
-                    "Regeln:\n"
-                    "- Genau 4 Optionen pro Frage, eine davon korrekt\n"
-                    "- correct_idx = Index der richtigen Option (0-3)\n"
-                    "- Sätze auf Deutsch, klar und verständlich\n"
-                    "- ___ als Lücken-Platzhalter im Satz\n"
-                    "- Antworte NUR mit dem JSON-Array"
-                )},
-                {"role": "user", "content": f"Erstelle Lückentext-Übungen für diese Begriffe:\n\n{terms_text}"},
-            ]
-            response = kisski._client.chat.completions.create(
-                model=kisski._model, messages=messages, temperature=0.3,
-                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
-            )
-            answer = response.choices[0].message.content.strip()
-            if answer.startswith("```"):
-                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-            exercises = json.loads(answer)
-            items = [
-                {
-                    "front": ex["sentence"],
-                    "back": ex["answer"],
-                    "options": ex["options"],
-                    "correct_idx": ex["correct_idx"],
-                    "source_label": next((e.get("filename", "") for e in selected if e["term_de"] == ex.get("term_de")), ""),
-                    "page_number": ex.get("page_number"),
-                }
-                for ex in exercises
-            ]
-            title = f"Lückentext ({len(items)} Aufgaben)"
-        elif body.tool == "vokabeltest":
-            # Use LLM to generate vocab MC questions
-            terms_text = "\n".join(
-                f"- {e['term_de']} ({e['term_en']}): {e['definition']}"
-                for e in selected
-            )
-            messages = [
-                {"role": "system", "content": (
-                    "Du erstellst Vokabeltest-Fragen (Multiple Choice). "
-                    "Für jeden Begriff erstelle eine Frage mit 4 Optionen.\n\n"
-                    "Antworte NUR mit einem JSON-Array:\n"
-                    '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
-                    '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
-                    '"correct_idx": 1, '
-                    '"explanation": "Normalization ist der Prozess...", '
-                    '"term_de": "Normalisierung", '
-                    '"page_number": 12}]\n\n'
-                    "Regeln:\n"
-                    "- Mische verschiedene Fragetypen: DE→EN, EN→DE, Definitions-Fragen\n"
-                    "- Genau 4 Optionen, eine korrekt\n"
-                    "- correct_idx = Index der richtigen Option (0-3)\n"
-                    "- Kurze Erklärung pro Frage\n"
-                    "- Antworte NUR mit dem JSON-Array"
-                )},
-                {"role": "user", "content": f"Erstelle Vokabeltest-Fragen für diese Begriffe:\n\n{terms_text}"},
-            ]
-            response = kisski._client.chat.completions.create(
-                model=kisski._model, messages=messages, temperature=0.3,
-                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
-            )
-            answer = response.choices[0].message.content.strip()
-            if answer.startswith("```"):
-                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-            questions = json.loads(answer)
-            items = [
-                {
-                    "front": q["question"],
-                    "back": q["options"][q["correct_idx"]],
-                    "options": q["options"],
-                    "correct_idx": q["correct_idx"],
-                    "explanation": q.get("explanation"),
-                    "source_label": next((e.get("filename", "") for e in selected if e["term_de"] == q.get("term_de")), ""),
-                    "page_number": q.get("page_number"),
-                }
-                for q in questions
-            ]
-            title = f"Vokabeltest ({len(items)} Fragen)"
-        else:
-            raise HTTPException(status_code=400, detail="Unbekannter Tool-Typ")
-
-    elif body.mode == "quelle":
-        # Generate from source content (uses dedicated endpoints logic)
-        if not body.source_uuid:
-            raise HTTPException(status_code=400, detail="Keine Quelle angegeben")
-        source = db.get_ki_tutor_source(body.source_uuid)
-        if not source:
-            raise HTTPException(status_code=404, detail="Quelle nicht gefunden")
-
-        # Build context from source
-        source_label = source["filename"]
-        summaries = db.get_paragraph_summaries_by_source(source["id"])
-        if summaries:
-            pages: dict[int, list[str]] = {}
-            for s in summaries:
-                pages.setdefault(s["page_number"], []).append(s["summary"])
-            parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
-            context = "\n".join(parts)
-        else:
-            chunks = db.get_chunks_by_source(source["id"])
-            if not chunks:
-                raise HTTPException(status_code=400, detail="Keine Inhalte in dieser Quelle")
-            parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:30]]
-            context = "\n".join(parts)
-        if len(context) > 16000:
-            context = context[:16000]
-
-        if body.tool == "lernkarten":
-            prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(body.count))
-            messages = [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": f"Erstelle Lernkarten aus folgender Quelle:\n\n{context}"},
-            ]
-            response = kisski._client.chat.completions.create(
-                model=kisski._model, messages=messages, temperature=0.3,
-                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
-            )
-            answer = response.choices[0].message.content.strip()
-            if answer.startswith("```"):
-                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-            data = json.loads(answer)
-            items = [
-                {
-                    "front": c["front"],
-                    "back": c["back"],
-                    "source_label": c.get("source_label", source_label),
-                    "page_number": c.get("page_number"),
-                }
-                for c in data.get("cards", [])
-            ]
-            title = data.get("title", f"Lernkarten aus {source_label}")
-        else:
-            # Cloze / Vocab from source — use same LLM prompts as glossar mode
-            # but with source context instead of glossary terms
-            tool_prompt = (
-                "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
-            )
-            if body.tool == "lueckentext":
-                tool_prompt += (
-                    "Erstelle Lückentext-Übungen. Antworte NUR mit einem JSON-Array:\n"
-                    '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
-                    '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
-                    '"source_label": "Dateiname", "page_number": 5}]\n'
-                    f"Erstelle genau {body.count} Übungen."
-                )
-            else:
-                tool_prompt += (
-                    "Erstelle Multiple-Choice Vokabeltest-Fragen. Antworte NUR mit einem JSON-Array:\n"
-                    '[{"question": "Frage?", "options": ["A", "B", "C", "D"], '
-                    '"correct_idx": 0, "explanation": "Erklärung", '
-                    '"source_label": "Dateiname", "page_number": 5}]\n'
-                    f"Erstelle genau {body.count} Fragen."
-                )
-            messages = [
-                {"role": "system", "content": tool_prompt},
-                {"role": "user", "content": f"Quelle:\n\n{context}"},
-            ]
-            response = kisski._client.chat.completions.create(
-                model=kisski._model, messages=messages, temperature=0.3,
-                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
-            )
-            answer = response.choices[0].message.content.strip()
-            if answer.startswith("```"):
-                answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-            exercises = json.loads(answer)
-            if body.tool == "lueckentext":
-                items = [
-                    {
-                        "front": ex["sentence"],
-                        "back": ex["answer"],
-                        "options": ex["options"],
-                        "correct_idx": ex["correct_idx"],
-                        "source_label": ex.get("source_label", source_label),
-                        "page_number": ex.get("page_number"),
-                    }
-                    for ex in exercises
-                ]
-                title = f"Lückentext aus {source_label}"
-            else:
-                items = [
-                    {
-                        "front": q["question"],
-                        "back": q["options"][q["correct_idx"]],
-                        "options": q["options"],
-                        "correct_idx": q["correct_idx"],
-                        "explanation": q.get("explanation"),
-                        "source_label": q.get("source_label", source_label),
-                        "page_number": q.get("page_number"),
-                    }
-                    for q in exercises
-                ]
-                title = f"Vokabeltest aus {source_label}"
-    else:
-        raise HTTPException(status_code=400, detail="Unbekannter Modus")
-
-    if not items:
-        raise HTTPException(status_code=500, detail="Keine Übungen generiert")
-
-    ex_set = db.create_exercise_set(
+    # Create placeholder immediately
+    placeholder = db.create_exercise_set_placeholder(
         module_id=module["id"], user_id=user_id, tool=body.tool,
-        title=title, mode=body.mode, source_uuid=body.source_uuid,
-        items=items,
+        title="Wird generiert…", mode=body.mode, source_uuid=body.source_uuid,
     )
 
-    # Update streak
-    db.update_streak(module["id"], user_id)
+    # Run generation in background thread
+    import threading
+    thread = threading.Thread(
+        target=_generate_exercise_set_bg,
+        args=(placeholder["id"], module, body.tool, body.mode, body.count, body.source_uuid, kisski),
+        daemon=True,
+    )
+    thread.start()
 
-    return {"set": ex_set}
+    return {"set": placeholder}
 
 
 @router.get("/ki-tutor/modules/{module_uuid}/exercise-sets")

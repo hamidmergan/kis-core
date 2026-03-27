@@ -59,6 +59,9 @@ class UpdateSettingsRequest(BaseModel):
     # OCR
     kisski_ocr_enabled: bool | None = None
     mylab_ocr_enabled: bool | None = None
+    # LLM Chat
+    kisski_llm_enabled: bool | None = None
+    mylab_llm_enabled: bool | None = None
 
 
 class ToggleToolRequest(BaseModel):
@@ -291,6 +294,12 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_ocr_enabled": _enabled("mylab_ocr_enabled", "false"),
         "mylab_ocr_configured": mylab_base_configured,
         "mylab_ocr_available": mylab_base_available,
+        # ── LLM Chat ──
+        "kisski_llm_enabled": _enabled("kisski_llm_enabled"),
+        "kisski_llm_configured": kisski_configured,
+        "mylab_llm_enabled": _enabled("mylab_llm_enabled", "false"),
+        "mylab_llm_configured": mylab_base_configured,
+        "mylab_llm_available": mylab_base_available,
     }
 
 
@@ -340,6 +349,11 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("kisski_ocr_enabled", "true" if body.kisski_ocr_enabled else "false")
     if body.mylab_ocr_enabled is not None:
         db.set_setting("mylab_ocr_enabled", "true" if body.mylab_ocr_enabled else "false")
+    # LLM Chat
+    if body.kisski_llm_enabled is not None:
+        db.set_setting("kisski_llm_enabled", "true" if body.kisski_llm_enabled else "false")
+    if body.mylab_llm_enabled is not None:
+        db.set_setting("mylab_llm_enabled", "true" if body.mylab_llm_enabled else "false")
     return {"ok": True}
 
 

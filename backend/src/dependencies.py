@@ -55,15 +55,39 @@ def get_session_store():
     )
 
 
-def get_kisski_client() -> KisskiClient:
+def _resolve_llm_provider() -> tuple[str, str, str, str]:
+    """Resolve LLM provider based on admin toggles → (api_key, base_url, model, provider_name).
+
+    Priority: KISSKI (if enabled) → THL myLab (if enabled) → env-based fallback.
+    """
+    from src import database as db
     settings = get_settings()
-    if not settings.effective_llm_api_key:
-        raise HTTPException(status_code=500, detail="KISSKI API Key nicht konfiguriert")
+
+    kisski_enabled = db.get_setting("kisski_llm_enabled", "true").lower() == "true"
+    mylab_enabled = db.get_setting("mylab_llm_enabled", "false").lower() == "true"
+
+    # KISSKI — primary
+    if kisski_enabled and settings.kisski_api_key:
+        return settings.kisski_api_key, settings.kisski_base_url, settings.kisski_model, "kisski"
+
+    # THL myLab — fallback
+    mylab_url = settings.mylab_base_url or settings.mylab_tts_base_url
+    if mylab_enabled and mylab_url:
+        return "ignored", f"{mylab_url.rstrip('/')}/v1", settings.mylab_llm_model, "thl"
+
+    # env-based fallback (ollama / kisski)
+    return settings.effective_llm_api_key, settings.effective_llm_base_url, settings.effective_llm_model, settings.llm_provider
+
+
+def get_kisski_client() -> KisskiClient:
+    api_key, base_url, model, provider = _resolve_llm_provider()
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Kein LLM-Provider konfiguriert")
     return KisskiClient(
-        api_key=settings.effective_llm_api_key,
-        base_url=settings.effective_llm_base_url,
-        model=settings.effective_llm_model,
-        provider=settings.llm_provider,
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        provider=provider,
     )
 
 

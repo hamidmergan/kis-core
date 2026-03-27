@@ -502,11 +502,11 @@ function ModuleCard({
 
           <Link
             href={`/ki-tutor/${module.uuid}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white shrink-0 transition-colors hover:opacity-90"
-            style={{ backgroundColor: "#004261" }}
+            className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium shrink-0 transition-colors hover:opacity-90 border-2"
+            style={{ backgroundColor: "white", color: "#004261", borderColor: "#004261" }}
           >
             Öffnen
-            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 8h10M9 4l4 4-4 4" />
             </svg>
           </Link>

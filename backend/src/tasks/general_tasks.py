@@ -17,11 +17,11 @@ from src.utils.heartbeat import job_heartbeat
 
 def _get_kisski_client():
     from src.services.kisski_client import KisskiClient
-    from src.config import Settings
-    s = Settings()
-    if not s.effective_llm_api_key:
-        raise RuntimeError("KISSKI API Key nicht konfiguriert")
-    return KisskiClient(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, model=s.effective_llm_model, provider=s.llm_provider)
+    from src.dependencies import _resolve_llm_provider
+    api_key, base_url, model, provider = _resolve_llm_provider()
+    if not api_key:
+        raise RuntimeError("Kein LLM-Provider konfiguriert")
+    return KisskiClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
 
 
 def _kisski_http_client(extra_headers: dict | None = None, timeout: float = 120.0):
@@ -61,7 +61,7 @@ def run_translate(
         from src.services.translation import TranslationService
 
         settings = Settings()
-        effective_provider = translation_provider or settings.translation_provider
+        effective_provider = translation_provider or "deepl"
 
         # Parse glossary entries from JSON
         glossary_entries: dict = {}
@@ -75,12 +75,14 @@ def run_translate(
 
         if effective_provider == "llm":
             from src.services.llm_translation_client import LLMTranslationClient
+            from src.dependencies import _resolve_llm_provider
+            _api_key, _base_url, _model, _provider = _resolve_llm_provider()
             # LLM gets glossary directly in the prompt for context-aware translation
             translation_client = LLMTranslationClient(
-                api_key=settings.effective_llm_api_key,
-                base_url=settings.effective_llm_base_url,
-                model=settings.effective_llm_model,
-                provider=settings.llm_provider,
+                api_key=_api_key,
+                base_url=_base_url,
+                model=_model,
+                provider=_provider,
                 glossary=glossary_entries or None,
             )
             glossary = GlossaryService()  # empty — LLM handles glossary via prompt

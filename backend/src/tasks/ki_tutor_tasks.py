@@ -266,14 +266,14 @@ def run_generate_summaries(self, source_uuid: str):
 
         # 3. Build LLM client
         from langfuse.openai import OpenAI
-        from src.config import Settings
-        s = Settings()
-        client = OpenAI(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, max_retries=0, timeout=90)
-        model = s.effective_llm_model
-        is_small = s.llm_provider == "ollama"
+        from src.dependencies import _resolve_llm_provider
+        _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+        client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=90)
+        model = _model
+        is_small = _provider == "ollama"
         extra_body = {}
         langfuse_context.update_current_observation(
-            metadata={"provider": s.llm_provider, "base_url": s.effective_llm_base_url, "model": model},
+            metadata={"provider": _provider, "base_url": _base_url, "model": model},
         )
 
         # 4. Generate summaries
@@ -383,12 +383,12 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         # 2. Call LLM
         from langfuse.openai import OpenAI
-        from src.config import Settings
-        s = Settings()
-        client = OpenAI(api_key=s.effective_llm_api_key, base_url=s.effective_llm_base_url, max_retries=0, timeout=240)
-        model = s.effective_llm_model
+        from src.dependencies import _resolve_llm_provider
+        _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+        client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=240)
+        model = _model
         langfuse_context.update_current_observation(
-            metadata={"provider": s.llm_provider, "base_url": s.effective_llm_base_url, "model": model},
+            metadata={"provider": _provider, "base_url": _base_url, "model": model},
         )
 
         messages = [

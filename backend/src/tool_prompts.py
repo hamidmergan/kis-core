@@ -277,7 +277,7 @@ TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [
     },
     {
         "key": "simplify",
-        "label": "Vereinfachen",
+        "label": "Erklären",
         "icon": "Lightbulb",
         "prompt": "Erkläre diese Textstelle auf einem einfachen Sprachniveau (B1-Niveau). Nutze kurze Sätze, einfache Wörter und vermeide komplizierte Fachausdrücke soweit möglich:",
         "min_words": 3,

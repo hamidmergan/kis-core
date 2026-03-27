@@ -79,6 +79,12 @@ registerIcons({
     fill: "primary",
     stroke: "none",
   },
+  "ph-book": {
+    viewBox: "0 0 256 256",
+    path: "M208,24H72A32,32,0,0,0,40,56V224a8,8,0,0,0,8,8H192a8,8,0,0,0,0-16H56a16,16,0,0,1,16-16H208a8,8,0,0,0,8-8V32A8,8,0,0,0,208,24Zm-8,168H72a31.82,31.82,0,0,0-16,4.29V56A16,16,0,0,1,72,40H200Z",
+    fill: "primary",
+    stroke: "none",
+  },
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -228,6 +234,7 @@ interface ExerciseSet {
   mode: string;
   source_uuid?: string;
   card_count: number;
+  status?: string;
   created_at: string;
   progress_pct?: number;
   items?: ExerciseItem[];
@@ -334,7 +341,7 @@ const EMBEDPDF_ICON_MAP: Record<string, string> = {
 
 
 function PdfViewer({
-  source, onClose, moduleUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize,
+  source, onClose, moduleUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary,
 }: {
   source: ViewerState;
   onClose: () => void;
@@ -343,6 +350,7 @@ function PdfViewer({
   onCustomQuestion?: (selectedText: string) => void;
   popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
   onMinimize?: () => void;
+  onAddToGlossary?: (text: string, sourceUuid: string, page: number) => void;
 }) {
   const [page, setPage] = useState(source.page);
   const [showAnnotations, setShowAnnotations] = useState(false);
@@ -364,6 +372,8 @@ function PdfViewer({
   onAskWithSelectionRef.current = onAskWithSelection;
   const onCustomQuestionRef = useRef(onCustomQuestion);
   onCustomQuestionRef.current = onCustomQuestion;
+  const onAddToGlossaryRef = useRef(onAddToGlossary);
+  onAddToGlossaryRef.current = onAddToGlossary;
   const popupActionsRef = useRef(popupActions);
   popupActionsRef.current = popupActions;
 
@@ -417,41 +427,73 @@ function PdfViewer({
   }, [showAnnotations, summariesLoaded, moduleUuid, source.uuid]);
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
+  const pendingHighlightRef = useRef<{ page: number; text: string } | null>(null);
+
+  function doHighlightSearch(reg: unknown, page: number, text: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = reg as any;
+    const scroll = r.getPlugin?.("scroll")?.provides?.();
+    const search = r.getPlugin?.("search")?.provides?.();
+    scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant" });
+    if (!search) return;
+    search.stopSearch?.();
+
+    // Strip parenthetical abbreviations, quotes, and special chars that LLM adds
+    const cleanText = text
+      .replace(/\s*\([^)]*\)/g, "")
+      .replace(/[„""«»‹›""'']/g, "")
+      .replace(/^["']|["']$/g, "")
+      .trim();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const goToFirstOnPage = (results: any[], p: number) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pageOf = (rr: any) => rr.pageIndex != null ? rr.pageIndex + 1 : (rr.pageNumber ?? 1);
+      const exact = results.findIndex(rr => pageOf(rr) === p);
+      search.goToResult?.(exact >= 0 ? exact : 0);
+    };
+
+    const doSearch = (q: string): Promise<boolean> => {
+      search.stopSearch?.();
+      const task = search.searchAllPages?.(q);
+      const promise: Promise<unknown> = task?.toPromise?.() ?? Promise.resolve(null);
+      return promise.then((result: unknown) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const results: any[] = Array.isArray(result) ? result : ((result as any)?.results ?? []);
+        if (results.length > 0) { goToFirstOnPage(results, page); return true; }
+        return false;
+      });
+    };
+
+    const query = cleanText || text;
+    doSearch(query).then((found) => {
+      if (found) return;
+      // Fallback: first 2 words (handles hyphenated line breaks in PDFs)
+      const words = query.split(/\s+/);
+      if (words.length > 2) return doSearch(words.slice(0, 2).join(" "));
+      if (words.length > 1) return doSearch(words[0]);
+    }).catch(() => { /* ignore */ });
+  }
+
   useEffect(() => {
     if (source.nonce == null) return;
     const reg = registryRef.current;
-    if (!reg) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const scroll = reg.getPlugin?.("scroll")?.provides?.() as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const search = reg.getPlugin?.("search")?.provides?.() as any;
+    if (!reg) {
+      // Viewer not ready yet — save for later
+      if (source.highlightText) {
+        pendingHighlightRef.current = { page: source.page, text: source.highlightText };
+      }
+      return;
+    }
 
-    // Always scroll immediately for instant feedback
-    scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
-
-    if (!source.highlightText || !search) return;
-
-    // Use EmbedPDF's built-in search to highlight the text (default yellow)
-    const task = search.searchAllPages?.(source.highlightText);
-    const promise: Promise<unknown> = task?.toPromise?.() ?? Promise.resolve(null);
-    promise.then((result: unknown) => {
+    if (source.highlightText) {
+      doHighlightSearch(reg, source.page, source.highlightText);
+    } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const results: any[] = Array.isArray(result) ? result : ((result as any)?.results ?? []);
-      if (!results.length) return;
-
-      // Prefer first match on the exact target page, fall back to nearest page after
-      const targetIdx = (() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pageOf = (r: any) => r.pageIndex != null ? r.pageIndex + 1 : (r.pageNumber ?? 1);
-        const exact = results.findIndex(r => pageOf(r) === source.page);
-        if (exact >= 0) return exact;
-        const after = results.findIndex(r => pageOf(r) >= source.page);
-        return after >= 0 ? after : 0;
-      })();
-
-      search.goToResult?.(targetIdx);
-    }).catch(() => { /* ignore — scroll already happened */ });
+      const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
+      scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
+    }
   }, [source.nonce, source.page, source.highlightText]);
 
   const handleReady = useCallback((registry: unknown) => {
@@ -492,6 +534,12 @@ function PdfViewer({
       const unsub = scroll.onLayoutReady?.(() => {
         const p = sourcePageRef.current;
         if (p > 1) scroll.scrollToPage({ pageNumber: p, behavior: "instant" });
+        // Run pending highlight search after layout is ready
+        const pending = pendingHighlightRef.current;
+        if (pending) {
+          pendingHighlightRef.current = null;
+          doHighlightSearch(registry, pending.page, pending.text);
+        }
         unsub?.();
       });
     }
@@ -578,6 +626,37 @@ function PdfViewer({
       },
     });
 
+    // Register glossary extract command
+    commands.registerCommand({
+      id: "kis.add-to-glossary",
+      label: "Zum Glossar",
+      description: "Fachbegriffe zum Glossar hinzufügen",
+      icon: "ph-book",
+      iconProps: { title: "Zum Glossar hinzufügen" },
+      categories: ["kis-actions"],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      visible: ({ state, documentId }: any) => {
+        const doc = state?.plugins?.selection?.documents?.[documentId];
+        if (!doc?.slices) return true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
+        return totalChars > 0;
+      },
+      action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sel = (r as any).getPlugin?.("selection")?.provides?.();
+        if (!sel) return;
+        const textTask = sel.getSelectedText?.(documentId);
+        const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
+        promise.then((lines: string[]) => {
+          const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
+          const bRects: Array<{ page: number }> = sel.getBoundingRects?.(documentId) ?? [];
+          const selPage = bRects.length > 0 ? bRects[0].page + 1 : 1;
+          onAddToGlossaryRef.current?.(text, sourceRef.current.uuid, selPage);
+        }).catch(() => { /* ignore */ });
+      },
+    });
+
     // Register summary toggle command (opens EmbedPDF sidebar like comments)
     commands.registerCommand({
       id: "kis.toggle-summaries",
@@ -614,6 +693,7 @@ function PdfViewer({
           items: [
             ...existingSelItems,
             { type: "divider", id: "kis-custom-divider", categories: ["kis-actions"] },
+            { type: "command-button", id: "kis.add-to-glossary", commandId: "kis.add-to-glossary", variant: "icon", categories: ["kis-actions"] },
             { type: "command-button", id: "kis.custom-question", commandId: "kis.custom-question", variant: "icon", categories: ["kis-actions"] },
             ...(actions?.length ? [
               { type: "divider", id: "kis-divider", categories: ["kis-actions"] },
@@ -1388,7 +1468,7 @@ function SubviewHeader({ title, onBack }: { title: string; onBack: () => void })
       >
         <CaretLeft size={13} />
       </button>
-      <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{title}</span>
+      <span className="text-base font-bold" style={{ color: "var(--text)" }}>{title}</span>
     </div>
   );
 }
@@ -1424,49 +1504,56 @@ function ExerciseSetsOverview({
               <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{sets.length} Sets</span>
               <span className="text-[10px]" style={{ color: "var(--muted)" }}>{sets.reduce((s, e) => s + e.card_count, 0)} Karten</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
               {sets.map((s) => {
+                const generating = s.status === "generating";
+                const failed = s.status === "failed";
                 const pct = s.progress_pct ?? 0;
-                const offset = circumference * (1 - pct / 100);
                 return (
-                  <div key={s.id} onClick={() => onSelect(s)}
-                    className="bg-white rounded-xl p-3 flex flex-col gap-1.5 cursor-pointer transition-all hover:shadow-md relative overflow-hidden group"
-                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)" }}>
-                    <div className="absolute top-0 left-0 right-0 h-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundColor: "#004261" }} />
+                  <div key={s.id} onClick={() => !generating && !failed && onSelect(s)}
+                    className={`bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group transition-opacity ${generating ? "opacity-70" : "cursor-pointer hover:opacity-80"}`}
+                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 143 }}>
+                    {/* Title + count */}
                     <div className="flex items-start justify-between gap-1.5">
-                      <span className="text-[11px] font-semibold leading-snug flex-1" style={{ color: "var(--text)" }}>{s.title}</span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
-                        style={{ backgroundColor: "rgba(0,66,97,0.07)", color: "#004261" }}>{s.card_count}</span>
+                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
+                        {generating ? "Wird generiert…" : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest)\s*(aus|von)\s*/i, "")}
+                      </span>
+                      {generating ? (
+                        <ArrowsCounterClockwise size={14} className="animate-spin shrink-0" style={{ color: "#004261" }} />
+                      ) : (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                          style={{ backgroundColor: "rgba(0,66,97,0.07)", color: "#004261" }}>{s.card_count}</span>
+                      )}
                     </div>
-                    <span className="text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md w-fit"
-                      style={s.mode === "glossar"
-                        ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
-                        : { color: "#534AB7", backgroundColor: "rgba(83,74,183,0.08)" }}>
-                      {s.mode === "glossar" ? "Glossar" : "Quelle"}
-                    </span>
-                    <span className="text-[9px]" style={{ color: "var(--muted)" }}>
-                      {new Date(s.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}
-                    </span>
-                    <div className="flex items-center justify-between mt-auto">
-                      <div className="flex gap-0.5 flex-wrap flex-1" />
-                      <div className="relative shrink-0" style={{ width: 30, height: 30 }}>
-                        <svg viewBox="0 0 30 30" style={{ transform: "rotate(-90deg)", width: 30, height: 30 }}>
-                          <circle cx="15" cy="15" r="11.5" fill="none" stroke="var(--border)" strokeWidth="3" />
-                          <circle cx="15" cy="15" r="11.5" fill="none"
+                    {/* Mode badge */}
+                    {s.mode === "glossar" && (
+                      <span className="text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md w-fit"
+                        style={{ color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }}>
+                        Glossar
+                      </span>
+                    )}
+                    {/* Bottom row: progress left, date center, delete right */}
+                    {!generating && <div className="flex items-center justify-between mt-auto pt-2">
+                      <div className="relative shrink-0" style={{ width: 36, height: 36 }}>
+                        <svg viewBox="0 0 36 36" style={{ transform: "rotate(-90deg)", width: 36, height: 36 }}>
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="var(--border)" strokeWidth="3" />
+                          <circle cx="18" cy="18" r="14" fill="none"
                             stroke={pct >= 100 ? "#1a8a5c" : "#004261"} strokeWidth="3" strokeLinecap="round"
-                            strokeDasharray={circumference} strokeDashoffset={offset}
+                            strokeDasharray={Math.PI * 2 * 14} strokeDashoffset={Math.PI * 2 * 14 * (1 - pct / 100)}
                             style={{ transition: "stroke-dashoffset 1s ease" }} />
                         </svg>
-                        <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold"
+                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold"
                           style={{ color: pct >= 100 ? "#1a8a5c" : "var(--text-secondary)" }}>{pct}%</span>
                       </div>
-                    </div>
-                    {/* Delete on hover */}
-                    <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
-                      className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
-                      style={{ backgroundColor: "var(--border)" }}>
-                      <Trash size={10} color="var(--text)" />
-                    </button>
+                      <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                        {new Date(s.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short" })}
+                      </span>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
+                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                        style={{ backgroundColor: "var(--border)" }}>
+                        <Trash size={12} color="var(--text)" />
+                      </button>
+                    </div>}
                   </div>
                 );
               })}
@@ -1698,16 +1785,15 @@ function MCExerciseView({
     setResults(newResults);
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
+  }
 
-    // Auto-advance after delay
-    setTimeout(() => {
-      if (index >= total - 1) {
-        onComplete(newResults);
-      } else {
-        setIndex((i) => i + 1);
-        setSelected(null);
-      }
-    }, 1200);
+  function advance() {
+    if (index >= total - 1) {
+      onComplete(results);
+    } else {
+      setIndex((i) => i + 1);
+      setSelected(null);
+    }
   }
 
   if (!card) return null;
@@ -1743,28 +1829,28 @@ function MCExerciseView({
       </div>
       {/* Question Card */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto w-full" style={{ maxWidth: 480 }}>
-          <div className="rounded-xl p-4 flex flex-col gap-3" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
-            <span className="text-[9px] font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+        <div className="mx-auto w-full" style={{ maxWidth: 560 }}>
+          <div className="rounded-2xl p-6 flex flex-col gap-4" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
+            <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
               Frage {index + 1} von {total}
             </span>
             {/* Question text */}
             {tool === "lueckentext" ? (
-              <p className="text-[13px] leading-relaxed" style={{ color: "var(--text)" }}
+              <p className="text-base leading-relaxed" style={{ color: "var(--text)" }}
                 dangerouslySetInnerHTML={{
                   __html: card.front.replace(
                     /___+/g,
                     answered
-                      ? `<span style="font-weight:600;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 3px">${card.back}</span>`
-                      : '<span style="display:inline-block;min-width:60px;border-bottom:2px dashed #004261;color:#004261;font-weight:600;padding:0 3px">___________</span>'
+                      ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${card.back}</span>`
+                      : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed #004261;color:#004261;font-weight:700;padding:0 4px">___________</span>'
                   ),
                 }}
               />
             ) : (
-              <p className="text-[13px] font-semibold leading-snug" style={{ color: "var(--text)" }}>{card.front}</p>
+              <p className="text-base font-semibold leading-snug" style={{ color: "var(--text)" }}>{card.front}</p>
             )}
             {/* Options */}
-            <div className="flex flex-col gap-1.5 mt-1">
+            <div className="flex flex-col gap-2 mt-1">
               {options.map((opt, oi) => {
                 const isThis = selected === oi;
                 const isRight = oi === card.correct_idx;
@@ -1777,9 +1863,9 @@ function MCExerciseView({
                 return (
                   <button key={oi} type="button" onClick={() => select(oi)}
                     disabled={answered}
-                    className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all"
-                    style={{ border: `1.5px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.5 : 1 }}>
-                    <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
+                    className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
+                    style={{ border: `1.5px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}>
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                       style={{ backgroundColor: dotBg, color: dotColor }}>
                       {String.fromCharCode(65 + oi)}
                     </span>
@@ -1790,7 +1876,7 @@ function MCExerciseView({
             </div>
             {/* Feedback */}
             {answered && (
-              <div className="text-[10px] font-medium px-3 py-2 rounded-lg"
+              <div className="text-sm font-medium px-4 py-2.5 rounded-xl"
                 style={isCorrect
                   ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
                   : { color: "#d4453a", backgroundColor: "rgba(212,69,58,0.07)" }}>
@@ -1799,7 +1885,7 @@ function MCExerciseView({
             )}
             {/* Explanation (Vokabeltest) */}
             {answered && tool === "vokabeltest" && card.explanation && (
-              <div className="text-[10px] leading-relaxed p-2.5 rounded-lg"
+              <div className="text-sm leading-relaxed p-4 rounded-xl"
                 style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)", borderLeft: "3px solid #004261" }}>
                 {card.explanation}
               </div>
@@ -1807,19 +1893,26 @@ function MCExerciseView({
             {/* Source chip */}
             {card.source_label && (
               <div className="mt-1">
-                <span className="inline-flex items-center gap-1 text-[9px] font-medium px-2 py-0.5 rounded-full"
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full"
                   style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
-                  <FilePdf size={9} weight="bold" /> {card.source_label}{card.page_number ? `, S. ${card.page_number}` : ""}
+                  <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number ? `, S. ${card.page_number}` : ""}
                 </span>
               </div>
             )}
-            {/* Chat button */}
+            {/* Action row: Chat + Weiter */}
             {answered && (
-              <button type="button" onClick={() => onAskChat(`Erkläre mir: „${tool === "lueckentext" ? card.back : card.front}"`)}
-                className="self-end flex items-center gap-1 text-[9px] font-medium px-2.5 py-1 rounded-full transition-all hover:opacity-80"
-                style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
-                <Chat size={10} weight="bold" /> Erkläre mir das
-              </button>
+              <div className="flex items-center justify-between mt-2">
+                <button type="button" onClick={() => onAskChat(`Erkläre mir: „${tool === "lueckentext" ? card.back : card.front}"`)}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80"
+                  style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
+                  <Chat size={13} weight="bold" /> Erkläre mir das
+                </button>
+                <button type="button" onClick={advance}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold text-white transition-all hover:opacity-90"
+                  style={{ backgroundColor: "#004261" }}>
+                  {index >= total - 1 ? "Abschließen" : "Weiter"} <CaretRight size={14} weight="bold" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -2346,16 +2439,25 @@ function NotizenStudio({
 // ─── Sprachtraining: Glossar ──────────────────────────────────────────────────
 
 function GlossarView({
-  entries, loading, onGenerate, onBack,
+  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete,
 }: {
-  entries: GlossaryEntry[]; loading: boolean;
+  entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
   onGenerate: () => void; onBack: () => void;
+  onOpenSource?: (page: number, highlightText?: string) => void;
+  onDelete?: (id: number) => void;
 }) {
   return (
     <div className="flex flex-col h-full">
       <SubviewHeader title="Glossar" onBack={onBack} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
+          {extracting && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
+              style={{ backgroundColor: "rgba(0,66,97,0.06)", color: "#004261" }}>
+              <ArrowsCounterClockwise size={13} weight="bold" className="animate-spin" />
+              Begriffe werden aus Markierung extrahiert…
+            </div>
+          )}
           <button
             type="button"
             onClick={onGenerate}
@@ -2387,8 +2489,8 @@ function GlossarView({
           {entries.map((entry) => (
             <div
               key={entry.id}
-              className="rounded-xl p-4 flex flex-col gap-2"
-              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+              className="rounded-xl p-4 flex flex-col gap-2 relative group select-text"
+              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", userSelect: "text" }}
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -2396,9 +2498,11 @@ function GlossarView({
                   <span className="text-xs font-medium ml-2" style={{ color: "#004261" }}>{entry.term_en}</span>
                 </div>
                 {entry.page_number && (
-                  <span className="text-[10px] font-medium flex-shrink-0 px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}>
-                    S. {entry.page_number}
-                  </span>
+                  <button type="button" onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
+                    className="inline-flex items-center gap-1 text-[10px] font-medium shrink-0 px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity cursor-pointer"
+                    style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}>
+                    <FilePdf size={9} weight="bold" /> S. {entry.page_number}
+                  </button>
                 )}
               </div>
               <p className="text-xs leading-relaxed" style={{ color: "var(--text)", opacity: 0.8 }}>
@@ -2409,6 +2513,13 @@ function GlossarView({
                   „{entry.example_sentence}"
                 </p>
               )}
+              <div className="flex justify-end mt-1">
+                <button type="button" onClick={() => onDelete?.(entry.id)}
+                  className="w-5 h-5 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                  style={{ backgroundColor: "var(--border)" }}>
+                  <Trash size={10} color="var(--text)" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -2610,21 +2721,20 @@ function LueckentextView({
 
   function handleSelect(optIdx: number) {
     if (answers[current] !== undefined) return;
-    const newAnswers = { ...answers, [current]: optIdx };
-    setAnswers(newAnswers);
+    setAnswers({ ...answers, [current]: optIdx });
+  }
 
-    // Auto-advance after short delay
+  function handleAdvance() {
     if (current + 1 < total) {
-      setTimeout(() => setCurrent(current + 1), 1200);
+      setCurrent(current + 1);
     } else {
-      setTimeout(() => {
-        setFinished(true);
-        const results = exercises.map((e, i) => ({
-          glossary_entry_id: e.glossary_entry_id,
-          correct: e.options[newAnswers[i]] === e.answer,
-        }));
-        onFinish(results);
-      }, 1200);
+      setFinished(true);
+      const finalAnswers = { ...answers };
+      const results = exercises.map((e, i) => ({
+        glossary_entry_id: e.glossary_entry_id,
+        correct: e.options[finalAnswers[i]] === e.answer,
+      }));
+      onFinish(results);
     }
   }
 
@@ -2735,6 +2845,13 @@ function LueckentextView({
                       : <><XIcon size={12} weight="bold" /> Die richtige Antwort ist: {ex.answer}</>}
                   </p>
                 )}
+                {answers[current] !== undefined && (
+                  <button type="button" onClick={handleAdvance}
+                    className="mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
+                    style={{ backgroundColor: "#004261" }}>
+                    {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -2762,20 +2879,20 @@ function VokabeltestView({
 
   function handleSelect(optIdx: number) {
     if (answers[current] !== undefined) return;
-    const newAnswers = { ...answers, [current]: optIdx };
-    setAnswers(newAnswers);
+    setAnswers({ ...answers, [current]: optIdx });
+  }
 
+  function handleAdvance() {
     if (current + 1 < total) {
-      setTimeout(() => setCurrent(current + 1), 1500);
+      setCurrent(current + 1);
     } else {
-      setTimeout(() => {
-        setFinished(true);
-        const results = questions.map((qq, i) => ({
-          glossary_entry_id: qq.glossary_entry_id,
-          correct: newAnswers[i] === qq.correct_index,
-        }));
-        onFinish(results);
-      }, 1500);
+      setFinished(true);
+      const finalAnswers = { ...answers };
+      const results = questions.map((qq, i) => ({
+        glossary_entry_id: qq.glossary_entry_id,
+        correct: finalAnswers[i] === qq.correct_index,
+      }));
+      onFinish(results);
     }
   }
 
@@ -2880,6 +2997,13 @@ function VokabeltestView({
                   <p className="text-[11px] mt-3 leading-relaxed p-2 rounded-lg" style={{ backgroundColor: "rgba(0,66,97,0.05)", color: "#004261" }}>
                     {q.explanation}
                   </p>
+                )}
+                {answers[current] !== undefined && (
+                  <button type="button" onClick={handleAdvance}
+                    className="mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
+                    style={{ backgroundColor: "#004261" }}>
+                    {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
+                  </button>
                 )}
               </div>
             </>
@@ -3238,7 +3362,7 @@ export default function KiTutorModulePage() {
   const panelsRef = useRef(panels);
   panelsRef.current = panels;
 
-  const MIN_PANEL = 160;
+  const MIN_PANEL = 50;
   const MOBILE_BREAKPOINT = 768;
 
   const [sources, setSources] = useState<Source[]>([]);
@@ -3627,6 +3751,32 @@ export default function KiTutorModulePage() {
     sendChatMessage(prompt, true, sourceInfo);
   }
 
+  // ─── Glossary Extract State ──────────────────────────────────────────────
+  const [glossaryExtracting, setGlossaryExtracting] = useState(false);
+
+  async function handleAddToGlossary(text: string, sourceUuid: string, page: number) {
+    // Navigate to Glossar view and show extracting state
+    setSprachView("glossar");
+    setSprachtrainingActive(true);
+    setGlossaryExtracting(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary/extract`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, source_uuid: sourceUuid, page_number: page }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.added > 0) {
+          loadGlossary();
+          loadGlossaryCount();
+        }
+      }
+    } catch { /* ignore */ } finally {
+      setGlossaryExtracting(false);
+    }
+  }
+
   function handleCustomQuestion(selectedText: string) {
     if (isMobile) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
@@ -3793,6 +3943,16 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ }
   }
 
+  async function deleteGlossaryEntry(entryId: number) {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/glossary/${entryId}`, {
+        method: "DELETE", credentials: "include",
+      });
+      setGlossary((prev) => prev.filter((e) => e.id !== entryId));
+      loadGlossaryCount();
+    } catch { /* ignore */ }
+  }
+
   async function generateGlossary() {
     if (sprachActiveIds.length === 0) return;
     setGlossaryLoading(true);
@@ -3897,7 +4057,6 @@ export default function KiTutorModulePage() {
   }
 
   async function createExerciseSet(tool: string, mode: string, count: number, sourceUuid?: string) {
-    setSetCreating(true);
     try {
       const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets`, {
         method: "POST", credentials: "include",
@@ -3906,13 +4065,11 @@ export default function KiTutorModulePage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setActiveSet(data.set);
+        // Immediately add placeholder to sets list and start polling
         loadExerciseSets(tool);
         return data.set as ExerciseSet;
       }
-    } catch { /* ignore */ } finally {
-      setSetCreating(false);
-    }
+    } catch { /* ignore */ }
     return null;
   }
 
@@ -3975,8 +4132,14 @@ export default function KiTutorModulePage() {
           <GlossarView
             entries={glossary}
             loading={glossaryLoading}
+            extracting={glossaryExtracting}
             onGenerate={generateGlossary}
             onBack={() => setSprachView("overview")}
+            onOpenSource={(page, highlightText) => {
+              const src = sources.find((s) => selectedSourceIds.includes(s.uuid));
+              if (src) handleOpenViewer(src, page, highlightText);
+            }}
+            onDelete={deleteGlossaryEntry}
           />
         );
       case "karteikarten":
@@ -4361,7 +4524,7 @@ export default function KiTutorModulePage() {
             >
               {activeTab === "quellen" ? (
                 viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onMinimize={() => setActiveTab("chat")} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => setActiveTab("chat")} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -4443,7 +4606,7 @@ export default function KiTutorModulePage() {
                 {!panels.quellen ? (
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onMinimize={() => togglePanel("quellen")} />
+                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => togglePanel("quellen")} />
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -4576,16 +4739,18 @@ export default function KiTutorModulePage() {
           creating={setCreating}
           onClose={() => setShowCreateModal(false)}
           onCreate={async (mode, count) => {
-            const newSet = await createExerciseSet(
+            setShowCreateModal(false);
+            // Navigate to sets view immediately
+            const setsView = `${createSetTool === "lernkarten" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-sets` as SprachtrainingView;
+            setSprachView(setsView);
+            // Create set (returns placeholder immediately)
+            await createExerciseSet(
               createSetTool, mode, count,
               mode === "quelle" ? selectedSourceIds[0] : undefined,
             );
-            setShowCreateModal(false);
-            if (newSet) {
-              setActiveSet(newSet);
-              const learnView = `${createSetTool === "lernkarten" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-learn` as SprachtrainingView;
-              setSprachView(learnView);
-            }
+            // Poll for completion
+            const poll = setInterval(() => loadExerciseSets(createSetTool), 3000);
+            setTimeout(() => clearInterval(poll), 120000); // stop after 2min
           }}
         />
       )}

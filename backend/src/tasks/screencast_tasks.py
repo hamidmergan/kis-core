@@ -512,15 +512,15 @@ def run_screencast_auto(
         # Generate scripts via KISSKI
         db.update_job_status(job_uuid, "running", progress={"step": "scripts", "total": len(slide_texts)})
         from src.services.kisski_client import KisskiClient
-        from src.config import Settings
-        _s = Settings()
-        if not _s.effective_llm_api_key:
-            raise RuntimeError("KISSKI API Key nicht konfiguriert")
+        from src.dependencies import _resolve_llm_provider
+        _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+        if not _api_key:
+            raise RuntimeError("Kein LLM-Provider konfiguriert")
         kisski_client = KisskiClient(
-            api_key=_s.effective_llm_api_key,
-            base_url=_s.effective_llm_base_url,
-            model=_s.effective_llm_model,
-            provider=_s.llm_provider,
+            api_key=_api_key,
+            base_url=_base_url,
+            model=_model,
+            provider=_provider,
         )
 
         glossary_dict = None

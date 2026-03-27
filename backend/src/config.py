@@ -3,9 +3,6 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Translation
-    source_lang: str = "DE"
-    target_lang: str = "EN-US"
-    translation_provider: str = "deepl"  # "deepl" oder "llm"
     translation_languages: str = "DE,EN-US,FR,ES,IT"
 
     # API Keys (stored in .env)
@@ -18,10 +15,13 @@ class Settings(BaseSettings):
     tutor_embedding_provider: str = "kisski"
     ollama_embedding_model: str = "nomic-embed-text"
 
-    # LLM Provider: "kisski" oder "ollama"
+    # LLM Provider: "kisski", "thl" oder "ollama"
     llm_provider: str = "kisski"
     ollama_base_url: str = "http://ollama:11434/v1"
     ollama_model: str = "qwen3:30b-a3b"
+
+    # THL myLab LLM — nutzt mylab_base_url + /v1
+    mylab_llm_model: str = "chat-default"
 
     # Fish Speech TTS (lokaler TTS-Server) — leer = deaktiviert
     fish_speech_base_url: str = ""
@@ -64,13 +64,6 @@ class Settings(BaseSettings):
     ldap_use_ssl: bool = False
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
-
-    @property
-    def effective_target_lang(self) -> str:
-        raw = self.target_lang.strip().upper()
-        if raw == "EN":
-            return "EN-US"
-        return raw
 
     @property
     def effective_llm_api_key(self) -> str:

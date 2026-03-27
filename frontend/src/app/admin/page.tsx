@@ -797,7 +797,7 @@ function GeneralSettingsSection() {
   };
 
   const toggle = (key: string, val: boolean) => {
-    setS((prev) => ({ ...prev, [`${key}_enabled`]: val }));
+    setS((prev) => ({ ...prev, [key]: val }));
     patch({ [key]: val });
   };
 
@@ -882,6 +882,12 @@ function GeneralSettingsSection() {
       <ProviderSection title="OCR (Texterkennung)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
         <P label="KISSKI (Docling)" settingKey="kisski_ocr_enabled" enabled={s.kisski_ocr_enabled ?? true} configured={s.kisski_ocr_configured ?? false} envHint="KISSKI_API_KEY" />
         <P label="THL myLab (Nanonets OCR2 3B)" settingKey="mylab_ocr_enabled" enabled={s.mylab_ocr_enabled ?? false} configured={s.mylab_ocr_configured ?? false} available={s.mylab_ocr_available} envHint="MYLAB_BASE_URL" />
+      </ProviderSection>
+
+      {/* LLM Chat */}
+      <ProviderSection title="LLM Chat" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+        <P label="KISSKI (Mistral / Qwen)" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" />
+        <P label="THL myLab (GPT OSS 120B)" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" />
       </ProviderSection>
     </div>
   );
