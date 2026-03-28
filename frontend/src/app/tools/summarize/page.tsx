@@ -136,8 +136,8 @@ export default function ZusammenfassungPage() {
             onDragLeave={() => setDragActive(false)}
             className={[
               "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261]",
-              dragActive ? "border-[#004261] bg-blue-50" : selectedFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-gray-400",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+              dragActive ? "border-primary bg-blue-50" : selectedFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-gray-400",
               processing ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
             ].join(" ")}
           >
@@ -153,7 +153,7 @@ export default function ZusammenfassungPage() {
               <>
                 <p className="text-sm font-medium text-gray-500">
                   Datei hierher ziehen oder{" "}
-                  <span className="text-[#004261] underline">durchsuchen</span>
+                  <span className="text-primary underline">durchsuchen</span>
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   {ACCEPTED_EXTENSIONS.join(", ")}
@@ -178,10 +178,10 @@ export default function ZusammenfassungPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!selectedFile || processing}
-                className="self-start px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="self-start px-5 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {processing && (
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
                 )}
                 {processing ? "Wird verarbeitet…" : "Zusammenfassung erstellen"}
               </button>
@@ -209,7 +209,7 @@ export default function ZusammenfassungPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={handleDownload}
-                    className="px-4 py-2 bg-[#004261] text-white text-sm rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors flex items-center gap-2"
                   >
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -218,7 +218,7 @@ export default function ZusammenfassungPage() {
                   </button>
                   <button
                     onClick={handleReset}
-                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
+                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
                   >
                     Neue Datei
                   </button>

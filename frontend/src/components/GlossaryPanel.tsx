@@ -64,7 +64,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
               onChange={(e) => setNewSource(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="z.B. Technische Hochschule"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#004261] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
           <div className="flex-1">
@@ -78,13 +78,13 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
               onChange={(e) => setNewTarget(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="z.B. University of Applied Sciences"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#004261] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
           <button
             onClick={handleAddEntry}
             disabled={!newSource.trim() || !newTarget.trim()}
-            className="px-4 py-2 bg-[#004261] text-white text-sm rounded-md hover:bg-[#003a56] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors whitespace-nowrap"
+            className="px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors whitespace-nowrap"
           >
             Hinzufügen
           </button>
@@ -126,9 +126,9 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
                     <button
                       onClick={() => handleRemoveEntry(index)}
                       aria-label={`${entry.source} entfernen`}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-100 transition-colors"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>

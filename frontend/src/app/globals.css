@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary: #004261;
+  --color-primary-hover: #003a56;
+  --color-primary-60: #668DA0;
+  --color-primary-20: #CCD9DF;
+  --color-secondary: #ffffff;
+}
+
 /* PDF Text Layer — undo Tailwind Preflight damage */
 .react-pdf__Page canvas {
   display: block;
@@ -30,9 +38,12 @@
 
 /* ─── Brand tokens ─── */
 :root {
-  --kb:   #004261;
-  --kb60: #668DA0;
-  --kb20: #CCD9DF;
+  --kb:       #004261;
+  --kb-rgb:   0, 66, 97;
+  --kb-dark:  #003350;
+  --kb-darker:#00293d;
+  --kb60:     #668DA0;
+  --kb20:     #CCD9DF;
 
   --bg:      #ffffff;
   --surface: #F3F4F6;

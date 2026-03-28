@@ -112,11 +112,11 @@ TUTOR_SYSTEM_RAG = (
     "erkenne verwandte Konzepte und erkläre den Zusammenhang. "
     "Wenn in den Quellen Kontaktdaten (E-Mail, Telefon, Adresse, Webseite) zu einer gefragten Person oder Organisation stehen, gib diese mit an. "
     "Erfinde aber NIEMALS Fakten, Definitionen oder Bedeutungen, die nicht aus den Quellen ableitbar sind. "
-    "Erwähne NUR Seiten, die direkt relevante Informationen zur Frage enthalten. "
-    "Füge KEINE Hinweise, Disclaimers oder Kommentare zu irrelevanten Seiten hinzu. "
-    "Jede Quelle ist mit [QN, S. X] gekennzeichnet (N = Quellennummer, X = Seitenzahl). "
-    "Füge nach jedem Satz oder Abschnitt die Quellenangabe im EXAKT gleichen Format ein: [Q1, S. 3] [Q2, S. 7]. "
-    "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S."
+    "Erwähne NUR Seiten/Zeitstempel, die direkt relevante Informationen zur Frage enthalten. "
+    "Füge KEINE Hinweise, Disclaimers oder Kommentare zu irrelevanten Stellen hinzu. "
+    "Quellen sind gekennzeichnet als [QN, S. X] (Dokument: Quelle N, Seite X) oder [QN, MM:SS] (Audio/Video: Quelle N, Zeitstempel). "
+    "Füge nach jedem Satz oder Abschnitt die Quellenangabe im EXAKT gleichen Format ein: [Q1, S. 3] oder [Q1, 05:32]. "
+    "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S bzw. dem Zeitstempel."
 )
 
 
@@ -249,6 +249,117 @@ TUTOR_DATENTABELLE_PROMPT = (
     "- Der Titel soll den Tabelleninhalt kurz beschreiben\n"
     "- Halte Zellenwerte prägnant aber informativ\n"
     "- Nur Informationen aus dem gegebenen Text verwenden\n"
+    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+)
+
+
+TUTOR_PRESENTATION_PROMPT = (
+    "Du bist ein Experte für Präsentationserstellung. Erstelle eine professionelle Folienpräsentation aus dem gegebenen Quellmaterial.\n\n"
+    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "{\n"
+    '  "title": "Präsentationstitel",\n'
+    '  "slides": [\n'
+    "    {\n"
+    '      "layout": "title",\n'
+    '      "title": "Haupttitel der Präsentation",\n'
+    '      "subtitle": "Untertitel oder Kurzbeschreibung"\n'
+    "    },\n"
+    "    {\n"
+    '      "layout": "content",\n'
+    '      "title": "Folientitel",\n'
+    '      "bullets": ["Punkt 1", "Punkt 2", "Punkt 3"],\n'
+    '      "notes": "Sprechernotizen für diese Folie"\n'
+    "    },\n"
+    "    {\n"
+    '      "layout": "two_columns",\n'
+    '      "title": "Vergleich oder Gegenüberstellung",\n'
+    '      "left_title": "Links",\n'
+    '      "left_bullets": ["Punkt A", "Punkt B"],\n'
+    '      "right_title": "Rechts",\n'
+    '      "right_bullets": ["Punkt X", "Punkt Y"],\n'
+    '      "notes": "Sprechernotizen"\n'
+    "    },\n"
+    "    {\n"
+    '      "layout": "section",\n'
+    '      "title": "Neuer Abschnitt"\n'
+    "    },\n"
+    "    {\n"
+    '      "layout": "summary",\n'
+    '      "title": "Zusammenfassung",\n'
+    '      "bullets": ["Kernaussage 1", "Kernaussage 2", "Kernaussage 3"]\n'
+    "    }\n"
+    "  ]\n"
+    "}\n\n"
+    "Verfügbare Layouts:\n"
+    "- 'title': Titelfolie mit title + subtitle (nur 1x am Anfang)\n"
+    "- 'content': Standardfolie mit title + bullets (3-6 Punkte, je max 15 Wörter)\n"
+    "- 'two_columns': Zwei-Spalten-Folie für Vergleiche (je 2-4 Punkte pro Spalte)\n"
+    "- 'section': Abschnittstrennfolie mit nur einem Titel\n"
+    "- 'summary': Abschlussfolie mit Kernaussagen (nur 1x am Ende)\n\n"
+    "Regeln:\n"
+    "- Erstelle {slide_count} Folien (inklusive Titel- und Abschlussfolie)\n"
+    "- Beginne mit einer 'title'-Folie, ende mit einer 'summary'-Folie\n"
+    "- Nutze 'section'-Folien um größere Themenwechsel zu markieren\n"
+    "- Bullet Points: Kurz und prägnant, max 15 Wörter pro Punkt\n"
+    "- Mische die Layouts für visuelle Abwechslung (nicht nur 'content')\n"
+    "- Sprechernotizen: 1-2 Sätze die den Inhalt der Folie erklären (für den Vortragenden)\n"
+    "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
+    "- Der Titel soll das Kernthema der Quelle widerspiegeln\n"
+    "- Sprache der Folien = Sprache der Quelle\n"
+    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+)
+
+
+TUTOR_INFOGRAPHIC_PROMPT = (
+    "Du bist ein Experte für Informationsdesign und Datenvisualisierung. "
+    "Erstelle eine strukturierte Infografik mit Sektionen UND passenden Illustrations-Prompts.\n\n"
+    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "{\n"
+    '  "title": "Titel der Infografik",\n'
+    '  "subtitle": "Optionaler Untertitel",\n'
+    '  "hero_prompt": "English image prompt for the header illustration, no text, no labels, no words, flat vector style",\n'
+    '  "sections": [\n'
+    "    {\n"
+    '      "type": "stats",\n'
+    '      "heading": "Überschrift",\n'
+    '      "illustration_prompt": "English prompt for a small icon-style illustration, no text, no labels, flat design",\n'
+    '      "items": [\n'
+    '        { "label": "Bezeichnung", "value": "42%", "description": "Kurze Erklärung" }\n'
+    "      ]\n"
+    "    },\n"
+    "    {\n"
+    '      "type": "list",\n'
+    '      "heading": "Kernpunkte",\n'
+    '      "illustration_prompt": "English prompt for illustration, no text, no words, icon style",\n'
+    '      "items": [\n'
+    '        { "label": "Punkt 1", "description": "Erklärung" }\n'
+    "      ]\n"
+    "    },\n"
+    "    {\n"
+    '      "type": "process",\n'
+    '      "heading": "Ablauf",\n'
+    '      "illustration_prompt": "English prompt, no text, flat design",\n'
+    '      "items": [\n'
+    '        { "label": "Schritt 1", "description": "Was passiert" }\n'
+    "      ]\n"
+    "    }\n"
+    "  ]\n"
+    "}\n\n"
+    "Verfügbare Sektionstypen: 'stats', 'list', 'process', 'comparison', 'quote'\n\n"
+    "WICHTIG für illustration_prompt und hero_prompt:\n"
+    "- Immer auf ENGLISCH\n"
+    "- NIEMALS Text, Wörter, Buchstaben oder Labels im Bild beschreiben\n"
+    "- Immer enden mit: 'no text, no words, no labels, no letters, flat vector illustration, clean white background'\n"
+    "- Beschreibe nur visuelle Elemente: Objekte, Szenen, Icons, Symbole, Farben\n"
+    "- hero_prompt: Breitere Szene passend zum Gesamtthema (z.B. 'university campus with diverse students, books, laptops')\n"
+    "- illustration_prompt: Kleines Icon/Symbol passend zur Sektion (z.B. 'graduation cap with upward arrow')\n\n"
+    "Regeln für Sektionen:\n"
+    "- 3-5 Sektionen, passende Typen zum Inhalt mischen\n"
+    "- Stats: Nur bei echten Zahlen/Prozenten im Text\n"
+    "- Process: Nur bei klarem Ablauf\n"
+    "- Labels: max 5 Wörter, Descriptions: max 15 Wörter\n"
+    "- Nur Informationen aus dem Text, keine Halluzinationen\n"
+    "- Sprache der Texte = Sprache der Quelle\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )
 

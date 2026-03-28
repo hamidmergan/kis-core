@@ -209,6 +209,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE ki_tutor_sources ADD COLUMN IF NOT EXISTS summaries_status TEXT NOT NULL DEFAULT 'none'
             """)
+            # Migration: add duration column for audio/video sources
+            cur.execute("""
+                ALTER TABLE ki_tutor_sources ADD COLUMN IF NOT EXISTS duration REAL
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_chunks (
                     id          SERIAL PRIMARY KEY,
@@ -225,6 +229,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ALTER TABLE ki_tutor_chunks
                     ALTER COLUMN embedding TYPE vector
                     USING embedding::vector
+            """)
+            # Migration: add start_time/end_time for audio/video chunks
+            cur.execute("""
+                ALTER TABLE ki_tutor_chunks ADD COLUMN IF NOT EXISTS start_time REAL
+            """)
+            cur.execute("""
+                ALTER TABLE ki_tutor_chunks ADD COLUMN IF NOT EXISTS end_time REAL
             """)
             # Hybrid Search: tsvector column for BM25-style keyword search
             cur.execute("""
@@ -260,6 +271,57 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     source_ids  JSONB NOT NULL,
                     status      TEXT NOT NULL DEFAULT 'pending',
                     mindmap     JSONB,
+                    error       TEXT,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_presentations (
+                    id          SERIAL PRIMARY KEY,
+                    module_id   INTEGER NOT NULL
+                                  REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id     INTEGER NOT NULL,
+                    source_id   INTEGER NOT NULL
+                                  REFERENCES ki_tutor_sources(id) ON DELETE CASCADE,
+                    status      TEXT NOT NULL DEFAULT 'pending',
+                    title       TEXT,
+                    slides      JSONB,
+                    pptx_path   TEXT,
+                    presenton_id TEXT,
+                    error       TEXT,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("ALTER TABLE ki_tutor_presentations ADD COLUMN IF NOT EXISTS presenton_id TEXT")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_infographics (
+                    id          SERIAL PRIMARY KEY,
+                    module_id   INTEGER NOT NULL
+                                  REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id     INTEGER NOT NULL,
+                    source_ids  JSONB NOT NULL,
+                    style       TEXT NOT NULL DEFAULT 'professional',
+                    status      TEXT NOT NULL DEFAULT 'pending',
+                    title       TEXT,
+                    image_data  TEXT,
+                    error       TEXT,
+                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_datentabellen (
+                    id          SERIAL PRIMARY KEY,
+                    module_id   INTEGER NOT NULL
+                                  REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    user_id     INTEGER NOT NULL,
+                    source_ids  JSONB NOT NULL,
+                    status      TEXT NOT NULL DEFAULT 'pending',
+                    title       TEXT,
+                    table_data  JSONB,
+                    sources     JSONB,
                     error       TEXT,
                     created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
                     updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
@@ -400,6 +462,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_exercise_progress_set_user
                 ON ki_tutor_exercise_progress(set_id, user_id)
             """)
+            # Migration: add status column if table existed before
+            cur.execute("ALTER TABLE ki_tutor_exercise_sets ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ready'")
         conn.commit()
 
     # Backfill tsvector for existing chunks (separate transaction)
@@ -1523,6 +1587,7 @@ def update_ki_tutor_source_status(
     chunk_count: int | None = None,
     embedding_model: str | None = None,
     error_message: str | None = None,
+    duration: float | None = None,
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -1531,9 +1596,10 @@ def update_ki_tutor_source_status(
                    SET status = %s,
                        chunk_count = COALESCE(%s, chunk_count),
                        embedding_model = COALESCE(%s, embedding_model),
-                       error_message = COALESCE(%s, error_message)
+                       error_message = COALESCE(%s, error_message),
+                       duration = COALESCE(%s, duration)
                    WHERE uuid = %s""",
-                (status, chunk_count, embedding_model, error_message, uuid),
+                (status, chunk_count, embedding_model, error_message, duration, uuid),
             )
         conn.commit()
 
@@ -1559,15 +1625,20 @@ def delete_ki_tutor_source(uuid: str) -> None:
 # --- KI Tutor: Chunks ---
 
 def create_ki_tutor_chunk(
-    source_id: int, page_number: int, content: str
+    source_id: int,
+    page_number: int,
+    content: str,
+    start_time: float | None = None,
+    end_time: float | None = None,
 ) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO ki_tutor_chunks (source_id, page_number, content, search_vector)
-                   VALUES (%s, %s, %s, to_tsvector('german', %s))
+                """INSERT INTO ki_tutor_chunks
+                   (source_id, page_number, content, search_vector, start_time, end_time)
+                   VALUES (%s, %s, %s, to_tsvector('german', %s), %s, %s)
                    RETURNING id""",
-                (source_id, page_number, content, content),
+                (source_id, page_number, content, content, start_time, end_time),
             )
             chunk_id = cur.fetchone()[0]
         conn.commit()
@@ -1600,6 +1671,7 @@ def search_similar_chunks(
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 f"""SELECT c.id, c.source_id, c.page_number, c.content,
+                           c.start_time, c.end_time,
                            c.embedding <=> %s::vector AS distance
                     FROM ki_tutor_chunks c
                     JOIN ki_tutor_sources s ON s.id = c.source_id
@@ -1707,7 +1779,7 @@ def hybrid_search_chunks(
             # Fetch full chunk data for top results
             top_ids = sorted(scores, key=lambda i: scores[i], reverse=True)[:limit]
             cur.execute(
-                """SELECT id, source_id, page_number, content
+                """SELECT id, source_id, page_number, content, start_time, end_time
                    FROM ki_tutor_chunks WHERE id = ANY(%s)""",
                 (top_ids,),
             )
@@ -1959,6 +2031,275 @@ def get_latest_ki_tutor_mindmap(module_id: int, user_id: int) -> dict | None:
             )
             row = cur.fetchone()
     return dict(row) if row else None
+
+
+def get_all_ki_tutor_mindmaps(module_id: int, user_id: int) -> list[dict]:
+    """Get all successful mindmaps for a module/user, newest first."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT id, status, created_at, mindmap
+                   FROM ki_tutor_mindmaps
+                   WHERE module_id = %s AND user_id = %s AND status = 'success'
+                   ORDER BY created_at DESC""",
+                (module_id, user_id),
+            )
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_ki_tutor_mindmap(mindmap_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_mindmaps WHERE id = %s", (mindmap_id,))
+        conn.commit()
+
+
+# --- KI Tutor: Presentations ---
+
+def create_ki_tutor_presentation(module_id: int, user_id: int, source_id: int) -> int:
+    """Create a pending presentation record, return its id."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_presentations (module_id, user_id, source_id, status)
+                   VALUES (%s, %s, %s, 'pending') RETURNING id""",
+                (module_id, user_id, source_id),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return row[0]
+
+
+def update_ki_tutor_presentation(
+    presentation_id: int,
+    status: str,
+    title: str | None = None,
+    slides: list | None = None,
+    pptx_path: str | None = None,
+    presenton_id: str | None = None,
+    error: str | None = None,
+) -> None:
+    import json as _json
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_presentations
+                   SET status = %s, title = %s, slides = %s, pptx_path = %s,
+                       presenton_id = %s, error = %s, updated_at = NOW()
+                   WHERE id = %s""",
+                (status, title, _json.dumps(slides) if slides else None, pptx_path,
+                 presenton_id, error, presentation_id),
+            )
+        conn.commit()
+
+
+def get_ki_tutor_presentation(presentation_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_presentations WHERE id = %s", (presentation_id,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_latest_ki_tutor_presentation(module_id: int, user_id: int, source_id: int) -> dict | None:
+    """Get the most recent presentation for a module/user/source."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM ki_tutor_presentations
+                   WHERE module_id = %s AND user_id = %s AND source_id = %s
+                   ORDER BY created_at DESC LIMIT 1""",
+                (module_id, user_id, source_id),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_ki_tutor_presentations_by_module(module_id: int, user_id: int) -> list[dict]:
+    """Get all presentations for a module/user."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT p.*, s.filename as source_filename
+                   FROM ki_tutor_presentations p
+                   JOIN ki_tutor_sources s ON s.id = p.source_id
+                   WHERE p.module_id = %s AND p.user_id = %s
+                   ORDER BY p.created_at DESC""",
+                (module_id, user_id),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def delete_ki_tutor_presentation(presentation_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_presentations WHERE id = %s", (presentation_id,))
+        conn.commit()
+
+
+# --- KI Tutor: Infographics ---
+
+def create_ki_tutor_infographic(module_id: int, user_id: int, source_ids: list[int], style: str = "professional") -> int:
+    """Create a pending infographic record, return its id."""
+    import json as _json
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_infographics (module_id, user_id, source_ids, style, status)
+                   VALUES (%s, %s, %s, %s, 'pending') RETURNING id""",
+                (module_id, user_id, _json.dumps(source_ids), style),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return row[0]
+
+
+def update_ki_tutor_infographic(
+    infographic_id: int,
+    status: str,
+    title: str | None = None,
+    image_data: str | None = None,
+    error: str | None = None,
+) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_infographics
+                   SET status = %s, title = %s, image_data = %s, error = %s, updated_at = NOW()
+                   WHERE id = %s""",
+                (status, title, image_data, error, infographic_id),
+            )
+        conn.commit()
+
+
+def get_ki_tutor_infographic(infographic_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_infographics WHERE id = %s", (infographic_id,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_latest_ki_tutor_infographic(module_id: int, user_id: int) -> dict | None:
+    """Get the most recent infographic for a module/user."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM ki_tutor_infographics
+                   WHERE module_id = %s AND user_id = %s
+                   ORDER BY created_at DESC LIMIT 1""",
+                (module_id, user_id),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_ki_tutor_infographics_by_module(module_id: int, user_id: int) -> list[dict]:
+    """Get all successful infographics for a module/user (without image_data for listing)."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT id, status, title, style, created_at
+                   FROM ki_tutor_infographics
+                   WHERE module_id = %s AND user_id = %s AND status = 'success'
+                   ORDER BY created_at DESC""",
+                (module_id, user_id),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def delete_ki_tutor_infographic(infographic_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_infographics WHERE id = %s", (infographic_id,))
+        conn.commit()
+
+
+# --- KI Tutor: Datentabellen ---
+
+def create_ki_tutor_datentabelle(module_id: int, user_id: int, source_ids: list[int]) -> int:
+    """Create a pending datentabelle record, return its id."""
+    import json as _json
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_datentabellen (module_id, user_id, source_ids, status)
+                   VALUES (%s, %s, %s, 'pending') RETURNING id""",
+                (module_id, user_id, _json.dumps(source_ids)),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return row[0]
+
+
+def update_ki_tutor_datentabelle(
+    datentabelle_id: int,
+    status: str,
+    title: str | None = None,
+    table_data: dict | None = None,
+    sources: list | None = None,
+    error: str | None = None,
+) -> None:
+    import json as _json
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_datentabellen
+                   SET status = %s, title = %s, table_data = %s, sources = %s, error = %s, updated_at = NOW()
+                   WHERE id = %s""",
+                (status, title,
+                 _json.dumps(table_data) if table_data else None,
+                 _json.dumps(sources) if sources else None,
+                 error, datentabelle_id),
+            )
+        conn.commit()
+
+
+def get_ki_tutor_datentabelle(datentabelle_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_datentabellen WHERE id = %s", (datentabelle_id,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_latest_ki_tutor_datentabelle(module_id: int, user_id: int) -> dict | None:
+    """Get the most recent datentabelle for a module/user."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM ki_tutor_datentabellen
+                   WHERE module_id = %s AND user_id = %s
+                   ORDER BY created_at DESC LIMIT 1""",
+                (module_id, user_id),
+            )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_ki_tutor_datentabellen_by_module(module_id: int, user_id: int) -> list[dict]:
+    """Get all successful datentabellen for a module/user (without table_data for listing)."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT id, status, title, sources, created_at
+                   FROM ki_tutor_datentabellen
+                   WHERE module_id = %s AND user_id = %s AND status = 'success'
+                   ORDER BY created_at DESC""",
+                (module_id, user_id),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def delete_ki_tutor_datentabelle(datentabelle_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_datentabellen WHERE id = %s", (datentabelle_id,))
+        conn.commit()
 
 
 # --- KI Tutor: Chunks by Source ---

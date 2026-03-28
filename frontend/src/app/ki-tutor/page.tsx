@@ -176,8 +176,7 @@ function CreateModuleModal({
             <button
               type="submit"
               disabled={loading || !title.trim() || !expiresAt}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-              style={{ backgroundColor: "#004261" }}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 bg-primary"
             >
               {loading ? "Erstellen…" : "Erstellen"}
             </button>
@@ -273,8 +272,7 @@ function RenewCodeModal({
             <button
               type="submit"
               disabled={loading || !expiresAt}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-              style={{ backgroundColor: "#004261" }}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 bg-primary"
             >
               {loading ? "Erstellen…" : "Erstellen"}
             </button>
@@ -422,7 +420,7 @@ function ModuleCard({
           <div className="relative shrink-0" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-100 transition-colors"
             >
               <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
                 <circle cx="8" cy="3" r="1.5" />
@@ -473,7 +471,7 @@ function ModuleCard({
                   title="Klicken zum Kopieren"
                 >
                   <span className="px-2.5 py-1.5 text-xs font-mono text-gray-500 truncate">{enrollLink}</span>
-                  <span className="flex items-center px-2 py-1.5 border-l border-gray-200 text-gray-400 group-hover:text-[#004261] transition-colors">
+                  <span className="flex items-center px-2 py-1.5 border-l border-gray-200 text-gray-400 group-hover:text-primary transition-colors">
                     {copied ? (
                       <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M3 8.5l3.5 3.5 6.5-8" />
@@ -503,7 +501,7 @@ function ModuleCard({
           <Link
             href={`/ki-tutor/${module.uuid}`}
             className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium shrink-0 transition-colors hover:opacity-90 border-2"
-            style={{ backgroundColor: "white", color: "#004261", borderColor: "#004261" }}
+            style={{ backgroundColor: "white", color: "var(--kb)", borderColor: "var(--kb)" }}
           >
             Öffnen
             <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -590,8 +588,7 @@ function LecturerView() {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-            style={{ backgroundColor: "#004261" }}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-primary"
           >
             + Neues Modul erstellen
           </button>
@@ -600,7 +597,7 @@ function LecturerView() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "#004261" }} />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
         </div>
       ) : modules.length === 0 ? (
         <div className="text-center py-20" style={{ color: "var(--muted)" }}>
@@ -713,8 +710,7 @@ function StudentView() {
           <button
             type="submit"
             disabled={enrolling || !enrollCode.trim()}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 whitespace-nowrap"
-            style={{ backgroundColor: "#004261" }}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 whitespace-nowrap bg-primary"
           >
             {enrolling ? "…" : "Einschreiben"}
           </button>
@@ -727,7 +723,7 @@ function StudentView() {
       {/* Module list */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "#004261" }} />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
         </div>
       ) : modules.length === 0 ? (
         <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
@@ -746,8 +742,7 @@ function StudentView() {
                 </div>
                 <Link
                   href={`/ki-tutor/${m.uuid}`}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-                  style={{ backgroundColor: "#004261" }}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-primary"
                 >
                   Öffnen
                 </Link>

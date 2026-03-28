@@ -70,6 +70,10 @@ def extract_chunks(file_path: str, file_type: str) -> list[dict]:
         return _extract_pptx(file_path, chunk_size, overlap)
     if ft in ("txt", "md"):
         return _extract_text(file_path, chunk_size, overlap)
+    if ft in ("mp3", "mp4", "wav", "flac", "m4a", "webm"):
+        raise ValueError(
+            "Audio/Video files must be transcribed first – use segments_to_chunks() instead."
+        )
     raise ValueError(f"Unsupported file_type: {file_type!r}")
 
 
@@ -245,4 +249,73 @@ def _extract_text(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
         if start >= len(text):
             break
 
+    return chunks
+
+
+# ── Audio/Video transcript chunking ─────────────────────────────────────────────
+
+_AUDIO_EXTENSIONS = {"mp3", "mp4", "wav", "flac", "m4a", "webm"}
+
+
+def is_media_file(file_type: str) -> bool:
+    """Check if file_type is an audio/video format."""
+    return file_type.lower().lstrip(".") in _AUDIO_EXTENSIONS
+
+
+def segments_to_chunks(segments: list[dict]) -> list[dict]:
+    """Merge Whisper segments into embedding-optimal chunks with timestamps.
+
+    Args:
+        segments: List of dicts with keys: start (float), end (float), text (str).
+
+    Returns:
+        List of dicts with keys:
+          - page_number (int, sequential 1-indexed)
+          - content     (str)
+          - start_time  (float, seconds)
+          - end_time    (float, seconds)
+    """
+    chunk_size, _ = _get_chunk_params()
+    chunks: list[dict] = []
+    current_text = ""
+    current_start: float | None = None
+    current_end: float = 0.0
+    page_number = 1
+
+    for seg in segments:
+        text = seg["text"].strip()
+        if not text:
+            continue
+
+        if current_start is None:
+            current_start = seg["start"]
+
+        # Check if adding this segment exceeds chunk_size
+        combined = (current_text + " " + text).strip() if current_text else text
+        if len(combined) > chunk_size and current_text:
+            # Flush current chunk
+            chunks.append({
+                "page_number": page_number,
+                "content": current_text,
+                "start_time": current_start,
+                "end_time": current_end,
+            })
+            page_number += 1
+            current_text = text
+            current_start = seg["start"]
+            current_end = seg["end"]
+        else:
+            current_text = combined
+            current_end = seg["end"]
+
+    # Flush remaining
+    if current_text and current_start is not None:
+        chunks.append({
+            "page_number": page_number,
+            "content": current_text,
+            "start_time": current_start,
+            "end_time": current_end,
+        })
+
+    logger.info("segments_to_chunks: {} segments → {} chunks", len(segments), len(chunks))
     return chunks

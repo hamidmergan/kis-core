@@ -95,6 +95,29 @@ services:
         max-size: "10m"
         max-file: "7"
 
+  celery-worker-ki-tutor:
+    build: ./backend
+    container_name: kis-celery-ki-tutor
+    command: celery -A src.celery_app worker --queues=ki_tutor --autoscale=6,2 --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - ./backend/src:/app/src:ro
+      - kis-storage:/app/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
   celery-beat:
     build: ./backend
     container_name: kis-celery-beat
@@ -347,6 +370,34 @@ services:
       - openldap
     restart: unless-stopped
 
+  # ─── Presenton (AI Presentation Generator) ─────────────────────────────────
+  presenton:
+    profiles: ["presenton"]
+    image: ghcr.io/presenton/presenton:latest
+    container_name: kis-presenton
+    env_file:
+      - .env
+    environment:
+      LLM: custom
+      CUSTOM_LLM_URL: ${KISSKI_BASE_URL:-https://chat-ai.academiccloud.de/v1}
+      CUSTOM_LLM_API_KEY: ${KISSKI_API_KEY}
+      CUSTOM_MODEL: ${KISSKI_MODEL:-qwen3-30b-a3b-instruct-2507}
+      IMAGE_PROVIDER: ${PRESENTON_IMAGE_PROVIDER:-pexels}
+      PEXELS_API_KEY: ${PEXELS_API_KEY:-}
+      CAN_CHANGE_KEYS: "false"
+      DISABLE_ANONYMOUS_TRACKING: "true"
+      MIGRATE_DATABASE_ON_STARTUP: "true"
+    volumes:
+      - kis-presenton-data:/app_data
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
 volumes:
   kis-postgres-data:
   kis-celerybeat:
@@ -355,3 +406,4 @@ volumes:
   kis-openldap-data:
   kis-openldap-config:
   kis-ollama-data:
+  kis-presenton-data:

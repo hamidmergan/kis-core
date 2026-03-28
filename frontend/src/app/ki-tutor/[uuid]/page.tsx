@@ -44,6 +44,11 @@ import {
   Target,
   TrendUp,
   WarningCircle,
+  Presentation,
+  DownloadSimple,
+  Play,
+  SpeakerHigh,
+  VideoCamera,
   type IconWeight,
 } from "@phosphor-icons/react";
 import Header from "@/components/Header";
@@ -98,6 +103,12 @@ interface ModuleDetail {
   sources: Source[];
 }
 
+const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"]);
+function _isMediaFile(filename: string): boolean {
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  return _MEDIA_EXTENSIONS.has(ext);
+}
+
 interface Source {
   uuid: string;
   filename: string;
@@ -110,12 +121,15 @@ interface SourceRef {
   filename?: string;
   page_number: number;
   source_text?: string;
+  start_time?: number;
+  end_time?: number;
 }
 
 interface SourceQmap {
   qnum: number;
   uuid: string;
   filename: string;
+  is_media?: boolean;
 }
 
 interface ChatMessage {
@@ -144,6 +158,7 @@ interface ViewerState {
   page: number;
   highlightText?: string;
   nonce?: number;
+  startTime?: number;
 }
 
 interface DatentabelleData {
@@ -157,7 +172,30 @@ interface DatentabelleSource {
   filename: string;
 }
 
-type StudioView = "overview" | "lernkarten" | "quiz" | "infografik" | "datentabelle" | "mindmap" | "notizen";
+interface PresentationSlide {
+  layout: "title" | "content" | "two_columns" | "section" | "summary";
+  title: string;
+  subtitle?: string;
+  bullets?: string[];
+  left_title?: string;
+  left_bullets?: string[];
+  right_title?: string;
+  right_bullets?: string[];
+  notes?: string;
+}
+
+interface PresentationData {
+  id: number;
+  status: "pending" | "running" | "success" | "failed";
+  title: string | null;
+  slides: PresentationSlide[] | null;
+  presenton_id?: string | null;
+  source_filename?: string;
+  error: string | null;
+  created_at?: string;
+}
+
+type StudioView = "overview" | "lernkarten" | "quiz" | "infografik" | "datentabelle" | "mindmap" | "notizen" | "praesentation";
 type PanelKey = "quellen" | "chat" | "studio";
 
 interface GlossaryEntry {
@@ -306,12 +344,17 @@ function SourceStatus({ status }: { status: string }) {
 
 function FileIcon({ filename }: { filename: string }) {
   const isPdf = filename.toLowerCase().endsWith(".pdf");
+  const isMedia = _isMediaFile(filename);
+  const isVideo = [".mp4", ".webm"].some(e => filename.toLowerCase().endsWith(e));
+  const bg = isMedia ? "#E0E7FF" : isPdf ? "#FEE2E2" : "#DBEAFE";
+  const color = isMedia ? "#4338CA" : isPdf ? "#B91C1C" : "#1D4ED8";
+  const Icon = isVideo ? VideoCamera : isMedia ? SpeakerHigh : FilePdf;
   return (
     <div
       className="flex-shrink-0 w-8 h-8 rounded flex items-center justify-center"
-      style={{ backgroundColor: isPdf ? "#FEE2E2" : "#DBEAFE" }}
+      style={{ backgroundColor: bg }}
     >
-      <FilePdf size={16} weight="bold" color={isPdf ? "#B91C1C" : "#1D4ED8"} />
+      <Icon size={16} weight="bold" color={color} />
     </div>
   );
 }
@@ -338,6 +381,80 @@ const EMBEDPDF_ICON_MAP: Record<string, string> = {
   MagnifyingGlassPlus: "search",
   BookOpenText: "file",
 };
+
+
+function MediaPlayer({
+  source, onClose, moduleUuid, onMinimize,
+}: {
+  source: ViewerState;
+  onClose: () => void;
+  moduleUuid: string;
+  onMinimize?: () => void;
+}) {
+  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
+  const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
+  const isVideo = [".mp4", ".webm"].includes(ext);
+  const mediaUrl = `/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`;
+
+  // Seek to timestamp when source changes
+  useEffect(() => {
+    if (source.startTime !== undefined && mediaRef.current) {
+      mediaRef.current.currentTime = source.startTime;
+      mediaRef.current.play().catch(() => {});
+    }
+  }, [source.startTime, source.nonce]);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div
+        className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+        style={{ borderBottom: "1px solid var(--border)" }}
+      >
+        <button type="button" onClick={onClose} className="p-1 rounded hover:opacity-70" title="Schließen">
+          <CaretLeft size={16} />
+        </button>
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {isVideo ? <VideoCamera size={14} weight="bold" /> : <SpeakerHigh size={14} weight="bold" />}
+          <span className="text-xs font-medium truncate">{source.filename}</span>
+        </div>
+        {onMinimize && (
+          <button type="button" onClick={onMinimize} className="p-1 rounded hover:opacity-70" title="Minimieren">
+            <SidebarSimple size={14} />
+          </button>
+        )}
+      </div>
+      {/* Player */}
+      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+        {isVideo ? (
+          <video
+            ref={mediaRef as React.RefObject<HTMLVideoElement>}
+            src={mediaUrl}
+            controls
+            className="max-w-full max-h-full rounded-lg"
+            style={{ backgroundColor: "#000" }}
+          />
+        ) : (
+          <div className="w-full max-w-md flex flex-col items-center gap-4">
+            <div
+              className="w-24 h-24 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "rgba(var(--kb-rgb),0.1)" }}
+            >
+              <SpeakerHigh size={40} weight="bold" style={{ color: "var(--kb)" }} />
+            </div>
+            <span className="text-sm font-medium truncate max-w-full">{source.filename}</span>
+            <audio
+              ref={mediaRef as React.RefObject<HTMLAudioElement>}
+              src={mediaUrl}
+              controls
+              className="w-full"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 
 function PdfViewer({
@@ -863,7 +980,7 @@ function SourcesPanel({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.txt,.docx,.pptx,.md"
+            accept=".pdf,.txt,.docx,.pptx,.md,.mp3,.mp4,.wav,.flac,.m4a,.webm"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -874,7 +991,7 @@ function SourcesPanel({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90"
-            style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261", border: "1.5px dashed rgba(0,66,97,0.3)" }}
+            style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", border: "1.5px dashed rgba(var(--kb-rgb),0.3)" }}
           >
             <Plus size={15} weight="bold" />
             Quelle hinzufügen
@@ -885,7 +1002,7 @@ function SourcesPanel({
               <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
                 <div
                   className="h-full rounded-full transition-all duration-200"
-                  style={{ width: `${uploadProgress}%`, backgroundColor: "#004261" }}
+                  style={{ width: `${uploadProgress}%`, backgroundColor: "var(--kb)" }}
                 />
               </div>
               <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
@@ -906,7 +1023,7 @@ function SourcesPanel({
             type="checkbox"
             checked={allSelected}
             onChange={toggleAll}
-            className="w-3.5 h-3.5 flex-shrink-0 accent-[#004261]"
+            className="w-3.5 h-3.5 flex-shrink-0 accent-primary"
           />
           <span className="text-xs" style={{ color: "var(--muted)" }}>
             Alle auswählen
@@ -934,7 +1051,7 @@ function SourcesPanel({
                 type="checkbox"
                 checked={selectedSourceIds.includes(src.uuid)}
                 onChange={() => onToggleSource(src.uuid)}
-                className="flex-shrink-0 w-3.5 h-3.5 accent-[#004261]"
+                className="flex-shrink-0 w-3.5 h-3.5 accent-primary"
                 onClick={(e) => e.stopPropagation()}
               />
               <FileIcon filename={src.filename} />
@@ -1029,7 +1146,7 @@ function ChatPanel({
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
-  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string) => void;
+  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
   moduleReady: boolean;
   onClear: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
@@ -1132,9 +1249,9 @@ function ChatPanel({
           <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16">
             <div
               className="w-12 h-12 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: "rgba(0,66,97,0.08)" }}
+              style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)" }}
             >
-              <Chat size={22} style={{ color: "#004261" }} />
+              <Chat size={22} style={{ color: "var(--kb)" }} />
             </div>
             <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
               Stell eine Frage
@@ -1151,35 +1268,56 @@ function ChatPanel({
           // Parse [QN, S. X] and legacy [S. X] tags → inline pill buttons
           const msgQmap = msg.source_qmap ?? [];
           function parseCitations(text: string): React.ReactNode[] {
-            // Matches [Q1, S. 2] or [S. 2]
-            const pattern = /\[(?:Q(\d+),\s*)?S\.\s*(\d+)\]/g;
+            // Matches [Q1, S. 2], [S. 2], [Q1, 05:32], [Q1, 1:05:32]
+            const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))\]/g;
             const nodes: React.ReactNode[] = [];
             let last = 0;
             let m: RegExpExecArray | null;
             while ((m = pattern.exec(text)) !== null) {
               if (m.index > last) nodes.push(text.slice(last, m.index));
               const qNum = m[1] ? parseInt(m[1]) : null;
-              const pageNum = parseInt(m[2]);
+              const pageNum = m[2] ? parseInt(m[2]) : 0;
+              const timestamp = m[3] || null;
 
               // Resolve source via qmap (preferred) or fallback to source_pages
               const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
+              const isMedia = qEntry?.is_media || !!timestamp;
               const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
               const filename = qEntry?.filename ?? getFilename(sourceUuid);
-              const sp = msgSourcePages.find(s => s.source_uuid === sourceUuid && s.page_number === pageNum);
+              const sp = msgSourcePages.find(s => s.source_uuid === sourceUuid && (timestamp ? s.start_time !== undefined : s.page_number === pageNum));
 
-              nodes.push(
-                <button
-                  key={m.index}
-                  type="button"
-                  onClick={() => onPillClick(sourceUuid, pageNum, filename, sp?.source_text)}
-                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-                  style={{ backgroundColor: "rgba(0,66,97,0.12)", color: "#004261" }}
-                  title={`${filename}, S. ${pageNum}`}
-                >
-                  <FilePdf size={8} weight="bold" />
-                  S. {pageNum}
-                </button>
-              );
+              if (isMedia && timestamp) {
+                // Parse timestamp to seconds
+                const parts = timestamp.split(":").map(Number);
+                const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+                nodes.push(
+                  <button
+                    key={m.index}
+                    type="button"
+                    onClick={() => onPillClick(sourceUuid, 0, filename, undefined, seconds)}
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+                    title={`${filename}, ${timestamp}`}
+                  >
+                    <Play size={8} weight="bold" />
+                    {timestamp}
+                  </button>
+                );
+              } else {
+                nodes.push(
+                  <button
+                    key={m.index}
+                    type="button"
+                    onClick={() => onPillClick(sourceUuid, pageNum, filename, sp?.source_text)}
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+                    title={`${filename}, S. ${pageNum}`}
+                  >
+                    <FilePdf size={8} weight="bold" />
+                    S. {pageNum}
+                  </button>
+                );
+              }
               last = pattern.lastIndex;
             }
             if (last < text.length) nodes.push(text.slice(last));
@@ -1201,7 +1339,7 @@ function ChatPanel({
               <div className="flex items-center gap-2 mb-0.5">
                 <div
                   className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                  style={{ backgroundColor: "#004261" }}
+                  style={{ backgroundColor: "var(--kb)" }}
                 >
                   KI
                 </div>
@@ -1211,11 +1349,11 @@ function ChatPanel({
               </div>
             )}
             <div
-              className="max-w-[96%] px-4 py-3 rounded-2xl text-sm leading-relaxed"
+              className="max-w-[96%] px-4 py-3 rounded-2xl text-sm leading-relaxed break-words"
               style={
                 msg.role === "user"
-                  ? { backgroundColor: "#004261", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap" }
-                  : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6 }
+                  ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
+                  : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6, overflowWrap: "break-word" }
               }
             >
               {msg.role === "assistant" && !msg.content ? (
@@ -1349,7 +1487,7 @@ function ChatPanel({
         {!moduleReady && (
           <div
             className="mb-2 rounded-xl px-3 py-2 text-[11px] text-center"
-            style={{ backgroundColor: "rgba(0,66,97,0.06)", color: "var(--muted)" }}
+            style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--muted)" }}
           >
             Quellen werden noch indiziert – Chat steht gleich bereit.
           </div>
@@ -1376,7 +1514,7 @@ function ChatPanel({
             onClick={onSend}
             disabled={loading || !input.trim() || activeSourceIds.length === 0}
             className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
-            style={{ backgroundColor: "#004261" }}
+            style={{ backgroundColor: "var(--kb)" }}
             title="Senden"
           >
             <PaperPlaneRight size={16} weight="bold" />
@@ -1438,8 +1576,8 @@ function FlipCard({ front, back, flipped, onFlip }: { front: string; back: strin
             borderRadius: 20, display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center",
             padding: "32px 28px", gap: 12,
-            backgroundColor: "#004261",
-            boxShadow: "0 4px 20px rgba(0,66,97,0.18)",
+            backgroundColor: "var(--kb)",
+            boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.18)",
           }}
         >
           <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.5)" }}>
@@ -1490,18 +1628,18 @@ function ExerciseSetsOverview({
         {sets.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 py-16 px-6">
             <Cards size={32} weight="duotone" color="var(--muted)" style={{ opacity: 0.5 }} />
-            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Noch keine Sets</p>
-            <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>Erstelle dein erstes Set aus dem Glossar oder einer Quelle.</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Noch keine Übungen</p>
+            <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>Erstelle deine ersten Übungen aus dem Glossar oder einer Quelle.</p>
             <button type="button" onClick={onCreate}
               className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: "#004261", boxShadow: "0 2px 8px rgba(0,66,97,0.2)" }}>
-              <Plus size={13} weight="bold" /> Neues Set
+              style={{ backgroundColor: "var(--kb)", boxShadow: "0 2px 8px rgba(var(--kb-rgb),0.2)" }}>
+              <Plus size={13} weight="bold" /> Neu erstellen
             </button>
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between px-1 mb-2">
-              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{sets.length} Sets</span>
+              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{sets.length} Übungen</span>
               <span className="text-[10px]" style={{ color: "var(--muted)" }}>{sets.reduce((s, e) => s + e.card_count, 0)} Karten</span>
             </div>
             <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
@@ -1519,10 +1657,10 @@ function ExerciseSetsOverview({
                         {generating ? "Wird generiert…" : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest)\s*(aus|von)\s*/i, "")}
                       </span>
                       {generating ? (
-                        <ArrowsCounterClockwise size={14} className="animate-spin shrink-0" style={{ color: "#004261" }} />
+                        <ArrowsCounterClockwise size={14} className="animate-spin shrink-0" style={{ color: "var(--kb)" }} />
                       ) : (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
-                          style={{ backgroundColor: "rgba(0,66,97,0.07)", color: "#004261" }}>{s.card_count}</span>
+                          style={{ backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--kb)" }}>{s.card_count}</span>
                       )}
                     </div>
                     {/* Mode badge */}
@@ -1538,7 +1676,7 @@ function ExerciseSetsOverview({
                         <svg viewBox="0 0 36 36" style={{ transform: "rotate(-90deg)", width: 36, height: 36 }}>
                           <circle cx="18" cy="18" r="14" fill="none" stroke="var(--border)" strokeWidth="3" />
                           <circle cx="18" cy="18" r="14" fill="none"
-                            stroke={pct >= 100 ? "#1a8a5c" : "#004261"} strokeWidth="3" strokeLinecap="round"
+                            stroke={pct >= 100 ? "#1a8a5c" : "var(--kb)"} strokeWidth="3" strokeLinecap="round"
                             strokeDasharray={Math.PI * 2 * 14} strokeDashoffset={Math.PI * 2 * 14 * (1 - pct / 100)}
                             style={{ transition: "stroke-dashoffset 1s ease" }} />
                         </svg>
@@ -1561,8 +1699,8 @@ function ExerciseSetsOverview({
             <div className="text-center mt-3">
               <button type="button" onClick={onCreate}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-semibold transition-all hover:opacity-80"
-                style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)", border: "1.5px dashed rgba(0,66,97,0.14)" }}>
-                <Plus size={12} weight="bold" /> Neues Set
+                style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", border: "1.5px dashed rgba(var(--kb-rgb),0.14)" }}>
+                <Plus size={12} weight="bold" /> Neu erstellen
               </button>
             </div>
           </>
@@ -1637,12 +1775,12 @@ function LernkartenLearnView({
       <div className="px-4 pb-2.5 pt-2" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
         <div className="text-center text-[10px] font-semibold mb-1.5" style={{ color: "var(--muted)" }}>{index + 1} / {total}</div>
         <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, #004261, #0891b2)" }} />
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--kb), #0891b2)" }} />
         </div>
       </div>
       {/* Card */}
-      <div className="flex-1 flex flex-col items-center px-4 py-3 gap-4">
-        <div style={{ perspective: 1200, width: "100%", cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
+      <div className="flex-1 flex flex-col items-center px-3 sm:px-4 py-3 gap-4">
+        <div className="w-full" style={{ perspective: 1200, maxWidth: 640, cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
           <div style={{
             position: "relative", width: "100%", height: 230, transformStyle: "preserve-3d",
             transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
@@ -1655,19 +1793,19 @@ function LernkartenLearnView({
               padding: "24px 20px", gap: 8, backgroundColor: "var(--surface)",
               border: "1px solid var(--border)", boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
             }}>
-              <span className="text-[8px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Begriff</span>
-              <p className="text-sm text-center leading-relaxed font-medium" style={{ color: "var(--text)" }}>{card.front}</p>
-              <span className="text-[9px] mt-auto" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Begriff</span>
+              <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "var(--text)" }}>{card.front}</p>
+              <span className="text-[10px] mt-auto" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
             </div>
             {/* Back */}
             <div style={{
               position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
               borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              padding: "24px 20px", gap: 8, background: "linear-gradient(145deg, #004261, #003350)",
-              boxShadow: "0 4px 20px rgba(0,66,97,0.2)",
+              padding: "24px 20px", gap: 8, background: "linear-gradient(145deg, var(--kb), var(--kb-dark))",
+              boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
             }}>
-              <span className="text-[8px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Erklärung</span>
-              <p className="text-[12px] text-center leading-relaxed" style={{ color: "white" }}>{card.back}</p>
+              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Erklärung</span>
+              <p className="text-sm text-center leading-relaxed" style={{ color: "white" }}>{card.back}</p>
               {/* Source chip + Chat button */}
               <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                 {card.source_label && (
@@ -1676,10 +1814,10 @@ function LernkartenLearnView({
                     <FilePdf size={9} weight="bold" /> {card.source_label}{card.page_number ? `, S. ${card.page_number}` : ""}
                   </span>
                 )}
-                <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Erkläre mir: „${card.front}"`); }}
+                <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Erkläre mir „${card.front}" genauer. Was sind wichtige Details, Beispiele und Zusammenhänge die über die Grunddefinition hinausgehen?`); }}
                   className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border-none cursor-pointer transition-all hover:opacity-100"
                   style={{ color: "rgba(255,255,255,0.55)", backgroundColor: "rgba(255,255,255,0.1)" }}>
-                  <Chat size={10} weight="bold" /> Erkläre mir das
+                  <Chat size={10} weight="bold" /> Mehr erfahren
                 </button>
               </div>
             </div>
@@ -1703,7 +1841,7 @@ function LernkartenLearnView({
           ) : (
             <button type="button" onClick={() => setFlipped(true)}
               className="px-6 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
+              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
               Antwort zeigen
             </button>
           )}
@@ -1740,13 +1878,13 @@ function ExerciseCompletion({
           {correct < total && (
             <button type="button" onClick={onRetryWrong}
               className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "#004261", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
+              style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
               Falsche wiederholen
             </button>
           )}
           <button type="button" onClick={onBack}
             className="px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-            style={{ backgroundColor: "#004261" }}>
+            style={{ backgroundColor: "var(--kb)" }}>
             Zur Übersicht
           </button>
         </div>
@@ -1811,7 +1949,7 @@ function MCExerciseView({
         </button>
         <span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span>
         <span className="text-[10px] font-medium px-2 py-1 rounded-full"
-          style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
+          style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
           {index + 1} / {total}
         </span>
         {streak > 0 && (
@@ -1824,7 +1962,7 @@ function MCExerciseView({
       {/* Progress */}
       <div className="px-4 pb-2.5" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
         <div className="h-1 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--border)" }}>
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, #004261, #0891b2)" }} />
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--kb), #0891b2)" }} />
         </div>
       </div>
       {/* Question Card */}
@@ -1842,7 +1980,7 @@ function MCExerciseView({
                     /___+/g,
                     answered
                       ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${card.back}</span>`
-                      : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed #004261;color:#004261;font-weight:700;padding:0 4px">___________</span>'
+                      : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed var(--kb);color:var(--kb);font-weight:700;padding:0 4px">___________</span>'
                   ),
                 }}
               />
@@ -1886,7 +2024,7 @@ function MCExerciseView({
             {/* Explanation (Vokabeltest) */}
             {answered && tool === "vokabeltest" && card.explanation && (
               <div className="text-sm leading-relaxed p-4 rounded-xl"
-                style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)", borderLeft: "3px solid #004261" }}>
+                style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", borderLeft: "3px solid var(--kb)" }}>
                 {card.explanation}
               </div>
             )}
@@ -1894,7 +2032,7 @@ function MCExerciseView({
             {card.source_label && (
               <div className="mt-1">
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full"
-                  style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
+                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                   <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number ? `, S. ${card.page_number}` : ""}
                 </span>
               </div>
@@ -1902,14 +2040,14 @@ function MCExerciseView({
             {/* Action row: Chat + Weiter */}
             {answered && (
               <div className="flex items-center justify-between mt-2">
-                <button type="button" onClick={() => onAskChat(`Erkläre mir: „${tool === "lueckentext" ? card.back : card.front}"`)}
+                <button type="button" onClick={() => onAskChat(`Erkläre mir „${tool === "lueckentext" ? card.back : card.front}" genauer. Was sind wichtige Details, Beispiele und Zusammenhänge die über die Grunddefinition hinausgehen?`)}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80"
-                  style={{ color: "#004261", backgroundColor: "rgba(0,66,97,0.07)" }}>
-                  <Chat size={13} weight="bold" /> Erkläre mir das
+                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                  <Chat size={13} weight="bold" /> Mehr erfahren
                 </button>
                 <button type="button" onClick={advance}
                   className="flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold text-white transition-all hover:opacity-90"
-                  style={{ backgroundColor: "#004261" }}>
+                  style={{ backgroundColor: "var(--kb)" }}>
                   {index >= total - 1 ? "Abschließen" : "Weiter"} <CaretRight size={14} weight="bold" />
                 </button>
               </div>
@@ -1932,43 +2070,46 @@ function CreateSetModal({
   onClose: () => void;
   onCreate: (mode: string, count: number) => void;
 }) {
-  const [mode, setMode] = useState<"glossar" | "quelle">("glossar");
-  const [count, setCount] = useState(10);
-  const toolLabels: Record<string, string> = { lernkarten: "Lernkarten-Set", lueckentext: "Lückentext-Set", vokabeltest: "Vokabeltest" };
+  const isQuiz = tool === "quiz";
+  const [mode, setMode] = useState<"glossar" | "quelle">(isQuiz ? "quelle" : "glossar");
+  const [count, setCount] = useState(isQuiz ? 5 : 10);
+  const toolLabels: Record<string, string> = { lernkarten: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Vokabeltest", quiz: "Quiz" };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
       <div className="rounded-2xl p-5 w-[340px]" style={{ backgroundColor: "var(--surface)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)" }}
         onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>Neues {toolLabels[tool] || "Set"} erstellen</h3>
+        <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>Neue {toolLabels[tool] || "Übung"} erstellen</h3>
 
         {/* Mode */}
         <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>Quelle</div>
         <div className="flex flex-col gap-1.5 mb-3">
-          <button type="button" onClick={() => setMode("glossar")}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
-            style={mode === "glossar"
-              ? { border: "1.5px solid #004261", backgroundColor: "rgba(0,66,97,0.07)", color: "var(--text)" }
-              : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }}>
-            <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-              style={{ borderColor: mode === "glossar" ? "#004261" : "var(--border)" }}>
-              {mode === "glossar" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#004261" }} />}
-            </div>
-            Aus Glossar <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
-          </button>
+          {!isQuiz && (
+            <button type="button" onClick={() => setMode("glossar")}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
+              style={mode === "glossar"
+                ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--text)" }
+                : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }}>
+              <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
+                style={{ borderColor: mode === "glossar" ? "var(--kb)" : "var(--border)" }}>
+                {mode === "glossar" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
+              </div>
+              Aus Glossar <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
+            </button>
+          )}
           <button type="button" onClick={() => selectedSource && setMode("quelle")}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
             style={{
               ...(mode === "quelle"
-                ? { border: "1.5px solid #004261", backgroundColor: "rgba(0,66,97,0.07)" }
+                ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }
                 : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)" }),
               color: "var(--text)",
               opacity: selectedSource ? 1 : 0.4,
               pointerEvents: selectedSource ? "auto" : "none",
             }}>
             <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-              style={{ borderColor: mode === "quelle" ? "#004261" : "var(--border)" }}>
-              {mode === "quelle" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#004261" }} />}
+              style={{ borderColor: mode === "quelle" ? "var(--kb)" : "var(--border)" }}>
+              {mode === "quelle" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
             </div>
             Aus ausgewählter Quelle {selectedSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={selectedSource.filename} style={{ color: "var(--muted)" }}>({selectedSource.filename})</span>}
           </button>
@@ -1986,7 +2127,7 @@ function CreateSetModal({
             <button key={n} type="button" onClick={() => setCount(n)}
               className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-center"
               style={count === n
-                ? { border: "1.5px solid #004261", backgroundColor: "rgba(0,66,97,0.07)", color: "#004261" }
+                ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--kb)" }
                 : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }}>
               {n}
             </button>
@@ -1997,12 +2138,12 @@ function CreateSetModal({
         <div className="flex gap-2">
           <button type="button" onClick={onClose}
             className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-            style={{ color: "#004261", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
+            style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
             Abbrechen
           </button>
           <button type="button" onClick={() => onCreate(mode, count)} disabled={creating}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: "#004261" }}>
+            style={{ backgroundColor: "var(--kb)" }}>
             {creating ? <ArrowsCounterClockwise size={13} className="animate-spin" /> : <Plus size={13} weight="bold" />}
             {creating ? "Generieren…" : "Erstellen"}
           </button>
@@ -2013,81 +2154,120 @@ function CreateSetModal({
 }
 
 function QuizStudio({
-  questions, loading, answers, onGenerate, onAnswer, onBack,
+  questions, loading, answers, onGenerate, onAnswer, onBack, sourceCount,
 }: {
   questions: QuizQuestion[]; loading: boolean; answers: Record<number, number>;
   onGenerate: () => void; onAnswer: (qi: number, ai: number) => void; onBack: () => void;
+  sourceCount: number;
 }) {
+  const [view, setView] = useState<"list" | "viewer">("list");
   const correct = Object.entries(answers).filter(([qi, ai]) => questions[Number(qi)]?.correct === ai).length;
   const total = Object.keys(answers).length;
+  const noSources = sourceCount === 0;
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Quiz" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full p-4 flex flex-col gap-4" style={{ maxWidth: 700 }}>
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={loading}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "#004261" }}
-        >
-          <span className="flex items-center justify-center gap-2">
-            <Question size={16} weight="bold" />
-            {loading ? "Generieren…" : "Quiz starten"}
-          </span>
-        </button>
-
-        {total > 0 && questions.length > 0 && (
-          <div
-            className="rounded-xl p-3 text-center text-sm font-semibold"
-            style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}
-          >
-            {correct} / {questions.length} richtig
+      {/* ── List view ── */}
+      <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
+        <SubviewHeader title="Quiz" onBack={onBack} />
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+            style={{
+              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
+              color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
+            }}>
+            <FilePdf size={13} weight="bold" />
+            {noSources
+              ? "Keine Quelle ausgewählt"
+              : sourceCount === 1
+                ? "1 Quelle ausgewählt"
+                : sourceCount <= 5
+                  ? `${sourceCount} Quellen ausgewählt`
+                  : `${sourceCount} Quellen ausgewählt — max. 5 werden genutzt`}
           </div>
-        )}
 
-        {questions.map((q, qi) => {
-          const answered = answers[qi] !== undefined;
-          const isCorrect = answered && answers[qi] === q.correct;
-          return (
-            <div key={qi} className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
-              <p className="text-xs font-semibold mb-3 leading-snug" style={{ color: "var(--text)" }}>
-                {qi + 1}. {q.question}
-              </p>
-              <div className="flex flex-col gap-2">
-                {q.options.map((opt, ai) => {
-                  let bg = "var(--bg)";
-                  let border = "var(--border)";
-                  let color = "var(--text)";
-                  if (answered) {
-                    if (ai === q.correct) { bg = "#DCFCE7"; border = "#86EFAC"; color = "#166534"; }
-                    else if (ai === answers[qi]) { bg = "#FEE2E2"; border = "#FCA5A5"; color = "#991B1B"; }
-                  }
-                  return (
-                    <button
-                      key={ai}
-                      type="button"
-                      onClick={() => !answered && onAnswer(qi, ai)}
-                      disabled={answered}
-                      className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium disabled:cursor-default transition-colors"
-                      style={{ backgroundColor: bg, border: `1px solid ${border}`, color }}
-                    >
-                      {["A", "B", "C", "D"][ai]}. {opt}
-                    </button>
-                  );
-                })}
+          <div className="flex justify-center">
+            <button type="button" onClick={() => { onGenerate(); setView("viewer"); }}
+              disabled={noSources || loading}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+              style={{ backgroundColor: "var(--kb)", maxWidth: 280, width: "100%" }}>
+              {loading
+                ? <><ArrowsCounterClockwise size={13} className="animate-spin" /> Wird generiert…</>
+                : <><Plus size={13} weight="bold" /> Neues Quiz erstellen</>}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Viewer ── */}
+      <div style={{ display: view === "viewer" ? "flex" : "none" }} className="flex-col h-full">
+        <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          <button type="button" onClick={() => setView("list")}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            style={{ backgroundColor: "var(--border)" }}>
+            <CaretLeft size={13} />
+          </button>
+          <span className="text-base font-bold flex-1" style={{ color: "var(--text)" }}>Quiz</span>
+          {total > 0 && questions.length > 0 && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>
+              {correct} / {questions.length} richtig
+            </span>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <div className="flex-1 flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-3">
+                <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+                <p className="text-xs" style={{ color: "var(--muted)" }}>Quiz wird generiert…</p>
               </div>
-              {answered && (
-                <p className="flex items-center gap-1 text-[11px] mt-2.5 font-semibold" style={{ color: isCorrect ? "#166534" : "#991B1B" }}>
-                  {isCorrect ? <Check size={12} weight="bold" /> : <XIcon size={12} weight="bold" />}
-                  {isCorrect ? "Richtig!" : "Leider falsch."}
-                </p>
-              )}
             </div>
-          );
-        })}
+          )}
+          {!loading && questions.length > 0 && (
+            <div className="mx-auto w-full p-4 flex flex-col gap-4" style={{ maxWidth: 700 }}>
+              {questions.map((q, qi) => {
+                const answered = answers[qi] !== undefined;
+                const isCorrect = answered && answers[qi] === q.correct;
+                return (
+                  <div key={qi} className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+                    <p className="text-xs font-semibold mb-3 leading-snug" style={{ color: "var(--text)" }}>
+                      {qi + 1}. {q.question}
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {q.options.map((opt, ai) => {
+                        let bg = "var(--bg)";
+                        let border = "var(--border)";
+                        let color = "var(--text)";
+                        if (answered) {
+                          if (ai === q.correct) { bg = "#DCFCE7"; border = "#86EFAC"; color = "#166534"; }
+                          else if (ai === answers[qi]) { bg = "#FEE2E2"; border = "#FCA5A5"; color = "#991B1B"; }
+                        }
+                        return (
+                          <button
+                            key={ai}
+                            type="button"
+                            onClick={() => !answered && onAnswer(qi, ai)}
+                            disabled={answered}
+                            className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium disabled:cursor-default transition-colors"
+                            style={{ backgroundColor: bg, border: `1px solid ${border}`, color }}
+                          >
+                            {["A", "B", "C", "D"][ai]}. {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {answered && (
+                      <p className="flex items-center gap-1 text-[11px] mt-2.5 font-semibold" style={{ color: isCorrect ? "#166534" : "#991B1B" }}>
+                        {isCorrect ? <Check size={12} weight="bold" /> : <XIcon size={12} weight="bold" />}
+                        {isCorrect ? "Richtig!" : "Leider falsch."}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2107,61 +2287,275 @@ function PlaceholderStudio({ title, onBack }: { title: string; onBack: () => voi
   );
 }
 
+// ─── Infografik Studio ───────────────────────────────────────────────────────
+
+function InfografikStudio({
+  imageData, title, loading, onGenerate, onBack,
+  savedList, onSelect, onDelete, sourceCount,
+}: {
+  imageData: string | null;
+  title: string | null;
+  loading: boolean;
+  onGenerate: () => void;
+  onBack: () => void;
+  savedList: { id: number; title: string; style: string; created_at: string | null }[];
+  onSelect: (id: number) => void;
+  onDelete: (id: number) => void;
+  sourceCount: number;
+}) {
+  const [view, setView] = useState<"viewer" | "list">("list");
+  const noSources = sourceCount === 0;
+  const activeTitle = title || "Infografik";
+
+  const handleDownload = () => {
+    if (!imageData) return;
+    const blob = new Blob([imageData], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(title || "infografik").replace(/\s+/g, "_")}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* ── List view ── */}
+      <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
+        <SubviewHeader title="Infografik" onBack={onBack} />
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+          {/* Source info — max 1 */}
+          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+            style={{
+              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
+              color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
+            }}>
+            <FilePdf size={13} weight="bold" />
+            {noSources
+              ? "Keine Quelle ausgewählt"
+              : sourceCount === 1
+                ? "1 Quelle ausgewählt"
+                : `${sourceCount} Quellen ausgewählt — nur die erste wird genutzt`}
+          </div>
+
+
+          {/* Generate button */}
+          <div className="flex justify-center">
+            <button type="button" onClick={() => { onGenerate(); setView("viewer"); }}
+              disabled={noSources || loading}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+              style={{ backgroundColor: "var(--kb)", maxWidth: 280, width: "100%" }}>
+              {loading
+                ? <><ArrowsCounterClockwise size={13} className="animate-spin" /> Wird generiert…</>
+                : <><Plus size={13} weight="bold" /> Neue Infografik erstellen</>}
+            </button>
+          </div>
+
+          {/* Saved list */}
+          {savedList.length > 0 && (
+            <>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{savedList.length} {savedList.length === 1 ? "Infografik" : "Infografiken"}</span>
+              </div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                {savedList.map((item) => (
+                  <div key={item.id}
+                    onClick={() => { onSelect(item.id); setView("viewer"); }}
+                    className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <ChartBar size={16} weight="duotone" style={{ color: "#534AB7", flexShrink: 0 }} />
+                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
+                        {item.title}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-auto pt-1">
+                      <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                      </span>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                        style={{ backgroundColor: "var(--border)" }}>
+                        <Trash size={12} color="var(--text)" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Viewer ── */}
+      <div style={{ display: view === "viewer" ? "flex" : "none" }} className="flex-col h-full">
+        <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          <button type="button" onClick={() => setView("list")}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            style={{ backgroundColor: "var(--border)" }}>
+            <CaretLeft size={13} />
+          </button>
+          <span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>
+          {imageData && !loading && (
+            <button type="button" onClick={handleDownload}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--border)" }}
+              title="SVG herunterladen">
+              <DownloadSimple size={14} />
+            </button>
+          )}
+        </div>
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {loading && (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+                <p className="text-xs" style={{ color: "var(--muted)" }}>Infografik wird generiert…</p>
+                <p className="text-[10px]" style={{ color: "var(--muted)", opacity: 0.7 }}>LLM erstellt Prompt, dann generiert Flux das Bild</p>
+              </div>
+            </div>
+          )}
+          {imageData && !loading && (
+            <div className="flex-1 overflow-auto p-4 flex justify-center">
+              <div
+                className="w-full"
+                style={{ maxWidth: 800 }}
+                dangerouslySetInnerHTML={{ __html: imageData }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Datentabelle Studio ─────────────────────────────────────────────────────
 
 function DatentabelleStudio({
   table, sources, loading, onGenerate, onBack,
+  savedList, onSelect, onDelete, sourceCount,
 }: {
   table: DatentabelleData | null;
   sources: DatentabelleSource[];
   loading: boolean;
   onGenerate: () => void;
   onBack: () => void;
+  savedList: { id: number; title: string; created_at: string | null }[];
+  onSelect: (id: number) => void;
+  onDelete: (id: number) => void;
+  sourceCount: number;
 }) {
+  const [view, setView] = useState<"viewer" | "list">("list");
+  const noSources = sourceCount === 0;
+  const activeTitle = table?.title || "Datentabelle";
+
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Datentabelle" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 900 }}>
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={loading}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "#004261" }}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <Table size={16} weight="bold" />
-              {loading ? "Generieren…" : table ? "Neu generieren" : "Datentabelle generieren"}
-            </span>
-          </button>
+      {/* ── List view ── */}
+      <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
+        <SubviewHeader title="Datentabelle" onBack={onBack} />
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+            style={{
+              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
+              color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
+            }}>
+            <FilePdf size={13} weight="bold" />
+            {noSources
+              ? "Keine Quelle ausgewählt"
+              : sourceCount === 1
+                ? "1 Quelle ausgewählt"
+                : sourceCount <= 5
+                  ? `${sourceCount} Quellen ausgewählt`
+                  : `${sourceCount} Quellen ausgewählt — max. 5 werden genutzt`}
+          </div>
 
-          {table && (
+          <div className="flex justify-center">
+            <button type="button" onClick={() => { onGenerate(); setView("viewer"); }}
+              disabled={noSources || loading}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+              style={{ backgroundColor: "var(--kb)", maxWidth: 280, width: "100%" }}>
+              {loading
+                ? <><ArrowsCounterClockwise size={13} className="animate-spin" /> Wird generiert…</>
+                : <><Plus size={13} weight="bold" /> Neue Datentabelle erstellen</>}
+            </button>
+          </div>
+
+          {savedList.length > 0 && (
             <>
-              {/* Title */}
-              <p className="text-xs font-semibold" style={{ color: "var(--text)" }}>{table.title}</p>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{savedList.length} {savedList.length === 1 ? "Datentabelle" : "Datentabellen"}</span>
+              </div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                {savedList.map((item) => (
+                  <div key={item.id}
+                    onClick={() => { onSelect(item.id); setView("viewer"); }}
+                    className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Table size={16} weight="duotone" style={{ color: "var(--kb)", flexShrink: 0 }} />
+                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
+                        {item.title}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-auto pt-1">
+                      <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                      </span>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                        style={{ backgroundColor: "var(--border)" }}>
+                        <Trash size={12} color="var(--text)" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Viewer ── */}
+      <div style={{ display: view === "viewer" ? "flex" : "none" }} className="flex-col h-full">
+        <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          <button type="button" onClick={() => setView("list")}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            style={{ backgroundColor: "var(--border)" }}>
+            <CaretLeft size={13} />
+          </button>
+          <span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <div className="flex-1 flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-3">
+                <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+                <p className="text-xs" style={{ color: "var(--muted)" }}>Datentabelle wird generiert…</p>
+              </div>
+            </div>
+          )}
+          {table && !loading && (
+            <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 900 }}>
               <p className="text-[11px]" style={{ color: "var(--muted)" }}>
                 Basierend auf {sources.length} Quelle{sources.length !== 1 ? "n" : ""}
               </p>
 
-              {/* Table */}
               <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid var(--border)" }}>
                 <table className="w-full border-collapse text-xs" style={{ minWidth: 500 }}>
                   <thead>
                     <tr>
                       {table.columns.map((col, i) => (
-                        <th
-                          key={i}
+                        <th key={i}
                           className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap"
-                          style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261", borderBottom: "1px solid var(--border)" }}
-                        >
+                          style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", borderBottom: "1px solid var(--border)" }}>
                           {col}
                         </th>
                       ))}
-                      <th
-                        className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap"
-                        style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261", borderBottom: "1px solid var(--border)" }}
-                      >
+                      <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap"
+                        style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", borderBottom: "1px solid var(--border)" }}>
                         Quelle
                       </th>
                     </tr>
@@ -2170,18 +2564,13 @@ function DatentabelleStudio({
                     {table.rows.map((row, ri) => (
                       <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "var(--bg)" : "var(--surface)" }}>
                         {row.cells.map((cell, ci) => (
-                          <td
-                            key={ci}
-                            className="px-3 py-2 align-top leading-snug"
-                            style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}
-                          >
+                          <td key={ci} className="px-3 py-2 align-top leading-snug"
+                            style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
                             {cell}
                           </td>
                         ))}
-                        <td
-                          className="px-3 py-2 align-top whitespace-nowrap"
-                          style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)" }}
-                        >
+                        <td className="px-3 py-2 align-top whitespace-nowrap"
+                          style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)" }}>
                           {row.sources.map((s) => `[${s}]`).join(", ")}
                         </td>
                       </tr>
@@ -2190,7 +2579,6 @@ function DatentabelleStudio({
                 </table>
               </div>
 
-              {/* Source legend */}
               {sources.length > 0 && (
                 <div className="flex flex-col gap-1 pt-2">
                   {sources.map((s) => (
@@ -2200,7 +2588,7 @@ function DatentabelleStudio({
                   ))}
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -2217,14 +2605,20 @@ interface MindmapNodeData {
 
 function MindmapStudio({
   mindmap, loading, onGenerate, onBack,
+  savedList, onSelect, onDelete, sourceCount,
 }: {
   mindmap: MindmapNodeData | null;
   loading: boolean;
   onGenerate: () => void;
   onBack: () => void;
+  savedList: { id: number; created_at: string | null; topic: string }[];
+  onSelect: (id: number) => void;
+  onDelete: (id: number) => void;
+  sourceCount: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
+  const [view, setView] = useState<"viewer" | "list">("list");
 
   useEffect(() => {
     if (!mindmap || !containerRef.current) return;
@@ -2235,7 +2629,6 @@ function MindmapStudio({
       const MindElixir = (await import("mind-elixir")).default;
       if (cancelled || !containerRef.current) return;
 
-      // Convert our data to mind-elixir format
       let nodeId = 0;
       function convert(node: MindmapNodeData): any {
         const id = `node-${nodeId++}`;
@@ -2246,11 +2639,6 @@ function MindmapStudio({
         return result;
       }
 
-      const data = {
-        nodeData: convert(mindmap),
-      };
-
-      // Clear previous instance
       containerRef.current.innerHTML = "";
 
       const baseTheme = MindElixir.THEME;
@@ -2265,82 +2653,137 @@ function MindmapStudio({
         theme: {
           ...baseTheme,
           name: "kis-mindmap",
-          palette: ["#004261", "#0E7490", "#166534", "#A16207", "#534AB7", "#B91C1C"],
+          palette: ["var(--kb)", "#0E7490", "#166534", "#A16207", "#534AB7", "#B91C1C"],
         },
       });
 
-      me.init(data);
+      me.init({ nodeData: convert(mindmap) });
 
-      // Collapse all nodes initially (only root expanded)
       const root = me.nodeData;
-      function collapseAll(node: any) {
+      function collapseDeep(node: any) {
         if (node.children && node.children.length > 0) {
           node.expanded = false;
-          node.children.forEach(collapseAll);
+          node.children.forEach(collapseDeep);
         }
       }
       if (root.children) {
-        root.children.forEach((child: any) => collapseAll(child));
+        root.children.forEach((child: any) => {
+          if (child.children) child.children.forEach(collapseDeep);
+        });
       }
       me.refresh();
+      me.toCenter();
 
       meInstanceRef.current = me;
     })();
 
     return () => {
       cancelled = true;
+      if (meInstanceRef.current) {
+        try { meInstanceRef.current.destroy?.(); } catch { /* ignore */ }
+      }
       meInstanceRef.current = null;
+      if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, [mindmap]);
+  }, [mindmap, view]);
+
+  const activeTopicName = mindmap?.topic ?? "Mindmap";
+  const noSources = sourceCount === 0;
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Mindmap" onBack={onBack} />
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {!mindmap && !loading && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
-            <TreeStructure size={36} weight="duotone" color="var(--muted)" />
-            <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
-              Generiere eine Mindmap aus deinen ausgewählten Quellen.
-            </p>
-            <button
-              type="button"
-              onClick={onGenerate}
-              className="px-4 py-2 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-85"
-              style={{ backgroundColor: "#004261" }}
-            >
-              Mindmap erstellen
+      {/* ── List view ── */}
+      <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
+        <SubviewHeader title="Mindmap" onBack={onBack} />
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+            style={{
+              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
+              color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
+            }}>
+            <FilePdf size={13} weight="bold" />
+            {noSources
+              ? "Keine Quelle ausgewählt"
+              : sourceCount === 1
+                ? "1 Quelle ausgewählt"
+                : sourceCount <= 5
+                  ? `${sourceCount} Quellen ausgewählt`
+                  : `${sourceCount} Quellen ausgewählt — max. 5 werden genutzt`}
+          </div>
+
+          <div className="flex justify-center">
+            <button type="button" onClick={() => { onGenerate(); setView("viewer"); }}
+              disabled={noSources || loading}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+              style={{ backgroundColor: "var(--kb)", maxWidth: 280, width: "100%" }}>
+              {loading
+                ? <><ArrowsCounterClockwise size={13} className="animate-spin" /> Wird generiert…</>
+                : <><Plus size={13} weight="bold" /> Neue Mindmap erstellen</>}
             </button>
           </div>
-        )}
-        {loading && (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-3">
-              <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
-              <p className="text-xs" style={{ color: "var(--muted)" }}>Mindmap wird generiert…</p>
+
+          {savedList.length > 0 && (
+            <>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{savedList.length} {savedList.length === 1 ? "Mindmap" : "Mindmaps"}</span>
+              </div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                {savedList.map((item) => (
+                  <div key={item.id}
+                    onClick={() => { onSelect(item.id); setView("viewer"); }}
+                    className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <TreeStructure size={16} weight="duotone" style={{ color: "var(--kb)", flexShrink: 0 }} />
+                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
+                        {item.topic}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-auto pt-1">
+                      <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                      </span>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                        style={{ backgroundColor: "var(--border)" }}>
+                        <Trash size={12} color="var(--text)" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Viewer ── */}
+      <div style={{ display: view === "viewer" ? "flex" : "none" }} className="flex-col h-full">
+        <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+          <button type="button" onClick={() => setView("list")}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            style={{ backgroundColor: "var(--border)" }}>
+            <CaretLeft size={13} />
+          </button>
+          <span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>
+        </div>
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {loading && (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+                <p className="text-xs" style={{ color: "var(--muted)" }}>Mindmap wird generiert…</p>
+              </div>
             </div>
-          </div>
-        )}
-        {mindmap && !loading && (
-          <>
-            <div className="flex items-center justify-end gap-2 px-3 py-2 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-              <button
-                type="button"
-                onClick={onGenerate}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-opacity hover:opacity-70"
-                style={{ backgroundColor: "var(--border)", color: "var(--text)" }}
-              >
-                <ArrowsCounterClockwise size={12} weight="bold" />
-                Neu generieren
-              </button>
-            </div>
+          )}
+          {mindmap && !loading && (
             <div
               ref={containerRef}
               className="flex-1"
               style={{ minHeight: 300 }}
             />
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2392,7 +2835,7 @@ function NotizenStudio({
               onClick={() => { if (draft.trim()) { onAdd(draft.trim()); setDraft(""); } }}
               disabled={!draft.trim()}
               className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-white disabled:opacity-40 transition-opacity hover:opacity-85"
-              style={{ backgroundColor: "#004261" }}
+              style={{ backgroundColor: "var(--kb)" }}
               title="Notiz speichern"
             >
               <Plus size={14} weight="bold" />
@@ -2453,7 +2896,7 @@ function GlossarView({
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {extracting && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
-              style={{ backgroundColor: "rgba(0,66,97,0.06)", color: "#004261" }}>
+              style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}>
               <ArrowsCounterClockwise size={13} weight="bold" className="animate-spin" />
               Begriffe werden aus Markierung extrahiert…
             </div>
@@ -2463,7 +2906,7 @@ function GlossarView({
             onClick={onGenerate}
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "#004261" }}
+            style={{ backgroundColor: "var(--kb)" }}
           >
             <span className="flex items-center justify-center gap-2">
               <Book size={16} weight="bold" />
@@ -2474,7 +2917,7 @@ function GlossarView({
           {entries.length > 0 && (
             <div
               className="rounded-xl px-3 py-2 text-center text-xs font-medium"
-              style={{ backgroundColor: "rgba(0,66,97,0.06)", color: "#004261" }}
+              style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}
             >
               {entries.length} Fachbegriffe extrahiert
             </div>
@@ -2495,12 +2938,12 @@ function GlossarView({
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{entry.term_de}</span>
-                  <span className="text-xs font-medium ml-2" style={{ color: "#004261" }}>{entry.term_en}</span>
+                  <span className="text-xs font-medium ml-2" style={{ color: "var(--kb)" }}>{entry.term_en}</span>
                 </div>
                 {entry.page_number && (
                   <button type="button" onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
                     className="inline-flex items-center gap-1 text-[10px] font-medium shrink-0 px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity cursor-pointer"
-                    style={{ backgroundColor: "rgba(0,66,97,0.08)", color: "#004261" }}>
+                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>
                     <FilePdf size={9} weight="bold" /> S. {entry.page_number}
                   </button>
                 )}
@@ -2571,7 +3014,7 @@ function VocabFlashcards({
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
               <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
-              <p className="text-3xl font-bold mt-2" style={{ color: "#004261" }}>
+              <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -2650,8 +3093,8 @@ function VocabFlashcards({
               className="w-full rounded-2xl p-6 text-center transition-all cursor-pointer"
               style={{
                 minHeight: 180,
-                backgroundColor: flipped ? "rgba(0,66,97,0.04)" : "var(--surface)",
-                border: `2px solid ${flipped ? "#004261" : "var(--border)"}`,
+                backgroundColor: flipped ? "rgba(var(--kb-rgb),0.04)" : "var(--surface)",
+                border: `2px solid ${flipped ? "var(--kb)" : "var(--border)"}`,
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
               }}
             >
@@ -2662,7 +3105,7 @@ function VocabFlashcards({
                 </>
               ) : (
                 <>
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#004261" }}>
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>
                     {card.term_en}
                   </span>
                   <span className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>
@@ -2750,7 +3193,7 @@ function LueckentextView({
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
               <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
-              <p className="text-3xl font-bold mt-2" style={{ color: "#004261" }}>
+              <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -2765,7 +3208,7 @@ function LueckentextView({
                 type="button"
                 onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
                 className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: "#004261" }}
+                style={{ backgroundColor: "var(--kb)" }}
               >
                 Neue Übung
               </button>
@@ -2792,7 +3235,7 @@ function LueckentextView({
             onClick={() => { onGenerate(); setCurrent(0); setAnswers({}); setFinished(false); }}
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "#004261" }}
+            style={{ backgroundColor: "var(--kb)" }}
           >
             <span className="flex items-center justify-center gap-2">
               <TextAa size={16} weight="bold" />
@@ -2848,7 +3291,7 @@ function LueckentextView({
                 {answers[current] !== undefined && (
                   <button type="button" onClick={handleAdvance}
                     className="mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-                    style={{ backgroundColor: "#004261" }}>
+                    style={{ backgroundColor: "var(--kb)" }}>
                     {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
                   </button>
                 )}
@@ -2908,7 +3351,7 @@ function VokabeltestView({
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
               <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
-              <p className="text-3xl font-bold mt-2" style={{ color: "#004261" }}>
+              <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -2922,7 +3365,7 @@ function VokabeltestView({
               <button type="button"
                 onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
                 className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: "#004261" }}
+                style={{ backgroundColor: "var(--kb)" }}
               >
                 Neuer Test
               </button>
@@ -2949,7 +3392,7 @@ function VokabeltestView({
             onClick={() => { onGenerate(); setCurrent(0); setAnswers({}); setFinished(false); }}
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "#004261" }}
+            style={{ backgroundColor: "var(--kb)" }}
           >
             <span className="flex items-center justify-center gap-2">
               <Exam size={16} weight="bold" />
@@ -2994,14 +3437,14 @@ function VokabeltestView({
                   })}
                 </div>
                 {answers[current] !== undefined && q.explanation && (
-                  <p className="text-[11px] mt-3 leading-relaxed p-2 rounded-lg" style={{ backgroundColor: "rgba(0,66,97,0.05)", color: "#004261" }}>
+                  <p className="text-[11px] mt-3 leading-relaxed p-2 rounded-lg" style={{ backgroundColor: "rgba(var(--kb-rgb),0.05)", color: "var(--kb)" }}>
                     {q.explanation}
                   </p>
                 )}
                 {answers[current] !== undefined && (
                   <button type="button" onClick={handleAdvance}
                     className="mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-                    style={{ backgroundColor: "#004261" }}>
+                    style={{ backgroundColor: "var(--kb)" }}>
                     {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
                   </button>
                 )}
@@ -3086,8 +3529,8 @@ function ErgebnisseView({
 
                 {/* Stats grid */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(0,66,97,0.04)" }}>
-                    <p className="text-lg font-bold" style={{ color: "#004261" }}>{src.total_terms}</p>
+                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(var(--kb-rgb),0.04)" }}>
+                    <p className="text-lg font-bold" style={{ color: "var(--kb)" }}>{src.total_terms}</p>
                     <p className="text-[10px]" style={{ color: "var(--muted)" }}>Begriffe</p>
                   </div>
                   <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(34,197,94,0.06)" }}>
@@ -3146,10 +3589,10 @@ function SprachtrainingOverview({
   const noSources = activeSourceCount === 0;
 
   const tiles = [
-    { key: "glossar" as const, Icon: Book, label: "Glossar", desc: glossaryCount > 0 ? `${glossaryCount} / 150` : "Generieren", iconBg: "rgba(0,66,97,0.08)", iconColor: "#004261" },
-    { key: "lk-sets" as const, Icon: Cards, label: "Lernkarten", desc: "Sets", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
-    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Sets", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
-    { key: "vt-sets" as const, Icon: Exam, label: "Vokabeltest", desc: "Sets", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
+    { key: "glossar" as const, Icon: Book, label: "Glossar", desc: glossaryCount > 0 ? `${glossaryCount} / 150` : "Generieren", iconBg: "rgba(var(--kb-rgb),0.08)", iconColor: "var(--kb)" },
+    { key: "lk-sets" as const, Icon: Cards, label: "Lernkarten", desc: "Übungen", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
+    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Übungen", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
+    { key: "vt-sets" as const, Icon: Exam, label: "Vokabeltest", desc: "Übungen", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
     { key: "ergebnisse" as const, Icon: ChartBar, label: "Ergebnisse", desc: "Fortschritt", iconBg: "rgba(219,234,254,0.7)", iconColor: "#1E40AF" },
   ];
 
@@ -3159,8 +3602,8 @@ function SprachtrainingOverview({
         {/* Active sources info */}
         <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
           style={{
-            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : activeSourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(0,66,97,0.06)",
-            color: noSources ? "#B91C1C" : activeSourceCount > 1 ? "#c4820e" : "#004261",
+            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : activeSourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
+            color: noSources ? "#B91C1C" : activeSourceCount > 5 ? "#c4820e" : "var(--kb)",
           }}
         >
           <FilePdf size={13} weight="bold" />
@@ -3168,7 +3611,9 @@ function SprachtrainingOverview({
             ? "Keine Quelle ausgewählt"
             : activeSourceCount === 1
               ? "1 Quelle ausgewählt"
-              : `${activeSourceCount} Quellen ausgewählt — nur die erste wird genutzt`}
+              : activeSourceCount <= 5
+                ? `${activeSourceCount} Quellen ausgewählt`
+                : `${activeSourceCount} Quellen ausgewählt — max. 5 werden genutzt`}
           {glossaryCount > 0 && (
             <span className="ml-auto font-bold">{glossaryCount} / 150 Glossar</span>
           )}
@@ -3224,6 +3669,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
     { key: "datentabelle" as const, Icon: Table, label: "Datentabelle", iconBg: "rgba(255,237,213,0.7)", iconColor: "#C2410C" },
     { key: "mindmap" as const, Icon: TreeStructure, label: "Mindmap", iconBg: "rgba(236,254,255,0.7)", iconColor: "#0E7490" },
     { key: "notizen" as const, Icon: NotePencil, label: "Notizen", iconBg: "rgba(219,234,254,0.7)", iconColor: "#1E40AF" },
+    { key: "praesentation" as const, Icon: Presentation, label: "Präsentation", iconBg: "rgba(255,228,230,0.7)", iconColor: "#BE123C" },
   ];
 
   return (
@@ -3247,21 +3693,28 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
 
       {/* Tabs */}
       {sprachtrainingActive && (
-        <div className="flex flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-          {(["tools", "sprachtraining"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setStudioTab(tab)}
-              className="flex-1 py-2 text-xs font-medium transition-colors"
-              style={{
-                color: studioTab === tab ? "#004261" : "var(--muted)",
-                borderBottom: studioTab === tab ? "2px solid #004261" : "2px solid transparent",
-              }}
-            >
-              {tab === "tools" ? "Lerntools" : "Sprachtraining"}
-            </button>
-          ))}
+        <div className="flex-shrink-0 px-3 pt-4 pb-2 mx-auto w-full" style={{ maxWidth: 320 }}>
+          <div className="flex gap-2 p-1 rounded-xl" style={{ backgroundColor: "rgba(0, 66, 97, 0.08)" }}>
+            {(["tools", "sprachtraining"] as const).map((tab) => {
+              const active = studioTab === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setStudioTab(tab)}
+                  className="flex-1 py-1.5 text-xs font-medium rounded-lg transition-all"
+                  style={{
+                    color: active ? "var(--kb)" : "var(--muted)",
+                    backgroundColor: active ? "var(--bg)" : "transparent",
+                    border: active ? "1.5px solid var(--kb)" : "1.5px solid transparent",
+                    boxShadow: active ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  }}
+                >
+                  {tab === "tools" ? "Lerntools" : "Sprachtraining"}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -3301,7 +3754,149 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
   );
 }
 
-// ─── Mini Panel Strip ──────────────────────────────────────────────────────────
+// ─── Presentation Studio ────────────────────────────────────────────────────
+
+function PresentationStudio({
+  loading, onGenerate, onBack,
+  savedList, onDelete, onDownload, sourceCount,
+}: {
+  loading: boolean;
+  onGenerate: () => void;
+  onBack: () => void;
+  savedList: PresentationData[];
+  onDelete: (id: number) => void;
+  onDownload: (id: number) => void;
+  sourceCount: number;
+}) {
+  const noSources = sourceCount === 0;
+  const [deleteTarget, setDeleteTarget] = useState<PresentationData | null>(null);
+
+  return (
+    <div className="flex flex-col h-full">
+      <SubviewHeader title="Präsentation" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+          style={{
+            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
+            color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
+          }}>
+          <FilePdf size={13} weight="bold" />
+          {noSources
+            ? "Keine Quelle ausgewählt"
+            : sourceCount === 1
+              ? "1 Quelle ausgewählt"
+              : `${sourceCount} Quellen ausgewählt — max. 1 wird genutzt`}
+        </div>
+
+        <div className="flex justify-center">
+          <button type="button" onClick={() => onGenerate()}
+            disabled={noSources || loading}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ backgroundColor: "var(--kb)", maxWidth: 280, width: "100%" }}>
+            {loading
+              ? <><ArrowsCounterClockwise size={13} className="animate-spin" /> Wird generiert…</>
+              : <><Plus size={13} weight="bold" /> Neue Präsentation erstellen</>}
+          </button>
+        </div>
+
+        {savedList.length > 0 && (
+          <>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{savedList.length} {savedList.length === 1 ? "Präsentation" : "Präsentationen"}</span>
+            </div>
+            <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+              {savedList.map((p) => (
+                <div key={p.id}
+                  className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group"
+                  style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {p.status === "success" ? (
+                      <Presentation size={16} weight="duotone" style={{ color: "#BE123C", flexShrink: 0 }} />
+                    ) : p.status === "failed" ? (
+                      <WarningCircle size={16} style={{ color: "#EF4444", flexShrink: 0 }} />
+                    ) : (
+                      <ArrowsCounterClockwise size={16} className="animate-spin" style={{ color: "var(--muted)", flexShrink: 0 }} />
+                    )}
+                    <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
+                      {p.title || p.source_filename || "Präsentation"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-auto pt-1">
+                    <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                      {p.status === "success"
+                        ? `${p.slides?.length || 0} Folien`
+                        : p.status === "failed"
+                          ? "Fehlgeschlagen"
+                          : "Wird generiert…"}
+                      {p.source_filename && ` · ${p.source_filename}`}
+                      {p.created_at && ` · ${new Date(p.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {p.status === "success" && (
+                        <button type="button" onClick={() => onDownload(p.id)}
+                          className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                          style={{ backgroundColor: "var(--border)" }} title="PPTX herunterladen">
+                          <DownloadSimple size={12} color="var(--text)" />
+                        </button>
+                      )}
+                      <button type="button" onClick={() => setDeleteTarget(p)}
+                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                        style={{ backgroundColor: "var(--border)" }}>
+                        <Trash size={12} color="var(--text)" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {savedList.length === 0 && !loading && (
+          <div className="flex flex-col items-center justify-center gap-3 py-8">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(190,18,60,0.1), rgba(225,29,72,0.1))" }}>
+              <Presentation size={24} weight="duotone" color="#BE123C" />
+            </div>
+            <p className="text-[11px] text-center leading-relaxed" style={{ color: "var(--muted)" }}>
+              Wähle eine Quelle und erstelle<br />deine erste Präsentation.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Präsentation löschen?</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              <span className="font-medium">{deleteTarget.title || deleteTarget.source_filename || "Präsentation"}</span>
+            </p>
+            <p className="text-sm text-red-600 mb-6">
+              Die Präsentation wird vollständig entfernt und ist nicht mehr herunterladbar.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={() => { onDelete(deleteTarget.id); setDeleteTarget(null); }}
+                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
+              >
+                Löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mini Panel Strip ─��────────────────────────────────────────────────────────
 
 function MiniStrip({ label, onClick, side }: { label: string; onClick: () => void; side: "left" | "right" }) {
   return (
@@ -3397,14 +3992,20 @@ export default function KiTutorModulePage() {
   const [studioView, setStudioView] = useState<StudioView>("overview");
   const [lernkarten, setLernkarten] = useState<LernKarte[]>([]);
   const [lernkartenLoading, setLernkartenLoading] = useState(false);
-  const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
-  const [quizLoading, setQuizLoading] = useState(false);
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [mindmapData, setMindmapData] = useState<MindmapNodeData | null>(null);
   const [mindmapLoading, setMindmapLoading] = useState(false);
+  const [mindmapList, setMindmapList] = useState<{ id: number; created_at: string | null; topic: string }[]>([]);
+  const [infographicImage, setInfographicImage] = useState<string | null>(null);
+  const [infographicTitle, setInfographicTitle] = useState<string | null>(null);
+  const [infographicLoading, setInfographicLoading] = useState(false);
+  const infographicStyle = "scientific" as const;
+  const [infographicList, setInfographicList] = useState<{ id: number; title: string; style: string; created_at: string | null }[]>([]);
   const [datentabelle, setDatentabelle] = useState<DatentabelleData | null>(null);
   const [datentabelleSources, setDatentabelleSources] = useState<DatentabelleSource[]>([]);
   const [datentabelleLoading, setDatentabelleLoading] = useState(false);
+  const [datentabelleList, setDatentabelleList] = useState<{ id: number; title: string; created_at: string | null }[]>([]);
+  const [presentations, setPresentations] = useState<PresentationData[]>([]);
+  const [presentationLoading, setPresentationLoading] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
 
   // ─── Sprachtraining State ─────────────────────────────────────────────────
@@ -3785,10 +4386,15 @@ export default function KiTutorModulePage() {
     setTimeout(() => chatTextareaRef.current?.focus(), 50);
   }
 
-  function handlePillClick(sourceUuid: string, page: number, filename: string, sourceText?: string) {
+  function handlePillClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) {
     const src = sources.find((s) => s.uuid === sourceUuid);
-    if (src) handleOpenViewer(src, page, sourceText);
-    else {
+    const isMedia = _isMediaFile(filename);
+    if (isMedia) {
+      setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, nonce: Date.now() });
+      setPanels((prev) => ({ ...prev, quellen: true }));
+    } else if (src) {
+      handleOpenViewer(src, page, sourceText);
+    } else {
       setPrevSelectedSourceIds(selectedSourceIds);
       setSelectedSourceIds([sourceUuid]);
       setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, nonce: Date.now() });
@@ -3801,43 +4407,23 @@ export default function KiTutorModulePage() {
   async function generateLernkarten() {
     setLernkartenLoading(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/chat`, {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/lernkarten/generate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: "Erstelle 5 Lernkarten aus den aktiven Quellen im Format: Vorderseite | Rückseite (eine Karte pro Zeile, nummeriert)",
           active_source_ids: selectedSourceIds,
+          count: 10,
         }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setLernkarten(parseLernkarten(data.answer));
+        // Now creates an exercise set — switch to sprachtraining view
+        loadExerciseSets("lernkarten");
+        setSprachtrainingActive(true);
+        setSprachView("lk-sets");
       }
     } catch { /* ignore */ } finally {
       setLernkartenLoading(false);
-    }
-  }
-
-  async function generateQuiz() {
-    setQuizLoading(true);
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/chat`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: "Erstelle 5 Multiple-Choice-Fragen aus den aktiven Quellen. Format: Nummer. Frage? dann A) B) C) D) Optionen. Markiere die richtige Antwort mit ✓",
-          active_source_ids: selectedSourceIds,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setQuiz(parseQuiz(data.answer));
-        setQuizAnswers({});
-      }
-    } catch { /* ignore */ } finally {
-      setQuizLoading(false);
     }
   }
 
@@ -3845,6 +4431,13 @@ export default function KiTutorModulePage() {
 
   function stopMindmapPolling() {
     if (mindmapPollRef.current) { clearInterval(mindmapPollRef.current); mindmapPollRef.current = null; }
+  }
+
+  async function refreshMindmapList() {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmaps`, { credentials: "include" });
+      if (res.ok) setMindmapList(await res.json());
+    } catch { /* ignore */ }
   }
 
   function startMindmapPolling(mindmapId: number) {
@@ -3857,8 +4450,10 @@ export default function KiTutorModulePage() {
         const data = await res.json();
         if (data.status === "success" && data.mindmap) {
           setMindmapData(data.mindmap);
+
           setMindmapLoading(false);
           stopMindmapPolling();
+          refreshMindmapList();
         } else if (data.status === "failed") {
           console.error("Mindmap failed:", data.error);
           setMindmapLoading(false);
@@ -3882,6 +4477,7 @@ export default function KiTutorModulePage() {
         }
       } catch { /* ignore */ }
     })();
+    refreshMindmapList();
     return () => stopMindmapPolling();
   }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -3908,6 +4504,175 @@ export default function KiTutorModulePage() {
     }
   }
 
+  async function selectMindmap(id: number) {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmap/${id}`, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.status === "success" && data.mindmap) {
+        setMindmapData(data.mindmap);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function deleteMindmap(id: number) {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/mindmap/${id}`, { method: "DELETE", credentials: "include" });
+      setMindmapList((prev) => prev.filter((m) => m.id !== id));
+    } catch { /* ignore */ }
+  }
+
+  // ─── Infographic polling ────────────────────────────────────────────────────
+  const infographicPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopInfographicPolling() {
+    if (infographicPollRef.current) { clearInterval(infographicPollRef.current); infographicPollRef.current = null; }
+  }
+
+  async function refreshInfographicList() {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographics`, { credentials: "include" });
+      if (res.ok) setInfographicList(await res.json());
+    } catch { /* ignore */ }
+  }
+
+  function startInfographicPolling(infographicId: number) {
+    stopInfographicPolling();
+    setInfographicLoading(true);
+    infographicPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/${infographicId}`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "success" && data.image_data) {
+          setInfographicImage(data.image_data);
+          setInfographicTitle(data.title || null);
+          setInfographicLoading(false);
+          stopInfographicPolling();
+          refreshInfographicList();
+        } else if (data.status === "failed") {
+          console.error("Infographic failed:", data.error);
+          setInfographicLoading(false);
+          stopInfographicPolling();
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+  }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "success" && data.image_data) {
+          setInfographicImage(data.image_data);
+          setInfographicTitle(data.title || null);
+        } else if (data.id && (data.status === "pending" || data.status === "running")) {
+          startInfographicPolling(data.id);
+        }
+      } catch { /* ignore */ }
+    })();
+    refreshInfographicList();
+    return () => stopInfographicPolling();
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function generateInfographic() {
+    if (selectedSourceIds.length === 0) return;
+    setInfographicLoading(true);
+    setInfographicImage(null);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/generate`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 5), style: infographicStyle }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        startInfographicPolling(data.infographic_id);
+      } else {
+        const err = await res.text();
+        console.error("Infographic generate error:", res.status, err);
+        setInfographicLoading(false);
+      }
+    } catch {
+      setInfographicLoading(false);
+    }
+  }
+
+  async function selectInfographic(id: number) {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/${id}`, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.status === "success" && data.image_data) {
+        setInfographicImage(data.image_data);
+        setInfographicTitle(data.title || null);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function deleteInfographic(id: number) {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/infographic/${id}`, { method: "DELETE", credentials: "include" });
+      setInfographicList((prev) => prev.filter((ig) => ig.id !== id));
+    } catch { /* ignore */ }
+  }
+
+  const datentabellePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopDatentabellePolling() {
+    if (datentabellePollRef.current) { clearInterval(datentabellePollRef.current); datentabellePollRef.current = null; }
+  }
+
+  async function refreshDatentabelleList() {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabellen`, { credentials: "include" });
+      if (res.ok) setDatentabelleList(await res.json());
+    } catch { /* ignore */ }
+  }
+
+  function startDatentabellePolling(dtId: number) {
+    stopDatentabellePolling();
+    setDatentabelleLoading(true);
+    datentabellePollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/${dtId}`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "success" && data.table_data) {
+          setDatentabelle(data.table_data);
+          setDatentabelleSources(data.sources || []);
+          setDatentabelleLoading(false);
+          stopDatentabellePolling();
+          refreshDatentabelleList();
+        } else if (data.status === "failed") {
+          setDatentabelleLoading(false);
+          stopDatentabellePolling();
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+  }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "success" && data.table_data) {
+          setDatentabelle(data.table_data);
+          setDatentabelleSources(data.sources || []);
+        } else if (data.id && (data.status === "pending" || data.status === "running")) {
+          startDatentabellePolling(data.id);
+        }
+      } catch { /* ignore */ }
+    })();
+    refreshDatentabelleList();
+    return () => stopDatentabellePolling();
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function generateDatentabelle() {
     if (selectedSourceIds.length === 0) return;
     setDatentabelleLoading(true);
@@ -3920,12 +4685,119 @@ export default function KiTutorModulePage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setDatentabelle(data.table);
-        setDatentabelleSources(data.sources || []);
+        startDatentabellePolling(data.datentabelle_id);
+      } else {
+        setDatentabelleLoading(false);
       }
-    } catch { /* ignore */ } finally {
+    } catch {
       setDatentabelleLoading(false);
     }
+  }
+
+  async function selectDatentabelle(id: number) {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/${id}`, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.status === "success" && data.table_data) {
+        setDatentabelle(data.table_data);
+        setDatentabelleSources(data.sources || []);
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function deleteDatentabelle(id: number) {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/${id}`, { method: "DELETE", credentials: "include" });
+      setDatentabelleList((prev) => prev.filter((dt) => dt.id !== id));
+    } catch { /* ignore */ }
+  }
+
+  // ─── Presentation Functions ────────────────────────────────────────────
+
+  const presentationPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopPresentationPolling() {
+    if (presentationPollRef.current) { clearInterval(presentationPollRef.current); presentationPollRef.current = null; }
+  }
+
+  function startPresentationPolling(presId: number) {
+    stopPresentationPolling();
+    setPresentationLoading(true);
+    presentationPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${uuid}/presentation/${presId}`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "success" && data.slides) {
+          setPresentationLoading(false);
+          stopPresentationPolling();
+          loadPresentations();
+        } else if (data.status === "failed") {
+          setPresentationLoading(false);
+          stopPresentationPolling();
+          loadPresentations();
+        }
+      } catch { /* ignore */ }
+    }, 4000);
+  }
+
+  async function loadPresentations() {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/presentations`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setPresentations(data);
+        // Resume polling for any pending/running
+        const pending = data.find((p: PresentationData) => p.status === "pending" || p.status === "running");
+        if (pending) {
+          startPresentationPolling(pending.id);
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Load presentations on mount
+  useEffect(() => {
+    loadPresentations();
+    return () => stopPresentationPolling();
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function generatePresentation() {
+    if (selectedSourceIds.length === 0) return;
+    const sourceUuid = selectedSourceIds[0];
+    setPresentationLoading(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/presentation/generate`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_uuid: sourceUuid }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        startPresentationPolling(data.presentation_id);
+        loadPresentations();
+      } else {
+        setPresentationLoading(false);
+      }
+    } catch {
+      setPresentationLoading(false);
+    }
+  }
+
+  async function deletePresentation(presId: number) {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/presentation/${presId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      setPresentations((prev) => prev.filter((p) => p.id !== presId));
+    } catch { /* ignore */ }
+  }
+
+  function downloadPresentation(presId: number) {
+    window.open(`/api/ki-tutor/modules/${uuid}/presentation/${presId}/download`, "_blank");
   }
 
   // ─── Sprachtraining Functions ────────────────────────────────────────────
@@ -3953,6 +4825,24 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ }
   }
 
+  const glossaryPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopGlossaryPolling() {
+    if (glossaryPollRef.current) { clearInterval(glossaryPollRef.current); glossaryPollRef.current = null; }
+  }
+
+  async function loadGlossary() {
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setGlossary(data.entries || []);
+        return data.entries?.length > 0;
+      }
+    } catch { /* ignore */ }
+    return false;
+  }
+
   async function generateGlossary() {
     if (sprachActiveIds.length === 0) return;
     setGlossaryLoading(true);
@@ -3963,10 +4853,31 @@ export default function KiTutorModulePage() {
         body: JSON.stringify({ active_source_ids: sprachActiveIds }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setGlossary(data.entries || []);
+        // Poll for glossary entries until they appear
+        stopGlossaryPolling();
+        const startCount = glossary.length;
+        glossaryPollRef.current = setInterval(async () => {
+          const hasNew = await loadGlossary();
+          if (hasNew) {
+            // Check if entries changed (new ones generated)
+            const res2 = await fetch(`/api/ki-tutor/modules/${uuid}/glossary`, { credentials: "include" });
+            if (res2.ok) {
+              const data2 = await res2.json();
+              if ((data2.entries || []).length !== startCount) {
+                setGlossary(data2.entries || []);
+                setGlossaryLoading(false);
+                stopGlossaryPolling();
+                loadGlossaryCount();
+              }
+            }
+          }
+        }, 3000);
+        // Safety: stop polling after 2 minutes
+        setTimeout(() => { stopGlossaryPolling(); setGlossaryLoading(false); }, 120000);
+      } else {
+        setGlossaryLoading(false);
       }
-    } catch { /* ignore */ } finally {
+    } catch {
       setGlossaryLoading(false);
     }
   }
@@ -3981,8 +4892,9 @@ export default function KiTutorModulePage() {
         body: JSON.stringify({ active_source_ids: sprachActiveIds }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setClozeExercises(data.exercises || []);
+        // Now creates an exercise set — reload sets via polling
+        loadExerciseSets("lueckentext");
+        setSprachView("cl-sets");
       }
     } catch { /* ignore */ } finally {
       setClozeLoading(false);
@@ -3999,8 +4911,9 @@ export default function KiTutorModulePage() {
         body: JSON.stringify({ active_source_ids: sprachActiveIds }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setVocabQuestions(data.exercises || []);
+        // Now creates an exercise set — reload sets via polling
+        loadExerciseSets("vokabeltest");
+        setSprachView("vt-sets");
       }
     } catch { /* ignore */ } finally {
       setVocabLoading(false);
@@ -4031,6 +4944,11 @@ export default function KiTutorModulePage() {
     }
   }
 
+  // Load quiz sets when switching to quiz view
+  useEffect(() => {
+    if (studioView === "quiz") loadExerciseSets("quiz");
+  }, [studioView]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Exercise Sets Functions ──────────────────────────────────────────────
 
   async function loadExerciseSets(tool?: string) {
@@ -4041,7 +4959,16 @@ export default function KiTutorModulePage() {
       const res = await fetch(url, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        setExerciseSets(data.sets || []);
+        const newSets: ExerciseSet[] = data.sets || [];
+        if (tool) {
+          // Merge: replace only sets of this tool, keep others
+          setExerciseSets((prev) => [
+            ...prev.filter((s) => s.tool !== tool),
+            ...newSets,
+          ]);
+        } else {
+          setExerciseSets(newSets);
+        }
       }
     } catch { /* ignore */ }
   }
@@ -4115,7 +5042,8 @@ export default function KiTutorModulePage() {
     loadGlossary();
     loadStreak();
     loadGlossaryCount();
-  }, [uuid]);
+    return () => stopGlossaryPolling();
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build the sprachtraining content tree
   // Helper: selected source for create-set modal
@@ -4351,7 +5279,7 @@ export default function KiTutorModulePage() {
         <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
           <Header showLogout />
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "#004261" }} />
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: "var(--kb)", borderTopColor: "transparent" }} />
           </div>
         </div>
       </ProtectedRoute>
@@ -4387,7 +5315,7 @@ export default function KiTutorModulePage() {
               type="button"
               onClick={() => setShowSettings((v) => !v)}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: showSettings ? "#004261" : "var(--border)", color: showSettings ? "white" : "var(--muted)" }}
+              style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--border)", color: showSettings ? "white" : "var(--muted)" }}
               title="Einstellungen"
             >
               <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
@@ -4416,7 +5344,7 @@ export default function KiTutorModulePage() {
                         onClick={() => setChatLang(lang)}
                         className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors"
                         style={{
-                          backgroundColor: chatLang === lang ? "#004261" : "var(--border)",
+                          backgroundColor: chatLang === lang ? "var(--kb)" : "var(--border)",
                           color: chatLang === lang ? "white" : "var(--muted)",
                         }}
                       >
@@ -4437,7 +5365,7 @@ export default function KiTutorModulePage() {
                     aria-checked={studioEnabled}
                     onClick={() => setStudioEnabled((v) => !v)}
                     className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
-                    style={{ backgroundColor: studioEnabled ? "#004261" : "#CBD5E1" }}
+                    style={{ backgroundColor: studioEnabled ? "var(--kb)" : "#CBD5E1" }}
                   >
                     <span
                       className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
@@ -4458,7 +5386,7 @@ export default function KiTutorModulePage() {
                     onClick={() => studioEnabled && setSprachtrainingActive((v) => !v)}
                     disabled={!studioEnabled}
                     className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
-                    style={{ backgroundColor: sprachtrainingActive && studioEnabled ? "#004261" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
+                    style={{ backgroundColor: sprachtrainingActive && studioEnabled ? "var(--kb)" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
                   >
                     <span
                       className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
@@ -4495,13 +5423,13 @@ export default function KiTutorModulePage() {
                 type="button"
                 onClick={() => setActiveTab(key)}
                 className="flex-1 py-3 text-sm font-medium transition-colors relative"
-                style={{ color: activeTab === key ? "#004261" : "var(--muted)", background: "none", border: "none" }}
+                style={{ color: activeTab === key ? "var(--kb)" : "var(--muted)", background: "none", border: "none" }}
               >
                 {key === "quellen" ? "Quellen" : key === "chat" ? "Chat" : "Studio"}
                 {activeTab === key && (
                   <span
                     className="absolute bottom-0 left-0 right-0"
-                    style={{ height: 2, backgroundColor: "#004261", display: "block" }}
+                    style={{ height: 2, backgroundColor: "var(--kb)", display: "block" }}
                   />
                 )}
               </button>
@@ -4524,7 +5452,11 @@ export default function KiTutorModulePage() {
             >
               {activeTab === "quellen" ? (
                 viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => setActiveTab("chat")} />
+                  _isMediaFile(viewerSource.filename) ? (
+                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} />
+                  ) : (
+                    <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => setActiveTab("chat")} />
+                  )
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -4572,7 +5504,7 @@ export default function KiTutorModulePage() {
                   onBack={() => setStudioView("overview")}
                 />
               ) : studioView === "infografik" ? (
-                <PlaceholderStudio title="Infografik" onBack={() => setStudioView("overview")} />
+                <InfografikStudio imageData={infographicImage} title={infographicTitle} loading={infographicLoading} onGenerate={generateInfographic} onBack={() => setStudioView("overview")} savedList={infographicList} onSelect={selectInfographic} onDelete={deleteInfographic} sourceCount={selectedSourceIds.length} />
               ) : studioView === "datentabelle" ? (
                 <DatentabelleStudio
                     table={datentabelle}
@@ -4580,17 +5512,43 @@ export default function KiTutorModulePage() {
                     loading={datentabelleLoading}
                     onGenerate={generateDatentabelle}
                     onBack={() => setStudioView("overview")}
+                    savedList={datentabelleList}
+                    onSelect={selectDatentabelle}
+                    onDelete={deleteDatentabelle}
+                    sourceCount={selectedSourceIds.length}
                   />
-              ) : studioView === "mindmap" ? (
-                <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} />
-              ) : (
-                <QuizStudio
-                  questions={quiz}
-                  loading={quizLoading}
-                  answers={quizAnswers}
-                  onGenerate={generateQuiz}
-                  onAnswer={(qi, ai) => setQuizAnswers((prev) => ({ ...prev, [qi]: ai }))}
+              ) : studioView === "praesentation" ? (
+                <PresentationStudio
+                  loading={presentationLoading}
+                  onGenerate={generatePresentation}
                   onBack={() => setStudioView("overview")}
+                  savedList={presentations}
+                  onDelete={deletePresentation}
+                  onDownload={downloadPresentation}
+                  sourceCount={selectedSourceIds.length}
+                />
+              ) : studioView === "mindmap" ? (
+                <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} />
+              ) : activeSet && activeSet.tool === "quiz" ? (
+                <MCExerciseView
+                  exerciseSet={activeSet}
+                  tool="quiz"
+                  onBack={() => { setActiveSet(null); loadExerciseSets("quiz"); }}
+                  onComplete={(results) => {
+                    submitSetProgress(activeSet.id, results);
+                    setActiveSet(null);
+                    loadExerciseSets("quiz");
+                  }}
+                  onAskChat={() => {}}
+                />
+              ) : (
+                <ExerciseSetsOverview
+                  title="Quiz"
+                  sets={exerciseSets.filter((s) => s.tool === "quiz")}
+                  onBack={() => setStudioView("overview")}
+                  onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+                  onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
+                  onDelete={(id) => deleteExerciseSet(id, "quiz")}
                 />
               )}
             </div>
@@ -4606,7 +5564,11 @@ export default function KiTutorModulePage() {
                 {!panels.quellen ? (
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
-                  <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => togglePanel("quellen")} />
+                  _isMediaFile(viewerSource.filename) ? (
+                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => togglePanel("quellen")} />
+                  ) : (
+                    <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => togglePanel("quellen")} />
+                  )
                 ) : (
                   <SourcesPanel
                     sources={sources}
@@ -4630,7 +5592,7 @@ export default function KiTutorModulePage() {
               >
                 <div
                   className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ height: 48, backgroundColor: "#004261" }}
+                  style={{ height: 48, backgroundColor: "var(--kb)" }}
                 />
               </div>
 
@@ -4671,7 +5633,7 @@ export default function KiTutorModulePage() {
                 >
                   <div
                     className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ height: 48, backgroundColor: "#004261" }}
+                    style={{ height: 48, backgroundColor: "var(--kb)" }}
                   />
                 </div>
 
@@ -4702,7 +5664,7 @@ export default function KiTutorModulePage() {
                       onBack={() => setStudioView("overview")}
                     />
                   ) : studioView === "infografik" ? (
-                    <PlaceholderStudio title="Infografik" onBack={() => setStudioView("overview")} />
+                    <InfografikStudio imageData={infographicImage} title={infographicTitle} loading={infographicLoading} onGenerate={generateInfographic} onBack={() => setStudioView("overview")} savedList={infographicList} onSelect={selectInfographic} onDelete={deleteInfographic} sourceCount={selectedSourceIds.length} />
                   ) : studioView === "datentabelle" ? (
                     <DatentabelleStudio
                       table={datentabelle}
@@ -4710,17 +5672,43 @@ export default function KiTutorModulePage() {
                       loading={datentabelleLoading}
                       onGenerate={generateDatentabelle}
                       onBack={() => setStudioView("overview")}
+                      savedList={datentabelleList}
+                      onSelect={selectDatentabelle}
+                      onDelete={deleteDatentabelle}
+                      sourceCount={selectedSourceIds.length}
+                    />
+                  ) : studioView === "praesentation" ? (
+                    <PresentationStudio
+                      loading={presentationLoading}
+                      onGenerate={generatePresentation}
+                      onBack={() => setStudioView("overview")}
+                      savedList={presentations}
+                      onDelete={deletePresentation}
+                      onDownload={downloadPresentation}
+                      sourceCount={selectedSourceIds.length}
                     />
                   ) : studioView === "mindmap" ? (
-                    <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} />
+                    <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} />
+                  ) : activeSet && activeSet.tool === "quiz" ? (
+                    <MCExerciseView
+                      exerciseSet={activeSet}
+                      tool="quiz"
+                      onBack={() => { setActiveSet(null); loadExerciseSets("quiz"); }}
+                      onComplete={(results) => {
+                        submitSetProgress(activeSet.id, results);
+                        setActiveSet(null);
+                        loadExerciseSets("quiz");
+                      }}
+                      onAskChat={() => {}}
+                    />
                   ) : (
-                    <QuizStudio
-                      questions={quiz}
-                      loading={quizLoading}
-                      answers={quizAnswers}
-                      onGenerate={generateQuiz}
-                      onAnswer={(qi, ai) => setQuizAnswers((prev) => ({ ...prev, [qi]: ai }))}
+                    <ExerciseSetsOverview
+                      title="Quiz"
+                      sets={exerciseSets.filter((s) => s.tool === "quiz")}
                       onBack={() => setStudioView("overview")}
+                      onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+                      onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
+                      onDelete={(id) => deleteExerciseSet(id, "quiz")}
                     />
                   )}
                 </div>
@@ -4740,17 +5728,19 @@ export default function KiTutorModulePage() {
           onClose={() => setShowCreateModal(false)}
           onCreate={async (mode, count) => {
             setShowCreateModal(false);
-            // Navigate to sets view immediately
-            const setsView = `${createSetTool === "lernkarten" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-sets` as SprachtrainingView;
-            setSprachView(setsView);
-            // Create set (returns placeholder immediately)
+            if (createSetTool === "quiz") {
+              // Quiz is a StudioView, not Sprachtraining
+              setStudioView("quiz");
+            } else {
+              const setsView = `${createSetTool === "lernkarten" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-sets` as SprachtrainingView;
+              setSprachView(setsView);
+            }
             await createExerciseSet(
               createSetTool, mode, count,
               mode === "quelle" ? selectedSourceIds[0] : undefined,
             );
-            // Poll for completion
             const poll = setInterval(() => loadExerciseSets(createSetTool), 3000);
-            setTimeout(() => clearInterval(poll), 120000); // stop after 2min
+            setTimeout(() => clearInterval(poll), 120000);
           }}
         />
       )}

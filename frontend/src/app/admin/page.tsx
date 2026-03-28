@@ -175,12 +175,12 @@ function WhitelistTab({ adminEmail }: { adminEmail: string }) {
           onChange={(e) => setNewEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
           placeholder="name@th-luebeck.de"
-          className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <button
           onClick={add}
           disabled={adding || !newEmail.trim()}
-          className="px-4 py-2 text-sm font-medium text-white bg-[#004261] hover:bg-[#003a56] rounded-md disabled:opacity-40 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-md disabled:opacity-40 transition-colors"
         >
           {adding ? "..." : "Hinzufügen"}
         </button>
@@ -271,26 +271,26 @@ function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Suche: Name, Username, Email..."
-          className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <input
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           title="Von"
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           title="Bis"
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <select
           value={limit}
           onChange={(e) => setLimit(Number(e.target.value))}
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value={50}>50 pro Seite</option>
           <option value={100}>100 pro Seite</option>
@@ -331,7 +331,7 @@ function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(u.created_at)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => onOpenQuota(u.id)} className="text-xs text-[#004261] hover:underline whitespace-nowrap">
+                    <button onClick={() => onOpenQuota(u.id)} className="text-xs text-primary hover:underline whitespace-nowrap">
                       Details
                     </button>
                   </td>
@@ -363,7 +363,7 @@ function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
                 onClick={() => setOffset((page - 1) * limit)}
                 className={`px-3 py-1.5 text-sm border rounded-md ${
                   page === currentPage
-                    ? "bg-[#004261] text-white border-[#004261]"
+                    ? "bg-primary text-white border-primary"
                     : "border-gray-300 hover:bg-gray-50"
                 }`}
               >
@@ -430,7 +430,7 @@ function StatsTab() {
         <span className="text-sm text-gray-500">Zeitraum:</span>
         {[7, 30, 90].map((d) => (
           <button key={d} onClick={() => setDays(d)}
-            className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-[#004261] text-white border-[#004261]" : "border-gray-300 text-gray-600 hover:border-gray-400"}`}>
+            className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 hover:border-gray-400"}`}>
             {d} Tage
           </button>
         ))}
@@ -462,7 +462,7 @@ function StatsTab() {
                 <div className="absolute -top-5 hidden group-hover:block text-[10px] bg-gray-800 text-white px-1.5 py-0.5 rounded whitespace-nowrap z-10">
                   {d.day.slice(5)}: {d.count}
                 </div>
-                <div className="w-full bg-[#004261] rounded-t-sm transition-all"
+                <div className="w-full bg-primary rounded-t-sm transition-all"
                   style={{ height: `${Math.max((d.count / maxDay) * 100, 2)}%` }} />
               </div>
             ))}
@@ -593,26 +593,26 @@ function JobsTab() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Suche: User, Tool, Datei..."
-          className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <input
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           title="Von"
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           title="Bis"
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <select
           value={limit}
           onChange={(e) => setLimit(Number(e.target.value))}
-          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+          className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value={50}>50 pro Seite</option>
           <option value={100}>100 pro Seite</option>
@@ -691,7 +691,7 @@ function JobsTab() {
                 onClick={() => setOffset((page - 1) * limit)}
                 className={`px-3 py-1.5 text-sm border rounded-md ${
                   page === currentPage
-                    ? "bg-[#004261] text-white border-[#004261]"
+                    ? "bg-primary text-white border-primary"
                     : "border-gray-300 hover:bg-gray-50"
                 }`}
               >
@@ -738,7 +738,7 @@ function ProviderToggle({ label, enabled, configured, available, envHint, saving
         disabled={saving || !configured}
         title={!configured && envHint ? `${envHint} ist nicht in .env gesetzt` : undefined}
         className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-          enabled ? "bg-[#004261]" : "bg-gray-300"
+          enabled ? "bg-primary" : "bg-gray-300"
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
@@ -824,7 +824,7 @@ function GeneralSettingsSection() {
             onClick={() => { const v = !whitelistEnabled; setWhitelistEnabled(v); patch({ whitelist_enabled: v }); }}
             disabled={saving}
             className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-              whitelistEnabled ? "bg-[#004261]" : "bg-gray-300"
+              whitelistEnabled ? "bg-primary" : "bg-gray-300"
             } disabled:opacity-50`}
             aria-label="Whitelist umschalten"
           >
@@ -939,7 +939,7 @@ function ToolsSettingsSection() {
               onClick={() => toggle(tool.key, !tool.enabled)}
               disabled={saving === tool.key}
               className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                tool.enabled ? "bg-[#004261]" : "bg-gray-300"
+                tool.enabled ? "bg-primary" : "bg-gray-300"
               } disabled:opacity-50`}
               aria-label={`${tool.label} ${tool.enabled ? "deaktivieren" : "aktivieren"}`}
             >
@@ -1047,7 +1047,7 @@ function PromptsTab() {
             spellCheck={false}
             className={`w-full text-xs font-mono rounded-lg border px-3 py-2.5 resize-y leading-relaxed focus:outline-none ${
               p.editable
-                ? "border-gray-300 bg-white text-gray-800 focus:ring-2 focus:ring-[#004261]"
+                ? "border-gray-300 bg-white text-gray-800 focus:ring-2 focus:ring-primary"
                 : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none"
             }`}
           />
@@ -1056,7 +1056,7 @@ function PromptsTab() {
               <button
                 onClick={() => save(p.key)}
                 disabled={saving === p.key}
-                className="text-sm bg-[#004261] text-white px-4 py-1.5 rounded-lg hover:bg-[#003a56] disabled:opacity-50"
+                className="text-sm bg-primary text-white px-4 py-1.5 rounded-lg hover:bg-primary-hover disabled:opacity-50"
               >
                 {saving === p.key ? "Speichert..." : saved === p.key ? "Gespeichert ✓" : "Speichern"}
               </button>
@@ -1087,7 +1087,7 @@ function SettingsTab() {
 function Spinner() {
   return (
     <div className="flex justify-center py-12">
-      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }
@@ -1195,7 +1195,7 @@ function QuotaTab({ targetUserId, onConsumed, onBack }: { targetUserId: number |
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => { setSelectedUser(null); onBack(); }} className="text-sm text-[#004261] hover:underline">
+          <button onClick={() => { setSelectedUser(null); onBack(); }} className="text-sm text-primary hover:underline">
             ← Zurück
           </button>
           <span className="text-sm text-gray-500">|</span>
@@ -1253,12 +1253,12 @@ function QuotaTab({ targetUserId, onConsumed, onBack }: { targetUserId: number |
                           value={overrideInputs[q.quota_type] ?? ""}
                           onChange={(e) => setOverrideInputs((prev) => ({ ...prev, [q.quota_type]: e.target.value }))}
                           placeholder="Standard"
-                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-[#004261]"
+                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-primary"
                         />
                         <button
                           onClick={() => saveOverride(q.quota_type, overrideInputs[q.quota_type] ?? "")}
                           disabled={saving === q.quota_type}
-                          className="text-xs text-[#004261] hover:underline disabled:opacity-50"
+                          className="text-xs text-primary hover:underline disabled:opacity-50"
                         >
                           Speichern
                         </button>
@@ -1348,7 +1348,7 @@ export default function AdminPage() {
               onClick={() => setTab(t.key)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                 tab === t.key
-                  ? "border-[#004261] text-[#004261]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >

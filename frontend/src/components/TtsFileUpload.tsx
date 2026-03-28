@@ -66,7 +66,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
   };
 
   const borderClass = dragActive
-    ? "border-[#004261] bg-blue-50"
+    ? "border-primary bg-blue-50"
     : selectedFilename
       ? "border-green-400 bg-green-50"
       : "border-gray-300 hover:border-gray-400";
@@ -87,7 +87,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] ${borderClass} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${borderClass} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         {selectedFilename ? (
           <>
@@ -114,7 +114,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
               />
             </svg>
             <p className="text-sm font-medium text-gray-500">
-              Datei hierher ziehen oder <span className="text-[#004261] underline">durchsuchen</span>
+              Datei hierher ziehen oder <span className="text-primary underline">durchsuchen</span>
             </p>
             <p className="text-xs text-gray-400 mt-1">
               {ACCEPTED_EXTENSIONS.join(", ")}

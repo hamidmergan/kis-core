@@ -11,7 +11,7 @@ export default function EmbedPdfTestPage() {
       <div
         style={{
           padding: "12px 20px",
-          background: "#004261",
+          background: "var(--kb)",
           color: "#fff",
           fontSize: 14,
           fontFamily: "system-ui, sans-serif",

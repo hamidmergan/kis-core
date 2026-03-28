@@ -37,7 +37,15 @@ celery_app.conf.update(
         "screencast.auto": {"queue": "screencast"},
         "screencast.demo_render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
-        "ki_tutor.index_source": {"queue": "general"},
+        # KI-Tutor — dedicated queue for learning tools & Sprachtraining
+        "ki_tutor.index_source": {"queue": "ki_tutor"},
+        "ki_tutor.generate_summaries": {"queue": "ki_tutor"},
+        "ki_tutor.generate_mindmap": {"queue": "ki_tutor"},
+        "ki_tutor.generate_presentation": {"queue": "ki_tutor"},
+        "ki_tutor.generate_infographic": {"queue": "ki_tutor"},
+        "ki_tutor.generate_exercise_set": {"queue": "ki_tutor"},
+        "ki_tutor.generate_datentabelle": {"queue": "ki_tutor"},
+        "ki_tutor.generate_glossary": {"queue": "ki_tutor"},
     },
     beat_schedule={
         "watchdog-stuck-jobs": {

@@ -108,7 +108,7 @@ export default function TranscriptionPage() {
                     checked={responseFormat === opt.value}
                     onChange={() => setResponseFormat(opt.value)}
                     disabled={processing}
-                    className="accent-[#004261]"
+                    className="accent-primary"
                   />
                   <span className="text-sm text-gray-700">{opt.label}</span>
                 </label>
@@ -121,10 +121,10 @@ export default function TranscriptionPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!pendingFile || processing}
-                className="self-start px-5 py-2 bg-[#004261] text-white text-sm font-medium rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="self-start px-5 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {processing && (
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white shrink-0" />
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
                 )}
                 {processing ? "Wird verarbeitet…" : "Transkription starten"}
               </button>
@@ -152,7 +152,7 @@ export default function TranscriptionPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={handleDownload}
-                    className="px-4 py-2 bg-[#004261] text-white text-sm rounded-md hover:bg-[#003a56] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors flex items-center gap-2"
                   >
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -161,7 +161,7 @@ export default function TranscriptionPage() {
                   </button>
                   <button
                     onClick={handleReset}
-                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#004261] transition-colors"
+                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
                   >
                     Neue Datei
                   </button>

@@ -617,6 +617,74 @@ class KisskiClient:
                 return _merge_vtt(ordered)
             return " ".join(text for text, _ in ordered).strip()
 
+    def transcribe_verbose(self, file_path: str) -> list[dict]:
+        """Transcribe audio and return segments with timestamps: [{start, end, text}, ...]."""
+        try:
+            with open(file_path, "rb") as f:
+                result = self._client.audio.transcriptions.create(
+                    model="whisper-large-v2",
+                    file=f,
+                    response_format="verbose_json",
+                )
+            # OpenAI client returns TranscriptionVerbose with TranscriptionSegment objects (attributes, not dicts)
+            if hasattr(result, "segments") and result.segments:
+                return [{"start": s.start, "end": s.end, "text": s.text.strip()}
+                        for s in result.segments if getattr(s, "text", "").strip()]
+            # Fallback: parse as JSON string
+            data = json.loads(str(result)) if isinstance(result, str) else result
+            if isinstance(data, dict):
+                return [{"start": s["start"], "end": s["end"], "text": s["text"].strip()}
+                        for s in data.get("segments", []) if s.get("text", "").strip()]
+            return []
+        except Exception as e:
+            raise RuntimeError(f"KISSKI Whisper verbose_json error: {e}") from e
+
+    def transcribe_chunked_verbose(self, file_path: str) -> tuple[list[dict], float]:
+        """Transcribe audio with timestamps, splitting if needed.
+
+        Returns (segments, duration) where segments = [{start, end, text}, ...].
+        """
+        duration = _get_audio_duration(file_path)
+        if duration > _MAX_AUDIO_SEC:
+            raise RuntimeError(
+                f"Audio zu lang ({duration / 60:.1f} min). Maximum: {_MAX_AUDIO_SEC // 60} Minuten."
+            )
+        if duration <= _CHUNK_MAX_SEC:
+            return self.transcribe_verbose(file_path), duration
+
+        logger.info("Audio {:.1f}s exceeds limit – splitting for verbose transcription", duration)
+        silence_starts = _find_silence_starts(file_path)
+        split_points = _compute_split_points(duration, silence_starts)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            chunks = _split_audio(file_path, split_points, tmpdir)
+            results: dict[int, tuple[list[dict], float]] = {}
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {
+                    executor.submit(self.transcribe_verbose, path): (i, offset)
+                    for i, (path, offset) in enumerate(chunks)
+                }
+                for future in as_completed(futures):
+                    i, offset = futures[future]
+                    try:
+                        results[i] = (future.result(), offset)
+                        logger.info("Chunk {}/{} transcribed (verbose)", i + 1, len(chunks))
+                    except Exception as e:
+                        raise RuntimeError(f"Chunk {i + 1} verbose transcription failed: {e}") from e
+
+            # Merge segments with offset timestamps
+            all_segments: list[dict] = []
+            for i in range(len(chunks)):
+                segs, offset = results[i]
+                for seg in segs:
+                    all_segments.append({
+                        "start": seg["start"] + offset,
+                        "end": seg["end"] + offset,
+                        "text": seg["text"],
+                    })
+
+        return all_segments, duration
+
     @observe(name="whisper-transcribe")
     def transcribe(self, file_path: str, response_format: str = "text") -> str:
         """Transcribe audio in its original language using KISSKI Whisper."""

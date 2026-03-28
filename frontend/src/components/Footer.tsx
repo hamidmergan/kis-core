@@ -5,7 +5,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
   return (
     <footer
       className={`px-6 ${loggedIn ? "pt-8" : "pt-12"} pb-4 text-base`}
-      style={{ backgroundColor: "#004261", color: "rgba(255,255,255,0.6)" }}
+      style={{ backgroundColor: "var(--kb)", color: "rgba(255,255,255,0.6)" }}
     >
       <div className="flex flex-col items-center gap-3 text-center">
         {/* KI-Hinweis */}

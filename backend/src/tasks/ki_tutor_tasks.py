@@ -1,6 +1,7 @@
 """Celery tasks for KI Tutor – indexing source documents."""
 
 import concurrent.futures
+import os
 import re
 
 from langfuse.decorators import langfuse_context, observe
@@ -27,7 +28,31 @@ from src.tool_prompts import (
     TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
     TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
     TUTOR_MINDMAP_PROMPT,
+    TUTOR_INFOGRAPHIC_PROMPT,
 )
+
+
+def _format_ts(seconds: float) -> str:
+    """Format seconds as MM:SS or H:MM:SS."""
+    s = int(seconds)
+    if s >= 3600:
+        return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
+    return f"{s // 60:02d}:{s % 60:02d}"
+
+
+def _save_ki_tutor_output(username: str, module_uuid: str, filename: str, data: bytes) -> str:
+    """Save a ki-tutor output file (e.g. presentation) in the structured folder."""
+    from src.storage import USE_S3
+    key = f"ki-tutor/{username}/{module_uuid}/outputs/{filename}"
+    if USE_S3:
+        from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
+        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
+        return key
+    from src.storage import STORAGE_ROOT
+    dest = STORAGE_ROOT / "ki-tutor" / username / module_uuid / "outputs"
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / filename).write_bytes(data)
+    return str(dest / filename)
 
 
 def _detect_language(text: str) -> str:
@@ -107,7 +132,8 @@ def _summarize_page(client, model, p, is_small, extra_body, lang):
         [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}],
         temperature=0.1, max_tokens=max_tokens, timeout=timeout, extra_body=extra_body,
     )
-    summary = _clean_summary(resp.choices[0].message.content or "")
+    _msg = resp.choices[0].message
+    summary = _clean_summary(_msg.content or getattr(_msg, "reasoning_content", None) or "")
     logger.debug("KI Tutor: page {} summary: {!r}", p["page_number"], summary[:300])
     return summary
 
@@ -128,7 +154,8 @@ def _summarize_batch(client, model, pages_batch, lang):
         temperature=0.1, max_tokens=TUTOR_SUMMARY_MAX_TOKENS_BATCH,
         timeout=TUTOR_SUMMARY_TIMEOUT_LARGE, extra_body={},
     )
-    content = resp.choices[0].message.content or ""
+    _msg = resp.choices[0].message
+    content = _msg.content or getattr(_msg, "reasoning_content", None) or ""
     # Strip <think> blocks (some models ignore think=False)
     content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
     # Unclosed <think> — keep only what's before it
@@ -140,7 +167,7 @@ def _summarize_batch(client, model, pages_batch, lang):
     return summaries
 
 
-@celery_app.task(bind=True, name="ki_tutor.index_source", queue="general")
+@celery_app.task(bind=True, name="ki_tutor.index_source", queue="ki_tutor")
 def run_index_source(self, source_uuid: str):
     try:
         # 1. Load source from DB
@@ -171,9 +198,42 @@ def run_index_source(self, source_uuid: str):
         import os
         suffix = os.path.splitext(filename)[1] or f".{file_type}"
         with open_input_file(file_path_stored, suffix=suffix) as local_path:
-            # 5. Extract chunks
+            # 5. Extract chunks (branch: media vs document)
             from src.services import ki_tutor_chunker
-            chunks = ki_tutor_chunker.extract_chunks(local_path, file_type)
+            media_duration: float | None = None
+
+            if ki_tutor_chunker.is_media_file(file_type):
+                # Audio/Video: transcribe with timestamps, then chunk
+                from src.services.kisski_client import KisskiClient
+                from src.dependencies import _resolve_llm_provider
+                _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+                if not _api_key:
+                    raise RuntimeError("Kein LLM-Provider konfiguriert (für Whisper-Transkription)")
+                whisper_client = KisskiClient(
+                    api_key=_api_key, base_url=_base_url, model=_model, provider=_provider,
+                )
+                logger.info("KI Tutor: transcribing media source {} ({})", source_uuid, filename)
+                segments, media_duration = whisper_client.transcribe_chunked_verbose(local_path)
+                if not segments:
+                    raise RuntimeError("Whisper returned no segments for this audio/video file.")
+                chunks = ki_tutor_chunker.segments_to_chunks(segments)
+
+                # Save full transcript as .txt next to the source file
+                transcript_text = "\n".join(
+                    f"[{_format_ts(s['start'])} - {_format_ts(s['end'])}] {s['text']}"
+                    for s in segments
+                )
+                transcript_key = file_path_stored.rsplit(".", 1)[0] + "_transcript.txt"
+                from src.storage import USE_S3
+                if USE_S3:
+                    from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
+                    _s3().put_object(Bucket=_S3_BUCKET, Key=transcript_key, Body=transcript_text.encode("utf-8"))
+                else:
+                    from pathlib import Path as _Path
+                    _Path(transcript_key).write_text(transcript_text, encoding="utf-8")
+                logger.info("KI Tutor: transcript saved to {}", transcript_key)
+            else:
+                chunks = ki_tutor_chunker.extract_chunks(local_path, file_type)
 
             # 6. Save chunks to DB
             chunk_ids: list[int] = []
@@ -182,6 +242,8 @@ def run_index_source(self, source_uuid: str):
                     source_id=source_id,
                     page_number=chunk["page_number"],
                     content=chunk["content"],
+                    start_time=chunk.get("start_time"),
+                    end_time=chunk.get("end_time"),
                 )
                 chunk_ids.append(chunk_id)
 
@@ -205,6 +267,7 @@ def run_index_source(self, source_uuid: str):
             "ready",
             chunk_count=len(chunks),
             embedding_model=embedding_model,
+            duration=media_duration,
         )
         logger.info("KI Tutor: source {} indexed ({} chunks)", source_uuid, len(chunks))
 
@@ -233,7 +296,7 @@ def run_index_source(self, source_uuid: str):
         raise
 
 
-@celery_app.task(bind=True, name="ki_tutor.generate_summaries", queue="general")
+@celery_app.task(bind=True, name="ki_tutor.generate_summaries", queue="ki_tutor")
 @observe(name="ki-tutor-summaries")
 def run_generate_summaries(self, source_uuid: str):
     """Generate AI page-level summaries for a PDF source."""
@@ -343,7 +406,7 @@ def run_generate_summaries(self, source_uuid: str):
         db.update_ki_tutor_source_summaries_status(source_uuid, status)
 
 
-@celery_app.task(bind=True, name="ki_tutor.generate_mindmap", queue="general",
+@celery_app.task(bind=True, name="ki_tutor.generate_mindmap", queue="ki_tutor",
                  soft_time_limit=300, time_limit=360)
 @observe(name="ki-tutor-mindmap")
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str]):
@@ -376,9 +439,20 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             db.update_ki_tutor_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
             return
 
-        # Fair budget split per source
-        budget_per_source = 16000 // len(source_ids)
-        trimmed_parts = [p[:budget_per_source] for p in context_parts]
+        # Fair budget split per source (64k total, whole summaries only)
+        budget_per_source = 64000 // len(source_ids)
+        trimmed_parts: list[str] = []
+        for part in context_parts:
+            lines = part.split("\n")
+            header = lines[0]  # "--- Dateiname ---"
+            kept = [header]
+            size = len(header)
+            for line in lines[1:]:
+                if size + len(line) + 1 > budget_per_source:
+                    break
+                kept.append(line)
+                size += len(line) + 1
+            trimmed_parts.append("\n".join(kept))
         context = "\n\n".join(trimmed_parts)
 
         # 2. Call LLM
@@ -402,7 +476,8 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             temperature=0.2,
         )
 
-        raw = response.choices[0].message.content
+        msg = response.choices[0].message
+        raw = msg.content or getattr(msg, "reasoning_content", None)
         if not raw:
             db.update_ki_tutor_mindmap(mindmap_id, "failed", error="LLM returned empty content")
             return
@@ -410,6 +485,12 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         answer = raw.strip()
         if answer.startswith("```"):
             answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        # Strip leading thinking tags if model wrapped output
+        if answer.startswith("<think>"):
+            think_end = answer.find("</think>")
+            if think_end != -1:
+                answer = answer[think_end + 8:].strip()
 
         mindmap = _json.loads(answer)
         if not isinstance(mindmap, dict) or "topic" not in mindmap:
@@ -422,3 +503,1165 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
     except Exception as e:
         logger.error("KI Tutor: mindmap {} generation failed: {}", mindmap_id, e)
         db.update_ki_tutor_mindmap(mindmap_id, "failed", error=str(e))
+
+
+# ─── Presentation generation (via Presenton) ────────────────────────────────
+
+_PRESENTON_URL = os.environ.get("PRESENTON_URL", "http://kis-presenton:80")
+
+
+def _generate_via_presenton(content: str, slide_count: int, language: str) -> tuple[str | None, bytes | None]:
+    """Call Presenton API to generate a presentation. Returns (pptx_path_on_presenton, pptx_bytes) or raises."""
+    import httpx
+    import time
+
+    with httpx.Client(timeout=300) as client:
+        # Start async generation
+        resp = client.post(
+            f"{_PRESENTON_URL}/api/v1/ppt/presentation/generate",
+            json={
+                "content": content,
+                "n_slides": slide_count,
+                "tone": "professional",
+                "verbosity": "standard",
+                "language": language,
+                "template": "general",
+                "export_as": "pptx",
+                "include_title_slide": True,
+                "include_table_of_contents": False,
+                "web_search": False,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        pres_id = data.get("presentation_id")
+        pptx_path = data.get("path")
+
+        if not pptx_path or not pres_id:
+            raise ValueError(f"Presenton returned unexpected response: {data}")
+
+        # Download the PPTX file
+        # Presenton serves exports via nginx at the path directly
+        download_resp = client.get(f"{_PRESENTON_URL}{pptx_path}")
+        download_resp.raise_for_status()
+
+        return pres_id, download_resp.content
+
+
+def _get_presenton_slides(pres_id: str) -> list[dict] | None:
+    """Fetch slide data from Presenton for preview purposes."""
+    import httpx
+
+    try:
+        with httpx.Client(timeout=30) as client:
+            resp = client.get(f"{_PRESENTON_URL}/api/v1/ppt/presentation/{pres_id}")
+            if resp.status_code == 200:
+                data = resp.json()
+                # Extract slides for preview
+                slides_raw = data.get("slides", [])
+                preview_slides = []
+                for s in slides_raw:
+                    c = s.get("content", {}) or {}
+                    layout_name = s.get("layout", "")
+                    # Map Presenton layout names to our preview types
+                    if "intro" in layout_name:
+                        layout = "title"
+                    elif "metric" in layout_name or "comparison" in layout_name:
+                        layout = "two_columns"
+                    elif "conclusion" in layout_name or "summary" in layout_name:
+                        layout = "summary"
+                    elif "section" in layout_name or "divider" in layout_name:
+                        layout = "section"
+                    else:
+                        layout = "content"
+
+                    slide: dict = {
+                        "layout": layout,
+                        "title": c.get("title", "") or s.get("title", ""),
+                    }
+                    if c.get("description"):
+                        slide["subtitle"] = c["description"]
+                    # Extract bullet points from various Presenton formats
+                    bullets = []
+                    if c.get("bulletPoints"):
+                        for bp in c["bulletPoints"]:
+                            if isinstance(bp, dict):
+                                t = bp.get("title", "")
+                                d = bp.get("description", "")
+                                bullets.append(f"{t}: {d}" if t and d else t or d)
+                            else:
+                                bullets.append(str(bp))
+                    elif c.get("metrics"):
+                        for m in c["metrics"]:
+                            if isinstance(m, dict):
+                                bullets.append(f"{m.get('title', '')}: {m.get('value', '')}")
+                    if bullets:
+                        slide["bullets"] = bullets
+                    # Speaker notes
+                    note = s.get("speaker_note") or c.get("__speaker_note__", "")
+                    if note:
+                        slide["notes"] = note
+                    # Image URL for preview
+                    img = c.get("image", {})
+                    if isinstance(img, dict) and img.get("__image_url__"):
+                        slide["image_url"] = img["__image_url__"]
+                    preview_slides.append(slide)
+                return preview_slides
+    except Exception as e:
+        logger.warning("Could not fetch Presenton slides for preview: {}", e)
+    return None
+
+
+@celery_app.task(bind=True, name="ki_tutor.generate_presentation", queue="ki_tutor",
+                 soft_time_limit=600, time_limit=660)
+@observe(name="ki-tutor-presentation")
+def run_generate_presentation(self, presentation_id: int, source_id: int, source_uuid: str):
+    """Generate a presentation from a single source via Presenton."""
+    import json as _json
+
+    try:
+        db.update_ki_tutor_presentation(presentation_id, "running")
+        logger.info("KI Tutor: generating presentation {} via Presenton", presentation_id)
+
+        # 1. Build context from page summaries (with fallback to chunks)
+        source = db.get_ki_tutor_source(source_uuid)
+        source_label = source["filename"] if source else "Quelle"
+        summaries = db.get_paragraph_summaries_by_source(source_id)
+
+        if summaries:
+            pages: dict[int, list[str]] = {}
+            for s in summaries:
+                pages.setdefault(s["page_number"], []).append(s["summary"])
+            parts = [f"[S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+            context = "\n".join(parts)
+        else:
+            chunks = db.get_chunks_by_source(source_id)
+            if chunks:
+                parts = [f"[S. {c['page_number']}] {c['content']}" for c in chunks[:40]]
+                context = "\n".join(parts)
+            else:
+                db.update_ki_tutor_presentation(presentation_id, "failed", error="Keine Inhalte vorhanden")
+                return
+
+        context = context[:20000]
+
+        # Determine slide count based on source length (5–20)
+        ctx_len = len(context)
+        if ctx_len < 3000:
+            slide_count = 5
+        elif ctx_len < 6000:
+            slide_count = 8
+        elif ctx_len < 10000:
+            slide_count = 12
+        elif ctx_len < 15000:
+            slide_count = 16
+        else:
+            slide_count = 20
+        lang = _detect_language(context)
+        language = "German" if lang == "Deutsch" else "English"
+
+        # Build content prompt for Presenton
+        content = (
+            f"Erstelle eine professionelle Präsentation basierend auf folgendem Quellmaterial "
+            f"aus dem Dokument '{source_label}':\n\n{context}"
+        )
+
+        # 2. Call Presenton API
+        pres_id, pptx_bytes = _generate_via_presenton(content, slide_count, language)
+
+        # 3. Get slide data for preview
+        slides = _get_presenton_slides(pres_id)
+        if not slides:
+            # Fallback: simple preview data
+            slides = [{"layout": "content", "title": source_label, "bullets": ["Präsentation wurde generiert"]}]
+
+        pres_title = slides[0].get("title", source_label) if slides else source_label
+
+        # 4. Save PPTX file
+        pptx_filename = f"presentation_{presentation_id}.pptx"
+        pres = db.get_ki_tutor_presentation(presentation_id)
+        module = db.get_ki_tutor_module_by_id(pres["module_id"])
+        user = db.get_user_by_id(pres["user_id"])
+        username = user["ldap_username"] if user else "unknown"
+        module_uuid_str = module["uuid"] if module else "unknown"
+        pptx_path = _save_ki_tutor_output(username, module_uuid_str, pptx_filename, pptx_bytes)
+
+        # 5. Update DB
+        db.update_ki_tutor_presentation(
+            presentation_id, "success",
+            title=pres_title, slides=slides, pptx_path=pptx_path,
+            presenton_id=pres_id,
+        )
+        logger.info("KI Tutor: presentation {} generated successfully via Presenton ({} slides)",
+                     presentation_id, len(slides))
+
+    except Exception as e:
+        logger.error("KI Tutor: presentation {} generation failed: {}", presentation_id, e)
+        db.update_ki_tutor_presentation(presentation_id, "failed", error=str(e))
+
+
+# ── Infographic generation ────────────────────────────────────────────────────
+
+# SVG style presets
+_INFOGRAPHIC_STYLES = {
+    "professional": {
+        "bg": "#FFFFFF",
+        "header_bg": "#004261",
+        "header_text": "#FFFFFF",
+        "accent": "#0E7490",
+        "section_bg": "#F0F9FF",
+        "text": "#1E293B",
+        "muted": "#64748B",
+        "stat_value": "#004261",
+        "border": "#E2E8F0",
+        "icon_colors": ["#0E7490", "#166534", "#A16207", "#534AB7", "#B91C1C", "#0369A1"],
+    },
+    "scientific": {
+        "bg": "#FAFAFA",
+        "header_bg": "#1E293B",
+        "header_text": "#F8FAFC",
+        "accent": "#3B82F6",
+        "section_bg": "#F1F5F9",
+        "text": "#0F172A",
+        "muted": "#475569",
+        "stat_value": "#1D4ED8",
+        "border": "#CBD5E1",
+        "icon_colors": ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4"],
+    },
+    "modern": {
+        "bg": "#0F172A",
+        "header_bg": "#6366F1",
+        "header_text": "#FFFFFF",
+        "accent": "#818CF8",
+        "section_bg": "#1E293B",
+        "text": "#E2E8F0",
+        "muted": "#94A3B8",
+        "stat_value": "#A5B4FC",
+        "border": "#334155",
+        "icon_colors": ["#818CF8", "#34D399", "#FBBF24", "#F472B6", "#FB923C", "#22D3EE"],
+    },
+}
+
+
+def _escape_svg(text: str) -> str:
+    """Escape text for safe SVG embedding."""
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def _wrap_text(text: str, max_chars: int = 45) -> list[str]:
+    """Word-wrap text into lines of max_chars."""
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for w in words:
+        if current and len(current) + 1 + len(w) > max_chars:
+            lines.append(current)
+            current = w
+        else:
+            current = f"{current} {w}" if current else w
+    if current:
+        lines.append(current)
+    return lines or [""]
+
+
+def _generate_flux_image(base_url: str, api_key: str, prompt: str, size: str = "1024x1024") -> str | None:
+    """Call KISSKI Flux to generate an image, return base64 or None."""
+    import httpx
+    try:
+        with httpx.Client(
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=180.0,
+        ) as client:
+            resp = client.post(
+                f"{base_url}/images/generations",
+                json={"model": "flux", "prompt": prompt, "size": size, "n": 1, "response_format": "b64_json"},
+            )
+        if resp.status_code == 200:
+            images = resp.json().get("data", [])
+            if images and "b64_json" in images[0]:
+                return images[0]["b64_json"]
+    except Exception as e:
+        logger.warning("Flux image generation failed: {}", e)
+    return None
+
+
+def _build_infographic_svg(data: dict, style_name: str = "professional",
+                           hero_image_b64: str | None = None,
+                           section_images: dict[int, str] | None = None) -> str:
+    """Build an SVG infographic with embedded Flux illustrations + text.
+
+    Design principles:
+    - Visual flow via a vertical accent line on the left
+    - Alternating image placement (left/right) per section
+    - Stats as inline large numbers (no card borders)
+    - Hero image as full-width banner
+    - Generous whitespace
+    """
+    s = _INFOGRAPHIC_STYLES.get(style_name, _INFOGRAPHIC_STYLES["professional"])
+    F = 'font-family="Inter, system-ui, sans-serif"'
+    section_images = section_images or {}
+
+    title = _escape_svg(data.get("title", "Infografik"))
+    subtitle = _escape_svg(data.get("subtitle", ""))
+    sections = data.get("sections", [])
+
+    width = 800
+    pad = 32
+    content_w = width - pad * 2
+    img_w = 180  # section illustration width
+    img_h = 180
+    y = 0
+
+    parts: list[str] = []
+
+    # ── Hero ──────────────────────────────────────────────────────────────────
+    if hero_image_b64:
+        hero_h = 240
+        parts.append(
+            f'<defs><clipPath id="hc"><rect x="0" y="0" width="{width}" height="{hero_h}" rx="12"/></clipPath></defs>'
+        )
+        parts.append(
+            f'<image href="data:image/png;base64,{hero_image_b64}" x="0" y="0" '
+            f'width="{width}" height="{hero_h}" preserveAspectRatio="xMidYMid slice" clip-path="url(#hc)"/>'
+        )
+        # Gradient overlay (bottom heavier for text)
+        parts.append(
+            f'<linearGradient id="ho" x1="0" y1="0" x2="0" y2="1">'
+            f'<stop offset="0%" stop-color="{s["header_bg"]}" stop-opacity="0.3"/>'
+            f'<stop offset="60%" stop-color="{s["header_bg"]}" stop-opacity="0.55"/>'
+            f'<stop offset="100%" stop-color="{s["header_bg"]}" stop-opacity="0.85"/>'
+            f'</linearGradient>'
+        )
+        parts.append(f'<rect x="0" y="0" width="{width}" height="{hero_h}" fill="url(#ho)" rx="12"/>')
+        # Title
+        title_lines = _wrap_text(title, 40)
+        ty = hero_h - 28 - (len(title_lines) - 1) * 32 - (20 if subtitle else 0)
+        for ti, tl in enumerate(title_lines):
+            parts.append(
+                f'<text x="{pad}" y="{ty + ti * 32}" {F} font-size="26" font-weight="700" fill="#FFFFFF">'
+                f'{_escape_svg(tl)}</text>'
+            )
+        if subtitle:
+            sub_lines = _wrap_text(subtitle, 60)
+            sub_y = ty + len(title_lines) * 32 + 2
+            for si_l, sl in enumerate(sub_lines):
+                parts.append(
+                    f'<text x="{pad}" y="{sub_y + si_l * 18}" {F} font-size="13" fill="#FFFFFF" opacity="0.85">'
+                    f'{_escape_svg(sl)}</text>'
+                )
+        y = hero_h + 32
+    else:
+        title_lines = _wrap_text(title, 48)
+        header_h = 36 + len(title_lines) * 30 + (20 if subtitle else 0)
+        parts.append(f'<rect x="0" y="0" width="{width}" height="{header_h}" fill="{s["header_bg"]}" rx="12"/>')
+        for ti, tl in enumerate(title_lines):
+            parts.append(
+                f'<text x="{pad}" y="{30 + ti * 30}" {F} font-size="22" font-weight="700" fill="{s["header_text"]}">'
+                f'{_escape_svg(tl)}</text>'
+            )
+        if subtitle:
+            sub_y = 30 + len(title_lines) * 30
+            sub_lines = _wrap_text(subtitle, 60)
+            for si_l, sl in enumerate(sub_lines):
+                parts.append(
+                    f'<text x="{pad}" y="{sub_y + si_l * 18}" {F} font-size="13" fill="{s["header_text"]}" opacity="0.8">'
+                    f'{_escape_svg(sl)}</text>'
+                )
+            header_h = max(header_h, sub_y + len(sub_lines) * 18 + 12)
+            parts[0] = f'<rect x="0" y="0" width="{width}" height="{header_h}" fill="{s["header_bg"]}" rx="12"/>'
+        y = header_h + 32
+
+    # ── Flow line start position ──────────────────────────────────────────────
+    flow_x = pad + 3
+    flow_y_start = y
+
+    # ── Sections ──────────────────────────────────────────────────────────────
+    for si, section in enumerate(sections):
+        sec_type = section.get("type", "list")
+        heading = _escape_svg(section.get("heading", ""))
+        items = section.get("items", [])
+        color = s["icon_colors"][si % len(s["icon_colors"])]
+        sec_img = section_images.get(si)
+        img_on_right = si % 2 == 1  # alternate sides
+
+        sec_y_start = y
+
+        # Flow dot
+        parts.append(f'<circle cx="{flow_x}" cy="{y + 10}" r="5" fill="{color}"/>')
+
+        # ── Section heading ───────────────────────────────────────────────────
+        parts.append(
+            f'<text x="{pad + 18}" y="{y + 15}" {F} font-size="16" font-weight="700" fill="{s["text"]}">'
+            f'{heading}</text>'
+        )
+        y += 30
+
+        # ── Calculate text area based on image placement ──────────────────────
+        if sec_img:
+            if img_on_right:
+                ix = width - pad - img_w
+                tx = pad + 18
+                tw = content_w - img_w - 28
+            else:
+                ix = pad + 18
+                tx = pad + 18 + img_w + 16
+                tw = content_w - img_w - 34
+            # Rounded clip for image
+            clip_id = f"sc{si}"
+            parts.append(
+                f'<defs><clipPath id="{clip_id}"><rect x="{ix}" y="{y}" width="{img_w}" height="{img_h}" rx="10"/></clipPath></defs>'
+            )
+            parts.append(
+                f'<image href="data:image/png;base64,{sec_img}" x="{ix}" y="{y}" '
+                f'width="{img_w}" height="{img_h}" preserveAspectRatio="xMidYMid slice" clip-path="url(#{clip_id})"/>'
+            )
+        else:
+            tx = pad + 18
+            tw = content_w - 18
+
+        chars = max(20, tw // 7)
+
+        # ── Render section content ────────────────────────────────────────────
+        if sec_type == "stats":
+            for item in items:
+                val = _escape_svg(str(item.get("value", "")))
+                label = _escape_svg(item.get("label", ""))
+                desc = _escape_svg(item.get("description", ""))
+                # Large number + label on same line, description below
+                parts.append(
+                    f'<text x="{tx}" y="{y + 22}" {F} font-size="28" font-weight="800" fill="{s["stat_value"]}">'
+                    f'{val}</text>'
+                )
+                # Estimate val width (~16px per char at size 28)
+                val_offset = len(val) * 16 + 10
+                parts.append(
+                    f'<text x="{tx + val_offset}" y="{y + 18}" {F} font-size="13" font-weight="600" fill="{s["text"]}">'
+                    f'{label}</text>'
+                )
+                if desc:
+                    parts.append(
+                        f'<text x="{tx}" y="{y + 40}" {F} font-size="11" fill="{s["muted"]}">{desc}</text>'
+                    )
+                    y += 52
+                else:
+                    y += 38
+
+        elif sec_type == "process":
+            for pi, item in enumerate(items):
+                label = _escape_svg(item.get("label", ""))
+                desc = item.get("description", "")
+                desc_lines = _wrap_text(desc, chars - 6) if desc else []
+                # Step number circle
+                cx_s = tx + 12
+                cy_s = y + 12
+                parts.append(f'<circle cx="{cx_s}" cy="{cy_s}" r="11" fill="{color}"/>')
+                parts.append(
+                    f'<text x="{cx_s}" y="{cy_s + 4}" text-anchor="middle" '
+                    f'{F} font-size="11" font-weight="700" fill="#FFF">{pi + 1}</text>'
+                )
+                # Connector
+                step_h = max(34, 20 + len(desc_lines) * 14 + 8)
+                if pi < len(items) - 1:
+                    parts.append(
+                        f'<line x1="{cx_s}" y1="{cy_s + 11}" x2="{cx_s}" y2="{y + step_h + 1}" '
+                        f'stroke="{color}" stroke-width="1.5" stroke-opacity="0.3"/>'
+                    )
+                # Text
+                parts.append(
+                    f'<text x="{tx + 32}" y="{y + 16}" {F} font-size="13" font-weight="600" fill="{s["text"]}">'
+                    f'{label}</text>'
+                )
+                for di, dl in enumerate(desc_lines):
+                    parts.append(
+                        f'<text x="{tx + 32}" y="{y + 30 + di * 14}" {F} font-size="11" fill="{s["muted"]}">'
+                        f'{_escape_svg(dl)}</text>'
+                    )
+                y += step_h + 6
+
+        elif sec_type == "comparison":
+            cols = min(len(items), 2)
+            gap = 12
+            col_w = (tw - gap * (cols - 1)) // cols
+            max_h = 0
+            col_parts: list[str] = []
+            for ci, item in enumerate(items):
+                bx = tx + ci * (col_w + gap)
+                label = _escape_svg(item.get("label", ""))
+                val = _escape_svg(str(item.get("value", "")))
+                desc = item.get("description", "")
+                desc_lines = _wrap_text(desc, col_w // 7) if desc else []
+                item_color = s["icon_colors"][ci % len(s["icon_colors"])]
+                # Left accent bar instead of full border
+                ch = 28 + (18 if val else 0) + len(desc_lines) * 14 + 16
+                max_h = max(max_h, ch)
+                col_parts.append(
+                    f'<rect x="{bx}" y="{y}" width="4" height="{ch}" fill="{item_color}" rx="2"/>'
+                )
+                col_parts.append(
+                    f'<rect x="{bx}" y="{y}" width="{col_w}" height="{ch}" fill="{s["section_bg"]}" rx="6" opacity="0.5"/>'
+                )
+                ly = y + 20
+                col_parts.append(
+                    f'<text x="{bx + 14}" y="{ly}" {F} font-size="13" font-weight="700" fill="{item_color}">'
+                    f'{label}</text>'
+                )
+                if val:
+                    ly += 18
+                    col_parts.append(
+                        f'<text x="{bx + 14}" y="{ly}" {F} font-size="12" font-weight="600" fill="{s["text"]}">'
+                        f'{val}</text>'
+                    )
+                for di, dl in enumerate(desc_lines):
+                    col_parts.append(
+                        f'<text x="{bx + 14}" y="{ly + 16 + di * 14}" {F} font-size="11" fill="{s["muted"]}">'
+                        f'{_escape_svg(dl)}</text>'
+                    )
+            parts.extend(col_parts)
+            y += max_h + 8
+
+        elif sec_type == "quote":
+            item = items[0] if items else {"label": ""}
+            quote_text = item.get("label", "")
+            quote_lines = _wrap_text(quote_text, max(20, (tw - 30) // 7))
+            qh = 20 + len(quote_lines) * 20
+            parts.append(f'<rect x="{tx}" y="{y}" width="4" height="{qh}" fill="{color}" rx="2"/>')
+            for qi, ql in enumerate(quote_lines):
+                parts.append(
+                    f'<text x="{tx + 16}" y="{y + 18 + qi * 20}" {F} font-size="14" font-style="italic" '
+                    f'font-weight="500" fill="{s["text"]}">{_escape_svg(ql)}</text>'
+                )
+            y += qh + 8
+
+        else:  # list
+            for item in items:
+                label = _escape_svg(item.get("label", ""))
+                desc = item.get("description", "")
+                # Colored bullet
+                parts.append(f'<circle cx="{tx + 5}" cy="{y + 9}" r="3.5" fill="{color}"/>')
+                parts.append(
+                    f'<text x="{tx + 16}" y="{y + 13}" {F} font-size="13" font-weight="600" fill="{s["text"]}">'
+                    f'{label}</text>'
+                )
+                if desc:
+                    desc_lines = _wrap_text(desc, chars - 3)
+                    for di, dl in enumerate(desc_lines):
+                        parts.append(
+                            f'<text x="{tx + 16}" y="{y + 28 + di * 14}" {F} font-size="11" fill="{s["muted"]}">'
+                            f'{_escape_svg(dl)}</text>'
+                        )
+                    y += 20 + len(desc_lines) * 14
+                else:
+                    y += 24
+
+        # Ensure y clears the section image
+        if sec_img:
+            y = max(y, sec_y_start + 30 + img_h + 8)
+
+        y += 28  # section gap
+
+    # ── Flow line (behind everything, drawn first but added last via reorder) ─
+    flow_y_end = y - 20
+    flow_line = (
+        f'<line x1="{flow_x}" y1="{flow_y_start}" x2="{flow_x}" y2="{flow_y_end}" '
+        f'stroke="{s["border"]}" stroke-width="2" stroke-opacity="0.4"/>'
+    )
+
+    # ── Assemble SVG ──────────────────────────────────────────────────────────
+    total_h = y + 16
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+        f'viewBox="0 0 {width} {total_h}" width="{width}" height="{total_h}">\n'
+        f'<rect width="{width}" height="{total_h}" fill="{s["bg"]}" rx="12"/>\n'
+        f'{flow_line}\n'
+        + "\n".join(parts)
+        + "\n</svg>"
+    )
+    return svg
+
+
+@celery_app.task(bind=True, name="ki_tutor.generate_infographic", queue="ki_tutor",
+                 soft_time_limit=600, time_limit=660)
+@observe(name="ki-tutor-infographic")
+def run_generate_infographic(self, infographic_id: int, source_ids: list[int],
+                             source_uuids: list[str], style: str = "professional"):
+    """Generate infographic: LLM creates structured JSON + image prompts, Flux generates illustrations, SVG combines both."""
+    import json as _json
+    from src.config import Settings
+
+    try:
+        db.update_ki_tutor_infographic(infographic_id, "running")
+        logger.info("KI Tutor: generating infographic {}", infographic_id)
+
+        # 1. Build context from page summaries (with fallback to chunks)
+        context_parts: list[str] = []
+        for sid, suuid in zip(source_ids, source_uuids):
+            source = db.get_ki_tutor_source(suuid)
+            source_label = source["filename"] if source else "Quelle"
+            summaries = db.get_paragraph_summaries_by_source(sid)
+            if summaries:
+                pages: dict[int, list[str]] = {}
+                for s in summaries:
+                    pages.setdefault(s["page_number"], []).append(s["summary"])
+                parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+                context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+            else:
+                chunks = db.get_chunks_by_source(sid)
+                if chunks:
+                    parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
+                    context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+
+        if not context_parts:
+            db.update_ki_tutor_infographic(infographic_id, "failed", error="Keine Inhalte vorhanden")
+            return
+
+        budget_per_source = 16000 // len(source_ids)
+        trimmed_parts = [p[:budget_per_source] for p in context_parts]
+        context = "\n\n".join(trimmed_parts)
+
+        # 2. LLM generates structured JSON with illustration prompts
+        from langfuse.openai import OpenAI
+        from src.dependencies import _resolve_llm_provider
+        _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+        client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=240)
+        langfuse_context.update_current_observation(
+            metadata={"provider": _provider, "base_url": _base_url, "model": _model},
+        )
+
+        style_hints = {
+            "professional": "Professional corporate style with blues and whites.",
+            "scientific": "Scientific academic style with navy, teal, gray.",
+            "modern": "Modern bold design with vibrant colors and dark background.",
+        }
+
+        messages = [
+            {"role": "system", "content": TUTOR_INFOGRAPHIC_PROMPT},
+            {"role": "user", "content": (
+                f"/no_think\nErstelle eine strukturierte Infografik aus folgenden Quellen.\n"
+                f"Gewünschter Stil: {style_hints.get(style, style_hints['professional'])}\n\n{context}"
+            )},
+        ]
+
+        response = client.chat.completions.create(model=_model, messages=messages, temperature=0.3)
+        raw = response.choices[0].message.content
+        if not raw:
+            db.update_ki_tutor_infographic(infographic_id, "failed", error="LLM returned empty content")
+            return
+
+        answer = raw.strip()
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        if answer.startswith("<think>"):
+            think_end = answer.find("</think>")
+            if think_end != -1:
+                answer = answer[think_end + 8:].strip()
+
+        infographic_data = _json.loads(answer)
+        if not isinstance(infographic_data, dict) or "sections" not in infographic_data:
+            db.update_ki_tutor_infographic(infographic_id, "failed", error="Invalid infographic format")
+            return
+
+        ig_title = infographic_data.get("title", "Infografik")
+        logger.info("KI Tutor: infographic {} — structured data generated ({} sections)",
+                     infographic_id, len(infographic_data["sections"]))
+
+        # 3. Generate illustrations via KISSKI Flux (parallel)
+        settings = Settings()
+        if not settings.kisski_api_key:
+            db.update_ki_tutor_infographic(infographic_id, "failed", error="KISSKI API Key nicht konfiguriert")
+            return
+
+        base_url = settings.kisski_base_url.rstrip("/")
+        api_key = settings.kisski_api_key
+
+        # Collect all image prompts: hero + up to 3 section illustrations
+        image_tasks: list[tuple[str, str]] = []  # (key, prompt)
+
+        hero_prompt = infographic_data.get("hero_prompt", "")
+        if hero_prompt:
+            image_tasks.append(("hero", hero_prompt))
+
+        for si, section in enumerate(infographic_data["sections"][:4]):
+            sec_prompt = section.get("illustration_prompt", "")
+            if sec_prompt and len(image_tasks) < 5:  # max 5 images total
+                image_tasks.append((f"sec_{si}", sec_prompt))
+
+        # Generate images in parallel using ThreadPoolExecutor
+        hero_image_b64: str | None = None
+        section_images: dict[int, str] = {}
+
+        if image_tasks:
+            logger.info("KI Tutor: infographic {} — generating {} illustrations", infographic_id, len(image_tasks))
+
+            def _gen(task: tuple[str, str]) -> tuple[str, str | None]:
+                key, prompt = task
+                size = "1280x720" if key == "hero" else "1024x1024"
+                return key, _generate_flux_image(base_url, api_key, prompt, size)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+                results = list(pool.map(_gen, image_tasks))
+
+            for key, b64 in results:
+                if b64:
+                    if key == "hero":
+                        hero_image_b64 = b64
+                    elif key.startswith("sec_"):
+                        idx = int(key.split("_")[1])
+                        section_images[idx] = b64
+
+            logger.info("KI Tutor: infographic {} — got {} images (hero={}, sections={})",
+                         infographic_id, sum(1 for _, b in results if b),
+                         hero_image_b64 is not None, len(section_images))
+
+        # 4. Build SVG with embedded illustrations + text
+        svg_content = _build_infographic_svg(
+            infographic_data, style,
+            hero_image_b64=hero_image_b64,
+            section_images=section_images,
+        )
+
+        db.update_ki_tutor_infographic(infographic_id, "success", title=ig_title, image_data=svg_content)
+        logger.info("KI Tutor: infographic {} generated successfully", infographic_id)
+
+    except Exception as e:
+        logger.error("KI Tutor: infographic {} generation failed: {}", infographic_id, e)
+        db.update_ki_tutor_infographic(infographic_id, "failed", error=str(e))
+
+
+# ── Shared helpers ───────────────────────────────────────────────────────────
+
+def _get_llm_client(timeout: int = 240):
+    """Create LLM client for Celery tasks. Returns (client, model, provider)."""
+    from langfuse.openai import OpenAI
+    from src.dependencies import _resolve_llm_provider
+    _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+    client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=timeout)
+    langfuse_context.update_current_observation(
+        metadata={"provider": _provider, "base_url": _base_url, "model": _model},
+    )
+    return client, _model, _provider
+
+
+def _clean_llm_json(raw: str) -> str:
+    """Strip code fences and <think> tags from LLM output to get clean JSON."""
+    answer = raw.strip()
+    if answer.startswith("```"):
+        answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    if answer.startswith("<think>"):
+        think_end = answer.find("</think>")
+        if think_end != -1:
+            answer = answer[think_end + 8:].strip()
+    return answer
+
+
+def _build_source_context(source_ids: list[int], source_uuids: list[str],
+                          max_chars: int = 16000) -> str:
+    """Build text context from page summaries (falling back to chunks).
+
+    Fairly splits budget across sources. Used by multiple generation tasks.
+    """
+    budget_per_source = max_chars // max(len(source_ids), 1)
+    context_parts: list[str] = []
+    for sid, suuid in zip(source_ids, source_uuids):
+        source = db.get_ki_tutor_source(suuid)
+        source_label = source["filename"] if source else "Quelle"
+        summaries = db.get_paragraph_summaries_by_source(sid)
+        if summaries:
+            pages: dict[int, list[str]] = {}
+            for s in summaries:
+                pages.setdefault(s["page_number"], []).append(s["summary"])
+            parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+            part = f"--- {source_label} ---\n" + "\n".join(parts)
+        else:
+            chunks = db.get_chunks_by_source(sid)
+            if chunks:
+                parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
+                part = f"--- {source_label} ---\n" + "\n".join(parts)
+            else:
+                continue
+        context_parts.append(part[:budget_per_source])
+    return "\n\n".join(context_parts)
+
+
+# ── Datentabelle generation ──────────────────────────────────────────────────
+
+
+@celery_app.task(bind=True, name="ki_tutor.generate_datentabelle", queue="ki_tutor",
+                 soft_time_limit=120, time_limit=180)
+@observe(name="ki-tutor-datentabelle")
+def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
+                              source_uuids: list[str], source_map: dict):
+    """Generate a data table from source chunks as a background job."""
+    import json as _json
+    from src.tool_prompts import TUTOR_DATENTABELLE_PROMPT
+
+    try:
+        db.update_ki_tutor_datentabelle(datentabelle_id, "running")
+        logger.info("KI Tutor: generating datentabelle {}", datentabelle_id)
+
+        # Build context with source numbering for citations
+        context_parts: list[str] = []
+        context_len = 0
+        for sid in source_ids:
+            chunks = db.get_chunks_by_source(sid)
+            qnum = source_map.get(str(sid), {}).get("number", 1)
+            for chunk in chunks:
+                part = f"[Q{qnum}, S. {chunk['page_number']}]\n{chunk['content']}"
+                if context_len + len(part) > 15000:
+                    break
+                context_parts.append(part)
+                context_len += len(part)
+
+        if not context_parts:
+            db.update_ki_tutor_datentabelle(datentabelle_id, "failed", error="Keine Chunks vorhanden")
+            return
+
+        context = "\n\n---\n\n".join(context_parts)
+        source_legend = "\n".join(
+            f"[Q{info['number']}] = {info['filename']}"
+            for info in sorted(source_map.values(), key=lambda x: x["number"])
+        )
+
+        client, model, _ = _get_llm_client()
+        messages = [
+            {"role": "system", "content": TUTOR_DATENTABELLE_PROMPT},
+            {"role": "user", "content": (
+                f"Quellen:\n{source_legend}\n\n"
+                f"Erstelle eine strukturierte Datentabelle aus folgendem Text:\n\n{context}"
+            )},
+        ]
+
+        response = client.chat.completions.create(model=model, messages=messages, temperature=0.2)
+        raw = response.choices[0].message.content
+        if not raw:
+            db.update_ki_tutor_datentabelle(datentabelle_id, "failed", error="LLM returned empty content")
+            return
+
+        table_data = _json.loads(_clean_llm_json(raw))
+        if not isinstance(table_data, dict) or "columns" not in table_data or "rows" not in table_data:
+            db.update_ki_tutor_datentabelle(datentabelle_id, "failed", error="Invalid table format")
+            return
+
+        sources_list = [
+            {"number": info["number"], "filename": info["filename"]}
+            for info in sorted(source_map.values(), key=lambda x: x["number"])
+        ]
+        title = table_data.get("title", "Datentabelle")
+
+        db.update_ki_tutor_datentabelle(datentabelle_id, "success",
+                                        title=title, table_data=table_data, sources=sources_list)
+        logger.info("KI Tutor: datentabelle {} generated successfully", datentabelle_id)
+
+    except Exception as e:
+        logger.error("KI Tutor: datentabelle {} generation failed: {}", datentabelle_id, e)
+        db.update_ki_tutor_datentabelle(datentabelle_id, "failed", error=str(e))
+
+
+# ── Glossary generation ──────────────────────────────────────────────────────
+
+_GLOSSARY_PROMPT = """Du bist ein Fachsprachen-Experte. Extrahiere die wichtigsten Fachbegriffe aus dem folgenden Text.
+
+Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
+[
+  {
+    "term_de": "Deutscher Fachbegriff",
+    "term_en": "English translation",
+    "definition": "Kurze Definition auf Deutsch (1-2 Sätze)",
+    "example_sentence": "Ein Beispielsatz aus dem Text, der den Begriff verwendet",
+    "page_number": 5
+  }
+]
+
+Regeln:
+- Extrahiere 10-20 Fachbegriffe (die wichtigsten und häufigsten)
+- Nur echte Fachbegriffe, keine allgemeinen Wörter
+- Definition muss präzise und verständlich sein (B1-B2 Niveau)
+- example_sentence muss ein echter Satz aus dem gegebenen Text sein
+- page_number ist die Seitenzahl, auf der der Begriff vorkommt
+- Antworte NUR mit dem JSON-Array, kein anderer Text"""
+
+
+@celery_app.task(bind=True, name="ki_tutor.generate_glossary", queue="ki_tutor",
+                 soft_time_limit=120, time_limit=180)
+@observe(name="ki-tutor-glossary")
+def run_generate_glossary(self, module_id: int, source_ids: list[int]):
+    """Generate glossary entries from source chunks as a background job."""
+    import json as _json
+
+    try:
+        logger.info("KI Tutor: generating glossary for module {} sources {}", module_id, source_ids)
+
+        # Gather chunks from all selected sources
+        all_chunks: list[dict] = []
+        for sid in source_ids:
+            all_chunks.extend(db.get_chunks_by_source(sid))
+        if not all_chunks:
+            logger.warning("KI Tutor: glossary generation — no chunks found")
+            return
+
+        # Build context (max ~12000 chars)
+        context_parts: list[str] = []
+        context_len = 0
+        for chunk in all_chunks:
+            part = f"[S. {chunk['page_number']}]\n{chunk['content']}"
+            if context_len + len(part) > 12000:
+                break
+            context_parts.append(part)
+            context_len += len(part)
+        context = "\n\n---\n\n".join(context_parts)
+
+        client, model, _ = _get_llm_client()
+        messages = [
+            {"role": "system", "content": _GLOSSARY_PROMPT},
+            {"role": "user", "content": f"Extrahiere Fachbegriffe aus folgendem Text:\n\n{context}"},
+        ]
+
+        response = client.chat.completions.create(model=model, messages=messages, temperature=0.1)
+        raw = response.choices[0].message.content
+        if not raw:
+            logger.error("KI Tutor: glossary generation — LLM returned empty content")
+            return
+
+        entries_raw = _json.loads(_clean_llm_json(raw))
+        if not isinstance(entries_raw, list):
+            logger.error("KI Tutor: glossary generation — expected JSON array")
+            return
+
+        # Delete old glossary for these sources, then create new
+        for sid in source_ids:
+            db.delete_ki_tutor_glossary(sid)
+
+        db.bulk_create_glossary_entries(source_ids[0], entries_raw)
+        logger.info("KI Tutor: glossary generated ({} entries) for module {}", len(entries_raw), module_id)
+
+    except Exception as e:
+        logger.error("KI Tutor: glossary generation failed for module {}: {}", module_id, e)
+
+
+# ── Exercise Set generation (replaces threading.Thread) ──────────────────────
+
+
+@celery_app.task(bind=True, name="ki_tutor.generate_exercise_set", queue="ki_tutor",
+                 soft_time_limit=120, time_limit=180)
+@observe(name="ki-tutor-exercise-set")
+def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
+                              mode: str, count: int, source_uuid: str | None = None,
+                              source_uuids: list[str] | None = None):
+    """Generate items for an exercise set (lernkarten/lueckentext/vokabeltest)."""
+    import json as _json
+    import random
+    from src.tool_prompts import TUTOR_LERNKARTEN_PROMPT
+
+    try:
+        module = db.get_ki_tutor_module_by_id(module_id)
+        if not module:
+            db.fail_exercise_set(set_id)
+            return
+
+        items = []
+        title = "Wird generiert…"
+        client, model, _ = _get_llm_client()
+
+        if mode == "glossar":
+            glossary = db.get_ki_tutor_glossary_by_module(module_id)
+            if not glossary:
+                db.fail_exercise_set(set_id)
+                return
+            selected = random.sample(glossary, min(count, len(glossary)))
+
+            if tool == "lernkarten":
+                items = [
+                    {"front": e["term_de"], "back": f"{e['term_en']} — {e['definition']}",
+                     "source_label": e.get("filename", ""), "page_number": e.get("page_number")}
+                    for e in selected
+                ]
+                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+            elif tool == "lueckentext":
+                terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
+                messages = [
+                    {"role": "system", "content": (
+                        "Du erstellst Lückentext-Übungen. Für jeden Begriff erstelle einen Satz "
+                        "mit einer Lücke, die durch den Begriff gefüllt werden muss.\n\n"
+                        "Antworte NUR mit einem JSON-Array:\n"
+                        '[{"sentence": "Der Prozess der ___ reduziert Redundanz.", '
+                        '"answer": "Normalisierung", '
+                        '"options": ["Indexierung", "Normalisierung", "Partitionierung", "Denormalisierung"], '
+                        '"correct_idx": 1, "term_de": "Normalisierung", "page_number": 12}]\n\n'
+                        "Regeln:\n- Genau 4 Optionen pro Frage, eine davon korrekt\n"
+                        "- correct_idx = Index der richtigen Option (0-3)\n"
+                        "- ___ als Lücken-Platzhalter\n- Antworte NUR mit dem JSON-Array"
+                    )},
+                    {"role": "user", "content": f"Erstelle Lückentext-Übungen:\n\n{terms_text}"},
+                ]
+                response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
+                answer = _clean_llm_json(response.choices[0].message.content or "")
+                exercises = _json.loads(answer)
+                items = [
+                    {"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
+                     "correct_idx": ex["correct_idx"],
+                     "source_label": next((e.get("filename", "") for e in selected if e["term_de"] == ex.get("term_de")), ""),
+                     "page_number": ex.get("page_number")}
+                    for ex in exercises
+                ]
+                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+            elif tool == "vokabeltest":
+                terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
+                messages = [
+                    {"role": "system", "content": (
+                        "Du erstellst Vokabeltest-Fragen (Multiple Choice).\n\n"
+                        "Antworte NUR mit einem JSON-Array:\n"
+                        '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
+                        '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
+                        '"correct_idx": 1, "explanation": "Normalization ist...", '
+                        '"term_de": "Normalisierung", "page_number": 12}]\n\n'
+                        "Regeln:\n- Mische DE→EN, EN→DE, Definitionsfragen\n"
+                        "- Genau 4 Optionen, eine korrekt\n- correct_idx = 0-3\n"
+                        "- Antworte NUR mit dem JSON-Array"
+                    )},
+                    {"role": "user", "content": f"Erstelle Vokabeltest-Fragen:\n\n{terms_text}"},
+                ]
+                response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
+                answer = _clean_llm_json(response.choices[0].message.content or "")
+                questions = _json.loads(answer)
+                items = [
+                    {"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
+                     "correct_idx": q["correct_idx"], "explanation": q.get("explanation"),
+                     "source_label": next((e.get("filename", "") for e in selected if e["term_de"] == q.get("term_de")), ""),
+                     "page_number": q.get("page_number")}
+                    for q in questions
+                ]
+                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+
+        elif mode == "quelle":
+            # Support multi-source: prefer source_uuids list, fall back to single source_uuid
+            uuids = source_uuids or ([source_uuid] if source_uuid else [])
+            if not uuids:
+                db.fail_exercise_set(set_id)
+                return
+
+            # Build context from all sources
+            context_parts: list[str] = []
+            first_label = ""
+            for suuid in uuids:
+                source = db.get_ki_tutor_source(suuid)
+                if not source:
+                    continue
+                source_label = source["filename"]
+                if not first_label:
+                    first_label = source_label
+                summaries = db.get_paragraph_summaries_by_source(source["id"])
+                if summaries:
+                    pages_map: dict[int, list[str]] = {}
+                    for s in summaries:
+                        pages_map.setdefault(s["page_number"], []).append(s["summary"])
+                    parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages_map.items())]
+                    context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+                else:
+                    chunks = db.get_chunks_by_source(source["id"])
+                    if chunks:
+                        parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:30]]
+                        context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+
+            if not context_parts:
+                db.fail_exercise_set(set_id)
+                return
+
+            # Fair budget split per source (64k total, whole lines only)
+            budget_per_source = 64000 // len(context_parts)
+            trimmed: list[str] = []
+            for part in context_parts:
+                lines = part.split("\n")
+                header = lines[0]
+                kept = [header]
+                size = len(header)
+                for line in lines[1:]:
+                    if size + len(line) + 1 > budget_per_source:
+                        break
+                    kept.append(line)
+                    size += len(line) + 1
+                trimmed.append("\n".join(kept))
+            context = "\n\n".join(trimmed)
+            multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Quellen"
+            source_hint = "folgender Quelle" if len(uuids) == 1 else "folgenden Quellen"
+
+            if tool == "lernkarten":
+                prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(count))
+                messages = [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": f"Erstelle Lernkarten aus {source_hint}:\n\n{context}"},
+                ]
+                response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
+                answer = _clean_llm_json(response.choices[0].message.content or "")
+                data = _json.loads(answer)
+                items = [
+                    {"front": c["front"], "back": c["back"],
+                     "source_label": c.get("source_label", first_label), "page_number": c.get("page_number")}
+                    for c in data.get("cards", [])
+                ]
+                title = data.get("title", multi_label)
+            else:
+                tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
+                if tool == "lueckentext":
+                    tool_prompt += (
+                        "Erstelle Lückentext-Übungen. Antworte NUR mit einem JSON-Array:\n"
+                        '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
+                        '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
+                        '"source_label": "Dateiname", "page_number": 5}]\n'
+                        f"Erstelle genau {count} Übungen."
+                    )
+                elif tool == "quiz":
+                    tool_prompt += (
+                        "Erstelle Multiple-Choice Verständnisfragen zum gegebenen Text. "
+                        "Die Fragen sollen das Verständnis des Inhalts prüfen.\n\n"
+                        "Antworte NUR mit einem JSON-Array:\n"
+                        '[{"question": "Verständnisfrage?", "options": ["A", "B", "C", "D"], '
+                        '"correct_idx": 0, "explanation": "Kurze Erklärung warum diese Antwort richtig ist", '
+                        '"source_label": "Dateiname", "page_number": 5}]\n'
+                        f"Erstelle genau {count} Fragen. Mische leichte und schwierige Fragen."
+                    )
+                else:
+                    tool_prompt += (
+                        "Erstelle Multiple-Choice Vokabeltest-Fragen. Antworte NUR mit einem JSON-Array:\n"
+                        '[{"question": "Frage?", "options": ["A", "B", "C", "D"], '
+                        '"correct_idx": 0, "explanation": "Erklärung", '
+                        '"source_label": "Dateiname", "page_number": 5}]\n'
+                        f"Erstelle genau {count} Fragen."
+                    )
+                messages = [
+                    {"role": "system", "content": tool_prompt},
+                    {"role": "user", "content": f"Quellen:\n\n{context}"},
+                ]
+                response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
+                answer = _clean_llm_json(response.choices[0].message.content or "")
+                exercises = _json.loads(answer)
+                if tool == "lueckentext":
+                    items = [
+                        {"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
+                         "correct_idx": ex["correct_idx"],
+                         "source_label": ex.get("source_label", first_label), "page_number": ex.get("page_number")}
+                        for ex in exercises
+                    ]
+                else:  # quiz + vokabeltest
+                    items = [
+                        {"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
+                         "correct_idx": q["correct_idx"], "explanation": q.get("explanation"),
+                         "source_label": q.get("source_label", first_label), "page_number": q.get("page_number")}
+                        for q in exercises
+                    ]
+                title = multi_label
+
+        if not items:
+            db.fail_exercise_set(set_id)
+            return
+
+        db.finalize_exercise_set(set_id, title, items)
+        logger.info("KI Tutor: exercise set {} generated ({} items)", set_id, len(items))
+
+    except Exception as e:
+        logger.error("KI Tutor: exercise set {} generation failed: {}", set_id, e)
+        db.fail_exercise_set(set_id)

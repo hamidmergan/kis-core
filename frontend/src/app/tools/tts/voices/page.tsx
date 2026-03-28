@@ -305,7 +305,7 @@ function StimmenPageInner() {
               onClick={() => setActiveTab("elevenlabs")}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "elevenlabs"
-                  ? "border-[#004261] text-[#004261]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -318,7 +318,7 @@ function StimmenPageInner() {
               onClick={() => setActiveTab("kokoro")}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "kokoro"
-                  ? "border-[#004261] text-[#004261]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -331,7 +331,7 @@ function StimmenPageInner() {
               onClick={() => setActiveTab("mylab")}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "mylab"
-                  ? "border-[#004261] text-[#004261]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -358,15 +358,12 @@ function StimmenPageInner() {
                   </div>
                   <button
                     onClick={() => handlePlayMylab(voice.voice_id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#004261] border border-[#004261] rounded-md hover:bg-blue-50 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary border border-primary rounded-md hover:bg-blue-50 transition-colors"
                     aria-label={playingId === voice.voice_id ? "Stoppen" : "Anhören"}
                   >
                     {loadingKokoroId === voice.voice_id ? (
                       <>
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                        </svg>
+                        <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block" />
                         Laden…
                       </>
                     ) : playingId === voice.voice_id ? (
@@ -433,15 +430,12 @@ function StimmenPageInner() {
                           </div>
                           <button
                             onClick={() => handlePlayKokoro(voice.voice_id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#004261] border border-[#004261] rounded-md hover:bg-blue-50 transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary border border-primary rounded-md hover:bg-blue-50 transition-colors"
                             aria-label={playingId === voice.voice_id ? "Stoppen" : "Anhören"}
                           >
                             {loadingKokoroId === voice.voice_id ? (
                               <>
-                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                                </svg>
+                                <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block" />
                                 Laden…
                               </>
                             ) : playingId === voice.voice_id ? (
@@ -498,7 +492,7 @@ function StimmenPageInner() {
                 {voice.preview_url ? (
                   <button
                     onClick={() => handlePlay(voice)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#004261] border border-[#004261] rounded-md hover:bg-blue-50 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary border border-primary rounded-md hover:bg-blue-50 transition-colors"
                     aria-label={playingId === voice.voice_id ? "Stoppen" : "Anhören"}
                   >
                     {playingId === voice.voice_id ? (

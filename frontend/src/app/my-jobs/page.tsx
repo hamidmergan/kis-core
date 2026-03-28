@@ -151,13 +151,10 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
     <button
       onClick={handleClick}
       disabled={busy}
-      className="text-xs text-[#004261] hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+      className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {busy ? (
-        <svg className="w-3 h-3 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
+        <span className="w-3 h-3 shrink-0 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block" aria-hidden="true" />
       ) : (
         <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -197,10 +194,7 @@ function JobArtifacts({ job }: { job: MyJob }) {
           <div className="flex flex-wrap gap-2 items-center">
             {job.is_generating_scripts ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
-                <svg className="w-3 h-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-                </svg>
+                <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block shrink-0" />
                 Skripte werden generiert…
               </span>
             ) : (
@@ -253,10 +247,7 @@ function JobArtifacts({ job }: { job: MyJob }) {
         <div className="flex flex-wrap gap-2 items-center">
           {job.is_generating_scripts ? (
             <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
-              <svg className="w-3 h-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
-              </svg>
+              <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block shrink-0" />
               Skripte werden generiert…
             </span>
           ) : (
@@ -525,7 +516,7 @@ export default function MeineJobsPage() {
 
         {/* Search/filter bar */}
         <div className="mb-4 flex flex-wrap gap-2 items-center">
-          <div className="flex-1 min-w-[220px] flex items-center border border-gray-300 rounded-md bg-white focus-within:ring-2 focus-within:ring-[#004261]">
+          <div className="flex-1 min-w-[220px] flex items-center border border-gray-300 rounded-md bg-white focus-within:ring-2 focus-within:ring-primary">
             <input
               type="text"
               value={q}
@@ -553,14 +544,14 @@ export default function MeineJobsPage() {
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             title="Von"
-            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             title="Bis"
-            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#004261]"
+            className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <select
             value={limit}
@@ -586,7 +577,7 @@ export default function MeineJobsPage() {
 
         {loading ? (
           <div className="flex justify-center py-16">
-            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : jobs.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-16">
@@ -648,9 +639,9 @@ export default function MeineJobsPage() {
                           <button
                             onClick={() => setDeleteConfirm(job)}
                             title="Job löschen"
-                            className="mt-auto text-gray-300 hover:text-red-500 transition-colors"
+                            className="mt-auto w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-primary hover:bg-gray-200 transition-colors"
                           >
-                            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M2 4h12M5 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4M6.5 7v5M9.5 7v5M3 4l1 9.5a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5L13 4" />
                             </svg>
                           </button>
@@ -677,7 +668,7 @@ export default function MeineJobsPage() {
                     onClick={() => setOffset((p - 1) * limit)}
                     className={`px-3 py-1.5 text-sm border rounded-md ${
                       p === currentPage
-                        ? "bg-[#004261] text-white border-[#004261]"
+                        ? "bg-primary text-white border-primary"
                         : "border-gray-300 hover:bg-gray-50"
                     }`}
                   >

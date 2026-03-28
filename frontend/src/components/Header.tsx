@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SignOut, UserCircleGear, House, Wrench } from "@phosphor-icons/react";
+import { SignOut, UserCircleGear, House, Toolbox } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/JobsPanel";
 
@@ -30,7 +30,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
   };
 
   return (
-    <header style={{ backgroundColor: "#004261" }} className="py-3">
+    <header style={{ backgroundColor: "var(--kb)" }} className="py-3">
       <div className="max-w-5xl mx-auto px-4 flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Link
@@ -58,7 +58,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
                 aria-label="Tools"
                 title="Tools"
               >
-                <Wrench size={18} weight="bold" />
+                <Toolbox size={18} weight="bold" />
               </Link>
             )}
 
