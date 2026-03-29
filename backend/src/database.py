@@ -116,6 +116,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS render_queued_at TIMESTAMP")
+            cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS username TEXT NOT NULL DEFAULT 'unknown'")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
                     id         SERIAL PRIMARY KEY,
@@ -305,7 +306,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     style       TEXT NOT NULL DEFAULT 'professional',
                     status      TEXT NOT NULL DEFAULT 'pending',
                     title       TEXT,
-                    image_data  TEXT,
+                    layout_data JSONB,
                     error       TEXT,
                     created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
                     updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
@@ -422,7 +423,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     correct_idx INTEGER,
                     source_label TEXT,
                     page_number INTEGER,
-                    explanation TEXT
+                    explanation TEXT,
+                    start_time  REAL
                 )
             """)
             cur.execute("""
@@ -464,6 +466,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add status column if table existed before
             cur.execute("ALTER TABLE ki_tutor_exercise_sets ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ready'")
+            # Migration: add start_time for audio/video exercise items
+            cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS start_time REAL")
         conn.commit()
 
     # Backfill tsvector for existing chunks (separate transaction)
@@ -591,16 +595,17 @@ def create_job(
     tool: str,
     original_filename: str,
     input_path: str | None = None,
+    username: str = "unknown",
 ) -> None:
     expires_at = datetime.now(timezone.utc) + timedelta(hours=JOB_RETENTION_HOURS)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, expires_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, expires_at, username)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (job_uuid, user_id, tool, original_filename, input_path, expires_at),
+                (job_uuid, user_id, tool, original_filename, input_path, expires_at, username),
             )
         conn.commit()
 
@@ -2160,16 +2165,17 @@ def update_ki_tutor_infographic(
     infographic_id: int,
     status: str,
     title: str | None = None,
-    image_data: str | None = None,
+    layout_data: dict | None = None,
     error: str | None = None,
 ) -> None:
+    import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """UPDATE ki_tutor_infographics
-                   SET status = %s, title = %s, image_data = %s, error = %s, updated_at = NOW()
+                   SET status = %s, title = %s, layout_data = %s, error = %s, updated_at = NOW()
                    WHERE id = %s""",
-                (status, title, image_data, error, infographic_id),
+                (status, title, _json.dumps(layout_data) if layout_data else None, error, infographic_id),
             )
         conn.commit()
 
@@ -2308,7 +2314,7 @@ def get_chunks_by_source(source_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT id, page_number, content
+                """SELECT id, page_number, content, start_time, end_time
                    FROM ki_tutor_chunks
                    WHERE source_id = %s
                    ORDER BY page_number, id""",
@@ -2335,7 +2341,8 @@ def get_ki_tutor_glossary_by_module(module_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT g.id, g.term_de, g.term_en, g.definition, g.example_sentence, g.page_number
+                """SELECT g.id, g.term_de, g.term_en, g.definition, g.example_sentence, g.page_number,
+                          s.filename
                    FROM ki_tutor_glossary_entries g
                    JOIN ki_tutor_sources s ON s.id = g.source_id
                    WHERE s.module_id = %s
@@ -2532,8 +2539,8 @@ def create_exercise_set(
                 cur.execute(
                     """INSERT INTO ki_tutor_exercise_items
                        (set_id, position, front, back, options, correct_idx,
-                        source_label, page_number, explanation)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                        source_label, page_number, explanation, start_time)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                     (
                         ex_set["id"], i,
                         item["front"], item["back"],
@@ -2542,6 +2549,7 @@ def create_exercise_set(
                         item.get("source_label"),
                         item.get("page_number"),
                         item.get("explanation"),
+                        item.get("start_time"),
                     ),
                 )
                 created_items.append(dict(cur.fetchone()))
@@ -2576,8 +2584,8 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
                 cur.execute(
                     """INSERT INTO ki_tutor_exercise_items
                        (set_id, position, front, back, options, correct_idx,
-                        source_label, page_number, explanation)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        source_label, page_number, explanation, start_time)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         set_id, i,
                         item["front"], item["back"],
@@ -2586,6 +2594,7 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
                         item.get("source_label"),
                         item.get("page_number"),
                         item.get("explanation"),
+                        item.get("start_time"),
                     ),
                 )
             cur.execute(
@@ -2646,7 +2655,7 @@ def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> 
 
 
 def get_exercise_set_with_items(set_id: int) -> dict | None:
-    """Get a single set with all its items."""
+    """Get a single set with all its items, enriching with chunk start_time where missing."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT * FROM ki_tutor_exercise_sets WHERE id = %s", (set_id,))
@@ -2658,7 +2667,32 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
                 "SELECT * FROM ki_tutor_exercise_items WHERE set_id = %s ORDER BY position",
                 (set_id,),
             )
-            ex_set["items"] = [dict(r) for r in cur.fetchall()]
+            items = [dict(r) for r in cur.fetchall()]
+
+            # Enrich items that have page_number but no start_time
+            needs_time = [it for it in items if it.get("page_number") and it.get("start_time") is None and it.get("source_label")]
+            if needs_time:
+                # Build lookup: filename → source_id
+                module_id = ex_set["module_id"]
+                cur.execute("SELECT id, filename FROM ki_tutor_sources WHERE module_id = %s", (module_id,))
+                src_map = {r["filename"]: r["id"] for r in cur.fetchall()}
+                # Build lookup: (source_id, page_number) → start_time
+                source_ids = list(src_map.values())
+                if source_ids:
+                    cur.execute(
+                        "SELECT source_id, page_number, start_time FROM ki_tutor_chunks "
+                        "WHERE source_id = ANY(%s) AND start_time IS NOT NULL",
+                        (source_ids,),
+                    )
+                    time_map = {(r["source_id"], r["page_number"]): r["start_time"] for r in cur.fetchall()}
+                    for it in needs_time:
+                        sid = src_map.get(it["source_label"])
+                        if sid:
+                            st = time_map.get((sid, it["page_number"]))
+                            if st is not None:
+                                it["start_time"] = st
+
+            ex_set["items"] = items
             return ex_set
 
 

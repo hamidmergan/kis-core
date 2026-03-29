@@ -505,125 +505,373 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         db.update_ki_tutor_mindmap(mindmap_id, "failed", error=str(e))
 
 
-# ─── Presentation generation (via Presenton) ────────────────────────────────
+# ─── Presentation generation (NotebookLM-style + FLUX images) ───────────────
 
-_PRESENTON_URL = os.environ.get("PRESENTON_URL", "http://kis-presenton:80")
+# NotebookLM-inspired slide prompt — clean, statement-driven, icon-aware layouts
+_PRES_PROMPT = (
+    "Du erstellst eine professionelle Präsentation im Stil von Google NotebookLM: clean, modern, viel Whitespace, "
+    "große fette Aussagesätze als Titel (KEINE generischen Titel wie 'Überblick' — stattdessen 'Warum dieses Projekt den Unterschied macht.').\n\n"
+    "Antworte NUR mit JSON:\n"
+    "{\n"
+    '  "title": "Präsentationstitel",\n'
+    '  "slides": [\n'
+    '    {"layout": "title", "title": "Große Aussage als Titel", "subtitle": "Ergänzender Untertitel", "image_prompt": "..."},\n'
+    '    {"layout": "statement", "title": "Eine starke Aussage als ganzer Satz.", "body": "2-3 Sätze Erklärung dazu."},\n'
+    '    {"layout": "section_number", "number": "1", "title": "Abschnittstitel", "subtitle": "Kurzbeschreibung"},\n'
+    '    {"layout": "icon_grid", "title": "Vier Vorteile auf einen Blick.", "items": [\n'
+    '      {"title": "Punkt A", "body": "Kurze Erklärung in 1-2 Sätzen."},\n'
+    '      {"title": "Punkt B", "body": "Kurze Erklärung."},\n'
+    '      {"title": "Punkt C", "body": "Kurze Erklärung."},\n'
+    '      {"title": "Punkt D", "body": "Kurze Erklärung."}\n'
+    '    ]},\n'
+    '    {"layout": "content", "title": "Aussage als Titel.", "bullets": ["Punkt 1", "Punkt 2", "Punkt 3"], "image_prompt": "..."},\n'
+    '    {"layout": "comparison", "title": "Vergleich als Aussage.", "left_title": "Option A", "left_bullets": ["..."], "right_title": "Option B", "right_bullets": ["..."]},\n'
+    '    {"layout": "quote", "title": "Kontextüberschrift", "quote": "Zitattext oder Kernaussage in Anführungszeichen.", "body": "Erklärung dazu."},\n'
+    '    {"layout": "summary", "title": "Aussage: Kernbotschaft.", "bullets": ["Fazit 1", "Fazit 2", "Fazit 3"]}\n'
+    "  ]\n"
+    "}\n\n"
+    "Layouts:\n"
+    "- title: Titelfolie (1x am Anfang). image_prompt = englischer Prompt für Illustration.\n"
+    "- statement: Große fette Aussage + Fließtext. Kein Bild, keine Bullets.\n"
+    "- section_number: Abschnittstrenner mit großer Zahl (1, 2, 3...) + Titel + Beschreibung.\n"
+    "- icon_grid: 2x2 Raster mit 4 Punkten (je title + body). Für Vorteile, Features, Übersichten.\n"
+    "- content: Aussage-Titel + 3-5 Bullet Points (max 12 Wörter/Punkt) + optional image_prompt.\n"
+    "- comparison: Zwei Boxen nebeneinander mit Titel + Bullets pro Seite.\n"
+    "- quote: Hervorgehobenes Zitat/Kernaussage in Box + erklärende Beschreibung.\n"
+    "- summary: Abschlussfolie (1x am Ende) mit Kernaussagen.\n\n"
+    "Regeln:\n"
+    "- {slide_count} Folien (inkl. Titel + Abschluss)\n"
+    "- Titel sind IMMER vollständige Aussagesätze mit Punkt am Ende.\n"
+    "- Mische die Layouts — NICHT nur 'content' Folien!\n"
+    "- STICHPUNKTE statt Fließtext — max 6-8 Wörter pro Bullet. Keine ganzen Sätze in Bullets.\n"
+    "- Max 5-6 Bullets pro Content-Folie. Lieber eine Folie mehr als zu viele Punkte.\n"
+    "- Verwende section_number Folien um größere Abschnitte zu markieren.\n"
+    "- icon_grid für Übersichten mit 4 gleichwertigen Punkten.\n"
+    "- statement für einzelne starke Aussagen.\n"
+    "- quote für wichtige Zitate oder Kernbotschaften.\n"
+    "- image_prompt: Nur bei title und content. Englisch. Stil: 'flat vector illustration, minimal clean lines, muted soft colors, white background, no text'. Max 3 Bilder total.\n"
+    "- Texte EXAKT aus der Quelle — keine Umformulierungen, keine Rechtschreibfehler.\n"
+    "- Sprache = Sprache der Quelle.\n"
+    "- Antworte NUR mit JSON."
+)
 
 
-def _generate_via_presenton(content: str, slide_count: int, language: str) -> tuple[str | None, bytes | None]:
-    """Call Presenton API to generate a presentation. Returns (pptx_path_on_presenton, pptx_bytes) or raises."""
+def _generate_slide_image(prompt: str, size: str = "1024x1024") -> bytes | None:
+    """Generate a flat vector illustration via FLUX for slides. Returns PNG bytes or None."""
     import httpx
-    import time
-
-    with httpx.Client(timeout=300) as client:
-        # Start async generation
-        resp = client.post(
-            f"{_PRESENTON_URL}/api/v1/ppt/presentation/generate",
-            json={
-                "content": content,
-                "n_slides": slide_count,
-                "tone": "professional",
-                "verbosity": "standard",
-                "language": language,
-                "template": "general",
-                "export_as": "pptx",
-                "include_title_slide": True,
-                "include_table_of_contents": False,
-                "web_search": False,
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        pres_id = data.get("presentation_id")
-        pptx_path = data.get("path")
-
-        if not pptx_path or not pres_id:
-            raise ValueError(f"Presenton returned unexpected response: {data}")
-
-        # Download the PPTX file
-        # Presenton serves exports via nginx at the path directly
-        download_resp = client.get(f"{_PRESENTON_URL}{pptx_path}")
-        download_resp.raise_for_status()
-
-        return pres_id, download_resp.content
-
-
-def _get_presenton_slides(pres_id: str) -> list[dict] | None:
-    """Fetch slide data from Presenton for preview purposes."""
-    import httpx
-
+    import base64
+    # Enforce illustration style
+    full_prompt = f"{prompt}, flat vector illustration style, minimal clean lines, muted soft colors, white background, no text, no watermark"
     try:
-        with httpx.Client(timeout=30) as client:
-            resp = client.get(f"{_PRESENTON_URL}/api/v1/ppt/presentation/{pres_id}")
+        from src.dependencies import _resolve_llm_provider
+        _api_key, _base_url, _, _ = _resolve_llm_provider()
+        img_base = _base_url.rstrip("/v1").rstrip("/")
+        img_url = f"{img_base}/v1/images/generations"
+        with httpx.Client(timeout=120) as client:
+            resp = client.post(
+                img_url,
+                headers={"Authorization": f"Bearer {_api_key}"},
+                json={"model": "flux", "prompt": full_prompt, "size": size, "n": 1, "response_format": "b64_json"},
+            )
             if resp.status_code == 200:
                 data = resp.json()
-                # Extract slides for preview
-                slides_raw = data.get("slides", [])
-                preview_slides = []
-                for s in slides_raw:
-                    c = s.get("content", {}) or {}
-                    layout_name = s.get("layout", "")
-                    # Map Presenton layout names to our preview types
-                    if "intro" in layout_name:
-                        layout = "title"
-                    elif "metric" in layout_name or "comparison" in layout_name:
-                        layout = "two_columns"
-                    elif "conclusion" in layout_name or "summary" in layout_name:
-                        layout = "summary"
-                    elif "section" in layout_name or "divider" in layout_name:
-                        layout = "section"
-                    else:
-                        layout = "content"
-
-                    slide: dict = {
-                        "layout": layout,
-                        "title": c.get("title", "") or s.get("title", ""),
-                    }
-                    if c.get("description"):
-                        slide["subtitle"] = c["description"]
-                    # Extract bullet points from various Presenton formats
-                    bullets = []
-                    if c.get("bulletPoints"):
-                        for bp in c["bulletPoints"]:
-                            if isinstance(bp, dict):
-                                t = bp.get("title", "")
-                                d = bp.get("description", "")
-                                bullets.append(f"{t}: {d}" if t and d else t or d)
-                            else:
-                                bullets.append(str(bp))
-                    elif c.get("metrics"):
-                        for m in c["metrics"]:
-                            if isinstance(m, dict):
-                                bullets.append(f"{m.get('title', '')}: {m.get('value', '')}")
-                    if bullets:
-                        slide["bullets"] = bullets
-                    # Speaker notes
-                    note = s.get("speaker_note") or c.get("__speaker_note__", "")
-                    if note:
-                        slide["notes"] = note
-                    # Image URL for preview
-                    img = c.get("image", {})
-                    if isinstance(img, dict) and img.get("__image_url__"):
-                        slide["image_url"] = img["__image_url__"]
-                    preview_slides.append(slide)
-                return preview_slides
+                imgs = data.get("data", [])
+                if imgs:
+                    return base64.b64decode(imgs[0]["b64_json"])
     except Exception as e:
-        logger.warning("Could not fetch Presenton slides for preview: {}", e)
+        logger.warning("FLUX image failed: {}", e)
     return None
 
 
-@celery_app.task(bind=True, name="ki_tutor.generate_presentation", queue="ki_tutor",
+def _build_pptx(slides_data: list[dict], images: dict[int, bytes]) -> bytes:
+    """Build PPTX in NotebookLM style: warm white bg, bold statements, clean layout."""
+    from pptx import Presentation as PptxPresentation
+    from pptx.util import Inches, Pt
+    from pptx.dml.color import RGBColor
+    from pptx.enum.shapes import MSO_SHAPE
+    from pptx.enum.text import PP_ALIGN
+    import io
+    import tempfile
+
+    # Colors
+    BG = RGBColor(0xFF, 0xFF, 0xFF)            # white background
+    DARK = RGBColor(0x1A, 0x1A, 0x1A)          # near-black for text
+    BRAND = RGBColor(0x00, 0x42, 0x61)         # THL dark blue
+    ACCENT = RGBColor(0x0E, 0x74, 0x90)        # teal
+    MUTED = RGBColor(0x6B, 0x72, 0x80)         # gray
+    BOX_GREEN = RGBColor(0x3B, 0x82, 0x78)     # muted teal for boxes
+    BOX_BLUE = RGBColor(0x3B, 0x5E, 0x8C)      # muted blue for boxes
+    WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+    FONT = "Calibri"
+    W = Inches(13.333)
+    H = Inches(7.5)
+
+    prs = PptxPresentation()
+    prs.slide_width = W
+    prs.slide_height = H
+    blank = prs.slide_layouts[6]
+
+    def _bg(sl, color=None):
+        sh = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, W, H)
+        sh.fill.solid()
+        sh.fill.fore_color.rgb = color or BG
+        sh.line.fill.background()
+
+    def _box(sl, left, top, w, h, color):
+        sh = sl.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, w, h)
+        sh.fill.solid()
+        sh.fill.fore_color.rgb = color
+        sh.line.fill.background()
+        return sh
+
+    def _txt(sl, left, top, w, h, text, size=18, bold=False, color=DARK, align=PP_ALIGN.LEFT, italic=False):
+        tb = sl.shapes.add_textbox(left, top, w, h)
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.alignment = align
+        r = p.add_run()
+        r.text = text
+        r.font.size = Pt(size)
+        r.font.bold = bold
+        r.font.italic = italic
+        r.font.color.rgb = color
+        r.font.name = FONT
+        return tb
+
+    def _bullets_box(sl, left, top, w, h, items, size=15, color=DARK, bc=ACCENT):
+        if not items:
+            return
+        tb = sl.shapes.add_textbox(left, top, w, h)
+        tf = tb.text_frame
+        tf.word_wrap = True
+        for i, txt in enumerate(items):
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            p.space_before = Pt(10)
+            p.space_after = Pt(4)
+            r1 = p.add_run()
+            r1.text = "\u2022  "
+            r1.font.size = Pt(size)
+            r1.font.bold = True
+            r1.font.color.rgb = bc
+            r1.font.name = FONT
+            r2 = p.add_run()
+            r2.text = txt
+            r2.font.size = Pt(size)
+            r2.font.color.rgb = color
+            r2.font.name = FONT
+
+    def _img(sl, img_bytes, left, top, max_w, max_h):
+        """Add image preserving aspect ratio within max_w x max_h box (all args in EMU)."""
+        from PIL import Image as PILImage
+        pil = PILImage.open(io.BytesIO(img_bytes))
+        iw, ih = pil.size  # pixels
+        if not iw or not ih:
+            return
+        img_ratio = iw / ih  # e.g. 1.78 for 16:9
+        box_ratio = max_w / max_h
+        # Fit image into box preserving aspect ratio
+        if img_ratio > box_ratio:
+            # Image is wider than box → fit to width
+            final_w = max_w
+            final_h = int(max_w / img_ratio)
+        else:
+            # Image is taller than box → fit to height
+            final_h = max_h
+            final_w = int(max_h * img_ratio)
+        # Center within box
+        offset_x = (max_w - final_w) // 2
+        offset_y = (max_h - final_h) // 2
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp.write(img_bytes)
+            path = tmp.name
+        try:
+            sl.shapes.add_picture(path, left + offset_x, top + offset_y, final_w, final_h)
+        finally:
+            os.unlink(path)
+
+    def _snum(sl, idx):
+        _txt(sl, Inches(12.3), Inches(7.05), Inches(0.8), Inches(0.3),
+             f"{idx + 1}", size=8, color=MUTED, align=PP_ALIGN.RIGHT)
+
+    def _watermark(sl):
+        """Small branding mark bottom-right."""
+        _txt(sl, Inches(11.5), Inches(7.05), Inches(1.5), Inches(0.3),
+             "TH Lübeck", size=7, color=MUTED, align=PP_ALIGN.RIGHT)
+
+    total = len(slides_data)
+    section_counter = 0
+
+    for idx, s in enumerate(slides_data):
+        lay = s.get("layout", "content")
+        img_bytes = images.get(idx)
+        sl = prs.slides.add_slide(blank)
+        _bg(sl)
+
+        if lay == "title":
+            # Large title left, illustration right
+            _txt(sl, Inches(1), Inches(1.5), Inches(7), Inches(3.5),
+                 s.get("title", ""), size=40, bold=True, color=DARK)
+            if s.get("subtitle"):
+                _txt(sl, Inches(1), Inches(5), Inches(7), Inches(1.2),
+                     s["subtitle"], size=18, color=MUTED)
+            if img_bytes:
+                _img(sl, img_bytes, Inches(8.5), Inches(1), Inches(4), Inches(5))
+            _watermark(sl)
+
+        elif lay == "statement":
+            # Big bold statement centered, body text below
+            _txt(sl, Inches(1), Inches(1.2), Inches(11), Inches(2.5),
+                 s.get("title", ""), size=36, bold=True, color=DARK)
+            if s.get("body"):
+                _txt(sl, Inches(1), Inches(3.8), Inches(10), Inches(2.5),
+                     s["body"], size=16, color=MUTED)
+            _snum(sl, idx)
+
+        elif lay == "section_number":
+            # Corporate design background for chapter announcements
+            sl.shapes[0].fill.fore_color.rgb = BRAND  # override white bg
+            section_counter += 1
+            num = s.get("number", str(section_counter))
+            _txt(sl, Inches(1), Inches(1), Inches(4), Inches(5),
+                 num, size=120, bold=True, color=WHITE)
+            _txt(sl, Inches(5), Inches(2.2), Inches(7), Inches(2),
+                 s.get("title", ""), size=32, bold=True, color=WHITE)
+            if s.get("subtitle"):
+                _txt(sl, Inches(5), Inches(4.2), Inches(7), Inches(1.5),
+                     s["subtitle"], size=16, color=RGBColor(0xBB, 0xD5, 0xE8))
+            _snum(sl, idx)
+
+        elif lay == "icon_grid":
+            # Title top, 2x2 grid with icon circles + title + body
+            _txt(sl, Inches(1), Inches(0.5), Inches(11), Inches(1.2),
+                 s.get("title", ""), size=28, bold=True, color=DARK)
+            items = s.get("items", [])[:4]
+            # Unicode icons for visual variety
+            icons = ["\u2713", "\u26A1", "\u2605", "\u2192"]  # ✓ ⚡ ★ →
+            grid = [
+                (Inches(1), Inches(2.2)),
+                (Inches(7), Inches(2.2)),
+                (Inches(1), Inches(4.8)),
+                (Inches(7), Inches(4.8)),
+            ]
+            icon_colors = [ACCENT, BRAND, BOX_GREEN, BOX_BLUE]
+            for i, item in enumerate(items):
+                if i >= 4:
+                    break
+                gx, gy = grid[i]
+                ic = icon_colors[i % 4]
+                # Icon circle
+                circle = sl.shapes.add_shape(MSO_SHAPE.OVAL, gx, gy, Inches(0.6), Inches(0.6))
+                circle.fill.solid()
+                circle.fill.fore_color.rgb = ic
+                circle.line.fill.background()
+                # Icon symbol inside circle
+                _txt(sl, gx + Inches(0.08), gy + Inches(0.05), Inches(0.44), Inches(0.5),
+                     icons[i % 4], size=18, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
+                # Title
+                _txt(sl, gx + Inches(0.8), gy, Inches(4.2), Inches(0.5),
+                     item.get("title", ""), size=16, bold=True, color=DARK)
+                # Body
+                _txt(sl, gx + Inches(0.8), gy + Inches(0.6), Inches(4.2), Inches(1.4),
+                     item.get("body", ""), size=13, color=MUTED)
+            _snum(sl, idx)
+
+        elif lay == "comparison":
+            # Title + two boxes side by side
+            _txt(sl, Inches(1), Inches(0.6), Inches(11), Inches(1.2),
+                 s.get("title", ""), size=28, bold=True, color=DARK)
+            # Left box
+            _box(sl, Inches(0.8), Inches(2.2), Inches(5.5), Inches(4.5), BOX_GREEN)
+            if s.get("left_title"):
+                _txt(sl, Inches(1.2), Inches(2.5), Inches(4.8), Inches(0.5),
+                     s["left_title"], size=16, bold=True, color=WHITE)
+            _bullets_box(sl, Inches(1.2), Inches(3.2), Inches(4.8), Inches(3.2),
+                         s.get("left_bullets", []), size=14, color=WHITE, bc=WHITE)
+            # Arrow between
+            _txt(sl, Inches(6.1), Inches(3.8), Inches(1.1), Inches(0.8),
+                 "\u2192", size=36, bold=True, color=BRAND, align=PP_ALIGN.CENTER)
+            # Right box
+            _box(sl, Inches(7), Inches(2.2), Inches(5.5), Inches(4.5), BOX_BLUE)
+            if s.get("right_title"):
+                _txt(sl, Inches(7.4), Inches(2.5), Inches(4.8), Inches(0.5),
+                     s["right_title"], size=16, bold=True, color=WHITE)
+            _bullets_box(sl, Inches(7.4), Inches(3.2), Inches(4.8), Inches(3.2),
+                         s.get("right_bullets", []), size=14, color=WHITE, bc=WHITE)
+            _snum(sl, idx)
+
+        elif lay == "quote":
+            # Title top, quote in rounded box, body below
+            if s.get("title"):
+                _txt(sl, Inches(1), Inches(0.8), Inches(11), Inches(1),
+                     s["title"], size=24, bold=True, color=DARK)
+            # Quote box
+            _box(sl, Inches(1.5), Inches(2.2), Inches(10), Inches(2.5), RGBColor(0xF3, 0xF4, 0xF6))
+            quote_text = s.get("quote", "")
+            _txt(sl, Inches(2.2), Inches(2.5), Inches(9), Inches(2),
+                 f"\u201E{quote_text}\u201C", size=16, italic=True, color=DARK)
+            if s.get("body"):
+                _txt(sl, Inches(1.5), Inches(5.2), Inches(10), Inches(1.5),
+                     s["body"], size=14, color=MUTED)
+            _snum(sl, idx)
+
+        elif lay == "summary":
+            # Final slide with key takeaways
+            _txt(sl, Inches(1), Inches(0.8), Inches(11), Inches(1.5),
+                 s.get("title", "Zusammenfassung"), size=32, bold=True, color=DARK)
+            items = s.get("bullets", [])
+            if items:
+                tb = sl.shapes.add_textbox(Inches(1), Inches(2.5), Inches(11), Inches(4.5))
+                tf = tb.text_frame
+                tf.word_wrap = True
+                for i, txt in enumerate(items):
+                    p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+                    p.space_before = Pt(14)
+                    p.space_after = Pt(6)
+                    r1 = p.add_run()
+                    r1.text = f"\u2022  "
+                    r1.font.size = Pt(16)
+                    r1.font.bold = True
+                    r1.font.color.rgb = ACCENT
+                    r1.font.name = FONT
+                    r2 = p.add_run()
+                    r2.text = txt
+                    r2.font.size = Pt(16)
+                    r2.font.color.rgb = DARK
+                    r2.font.name = FONT
+            _watermark(sl)
+            _snum(sl, idx)
+
+        else:  # content
+            # Title + bullets left, optional image right
+            _txt(sl, Inches(1), Inches(0.6), Inches(7) if img_bytes else Inches(11), Inches(1.2),
+                 s.get("title", ""), size=28, bold=True, color=DARK)
+            bullet_w = Inches(6.5) if img_bytes else Inches(10)
+            _bullets_box(sl, Inches(1), Inches(2), bullet_w, Inches(4.8),
+                         s.get("bullets", []), size=15, color=DARK, bc=ACCENT)
+            if img_bytes:
+                _img(sl, img_bytes, Inches(8.2), Inches(1.2), Inches(4.3), Inches(5.3))
+            _snum(sl, idx)
+
+        if s.get("notes"):
+            sl.notes_slide.notes_text_frame.text = s["notes"]
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    return buf.getvalue()
+
+
+@celery_app.task(bind=True, name="ki_tutor.generate_presentation", queue="general",
                  soft_time_limit=600, time_limit=660)
 @observe(name="ki-tutor-presentation")
-def run_generate_presentation(self, presentation_id: int, source_id: int, source_uuid: str):
-    """Generate a presentation from a single source via Presenton."""
+def run_generate_presentation(self, presentation_id: int, source_id: int, source_uuid: str, slide_count: int = 12):
+    """Generate a presentation from a single source (NotebookLM-style + FLUX images)."""
     import json as _json
 
     try:
         db.update_ki_tutor_presentation(presentation_id, "running")
-        logger.info("KI Tutor: generating presentation {} via Presenton", presentation_id)
+        logger.info("KI Tutor: generating presentation {}", presentation_id)
 
-        # 1. Build context from page summaries (with fallback to chunks)
         source = db.get_ki_tutor_source(source_uuid)
         source_label = source["filename"] if source else "Quelle"
         summaries = db.get_paragraph_summaries_by_source(source_id)
@@ -632,71 +880,88 @@ def run_generate_presentation(self, presentation_id: int, source_id: int, source
             pages: dict[int, list[str]] = {}
             for s in summaries:
                 pages.setdefault(s["page_number"], []).append(s["summary"])
-            parts = [f"[S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
-            context = "\n".join(parts)
+            parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+            context = f"--- {source_label} ---\n" + "\n".join(parts)
         else:
             chunks = db.get_chunks_by_source(source_id)
             if chunks:
-                parts = [f"[S. {c['page_number']}] {c['content']}" for c in chunks[:40]]
-                context = "\n".join(parts)
+                parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:40]]
+                context = f"--- {source_label} ---\n" + "\n".join(parts)
             else:
                 db.update_ki_tutor_presentation(presentation_id, "failed", error="Keine Inhalte vorhanden")
                 return
 
         context = context[:20000]
 
-        # Determine slide count based on source length (5–20)
-        ctx_len = len(context)
-        if ctx_len < 3000:
-            slide_count = 5
-        elif ctx_len < 6000:
-            slide_count = 8
-        elif ctx_len < 10000:
-            slide_count = 12
-        elif ctx_len < 15000:
-            slide_count = 16
-        else:
-            slide_count = 20
-        lang = _detect_language(context)
-        language = "German" if lang == "Deutsch" else "English"
-
-        # Build content prompt for Presenton
-        content = (
-            f"Erstelle eine professionelle Präsentation basierend auf folgendem Quellmaterial "
-            f"aus dem Dokument '{source_label}':\n\n{context}"
+        from langfuse.openai import OpenAI
+        from src.dependencies import _resolve_llm_provider
+        _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+        client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=240)
+        langfuse_context.update_current_observation(
+            metadata={"provider": _provider, "base_url": _base_url, "model": _model},
         )
 
-        # 2. Call Presenton API
-        pres_id, pptx_bytes = _generate_via_presenton(content, slide_count, language)
+        prompt = _PRES_PROMPT.replace("{slide_count}", str(slide_count))
+        response = client.chat.completions.create(
+            model=_model,
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": f"/no_think\nErstelle eine Präsentation aus folgender Quelle:\n\n{context}"},
+            ],
+            temperature=0.3,
+        )
 
-        # 3. Get slide data for preview
-        slides = _get_presenton_slides(pres_id)
-        if not slides:
-            # Fallback: simple preview data
-            slides = [{"layout": "content", "title": source_label, "bullets": ["Präsentation wurde generiert"]}]
+        raw = response.choices[0].message.content
+        if not raw:
+            db.update_ki_tutor_presentation(presentation_id, "failed", error="LLM returned empty content")
+            return
 
-        pres_title = slides[0].get("title", source_label) if slides else source_label
+        answer = raw.strip()
+        if answer.startswith("```"):
+            answer = answer.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        if "<think>" in answer:
+            think_end = answer.find("</think>")
+            if think_end != -1:
+                answer = answer[think_end + 8:].strip()
 
-        # 4. Save PPTX file
-        pptx_filename = f"presentation_{presentation_id}.pptx"
+        data = _json.loads(answer)
+        if not isinstance(data, dict) or "slides" not in data:
+            db.update_ki_tutor_presentation(presentation_id, "failed", error="Invalid presentation format")
+            return
+
+        pres_title = data.get("title", source_label)
+        slides = data["slides"][:20]
+
+        # Generate FLUX images (max 4, parallel)
+        images: dict[int, bytes] = {}
+        image_tasks = [(i, s["image_prompt"]) for i, s in enumerate(slides) if s.get("image_prompt")][:4]
+        if image_tasks:
+            logger.info("KI Tutor: generating {} FLUX images", len(image_tasks))
+            import concurrent.futures as _cf
+            with _cf.ThreadPoolExecutor(max_workers=2) as pool:
+                futures = {pool.submit(_generate_slide_image, p): i for i, p in image_tasks}
+                for f in _cf.as_completed(futures):
+                    i = futures[f]
+                    img = f.result()
+                    if img:
+                        images[i] = img
+            logger.info("KI Tutor: {} images generated", len(images))
+
+        from src.templates.pptx_builder import build_pptx
+        pptx_bytes = build_pptx(pres_title, slides, images)
+
+        from src.storage import save_file
         pres = db.get_ki_tutor_presentation(presentation_id)
-        module = db.get_ki_tutor_module_by_id(pres["module_id"])
-        user = db.get_user_by_id(pres["user_id"])
-        username = user["ldap_username"] if user else "unknown"
-        module_uuid_str = module["uuid"] if module else "unknown"
-        pptx_path = _save_ki_tutor_output(username, module_uuid_str, pptx_filename, pptx_bytes)
+        pptx_path = save_file(pres["user_id"], f"presentation_{presentation_id}.pptx", pptx_bytes)
 
-        # 5. Update DB
         db.update_ki_tutor_presentation(
             presentation_id, "success",
             title=pres_title, slides=slides, pptx_path=pptx_path,
-            presenton_id=pres_id,
         )
-        logger.info("KI Tutor: presentation {} generated successfully via Presenton ({} slides)",
-                     presentation_id, len(slides))
+        logger.info("KI Tutor: presentation {} done ({} slides, {} images)", presentation_id, len(slides), len(images))
 
     except Exception as e:
-        logger.error("KI Tutor: presentation {} generation failed: {}", presentation_id, e)
+        logger.error("KI Tutor: presentation {} failed: {}", presentation_id, e)
         db.update_ki_tutor_presentation(presentation_id, "failed", error=str(e))
 
 
@@ -1090,7 +1355,7 @@ def _build_infographic_svg(data: dict, style_name: str = "professional",
 @observe(name="ki-tutor-infographic")
 def run_generate_infographic(self, infographic_id: int, source_ids: list[int],
                              source_uuids: list[str], style: str = "professional"):
-    """Generate infographic: LLM creates structured JSON + image prompts, Flux generates illustrations, SVG combines both."""
+    """Generate infographic: LLM creates layout JSON, Flux generates illustrations, frontend renders as HTML."""
     import json as _json
     from src.config import Settings
 
@@ -1124,7 +1389,7 @@ def run_generate_infographic(self, infographic_id: int, source_ids: list[int],
         trimmed_parts = [p[:budget_per_source] for p in context_parts]
         context = "\n\n".join(trimmed_parts)
 
-        # 2. LLM generates structured JSON with illustration prompts
+        # 2. LLM generates layout JSON
         from langfuse.openai import OpenAI
         from src.dependencies import _resolve_llm_provider
         _api_key, _base_url, _model, _provider = _resolve_llm_provider()
@@ -1134,16 +1399,16 @@ def run_generate_infographic(self, infographic_id: int, source_ids: list[int],
         )
 
         style_hints = {
-            "professional": "Professional corporate style with blues and whites.",
-            "scientific": "Scientific academic style with navy, teal, gray.",
-            "modern": "Modern bold design with vibrant colors and dark background.",
+            "professional": "Professional corporate style. color_scheme: blue.",
+            "scientific": "Scientific academic style. color_scheme: teal.",
+            "modern": "Modern bold design. color_scheme: purple.",
         }
 
         messages = [
             {"role": "system", "content": TUTOR_INFOGRAPHIC_PROMPT},
             {"role": "user", "content": (
-                f"/no_think\nErstelle eine strukturierte Infografik aus folgenden Quellen.\n"
-                f"Gewünschter Stil: {style_hints.get(style, style_hints['professional'])}\n\n{context}"
+                f"/no_think\nErstelle eine Infografik aus folgenden Quellen.\n"
+                f"Stil: {style_hints.get(style, style_hints['professional'])}\n\n{context}"
             )},
         ]
 
@@ -1161,42 +1426,34 @@ def run_generate_infographic(self, infographic_id: int, source_ids: list[int],
             if think_end != -1:
                 answer = answer[think_end + 8:].strip()
 
-        infographic_data = _json.loads(answer)
-        if not isinstance(infographic_data, dict) or "sections" not in infographic_data:
-            db.update_ki_tutor_infographic(infographic_id, "failed", error="Invalid infographic format")
+        layout = _json.loads(answer)
+        if not isinstance(layout, dict) or "sections" not in layout:
+            db.update_ki_tutor_infographic(infographic_id, "failed", error="Invalid layout format")
             return
 
-        ig_title = infographic_data.get("title", "Infografik")
-        logger.info("KI Tutor: infographic {} — structured data generated ({} sections)",
-                     infographic_id, len(infographic_data["sections"]))
+        ig_title = layout.get("title", "Infografik")
+        logger.info("KI Tutor: infographic {} — layout generated ({} sections)", infographic_id, len(layout["sections"]))
 
-        # 3. Generate illustrations via KISSKI Flux (parallel)
+        # 3. Collect Flux prompts and generate images in parallel
         settings = Settings()
-        if not settings.kisski_api_key:
-            db.update_ki_tutor_infographic(infographic_id, "failed", error="KISSKI API Key nicht konfiguriert")
-            return
+        flux_available = bool(settings.kisski_api_key)
+        image_tasks: list[tuple[str, str]] = []
 
-        base_url = settings.kisski_base_url.rstrip("/")
-        api_key = settings.kisski_api_key
-
-        # Collect all image prompts: hero + up to 3 section illustrations
-        image_tasks: list[tuple[str, str]] = []  # (key, prompt)
-
-        hero_prompt = infographic_data.get("hero_prompt", "")
-        if hero_prompt:
+        hero_prompt = layout.get("hero_prompt", "")
+        if hero_prompt and flux_available:
             image_tasks.append(("hero", hero_prompt))
 
-        for si, section in enumerate(infographic_data["sections"][:4]):
-            sec_prompt = section.get("illustration_prompt", "")
-            if sec_prompt and len(image_tasks) < 5:  # max 5 images total
-                image_tasks.append((f"sec_{si}", sec_prompt))
-
-        # Generate images in parallel using ThreadPoolExecutor
-        hero_image_b64: str | None = None
-        section_images: dict[int, str] = {}
+        for si, section in enumerate(layout["sections"]):
+            if section.get("type") == "image_row":
+                for ii, item in enumerate(section.get("items", [])[:3]):
+                    fp = item.get("flux_prompt", "")
+                    if fp and flux_available:
+                        image_tasks.append((f"sec_{si}_item_{ii}", fp))
 
         if image_tasks:
-            logger.info("KI Tutor: infographic {} — generating {} illustrations", infographic_id, len(image_tasks))
+            base_url = settings.kisski_base_url.rstrip("/")
+            api_key = settings.kisski_api_key
+            logger.info("KI Tutor: infographic {} — generating {} Flux images", infographic_id, len(image_tasks))
 
             def _gen(task: tuple[str, str]) -> tuple[str, str | None]:
                 key, prompt = task
@@ -1206,26 +1463,27 @@ def run_generate_infographic(self, infographic_id: int, source_ids: list[int],
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
                 results = list(pool.map(_gen, image_tasks))
 
+            # Embed base64 images back into the layout JSON
             for key, b64 in results:
-                if b64:
-                    if key == "hero":
-                        hero_image_b64 = b64
-                    elif key.startswith("sec_"):
-                        idx = int(key.split("_")[1])
-                        section_images[idx] = b64
+                if not b64:
+                    continue
+                if key == "hero":
+                    layout["hero_image"] = b64
+                elif key.startswith("sec_"):
+                    # e.g. "sec_2_item_0"
+                    parts_k = key.split("_")
+                    sec_idx = int(parts_k[1])
+                    item_idx = int(parts_k[3])
+                    try:
+                        layout["sections"][sec_idx]["items"][item_idx]["image"] = b64
+                    except (IndexError, KeyError):
+                        pass
 
-            logger.info("KI Tutor: infographic {} — got {} images (hero={}, sections={})",
-                         infographic_id, sum(1 for _, b in results if b),
-                         hero_image_b64 is not None, len(section_images))
+            img_count = sum(1 for _, b in results if b)
+            logger.info("KI Tutor: infographic {} — {} Flux images generated", infographic_id, img_count)
 
-        # 4. Build SVG with embedded illustrations + text
-        svg_content = _build_infographic_svg(
-            infographic_data, style,
-            hero_image_b64=hero_image_b64,
-            section_images=section_images,
-        )
-
-        db.update_ki_tutor_infographic(infographic_id, "success", title=ig_title, image_data=svg_content)
+        # 4. Save layout JSON (frontend renders it as React components)
+        db.update_ki_tutor_infographic(infographic_id, "success", title=ig_title, layout_data=layout)
         logger.info("KI Tutor: infographic {} generated successfully", infographic_id)
 
     except Exception as e:
@@ -1474,7 +1732,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 return
             selected = random.sample(glossary, min(count, len(glossary)))
 
-            if tool == "lernkarten":
+            if tool in ("lernkarten", "karteikarten"):
                 items = [
                     {"front": e["term_de"], "back": f"{e['term_en']} — {e['definition']}",
                      "source_label": e.get("filename", ""), "page_number": e.get("page_number")}
@@ -1547,6 +1805,8 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
             # Build context from all sources
             context_parts: list[str] = []
             first_label = ""
+            # Mapping: (source_label, page_number) → start_time for media files
+            _time_map: dict[tuple[str, int], float] = {}
             for suuid in uuids:
                 source = db.get_ki_tutor_source(suuid)
                 if not source:
@@ -1564,6 +1824,9 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 else:
                     chunks = db.get_chunks_by_source(source["id"])
                     if chunks:
+                        for c in chunks:
+                            if c.get("start_time") is not None:
+                                _time_map[(source_label, c["page_number"])] = c["start_time"]
                         parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:30]]
                         context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
 
@@ -1589,7 +1852,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
             multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Quellen"
             source_hint = "folgender Quelle" if len(uuids) == 1 else "folgenden Quellen"
 
-            if tool == "lernkarten":
+            if tool in ("lernkarten", "karteikarten"):
                 prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
                     {"role": "system", "content": prompt},
@@ -1600,7 +1863,8 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 data = _json.loads(answer)
                 items = [
                     {"front": c["front"], "back": c["back"],
-                     "source_label": c.get("source_label", first_label), "page_number": c.get("page_number")}
+                     "source_label": c.get("source_label", first_label), "page_number": c.get("page_number"),
+                     "start_time": _time_map.get((c.get("source_label", first_label), c.get("page_number", 0)))}
                     for c in data.get("cards", [])
                 ]
                 title = data.get("title", multi_label)
@@ -1643,14 +1907,16 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     items = [
                         {"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
                          "correct_idx": ex["correct_idx"],
-                         "source_label": ex.get("source_label", first_label), "page_number": ex.get("page_number")}
+                         "source_label": ex.get("source_label", first_label), "page_number": ex.get("page_number"),
+                         "start_time": _time_map.get((ex.get("source_label", first_label), ex.get("page_number", 0)))}
                         for ex in exercises
                     ]
                 else:  # quiz + vokabeltest
                     items = [
                         {"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
                          "correct_idx": q["correct_idx"], "explanation": q.get("explanation"),
-                         "source_label": q.get("source_label", first_label), "page_number": q.get("page_number")}
+                         "source_label": q.get("source_label", first_label), "page_number": q.get("page_number"),
+                         "start_time": _time_map.get((q.get("source_label", first_label), q.get("page_number", 0)))}
                         for q in exercises
                     ]
                 title = multi_label

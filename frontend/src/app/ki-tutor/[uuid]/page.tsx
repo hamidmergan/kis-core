@@ -24,6 +24,13 @@ import {
   ArrowsCounterClockwise,
   Scissors,
   MagnifyingGlassPlus,
+  MagnifyingGlassMinus,
+  ArrowsOut,
+  ArrowsIn,
+  ArrowsOutLineVertical,
+  ArrowsInLineVertical,
+  CornersOut,
+  CornersIn,
   ListBullets,
   Lightbulb,
   BookOpenText,
@@ -49,6 +56,8 @@ import {
   Play,
   SpeakerHigh,
   VideoCamera,
+  FileVideo,
+  FileAudio,
   type IconWeight,
 } from "@phosphor-icons/react";
 import Header from "@/components/Header";
@@ -107,6 +116,19 @@ const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".we
 function _isMediaFile(filename: string): boolean {
   const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
   return _MEDIA_EXTENSIONS.has(ext);
+}
+
+function _formatTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function _chunkLabel(filename: string, num: number, startTime?: number | null): string {
+  if (_isMediaFile(filename) && startTime != null) return _formatTime(startTime);
+  if (_isMediaFile(filename)) return `Teil ${num}`;
+  return `S. ${num}`;
 }
 
 interface Source {
@@ -195,7 +217,7 @@ interface PresentationData {
   created_at?: string;
 }
 
-type StudioView = "overview" | "lernkarten" | "quiz" | "infografik" | "datentabelle" | "mindmap" | "notizen" | "praesentation";
+type StudioView = "overview" | "karteikarten" | "quiz" | "infografik" | "datentabelle" | "mindmap" | "notizen" | "praesentation";
 type PanelKey = "quellen" | "chat" | "studio";
 
 interface GlossaryEntry {
@@ -205,6 +227,7 @@ interface GlossaryEntry {
   definition: string;
   example_sentence?: string;
   page_number?: number;
+  filename?: string;
 }
 
 interface ClozeExercise {
@@ -260,6 +283,7 @@ interface ExerciseItem {
   correct_idx?: number;
   source_label?: string;
   page_number?: number;
+  start_time?: number;
   explanation?: string;
 }
 
@@ -346,9 +370,10 @@ function FileIcon({ filename }: { filename: string }) {
   const isPdf = filename.toLowerCase().endsWith(".pdf");
   const isMedia = _isMediaFile(filename);
   const isVideo = [".mp4", ".webm"].some(e => filename.toLowerCase().endsWith(e));
-  const bg = isMedia ? "#E0E7FF" : isPdf ? "#FEE2E2" : "#DBEAFE";
-  const color = isMedia ? "#4338CA" : isPdf ? "#B91C1C" : "#1D4ED8";
-  const Icon = isVideo ? VideoCamera : isMedia ? SpeakerHigh : FilePdf;
+  const isAudio = isMedia && !isVideo;
+  const bg = isVideo ? "#E0E7FF" : isAudio ? "#FEF3C7" : isPdf ? "#FEE2E2" : "#DBEAFE";
+  const color = isVideo ? "#4338CA" : isAudio ? "#B45309" : isPdf ? "#B91C1C" : "#1D4ED8";
+  const Icon = isVideo ? FileVideo : isAudio ? FileAudio : FilePdf;
   return (
     <div
       className="flex-shrink-0 w-8 h-8 rounded flex items-center justify-center"
@@ -361,7 +386,7 @@ function FileIcon({ filename }: { filename: string }) {
 
 // ─── PDF Viewer ────────────────────────────────────────────────────────────────
 
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: IconWeight }>> = {
+const PDF_ICON_MAP: Record<string, React.ComponentType<{ size?: number; weight?: IconWeight }>> = {
   ArrowsCounterClockwise,
   Scissors,
   MagnifyingGlassPlus,
@@ -408,19 +433,23 @@ function MediaPlayer({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+        className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        <button type="button" onClick={onClose} className="p-1 rounded hover:opacity-70" title="Schließen">
-          <CaretLeft size={16} />
+        <button type="button" onClick={onClose}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+          style={{ backgroundColor: "var(--border)" }} title="Zurück">
+          <CaretLeft size={13} weight="bold" color="var(--muted)" />
         </button>
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          {isVideo ? <VideoCamera size={14} weight="bold" /> : <SpeakerHigh size={14} weight="bold" />}
-          <span className="text-xs font-medium truncate">{source.filename}</span>
-        </div>
+        <FileIcon filename={source.filename} />
+        <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>{source.filename}</span>
         {onMinimize && (
-          <button type="button" onClick={onMinimize} className="p-1 rounded hover:opacity-70" title="Minimieren">
-            <SidebarSimple size={14} />
+          <button type="button" onClick={onMinimize}
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
+            style={{ backgroundColor: "var(--border)" }} title="Panel minimieren">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
+            </svg>
           </button>
         )}
       </div>
@@ -779,7 +808,7 @@ function PdfViewer({
       id: "kis.toggle-summaries",
       label: "Zusammenfassungen",
       description: "Zusammenfassungen",
-      icon: "listTree",
+      icon: "ph-funnel-simple",
       categories: ["panel", "panel-summaries"],
       action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -974,9 +1003,20 @@ function SourcesPanel({
         </button>
       </div>
 
-      {/* Upload button (lecturer) */}
+      {/* Upload button + drag-and-drop (lecturer) */}
       {isLecturer && (
-        <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div
+          className="px-4 py-3 flex-shrink-0 transition-colors duration-150"
+          style={{ borderBottom: "1px solid var(--border)" }}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.06)"; }}
+          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget as Node)) e.currentTarget.style.backgroundColor = ""; }}
+          onDrop={(e) => {
+            e.preventDefault(); e.stopPropagation(); e.currentTarget.style.backgroundColor = "";
+            const f = e.dataTransfer.files?.[0];
+            if (f) onUpload(f);
+          }}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -996,7 +1036,6 @@ function SourcesPanel({
             <Plus size={15} weight="bold" />
             Quelle hinzufügen
           </button>
-
           {uploadProgress !== null && (
             <div className="mt-2">
               <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
@@ -1154,7 +1193,9 @@ function ChatPanel({
   onMinimize?: () => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
+  const userScrolledUp = useRef(false);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -1181,13 +1222,31 @@ function ChatPanel({
     return () => document.removeEventListener("mousedown", handle);
   }, [chatMenuOpen]);
 
+  // Detect user scrolling up to opt out of auto-scroll
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      userScrolledUp.current = !nearBottom;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Re-engage auto-scroll when a new user message is sent
+  useEffect(() => {
+    if (loading) userScrolledUp.current = false;
+  }, [loading]);
+
   useEffect(() => {
     if (isFirstRender.current) {
       bottomRef.current?.scrollIntoView({ behavior: "instant" });
       isFirstRender.current = false;
       return;
     }
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (userScrolledUp.current) return;
+    bottomRef.current?.scrollIntoView({ behavior: loading ? "instant" : "smooth" });
   }, [messages, loading]);
 
   const getFilename = (srcUuid: string) =>
@@ -1243,7 +1302,7 @@ function ChatPanel({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
       <div className="mx-auto w-full px-6 py-6 flex flex-col gap-5" style={{ maxWidth: 720 }}>
         {messages.length === 0 && !loading && (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16">
@@ -1311,10 +1370,10 @@ function ChatPanel({
                     onClick={() => onPillClick(sourceUuid, pageNum, filename, sp?.source_text)}
                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-                    title={`${filename}, S. ${pageNum}`}
+                    title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
                   >
                     <FilePdf size={8} weight="bold" />
-                    S. {pageNum}
+                    {_chunkLabel(filename, pageNum)}
                   </button>
                 );
               }
@@ -1457,7 +1516,7 @@ function ChatPanel({
                 <button
                   type="button"
                   onClick={() => {
-                    onSaveNote(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
+                    onSaveNote(msg.content);
                     setSavedNoteIdx(i);
                     setTimeout(() => setSavedNoteIdx(null), 1500);
                   }}
@@ -1628,8 +1687,8 @@ function ExerciseSetsOverview({
         {sets.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 py-16 px-6">
             <Cards size={32} weight="duotone" color="var(--muted)" style={{ opacity: 0.5 }} />
-            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Noch keine Übungen</p>
-            <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>Erstelle deine ersten Übungen aus dem Glossar oder einer Quelle.</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Noch keine {title} vorhanden</p>
+            <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>Erstelle {title} aus dem Glossar oder einer Quelle.</p>
             <button type="button" onClick={onCreate}
               className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
               style={{ backgroundColor: "var(--kb)", boxShadow: "0 2px 8px rgba(var(--kb-rgb),0.2)" }}>
@@ -1649,7 +1708,7 @@ function ExerciseSetsOverview({
                 const pct = s.progress_pct ?? 0;
                 return (
                   <div key={s.id} onClick={() => !generating && !failed && onSelect(s)}
-                    className={`bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group transition-opacity ${generating ? "opacity-70" : "cursor-pointer hover:opacity-80"}`}
+                    className={`bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group transition-all ${generating ? "opacity-70" : "cursor-pointer hover:shadow-md hover:-translate-y-0.5"}`}
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 143 }}>
                     {/* Title + count */}
                     <div className="flex items-start justify-between gap-1.5">
@@ -1713,12 +1772,13 @@ function ExerciseSetsOverview({
 // ─── Lernkarten Learn View ──────────────────────────────────────────────────
 
 function LernkartenLearnView({
-  exerciseSet, onBack, onComplete, onAskChat,
+  exerciseSet, onBack, onComplete, onAskChat, onSourceClick,
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
   onComplete: (results: { item_id: number; correct: boolean }[]) => void;
-  onAskChat: (text: string) => void;
+  onAskChat?: (text: string) => void;
+  onSourceClick?: (filename: string, page: number, startTime?: number) => void;
 }) {
   const items = exerciseSet.items || [];
   const [index, setIndex] = useState(0);
@@ -1809,16 +1869,20 @@ function LernkartenLearnView({
               {/* Source chip + Chat button */}
               <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                 {card.source_label && (
-                  <span className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full"
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); if (onSourceClick && card.page_number) onSourceClick(card.source_label!, card.page_number, card.start_time); }}
+                    className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border-none cursor-pointer transition-all hover:opacity-100"
                     style={{ color: "rgba(255,255,255,0.55)", backgroundColor: "rgba(255,255,255,0.1)" }}>
-                    <FilePdf size={9} weight="bold" /> {card.source_label}{card.page_number ? `, S. ${card.page_number}` : ""}
-                  </span>
+                    <FilePdf size={9} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
+                  </button>
                 )}
-                <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Erkläre mir „${card.front}" genauer. Was sind wichtige Details, Beispiele und Zusammenhänge die über die Grunddefinition hinausgehen?`); }}
-                  className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border-none cursor-pointer transition-all hover:opacity-100"
-                  style={{ color: "rgba(255,255,255,0.55)", backgroundColor: "rgba(255,255,255,0.1)" }}>
-                  <Chat size={10} weight="bold" /> Mehr erfahren
-                </button>
+                {onAskChat && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Erkläre mir „${card.front}" genauer. Was sind wichtige Details, Beispiele und Zusammenhänge die über die Grunddefinition hinausgehen?`); }}
+                    className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border-none cursor-pointer transition-all hover:opacity-100"
+                    style={{ color: "rgba(255,255,255,0.55)", backgroundColor: "rgba(255,255,255,0.1)" }}>
+                    <Chat size={10} weight="bold" /> Mehr erfahren
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -2033,7 +2097,7 @@ function MCExerciseView({
               <div className="mt-1">
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full"
                   style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                  <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number ? `, S. ${card.page_number}` : ""}
+                  <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
                 </span>
               </div>
             )}
@@ -2071,9 +2135,9 @@ function CreateSetModal({
   onCreate: (mode: string, count: number) => void;
 }) {
   const isQuiz = tool === "quiz";
-  const [mode, setMode] = useState<"glossar" | "quelle">(isQuiz ? "quelle" : "glossar");
+  const [mode, setMode] = useState<"glossar" | "quelle">(isQuiz || glossaryCount === 0 ? "quelle" : "glossar");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
-  const toolLabels: Record<string, string> = { lernkarten: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Vokabeltest", quiz: "Quiz" };
+  const toolLabels: Record<string, string> = { karteikarten: "Karteikarten", lernkarten: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Vokabeltest", quiz: "Quiz" };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
@@ -2085,11 +2149,14 @@ function CreateSetModal({
         <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>Quelle</div>
         <div className="flex flex-col gap-1.5 mb-3">
           {!isQuiz && (
-            <button type="button" onClick={() => setMode("glossar")}
+            <button type="button" onClick={() => glossaryCount > 0 && setMode("glossar")}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
-              style={mode === "glossar"
-                ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--text)" }
-                : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }}>
+              style={{
+                ...(mode === "glossar"
+                  ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--text)" }
+                  : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }),
+                ...(glossaryCount === 0 ? { opacity: 0.4, pointerEvents: "none" as const } : {}),
+              }}>
               <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
                 style={{ borderColor: mode === "glossar" ? "var(--kb)" : "var(--border)" }}>
                 {mode === "glossar" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
@@ -2287,13 +2354,235 @@ function PlaceholderStudio({ title, onBack }: { title: string; onBack: () => voi
   );
 }
 
+// ─── Infografik: Icon mapping ────────────────────────────────────────────────
+
+import * as PhosphorIcons from "@phosphor-icons/react";
+
+const ICON_MAP: Record<string, any> = {
+  GraduationCap: PhosphorIcons.GraduationCap, Student: PhosphorIcons.Student,
+  Brain: PhosphorIcons.Brain, Lightbulb: PhosphorIcons.Lightbulb,
+  RocketLaunch: PhosphorIcons.RocketLaunch, Target: PhosphorIcons.Target,
+  TrendUp: PhosphorIcons.TrendUp, TrendDown: PhosphorIcons.TrendDown,
+  ChartBar: PhosphorIcons.ChartBar, ChartLine: PhosphorIcons.ChartLine,
+  Globe: PhosphorIcons.Globe, GlobeHemisphereWest: PhosphorIcons.GlobeHemisphereWest,
+  Translate: PhosphorIcons.Translate, Book: PhosphorIcons.Book, BookOpen: PhosphorIcons.BookOpen,
+  Users: PhosphorIcons.Users, UserCirclePlus: PhosphorIcons.UserCirclePlus,
+  Handshake: PhosphorIcons.Handshake, Buildings: PhosphorIcons.Buildings,
+  Bank: PhosphorIcons.Bank, Factory: PhosphorIcons.Factory, Briefcase: PhosphorIcons.Briefcase,
+  Certificate: PhosphorIcons.Certificate, Medal: PhosphorIcons.Medal,
+  Trophy: PhosphorIcons.Trophy, Star: PhosphorIcons.Star, Heart: PhosphorIcons.Heart,
+  Shield: PhosphorIcons.Shield, Lock: PhosphorIcons.Lock, Key: PhosphorIcons.Key,
+  Path: PhosphorIcons.Path, Signpost: PhosphorIcons.Signpost, MapPin: PhosphorIcons.MapPin,
+  Compass: PhosphorIcons.Compass, Flag: PhosphorIcons.Flag,
+  Gear: PhosphorIcons.Gear, Wrench: PhosphorIcons.Wrench, Code: PhosphorIcons.Code,
+  Desktop: PhosphorIcons.Desktop, Robot: PhosphorIcons.Robot,
+  MagicWand: PhosphorIcons.MagicWand, Sparkle: PhosphorIcons.Sparkle,
+  ChatCircle: PhosphorIcons.ChatCircle, Megaphone: PhosphorIcons.Megaphone,
+  Eye: PhosphorIcons.Eye, Binoculars: PhosphorIcons.Binoculars,
+  MagnifyingGlass: PhosphorIcons.MagnifyingGlass,
+  Clock: PhosphorIcons.Clock, Calendar: PhosphorIcons.Calendar,
+  Timer: PhosphorIcons.Timer, Lightning: PhosphorIcons.Lightning, Fire: PhosphorIcons.Fire,
+  Leaf: PhosphorIcons.Leaf, ArrowRight: PhosphorIcons.ArrowRight, ArrowUp: PhosphorIcons.ArrowUp,
+  ArrowsClockwise: PhosphorIcons.ArrowsClockwise, Checks: PhosphorIcons.Checks,
+  Warning: PhosphorIcons.Warning, Info: PhosphorIcons.Info, Question: PhosphorIcons.Question,
+  Coins: PhosphorIcons.Coins, CurrencyDollar: PhosphorIcons.CurrencyDollar,
+  Percent: PhosphorIcons.Percent, Calculator: PhosphorIcons.Calculator,
+  Network: PhosphorIcons.Network, TreeStructure: PhosphorIcons.TreeStructure,
+  FlowArrow: PhosphorIcons.FlowArrow, GitBranch: PhosphorIcons.GitBranch,
+};
+
+// THL Corporate Design — immer diese Farben
+const COLOR_SCHEMES: Record<string, { primary: string; accent: string; light: string; gradient: string }> = {
+  blue: { primary: "#004261", accent: "#0E7490", light: "#E0F2FE", gradient: "linear-gradient(135deg, #004261, #0E7490)" },
+  teal: { primary: "#004261", accent: "#0E7490", light: "#E0F2FE", gradient: "linear-gradient(135deg, #004261, #0E7490)" },
+  orange: { primary: "#004261", accent: "#0E7490", light: "#E0F2FE", gradient: "linear-gradient(135deg, #004261, #0E7490)" },
+  purple: { primary: "#004261", accent: "#0E7490", light: "#E0F2FE", gradient: "linear-gradient(135deg, #004261, #0E7490)" },
+};
+
+function PhIcon({ name, size = 24, color, weight = "duotone" as const }: { name: string; size?: number; color?: string; weight?: any }) {
+  const Comp = ICON_MAP[name] || PhosphorIcons.CircleDashed;
+  return <Comp size={size} color={color} weight={weight} />;
+}
+
+// ─── Infografik: Layout Renderer ─────────────────────────────────────────────
+
+function InfographicRenderer({ layout }: { layout: any }) {
+  const cs = COLOR_SCHEMES[layout.color_scheme] || COLOR_SCHEMES.blue;
+  const sections = layout.sections || [];
+  // A4 landscape: 297mm x 210mm
+  return (
+    <div style={{ width: 1123, minHeight: 794, margin: "0 auto", backgroundColor: "#FFFFFF", padding: 32, boxSizing: "border-box", position: "relative" }}>
+      {/* Hero */}
+      <div className="relative rounded-2xl overflow-hidden" style={{ background: cs.gradient, minHeight: 110, marginBottom: 20 }}>
+        {layout.hero_image && (
+          <img src={`data:image/png;base64,${layout.hero_image}`} alt="" className="absolute inset-0 w-full h-full object-cover opacity-35" />
+        )}
+        <div className="relative z-10 px-7 py-5">
+          <h1 className="text-xl font-bold text-white leading-tight mb-1">{layout.title}</h1>
+          {layout.subtitle && <p className="text-xs text-white/80">{layout.subtitle}</p>}
+        </div>
+      </div>
+      {/* Sections with visual flow line */}
+      <div style={{ display: "flex", gap: 0, position: "relative" }}>
+        {/* Vertical flow line */}
+        <div style={{ width: 36, flexShrink: 0, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ position: "absolute", top: 16, bottom: 16, width: 3, backgroundColor: cs.light, borderRadius: 2 }} />
+          {sections.map((_: any, si: number) => (
+            <div key={si} style={{
+              width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+              backgroundColor: cs.primary, color: "#FFF", fontSize: 12, fontWeight: 700, position: "relative", zIndex: 1,
+              marginTop: si === 0 ? 4 : "auto", flexShrink: 0,
+            }}>
+              {si + 1}
+            </div>
+          ))}
+        </div>
+        {/* Section content */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+          {sections.map((sec: any, si: number) => (
+            <InfographicSection key={si} sec={sec} cs={cs} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfographicSection({ sec, cs }: { sec: any; cs: { primary: string; accent: string; light: string; gradient: string } }) {
+  if (sec.type === "stats") {
+    return (
+      <div>
+        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
+        <div className="grid gap-2.5" style={{ gridTemplateColumns: `repeat(${Math.min(sec.items?.length || 2, 4)}, 1fr)` }}>
+          {(sec.items || []).map((item: any, i: number) => (
+            <div key={i} className="rounded-xl p-3.5 text-center" style={{ backgroundColor: cs.light }}>
+              <PhIcon name={item.icon || "ChartBar"} size={24} color={cs.accent} />
+              <div className="text-xl font-extrabold mt-1.5" style={{ color: cs.primary }}>{item.value}</div>
+              <div className="text-[11px] font-semibold mt-0.5" style={{ color: "#1E293B" }}>{item.label}</div>
+              {item.description && <div className="text-[10px] mt-0.5" style={{ color: "#64748B" }}>{item.description}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (sec.type === "icon_grid") {
+    return (
+      <div>
+        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
+        <div className="grid grid-cols-2 gap-2.5">
+          {(sec.items || []).map((item: any, i: number) => (
+            <div key={i} className="flex gap-2.5 p-2.5 rounded-xl" style={{ backgroundColor: "#F8FAFC" }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: cs.light }}>
+                <PhIcon name={item.icon || "Star"} size={20} color={cs.accent} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold" style={{ color: "#1E293B" }}>{item.label}</div>
+                {item.description && <div className="text-[10px] mt-0.5" style={{ color: "#64748B" }}>{item.description}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (sec.type === "process") {
+    return (
+      <div>
+        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
+        {(sec.items || []).map((item: any, i: number) => (
+          <div key={i} className="flex gap-2.5 items-start">
+            <div className="flex flex-col items-center flex-shrink-0">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold" style={{ backgroundColor: cs.accent }}>{i + 1}</div>
+              {i < (sec.items?.length || 0) - 1 && <div className="w-0.5 flex-1 min-h-[20px]" style={{ backgroundColor: cs.light }} />}
+            </div>
+            <div className="pb-3 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <PhIcon name={item.icon || "ArrowRight"} size={14} color={cs.accent} />
+                <span className="text-[11px] font-bold" style={{ color: "#1E293B" }}>{item.label}</span>
+              </div>
+              {item.description && <div className="text-[10px] mt-0.5 ml-5" style={{ color: "#64748B" }}>{item.description}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (sec.type === "two_column") {
+    return (
+      <div>
+        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
+        <div className="grid grid-cols-2 gap-2.5">
+          {[sec.left, sec.right].filter(Boolean).map((col: any, ci: number) => (
+            <div key={ci} className="rounded-xl p-3" style={{ backgroundColor: ci === 0 ? cs.light : "#F1F5F9", borderLeft: `3px solid ${ci === 0 ? cs.accent : "#94A3B8"}` }}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <PhIcon name={col.icon || "Info"} size={16} color={ci === 0 ? cs.accent : "#64748B"} />
+                <span className="text-[11px] font-bold" style={{ color: ci === 0 ? cs.primary : "#334155" }}>{col.title}</span>
+              </div>
+              <ul className="space-y-0.5">
+                {(col.items || []).map((txt: string, ti: number) => (
+                  <li key={ti} className="text-[10px] flex items-start gap-1" style={{ color: "#475569" }}>
+                    <span className="mt-1 w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: ci === 0 ? cs.accent : "#94A3B8" }} />
+                    {txt}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (sec.type === "highlight") {
+    return (
+      <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: cs.gradient }}>
+        <PhIcon name={sec.icon || "Lightbulb"} size={28} color="#FFFFFF" weight="fill" />
+        <p className="text-xs font-medium text-white leading-relaxed italic">{sec.text}</p>
+      </div>
+    );
+  }
+  if (sec.type === "image_row") {
+    return (
+      <div>
+        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
+        <div className="grid gap-2.5" style={{ gridTemplateColumns: `repeat(${Math.min(sec.items?.length || 2, 3)}, 1fr)` }}>
+          {(sec.items || []).map((item: any, i: number) => (
+            <div key={i} className="rounded-xl overflow-hidden" style={{ backgroundColor: "#F8FAFC" }}>
+              {item.image && <img src={`data:image/png;base64,${item.image}`} alt={item.label || ""} className="w-full h-28 object-cover" />}
+              <div className="p-2.5">
+                <div className="text-[11px] font-bold" style={{ color: "#1E293B" }}>{item.label}</div>
+                {item.description && <div className="text-[10px] mt-0.5" style={{ color: "#64748B" }}>{item.description}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  // list default
+  return (
+    <div>
+      {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
+      {(sec.items || []).map((item: any, i: number) => (
+        <div key={i} className="flex items-start gap-2 py-0.5">
+          <PhIcon name={item.icon || "Checks"} size={16} color={cs.accent} />
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold" style={{ color: "#1E293B" }}>{item.label}</span>
+            {item.description && <span className="text-[10px] ml-1" style={{ color: "#64748B" }}>— {item.description}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Infografik Studio ───────────────────────────────────────────────────────
 
 function InfografikStudio({
-  imageData, title, loading, onGenerate, onBack,
+  layoutData, title, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, sourceCount,
 }: {
-  imageData: string | null;
+  layoutData: any;
   title: string | null;
   loading: boolean;
   onGenerate: () => void;
@@ -2306,16 +2595,20 @@ function InfografikStudio({
   const [view, setView] = useState<"viewer" | "list">("list");
   const noSources = sourceCount === 0;
   const activeTitle = title || "Infografik";
+  const infographicRef = useRef<HTMLDivElement>(null);
 
-  const handleDownload = () => {
-    if (!imageData) return;
-    const blob = new Blob([imageData], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(title || "infografik").replace(/\s+/g, "_")}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!infographicRef.current) return;
+    try {
+      const { toPng } = await import("html-to-image");
+      const url = await toPng(infographicRef.current, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(title || "infografik").replace(/\s+/g, "_")}.png`;
+      a.click();
+    } catch (e) {
+      console.error("Download failed:", e);
+    }
   };
 
   return (
@@ -2324,7 +2617,6 @@ function InfografikStudio({
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
         <SubviewHeader title="Infografik" onBack={onBack} />
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-          {/* Source info — max 1 */}
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
               backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
@@ -2335,11 +2627,9 @@ function InfografikStudio({
               ? "Keine Quelle ausgewählt"
               : sourceCount === 1
                 ? "1 Quelle ausgewählt"
-                : `${sourceCount} Quellen ausgewählt — nur die erste wird genutzt`}
+                : `${sourceCount} Quellen ausgewählt — max. 1 wird genutzt`}
           </div>
 
-
-          {/* Generate button */}
           <div className="flex justify-center">
             <button type="button" onClick={() => { onGenerate(); setView("viewer"); }}
               disabled={noSources || loading}
@@ -2351,7 +2641,6 @@ function InfografikStudio({
             </button>
           </div>
 
-          {/* Saved list */}
           {savedList.length > 0 && (
             <>
               <div className="flex items-center justify-between px-1">
@@ -2396,11 +2685,11 @@ function InfografikStudio({
             <CaretLeft size={13} />
           </button>
           <span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>
-          {imageData && !loading && (
+          {layoutData && !loading && (
             <button type="button" onClick={handleDownload}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
               style={{ backgroundColor: "var(--border)" }}
-              title="SVG herunterladen">
+              title="Als PNG herunterladen">
               <DownloadSimple size={14} />
             </button>
           )}
@@ -2411,17 +2700,14 @@ function InfografikStudio({
               <div className="flex flex-col items-center gap-3">
                 <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Infografik wird generiert…</p>
-                <p className="text-[10px]" style={{ color: "var(--muted)", opacity: 0.7 }}>LLM erstellt Prompt, dann generiert Flux das Bild</p>
               </div>
             </div>
           )}
-          {imageData && !loading && (
-            <div className="flex-1 overflow-auto p-4 flex justify-center">
-              <div
-                className="w-full"
-                style={{ maxWidth: 800 }}
-                dangerouslySetInnerHTML={{ __html: imageData }}
-              />
+          {layoutData && !loading && (
+            <div className="flex-1 overflow-auto p-4">
+              <div ref={infographicRef} style={{ backgroundColor: "#FFFFFF", padding: 16, borderRadius: 12 }}>
+                <InfographicRenderer layout={layoutData} />
+              </div>
             </div>
           )}
         </div>
@@ -2429,7 +2715,6 @@ function InfografikStudio({
     </div>
   );
 }
-
 
 // ─── Datentabelle Studio ─────────────────────────────────────────────────────
 
@@ -2619,9 +2904,57 @@ function MindmapStudio({
   const containerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
   const [view, setView] = useState<"viewer" | "list">("list");
+  const [allExpanded, setAllExpanded] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  function expandAll(node: any) {
+    if (node.children && node.children.length > 0) {
+      node.expanded = true;
+      node.children.forEach(expandAll);
+    }
+  }
+  function collapseToFirstLevel(me: any) {
+    const root = me.nodeData;
+    function collapseDeep(node: any) {
+      if (node.children && node.children.length > 0) {
+        node.expanded = false;
+        node.children.forEach(collapseDeep);
+      }
+    }
+    if (root.children) {
+      root.children.forEach((child: any) => {
+        if (child.children) child.children.forEach(collapseDeep);
+      });
+    }
+  }
+
+  function handleToggleExpand() {
+    const me = meInstanceRef.current;
+    if (!me) return;
+    if (allExpanded) {
+      collapseToFirstLevel(me);
+    } else {
+      expandAll(me.nodeData);
+    }
+    me.refresh();
+    me.toCenter();
+    setAllExpanded(!allExpanded);
+  }
+
+  function handleZoomIn() {
+    const me = meInstanceRef.current;
+    if (!me) return;
+    me.scale((me.scaleVal || 1) * 1.4);
+  }
+
+  function handleZoomOut() {
+    const me = meInstanceRef.current;
+    if (!me) return;
+    me.scale((me.scaleVal || 1) * 0.6);
+  }
 
   useEffect(() => {
-    if (!mindmap || !containerRef.current) return;
+    if (!mindmap || !containerRef.current || view !== "viewer") return;
 
     let cancelled = false;
 
@@ -2650,6 +2983,9 @@ function MindmapStudio({
         toolBar: false,
         keypress: false,
         allowUndo: false,
+        scaleVal: 1,
+        scaleMin: 0.1,
+        scaleMax: 5,
         theme: {
           ...baseTheme,
           name: "kis-mindmap",
@@ -2757,15 +3093,40 @@ function MindmapStudio({
         </div>
       </div>
 
-      {/* ── Viewer ── */}
-      <div style={{ display: view === "viewer" ? "flex" : "none" }} className="flex-col h-full">
+      {/* ── Mindmap Viewer ── */}
+      <div style={{
+        display: view === "viewer" ? "flex" : "none",
+        ...(fullscreen ? { position: "fixed" as const, inset: 0, zIndex: 9999, backgroundColor: "var(--bg)" } : {}),
+      }} className="flex-col h-full">
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-          <button type="button" onClick={() => setView("list")}
+          <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); else setView("list"); }}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
             style={{ backgroundColor: "var(--border)" }}>
             <CaretLeft size={13} />
           </button>
           <span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={handleZoomOut} title="Verkleinern"
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--border)" }}>
+              <MagnifyingGlassMinus size={13} />
+            </button>
+            <button type="button" onClick={handleZoomIn} title="Vergrößern"
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--border)" }}>
+              <MagnifyingGlassPlus size={13} />
+            </button>
+            <button type="button" onClick={handleToggleExpand} title={allExpanded ? "Alle einklappen" : "Alle ausklappen"}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--border)" }}>
+              {allExpanded ? <ArrowsInLineVertical size={13} /> : <ArrowsOutLineVertical size={13} />}
+            </button>
+            <button type="button" onClick={() => setFullscreen(!fullscreen)} title={fullscreen ? "Vollbild beenden" : "Vollbild"}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--border)" }}>
+              {fullscreen ? <CornersIn size={13} /> : <CornersOut size={13} />}
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col">
           {loading && (
@@ -2794,11 +3155,14 @@ function MindmapStudio({
 interface Note { id: number; content: string; created_at: string | null }
 
 function NotizenStudio({
-  notes, onAdd, onDelete, onBack,
+  notes, onAdd, onDelete, onBack, sources, activeSourceIds, onPillClick,
 }: {
   notes: Note[]; onAdd: (content: string) => void; onDelete: (id: number) => void; onBack: () => void;
+  sources?: Source[]; activeSourceIds?: string[];
+  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -2808,11 +3172,74 @@ function NotizenStudio({
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [draft]);
 
+  const getFilename = (srcUuid: string) =>
+    sources?.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid;
+
+  function parseNoteCitations(text: string): React.ReactNode[] {
+    const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))\]/g;
+    const nodes: React.ReactNode[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      if (m.index > last) nodes.push(text.slice(last, m.index));
+      const pageNum = m[2] ? parseInt(m[2]) : 0;
+      const timestamp = m[3] || null;
+      const isMedia = !!timestamp;
+
+      // Best-effort source resolution: first media or first PDF source
+      const sourceUuid = isMedia
+        ? (sources?.find(s => _isMediaFile(s.filename))?.uuid ?? activeSourceIds?.[0] ?? "")
+        : (sources?.find(s => !_isMediaFile(s.filename))?.uuid ?? activeSourceIds?.[0] ?? "");
+      const filename = getFilename(sourceUuid);
+
+      if (isMedia && timestamp) {
+        const parts = timestamp.split(":").map(Number);
+        const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+        nodes.push(
+          <button
+            key={m.index}
+            type="button"
+            onClick={() => onPillClick?.(sourceUuid, 0, filename, undefined, seconds)}
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+            style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+            title={`${filename}, ${timestamp}`}
+          >
+            <Play size={8} weight="bold" />
+            {timestamp}
+          </button>
+        );
+      } else {
+        nodes.push(
+          <button
+            key={m.index}
+            type="button"
+            onClick={() => onPillClick?.(sourceUuid, pageNum, filename)}
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+            style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+            title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
+          >
+            <FilePdf size={8} weight="bold" />
+            {_chunkLabel(filename, pageNum)}
+          </button>
+        );
+      }
+      last = pattern.lastIndex;
+    }
+    if (last < text.length) nodes.push(text.slice(last));
+    return nodes;
+  }
+
+  function withNoteCitations(children: React.ReactNode): React.ReactNode {
+    return React.Children.map(children, (child) =>
+      typeof child === "string" ? parseNoteCitations(child) : child
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       <SubviewHeader title="Notizen" onBack={onBack} />
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
+        <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-3">
           {/* New note input */}
           <div
             className="flex gap-2 items-end rounded-xl p-2"
@@ -2842,37 +3269,65 @@ function NotizenStudio({
             </button>
           </div>
 
-          {/* Notes list */}
+          {/* Notes grid */}
           {notes.length === 0 && (
             <p className="text-xs text-center py-8" style={{ color: "var(--muted)" }}>
               Noch keine Notizen. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.
             </p>
           )}
-          {notes.map((note) => (
-            <div
-              key={note.id}
-              className="group relative rounded-xl p-3"
-              style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
-            >
-              <button
-                type="button"
-                onClick={() => onDelete(note.id)}
-                className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100"
-                style={{ color: "#ef4444" }}
-                title="Notiz löschen"
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+            {notes.map((note) => {
+              const isExpanded = expandedId === note.id;
+              return (
+              <div
+                key={note.id}
+                className="group relative rounded-xl p-3 cursor-pointer hover:opacity-80 transition-opacity flex flex-col"
+                style={{
+                  backgroundColor: "var(--background)",
+                  boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)",
+                  minHeight: 90,
+                  ...(isExpanded ? { gridColumn: "1 / -1" } : {}),
+                }}
+                onClick={() => setExpandedId(isExpanded ? null : note.id)}
               >
-                <Trash size={13} />
-              </button>
-              <div className="text-sm whitespace-pre-wrap pr-6" style={{ color: "var(--text)" }}>
-                {note.content}
-              </div>
-              {note.created_at && (
-                <div className="text-[10px] mt-2" style={{ color: "var(--muted)" }}>
-                  {new Date(note.created_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                <div
+                  className={`text-sm pr-6 ki-note-content overflow-hidden flex-1 ${isExpanded ? "" : "max-h-[4.5em]"}`}
+                  style={{ color: "var(--text)", ...(isExpanded ? {} : { WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)" }) }}
+                >
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{withNoteCitations(children)}</p>,
+                      ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+                      li: ({ children }) => <li className="leading-relaxed">{withNoteCitations(children)}</li>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      h1: ({ children }) => <p className="font-semibold mb-1">{withNoteCitations(children)}</p>,
+                      h2: ({ children }) => <p className="font-semibold mb-1">{withNoteCitations(children)}</p>,
+                      h3: ({ children }) => <p className="font-medium mb-1">{withNoteCitations(children)}</p>,
+                      table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                      th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
+                      td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{children}</td>,
+                      hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
+                    }}
+                  >
+                    {note.content}
+                  </ReactMarkdown>
                 </div>
-              )}
-            </div>
-          ))}
+                <div className="flex items-center justify-between mt-auto pt-1">
+                  <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                    {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+                  </span>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
+                    className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                    style={{ backgroundColor: "var(--border)" }}>
+                    <Trash size={12} color="var(--text)" />
+                  </button>
+                </div>
+              </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -2925,7 +3380,7 @@ function GlossarView({
 
           {entries.length === 0 && !loading && (
             <p className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>
-              Noch kein Glossar generiert. Klicke oben um Fachbegriffe zu extrahieren.
+              Noch kein Glossar generiert. Klicke oben auf „Glossar generieren", um Fachbegriffe aus deinen Quellen zu extrahieren. Du kannst auch Text im Dokument markieren und über das Kontextmenü einzelne Begriffe hinzufügen.
             </p>
           )}
 
@@ -2944,7 +3399,7 @@ function GlossarView({
                   <button type="button" onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
                     className="inline-flex items-center gap-1 text-[10px] font-medium shrink-0 px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity cursor-pointer"
                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>
-                    <FilePdf size={9} weight="bold" /> S. {entry.page_number}
+                    <FilePdf size={9} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!) : `S. ${entry.page_number}`}
                   </button>
                 )}
               </div>
@@ -3112,7 +3567,7 @@ function VocabFlashcards({
                     {card.definition}
                   </span>
                   {card.page_number && (
-                    <span className="text-[10px] mt-1" style={{ color: "var(--muted)" }}>S. {card.page_number}</span>
+                    <span className="text-[10px] mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!) : `S. ${card.page_number}`}</span>
                   )}
                 </>
               )}
@@ -3648,11 +4103,7 @@ function SprachtrainingOverview({
           })}
         </div>
 
-        {glossaryCount === 0 && !noSources && (
-          <p className="text-[10px] text-center px-2" style={{ color: "var(--muted)" }}>
-            Generiere zuerst ein Glossar, um Karteikarten, Lückentext und Vokabeltest zu nutzen.
-          </p>
-        )}
+
       </div>
     </div>
   );
@@ -3663,7 +4114,7 @@ function SprachtrainingOverview({
 function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode }) {
   const [studioTab, setStudioTab] = useState<"tools" | "sprachtraining">("tools");
   const tiles = [
-    { key: "lernkarten" as const, Icon: Cards, label: "Lernkarten", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
+    { key: "karteikarten" as const, Icon: Cards, label: "Karteikarten", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
     { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
     { key: "infografik" as const, Icon: ChartBar, label: "Infografik", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
     { key: "datentabelle" as const, Icon: Table, label: "Datentabelle", iconBg: "rgba(255,237,213,0.7)", iconColor: "#C2410C" },
@@ -3995,7 +4446,7 @@ export default function KiTutorModulePage() {
   const [mindmapData, setMindmapData] = useState<MindmapNodeData | null>(null);
   const [mindmapLoading, setMindmapLoading] = useState(false);
   const [mindmapList, setMindmapList] = useState<{ id: number; created_at: string | null; topic: string }[]>([]);
-  const [infographicImage, setInfographicImage] = useState<string | null>(null);
+  const [infographicLayout, setInfographicLayout] = useState<any>(null);
   const [infographicTitle, setInfographicTitle] = useState<string | null>(null);
   const [infographicLoading, setInfographicLoading] = useState(false);
   const infographicStyle = "scientific" as const;
@@ -4544,8 +4995,8 @@ export default function KiTutorModulePage() {
         const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/${infographicId}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
-        if (data.status === "success" && data.image_data) {
-          setInfographicImage(data.image_data);
+        if (data.status === "success" && data.layout_data) {
+          setInfographicLayout(data.layout_data);
           setInfographicTitle(data.title || null);
           setInfographicLoading(false);
           stopInfographicPolling();
@@ -4565,8 +5016,8 @@ export default function KiTutorModulePage() {
         const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
-        if (data.status === "success" && data.image_data) {
-          setInfographicImage(data.image_data);
+        if (data.status === "success" && data.layout_data) {
+          setInfographicLayout(data.layout_data);
           setInfographicTitle(data.title || null);
         } else if (data.id && (data.status === "pending" || data.status === "running")) {
           startInfographicPolling(data.id);
@@ -4580,13 +5031,13 @@ export default function KiTutorModulePage() {
   async function generateInfographic() {
     if (selectedSourceIds.length === 0) return;
     setInfographicLoading(true);
-    setInfographicImage(null);
+    setInfographicLayout(null);
     try {
       const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/generate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 5), style: infographicStyle }),
+        body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 1), style: infographicStyle }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -4606,8 +5057,8 @@ export default function KiTutorModulePage() {
       const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/${id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
-      if (data.status === "success" && data.image_data) {
-        setInfographicImage(data.image_data);
+      if (data.status === "success" && data.layout_data) {
+        setInfographicLayout(data.layout_data);
         setInfographicTitle(data.title || null);
       }
     } catch { /* ignore */ }
@@ -4944,9 +5395,10 @@ export default function KiTutorModulePage() {
     }
   }
 
-  // Load quiz sets when switching to quiz view
+  // Load exercise sets when switching to studio views
   useEffect(() => {
     if (studioView === "quiz") loadExerciseSets("quiz");
+    if (studioView === "karteikarten") loadExerciseSets("karteikarten");
   }, [studioView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Exercise Sets Functions ──────────────────────────────────────────────
@@ -5130,7 +5582,10 @@ export default function KiTutorModulePage() {
             }}
             onAskChat={(text) => {
               setChatInput(text);
-              // Switch to chat panel
+            }}
+            onSourceClick={(filename, page, startTime) => {
+              const src = sources.find((s) => s.filename === filename);
+              if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
             }}
           />
         ) : null;
@@ -5303,7 +5758,7 @@ export default function KiTutorModulePage() {
               style={{ color: "var(--kb)" }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-              Zurück
+              Zurück zur Übersicht
             </Link>
             <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <span className="text-base font-bold truncate px-16" style={{ color: "var(--text)" }}>
@@ -5410,7 +5865,7 @@ export default function KiTutorModulePage() {
               style={{ color: "var(--kb)" }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-              Zurück
+              Zurück zur Übersicht
             </Link>
           </div>
           <div
@@ -5487,14 +5942,41 @@ export default function KiTutorModulePage() {
                 />
               ) : studioView === "overview" ? (
                 <StudioOverview onSelect={setStudioView} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} />
-              ) : studioView === "lernkarten" ? (
+              ) : activeSet && activeSet.tool === "karteikarten" ? (
+                <LernkartenLearnView
+                  exerciseSet={activeSet}
+                  onBack={() => { setActiveSet(null); loadExerciseSets("karteikarten"); }}
+                  onComplete={(results) => {
+                    submitSetProgress(activeSet.id, results);
+                    setActiveSet(null);
+                    loadExerciseSets("karteikarten");
+                  }}
+                  onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
+                  onSourceClick={(filename, page, startTime) => {
+                    const src = sources.find((s) => s.filename === filename);
+                    if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                  }}
+                />
+              ) : activeSet && activeSet.tool === "quiz" ? (
+                <MCExerciseView
+                  exerciseSet={activeSet}
+                  tool="quiz"
+                  onBack={() => { setActiveSet(null); loadExerciseSets("quiz"); }}
+                  onComplete={(results) => {
+                    submitSetProgress(activeSet.id, results);
+                    setActiveSet(null);
+                    loadExerciseSets("quiz");
+                  }}
+                  onAskChat={() => {}}
+                />
+              ) : studioView === "karteikarten" ? (
                 <ExerciseSetsOverview
-                  title="Lernkarten"
-                  sets={exerciseSets.filter((s) => s.tool === "lernkarten")}
+                  title="Karteikarten"
+                  sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
                   onBack={() => setStudioView("overview")}
-                  onSelect={(s) => { loadExerciseSet(s.id); }}
-                  onCreate={() => { setCreateSetTool("lernkarten"); setShowCreateModal(true); }}
-                  onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
+                  onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+                  onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
+                  onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
                 />
               ) : studioView === "notizen" ? (
                 <NotizenStudio
@@ -5502,9 +5984,12 @@ export default function KiTutorModulePage() {
                   onAdd={addNote}
                   onDelete={deleteNote}
                   onBack={() => setStudioView("overview")}
+                  sources={sources}
+                  activeSourceIds={selectedSourceIds}
+                  onPillClick={handlePillClick}
                 />
               ) : studioView === "infografik" ? (
-                <InfografikStudio imageData={infographicImage} title={infographicTitle} loading={infographicLoading} onGenerate={generateInfographic} onBack={() => setStudioView("overview")} savedList={infographicList} onSelect={selectInfographic} onDelete={deleteInfographic} sourceCount={selectedSourceIds.length} />
+                <InfografikStudio layoutData={infographicLayout} title={infographicTitle} loading={infographicLoading} onGenerate={generateInfographic} onBack={() => setStudioView("overview")} savedList={infographicList} onSelect={selectInfographic} onDelete={deleteInfographic} sourceCount={selectedSourceIds.length} />
               ) : studioView === "datentabelle" ? (
                 <DatentabelleStudio
                     table={datentabelle}
@@ -5529,19 +6014,7 @@ export default function KiTutorModulePage() {
                 />
               ) : studioView === "mindmap" ? (
                 <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} />
-              ) : activeSet && activeSet.tool === "quiz" ? (
-                <MCExerciseView
-                  exerciseSet={activeSet}
-                  tool="quiz"
-                  onBack={() => { setActiveSet(null); loadExerciseSets("quiz"); }}
-                  onComplete={(results) => {
-                    submitSetProgress(activeSet.id, results);
-                    setActiveSet(null);
-                    loadExerciseSets("quiz");
-                  }}
-                  onAskChat={() => {}}
-                />
-              ) : (
+              ) : studioView === "quiz" ? (
                 <ExerciseSetsOverview
                   title="Quiz"
                   sets={exerciseSets.filter((s) => s.tool === "quiz")}
@@ -5550,7 +6023,7 @@ export default function KiTutorModulePage() {
                   onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
                   onDelete={(id) => deleteExerciseSet(id, "quiz")}
                 />
-              )}
+              ) : null}
             </div>
           ) : (
             /* Desktop: 3 panels with drag handles */
@@ -5647,14 +6120,41 @@ export default function KiTutorModulePage() {
                     <MiniStrip label="Studio" onClick={() => togglePanel("studio")} side="right" />
                   ) : studioView === "overview" ? (
                     <StudioOverview onSelect={setStudioView} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} />
-                  ) : studioView === "lernkarten" ? (
+                  ) : activeSet && activeSet.tool === "karteikarten" ? (
+                    <LernkartenLearnView
+                      exerciseSet={activeSet}
+                      onBack={() => { setActiveSet(null); loadExerciseSets("karteikarten"); }}
+                      onComplete={(results) => {
+                        submitSetProgress(activeSet.id, results);
+                        setActiveSet(null);
+                        loadExerciseSets("karteikarten");
+                      }}
+                      onAskChat={(text) => { setChatInput(text); }}
+                      onSourceClick={(filename, page, startTime) => {
+                        const src = sources.find((s) => s.filename === filename);
+                        if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                      }}
+                    />
+                  ) : activeSet && activeSet.tool === "quiz" ? (
+                    <MCExerciseView
+                      exerciseSet={activeSet}
+                      tool="quiz"
+                      onBack={() => { setActiveSet(null); loadExerciseSets("quiz"); }}
+                      onComplete={(results) => {
+                        submitSetProgress(activeSet.id, results);
+                        setActiveSet(null);
+                        loadExerciseSets("quiz");
+                      }}
+                      onAskChat={() => {}}
+                    />
+                  ) : studioView === "karteikarten" ? (
                     <ExerciseSetsOverview
-                      title="Lernkarten"
-                      sets={exerciseSets.filter((s) => s.tool === "lernkarten")}
+                      title="Karteikarten"
+                      sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
                       onBack={() => setStudioView("overview")}
-                      onSelect={(s) => { loadExerciseSet(s.id); }}
-                      onCreate={() => { setCreateSetTool("lernkarten"); setShowCreateModal(true); }}
-                      onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
+                      onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+                      onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
+                      onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
                     />
                   ) : studioView === "notizen" ? (
                     <NotizenStudio
@@ -5662,9 +6162,12 @@ export default function KiTutorModulePage() {
                       onAdd={addNote}
                       onDelete={deleteNote}
                       onBack={() => setStudioView("overview")}
+                      sources={sources}
+                      activeSourceIds={selectedSourceIds}
+                      onPillClick={handlePillClick}
                     />
                   ) : studioView === "infografik" ? (
-                    <InfografikStudio imageData={infographicImage} title={infographicTitle} loading={infographicLoading} onGenerate={generateInfographic} onBack={() => setStudioView("overview")} savedList={infographicList} onSelect={selectInfographic} onDelete={deleteInfographic} sourceCount={selectedSourceIds.length} />
+                    <InfografikStudio layoutData={infographicLayout} title={infographicTitle} loading={infographicLoading} onGenerate={generateInfographic} onBack={() => setStudioView("overview")} savedList={infographicList} onSelect={selectInfographic} onDelete={deleteInfographic} sourceCount={selectedSourceIds.length} />
                   ) : studioView === "datentabelle" ? (
                     <DatentabelleStudio
                       table={datentabelle}
@@ -5689,19 +6192,7 @@ export default function KiTutorModulePage() {
                     />
                   ) : studioView === "mindmap" ? (
                     <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} />
-                  ) : activeSet && activeSet.tool === "quiz" ? (
-                    <MCExerciseView
-                      exerciseSet={activeSet}
-                      tool="quiz"
-                      onBack={() => { setActiveSet(null); loadExerciseSets("quiz"); }}
-                      onComplete={(results) => {
-                        submitSetProgress(activeSet.id, results);
-                        setActiveSet(null);
-                        loadExerciseSets("quiz");
-                      }}
-                      onAskChat={() => {}}
-                    />
-                  ) : (
+                  ) : studioView === "quiz" ? (
                     <ExerciseSetsOverview
                       title="Quiz"
                       sets={exerciseSets.filter((s) => s.tool === "quiz")}
@@ -5710,7 +6201,7 @@ export default function KiTutorModulePage() {
                       onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
                       onDelete={(id) => deleteExerciseSet(id, "quiz")}
                     />
-                  )}
+                  ) : null}
                 </div>
                 </>
               )}
@@ -5728,9 +6219,9 @@ export default function KiTutorModulePage() {
           onClose={() => setShowCreateModal(false)}
           onCreate={async (mode, count) => {
             setShowCreateModal(false);
-            if (createSetTool === "quiz") {
-              // Quiz is a StudioView, not Sprachtraining
-              setStudioView("quiz");
+            if (createSetTool === "quiz" || createSetTool === "karteikarten") {
+              // Studio tools stay in Studio
+              setStudioView(createSetTool as StudioView);
             } else {
               const setsView = `${createSetTool === "lernkarten" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-sets` as SprachtrainingView;
               setSprachView(setsView);

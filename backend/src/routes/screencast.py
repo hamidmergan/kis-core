@@ -748,7 +748,7 @@ async def screencast(
     enforce_quota(user_id, "screencast", is_admin_user(current_user))
     job_uuid = uuid.uuid4().hex
     filename = file.filename or "screencast.pptx"
-    db.create_job(job_uuid, user_id, "screencast_auto", filename)
+    db.create_job(job_uuid, user_id, "screencast_auto", filename, username=current_user.get("username", "unknown"))
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
     db.set_job_input_path(job_uuid, input_path)
 
@@ -806,7 +806,7 @@ async def screencast_translate(
     enforce_quota(user_id, "screencast", is_admin_user(current_user))
     job_uuid = uuid.uuid4().hex
     filename = file.filename or "screencast.pptx"
-    db.create_job(job_uuid, user_id, "screencast_translate", filename)
+    db.create_job(job_uuid, user_id, "screencast_translate", filename, username=current_user.get("username", "unknown"))
     input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
     db.set_job_input_path(job_uuid, input_path)
 
@@ -1151,7 +1151,7 @@ async def screencast_upload_corrected(
             raise HTTPException(status_code=409, detail=f"Du hast bereits {MAX_QUEUED_SCREENCAST_JOBS} Screencast-Jobs in der Warteschlange.")
         enforce_quota(user_id, "screencast", is_admin_user(current_user))
         translate_job_uuid = uuid.uuid4().hex
-        db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
+        db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", username=current_user.get("username", "unknown"))
         _save_job_file(translate_job_uuid, "translated.pptx", pptx_bytes)
         _save_job_file(translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
         db.update_job_status(translate_job_uuid, "awaiting_user")

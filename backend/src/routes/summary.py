@@ -73,7 +73,7 @@ async def summarize(
     user_id = current_user.get("user_id", 0)
     enforce_quota(user_id, "summary", is_admin_user(current_user))
 
-    db.create_job(job_uuid, user_id, "summary", file.filename)
+    db.create_job(job_uuid, user_id, "summary", file.filename, username=current_user.get("username", "unknown"))
     input_path = save_queue_file(job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 

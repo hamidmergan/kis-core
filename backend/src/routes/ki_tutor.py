@@ -1544,14 +1544,20 @@ async def download_presentation(
         raise HTTPException(status_code=400, detail="Präsentation noch nicht fertig")
 
     from src.storage import get_file
+    from urllib.parse import quote
     pptx_data = get_file(pres["pptx_path"])
-    filename = f"{pres.get('title', 'Praesentation')}.pptx"
+    title = pres.get("title") or "Praesentation"
+    # Sanitize filename for Content-Disposition (ASCII fallback + UTF-8)
+    safe_name = title.encode("ascii", "ignore").decode() or "Praesentation"
+    safe_name = safe_name.replace('"', "").strip()[:100]
 
     from starlette.responses import Response
     return Response(
         content=pptx_data,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{safe_name}.pptx\"; filename*=UTF-8''{quote(title)}.pptx",
+        },
     )
 
 
@@ -1616,10 +1622,10 @@ async def generate_infographic(
     if body.style not in ("professional", "scientific", "modern"):
         raise HTTPException(status_code=400, detail="Ungültiger Stil")
 
-    source_ids = _resolve_source_ids(module, body.active_source_ids, max_count=5)
+    source_ids = _resolve_source_ids(module, body.active_source_ids[:1], max_count=1)
 
     source_uuids = []
-    for suuid in body.active_source_ids:
+    for suuid in body.active_source_ids[:1]:
         s = db.get_ki_tutor_source(suuid)
         if s and s["id"] in source_ids:
             source_uuids.append(suuid)
@@ -1657,7 +1663,7 @@ async def get_infographic(
         "id": ig["id"],
         "status": ig["status"],
         "title": ig["title"],
-        "image_data": ig["image_data"],
+        "layout_data": ig["layout_data"],
         "style": ig["style"],
         "error": ig["error"],
     }
@@ -1681,46 +1687,16 @@ async def get_latest_infographic(
 
     ig = db.get_latest_ki_tutor_infographic(module["id"], user_id)
     if not ig:
-        return {"id": None, "status": None, "title": None, "image_data": None, "style": None, "error": None}
+        return {"id": None, "status": None, "title": None, "layout_data": None, "style": None, "error": None}
 
     return {
         "id": ig["id"],
         "status": ig["status"],
         "title": ig["title"],
-        "image_data": ig["image_data"],
+        "layout_data": ig["layout_data"],
         "style": ig["style"],
         "error": ig["error"],
     }
-
-
-@router.get("/ki-tutor/modules/{module_uuid}/infographic/{infographic_id}/download")
-async def download_infographic(
-    module_uuid: str,
-    infographic_id: int,
-    current_user: dict = Depends(get_current_user),
-):
-    """Download infographic as SVG file."""
-    user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
-    if not module:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
-
-    ig = db.get_ki_tutor_infographic(infographic_id)
-    if not ig or ig["module_id"] != module["id"] or ig["status"] != "success":
-        raise HTTPException(status_code=404, detail="Infografik nicht gefunden")
-
-    from fastapi.responses import Response
-    filename = f"infografik-{ig['title'] or 'export'}.svg".replace(" ", "_")
-    return Response(
-        content=ig["image_data"],
-        media_type="image/svg+xml",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
 
 
 @router.delete("/ki-tutor/modules/{module_uuid}/infographic/{infographic_id}")

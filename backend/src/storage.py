@@ -115,19 +115,21 @@ def delete_file(file_path: str) -> None:
 #   jobs/YYYY-MM-DD_HH-MM-SS_{uuid}/audio/slide_000.mp3
 
 def _job_folder_name(job_uuid: str) -> str:
-    """Return the folder name for a job: 'YYYY-MM-DD_HH-MM-SS_{uuid}'."""
+    """Return the structured folder path for a job: '{username}/{tool}/{YYYY-MM-DD_HH-MM-SS}_{uuid}'."""
     import psycopg2.extras
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT created_at FROM jobs WHERE job_uuid = %s", (job_uuid,))
+            cur.execute("SELECT created_at, username, tool FROM jobs WHERE job_uuid = %s", (job_uuid,))
             row = cur.fetchone()
     if row and row["created_at"]:
         ts = row["created_at"]
         iso = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
         date_part = iso[:10]
         time_part = iso[11:19].replace(":", "-")
-        return f"{date_part}_{time_part}_{job_uuid}"
-    return job_uuid  # fallback if job not yet in DB
+        username = row.get("username") or "unknown"
+        tool = row.get("tool") or "misc"
+        return f"{username}/{tool}/{date_part}_{time_part}_{job_uuid}"
+    return f"unknown/misc/{job_uuid}"  # fallback if job not yet in DB
 
 
 def _job_key(job_uuid: str, filename: str) -> str:

@@ -311,53 +311,91 @@ TUTOR_PRESENTATION_PROMPT = (
 
 
 TUTOR_INFOGRAPHIC_PROMPT = (
-    "Du bist ein Experte für Informationsdesign und Datenvisualisierung. "
-    "Erstelle eine strukturierte Infografik mit Sektionen UND passenden Illustrations-Prompts.\n\n"
-    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "Du bist ein Experte für Informationsdesign. "
+    "Erstelle ein Layout-JSON für eine visuelle Infografik im Stil von NotebookLM.\n\n"
+    "Das Layout wird im Frontend als HTML/React gerendert. "
+    "Für visuelle Elemente kannst du Phosphor-Icons (React-Bibliothek) ODER Flux-Bildprompts verwenden.\n\n"
+    "Antworte NUR mit JSON:\n"
     "{\n"
     '  "title": "Titel der Infografik",\n'
-    '  "subtitle": "Optionaler Untertitel",\n'
-    '  "hero_prompt": "English image prompt for the header illustration, no text, no labels, no words, flat vector style",\n'
+    '  "subtitle": "Untertitel",\n'
+    '  "color_scheme": "blue" | "teal" | "orange" | "purple",\n'
+    '  "hero_prompt": "English Flux prompt for wide header illustration, no text, no words, flat vector style, white background",\n'
     '  "sections": [\n'
     "    {\n"
     '      "type": "stats",\n'
     '      "heading": "Überschrift",\n'
-    '      "illustration_prompt": "English prompt for a small icon-style illustration, no text, no labels, flat design",\n'
+    '      "layout": "row",\n'
     '      "items": [\n'
-    '        { "label": "Bezeichnung", "value": "42%", "description": "Kurze Erklärung" }\n'
+    '        { "value": "49%", "label": "Abbruchquote", "description": "Kurze Erklärung", "icon": "TrendUp" }\n'
     "      ]\n"
     "    },\n"
     "    {\n"
-    '      "type": "list",\n'
+    '      "type": "icon_grid",\n'
     '      "heading": "Kernpunkte",\n'
-    '      "illustration_prompt": "English prompt for illustration, no text, no words, icon style",\n'
     '      "items": [\n'
-    '        { "label": "Punkt 1", "description": "Erklärung" }\n'
+    '        { "label": "Punkt", "description": "Erklärung", "icon": "GraduationCap" }\n'
     "      ]\n"
     "    },\n"
     "    {\n"
     '      "type": "process",\n'
     '      "heading": "Ablauf",\n'
-    '      "illustration_prompt": "English prompt, no text, flat design",\n'
     '      "items": [\n'
-    '        { "label": "Schritt 1", "description": "Was passiert" }\n'
+    '        { "label": "Schritt 1", "description": "Was passiert", "icon": "RocketLaunch" }\n'
+    "      ]\n"
+    "    },\n"
+    "    {\n"
+    '      "type": "two_column",\n'
+    '      "heading": "Vergleich",\n'
+    '      "left": { "title": "Option A", "items": ["Punkt 1"], "icon": "Path" },\n'
+    '      "right": { "title": "Option B", "items": ["Punkt 1"], "icon": "Signpost" }\n'
+    "    },\n"
+    "    {\n"
+    '      "type": "highlight",\n'
+    '      "text": "Wichtige Kernaussage oder Zitat.",\n'
+    '      "icon": "Quotes"\n'
+    "    },\n"
+    "    {\n"
+    '      "type": "image_row",\n'
+    '      "heading": "Visuelle Übersicht",\n'
+    '      "items": [\n'
+    '        { "label": "Thema", "description": "Beschreibung", "flux_prompt": "English prompt, no text, no words, flat illustration" }\n'
     "      ]\n"
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "Verfügbare Sektionstypen: 'stats', 'list', 'process', 'comparison', 'quote'\n\n"
-    "WICHTIG für illustration_prompt und hero_prompt:\n"
-    "- Immer auf ENGLISCH\n"
-    "- NIEMALS Text, Wörter, Buchstaben oder Labels im Bild beschreiben\n"
-    "- Immer enden mit: 'no text, no words, no labels, no letters, flat vector illustration, clean white background'\n"
-    "- Beschreibe nur visuelle Elemente: Objekte, Szenen, Icons, Symbole, Farben\n"
-    "- hero_prompt: Breitere Szene passend zum Gesamtthema (z.B. 'university campus with diverse students, books, laptops')\n"
-    "- illustration_prompt: Kleines Icon/Symbol passend zur Sektion (z.B. 'graduation cap with upward arrow')\n\n"
-    "Regeln für Sektionen:\n"
-    "- 3-5 Sektionen, passende Typen zum Inhalt mischen\n"
-    "- Stats: Nur bei echten Zahlen/Prozenten im Text\n"
-    "- Process: Nur bei klarem Ablauf\n"
-    "- Labels: max 5 Wörter, Descriptions: max 15 Wörter\n"
+    "Sektionstypen:\n"
+    "- stats: Kennzahlen mit großen Zahlen, icon pro Stat. 2-4 Items in einer Reihe.\n"
+    "- icon_grid: 2x2 oder 3x2 Raster mit Icon + Label + Beschreibung. Für Features, Vorteile, Übersichten.\n"
+    "- process: Schritte mit nummerierten Kreisen + Icons. Für Abläufe, Zeitstrahlen.\n"
+    "- two_column: Zwei Spalten für Vergleiche. Je Spalte: Titel + Items + Icon.\n"
+    "- highlight: Einzelne hervorgehobene Aussage/Zitat mit großem Icon.\n"
+    "- image_row: 2-3 Items mit Flux-generierten Illustrationen. Für visuelle Szenen.\n"
+    "- list: Einfache Liste mit Icons. Für Aufzählungen.\n\n"
+    "Verfügbare Phosphor-Icons (verwende NUR diese Namen):\n"
+    "GraduationCap, Student, Brain, Lightbulb, RocketLaunch, Target, TrendUp, TrendDown, "
+    "ChartBar, ChartLine, Globe, GlobeHemisphereWest, Translate, Book, BookOpen, "
+    "Users, UserCirclePlus, Handshake, Buildings, Bank, Factory, Briefcase, "
+    "Certificate, Medal, Trophy, Star, Heart, Shield, Lock, Key, "
+    "Path, Signpost, MapPin, Compass, Flag, "
+    "Gear, Wrench, Code, Desktop, Robot, MagicWand, Sparkle, "
+    "ChatCircle, Megaphone, Eye, Binoculars, MagnifyingGlass, "
+    "Clock, Calendar, Timer, Lightning, Fire, Leaf, "
+    "ArrowRight, ArrowUp, ArrowsClockwise, Checks, Warning, Info, Question, "
+    "Coins, CurrencyDollar, Percent, Calculator, "
+    "Network, TreeStructure, Diagram, FlowArrow, GitBranch\n\n"
+    "Regeln für Flux-Prompts (nur bei image_row und hero_prompt):\n"
+    "- Immer ENGLISCH\n"
+    "- NIEMALS Text, Wörter, Labels im Bild\n"
+    "- Ende immer mit: 'no text, no words, no labels, flat vector illustration, white background'\n"
+    "- Nur visuelle Szenen: Menschen, Gebäude, Objekte, abstrakte Formen\n\n"
+    "Layout-Regeln:\n"
+    "- 4-6 Sektionen, Typen MISCHEN für visuelle Abwechslung\n"
+    "- IMMER mit stats oder highlight anfangen (starker visueller Einstieg)\n"
+    "- image_row für die visuell stärksten Sektionen (max 1-2)\n"
+    "- icon_grid für Übersichten mit 4-6 gleichwertigen Punkten\n"
+    "- process für chronologische Abläufe\n"
+    "- Labels: max 4 Wörter, Descriptions: max 12 Wörter\n"
     "- Nur Informationen aus dem Text, keine Halluzinationen\n"
     "- Sprache der Texte = Sprache der Quelle\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
