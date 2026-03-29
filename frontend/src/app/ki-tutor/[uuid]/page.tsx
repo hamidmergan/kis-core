@@ -1728,7 +1728,7 @@ function ExerciseSetsOverview({
   onCreate: () => void; onDelete: (id: number) => void;
   sourceCount: number;
 }) {
-  const circumference = Math.PI * 2 * 11.5;
+  const circumference = Math.PI * 2 * 14;
   const noSources = sourceCount === 0;
   const atLimit = sets.length >= 20;
   return (
@@ -1795,12 +1795,12 @@ function ExerciseSetsOverview({
                         {generating ? "Wird generiert…" : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Quiz)\s*(aus|von)\s*/i, "")}
                       </span>
                       {!generating && !failed && (
-                        <svg width="32" height="32" viewBox="0 0 32 32" className="shrink-0">
-                          <circle cx="16" cy="16" r="11.5" fill="none" stroke="var(--border)" strokeWidth="3" />
-                          <circle cx="16" cy="16" r="11.5" fill="none" stroke="var(--kb)" strokeWidth="3"
+                        <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0">
+                          <circle cx="19" cy="19" r="14" fill="none" stroke="var(--border)" strokeWidth="3" />
+                          <circle cx="19" cy="19" r="14" fill="none" stroke="var(--kb)" strokeWidth="3"
                             strokeDasharray={circumference} strokeDashoffset={circumference - (circumference * pct / 100)}
-                            strokeLinecap="round" transform="rotate(-90 16 16)" style={{ transition: "stroke-dashoffset 0.5s" }} />
-                          <text x="16" y="16" textAnchor="middle" dominantBaseline="central"
+                            strokeLinecap="round" transform="rotate(-90 19 19)" style={{ transition: "stroke-dashoffset 0.5s" }} />
+                          <text x="19" y="19" textAnchor="middle" dominantBaseline="central"
                             style={{ fontSize: 8, fontWeight: 700, fill: "var(--kb)" }}>{pct}%</text>
                         </svg>
                       )}
@@ -3494,7 +3494,7 @@ function NotizenStudio({
         <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-3">
           {/* New note input */}
           <div
-            className="flex gap-2 items-end rounded-xl p-2"
+            className="flex gap-2 items-center rounded-xl p-2"
             style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
           >
             <textarea
@@ -3589,18 +3589,32 @@ function NotizenStudio({
 // ─── Sprachtraining: Glossar ──────────────────────────────────────────────────
 
 function GlossarView({
-  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete,
+  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete, sourceCount = 0,
 }: {
   entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
   onGenerate: () => void; onBack?: () => void;
   onOpenSource?: (page: number, highlightText?: string) => void;
   onDelete?: (id: number) => void;
+  sourceCount?: number;
 }) {
+  const noSources = sourceCount === 0;
   return (
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title="Glossar" onBack={onBack} />}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
+          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+            style={{
+              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : "rgba(var(--kb-rgb),0.06)",
+              color: noSources ? "#B91C1C" : "var(--kb)",
+            }}>
+            <FilePdf size={13} weight="bold" />
+            {noSources
+              ? "Keine Quelle ausgewählt"
+              : sourceCount === 1
+                ? "1 Quelle ausgewählt"
+                : `${sourceCount} Quellen ausgewählt`}
+          </div>
           {extracting && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
               style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}>
@@ -3608,18 +3622,18 @@ function GlossarView({
               Begriffe werden aus Markierung extrahiert…
             </div>
           )}
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={loading}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--kb)" }}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <Book size={16} weight="bold" />
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={loading || noSources}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}
+            >
+              {loading ? <ArrowsCounterClockwise size={12} weight="bold" className="animate-spin" /> : <Plus size={12} weight="bold" />}
               {loading ? "Extrahiere Begriffe…" : entries.length > 0 ? "Neu generieren" : "Glossar generieren"}
-            </span>
-          </button>
+            </button>
+          </div>
 
           {entries.length > 0 && (
             <div
@@ -4305,25 +4319,14 @@ function SprachtrainingOverview({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        {/* Active sources info */}
-        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-          style={{
-            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : activeSourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
-            color: noSources ? "#B91C1C" : activeSourceCount > 5 ? "#c4820e" : "var(--kb)",
-          }}
-        >
-          <FilePdf size={13} weight="bold" />
-          {noSources
-            ? "Keine Quelle ausgewählt"
-            : activeSourceCount === 1
-              ? "1 Quelle ausgewählt"
-              : activeSourceCount <= 5
-                ? `${activeSourceCount} Quellen ausgewählt`
-                : `${activeSourceCount} Quellen ausgewählt — nur die ersten 5, Rest ignoriert`}
-          {glossaryCount > 0 && (
-            <span className="ml-auto font-bold">{glossaryCount} / 150 Glossar</span>
-          )}
-        </div>
+        {/* Glossar counter */}
+        {glossaryCount > 0 && (
+          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+            style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}>
+            <FilePdf size={13} weight="bold" />
+            <span className="font-bold">{glossaryCount} / 150 Glossar</span>
+          </div>
+        )}
 
         {/* Tool tiles */}
         <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
@@ -4423,7 +4426,7 @@ function StudioTabs({ tabs, active, onSelect }: {
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width;
-      if (w >= tabs.length * 95) setLayout("row");
+      if (w >= tabs.length * 90) setLayout("row");
       else if (w >= 160) setLayout("grid");
       else setLayout("stack");
     });
@@ -4431,10 +4434,10 @@ function StudioTabs({ tabs, active, onSelect }: {
     return () => ro.disconnect();
   }, [tabs.length]);
 
-  const cols = layout === "row" ? `repeat(${tabs.length}, 1fr)` : layout === "grid" ? "repeat(2, 1fr)" : "1fr";
+  const cols = layout === "row" ? tabs.map(t => t.key === "sprachtraining" ? "1.4fr" : "1fr").join(" ") : layout === "grid" ? "repeat(2, 1fr)" : "1fr";
 
   return (
-    <div ref={ref} className="flex-shrink-0 px-3 pt-4 pb-2 w-full mx-auto" style={{ maxWidth: 420 }}>
+    <div ref={ref} className="flex-shrink-0 px-3 pt-4 pb-2 w-full mx-auto" style={{ maxWidth: 500 }}>
       <div
         className="grid gap-1 p-1 rounded-xl"
         style={{ backgroundColor: "rgba(0, 66, 97, 0.08)", gridTemplateColumns: cols }}
@@ -4446,10 +4449,10 @@ function StudioTabs({ tabs, active, onSelect }: {
               key={tab.key}
               type="button"
               onClick={() => onSelect(tab.key)}
-              className="py-1.5 px-2 text-xs font-medium rounded-lg transition-all overflow-hidden text-clip whitespace-nowrap"
+              className={`py-1.5 px-3 text-xs font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!isActive ? "hover:bg-black/[0.03] hover:text-[var(--text)]" : ""}`}
               style={{
                 color: isActive ? "var(--kb)" : "var(--muted)",
-                backgroundColor: isActive ? "var(--bg)" : "transparent",
+                backgroundColor: isActive ? "var(--bg)" : undefined,
                 border: isActive ? "1.5px solid var(--kb)" : "1.5px solid transparent",
                 boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
               }}
@@ -4466,7 +4469,14 @@ function StudioTabs({ tabs, active, onSelect }: {
 // ─── Studio Overview ──────────────────────────────────────────────────────────
 
 function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode }) {
-  const [studioTab, setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen">("tools");
+  const [studioTab, _setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen" | "ergebnisse">(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("kis-studio-tab");
+      if (saved && ["tools", "sprachtraining", "glossar", "notizen", "ergebnisse"].includes(saved)) return saved as any;
+    }
+    return "tools";
+  });
+  const setStudioTab = (tab: typeof studioTab) => { _setStudioTab(tab); sessionStorage.setItem("kis-studio-tab", tab); };
   const tiles = [
     { key: "karteikarten" as const, Icon: Cards, label: "Karteikarten", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
     { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
@@ -4502,6 +4512,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
           ...(sprachtrainingActive ? [{ key: "sprachtraining" as const, label: "Sprachtraining" }] : []),
           { key: "glossar" as const, label: "Glossar" },
           { key: "notizen" as const, label: "Notizen" },
+          { key: "ergebnisse" as const, label: "Statistik" },
         ]}
         active={studioTab}
         onSelect={(k) => setStudioTab(k as typeof studioTab)}
@@ -4530,6 +4541,13 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
       {studioTab === "notizen" && (
         <div className="flex-1 overflow-hidden flex flex-col">
           {notizenContent}
+        </div>
+      )}
+
+      {/* Ergebnisse Inhalt */}
+      {studioTab === "ergebnisse" && (
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center justify-center gap-3">
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Kommt gleich…</p>
         </div>
       )}
     </div>
@@ -5877,6 +5895,7 @@ export default function KiTutorModulePage() {
             extracting={glossaryExtracting}
             onGenerate={generateGlossary}
             onBack={() => setSprachView("overview")}
+            sourceCount={selectedSourceIds.length}
             onOpenSource={(page, highlightText) => {
               const src = sources.find((s) => selectedSourceIds.includes(s.uuid));
               if (src) handleOpenViewer(src, page, highlightText);
@@ -6065,6 +6084,7 @@ export default function KiTutorModulePage() {
       loading={glossaryLoading}
       extracting={glossaryExtracting}
       onGenerate={generateGlossary}
+      sourceCount={selectedSourceIds.length}
       onOpenSource={(page, highlightText) => {
         const src = sources.find((s) => selectedSourceIds.includes(s.uuid));
         if (src) handleOpenViewer(src, page, highlightText);
@@ -6338,6 +6358,8 @@ export default function KiTutorModulePage() {
                   externalTextareaRef={chatTextareaRef}
                   onSaveNote={addNote}
                 />
+              ) : sprachView !== "overview" ? (
+                sprachtrainingContent
               ) : studioView === "overview" ? (
                 <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} />
               ) : activeSet && activeSet.tool === "karteikarten" ? (
@@ -6523,6 +6545,8 @@ export default function KiTutorModulePage() {
                 >
                   {!panels.studio ? (
                     <MiniStrip label="Studio" onClick={() => togglePanel("studio")} side="right" />
+                  ) : sprachView !== "overview" ? (
+                    sprachtrainingContent
                   ) : studioView === "overview" ? (
                     <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} />
                   ) : activeSet && activeSet.tool === "karteikarten" ? (
