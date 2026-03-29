@@ -515,41 +515,53 @@ _PRES_PROMPT = (
     "{\n"
     '  "title": "Präsentationstitel",\n'
     '  "slides": [\n'
-    '    {"layout": "title", "title": "Große Aussage als Titel", "subtitle": "Ergänzender Untertitel", "image_prompt": "..."},\n'
+    '    {"layout": "deckblatt", "title": "Große Aussage als Titel", "subtitle": "Ergänzender Untertitel", "image_prompt": "..."},\n'
+    '    {"layout": "kapitel", "number": "1", "title": "Abschnittstitel", "subtitle": "Kurzbeschreibung"},\n'
     '    {"layout": "statement", "title": "Eine starke Aussage als ganzer Satz.", "body": "2-3 Sätze Erklärung dazu."},\n'
-    '    {"layout": "section_number", "number": "1", "title": "Abschnittstitel", "subtitle": "Kurzbeschreibung"},\n'
+    '    {"layout": "content", "title": "Aussage als Titel.", "bullets": ["Punkt 1", "Punkt 2", "Punkt 3"], "image_prompt": "..."},\n'
     '    {"layout": "icon_grid", "title": "Vier Vorteile auf einen Blick.", "items": [\n'
     '      {"title": "Punkt A", "body": "Kurze Erklärung in 1-2 Sätzen."},\n'
     '      {"title": "Punkt B", "body": "Kurze Erklärung."},\n'
     '      {"title": "Punkt C", "body": "Kurze Erklärung."},\n'
     '      {"title": "Punkt D", "body": "Kurze Erklärung."}\n'
     '    ]},\n'
-    '    {"layout": "content", "title": "Aussage als Titel.", "bullets": ["Punkt 1", "Punkt 2", "Punkt 3"], "image_prompt": "..."},\n'
-    '    {"layout": "comparison", "title": "Vergleich als Aussage.", "left_title": "Option A", "left_bullets": ["..."], "right_title": "Option B", "right_bullets": ["..."]},\n'
-    '    {"layout": "quote", "title": "Kontextüberschrift", "quote": "Zitattext oder Kernaussage in Anführungszeichen.", "body": "Erklärung dazu."},\n'
-    '    {"layout": "summary", "title": "Aussage: Kernbotschaft.", "bullets": ["Fazit 1", "Fazit 2", "Fazit 3"]}\n'
+    '    {"layout": "vergleich", "title": "Vergleich als Aussage.", "left_title": "Option A", "left_bullets": ["..."], "right_title": "Option B", "right_bullets": ["..."]},\n'
+    '    {"layout": "zitat", "title": "Kontextüberschrift", "quote": "Zitattext oder Kernaussage.", "body": "Erklärung dazu."},\n'
+    '    {"layout": "zweispalten", "title": "Gegenüberstellung.", "left_bullets": ["Links 1", "Links 2"], "right_bullets": ["Rechts 1", "Rechts 2"]},\n'
+    '    {"layout": "statistik", "title": "Die Zahlen sprechen für sich.", "stats": [{"value": "42%", "label": "Label", "description": "Beschreibung"}]},\n'
+    '    {"layout": "zeitstrahl", "title": "In drei Schritten zum Ziel.", "steps": [{"label": "Schritt 1", "description": "Beschreibung"}]},\n'
+    '    {"layout": "zusammenfassung", "title": "Kernbotschaft.", "bullets": ["Fazit 1", "Fazit 2", "Fazit 3"]},\n'
+    '    {"layout": "abschluss", "title": "Vielen Dank.", "subtitle": "Kontaktinfo oder Schlusswort"}\n'
     "  ]\n"
     "}\n\n"
-    "Layouts:\n"
-    "- title: Titelfolie (1x am Anfang). image_prompt = englischer Prompt für Illustration.\n"
-    "- statement: Große fette Aussage + Fließtext. Kein Bild, keine Bullets.\n"
-    "- section_number: Abschnittstrenner mit großer Zahl (1, 2, 3...) + Titel + Beschreibung.\n"
-    "- icon_grid: 2x2 Raster mit 4 Punkten (je title + body). Für Vorteile, Features, Übersichten.\n"
+    "Layouts (12 verfügbar):\n"
+    "- deckblatt: Titelfolie (1x am Anfang). image_prompt = englischer Prompt für Illustration.\n"
+    "- kapitel: Abschnittstrenner mit großer Zahl (1, 2, 3...) + Titel + Beschreibung. Dunkler Hintergrund.\n"
     "- content: Aussage-Titel + 3-5 Bullet Points (max 12 Wörter/Punkt) + optional image_prompt.\n"
-    "- comparison: Zwei Boxen nebeneinander mit Titel + Bullets pro Seite.\n"
-    "- quote: Hervorgehobenes Zitat/Kernaussage in Box + erklärende Beschreibung.\n"
-    "- summary: Abschlussfolie (1x am Ende) mit Kernaussagen.\n\n"
+    "- statement: Große fette Aussage + Fließtext. Kein Bild, keine Bullets.\n"
+    "- icon_grid: 2x2 Raster mit 4 Punkten (je title + body). Für Vorteile, Features, Übersichten.\n"
+    "- vergleich: Zwei Boxen nebeneinander mit Titel + Bullets pro Seite.\n"
+    "- zitat: Hervorgehobenes Zitat/Kernaussage in Box + erklärende Beschreibung.\n"
+    "- zweispalten: Zwei Spalten nebeneinander mit left_bullets/right_bullets.\n"
+    "- statistik: Große Zahlen/Statistiken (bis 3 stats mit value + label + description).\n"
+    "- zeitstrahl: Nummerierte Schritte/Prozess (steps mit label + description, max 6).\n"
+    "- zusammenfassung: Vorletzte Folie mit Kernaussagen als Bullets.\n"
+    "- abschluss: Letzte Folie (1x am Ende) mit Schlussbotschaft (title + subtitle).\n\n"
     "Regeln:\n"
-    "- {slide_count} Folien (inkl. Titel + Abschluss)\n"
+    "- {slide_count} Folien (inkl. Deckblatt + Abschluss)\n"
     "- Titel sind IMMER vollständige Aussagesätze mit Punkt am Ende.\n"
     "- Mische die Layouts — NICHT nur 'content' Folien!\n"
     "- STICHPUNKTE statt Fließtext — max 6-8 Wörter pro Bullet. Keine ganzen Sätze in Bullets.\n"
     "- Max 5-6 Bullets pro Content-Folie. Lieber eine Folie mehr als zu viele Punkte.\n"
-    "- Verwende section_number Folien um größere Abschnitte zu markieren.\n"
+    "- Verwende kapitel-Folien um größere Abschnitte zu markieren.\n"
     "- icon_grid für Übersichten mit 4 gleichwertigen Punkten.\n"
     "- statement für einzelne starke Aussagen.\n"
-    "- quote für wichtige Zitate oder Kernbotschaften.\n"
-    "- image_prompt: Nur bei title und content. Englisch. Stil: 'flat vector illustration, minimal clean lines, muted soft colors, white background, no text'. Max 3 Bilder total.\n"
+    "- zitat für wichtige Zitate oder Kernbotschaften.\n"
+    "- statistik wenn es harte Zahlen/Daten gibt.\n"
+    "- zeitstrahl für Prozesse, Abläufe, Schritte.\n"
+    "- zweispalten für Gegenüberstellungen oder parallele Informationen.\n"
+    "- Erste Folie IMMER 'deckblatt', letzte IMMER 'abschluss'.\n"
+    "- image_prompt: Nur bei deckblatt und content. Englisch. Stil: 'flat vector illustration, people in modern setting, warm muted colors, white background, no text'. Max 3 Bilder total.\n"
     "- Texte EXAKT aus der Quelle — keine Umformulierungen, keine Rechtschreibfehler.\n"
     "- Sprache = Sprache der Quelle.\n"
     "- Antworte NUR mit JSON."
@@ -583,288 +595,12 @@ def _generate_slide_image(prompt: str, size: str = "1024x1024") -> bytes | None:
     return None
 
 
-def _build_pptx(slides_data: list[dict], images: dict[int, bytes]) -> bytes:
-    """Build PPTX in NotebookLM style: warm white bg, bold statements, clean layout."""
-    from pptx import Presentation as PptxPresentation
-    from pptx.util import Inches, Pt
-    from pptx.dml.color import RGBColor
-    from pptx.enum.shapes import MSO_SHAPE
-    from pptx.enum.text import PP_ALIGN
-    import io
-    import tempfile
-
-    # Colors
-    BG = RGBColor(0xFF, 0xFF, 0xFF)            # white background
-    DARK = RGBColor(0x1A, 0x1A, 0x1A)          # near-black for text
-    BRAND = RGBColor(0x00, 0x42, 0x61)         # THL dark blue
-    ACCENT = RGBColor(0x0E, 0x74, 0x90)        # teal
-    MUTED = RGBColor(0x6B, 0x72, 0x80)         # gray
-    BOX_GREEN = RGBColor(0x3B, 0x82, 0x78)     # muted teal for boxes
-    BOX_BLUE = RGBColor(0x3B, 0x5E, 0x8C)      # muted blue for boxes
-    WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-    FONT = "Calibri"
-    W = Inches(13.333)
-    H = Inches(7.5)
-
-    prs = PptxPresentation()
-    prs.slide_width = W
-    prs.slide_height = H
-    blank = prs.slide_layouts[6]
-
-    def _bg(sl, color=None):
-        sh = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, W, H)
-        sh.fill.solid()
-        sh.fill.fore_color.rgb = color or BG
-        sh.line.fill.background()
-
-    def _box(sl, left, top, w, h, color):
-        sh = sl.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, w, h)
-        sh.fill.solid()
-        sh.fill.fore_color.rgb = color
-        sh.line.fill.background()
-        return sh
-
-    def _txt(sl, left, top, w, h, text, size=18, bold=False, color=DARK, align=PP_ALIGN.LEFT, italic=False):
-        tb = sl.shapes.add_textbox(left, top, w, h)
-        tf = tb.text_frame
-        tf.word_wrap = True
-        p = tf.paragraphs[0]
-        p.alignment = align
-        r = p.add_run()
-        r.text = text
-        r.font.size = Pt(size)
-        r.font.bold = bold
-        r.font.italic = italic
-        r.font.color.rgb = color
-        r.font.name = FONT
-        return tb
-
-    def _bullets_box(sl, left, top, w, h, items, size=15, color=DARK, bc=ACCENT):
-        if not items:
-            return
-        tb = sl.shapes.add_textbox(left, top, w, h)
-        tf = tb.text_frame
-        tf.word_wrap = True
-        for i, txt in enumerate(items):
-            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-            p.space_before = Pt(10)
-            p.space_after = Pt(4)
-            r1 = p.add_run()
-            r1.text = "\u2022  "
-            r1.font.size = Pt(size)
-            r1.font.bold = True
-            r1.font.color.rgb = bc
-            r1.font.name = FONT
-            r2 = p.add_run()
-            r2.text = txt
-            r2.font.size = Pt(size)
-            r2.font.color.rgb = color
-            r2.font.name = FONT
-
-    def _img(sl, img_bytes, left, top, max_w, max_h):
-        """Add image preserving aspect ratio within max_w x max_h box (all args in EMU)."""
-        from PIL import Image as PILImage
-        pil = PILImage.open(io.BytesIO(img_bytes))
-        iw, ih = pil.size  # pixels
-        if not iw or not ih:
-            return
-        img_ratio = iw / ih  # e.g. 1.78 for 16:9
-        box_ratio = max_w / max_h
-        # Fit image into box preserving aspect ratio
-        if img_ratio > box_ratio:
-            # Image is wider than box → fit to width
-            final_w = max_w
-            final_h = int(max_w / img_ratio)
-        else:
-            # Image is taller than box → fit to height
-            final_h = max_h
-            final_w = int(max_h * img_ratio)
-        # Center within box
-        offset_x = (max_w - final_w) // 2
-        offset_y = (max_h - final_h) // 2
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-            tmp.write(img_bytes)
-            path = tmp.name
-        try:
-            sl.shapes.add_picture(path, left + offset_x, top + offset_y, final_w, final_h)
-        finally:
-            os.unlink(path)
-
-    def _snum(sl, idx):
-        _txt(sl, Inches(12.3), Inches(7.05), Inches(0.8), Inches(0.3),
-             f"{idx + 1}", size=8, color=MUTED, align=PP_ALIGN.RIGHT)
-
-    def _watermark(sl):
-        """Small branding mark bottom-right."""
-        _txt(sl, Inches(11.5), Inches(7.05), Inches(1.5), Inches(0.3),
-             "TH Lübeck", size=7, color=MUTED, align=PP_ALIGN.RIGHT)
-
-    total = len(slides_data)
-    section_counter = 0
-
-    for idx, s in enumerate(slides_data):
-        lay = s.get("layout", "content")
-        img_bytes = images.get(idx)
-        sl = prs.slides.add_slide(blank)
-        _bg(sl)
-
-        if lay == "title":
-            # Large title left, illustration right
-            _txt(sl, Inches(1), Inches(1.5), Inches(7), Inches(3.5),
-                 s.get("title", ""), size=40, bold=True, color=DARK)
-            if s.get("subtitle"):
-                _txt(sl, Inches(1), Inches(5), Inches(7), Inches(1.2),
-                     s["subtitle"], size=18, color=MUTED)
-            if img_bytes:
-                _img(sl, img_bytes, Inches(8.5), Inches(1), Inches(4), Inches(5))
-            _watermark(sl)
-
-        elif lay == "statement":
-            # Big bold statement centered, body text below
-            _txt(sl, Inches(1), Inches(1.2), Inches(11), Inches(2.5),
-                 s.get("title", ""), size=36, bold=True, color=DARK)
-            if s.get("body"):
-                _txt(sl, Inches(1), Inches(3.8), Inches(10), Inches(2.5),
-                     s["body"], size=16, color=MUTED)
-            _snum(sl, idx)
-
-        elif lay == "section_number":
-            # Corporate design background for chapter announcements
-            sl.shapes[0].fill.fore_color.rgb = BRAND  # override white bg
-            section_counter += 1
-            num = s.get("number", str(section_counter))
-            _txt(sl, Inches(1), Inches(1), Inches(4), Inches(5),
-                 num, size=120, bold=True, color=WHITE)
-            _txt(sl, Inches(5), Inches(2.2), Inches(7), Inches(2),
-                 s.get("title", ""), size=32, bold=True, color=WHITE)
-            if s.get("subtitle"):
-                _txt(sl, Inches(5), Inches(4.2), Inches(7), Inches(1.5),
-                     s["subtitle"], size=16, color=RGBColor(0xBB, 0xD5, 0xE8))
-            _snum(sl, idx)
-
-        elif lay == "icon_grid":
-            # Title top, 2x2 grid with icon circles + title + body
-            _txt(sl, Inches(1), Inches(0.5), Inches(11), Inches(1.2),
-                 s.get("title", ""), size=28, bold=True, color=DARK)
-            items = s.get("items", [])[:4]
-            # Unicode icons for visual variety
-            icons = ["\u2713", "\u26A1", "\u2605", "\u2192"]  # ✓ ⚡ ★ →
-            grid = [
-                (Inches(1), Inches(2.2)),
-                (Inches(7), Inches(2.2)),
-                (Inches(1), Inches(4.8)),
-                (Inches(7), Inches(4.8)),
-            ]
-            icon_colors = [ACCENT, BRAND, BOX_GREEN, BOX_BLUE]
-            for i, item in enumerate(items):
-                if i >= 4:
-                    break
-                gx, gy = grid[i]
-                ic = icon_colors[i % 4]
-                # Icon circle
-                circle = sl.shapes.add_shape(MSO_SHAPE.OVAL, gx, gy, Inches(0.6), Inches(0.6))
-                circle.fill.solid()
-                circle.fill.fore_color.rgb = ic
-                circle.line.fill.background()
-                # Icon symbol inside circle
-                _txt(sl, gx + Inches(0.08), gy + Inches(0.05), Inches(0.44), Inches(0.5),
-                     icons[i % 4], size=18, bold=True, color=WHITE, align=PP_ALIGN.CENTER)
-                # Title
-                _txt(sl, gx + Inches(0.8), gy, Inches(4.2), Inches(0.5),
-                     item.get("title", ""), size=16, bold=True, color=DARK)
-                # Body
-                _txt(sl, gx + Inches(0.8), gy + Inches(0.6), Inches(4.2), Inches(1.4),
-                     item.get("body", ""), size=13, color=MUTED)
-            _snum(sl, idx)
-
-        elif lay == "comparison":
-            # Title + two boxes side by side
-            _txt(sl, Inches(1), Inches(0.6), Inches(11), Inches(1.2),
-                 s.get("title", ""), size=28, bold=True, color=DARK)
-            # Left box
-            _box(sl, Inches(0.8), Inches(2.2), Inches(5.5), Inches(4.5), BOX_GREEN)
-            if s.get("left_title"):
-                _txt(sl, Inches(1.2), Inches(2.5), Inches(4.8), Inches(0.5),
-                     s["left_title"], size=16, bold=True, color=WHITE)
-            _bullets_box(sl, Inches(1.2), Inches(3.2), Inches(4.8), Inches(3.2),
-                         s.get("left_bullets", []), size=14, color=WHITE, bc=WHITE)
-            # Arrow between
-            _txt(sl, Inches(6.1), Inches(3.8), Inches(1.1), Inches(0.8),
-                 "\u2192", size=36, bold=True, color=BRAND, align=PP_ALIGN.CENTER)
-            # Right box
-            _box(sl, Inches(7), Inches(2.2), Inches(5.5), Inches(4.5), BOX_BLUE)
-            if s.get("right_title"):
-                _txt(sl, Inches(7.4), Inches(2.5), Inches(4.8), Inches(0.5),
-                     s["right_title"], size=16, bold=True, color=WHITE)
-            _bullets_box(sl, Inches(7.4), Inches(3.2), Inches(4.8), Inches(3.2),
-                         s.get("right_bullets", []), size=14, color=WHITE, bc=WHITE)
-            _snum(sl, idx)
-
-        elif lay == "quote":
-            # Title top, quote in rounded box, body below
-            if s.get("title"):
-                _txt(sl, Inches(1), Inches(0.8), Inches(11), Inches(1),
-                     s["title"], size=24, bold=True, color=DARK)
-            # Quote box
-            _box(sl, Inches(1.5), Inches(2.2), Inches(10), Inches(2.5), RGBColor(0xF3, 0xF4, 0xF6))
-            quote_text = s.get("quote", "")
-            _txt(sl, Inches(2.2), Inches(2.5), Inches(9), Inches(2),
-                 f"\u201E{quote_text}\u201C", size=16, italic=True, color=DARK)
-            if s.get("body"):
-                _txt(sl, Inches(1.5), Inches(5.2), Inches(10), Inches(1.5),
-                     s["body"], size=14, color=MUTED)
-            _snum(sl, idx)
-
-        elif lay == "summary":
-            # Final slide with key takeaways
-            _txt(sl, Inches(1), Inches(0.8), Inches(11), Inches(1.5),
-                 s.get("title", "Zusammenfassung"), size=32, bold=True, color=DARK)
-            items = s.get("bullets", [])
-            if items:
-                tb = sl.shapes.add_textbox(Inches(1), Inches(2.5), Inches(11), Inches(4.5))
-                tf = tb.text_frame
-                tf.word_wrap = True
-                for i, txt in enumerate(items):
-                    p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-                    p.space_before = Pt(14)
-                    p.space_after = Pt(6)
-                    r1 = p.add_run()
-                    r1.text = f"\u2022  "
-                    r1.font.size = Pt(16)
-                    r1.font.bold = True
-                    r1.font.color.rgb = ACCENT
-                    r1.font.name = FONT
-                    r2 = p.add_run()
-                    r2.text = txt
-                    r2.font.size = Pt(16)
-                    r2.font.color.rgb = DARK
-                    r2.font.name = FONT
-            _watermark(sl)
-            _snum(sl, idx)
-
-        else:  # content
-            # Title + bullets left, optional image right
-            _txt(sl, Inches(1), Inches(0.6), Inches(7) if img_bytes else Inches(11), Inches(1.2),
-                 s.get("title", ""), size=28, bold=True, color=DARK)
-            bullet_w = Inches(6.5) if img_bytes else Inches(10)
-            _bullets_box(sl, Inches(1), Inches(2), bullet_w, Inches(4.8),
-                         s.get("bullets", []), size=15, color=DARK, bc=ACCENT)
-            if img_bytes:
-                _img(sl, img_bytes, Inches(8.2), Inches(1.2), Inches(4.3), Inches(5.3))
-            _snum(sl, idx)
-
-        if s.get("notes"):
-            sl.notes_slide.notes_text_frame.text = s["notes"]
-
-    buf = io.BytesIO()
-    prs.save(buf)
-    return buf.getvalue()
 
 
 @celery_app.task(bind=True, name="ki_tutor.generate_presentation", queue="general",
                  soft_time_limit=600, time_limit=660)
 @observe(name="ki-tutor-presentation")
-def run_generate_presentation(self, presentation_id: int, source_id: int, source_uuid: str, slide_count: int = 12):
+def run_generate_presentation(self, presentation_id: int, source_id: int, source_uuid: str, slide_count: int = 12, template_path: str | None = None):
     """Generate a presentation from a single source (NotebookLM-style + FLUX images)."""
     import json as _json
 
@@ -891,7 +627,7 @@ def run_generate_presentation(self, presentation_id: int, source_id: int, source
                 db.update_ki_tutor_presentation(presentation_id, "failed", error="Keine Inhalte vorhanden")
                 return
 
-        context = context[:20000]
+        context = context[:64000]
 
         from langfuse.openai import OpenAI
         from src.dependencies import _resolve_llm_provider
@@ -948,7 +684,7 @@ def run_generate_presentation(self, presentation_id: int, source_id: int, source
             logger.info("KI Tutor: {} images generated", len(images))
 
         from src.templates.pptx_builder import build_pptx
-        pptx_bytes = build_pptx(pres_title, slides, images)
+        pptx_bytes = build_pptx(pres_title, slides, images, template_path=template_path)
 
         from src.storage import save_file
         pres = db.get_ki_tutor_presentation(presentation_id)
@@ -1713,7 +1449,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
     """Generate items for an exercise set (lernkarten/lueckentext/vokabeltest)."""
     import json as _json
     import random
-    from src.tool_prompts import TUTOR_LERNKARTEN_PROMPT
+    from src.tool_prompts import TUTOR_LERNKARTEN_PROMPT, TUTOR_KARTEIKARTEN_PROMPT
 
     try:
         module = db.get_ki_tutor_module_by_id(module_id)
@@ -1732,7 +1468,15 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 return
             selected = random.sample(glossary, min(count, len(glossary)))
 
-            if tool in ("lernkarten", "karteikarten"):
+            if tool == "lernkarten":
+                items = [
+                    {"front": e["term_de"],
+                     "back": f"{e['term_de']} — {e['definition']}",
+                     "back_en": f"{e['term_en']}",
+                     "source_label": e.get("filename", ""), "page_number": e.get("page_number")}
+                    for e in selected
+                ]
+            elif tool == "karteikarten":
                 items = [
                     {"front": e["term_de"], "back": f"{e['term_en']} — {e['definition']}",
                      "source_label": e.get("filename", ""), "page_number": e.get("page_number")}
@@ -1752,7 +1496,9 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         '"correct_idx": 1, "term_de": "Normalisierung", "page_number": 12}]\n\n'
                         "Regeln:\n- Genau 4 Optionen pro Frage, eine davon korrekt\n"
                         "- correct_idx = Index der richtigen Option (0-3)\n"
-                        "- ___ als Lücken-Platzhalter\n- Antworte NUR mit dem JSON-Array"
+                        "- ___ als Lücken-Platzhalter\n"
+                        "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'\n"
+                        "- Antworte NUR mit dem JSON-Array"
                     )},
                     {"role": "user", "content": f"Erstelle Lückentext-Übungen:\n\n{terms_text}"},
                 ]
@@ -1779,6 +1525,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         '"term_de": "Normalisierung", "page_number": 12}]\n\n'
                         "Regeln:\n- Mische DE→EN, EN→DE, Definitionsfragen\n"
                         "- Genau 4 Optionen, eine korrekt\n- correct_idx = 0-3\n"
+                        "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'\n"
                         "- Antworte NUR mit dem JSON-Array"
                     )},
                     {"role": "user", "content": f"Erstelle Vokabeltest-Fragen:\n\n{terms_text}"},
@@ -1852,11 +1599,27 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
             multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Quellen"
             source_hint = "folgender Quelle" if len(uuids) == 1 else "folgenden Quellen"
 
-            if tool in ("lernkarten", "karteikarten"):
+            if tool == "lernkarten":
                 prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
                     {"role": "system", "content": prompt},
                     {"role": "user", "content": f"Erstelle Lernkarten aus {source_hint}:\n\n{context}"},
+                ]
+                response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
+                answer = _clean_llm_json(response.choices[0].message.content or "")
+                data = _json.loads(answer)
+                items = [
+                    {"front": c["front"], "back": c["back"], "back_en": c.get("back_en", ""),
+                     "source_label": c.get("source_label", first_label), "page_number": c.get("page_number"),
+                     "start_time": _time_map.get((c.get("source_label", first_label), c.get("page_number", 0)))}
+                    for c in data.get("cards", [])
+                ]
+                title = data.get("title", multi_label)
+            elif tool == "karteikarten":
+                prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
+                messages = [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": f"Erstelle Karteikarten aus {source_hint}:\n\n{context}"},
                 ]
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
@@ -1876,6 +1639,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
                         '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
                         '"source_label": "Dateiname", "page_number": 5}]\n'
+                        "WICHTIG: Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
                         f"Erstelle genau {count} Übungen."
                     )
                 elif tool == "quiz":
@@ -1886,6 +1650,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         '[{"question": "Verständnisfrage?", "options": ["A", "B", "C", "D"], '
                         '"correct_idx": 0, "explanation": "Kurze Erklärung warum diese Antwort richtig ist", '
                         '"source_label": "Dateiname", "page_number": 5}]\n'
+                        "WICHTIG: Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
                         f"Erstelle genau {count} Fragen. Mische leichte und schwierige Fragen."
                     )
                 else:
@@ -1894,6 +1659,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         '[{"question": "Frage?", "options": ["A", "B", "C", "D"], '
                         '"correct_idx": 0, "explanation": "Erklärung", '
                         '"source_label": "Dateiname", "page_number": 5}]\n'
+                        "WICHTIG: Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
                         f"Erstelle genau {count} Fragen."
                     )
                 messages = [

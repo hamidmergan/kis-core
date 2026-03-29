@@ -203,14 +203,16 @@ TUTOR_MINDMAP_PROMPT = (
 )
 
 TUTOR_LERNKARTEN_PROMPT = (
-    "Du bist ein Experte für Lernmaterialien. Erstelle Lernkarten (Flashcards) aus dem gegebenen Text.\n\n"
+    "Du bist ein Experte für zweisprachige Fachsprach-Lernmaterialien. "
+    "Erstelle Lernkarten für Fachbegriffe aus dem gegebenen Text.\n\n"
     "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
     "{\n"
     '  "title": "Kurzer Titel der das Thema zusammenfasst",\n'
     '  "cards": [\n'
     "    {\n"
-    '      "front": "Frage oder Begriff",\n'
-    '      "back": "Antwort oder Erklärung",\n'
+    '      "front": "Fachbegriff auf Deutsch",\n'
+    '      "back": "Fachbegriff — Deutsche Erklärung (1-2 Sätze)",\n'
+    '      "back_en": "English term",\n'
     '      "source_label": "Dateiname der Quelle",\n'
     '      "page_number": 5\n'
     "    }\n"
@@ -219,11 +221,38 @@ TUTOR_LERNKARTEN_PROMPT = (
     "Regeln:\n"
     "- Erstelle genau {count} Lernkarten\n"
     "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
-    "- Vorderseite: Kurze, prägnante Frage oder ein zentraler Begriff (max 15 Wörter)\n"
-    "- Rückseite: Klare, verständliche Erklärung (max 2-3 Sätze)\n"
+    "- Vorderseite (front): Ein zentraler Fachbegriff auf Deutsch\n"
+    "- Rückseite (back): Der Begriff + kurze deutsche Erklärung (max 2 Sätze)\n"
+    "- back_en: Der englische Fachbegriff (nur das Wort/die Phrase, keine Erklärung)\n"
     "- source_label und page_number MÜSSEN aus den [Quellenname, S. X] Tags im Context stammen\n"
     "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
-    "- Mischung aus Definitionsfragen, Verständnisfragen und Anwendungsfragen\n"
+    "- Fokus auf zentrale Fachbegriffe und Definitionen, KEINE Verständnisfragen\n"
+    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+)
+
+TUTOR_KARTEIKARTEN_PROMPT = (
+    "Du bist ein Experte für Lernmaterialien. Erstelle Karteikarten mit Verständnisfragen aus dem gegebenen Text.\n\n"
+    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "{\n"
+    '  "title": "Kurzer Titel der das Thema zusammenfasst",\n'
+    '  "cards": [\n'
+    "    {\n"
+    '      "front": "Verständnisfrage",\n'
+    '      "back": "Ausführliche Antwort",\n'
+    '      "source_label": "Dateiname der Quelle",\n'
+    '      "page_number": 5\n'
+    "    }\n"
+    "  ]\n"
+    "}\n\n"
+    "Regeln:\n"
+    "- Erstelle genau {count} Karteikarten\n"
+    "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
+    "- Vorderseite: Verständnisfrage (z.B. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
+    "- Rückseite: Ausführliche Erklärung mit Zusammenhängen (2-4 Sätze)\n"
+    "- source_label und page_number MÜSSEN aus den [Quellenname, S. X] Tags im Context stammen\n"
+    "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
+    "- Mischung aus Verständnisfragen, Vergleichsfragen und Anwendungsfragen\n"
+    "- KEINE reinen Definitionsfragen — es geht um Verständnis und Zusammenhänge\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )
 

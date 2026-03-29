@@ -108,6 +108,10 @@ class RenewCodeBody(BaseModel):
     expires_at: str  # ISO datetime string
 
 
+class CreateAccessLinkBody(BaseModel):
+    expires_at: str  # ISO datetime string
+
+
 class EnrollBody(BaseModel):
     enroll_code: str
 
@@ -120,6 +124,7 @@ class ChatBody(BaseModel):
     source_filename: Optional[str] = None
     source_page: Optional[int] = None
     source_text: Optional[str] = None  # Markierter Text (für Highlight bei Pill-Click)
+    enrollment_id: Optional[int] = None  # Für per-Link Chat-Trennung
 
 
 class UserSettingsBody(BaseModel):
@@ -144,22 +149,32 @@ async def create_module(
     user_id = current_user["user_id"]
     module_uuid = db.create_ki_tutor_module(user_id, title, description)
 
+    # Create first access link
+    from datetime import timedelta
     enroll_code = uuid.uuid4().hex[:8]
-    expires: datetime | None = None
     if expires_at:
         try:
             expires = datetime.fromisoformat(expires_at).replace(tzinfo=timezone.utc)
         except ValueError:
             raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für expires_at")
     else:
-        from datetime import timedelta
         expires = datetime.now(timezone.utc) + timedelta(days=30)
 
+    module = db.get_ki_tutor_module(module_uuid)
+    link = db.create_access_link(module["id"], enroll_code, expires)
+    # Also set legacy fields for backward compat
     db.set_ki_tutor_module_enroll_code(module_uuid, enroll_code, expires)
+
     logger.info("KI Tutor: module {} created by user {}", module_uuid, user_id)
     return {
         "uuid": module_uuid,
         "title": title,
+        "access_links": [{
+            "id": link["id"],
+            "code": link["code"],
+            "expires_at": link["expires_at"].isoformat(),
+        }],
+        # Legacy fields
         "enroll_code": enroll_code,
         "enroll_code_expires": expires.isoformat(),
     }
@@ -172,6 +187,7 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
     result = []
     for m in modules:
         sources = db.get_ki_tutor_sources_by_module(m["id"])
+        links = db.get_access_links_by_module(m["id"])
         result.append({
             "uuid": m["uuid"],
             "title": m["title"],
@@ -179,8 +195,20 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
             "status": m["status"],
             "is_active": m["is_active"],
             "source_count": len(sources),
-            "enroll_code": m["enroll_code"],
-            "enroll_code_expires": m["enroll_code_expires"].isoformat() if m["enroll_code_expires"] else None,
+            "access_links": [
+                {
+                    "id": l["id"],
+                    "code": l["code"],
+                    "expires_at": l["expires_at"].isoformat(),
+                    "created_at": l["created_at"].isoformat() if l["created_at"] else None,
+                }
+                for l in links
+            ],
+            # Legacy: first link as enroll_code for backward compat
+            "enroll_code": links[0]["code"] if links else m.get("enroll_code"),
+            "enroll_code_expires": links[0]["expires_at"].isoformat() if links else (
+                m["enroll_code_expires"].isoformat() if m.get("enroll_code_expires") else None
+            ),
             "created_at": m["created_at"].isoformat() if m["created_at"] else None,
         })
     return result
@@ -190,14 +218,26 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
 async def get_module(module_uuid: str, current_user: dict = Depends(get_current_user)):
     module = _require_own_module(module_uuid, current_user["user_id"])
     sources = db.get_ki_tutor_sources_by_module(module["id"])
+    links = db.get_access_links_by_module(module["id"])
     return {
         "uuid": module["uuid"],
         "title": module["title"],
         "description": module["description"],
         "status": module["status"],
         "is_active": module["is_active"],
-        "enroll_code": module["enroll_code"],
-        "enroll_code_expires": module["enroll_code_expires"].isoformat() if module["enroll_code_expires"] else None,
+        "access_links": [
+            {
+                "id": l["id"],
+                "code": l["code"],
+                "expires_at": l["expires_at"].isoformat(),
+                "created_at": l["created_at"].isoformat() if l["created_at"] else None,
+            }
+            for l in links
+        ],
+        "enroll_code": links[0]["code"] if links else module.get("enroll_code"),
+        "enroll_code_expires": links[0]["expires_at"].isoformat() if links else (
+            module["enroll_code_expires"].isoformat() if module.get("enroll_code_expires") else None
+        ),
         "created_at": module["created_at"].isoformat() if module["created_at"] else None,
         "sources": [
             {
@@ -233,15 +273,70 @@ async def renew_enroll_code(
     body: RenewCodeBody,
     current_user: dict = Depends(get_current_user),
 ):
-    _require_own_module(module_uuid, current_user["user_id"])
+    """Legacy: creates a new access link (kept for backward compat)."""
+    module = _require_own_module(module_uuid, current_user["user_id"])
     try:
         expires = datetime.fromisoformat(body.expires_at).replace(tzinfo=timezone.utc)
     except ValueError:
         raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für expires_at")
     new_code = uuid.uuid4().hex[:8]
+    link = db.create_access_link(module["id"], new_code, expires)
     db.set_ki_tutor_module_enroll_code(module_uuid, new_code, expires)
-    logger.info("KI Tutor: enroll code renewed for module {}", module_uuid)
-    return {"enroll_code": new_code, "enroll_code_expires": expires.isoformat()}
+    logger.info("KI Tutor: access link created for module {}", module_uuid)
+    return {"enroll_code": new_code, "enroll_code_expires": expires.isoformat(), "link_id": link["id"]}
+
+
+# ─── Access Links ────────────────────────────────────────────────────────────
+
+@router.post("/ki-tutor/modules/{module_uuid}/access-links")
+async def create_module_access_link(
+    module_uuid: str,
+    body: CreateAccessLinkBody,
+    current_user: dict = Depends(get_current_user),
+):
+    module = _require_own_module(module_uuid, current_user["user_id"])
+    try:
+        expires = datetime.fromisoformat(body.expires_at).replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für expires_at")
+    code = uuid.uuid4().hex[:8]
+    link = db.create_access_link(module["id"], code, expires)
+    logger.info("KI Tutor: access link {} created for module {}", link["id"], module_uuid)
+    return {
+        "id": link["id"],
+        "code": link["code"],
+        "expires_at": link["expires_at"].isoformat(),
+    }
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/access-links")
+async def list_access_links(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    module = _require_own_module(module_uuid, current_user["user_id"])
+    links = db.get_access_links_by_module(module["id"])
+    return [
+        {
+            "id": l["id"],
+            "code": l["code"],
+            "expires_at": l["expires_at"].isoformat(),
+            "created_at": l["created_at"].isoformat() if l["created_at"] else None,
+        }
+        for l in links
+    ]
+
+
+@router.delete("/ki-tutor/modules/{module_uuid}/access-links/{link_id}")
+async def delete_access_link(
+    module_uuid: str,
+    link_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    _require_own_module(module_uuid, current_user["user_id"])
+    db.delete_access_link(link_id)
+    logger.info("KI Tutor: access link {} deleted from module {}", link_id, module_uuid)
+    return {"deleted": link_id}
 
 
 @router.delete("/ki-tutor/modules/{module_uuid}")
@@ -320,16 +415,32 @@ async def delete_source(
 @router.post("/ki-tutor/enroll")
 async def enroll(body: EnrollBody, current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
+
+    # Try new access_links table first
+    result = db.get_module_by_access_link_code(body.enroll_code)
+    if result:
+        module, link = result
+        # Check if already enrolled for this specific link
+        existing = db.get_enrollment(module["id"], user_id, link["id"])
+        if existing:
+            return {"module_uuid": module["uuid"], "title": module["title"], "enrollment_id": existing["id"]}
+        enrollment_id = db.enroll_student(module["id"], user_id, link["expires_at"], link_id=link["id"])
+        if not enrollment_id:
+            # Already enrolled (race condition) – fetch existing
+            existing = db.get_enrollment(module["id"], user_id, link["id"])
+            return {"module_uuid": module["uuid"], "title": module["title"], "enrollment_id": existing["id"] if existing else None}
+        logger.info("KI Tutor: user {} enrolled in module {} via link {}", user_id, module["uuid"], link["id"])
+        return {"module_uuid": module["uuid"], "title": module["title"], "enrollment_id": enrollment_id}
+
+    # Fallback: legacy enroll_code on module
     module = db.get_module_by_enroll_code(body.enroll_code)
     if not module:
         raise HTTPException(status_code=404, detail="Ungültiger oder abgelaufener Einschreibecode")
-
     if db.is_student_enrolled(module["id"], user_id):
         return {"module_uuid": module["uuid"], "title": module["title"]}
-
-    enrolled_until = module["enroll_code_expires"]
+    enrolled_until = module.get("enroll_code_expires")
     db.enroll_student(module["id"], user_id, enrolled_until)
-    logger.info("KI Tutor: user {} enrolled in module {}", user_id, module["uuid"])
+    logger.info("KI Tutor: user {} enrolled in module {} (legacy)", user_id, module["uuid"])
     return {"module_uuid": module["uuid"], "title": module["title"]}
 
 
@@ -342,6 +453,8 @@ async def my_modules(current_user: dict = Depends(get_current_user)):
             "title": m["title"],
             "description": m["description"],
             "status": m["status"],
+            "enrollment_id": m.get("enrollment_id"),
+            "enrolled_until": m["enrolled_until"].isoformat() if m.get("enrolled_until") else None,
             "created_at": m["created_at"].isoformat() if m["created_at"] else None,
         }
         for m in modules
@@ -528,9 +641,12 @@ async def chat(
     # Build multi-turn messages: system + history + current question
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
 
+    # Resolve enrollment_id for per-link chat separation
+    enrollment_id = body.enrollment_id if not is_owner else None
+
     # Include recent chat history for follow-up questions (skip for popup actions)
     if not body.source_text:
-        history = db.get_ki_tutor_messages(module["id"], user_id, limit=10)
+        history = db.get_ki_tutor_messages(module["id"], user_id, limit=10, enrollment_id=enrollment_id)
         for msg in history:
             messages.append({"role": msg["role"], "content": msg["content"]})
 
@@ -596,8 +712,8 @@ async def chat(
             yield f"data: {json.dumps({'token': suffix})}\n\n"
 
         # Save messages
-        db.save_ki_tutor_message(module["id"], user_id, "user", body.question)
-        db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages)
+        db.save_ki_tutor_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
+        db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id)
 
         # Send final metadata event
         yield f"data: {json.dumps({'done': True, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
@@ -914,6 +1030,7 @@ def _markdown_fallback(pdf_bytes: bytes) -> dict:
 @router.delete("/ki-tutor/modules/{module_uuid}/messages")
 async def delete_messages(
     module_uuid: str,
+    enrollment_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
@@ -926,7 +1043,8 @@ async def delete_messages(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    db.delete_ki_tutor_messages(module["id"], user_id)
+    eid = enrollment_id if not is_owner else None
+    db.delete_ki_tutor_messages(module["id"], user_id, enrollment_id=eid)
     logger.info("KI Tutor: chat cleared for module {} by user {}", module_uuid, user_id)
     return {"cleared": True}
 
@@ -934,6 +1052,7 @@ async def delete_messages(
 @router.get("/ki-tutor/modules/{module_uuid}/messages")
 async def get_messages(
     module_uuid: str,
+    enrollment_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
@@ -946,7 +1065,8 @@ async def get_messages(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    messages = db.get_ki_tutor_messages(module["id"], user_id)
+    eid = enrollment_id if not is_owner else None
+    messages = db.get_ki_tutor_messages(module["id"], user_id, enrollment_id=eid)
     return [
         {
             "role": m["role"],
@@ -1422,6 +1542,42 @@ async def delete_mindmap(
 
 class PresentationGenerateBody(BaseModel):
     source_uuid: str
+    template: str | None = None  # Template name (e.g. "isy", "thl") or None for fallback
+
+
+def _get_available_templates() -> list[dict]:
+    """Scan templates directory for available PPTX templates."""
+    import os
+    templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates")
+    templates = []
+    for entry in os.scandir(templates_dir):
+        if entry.is_dir() and not entry.name.startswith("_"):
+            for f in os.scandir(entry.path):
+                if f.name.endswith(".pptx"):
+                    templates.append({
+                        "id": entry.name,
+                        "name": entry.name.upper(),
+                        "path": f.path,
+                    })
+                    break
+    return templates
+
+
+def _resolve_template_path(template_id: str | None) -> str | None:
+    """Resolve a template ID to its PPTX file path."""
+    if not template_id:
+        return None
+    for t in _get_available_templates():
+        if t["id"] == template_id:
+            return t["path"]
+    return None
+
+
+@router.get("/ki-tutor/presentation-templates")
+async def list_presentation_templates(current_user: dict = Depends(get_current_user)):
+    """List available presentation templates."""
+    templates = _get_available_templates()
+    return [{"id": t["id"], "name": t["name"]} for t in templates]
 
 
 @router.post("/ki-tutor/modules/{module_uuid}/presentation/generate")
@@ -1446,12 +1602,18 @@ async def generate_presentation(
     if not source or source["module_id"] != module["id"] or source["status"] != "ready":
         raise HTTPException(status_code=400, detail="Ungültige oder nicht verarbeitete Quelle")
 
+    # Resolve template
+    template_path = _resolve_template_path(body.template)
+
     # Create DB record
     presentation_id = db.create_ki_tutor_presentation(module["id"], user_id, source["id"])
 
-    # Queue Celery task — slide count determined automatically by source length
+    # Queue Celery task
     from src.tasks.ki_tutor_tasks import run_generate_presentation
-    run_generate_presentation.delay(presentation_id, source["id"], body.source_uuid)
+    run_generate_presentation.delay(
+        presentation_id, source["id"], body.source_uuid,
+        template_path=template_path,
+    )
 
     return {"presentation_id": presentation_id, "status": "pending"}
 

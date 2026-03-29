@@ -9,6 +9,13 @@ import { checkAuthStatus } from "@/lib/auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface AccessLink {
+  id: number;
+  code: string;
+  expires_at: string;
+  created_at?: string | null;
+}
+
 interface KiTutorModule {
   uuid: string;
   title: string;
@@ -16,6 +23,8 @@ interface KiTutorModule {
   status: "pending" | "indexing" | "ready" | "failed";
   source_count: number;
   is_active: boolean;
+  access_links?: AccessLink[];
+  // Legacy
   enroll_code: string | null;
   enroll_code_expires: string | null;
   created_at: string | null;
@@ -26,6 +35,8 @@ interface StudentModule {
   title: string;
   description?: string | null;
   status: string;
+  enrollment_id?: number | null;
+  enrolled_until?: string | null;
   created_at: string | null;
 }
 
@@ -96,6 +107,7 @@ function CreateModuleModal({
         status: "pending",
         source_count: 0,
         is_active: false,
+        access_links: created.access_links ?? [],
         enroll_code: created.enroll_code ?? null,
         enroll_code_expires: created.enroll_code_expires ?? null,
         created_at: new Date().toISOString(),
@@ -187,16 +199,16 @@ function CreateModuleModal({
   );
 }
 
-// ─── Renew Code Modal ─────────────────────────────────────────────────────────
+// ─── Add Link Modal ──────────────────────────────────────────────────────────
 
-function RenewCodeModal({
+function AddLinkModal({
   moduleUuid,
   onClose,
-  onRenewed,
+  onCreated,
 }: {
   moduleUuid: string;
   onClose: () => void;
-  onRenewed: (code: string, expires: string) => void;
+  onCreated: (link: AccessLink) => void;
 }) {
   const [expiresAt, setExpiresAt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -208,18 +220,18 @@ function RenewCodeModal({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/renew-code`, {
-        method: "PATCH",
+      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/access-links`, {
+        method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ expires_at: new Date(expiresAt).toISOString() }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? "Fehler beim Erneuern");
+        throw new Error(err.detail ?? "Fehler beim Erstellen");
       }
       const data = await res.json();
-      onRenewed(data.enroll_code, data.enroll_code_expires);
+      onCreated(data);
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -242,7 +254,7 @@ function RenewCodeModal({
           Neuen Einschreibelink erstellen
         </h2>
         <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-          Der aktuelle Link wird ungültig. Studierende, die bereits eingeschrieben sind, behalten ihren Zugang.
+          Jeder Link hat eine eigene Laufzeit. Studierende mit unterschiedlichen Links haben getrennte Chat-Verläufe.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -283,38 +295,99 @@ function RenewCodeModal({
   );
 }
 
+// ─── Link Row (per Access Link) ──────────────────────────────────────────────
+
+function LinkRow({ link, onRequestDelete }: { link: AccessLink; onRequestDelete: (link: AccessLink) => void }) {
+  const [copied, setCopied] = useState(false);
+  const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/ki-tutor?code=${link.code}`;
+  const expiresDate = new Date(link.expires_at).toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const isExpired = new Date(link.expires_at) < new Date();
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(enrollLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="group/row flex items-center gap-2 min-w-0 -mx-2 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+      <button
+        onClick={handleCopy}
+        className={`flex items-center gap-0 min-w-0 rounded-lg border transition-all cursor-pointer overflow-hidden group ${
+          isExpired
+            ? "border-red-200 bg-red-50 hover:bg-red-100"
+            : "border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300"
+        }`}
+        title="Klicken zum Kopieren"
+      >
+        <span className={`px-2.5 py-1.5 text-xs font-mono truncate ${isExpired ? "text-red-400 line-through" : "text-gray-500"}`}>
+          {enrollLink}
+        </span>
+        <span className="flex items-center px-2 py-1.5 border-l border-gray-200 text-gray-400 group-hover:text-primary transition-colors">
+          {copied ? (
+            <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8.5l3.5 3.5 6.5-8" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="5" width="8" height="8" rx="1.5" />
+              <path d="M3 11V3.5A.5.5 0 0 1 3.5 3H11" />
+            </svg>
+          )}
+        </span>
+      </button>
+      {copied && <span className="text-xs text-green-600 font-medium whitespace-nowrap">Kopiert!</span>}
+      {!copied && (
+        <span className={`inline-flex items-center gap-1 text-xs whitespace-nowrap ${isExpired ? "text-red-400" : "text-gray-400"}`}>
+          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="12" height="11" rx="1.5" />
+            <path d="M5 1v3M11 1v3M2 7h12" />
+          </svg>
+          {isExpired ? "abgelaufen" : `bis ${expiresDate}`}
+        </span>
+      )}
+      <button
+        onClick={() => onRequestDelete(link)}
+        title="Link löschen"
+        className="ml-auto w-7 h-7 flex items-center justify-center rounded-full text-gray-300 opacity-0 group-hover/row:opacity-100 hover:text-primary hover:bg-gray-200 transition-all"
+      >
+        <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 4h12M5 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4M6.5 7v5M9.5 7v5M3 4l1 9.5a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5L13 4" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 // ─── Module Card (Lecturer) ───────────────────────────────────────────────────
 
 function ModuleCard({
   module,
   onToggleActive,
   onDelete,
-  onRenewed,
+  onLinksChanged,
 }: {
   module: KiTutorModule;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
-  onRenewed: (uuid: string, code: string, expires: string) => void;
+  onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [showRenew, setShowRenew] = useState(false);
+  const [showAddLink, setShowAddLink] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
+  const [deletingLink, setDeletingLink] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const enrollLink = module.enroll_code
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/ki-tutor?code=${module.enroll_code}`
-    : null;
-
-  const expiresDate = module.enroll_code_expires
-    ? new Date(module.enroll_code_expires).toLocaleDateString("de-DE", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : null;
+  const links = module.access_links ?? [];
 
   // Close overflow menu on outside click
   useEffect(() => {
@@ -337,22 +410,34 @@ function ModuleCard({
     await onDelete(module.uuid);
   }
 
-  async function handleCopyLink() {
-    if (!enrollLink) return;
+  async function handleDeleteLinkConfirm() {
+    if (!deleteLinkConfirm) return;
+    setDeletingLink(true);
     try {
-      await navigator.clipboard.writeText(enrollLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch { /* ignore */ }
+      const res = await fetch(`/api/ki-tutor/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        onLinksChanged(module.uuid, links.filter((l) => l.id !== deleteLinkConfirm.id));
+      }
+      setDeleteLinkConfirm(null);
+    } finally {
+      setDeletingLink(false);
+    }
+  }
+
+  function handleLinkCreated(newLink: AccessLink) {
+    onLinksChanged(module.uuid, [...links, newLink]);
   }
 
   return (
     <>
-      {showRenew && (
-        <RenewCodeModal
+      {showAddLink && (
+        <AddLinkModal
           moduleUuid={module.uuid}
-          onClose={() => setShowRenew(false)}
-          onRenewed={(code, expires) => onRenewed(module.uuid, code, expires)}
+          onClose={() => setShowAddLink(false)}
+          onCreated={handleLinkCreated}
         />
       )}
 
@@ -380,6 +465,36 @@ function ModuleCard({
                 className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
               >
                 {deleting ? "..." : "Löschen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteLinkConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Einschreibelink löschen?</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              <span className="font-medium">...{deleteLinkConfirm.code}</span> – gültig bis {new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}
+            </p>
+            <p className="text-sm text-red-600 mb-6">
+              Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteLinkConfirm(null)}
+                disabled={deletingLink}
+                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleDeleteLinkConfirm}
+                disabled={deletingLink}
+                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+              >
+                {deletingLink ? "..." : "Löschen"}
               </button>
             </div>
           </div>
@@ -431,15 +546,6 @@ function ModuleCard({
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
                 <button
-                  onClick={() => { setMenuOpen(false); setShowRenew(true); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5 text-gray-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6.5 9.5l3-3M7 11l-1.3 1.3a2.12 2.12 0 0 1-3-3L4 8m5-1l1.3-1.3a2.12 2.12 0 0 1 3 3L12 10" />
-                  </svg>
-                  Neuen Link erstellen
-                </button>
-                <button
                   onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
@@ -460,44 +566,24 @@ function ModuleCard({
           </p>
         )}
 
-        {/* Row 3: Enrollment link + CTA */}
-        <div className="flex items-center justify-between gap-3 mt-3">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {enrollLink && (
-              <>
-                <button
-                  onClick={handleCopyLink}
-                  className="flex items-center gap-0 min-w-0 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-all cursor-pointer overflow-hidden group"
-                  title="Klicken zum Kopieren"
-                >
-                  <span className="px-2.5 py-1.5 text-xs font-mono text-gray-500 truncate">{enrollLink}</span>
-                  <span className="flex items-center px-2 py-1.5 border-l border-gray-200 text-gray-400 group-hover:text-primary transition-colors">
-                    {copied ? (
-                      <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 8.5l3.5 3.5 6.5-8" />
-                      </svg>
-                    ) : (
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="5" y="5" width="8" height="8" rx="1.5" />
-                        <path d="M3 11V3.5A.5.5 0 0 1 3.5 3H11" />
-                      </svg>
-                    )}
-                  </span>
-                </button>
-                {copied && <span className="text-xs text-green-600 font-medium whitespace-nowrap">Kopiert!</span>}
-                {expiresDate && !copied && (
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap">
-                    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="3" width="12" height="11" rx="1.5" />
-                      <path d="M5 1v3M11 1v3M2 7h12" />
-                    </svg>
-                    bis {expiresDate}
-                  </span>
-                )}
-              </>
-            )}
-          </div>
+        {/* Row 3: Access Links */}
+        <div className="flex flex-col gap-2 mt-3">
+          {links.map((link) => (
+            <LinkRow key={link.id} link={link} onRequestDelete={setDeleteLinkConfirm} />
+          ))}
+          <button
+            onClick={() => setShowAddLink(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
+          >
+            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M8 3v10M3 8h10" />
+            </svg>
+            Neuen Link erstellen
+          </button>
+        </div>
 
+        {/* Row 4: CTA */}
+        <div className="flex justify-end mt-3">
           <Link
             href={`/ki-tutor/${module.uuid}`}
             className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium shrink-0 transition-colors hover:opacity-90 border-2"
@@ -566,9 +652,9 @@ function LecturerView() {
     } catch { /* ignore */ }
   }
 
-  function handleRenewed(uuid: string, code: string, expires: string) {
+  function handleLinksChanged(uuid: string, links: AccessLink[]) {
     setModules((prev) =>
-      prev.map((m) => m.uuid === uuid ? { ...m, enroll_code: code, enroll_code_expires: expires } : m)
+      prev.map((m) => m.uuid === uuid ? { ...m, access_links: links } : m)
     );
   }
 
@@ -612,7 +698,7 @@ function LecturerView() {
               module={m}
               onToggleActive={handleToggleActive}
               onDelete={handleDelete}
-              onRenewed={handleRenewed}
+              onLinksChanged={handleLinksChanged}
             />
           ))}
         </div>
@@ -731,24 +817,43 @@ function StudentView() {
         </p>
       ) : (
         <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
-          {modules.map((m) => (
-            <li key={m.uuid} className="px-5 py-4 bg-white hover:bg-gray-50">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-medium text-gray-800 truncate">{m.title}</h3>
-                  {m.description && (
-                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{m.description}</p>
-                  )}
+          {modules.map((m, i) => {
+            const href = m.enrollment_id
+              ? `/ki-tutor/${m.uuid}?eid=${m.enrollment_id}`
+              : `/ki-tutor/${m.uuid}`;
+            const untilDate = m.enrolled_until
+              ? new Date(m.enrolled_until).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+              : null;
+            return (
+              <li key={`${m.uuid}-${m.enrollment_id ?? i}`} className="px-5 py-4 bg-white hover:bg-gray-50">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-medium text-gray-800 truncate">{m.title}</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {m.description && (
+                        <p className="text-xs text-gray-400 line-clamp-1">{m.description}</p>
+                      )}
+                      {untilDate && (
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap">
+                          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="2" y="3" width="12" height="11" rx="1.5" />
+                            <path d="M5 1v3M11 1v3M2 7h12" />
+                          </svg>
+                          bis {untilDate}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Link
+                    href={href}
+                    className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-primary"
+                  >
+                    Öffnen
+                  </Link>
                 </div>
-                <Link
-                  href={`/ki-tutor/${m.uuid}`}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-primary"
-                >
-                  Öffnen
-                </Link>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

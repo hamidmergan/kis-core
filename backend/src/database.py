@@ -176,15 +176,76 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
+                CREATE TABLE IF NOT EXISTS ki_tutor_access_links (
+                    id         SERIAL PRIMARY KEY,
+                    module_id  INTEGER NOT NULL
+                                 REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
+                    code       TEXT NOT NULL UNIQUE,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_enrollments (
                     id             SERIAL PRIMARY KEY,
                     module_id      INTEGER NOT NULL
                                      REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
                     user_id        INTEGER NOT NULL,
+                    link_id        INTEGER REFERENCES ki_tutor_access_links(id) ON DELETE SET NULL,
                     enrolled_until TIMESTAMP,
                     created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
-                    UNIQUE (module_id, user_id)
+                    UNIQUE (module_id, user_id, link_id)
                 )
+            """)
+            # Migration: add link_id column if table already existed without it
+            cur.execute("ALTER TABLE ki_tutor_enrollments ADD COLUMN IF NOT EXISTS link_id INTEGER REFERENCES ki_tutor_access_links(id) ON DELETE SET NULL")
+            # Migration: drop old unique constraint and add new one with link_id
+            cur.execute("""
+                DO $$ BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'ki_tutor_enrollments_module_id_user_id_key'
+                    ) THEN
+                        ALTER TABLE ki_tutor_enrollments
+                            DROP CONSTRAINT ki_tutor_enrollments_module_id_user_id_key;
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
+                DO $$ BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'ki_tutor_enrollments_module_id_user_id_link_id_key'
+                    ) THEN
+                        ALTER TABLE ki_tutor_enrollments
+                            ADD CONSTRAINT ki_tutor_enrollments_module_id_user_id_link_id_key
+                            UNIQUE (module_id, user_id, link_id);
+                    END IF;
+                END $$
+            """)
+            # Migration: add enrollment_id to messages for per-link scoping
+            cur.execute("ALTER TABLE ki_tutor_messages ADD COLUMN IF NOT EXISTS enrollment_id INTEGER REFERENCES ki_tutor_enrollments(id) ON DELETE SET NULL")
+            # Migration: migrate existing enroll_code from modules to access_links
+            cur.execute("""
+                INSERT INTO ki_tutor_access_links (module_id, code, expires_at)
+                SELECT id, enroll_code, enroll_code_expires
+                FROM ki_tutor_modules
+                WHERE enroll_code IS NOT NULL
+                  AND enroll_code_expires IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ki_tutor_access_links al
+                      WHERE al.code = ki_tutor_modules.enroll_code
+                  )
+            """)
+            # Migration: link existing enrollments to their access_links
+            cur.execute("""
+                UPDATE ki_tutor_enrollments e
+                SET link_id = al.id
+                FROM ki_tutor_access_links al
+                JOIN ki_tutor_modules m ON m.id = al.module_id
+                WHERE e.module_id = m.id
+                  AND al.code = m.enroll_code
+                  AND e.link_id IS NULL
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_sources (
@@ -468,6 +529,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE ki_tutor_exercise_sets ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ready'")
             # Migration: add start_time for audio/video exercise items
             cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS start_time REAL")
+            # Migration: add back_en for bilingual flashcards
+            cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
         conn.commit()
 
     # Backfill tsvector for existing chunks (separate transaction)
@@ -1440,13 +1503,17 @@ def get_ki_tutor_modules_by_user(user_id: int) -> list[dict]:
 
 
 def get_ki_tutor_modules_for_student(user_id: int) -> list[dict]:
+    """Return modules with enrollment info. Same module can appear multiple times (different links)."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT m.* FROM ki_tutor_modules m
+                """SELECT m.*, e.id AS enrollment_id, e.link_id, e.enrolled_until,
+                          al.code AS link_code, al.expires_at AS link_expires_at
+                   FROM ki_tutor_modules m
                    JOIN ki_tutor_enrollments e ON e.module_id = m.id
+                   LEFT JOIN ki_tutor_access_links al ON al.id = e.link_id
                    WHERE e.user_id = %s AND m.is_active = TRUE
-                   ORDER BY m.created_at DESC""",
+                   ORDER BY e.created_at DESC""",
                 (user_id,),
             )
             rows = cur.fetchall()
@@ -1490,6 +1557,7 @@ def update_ki_tutor_module_status(
 def set_ki_tutor_module_enroll_code(
     uuid: str, code: str, expires_at: datetime
 ) -> None:
+    """Legacy: kept for backward compat. Prefer create_access_link."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -1508,22 +1576,81 @@ def delete_ki_tutor_module(uuid: str) -> None:
         conn.commit()
 
 
+# --- KI Tutor: Access Links ---
+
+def create_access_link(module_id: int, code: str, expires_at: datetime) -> dict:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """INSERT INTO ki_tutor_access_links (module_id, code, expires_at)
+                   VALUES (%s, %s, %s)
+                   RETURNING id, module_id, code, expires_at, created_at""",
+                (module_id, code, expires_at),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return dict(row)
+
+
+def get_access_links_by_module(module_id: int) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT id, module_id, code, expires_at, created_at
+                   FROM ki_tutor_access_links
+                   WHERE module_id = %s
+                   ORDER BY created_at ASC""",
+                (module_id,),
+            )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def delete_access_link(link_id: int) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_access_links WHERE id = %s", (link_id,))
+        conn.commit()
+
+
+def get_module_by_access_link_code(code: str) -> tuple[dict, dict] | None:
+    """Return (module, link) tuple if code is valid and not expired."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT m.*, al.id AS link_id, al.expires_at AS link_expires_at
+                   FROM ki_tutor_access_links al
+                   JOIN ki_tutor_modules m ON m.id = al.module_id
+                   WHERE al.code = %s AND al.expires_at > NOW()""",
+                (code,),
+            )
+            row = cur.fetchone()
+    if not row:
+        return None
+    row = dict(row)
+    link = {"id": row.pop("link_id"), "expires_at": row.pop("link_expires_at")}
+    return row, link
+
+
 # --- KI Tutor: Enrollments ---
 
 def enroll_student(
-    module_id: int, user_id: int, enrolled_until: datetime | None
-) -> bool:
+    module_id: int, user_id: int, enrolled_until: datetime | None,
+    link_id: int | None = None,
+) -> int | None:
+    """Enroll student. Returns enrollment id, or None if already enrolled for this link."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO ki_tutor_enrollments (module_id, user_id, enrolled_until)
-                   VALUES (%s, %s, %s)
-                   ON CONFLICT (module_id, user_id) DO NOTHING""",
-                (module_id, user_id, enrolled_until),
+                """INSERT INTO ki_tutor_enrollments (module_id, user_id, link_id, enrolled_until)
+                   VALUES (%s, %s, %s, %s)
+                   ON CONFLICT (module_id, user_id, link_id) DO NOTHING
+                   RETURNING id""",
+                (module_id, user_id, link_id, enrolled_until),
             )
-            inserted = cur.rowcount
+            row = cur.fetchone()
         conn.commit()
-    return inserted > 0
+    return row[0] if row else None
 
 
 def is_student_enrolled(module_id: int, user_id: int) -> bool:
@@ -1536,7 +1663,37 @@ def is_student_enrolled(module_id: int, user_id: int) -> bool:
             return cur.fetchone() is not None
 
 
+def get_enrollment(module_id: int, user_id: int, link_id: int | None = None) -> dict | None:
+    """Get a specific enrollment by module, user, and optionally link."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            if link_id is not None:
+                cur.execute(
+                    "SELECT * FROM ki_tutor_enrollments WHERE module_id = %s AND user_id = %s AND link_id = %s",
+                    (module_id, user_id, link_id),
+                )
+            else:
+                cur.execute(
+                    "SELECT * FROM ki_tutor_enrollments WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC LIMIT 1",
+                    (module_id, user_id),
+                )
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_enrollment_by_id(enrollment_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_enrollments WHERE id = %s", (enrollment_id,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
 def get_module_by_enroll_code(code: str) -> dict | None:
+    """Legacy: check both access_links and modules table."""
+    result = get_module_by_access_link_code(code)
+    if result:
+        return result[0]  # return just the module for backward compat
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
@@ -1812,46 +1969,63 @@ def save_ki_tutor_message(
     role: str,
     content: str,
     source_pages: list | dict | None = None,
+    enrollment_id: int | None = None,
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO ki_tutor_messages
-                   (module_id, user_id, role, content, source_pages)
-                   VALUES (%s, %s, %s, %s, %s)""",
+                   (module_id, user_id, role, content, source_pages, enrollment_id)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
                 (
                     module_id,
                     user_id,
                     role,
                     content,
                     json.dumps(source_pages) if source_pages is not None else None,
+                    enrollment_id,
                 ),
             )
         conn.commit()
 
 
-def delete_ki_tutor_messages(module_id: int, user_id: int) -> None:
+def delete_ki_tutor_messages(module_id: int, user_id: int, enrollment_id: int | None = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM ki_tutor_messages WHERE module_id = %s AND user_id = %s",
-                (module_id, user_id),
-            )
+            if enrollment_id is not None:
+                cur.execute(
+                    "DELETE FROM ki_tutor_messages WHERE module_id = %s AND user_id = %s AND enrollment_id = %s",
+                    (module_id, user_id, enrollment_id),
+                )
+            else:
+                cur.execute(
+                    "DELETE FROM ki_tutor_messages WHERE module_id = %s AND user_id = %s AND enrollment_id IS NULL",
+                    (module_id, user_id),
+                )
         conn.commit()
 
 
 def get_ki_tutor_messages(
-    module_id: int, user_id: int, limit: int = 20
+    module_id: int, user_id: int, limit: int = 20, enrollment_id: int | None = None
 ) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT * FROM ki_tutor_messages
-                   WHERE module_id = %s AND user_id = %s
-                   ORDER BY created_at DESC
-                   LIMIT %s""",
-                (module_id, user_id, limit),
-            )
+            if enrollment_id is not None:
+                cur.execute(
+                    """SELECT * FROM ki_tutor_messages
+                       WHERE module_id = %s AND user_id = %s AND enrollment_id = %s
+                       ORDER BY created_at DESC
+                       LIMIT %s""",
+                    (module_id, user_id, enrollment_id, limit),
+                )
+            else:
+                cur.execute(
+                    """SELECT * FROM ki_tutor_messages
+                       WHERE module_id = %s AND user_id = %s AND enrollment_id IS NULL
+                       ORDER BY created_at DESC
+                       LIMIT %s""",
+                    (module_id, user_id, limit),
+                )
             rows = cur.fetchall()
     return list(reversed([dict(row) for row in rows]))
 
@@ -2538,12 +2712,12 @@ def create_exercise_set(
             for i, item in enumerate(items):
                 cur.execute(
                     """INSERT INTO ki_tutor_exercise_items
-                       (set_id, position, front, back, options, correct_idx,
+                       (set_id, position, front, back, back_en, options, correct_idx,
                         source_label, page_number, explanation, start_time)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                     (
                         ex_set["id"], i,
-                        item["front"], item["back"],
+                        item["front"], item["back"], item.get("back_en"),
                         json.dumps(item.get("options")) if item.get("options") else None,
                         item.get("correct_idx"),
                         item.get("source_label"),
@@ -2583,12 +2757,12 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
             for i, item in enumerate(items):
                 cur.execute(
                     """INSERT INTO ki_tutor_exercise_items
-                       (set_id, position, front, back, options, correct_idx,
+                       (set_id, position, front, back, back_en, options, correct_idx,
                         source_label, page_number, explanation, start_time)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         set_id, i,
-                        item["front"], item["back"],
+                        item["front"], item["back"], item.get("back_en"),
                         json.dumps(item.get("options")) if item.get("options") else None,
                         item.get("correct_idx"),
                         item.get("source_label"),
@@ -2627,12 +2801,16 @@ def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> 
                 cur.execute(
                     """SELECT s.*,
                               COALESCE(
-                                ROUND(COUNT(p.id) FILTER (WHERE p.correct)::numeric
-                                      / NULLIF(COUNT(DISTINCT p.item_id), 0) * 100), 0
+                                ROUND(COUNT(lp.item_id) FILTER (WHERE lp.correct)::numeric
+                                      / NULLIF(COUNT(lp.item_id), 0) * 100), 0
                               ) AS progress_pct
                        FROM ki_tutor_exercise_sets s
-                       LEFT JOIN ki_tutor_exercise_progress p
-                         ON p.set_id = s.id AND p.user_id = s.user_id
+                       LEFT JOIN LATERAL (
+                         SELECT DISTINCT ON (p.item_id) p.item_id, p.correct
+                         FROM ki_tutor_exercise_progress p
+                         WHERE p.set_id = s.id AND p.user_id = s.user_id
+                         ORDER BY p.item_id, p.id DESC
+                       ) lp ON true
                        WHERE s.module_id = %s AND s.user_id = %s AND s.tool = %s
                        GROUP BY s.id ORDER BY s.created_at DESC""",
                     (module_id, user_id, tool),
@@ -2641,12 +2819,16 @@ def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> 
                 cur.execute(
                     """SELECT s.*,
                               COALESCE(
-                                ROUND(COUNT(p.id) FILTER (WHERE p.correct)::numeric
-                                      / NULLIF(COUNT(DISTINCT p.item_id), 0) * 100), 0
+                                ROUND(COUNT(lp.item_id) FILTER (WHERE lp.correct)::numeric
+                                      / NULLIF(COUNT(lp.item_id), 0) * 100), 0
                               ) AS progress_pct
                        FROM ki_tutor_exercise_sets s
-                       LEFT JOIN ki_tutor_exercise_progress p
-                         ON p.set_id = s.id AND p.user_id = s.user_id
+                       LEFT JOIN LATERAL (
+                         SELECT DISTINCT ON (p.item_id) p.item_id, p.correct
+                         FROM ki_tutor_exercise_progress p
+                         WHERE p.set_id = s.id AND p.user_id = s.user_id
+                         ORDER BY p.item_id, p.id DESC
+                       ) lp ON true
                        WHERE s.module_id = %s AND s.user_id = %s
                        GROUP BY s.id ORDER BY s.created_at DESC""",
                     (module_id, user_id),
