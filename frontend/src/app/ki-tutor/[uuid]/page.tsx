@@ -183,10 +183,15 @@ interface ViewerState {
   startTime?: number;
 }
 
+interface DatentabelleRowSource {
+  source_label: string;
+  page: number | string;
+}
+
 interface DatentabelleData {
   title: string;
   columns: string[];
-  rows: { cells: string[]; sources: number[] }[];
+  rows: { cells: string[]; sources: number[] | DatentabelleRowSource[] }[];
 }
 
 interface DatentabelleSource {
@@ -1959,10 +1964,10 @@ function LernkartenLearnView({
               <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                 <span />
                 {onAskChat && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten: „${card.front}"`); }}
-                    className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border-none cursor-pointer transition-all hover:opacity-80"
-                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                    <Lightbulb size={10} weight="bold" /> Tipp
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten. Verwende keine Personennamen, schreibe stattdessen „laut Quelle": „${card.front}"`); }}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all opacity-55 hover:opacity-100"
+                    style={{ color: "var(--muted)", backgroundColor: "rgba(0,0,0,0.04)" }}>
+                    <Lightbulb size={13} weight="bold" /> Tipp
                   </button>
                 )}
               </div>
@@ -1976,7 +1981,7 @@ function LernkartenLearnView({
               boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
             }}>
               <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{isVocab ? "Definition" : "Antwort"}</span>
-              <p className="text-sm text-center leading-relaxed" style={{ color: "white" }}>{card.back}</p>
+              <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }}>{card.back}</p>
               {isVocab && card.back_en && (
                 <p className="text-xs text-center italic" style={{ color: "rgba(255,255,255,0.6)" }}>{card.back_en}</p>
               )}
@@ -1985,14 +1990,14 @@ function LernkartenLearnView({
                 {card.source_label && (
                   <button type="button"
                     onClick={(e) => { e.stopPropagation(); if (onSourceClick && card.page_number) onSourceClick(card.source_label!, card.page_number, card.start_time); }}
-                    className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
-                    <FilePdf size={9} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
+                    <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
                   </button>
                 )}
                 {onAskChat && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Erkläre mir „${card.front}" genauer. Was sind wichtige Details, Beispiele und Zusammenhänge die über die Grunddefinition hinausgehen?`); }}
-                    className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
-                    <Chat size={10} weight="bold" /> Mehr erfahren
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge? Verwende keine Personennamen, schreibe stattdessen „laut Quelle".`); }}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
+                    <Chat size={13} weight="bold" /> Mehr erfahren
                   </button>
                 )}
               </div>
@@ -2146,7 +2151,7 @@ function MCExerciseView({
     if (!card || hintLoading || hint) return;
     setHintLoading(true);
     try {
-      onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten: „${card.front}"`);
+      onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten. Verwende keine Personennamen, schreibe stattdessen „laut Quelle": „${card.front}"`);
       setHint("Tipp wurde an den Chat gesendet!");
     } catch { /* ignore */ }
     setHintLoading(false);
@@ -2223,7 +2228,7 @@ function MCExerciseView({
             </span>
             {/* Question text */}
             {tool === "lueckentext" ? (
-              <p className="text-base leading-relaxed" style={{ color: "var(--text)" }}
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}
                 dangerouslySetInnerHTML={{
                   __html: card.front.replace(
                     /___+/g,
@@ -2234,7 +2239,7 @@ function MCExerciseView({
                 }}
               />
             ) : (
-              <p className="text-base font-semibold leading-snug" style={{ color: "var(--text)" }}>{card.front}</p>
+              <p className="text-sm font-semibold leading-snug" style={{ color: "var(--text)" }}>{card.front}</p>
             )}
             {/* Options */}
             <div className="flex flex-col gap-2 mt-1">
@@ -2263,7 +2268,7 @@ function MCExerciseView({
             </div>
             {/* Feedback */}
             {answered && (
-              <div className="text-sm font-medium px-4 py-2.5 rounded-xl"
+              <div className="text-sm font-semibold px-4 py-2.5 rounded-xl"
                 style={isCorrect
                   ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
                   : { color: "#d4453a", backgroundColor: "rgba(212,69,58,0.07)" }}>
@@ -2302,7 +2307,7 @@ function MCExerciseView({
             {/* Action row: Chat + Weiter */}
             {answered && (
               <div className="flex items-center justify-between mt-2">
-                <button type="button" onClick={() => onAskChat(`Erkläre mir „${tool === "lueckentext" ? card.back : card.front}" genauer. Was sind wichtige Details, Beispiele und Zusammenhänge die über die Grunddefinition hinausgehen?`)}
+                <button type="button" onClick={() => onAskChat(`Erkläre mir folgendes Thema genauer: „${tool === "lueckentext" ? card.back : card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge? Verwende keine Personennamen, schreibe stattdessen „laut Quelle".`)}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80"
                   style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                   <Chat size={13} weight="bold" /> Mehr erfahren
@@ -2939,6 +2944,7 @@ function InfografikStudio({
 function DatentabelleStudio({
   table, sources, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, sourceCount,
+  allSources, onPillClick,
 }: {
   table: DatentabelleData | null;
   sources: DatentabelleSource[];
@@ -2949,6 +2955,8 @@ function DatentabelleStudio({
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
   sourceCount: number;
+  allSources?: Source[];
+  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
 }) {
   const [view, setView] = useState<"viewer" | "list">("list");
   const noSources = sourceCount === 0;
@@ -3050,7 +3058,7 @@ function DatentabelleStudio({
           <span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {loading && (
+          {!table && loading && (
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
                 <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
@@ -3058,7 +3066,7 @@ function DatentabelleStudio({
               </div>
             </div>
           )}
-          {table && !loading && (
+          {table && (
             <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 900 }}>
               <p className="text-[11px]" style={{ color: "var(--muted)" }}>
                 Basierend auf {sources.length} Quelle{sources.length !== 1 ? "n" : ""}
@@ -3090,9 +3098,52 @@ function DatentabelleStudio({
                             {cell}
                           </td>
                         ))}
-                        <td className="px-3 py-2 align-top whitespace-nowrap"
-                          style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)" }}>
-                          {row.sources.map((s) => `[${s}]`).join(", ")}
+                        <td className="px-3 py-2 align-top"
+                          style={{ borderBottom: "1px solid var(--border)" }}>
+                          <div className="flex flex-wrap gap-1">
+                            {row.sources.map((s, si) => {
+                              if (typeof s === "object" && s !== null && "source_label" in s) {
+                                const rs = s as DatentabelleRowSource;
+                                const src = allSources?.find((a) => a.filename === rs.source_label);
+                                const isMedia = _isMediaFile(rs.source_label);
+                                const SourceIcon = isMedia ? SpeakerHigh : FilePdf;
+                                let pageNum = 0;
+                                let startTime: number | undefined;
+                                const label = isMedia ? String(rs.page) : `S. ${rs.page}`;
+                                if (isMedia && typeof rs.page === "string") {
+                                  const parts = rs.page.split(":").map(Number);
+                                  if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                                  else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
+                                } else {
+                                  pageNum = typeof rs.page === "number" ? rs.page : parseInt(String(rs.page), 10) || 0;
+                                }
+                                return (
+                                  <button key={si} type="button"
+                                    onClick={() => src && onPillClick?.(src.uuid, pageNum, src.filename, undefined, startTime)}
+                                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap"
+                                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
+                                    <SourceIcon size={10} weight="bold" />
+                                    [{si + 1}] {label}
+                                  </button>
+                                );
+                              }
+                              const num = s as number;
+                              const legend = sources.find((src) => src.number === num);
+                              const fname = legend?.filename || "";
+                              const src = legend ? allSources?.find((a) => a.filename === fname) : undefined;
+                              const isMedia = fname ? _isMediaFile(fname) : false;
+                              const LegacyIcon = isMedia ? SpeakerHigh : FilePdf;
+                              return (
+                                <button key={si} type="button"
+                                  onClick={() => src && onPillClick?.(src.uuid, 0, src.filename)}
+                                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity"
+                                  style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
+                                  <LegacyIcon size={10} weight="bold" />
+                                  [{num}]
+                                </button>
+                              );
+                            })}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -3122,11 +3173,14 @@ function DatentabelleStudio({
 interface MindmapNodeData {
   topic: string;
   children?: MindmapNodeData[];
+  source_label?: string;
+  page_number?: number;
 }
 
 function MindmapStudio({
   mindmap, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, sourceCount,
+  sources, onPillClick,
 }: {
   mindmap: MindmapNodeData | null;
   loading: boolean;
@@ -3136,12 +3190,22 @@ function MindmapStudio({
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
   sourceCount: number;
+  sources?: Source[];
+  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
   const [view, setView] = useState<"viewer" | "list">("list");
   const [allExpanded, setAllExpanded] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const sourcesRef = useRef(sources);
+  sourcesRef.current = sources;
+  const onPillClickRef = useRef(onPillClick);
+  onPillClickRef.current = onPillClick;
+  const nodeClickCleanupRef = useRef<(() => void) | null>(null);
+  const setFullscreenRef = useRef(setFullscreen);
+  setFullscreenRef.current = setFullscreen;
+  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number: number }>());
 
   function expandAll(node: any) {
     if (node.children && node.children.length > 0) {
@@ -3198,10 +3262,14 @@ function MindmapStudio({
       const MindElixir = (await import("mind-elixir")).default;
       if (cancelled || !containerRef.current) return;
 
-      let nodeId = 0;
+      let nid = 0;
+      nodeSourceMapRef.current = new Map();
       function convert(node: MindmapNodeData): any {
-        const id = `node-${nodeId++}`;
+        const id = `node-${nid++}`;
         const result: any = { id, topic: node.topic };
+        if (node.source_label && node.page_number != null) {
+          nodeSourceMapRef.current.set(id, { source_label: node.source_label, page_number: node.page_number });
+        }
         if (node.children && node.children.length > 0) {
           result.children = node.children.map(convert);
         }
@@ -3246,17 +3314,65 @@ function MindmapStudio({
       me.refresh();
       me.toCenter();
 
+      // Node click → open source: use pointerdown/pointerup with move threshold
+      // because mind-elixir pans on any mouse movement which shifts the DOM nodes,
+      // causing the browser click target to miss the me-tpc element.
+      let downTpc: HTMLElement | null = null;
+      let downX = 0;
+      let downY = 0;
+      const CLICK_THRESHOLD = 6;
+      const onDown = (ev: PointerEvent) => {
+        if (ev.button !== 0) return;
+        const tpc = (ev.target as HTMLElement).closest("me-tpc") as any;
+        if (!tpc) { downTpc = null; return; }
+        downTpc = tpc;
+        downX = ev.clientX;
+        downY = ev.clientY;
+      };
+      const onUp = (ev: PointerEvent) => {
+        if (!downTpc || ev.button !== 0) return;
+        const dx = ev.clientX - downX;
+        const dy = ev.clientY - downY;
+        if (dx * dx + dy * dy > CLICK_THRESHOLD * CLICK_THRESHOLD) { downTpc = null; return; }
+        const tpc = downTpc as any;
+        downTpc = null;
+        const nId = tpc.nodeObj?.id;
+        if (!nId) return;
+        const srcInfo = nodeSourceMapRef.current.get(nId);
+        if (!srcInfo) return;
+        const srcs = sourcesRef.current;
+        const cb = onPillClickRef.current;
+        if (!srcs || !cb) return;
+        const label = srcInfo.source_label.toLowerCase();
+        const src = srcs.find((s) => s.filename === srcInfo.source_label)
+          ?? srcs.find((s) => s.filename.toLowerCase() === label)
+          ?? srcs.find((s) => label.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(label));
+        if (src) {
+          setFullscreenRef.current(false);
+          cb(src.uuid, srcInfo.page_number, src.filename);
+        }
+      };
+      containerRef.current.addEventListener("pointerdown", onDown);
+      containerRef.current.addEventListener("pointerup", onUp);
+      nodeClickCleanupRef.current = () => {
+        containerRef.current?.removeEventListener("pointerdown", onDown);
+        containerRef.current?.removeEventListener("pointerup", onUp);
+      };
+
       meInstanceRef.current = me;
     })();
 
     return () => {
       cancelled = true;
+      nodeClickCleanupRef.current?.();
+      nodeClickCleanupRef.current = null;
       if (meInstanceRef.current) {
         try { meInstanceRef.current.destroy?.(); } catch { /* ignore */ }
       }
       meInstanceRef.current = null;
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mindmap, view]);
 
   const activeTopicName = mindmap?.topic ?? "Mindmap";
@@ -3601,20 +3717,24 @@ function GlossarView({
   return (
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title="Glossar" onBack={onBack} />}
+      <div className="px-3 pt-3">
+        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+          style={{
+            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
+            color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
+          }}>
+          <FilePdf size={13} weight="bold" />
+          {noSources
+            ? "Keine Quelle ausgewählt"
+            : sourceCount === 1
+              ? "1 Quelle ausgewählt"
+              : sourceCount <= 5
+                ? `${sourceCount} Quellen ausgewählt`
+                : `${sourceCount} Quellen ausgewählt — nur die ersten 5, Rest ignoriert`}
+        </div>
+      </div>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
-          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-            style={{
-              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : "rgba(var(--kb-rgb),0.06)",
-              color: noSources ? "#B91C1C" : "var(--kb)",
-            }}>
-            <FilePdf size={13} weight="bold" />
-            {noSources
-              ? "Keine Quelle ausgewählt"
-              : sourceCount === 1
-                ? "1 Quelle ausgewählt"
-                : `${sourceCount} Quellen ausgewählt`}
-          </div>
           {extracting && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
               style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}>
@@ -3821,19 +3941,19 @@ function VocabFlashcards({
             >
               {!flipped ? (
                 <>
-                  <span className="text-lg font-bold" style={{ color: "var(--text)" }}>{card.term_de}</span>
-                  <span className="text-[11px]" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
+                  <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{card.term_de}</span>
+                  <span className="text-[10px]" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
                 </>
               ) : (
                 <>
                   <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>
                     {card.term_en}
                   </span>
-                  <span className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>
+                  <span className="text-sm leading-relaxed font-semibold" style={{ color: "var(--text)" }}>
                     {card.definition}
                   </span>
                   {card.page_number && (
-                    <span className="text-[10px] mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!) : `S. ${card.page_number}`}</span>
+                    <span className="text-xs mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!) : `S. ${card.page_number}`}</span>
                   )}
                 </>
               )}
@@ -3966,12 +4086,12 @@ function LueckentextView({
 
           {ex && !loading && (
             <>
-              <div className="text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
+              <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
                 Frage {current + 1} / {total}
               </div>
 
               <div className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
-                <p className="text-sm leading-relaxed font-medium mb-4" style={{ color: "var(--text)" }}>
+                <p className="text-sm leading-relaxed font-semibold mb-4" style={{ color: "var(--text)" }}>
                   {ex.sentence}
                 </p>
                 <div className="flex flex-col gap-2">
@@ -3992,7 +4112,7 @@ function LueckentextView({
                         type="button"
                         onClick={() => handleSelect(oi)}
                         disabled={answered}
-                        className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium disabled:cursor-default transition-colors"
+                        className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold disabled:cursor-default transition-colors"
                         style={{ backgroundColor: bg, border: `1px solid ${border}`, color }}
                       >
                         {["A", "B", "C", "D"][oi]}. {opt}
@@ -4001,7 +4121,7 @@ function LueckentextView({
                   })}
                 </div>
                 {answers[current] !== undefined && (
-                  <p className="flex items-center gap-1 text-[11px] mt-3 font-semibold"
+                  <p className="flex items-center gap-1 text-xs mt-3 font-semibold"
                     style={{ color: ex.options[answers[current]] === ex.answer ? "#166534" : "#991B1B" }}
                   >
                     {ex.options[answers[current]] === ex.answer
@@ -4123,7 +4243,7 @@ function VokabeltestView({
 
           {q && !loading && (
             <>
-              <div className="text-center text-xs font-medium" style={{ color: "var(--muted)" }}>
+              <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
                 Frage {current + 1} / {total}
               </div>
 
@@ -4149,7 +4269,7 @@ function VokabeltestView({
                         type="button"
                         onClick={() => handleSelect(oi)}
                         disabled={answered}
-                        className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium disabled:cursor-default transition-colors"
+                        className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold disabled:cursor-default transition-colors"
                         style={{ backgroundColor: bg, border: `1px solid ${border}`, color }}
                       >
                         {["A", "B", "C", "D"][oi]}. {opt}
@@ -4158,7 +4278,7 @@ function VokabeltestView({
                   })}
                 </div>
                 {answers[current] !== undefined && q.explanation && (
-                  <p className="text-[11px] mt-3 leading-relaxed p-2 rounded-lg" style={{ backgroundColor: "rgba(var(--kb-rgb),0.05)", color: "var(--kb)" }}>
+                  <p className="text-xs mt-3 leading-relaxed p-2 rounded-lg font-semibold" style={{ backgroundColor: "rgba(var(--kb-rgb),0.05)", color: "var(--kb)" }}>
                     {q.explanation}
                   </p>
                 )}
@@ -5507,7 +5627,7 @@ export default function KiTutorModulePage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: selectedSourceIds }),
+        body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 5) }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -6426,6 +6546,8 @@ export default function KiTutorModulePage() {
                     onSelect={selectDatentabelle}
                     onDelete={deleteDatentabelle}
                     sourceCount={selectedSourceIds.length}
+                    allSources={sources}
+                    onPillClick={handlePillClick}
                   />
               ) : studioView === "praesentation" ? (
                 <PresentationStudio
@@ -6438,7 +6560,7 @@ export default function KiTutorModulePage() {
                   sourceCount={selectedSourceIds.length}
                 />
               ) : studioView === "mindmap" ? (
-                <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} />
+                <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} />
               ) : studioView === "quiz" ? (
                 <ExerciseSetsOverview
                   title="Quiz"
@@ -6613,6 +6735,8 @@ export default function KiTutorModulePage() {
                       onSelect={selectDatentabelle}
                       onDelete={deleteDatentabelle}
                       sourceCount={selectedSourceIds.length}
+                      allSources={sources}
+                      onPillClick={handlePillClick}
                     />
                   ) : studioView === "praesentation" ? (
                     <PresentationStudio
@@ -6625,7 +6749,7 @@ export default function KiTutorModulePage() {
                       sourceCount={selectedSourceIds.length}
                     />
                   ) : studioView === "mindmap" ? (
-                    <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} />
+                    <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} />
                   ) : studioView === "quiz" ? (
                     <ExerciseSetsOverview
                       title="Quiz"

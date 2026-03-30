@@ -1298,14 +1298,23 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
         db.update_ki_tutor_datentabelle(datentabelle_id, "running")
         logger.info("KI Tutor: generating datentabelle {}", datentabelle_id)
 
-        # Build context with source numbering for citations
+        # Build context with source filenames for citations
+        _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", ".aac"}
         context_parts: list[str] = []
         context_len = 0
-        for sid in source_ids:
+        for sid, suuid in zip(source_ids, source_uuids):
             chunks = db.get_chunks_by_source(sid)
-            qnum = source_map.get(str(sid), {}).get("number", 1)
+            src_info = source_map.get(str(sid), {})
+            filename = src_info.get("filename", f"Quelle {src_info.get('number', '?')}")
+            is_media = any(filename.lower().endswith(ext) for ext in _MEDIA_EXTS)
             for chunk in chunks:
-                part = f"[Q{qnum}, S. {chunk['page_number']}]\n{chunk['content']}"
+                if is_media and chunk.get("start_time") is not None:
+                    st = chunk["start_time"]
+                    h, m, s = int(st // 3600), int((st % 3600) // 60), int(st % 60)
+                    ts = f"{h}:{m:02}:{s:02}" if h > 0 else f"{m}:{s:02}"
+                    part = f"[{filename}, {ts}]\n{chunk['content']}"
+                else:
+                    part = f"[{filename}, S. {chunk['page_number']}]\n{chunk['content']}"
                 if context_len + len(part) > 15000:
                     break
                 context_parts.append(part)
@@ -1316,16 +1325,11 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
             return
 
         context = "\n\n---\n\n".join(context_parts)
-        source_legend = "\n".join(
-            f"[Q{info['number']}] = {info['filename']}"
-            for info in sorted(source_map.values(), key=lambda x: x["number"])
-        )
 
         client, model, _ = _get_llm_client()
         messages = [
             {"role": "system", "content": TUTOR_DATENTABELLE_PROMPT},
             {"role": "user", "content": (
-                f"Quellen:\n{source_legend}\n\n"
                 f"Erstelle eine strukturierte Datentabelle aus folgendem Text:\n\n{context}"
             )},
         ]

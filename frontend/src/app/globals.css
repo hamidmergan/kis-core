@@ -119,6 +119,14 @@ label[for] {
   text-align: center;
 }
 
+/* ─── Mind-elixir: clickable nodes ─── */
+.map-container me-tpc {
+  cursor: pointer;
+}
+.map-container me-tpc:hover {
+  filter: brightness(1.15);
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
