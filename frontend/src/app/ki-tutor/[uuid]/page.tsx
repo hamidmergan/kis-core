@@ -646,6 +646,7 @@ function PdfViewer({
       const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
       scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
     }
+
   }, [source.nonce, source.page, source.highlightText]);
 
   const handleReady = useCallback((registry: unknown) => {
@@ -3206,6 +3207,7 @@ function MindmapStudio({
   const setFullscreenRef = useRef(setFullscreen);
   setFullscreenRef.current = setFullscreen;
   const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number: number }>());
+  const sourceIndexRef = useRef(new Map<string, number>());
 
   function expandAll(node: any) {
     if (node.children && node.children.length > 0) {
@@ -3262,14 +3264,32 @@ function MindmapStudio({
       const MindElixir = (await import("mind-elixir")).default;
       if (cancelled || !containerRef.current) return;
 
+      // Build source index: filename → [N]
+      const sourceIndexMap = new Map<string, number>();
+      function collectSources(node: MindmapNodeData) {
+        if (node.source_label && !sourceIndexMap.has(node.source_label)) {
+          sourceIndexMap.set(node.source_label, sourceIndexMap.size + 1);
+        }
+        node.children?.forEach(collectSources);
+      }
+      collectSources(mindmap);
+      sourceIndexRef.current = sourceIndexMap;
+
       let nid = 0;
       nodeSourceMapRef.current = new Map();
       function convert(node: MindmapNodeData): any {
         const id = `node-${nid++}`;
-        const result: any = { id, topic: node.topic };
+        let topic = node.topic;
         if (node.source_label && node.page_number != null) {
           nodeSourceMapRef.current.set(id, { source_label: node.source_label, page_number: node.page_number });
+          const srcNum = sourceIndexMap.get(node.source_label);
+          if (srcNum) {
+            const isMedia = _isMediaFile(node.source_label);
+            const label = isMedia ? String(node.page_number) : `S. ${node.page_number}`;
+            topic += `  [${srcNum}] ${label}`;
+          }
         }
+        const result: any = { id, topic };
         if (node.children && node.children.length > 0) {
           result.children = node.children.map(convert);
         }
@@ -3506,11 +3526,22 @@ function MindmapStudio({
             </div>
           )}
           {mindmap && !loading && (
-            <div
-              ref={containerRef}
-              className="flex-1"
-              style={{ minHeight: 300 }}
-            />
+            <>
+              <div
+                ref={containerRef}
+                className="flex-1"
+                style={{ minHeight: 300 }}
+              />
+              {sourceIndexRef.current.size > 0 && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
+                  {Array.from(sourceIndexRef.current.entries()).map(([filename, num]) => (
+                    <span key={num} className="text-[11px] leading-snug" style={{ color: "var(--muted)" }}>
+                      [{num}] {filename}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
