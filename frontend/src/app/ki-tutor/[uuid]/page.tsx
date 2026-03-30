@@ -186,6 +186,7 @@ interface ViewerState {
 interface DatentabelleRowSource {
   source_label: string;
   page: number | string;
+  highlight?: string;
 }
 
 interface DatentabelleData {
@@ -618,12 +619,17 @@ function PdfViewer({
     };
 
     const query = cleanText || text;
+    const words = query.split(/\s+/);
+    const longest = words.length > 1 ? [...words].sort((a, b) => b.length - a.length)[0] : "";
     doSearch(query).then((found) => {
       if (found) return;
       // Fallback: first 2 words (handles hyphenated line breaks in PDFs)
-      const words = query.split(/\s+/);
       if (words.length > 2) return doSearch(words.slice(0, 2).join(" "));
       if (words.length > 1) return doSearch(words[0]);
+    }).then((found) => {
+      if (found) return;
+      // Last resort: longest single word
+      if (longest.length >= 4) return doSearch(longest);
     }).catch(() => { /* ignore */ });
   }
 
@@ -1753,7 +1759,7 @@ function ExerciseSetsOverview({
               ? "1 Quelle ausgewählt"
               : sourceCount <= 5
                 ? `${sourceCount} Quellen ausgewählt`
-                : `${sourceCount} Quellen ausgewählt — nur die ersten 5, Rest ignoriert`}
+                : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
         </div>
 
         {sets.length === 0 ? (
@@ -2456,7 +2462,7 @@ function QuizStudio({
                 ? "1 Quelle ausgewählt"
                 : sourceCount <= 5
                   ? `${sourceCount} Quellen ausgewählt`
-                  : `${sourceCount} Quellen ausgewählt — nur die ersten 5, Rest ignoriert`}
+                  : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
           </div>
 
           <div className="flex justify-center">
@@ -2834,7 +2840,7 @@ function InfografikStudio({
               ? "Keine Quelle ausgewählt"
               : sourceCount === 1
                 ? "1 Quelle ausgewählt"
-                : `${sourceCount} Quellen ausgewählt — nur die erste, Rest ignoriert`}
+                : `${sourceCount} Quellen vorhanden — es wird maximal 1 berücksichtigt`}
           </div>
 
           {savedList.length === 0 && !loading ? (
@@ -2982,7 +2988,7 @@ function DatentabelleStudio({
                 ? "1 Quelle ausgewählt"
                 : sourceCount <= 5
                   ? `${sourceCount} Quellen ausgewählt`
-                  : `${sourceCount} Quellen ausgewählt — nur die ersten 5, Rest ignoriert`}
+                  : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
           </div>
 
           {savedList.length === 0 && !loading ? (
@@ -3068,7 +3074,7 @@ function DatentabelleStudio({
             </div>
           )}
           {table && (
-            <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 900 }}>
+            <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 900, userSelect: "text" }}>
               <p className="text-[11px]" style={{ color: "var(--muted)" }}>
                 Basierend auf {sources.length} Quelle{sources.length !== 1 ? "n" : ""}
               </p>
@@ -3120,7 +3126,7 @@ function DatentabelleStudio({
                                 }
                                 return (
                                   <button key={si} type="button"
-                                    onClick={() => src && onPillClick?.(src.uuid, pageNum, src.filename, undefined, startTime)}
+                                    onClick={() => src && onPillClick?.(src.uuid, pageNum, src.filename, rs.highlight, startTime)}
                                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap"
                                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
                                     <SourceIcon size={10} weight="bold" />
@@ -3137,7 +3143,7 @@ function DatentabelleStudio({
                               return (
                                 <button key={si} type="button"
                                   onClick={() => src && onPillClick?.(src.uuid, 0, src.filename)}
-                                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity"
+                                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap"
                                   style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
                                   <LegacyIcon size={10} weight="bold" />
                                   [{num}]
@@ -3176,6 +3182,7 @@ interface MindmapNodeData {
   children?: MindmapNodeData[];
   source_label?: string;
   page_number?: number;
+  keyword?: string;
 }
 
 function MindmapStudio({
@@ -3206,7 +3213,7 @@ function MindmapStudio({
   const nodeClickCleanupRef = useRef<(() => void) | null>(null);
   const setFullscreenRef = useRef(setFullscreen);
   setFullscreenRef.current = setFullscreen;
-  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number: number }>());
+  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number: number; keyword?: string }>());
   const sourceIndexRef = useRef(new Map<string, number>());
 
   function expandAll(node: any) {
@@ -3281,7 +3288,7 @@ function MindmapStudio({
         const id = `node-${nid++}`;
         let topic = node.topic;
         if (node.source_label && node.page_number != null) {
-          nodeSourceMapRef.current.set(id, { source_label: node.source_label, page_number: node.page_number });
+          nodeSourceMapRef.current.set(id, { source_label: node.source_label, page_number: node.page_number, keyword: node.keyword });
           const srcNum = sourceIndexMap.get(node.source_label);
           if (srcNum) {
             const isMedia = _isMediaFile(node.source_label);
@@ -3369,7 +3376,7 @@ function MindmapStudio({
           ?? srcs.find((s) => label.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(label));
         if (src) {
           setFullscreenRef.current(false);
-          cb(src.uuid, srcInfo.page_number, src.filename);
+          cb(src.uuid, srcInfo.page_number, src.filename, srcInfo.keyword || undefined);
         }
       };
       containerRef.current.addEventListener("pointerdown", onDown);
@@ -3415,7 +3422,7 @@ function MindmapStudio({
               ? "Keine Quelle ausgewählt"
               : sourceCount === 1
                 ? "1 Quelle ausgewählt"
-                : `${sourceCount} Quellen ausgewählt — nur die erste, Rest ignoriert`}
+                : `${sourceCount} Quellen vorhanden — es wird maximal 1 berücksichtigt`}
           </div>
 
           {savedList.length === 0 && !loading ? (
@@ -3761,7 +3768,7 @@ function GlossarView({
               ? "1 Quelle ausgewählt"
               : sourceCount <= 5
                 ? `${sourceCount} Quellen ausgewählt`
-                : `${sourceCount} Quellen ausgewählt — nur die ersten 5, Rest ignoriert`}
+                : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -4746,7 +4753,7 @@ function PresentationStudio({
             ? "Keine Quelle ausgewählt"
             : sourceCount === 1
               ? "1 Quelle ausgewählt"
-              : `${sourceCount} Quellen ausgewählt — nur die erste, Rest ignoriert`}
+              : `${sourceCount} Quellen vorhanden — es wird maximal 1 berücksichtigt`}
         </div>
 
         {templates.length > 0 && (

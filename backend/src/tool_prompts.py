@@ -178,17 +178,19 @@ TUTOR_MINDMAP_PROMPT = (
     '      "topic": "Hauptthema 1",\n'
     '      "source_label": "Dateiname.pdf",\n'
     '      "page_number": 3,\n'
+    '      "keyword": "Maschinelles Lernen",\n'
     '      "children": [\n'
     "        {\n"
     '          "topic": "Unterthema 1a",\n'
     '          "source_label": "Dateiname.pdf",\n'
     '          "page_number": 5,\n'
+    '          "keyword": "Neuronale Netze",\n'
     '          "children": [\n'
-    '            { "topic": "Detail 1a-i", "source_label": "Dateiname.pdf", "page_number": 7 },\n'
-    '            { "topic": "Detail 1a-ii", "source_label": "Dateiname.pdf", "page_number": 8 }\n'
+    '            { "topic": "Detail 1a-i", "source_label": "Dateiname.pdf", "page_number": 7, "keyword": "Backpropagation" },\n'
+    '            { "topic": "Detail 1a-ii", "source_label": "Dateiname.pdf", "page_number": 8, "keyword": "Gradient Descent" }\n'
     "          ]\n"
     "        },\n"
-    '        { "topic": "Unterthema 1b", "source_label": "Dateiname.pdf", "page_number": 10 }\n'
+    '        { "topic": "Unterthema 1b", "source_label": "Dateiname.pdf", "page_number": 10, "keyword": "Overfitting" }\n'
     "      ]\n"
     "    }\n"
     "  ]\n"
@@ -206,6 +208,11 @@ TUTOR_MINDMAP_PROMPT = (
     "- WICHTIG: Jeder Knoten (außer Root) MUSS source_label und page_number enthalten. "
     "source_label ist der exakte Dateiname aus den Quellenangaben [Dateiname, S. X]. "
     "page_number ist die Seitenzahl aus der der Inhalt stammt.\n"
+    "- WICHTIG: Jeder Knoten (außer Root) MUSS ein keyword enthalten. "
+    "keyword ist ein Schlüsselbegriff (1-3 Wörter) der WÖRTLICH UNVERÄNDERT im Quelltext auf der angegebenen Seite vorkommt. "
+    "NICHT paraphrasieren! Kopiere das Wort direkt aus dem Quelltext. "
+    "Beispiel: Wenn im Quelltext 'intelligenten Assistenten' steht, schreibe keyword: 'intelligenten Assistenten' — NICHT 'KI-Assistenten'. "
+    "Das keyword dient zum Suchen/Markieren im PDF und MUSS dort exakt findbar sein.\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )
 
@@ -272,16 +279,20 @@ TUTOR_DATENTABELLE_PROMPT = (
     '  "title": "Beschreibender Tabellentitel",\n'
     '  "columns": ["Spalte1", "Spalte2", "Spalte3"],\n'
     '  "rows": [\n'
-    '    { "cells": ["Wert1", "Wert2", "Wert3"], "sources": [{"source_label": "Dateiname.pdf", "page": 3}] },\n'
-    '    { "cells": ["Wert4", "Wert5", "Wert6"], "sources": [{"source_label": "Dateiname.pdf", "page": 5}, {"source_label": "Andere.pdf", "page": 2}] }\n'
+    '    { "cells": ["Wert1", "Wert2", "Wert3"], "sources": [{"source_label": "Dateiname.pdf", "page": 3, "highlight": "Fachbegriff"}] },\n'
+    '    { "cells": ["Wert4", "Wert5", "Wert6"], "sources": [{"source_label": "Dateiname.pdf", "page": 5, "highlight": "Schlüsselwort"}, {"source_label": "Andere.pdf", "page": 2, "highlight": "Begriff"}] }\n'
     "  ]\n"
     "}\n\n"
     "Regeln:\n"
     "- Wähle sinnvolle Spalten, die den Inhalt am besten strukturieren\n"
     "- Mindestens 3, maximal 8 Spalten\n"
     "- Jede Zeile enthält ein 'cells'-Array (gleiche Länge wie 'columns') und ein 'sources'-Array\n"
-    "- WICHTIG: Jeder Eintrag in 'sources' MUSS 'source_label' (exakter Dateiname aus den Quellenangaben) und 'page' enthalten. "
-    "'page' ist die Seitenzahl bei PDFs (aus [Dateiname, S. X]) oder die Zeitangabe als String bei Media-Dateien (aus [Dateiname, M:SS] oder [Dateiname, H:MM:SS])\n"
+    "- WICHTIG: Jeder Eintrag in 'sources' MUSS 'source_label' (exakter Dateiname aus den Quellenangaben), 'page' und 'highlight' enthalten. "
+    "'page' ist die Seitenzahl bei PDFs (aus [Dateiname, S. X]) oder die Zeitangabe als String bei Media-Dateien (aus [Dateiname, M:SS] oder [Dateiname, H:MM:SS]). "
+    "'highlight' ist ein Schlüsselbegriff (1-3 Wörter) der WÖRTLICH UNVERÄNDERT im gegebenen Quelltext vorkommt. "
+    "NICHT paraphrasieren! Kopiere das Wort direkt aus dem Quelltext. "
+    "Beispiel: Wenn im Quelltext 'intelligenten Assistenten' steht, schreibe highlight: 'intelligenten Assistenten' — NICHT 'KI-Assistenten'. "
+    "Das highlight dient zum Suchen/Markieren im PDF und MUSS dort exakt findbar sein.\n"
     "- Extrahiere so viele Zeilen wie der Text hergibt (keine erfundenen Daten)\n"
     "- Der Titel soll den Tabelleninhalt kurz beschreiben\n"
     "- Halte Zellenwerte prägnant aber informativ\n"

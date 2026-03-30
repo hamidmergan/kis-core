@@ -77,6 +77,12 @@ label[for] {
   cursor: pointer;
 }
 
+/* Allow text selection in content areas */
+td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* ─── Safelist (dynamisch zusammengebaute Klassen) ─── */
 @source inline("object-contain p-1 p-2 p-4");
 
