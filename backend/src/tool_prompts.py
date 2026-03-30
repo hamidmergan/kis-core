@@ -116,10 +116,7 @@ TUTOR_SYSTEM_RAG = (
     "Füge KEINE Hinweise, Disclaimers oder Kommentare zu irrelevanten Stellen hinzu. "
     "Quellen sind gekennzeichnet als [QN, S. X] (Dokument: Quelle N, Seite X) oder [QN, MM:SS] (Audio/Video: Quelle N, Zeitstempel). "
     "Füge nach jedem Satz oder Abschnitt die Quellenangabe im EXAKT gleichen Format ein: [Q1, S. 3] oder [Q1, 05:32]. "
-    "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S bzw. dem Zeitstempel. "
-    "Manche Quellen enthalten neben dem gesprochenen Text auch Beschreibungen von Vorlesungsfolien, markiert mit [Folie N]: ... "
-    "Nutze diese Folieninhalte aktiv in deinen Antworten — z.B. Formeln, Diagramme oder Stichpunkte, die auf der Folie standen aber nicht vorgelesen wurden. "
-    "Wenn ein Student nach einer bestimmten Folie fragt (z.B. 'Was steht auf Folie 3?'), nutze die entsprechende [Folie N]-Markierung."
+    "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S bzw. dem Zeitstempel."
 )
 
 

@@ -218,30 +218,6 @@ def run_index_source(self, source_uuid: str):
                     raise RuntimeError("Whisper returned no segments for this audio/video file.")
                 chunks = ki_tutor_chunker.segments_to_chunks(segments)
 
-                # Slide extraction: extract keyframes, classify via vision LLM, describe slides
-                _is_video = file_type in ("mp4", "webm")
-                if _is_video and _s.kisski_vision_model:
-                    from src.services.video_slide_extractor import (
-                        extract_slide_frames, classify_and_describe_slides, merge_slides_into_chunks,
-                    )
-                    import shutil as _shutil
-
-                    logger.info("KI Tutor: extracting slide frames for {}", source_uuid)
-                    keyframes = extract_slide_frames(local_path)
-                    if keyframes:
-                        slide_descriptions = classify_and_describe_slides(
-                            keyframes, _api_key, _base_url, _s.kisski_vision_model,
-                        )
-                        if slide_descriptions:
-                            chunks = merge_slides_into_chunks(chunks, slide_descriptions)
-                            logger.info(
-                                "KI Tutor: {} slide descriptions merged into chunks for {}",
-                                len(slide_descriptions), source_uuid,
-                            )
-                        # Cleanup temp slide images
-                        _tmpdir = os.path.dirname(keyframes[0]["image_path"])
-                        _shutil.rmtree(_tmpdir, ignore_errors=True)
-
                 # Save full transcript as .txt next to the source file
                 transcript_text = "\n".join(
                     f"[{_format_ts(s['start'])} - {_format_ts(s['end'])}] {s['text']}"
