@@ -2245,6 +2245,34 @@ async def get_streak_endpoint(
     return streak
 
 
+# ─── Student Stats ─────────────────────────────────────────────────────────
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/stats")
+async def get_student_stats_endpoint(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    return db.get_student_stats(module["id"], user_id)
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/stats/day")
+async def get_student_day_stats_endpoint(
+    module_uuid: str,
+    date: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    return db.get_student_day_stats(module["id"], user_id, date)
+
+
 # ─── Glossar Count & Limit ───────────────────────────────────────────────────
 
 

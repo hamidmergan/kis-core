@@ -295,6 +295,47 @@ interface StreakInfo {
   last_active_date: string | null;
 }
 
+interface ExerciseOverview {
+  total_sets: number;
+  completed_sets: number;
+  total_cards: number;
+  answered_cards: number;
+  correct_cards: number;
+  wrong_cards: number;
+  avg_accuracy: number;
+}
+
+interface HeatmapDay {
+  day: string;
+  answers: number;
+  correct: number;
+  wrong: number;
+  sets_practiced: number;
+}
+
+interface ToolStat {
+  mode: string;
+  tool: string;
+  total_sets: number;
+  practiced_sets: number;
+  avg_accuracy: number;
+  correct_cards: number;
+  wrong_cards: number;
+}
+
+interface StudentStats {
+  streak: StreakInfo;
+  overview: ExerciseOverview;
+  lerntools: ExerciseOverview;
+  sprachtraining: ExerciseOverview;
+  by_tool: ToolStat[];
+  heatmap: HeatmapDay[];
+  chat: { total: number; today: number };
+  first_activity: string | null;
+  active_days: number;
+  today: string;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseLernkarten(text: string): LernKarte[] {
@@ -1721,7 +1762,7 @@ function SubviewHeader({ title, onBack }: { title: string; onBack: () => void })
       >
         <CaretLeft size={13} />
       </button>
-      <span className="text-base font-bold" style={{ color: "var(--text)" }}>{title}</span>
+      <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{title}</span>
     </div>
   );
 }
@@ -4449,6 +4490,375 @@ function LerntoolsGrid({ tiles, onSelect }: {
   );
 }
 
+// ─── Student Stats View ────────────────────────────────────────────────────
+
+const TOOL_LABELS: Record<string, string> = {
+  lernkarten: "Karteikarten",
+  karteikarten: "Karteikarten",
+  lueckentext: "Lückentext",
+  vokabeltest: "Vokabeltest",
+  quiz: "Quiz",
+};
+
+type StatsPeriod = "30" | "180";
+
+interface DayDetail {
+  day: string;
+  sets: { set_id: number; tool: string; mode: string; title: string; answers: number; correct: number; wrong: number; first_answer: string | null; last_answer: string | null }[];
+  total_answers: number;
+  total_correct: number;
+  total_wrong: number;
+  chat_count: number;
+}
+
+function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats | null; loading: boolean; moduleUuid: string }) {
+  const [period, setPeriod] = useState<StatsPeriod>("30");
+  const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
+  const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
+  const [dayDetailLoading, setDayDetailLoading] = useState(false);
+  const [category, setCategory] = useState<"lerntools" | "sprachtraining">("lerntools");
+
+  if (loading) return (
+    <div className="flex-1 flex items-center justify-center p-4">
+      <p className="text-sm" style={{ color: "var(--muted)" }}>Statistik wird geladen…</p>
+    </div>
+  );
+  if (!stats) return (
+    <div className="flex-1 flex items-center justify-center p-4">
+      <p className="text-sm" style={{ color: "var(--muted)" }}>Noch keine Daten vorhanden. Starte Übungen, um deine Statistik zu sehen.</p>
+    </div>
+  );
+
+  const { lerntools, sprachtraining, by_tool, heatmap, chat, active_days, today } = stats;
+  const currentOverview = category === "lerntools" ? lerntools : sprachtraining;
+  const currentTools = by_tool.filter(t => t.mode === (category === "lerntools" ? "quelle" : "glossar"));
+
+  // Filter heatmap by period
+  const periodDays = parseInt(period);
+  const filteredHeatmap = heatmap.slice(-periodDays);
+  const periodAnswers = filteredHeatmap.reduce((s, d) => s + d.answers, 0);
+  const periodCorrect = filteredHeatmap.reduce((s, d) => s + d.correct, 0);
+  const periodWrong = filteredHeatmap.reduce((s, d) => s + d.wrong, 0);
+  const periodActiveDays = filteredHeatmap.filter(d => d.answers > 0).length;
+  const periodAccuracy = periodAnswers > 0 ? Math.round(periodCorrect / periodAnswers * 100) : 0;
+
+  // Heatmap rendering: weeks as columns, days as rows (Mon-Sun)
+  const heatmapWeeks: HeatmapDay[][] = [];
+  let currentWeek: HeatmapDay[] = [];
+  for (const d of filteredHeatmap) {
+    const dow = new Date(d.day + "T00:00:00").getDay(); // 0=Sun
+    const mondayIdx = dow === 0 ? 6 : dow - 1; // 0=Mon
+    if (mondayIdx === 0 && currentWeek.length > 0) {
+      heatmapWeeks.push(currentWeek);
+      currentWeek = [];
+    }
+    currentWeek.push(d);
+  }
+  if (currentWeek.length > 0) heatmapWeeks.push(currentWeek);
+
+  const maxAns = Math.max(...filteredHeatmap.map(d => d.answers), 1);
+
+  function heatColor(answers: number): string {
+    if (answers === 0) return "var(--border)";
+    const intensity = Math.min(answers / maxAns, 1);
+    if (intensity < 0.25) return "rgba(34,197,94,0.25)";
+    if (intensity < 0.5) return "rgba(34,197,94,0.45)";
+    if (intensity < 0.75) return "rgba(34,197,94,0.65)";
+    return "rgba(34,197,94,0.9)";
+  }
+
+  function formatDay(dayStr: string) {
+    const d = new Date(dayStr + "T00:00:00");
+    return d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
+  }
+
+  function formatTime(iso: string | null) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  async function selectDay(d: HeatmapDay) {
+    if (selectedDay?.day === d.day) { setSelectedDay(null); setDayDetail(null); return; }
+    setSelectedDay(d);
+    if (d.answers === 0) { setDayDetail(null); return; }
+    setDayDetailLoading(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${d.day}`, { credentials: "include" });
+      if (res.ok) setDayDetail(await res.json());
+    } catch { /* ignore */ }
+    setDayDetailLoading(false);
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
+      {/* ── Category filter ── */}
+      <StudioTabs
+        tabs={[
+          { key: "lerntools", label: "Lerntools" },
+          { key: "sprachtraining", label: "Sprachtraining" },
+        ]}
+        active={category}
+        onSelect={(k) => setCategory(k as "lerntools" | "sprachtraining")}
+      />
+
+      {/* ── Summary cards ── */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg)" }}>
+          <div className="text-lg font-bold" style={{ color: "var(--text)" }}>
+            {currentOverview.avg_accuracy > 0 ? `${currentOverview.avg_accuracy}%` : "—"}
+          </div>
+          <div className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>Erfolgsrate</div>
+        </div>
+        <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg)" }}>
+          <div className="text-lg font-bold" style={{ color: "#16a34a" }}>
+            {currentOverview.correct_cards}
+          </div>
+          <div className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>Richtig</div>
+        </div>
+        <div className="rounded-xl p-3 text-center" style={{ backgroundColor: "var(--bg)" }}>
+          <div className="text-lg font-bold" style={{ color: "#dc2626" }}>
+            {currentOverview.wrong_cards}
+          </div>
+          <div className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>Falsch</div>
+        </div>
+      </div>
+
+      {/* ── Period selector + period summary ── */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-semibold" style={{ color: "var(--text)" }}>Aktivität</h3>
+          <div className="flex gap-1">
+            {([["30", "30 Tage"], ["180", "Semester"]] as [StatsPeriod, string][]).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => { setPeriod(val); setSelectedDay(null); }}
+                className="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
+                style={{
+                  backgroundColor: period === val ? "var(--kb)" : "transparent",
+                  color: period === val ? "#fff" : "var(--muted)",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Period summary line */}
+        <div className="flex gap-3 mb-2 text-[10px]" style={{ color: "var(--muted)" }}>
+          <span>{periodActiveDays} aktive Tage</span>
+          <span>{periodAnswers} Antworten</span>
+          {periodAnswers > 0 && <span>{periodAccuracy}% richtig</span>}
+        </div>
+
+        {/* ── Heatmap ── */}
+        {(() => {
+          const cellSize = 22;
+          const gap = 3;
+          const showDayNums = true;
+          // Build month labels with correct column spans
+          const monthLabels: { label: string; colSpan: number }[] = [];
+          let prevMonth = -1;
+          for (const week of heatmapWeeks) {
+            const d = new Date(week[0].day + "T00:00:00");
+            const m = d.getMonth();
+            if (m !== prevMonth) {
+              monthLabels.push({ label: d.toLocaleDateString("de-DE", { month: "short" }), colSpan: 1 });
+              prevMonth = m;
+            } else {
+              monthLabels[monthLabels.length - 1].colSpan++;
+            }
+          }
+          return (
+            <div className="overflow-x-auto p-1">
+              <div className="flex mx-auto" style={{ width: "fit-content" }}>
+              {/* Row labels — fixed */}
+              <div className="flex flex-col flex-shrink-0 mr-2" style={{ paddingTop: cellSize + gap + 2 }}>
+                  {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(d => (
+                    <div key={d} className="flex items-center justify-end text-[10px] font-medium" style={{ height: cellSize, marginBottom: gap, color: "var(--muted)" }}>{d}</div>
+                  ))}
+                </div>
+                {/* Grid with month headers */}
+                <div>
+                  {/* Month labels */}
+                  <div className="flex" style={{ marginBottom: gap, width: "fit-content" }}>
+                    {monthLabels.map((m, i) => (
+                      <div key={i} className="text-[10px] font-medium" style={{
+                        width: m.colSpan * (cellSize + gap) - gap,
+                        marginRight: gap,
+                        color: "var(--muted)",
+                        height: cellSize,
+                        display: "flex",
+                        alignItems: "center",
+                      }}>{m.label}</div>
+                    ))}
+                  </div>
+                  {/* Cells */}
+                  <div className="flex" style={{ gap, width: "fit-content" }}>
+                    {heatmapWeeks.map((week, wi) => (
+                      <div key={wi} className="flex flex-col" style={{ gap }}>
+                        {week.map(d => {
+                          const isSelected = selectedDay?.day === d.day;
+                          const dateObj = new Date(d.day + "T00:00:00");
+                          const dayNum = dateObj.getDate();
+                          const isToday = d.day === today;
+                          return (
+                            <button
+                              key={d.day}
+                              type="button"
+                              onClick={() => selectDay(d)}
+                              className="rounded-[4px] transition-all flex items-center justify-center"
+                              style={{
+                                width: cellSize,
+                                height: cellSize,
+                                backgroundColor: isSelected ? "var(--kb)" : heatColor(d.answers),
+                                outline: isToday && !isSelected ? "2px solid var(--kb)" : "none",
+                                outlineOffset: 1,
+                              }}
+                              title={`${formatDay(d.day)}: ${d.answers} Antworten`}
+                            >
+                              {showDayNums && <span className="text-[8px] font-medium" style={{ color: isSelected || d.answers > 0 ? "rgba(255,255,255,0.9)" : "var(--muted)", opacity: isSelected ? 1 : 0.7 }}>{dayNum}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-2 mt-2">
+          <span className="text-[10px]" style={{ color: "var(--muted)" }}>Weniger</span>
+          {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
+            <div key={i} className="rounded-[3px]" style={{ width: 14, height: 14, backgroundColor: v === 0 ? "var(--border)" : `rgba(34,197,94,${0.15 + v * 0.75})` }} />
+          ))}
+          <span className="text-[10px]" style={{ color: "var(--muted)" }}>Mehr</span>
+        </div>
+      </div>
+
+      {/* ── Selected day detail ── */}
+      {selectedDay && (
+        <div className="rounded-xl p-3" style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold" style={{ color: "var(--text)" }}>
+              {formatDay(selectedDay.day)} {selectedDay.day === today && "(Heute)"}
+            </div>
+            <button type="button" onClick={() => { setSelectedDay(null); setDayDetail(null); }} className="text-xs" style={{ color: "var(--muted)" }}>✕</button>
+          </div>
+          {selectedDay.answers === 0 ? (
+            <p className="text-xs" style={{ color: "var(--muted)" }}>Keine Aktivität an diesem Tag.</p>
+          ) : dayDetailLoading ? (
+            <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
+          ) : dayDetail ? (
+            <div className="space-y-2">
+              {/* Summary line */}
+              <div className="flex gap-3 text-[10px]" style={{ color: "var(--muted)" }}>
+                <span>{dayDetail.total_answers} Antworten</span>
+                <span style={{ color: "#16a34a" }}>{dayDetail.total_correct} richtig</span>
+                <span style={{ color: "#dc2626" }}>{dayDetail.total_wrong} falsch</span>
+                {dayDetail.chat_count > 0 && <span>{dayDetail.chat_count} Chat-Fragen</span>}
+              </div>
+              {/* Per-set breakdown */}
+              {dayDetail.sets.map(s => {
+                const pct = s.answers > 0 ? Math.round(s.correct / s.answers * 100) : 0;
+                // Clean title: remove file extensions for display
+                const displayTitle = s.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
+                return (
+                  <div key={s.set_id} className="rounded-lg px-2.5 py-2" style={{ backgroundColor: "var(--surface)" }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium truncate" style={{ color: "var(--text)", maxWidth: "70%" }}>
+                        {displayTitle}
+                      </span>
+                      <span className="text-xs font-semibold" style={{ color: pct >= 70 ? "#16a34a" : pct >= 40 ? "#ca8a04" : "#dc2626" }}>
+                        {pct}%
+                      </span>
+                    </div>
+                    {/* Mini progress bar */}
+                    <div className="flex rounded-full overflow-hidden" style={{ height: 4, backgroundColor: "var(--border)" }}>
+                      <div style={{ width: `${pct}%`, backgroundColor: "#16a34a" }} />
+                      {s.wrong > 0 && <div style={{ width: `${100 - pct}%`, backgroundColor: "#dc2626", opacity: 0.4 }} />}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-[9px]" style={{ color: "var(--muted)" }}>
+                      <span className="px-1 py-0.5 rounded" style={{
+                        backgroundColor: s.mode === "glossar" ? "rgba(168,85,247,0.1)" : "rgba(59,130,246,0.1)",
+                        color: s.mode === "glossar" ? "#7c3aed" : "#2563eb",
+                      }}>
+                        {TOOL_LABELS[s.tool] || s.tool}
+                      </span>
+                      <span>{s.correct} richtig · {s.wrong} falsch</span>
+                      {s.first_answer && <span>{formatTime(s.first_answer)}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* ── By tool breakdown ── */}
+      {currentTools.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text)" }}>Nach Übungstyp</h3>
+          <div className="space-y-2">
+            {currentTools.map((t) => {
+              const total = t.correct_cards + t.wrong_cards;
+              const pct = total > 0 ? Math.round(t.correct_cards / total * 100) : 0;
+              return (
+                <div key={`${t.mode}:${t.tool}`} className="rounded-lg px-3 py-2.5" style={{ backgroundColor: "var(--bg)" }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium" style={{ color: "var(--text)" }}>
+                      {TOOL_LABELS[t.tool] || t.tool}
+                    </span>
+                    <span className="text-xs font-semibold" style={{ color: pct >= 70 ? "#16a34a" : pct >= 40 ? "#ca8a04" : "#dc2626" }}>
+                      {total > 0 ? `${pct}%` : "—"}
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  {total > 0 && (
+                    <div className="flex rounded-full overflow-hidden" style={{ height: 5, backgroundColor: "var(--border)" }}>
+                      <div style={{ width: `${pct}%`, backgroundColor: "#16a34a" }} />
+                      <div style={{ width: `${100 - pct}%`, backgroundColor: "#dc2626", opacity: 0.5 }} />
+                    </div>
+                  )}
+                  <div className="flex gap-3 mt-1 text-[10px]" style={{ color: "var(--muted)" }}>
+                    <span>{t.practiced_sets}/{t.total_sets} Sets</span>
+                    {total > 0 && <span>{t.correct_cards} richtig · {t.wrong_cards} falsch</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── General stats ── */}
+      <div>
+        <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text)" }}>Allgemein</h3>
+        <div className="space-y-1.5">
+          {[
+            { label: "Chat-Fragen gestellt", value: `${chat.total}${chat.today > 0 ? ` (${chat.today} heute)` : ""}` },
+            { label: "Sets erstellt", value: String(currentOverview.total_sets) },
+            { label: "Karten bearbeitet", value: `${currentOverview.answered_cards} / ${currentOverview.total_cards}` },
+            { label: "Aktive Tage gesamt", value: String(active_days) },
+          ].map(row => (
+            <div key={row.label} className="flex items-center justify-between text-xs px-1 py-1" style={{ borderBottom: "1px solid var(--border)" }}>
+              <span style={{ color: "var(--muted)" }}>{row.label}</span>
+              <span className="font-medium" style={{ color: "var(--text)" }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Studio Tabs (container-width responsive) ───────────────────────────────
 
 function StudioTabs({ tabs, active, onSelect }: {
@@ -4475,7 +4885,7 @@ function StudioTabs({ tabs, active, onSelect }: {
   const cols = layout === "row" ? tabs.map(t => t.key === "sprachtraining" ? "1.4fr" : "1fr").join(" ") : layout === "grid" ? "repeat(2, 1fr)" : "1fr";
 
   return (
-    <div ref={ref} className="flex-shrink-0 px-3 pt-4 pb-2 w-full mx-auto" style={{ maxWidth: 500 }}>
+    <div ref={ref} className="flex-shrink-0 px-3 pt-6 pb-2 w-full mx-auto" style={{ maxWidth: 500 }}>
       <div
         className="grid gap-1 p-1 rounded-xl"
         style={{ backgroundColor: "rgba(0, 66, 97, 0.08)", gridTemplateColumns: cols }}
@@ -4506,15 +4916,32 @@ function StudioTabs({ tabs, active, onSelect }: {
 
 // ─── Studio Overview ──────────────────────────────────────────────────────────
 
-function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode }) {
-  const [studioTab, _setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen" | "ergebnisse">(() => {
+function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string }) {
+  const [studioTab, _setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen" | "statistik">(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("kis-studio-tab");
-      if (saved && ["tools", "sprachtraining", "glossar", "notizen", "ergebnisse"].includes(saved)) return saved as any;
+      if (saved && ["tools", "sprachtraining", "glossar", "notizen", "statistik"].includes(saved)) return saved as any;
     }
     return "tools";
   });
   const setStudioTab = (tab: typeof studioTab) => { _setStudioTab(tab); sessionStorage.setItem("kis-studio-tab", tab); };
+
+  const [studentStats, setStudentStats] = useState<StudentStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const statsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (studioTab === "statistik" && !statsLoadedRef.current) {
+      statsLoadedRef.current = true;
+      setStatsLoading(true);
+      fetch(`/api/ki-tutor/modules/${moduleUuid}/stats`, { credentials: "include" })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setStudentStats(data); })
+        .catch(() => {})
+        .finally(() => setStatsLoading(false));
+    }
+  }, [studioTab, moduleUuid]);
+
   const tiles = [
     { key: "karteikarten" as const, Icon: Cards, label: "Karteikarten", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
     { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
@@ -4527,34 +4954,40 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
-        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Studio</span>
-        <button
-          type="button"
-          onClick={onMinimize}
-          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
-          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
-          title="Panel minimieren"
-        >
-          <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
-        </button>
-      </div>
+      {studioTab === "statistik" ? (
+        <SubviewHeader title="Statistik" onBack={() => setStudioTab("tools")} />
+      ) : (
+        <>
+          <div
+            className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+            style={{ borderBottom: "1px solid var(--border)" }}
+          >
+            <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Studio</span>
+            <button
+              type="button"
+              onClick={onMinimize}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+              style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
+              title="Panel minimieren"
+            >
+              <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
+            </button>
+          </div>
 
-      {/* Tabs */}
-      <StudioTabs
-        tabs={[
-          { key: "tools" as const, label: "Lerntools" },
-          ...(sprachtrainingActive ? [{ key: "sprachtraining" as const, label: "Sprachtraining" }] : []),
-          { key: "glossar" as const, label: "Glossar" },
-          { key: "notizen" as const, label: "Notizen" },
-          { key: "ergebnisse" as const, label: "Statistik" },
-        ]}
-        active={studioTab}
-        onSelect={(k) => setStudioTab(k as typeof studioTab)}
-      />
+          {/* Tabs */}
+          <StudioTabs
+            tabs={[
+              { key: "tools" as const, label: "Lerntools" },
+              ...(sprachtrainingActive ? [{ key: "sprachtraining" as const, label: "Sprachtraining" }] : []),
+              { key: "glossar" as const, label: "Glossar" },
+              { key: "notizen" as const, label: "Notizen" },
+              { key: "statistik" as const, label: "Statistik" },
+            ]}
+            active={studioTab}
+            onSelect={(k) => setStudioTab(k as typeof studioTab)}
+          />
+        </>
+      )}
 
       {/* Tile grid */}
       {studioTab === "tools" && (
@@ -4583,10 +5016,8 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
       )}
 
       {/* Ergebnisse Inhalt */}
-      {studioTab === "ergebnisse" && (
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center justify-center gap-3">
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Kommt gleich…</p>
-        </div>
+      {studioTab === "statistik" && (
+        <StudentStatsView stats={studentStats} loading={statsLoading} moduleUuid={moduleUuid} />
       )}
     </div>
   );
@@ -4987,8 +5418,8 @@ export default function KiTutorModulePage() {
   }, [chatLang, studioEnabled, sprachtrainingActive, initialized, uuid]);
 
   useEffect(() => {
-    const needsPoll = sources.some((s) => s.status === "indexing" || s.status === "pending");
-    if (!needsPoll) return;
+    const pendingIds = sources.filter((s) => s.status === "indexing" || s.status === "pending").map((s) => s.uuid);
+    if (pendingIds.length === 0) return;
     const id = setInterval(async () => {
       const res = await fetch(`/api/ki-tutor/modules/${uuid}`, { credentials: "include" });
       if (!res.ok) return;
@@ -4996,9 +5427,10 @@ export default function KiTutorModulePage() {
       const srcs: Source[] = mod.sources ?? [];
       setSources(srcs);
       setModuleDetail(mod);
+      // Only auto-select sources that just transitioned from pending/indexing → ready
       setSelectedSourceIds((prev) => {
-        const newReady = srcs.filter((s) => s.status === "ready" && !prev.includes(s.uuid)).map((s) => s.uuid);
-        return newReady.length > 0 ? [...prev, ...newReady] : prev;
+        const justBecameReady = srcs.filter((s) => s.status === "ready" && pendingIds.includes(s.uuid) && !prev.includes(s.uuid)).map((s) => s.uuid);
+        return justBecameReady.length > 0 ? [...prev, ...justBecameReady] : prev;
       });
     }, 3000);
     return () => clearInterval(id);
@@ -6379,7 +6811,7 @@ export default function KiTutorModulePage() {
               ) : sprachView !== "overview" ? (
                 sprachtrainingContent
               ) : studioView === "overview" ? (
-                <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} />
+                <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} />
               ) : activeSet && activeSet.tool === "karteikarten" ? (
                 <LernkartenLearnView
                   exerciseSet={activeSet}
@@ -6568,7 +7000,7 @@ export default function KiTutorModulePage() {
                   ) : sprachView !== "overview" ? (
                     sprachtrainingContent
                   ) : studioView === "overview" ? (
-                    <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} />
+                    <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} />
                   ) : activeSet && activeSet.tool === "karteikarten" ? (
                     <LernkartenLearnView
                       exerciseSet={activeSet}
