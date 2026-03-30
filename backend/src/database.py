@@ -438,23 +438,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS ki_tutor_vocab_progress (
-                    id                SERIAL PRIMARY KEY,
-                    glossary_entry_id INTEGER NOT NULL
-                                        REFERENCES ki_tutor_glossary_entries(id) ON DELETE CASCADE,
-                    user_id           INTEGER NOT NULL,
-                    exercise_type     TEXT NOT NULL,
-                    correct           BOOLEAN NOT NULL,
-                    answered_at       TIMESTAMP NOT NULL DEFAULT NOW()
-                )
-            """)
-            cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_glossary_source
                 ON ki_tutor_glossary_entries(source_id)
-            """)
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_vocab_progress_user
-                ON ki_tutor_vocab_progress(user_id, glossary_entry_id)
             """)
             # ─── Exercise Sets ──────────────────────────────────
             cur.execute("""
@@ -2571,124 +2556,6 @@ def delete_glossary_entry(entry_id: int) -> bool:
             deleted = cur.fetchone() is not None
         conn.commit()
     return deleted
-
-
-# --- KI Tutor: Vocab Progress ---
-
-def record_vocab_progress(glossary_entry_id: int, user_id: int, exercise_type: str, correct: bool) -> None:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """INSERT INTO ki_tutor_vocab_progress
-                   (glossary_entry_id, user_id, exercise_type, correct)
-                   VALUES (%s, %s, %s, %s)""",
-                (glossary_entry_id, user_id, exercise_type, correct),
-            )
-        conn.commit()
-
-
-def bulk_record_vocab_progress(records: list[dict]) -> None:
-    if not records:
-        return
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            values = []
-            params: list = []
-            for r in records:
-                values.append("(%s, %s, %s, %s)")
-                params.extend([r["glossary_entry_id"], r["user_id"], r["exercise_type"], r["correct"]])
-            cur.execute(
-                f"""INSERT INTO ki_tutor_vocab_progress
-                    (glossary_entry_id, user_id, exercise_type, correct)
-                    VALUES {', '.join(values)}""",
-                params,
-            )
-        conn.commit()
-
-
-def get_vocab_analytics(module_id: int, user_id: int) -> list[dict]:
-    """Get per-entry analytics across all sources in a module."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """SELECT
-                       g.id AS entry_id,
-                       g.source_id,
-                       g.term_de,
-                       g.term_en,
-                       s.filename,
-                       COUNT(p.id) AS total_attempts,
-                       COUNT(p.id) FILTER (WHERE p.correct) AS correct_count,
-                       COUNT(p.id) FILTER (WHERE NOT p.correct) AS wrong_count,
-                       MAX(p.answered_at) AS last_practiced
-                   FROM ki_tutor_glossary_entries g
-                   JOIN ki_tutor_sources s ON s.id = g.source_id
-                   LEFT JOIN ki_tutor_vocab_progress p
-                     ON p.glossary_entry_id = g.id AND p.user_id = %s
-                   WHERE s.module_id = %s
-                   GROUP BY g.id, g.source_id, g.term_de, g.term_en, s.filename
-                   ORDER BY
-                     CASE WHEN COUNT(p.id) = 0 THEN 0
-                          ELSE COUNT(p.id) FILTER (WHERE p.correct)::float / COUNT(p.id)
-                     END ASC,
-                     g.term_de""",
-                (user_id, module_id),
-            )
-            return [dict(r) for r in cur.fetchall()]
-
-
-def get_vocab_analytics_summary(module_id: int, user_id: int) -> dict:
-    """Get aggregated analytics summary per source."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """SELECT
-                       s.uuid AS source_uuid,
-                       s.filename,
-                       COUNT(DISTINCT g.id) AS total_terms,
-                       COUNT(DISTINCT g.id) FILTER (
-                         WHERE (SELECT COUNT(*) FILTER (WHERE p2.correct)
-                                FROM ki_tutor_vocab_progress p2
-                                WHERE p2.glossary_entry_id = g.id AND p2.user_id = %s) >= 2
-                       ) AS mastered_terms,
-                       COUNT(DISTINCT p.glossary_entry_id) FILTER (WHERE p.id IS NOT NULL) AS practiced_terms,
-                       COALESCE(SUM(CASE WHEN p.correct THEN 1 ELSE 0 END), 0) AS total_correct,
-                       COUNT(p.id) AS total_attempts,
-                       MAX(p.answered_at) AS last_practiced
-                   FROM ki_tutor_sources s
-                   JOIN ki_tutor_glossary_entries g ON g.source_id = s.id
-                   LEFT JOIN ki_tutor_vocab_progress p
-                     ON p.glossary_entry_id = g.id AND p.user_id = %s
-                   WHERE s.module_id = %s
-                   GROUP BY s.uuid, s.filename
-                   ORDER BY s.filename""",
-                (user_id, user_id, module_id),
-            )
-            sources = [dict(r) for r in cur.fetchall()]
-
-            # Weak terms: less than 50% correct rate with at least 1 attempt
-            cur.execute(
-                """SELECT
-                       g.id AS entry_id,
-                       g.term_de,
-                       g.term_en,
-                       s.filename,
-                       COUNT(p.id) AS attempts,
-                       COUNT(p.id) FILTER (WHERE p.correct) AS correct_count
-                   FROM ki_tutor_glossary_entries g
-                   JOIN ki_tutor_sources s ON s.id = g.source_id
-                   JOIN ki_tutor_vocab_progress p
-                     ON p.glossary_entry_id = g.id AND p.user_id = %s
-                   WHERE s.module_id = %s
-                   GROUP BY g.id, g.term_de, g.term_en, s.filename
-                   HAVING COUNT(p.id) FILTER (WHERE p.correct)::float / COUNT(p.id) < 0.5
-                   ORDER BY COUNT(p.id) FILTER (WHERE p.correct)::float / COUNT(p.id) ASC
-                   LIMIT 10""",
-                (user_id, module_id),
-            )
-            weak_terms = [dict(r) for r in cur.fetchall()]
-
-    return {"sources": sources, "weak_terms": weak_terms}
 
 
 # ─── Exercise Sets ────────────────────────────────────────────────────────────

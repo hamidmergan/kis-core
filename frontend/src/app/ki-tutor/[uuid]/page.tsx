@@ -58,6 +58,7 @@ import {
   VideoCamera,
   FileVideo,
   FileAudio,
+  Files,
   type IconWeight,
 } from "@phosphor-icons/react";
 import Header from "@/components/Header";
@@ -252,28 +253,7 @@ interface VocabTestQuestion {
   explanation?: string;
 }
 
-interface VocabAnalyticsSummary {
-  sources: {
-    source_uuid: string;
-    filename: string;
-    total_terms: number;
-    mastered_terms: number;
-    practiced_terms: number;
-    total_correct: number;
-    total_attempts: number;
-    last_practiced: string | null;
-  }[];
-  weak_terms: {
-    entry_id: number;
-    term_de: string;
-    term_en: string;
-    filename: string;
-    attempts: number;
-    correct_count: number;
-  }[];
-}
-
-type SprachtrainingView = "overview" | "glossar" | "karteikarten" | "lueckentext" | "vokabeltest" | "ergebnisse"
+type SprachtrainingView = "overview" | "glossar" | "karteikarten" | "lueckentext" | "vokabeltest"
   | "lk-sets" | "lk-learn" | "lk-complete"
   | "cl-sets" | "cl-learn" | "cl-complete"
   | "vt-sets" | "vt-learn" | "vt-complete"
@@ -1768,7 +1748,7 @@ function ExerciseSetsOverview({
             backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
             color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
           }}>
-          <FilePdf size={13} weight="bold" />
+          <Files size={13} weight="bold" />
           {noSources
             ? "Keine Quelle ausgewählt"
             : sourceCount === 1
@@ -2471,7 +2451,7 @@ function QuizStudio({
               backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
               color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
             }}>
-            <FilePdf size={13} weight="bold" />
+            <Files size={13} weight="bold" />
             {noSources
               ? "Keine Quelle ausgewählt"
               : sourceCount === 1
@@ -2851,7 +2831,7 @@ function InfografikStudio({
               backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
               color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
             }}>
-            <FilePdf size={13} weight="bold" />
+            <Files size={13} weight="bold" />
             {noSources
               ? "Keine Quelle ausgewählt"
               : sourceCount === 1
@@ -2997,7 +2977,7 @@ function DatentabelleStudio({
               backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
               color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
             }}>
-            <FilePdf size={13} weight="bold" />
+            <Files size={13} weight="bold" />
             {noSources
               ? "Keine Quelle ausgewählt"
               : sourceCount === 1
@@ -3197,7 +3177,7 @@ interface MindmapNodeData {
   topic: string;
   children?: MindmapNodeData[];
   source_label?: string;
-  page_number?: number;
+  page_number?: number | string;
   keyword?: string;
 }
 
@@ -3229,7 +3209,7 @@ function MindmapStudio({
   const nodeClickCleanupRef = useRef<(() => void) | null>(null);
   const setFullscreenRef = useRef(setFullscreen);
   setFullscreenRef.current = setFullscreen;
-  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number: number; keyword?: string }>());
+  const nodeSourceMapRef = useRef(new Map<string, { source_label: string; page_number: number | string; keyword?: string }>());
   const sourceIndexRef = useRef(new Map<string, number>());
 
   function expandAll(node: any) {
@@ -3302,17 +3282,24 @@ function MindmapStudio({
       nodeSourceMapRef.current = new Map();
       function convert(node: MindmapNodeData): any {
         const id = `node-${nid++}`;
-        let topic = node.topic;
+        const result: any = { id, topic: node.topic };
         if (node.source_label && node.page_number != null) {
           nodeSourceMapRef.current.set(id, { source_label: node.source_label, page_number: node.page_number, keyword: node.keyword });
           const srcNum = sourceIndexMap.get(node.source_label);
           if (srcNum) {
             const isMedia = _isMediaFile(node.source_label);
-            const label = isMedia ? String(node.page_number) : `S. ${node.page_number}`;
-            topic += `  [${srcNum}] ${label}`;
+            const label = isMedia && typeof node.page_number === "string"
+              ? node.page_number
+              : `S. ${node.page_number}`;
+            const esc = node.topic.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            // Phosphor bold icons — same as chat pills (FilePdf / Play)
+            const icon = isMedia
+              ? `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 256 256" fill="currentColor" style="vertical-align:-1px;flex-shrink:0"><path d="M234.49,111.07,90.41,22.94A20,20,0,0,0,60,39.87V216.13a20,20,0,0,0,30.41,16.93l144.08-88.13a19.82,19.82,0,0,0,0-33.86ZM84,208.85V47.15L216.16,128Z"/></svg>`
+              : `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 256 256" fill="currentColor" style="vertical-align:-1px;flex-shrink:0"><path d="M200,164v8h12a12,12,0,0,1,0,24H200v12a12,12,0,0,1-24,0V152a12,12,0,0,1,12-12h32a12,12,0,0,1,0,24ZM92,172a32,32,0,0,1-32,32H56v4a12,12,0,0,1-24,0V152a12,12,0,0,1,12-12H60A32,32,0,0,1,92,172Zm-24,0a8,8,0,0,0-8-8H56v16h4A8,8,0,0,0,68,172Zm100,8a40,40,0,0,1-40,40H112a12,12,0,0,1-12-12V152a12,12,0,0,1,12-12h16A40,40,0,0,1,168,180Zm-24,0a16,16,0,0,0-16-16h-4v32h4A16,16,0,0,0,144,180ZM36,108V40A20,20,0,0,1,56,20h96a12,12,0,0,1,8.49,3.52l56,56A12,12,0,0,1,220,88v20a12,12,0,0,1-24,0v-4H148a12,12,0,0,1-12-12V44H60v64a12,12,0,0,1-24,0ZM160,57V80h23Z"/></svg>`;
+            result.dangerouslySetInnerHTML =
+              `${esc} <span class="mm-src-chip">${icon} [${srcNum}] ${label}</span>`;
           }
         }
-        const result: any = { id, topic };
         if (node.children && node.children.length > 0) {
           result.children = node.children.map(convert);
         }
@@ -3392,7 +3379,18 @@ function MindmapStudio({
           ?? srcs.find((s) => label.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(label));
         if (src) {
           setFullscreenRef.current(false);
-          cb(src.uuid, srcInfo.page_number, src.filename, srcInfo.keyword || undefined);
+          const isMedia = _isMediaFile(src.filename);
+          if (isMedia && typeof srcInfo.page_number === "string") {
+            // Parse timestamp string "M:SS" or "H:MM:SS" → seconds
+            const parts = srcInfo.page_number.split(":").map(Number);
+            let startTime = 0;
+            if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
+            else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
+            cb(src.uuid, 0, src.filename, srcInfo.keyword || undefined, startTime);
+          } else {
+            const pageNum = typeof srcInfo.page_number === "number" ? srcInfo.page_number : parseInt(String(srcInfo.page_number), 10) || 0;
+            cb(src.uuid, pageNum, src.filename, srcInfo.keyword || undefined);
+          }
         }
       };
       containerRef.current.addEventListener("pointerdown", onDown);
@@ -3433,7 +3431,7 @@ function MindmapStudio({
               backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
               color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
             }}>
-            <FilePdf size={13} weight="bold" />
+            <Files size={13} weight="bold" />
             {noSources
               ? "Keine Quelle ausgewählt"
               : sourceCount === 1
@@ -3540,7 +3538,7 @@ function MindmapStudio({
           </div>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col">
-          {loading && (
+          {!mindmap && loading && (
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
                 <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
@@ -3548,7 +3546,7 @@ function MindmapStudio({
               </div>
             </div>
           )}
-          {mindmap && !loading && (
+          {mindmap && (
             <>
               <div
                 ref={containerRef}
@@ -3777,7 +3775,7 @@ function GlossarView({
             backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
             color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
           }}>
-          <FilePdf size={13} weight="bold" />
+          <Files size={13} weight="bold" />
           {noSources
             ? "Keine Quelle ausgewählt"
             : sourceCount === 1
@@ -3869,11 +3867,10 @@ function GlossarView({
 // ─── Sprachtraining: Karteikarten ────────────────────────────────────────────
 
 function VocabFlashcards({
-  entries, onBack, onFinish,
+  entries, onBack,
 }: {
   entries: GlossaryEntry[];
   onBack: () => void;
-  onFinish: (results: { glossary_entry_id: number; correct: boolean }[]) => void;
 }) {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -3893,7 +3890,6 @@ function VocabFlashcards({
       setIndex(index + 1);
     } else {
       setFinished(true);
-      onFinish(newResults);
     }
   }
 
@@ -4044,11 +4040,10 @@ function VocabFlashcards({
 // ─── Sprachtraining: Lückentext ──────────────────────────────────────────────
 
 function LueckentextView({
-  exercises, loading, onGenerate, onBack, onFinish,
+  exercises, loading, onGenerate, onBack,
 }: {
   exercises: ClozeExercise[]; loading: boolean;
   onGenerate: () => void; onBack: () => void;
-  onFinish: (results: { glossary_entry_id: number; correct: boolean }[]) => void;
 }) {
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -4068,11 +4063,6 @@ function LueckentextView({
     } else {
       setFinished(true);
       const finalAnswers = { ...answers };
-      const results = exercises.map((e, i) => ({
-        glossary_entry_id: e.glossary_entry_id,
-        correct: e.options[finalAnswers[i]] === e.answer,
-      }));
-      onFinish(results);
     }
   }
 
@@ -4202,11 +4192,10 @@ function LueckentextView({
 // ─── Sprachtraining: Vokabeltest ─────────────────────────────────────────────
 
 function VokabeltestView({
-  questions, loading, onGenerate, onBack, onFinish,
+  questions, loading, onGenerate, onBack,
 }: {
   questions: VocabTestQuestion[]; loading: boolean;
   onGenerate: () => void; onBack: () => void;
-  onFinish: (results: { glossary_entry_id: number; correct: boolean }[]) => void;
 }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [current, setCurrent] = useState(0);
@@ -4226,11 +4215,6 @@ function VokabeltestView({
     } else {
       setFinished(true);
       const finalAnswers = { ...answers };
-      const results = questions.map((qq, i) => ({
-        glossary_entry_id: qq.glossary_entry_id,
-        correct: finalAnswers[i] === qq.correct_index,
-      }));
-      onFinish(results);
     }
   }
 
@@ -4352,125 +4336,6 @@ function VokabeltestView({
   );
 }
 
-// ─── Sprachtraining: Ergebnisse & Analytics ──────────────────────────────────
-
-function ErgebnisseView({
-  analytics, loading, onBack, onRefresh,
-}: {
-  analytics: VocabAnalyticsSummary | null; loading: boolean;
-  onBack: () => void; onRefresh: () => void;
-}) {
-  const hasData = analytics && (analytics.sources.length > 0 || analytics.weak_terms.length > 0);
-
-  return (
-    <div className="flex flex-col h-full">
-      <SubviewHeader title="Ergebnisse" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
-          {!hasData && !loading && (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 py-16 px-6">
-              <ChartBar size={32} weight="duotone" color="var(--muted)" style={{ opacity: 0.5 }} />
-              <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Noch keine Ergebnisse</p>
-              <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>Schließe Übungen ab, um deinen Fortschritt hier zu sehen.</p>
-            </div>
-          )}
-
-          {loading && (
-            <div className="flex-1 flex items-center justify-center py-16">
-              <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
-            </div>
-          )}
-
-          {/* Weak terms alert */}
-          {hasData && analytics!.weak_terms.length > 0 && (
-            <div className="rounded-xl p-4" style={{ backgroundColor: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.12)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Target size={16} weight="bold" color="#B91C1C" />
-                <span className="text-xs font-bold" style={{ color: "#B91C1C" }}>Schwächen erkannt — diese Begriffe üben</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                {analytics.weak_terms.map((w) => {
-                  const rate = w.attempts > 0 ? Math.round((w.correct_count / w.attempts) * 100) : 0;
-                  return (
-                    <div key={w.entry_id} className="flex items-center justify-between rounded-lg px-3 py-2"
-                      style={{ backgroundColor: "rgba(239,68,68,0.06)" }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{w.term_de}</span>
-                        <span className="text-[10px] ml-1.5" style={{ color: "var(--muted)" }}>{w.term_en}</span>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="w-12 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(239,68,68,0.15)" }}>
-                          <div className="h-full rounded-full" style={{ width: `${rate}%`, backgroundColor: "#ef4444" }} />
-                        </div>
-                        <span className="text-[10px] font-bold" style={{ color: "#B91C1C" }}>{rate}%</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Per-source analytics */}
-          {hasData && analytics!.sources.map((src) => {
-            const rate = src.total_attempts > 0 ? Math.round((src.total_correct / src.total_attempts) * 100) : 0;
-            const masteredPct = src.total_terms > 0 ? Math.round((src.mastered_terms / src.total_terms) * 100) : 0;
-            return (
-              <div key={src.source_uuid} className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
-                <p className="text-xs font-bold truncate mb-3" style={{ color: "var(--text)" }}>
-                  {src.filename}
-                </p>
-
-                {/* Stats grid */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(var(--kb-rgb),0.04)" }}>
-                    <p className="text-lg font-bold" style={{ color: "var(--kb)" }}>{src.total_terms}</p>
-                    <p className="text-[10px]" style={{ color: "var(--muted)" }}>Begriffe</p>
-                  </div>
-                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(34,197,94,0.06)" }}>
-                    <p className="text-lg font-bold" style={{ color: "#166534" }}>{src.mastered_terms}</p>
-                    <p className="text-[10px]" style={{ color: "var(--muted)" }}>Gemeistert</p>
-                  </div>
-                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: "rgba(234,179,8,0.06)" }}>
-                    <p className="text-lg font-bold" style={{ color: "#A16207" }}>{src.total_attempts}</p>
-                    <p className="text-[10px]" style={{ color: "var(--muted)" }}>Versuche</p>
-                  </div>
-                </div>
-
-                {/* Progress bar */}
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
-                    <div className="h-full rounded-full transition-all" style={{
-                      width: `${masteredPct}%`,
-                      backgroundColor: masteredPct >= 70 ? "#22c55e" : masteredPct >= 40 ? "#eab308" : "#ef4444",
-                    }} />
-                  </div>
-                  <span className="text-[10px] font-bold flex-shrink-0" style={{
-                    color: masteredPct >= 70 ? "#166534" : masteredPct >= 40 ? "#A16207" : "#B91C1C",
-                  }}>
-                    {masteredPct}%
-                  </span>
-                </div>
-
-                {src.total_attempts > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <TrendUp size={11} weight="bold" style={{ color: "var(--muted)" }} />
-                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-                      Trefferquote: {rate}% · Zuletzt: {src.last_practiced
-                        ? new Date(src.last_practiced).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })
-                        : "—"}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Sprachtraining: Overview ────────────────────────────────────────────────
 
@@ -4487,7 +4352,6 @@ function SprachtrainingOverview({
     { key: "lk-sets" as const, Icon: Cards, label: "Lernkarten", desc: "Übungen", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
     { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Übungen", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
     { key: "vt-sets" as const, Icon: Exam, label: "Vokabeltest", desc: "Übungen", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
-    { key: "ergebnisse" as const, Icon: ChartBar, label: "Ergebnisse", desc: "Fortschritt", iconBg: "rgba(219,234,254,0.7)", iconColor: "#1E40AF" },
   ];
 
   return (
@@ -4497,7 +4361,7 @@ function SprachtrainingOverview({
         {glossaryCount > 0 && (
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}>
-            <FilePdf size={13} weight="bold" />
+            <Files size={13} weight="bold" />
             <span className="font-bold">{glossaryCount} / 150 Glossar</span>
           </div>
         )}
@@ -4764,7 +4628,7 @@ function PresentationStudio({
             backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
             color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
           }}>
-          <FilePdf size={13} weight="bold" />
+          <Files size={13} weight="bold" />
           {noSources
             ? "Keine Quelle ausgewählt"
             : sourceCount === 1
@@ -5022,8 +4886,6 @@ export default function KiTutorModulePage() {
   const [clozeLoading, setClozeLoading] = useState(false);
   const [vocabQuestions, setVocabQuestions] = useState<VocabTestQuestion[]>([]);
   const [vocabLoading, setVocabLoading] = useState(false);
-  const [vocabAnalytics, setVocabAnalytics] = useState<VocabAnalyticsSummary | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [sprachSourceUuid, setSprachSourceUuid] = useState("");
 
   // ─── Exercise Sets State ─────────────────────────────────────────────────
@@ -5938,29 +5800,6 @@ export default function KiTutorModulePage() {
     }
   }
 
-  async function submitVocabProgress(results: { glossary_entry_id: number; correct: boolean }[], exerciseType: string) {
-    try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/vocab-progress`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          results: results.map((r) => ({ ...r, exercise_type: exerciseType })),
-        }),
-      });
-    } catch { /* ignore */ }
-  }
-
-  async function loadVocabAnalytics() {
-    setAnalyticsLoading(true);
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/vocab-analytics`, { credentials: "include" });
-      if (res.ok) {
-        setVocabAnalytics(await res.json());
-      }
-    } catch { /* ignore */ } finally {
-      setAnalyticsLoading(false);
-    }
-  }
 
   // Load exercise sets when switching to studio views
   useEffect(() => {
@@ -6100,7 +5939,6 @@ export default function KiTutorModulePage() {
           <VocabFlashcards
             entries={glossary}
             onBack={() => setSprachView("overview")}
-            onFinish={(results) => submitVocabProgress(results, "flashcard")}
           />
         );
       case "lueckentext":
@@ -6110,7 +5948,6 @@ export default function KiTutorModulePage() {
             loading={clozeLoading}
             onGenerate={generateCloze}
             onBack={() => setSprachView("overview")}
-            onFinish={(results) => submitVocabProgress(results, "cloze")}
           />
         );
       case "vokabeltest":
@@ -6120,16 +5957,6 @@ export default function KiTutorModulePage() {
             loading={vocabLoading}
             onGenerate={generateVocabTest}
             onBack={() => setSprachView("overview")}
-            onFinish={(results) => submitVocabProgress(results, "vocab_test")}
-          />
-        );
-      case "ergebnisse":
-        return (
-          <ErgebnisseView
-            analytics={vocabAnalytics}
-            loading={analyticsLoading}
-            onBack={() => setSprachView("overview")}
-            onRefresh={loadVocabAnalytics}
           />
         );
       // ─── Lernkarten Sets Flow ──────────────────────────────
@@ -6259,7 +6086,6 @@ export default function KiTutorModulePage() {
             activeSourceCount={selectedSourceIds.length}
             glossaryCount={glossaryCount || glossary.length}
             onNavigate={(view) => {
-              if (view === "ergebnisse") loadVocabAnalytics();
               if (view === "lk-sets") loadExerciseSets("lernkarten");
               if (view === "cl-sets") loadExerciseSets("lueckentext");
               if (view === "vt-sets") loadExerciseSets("vokabeltest");

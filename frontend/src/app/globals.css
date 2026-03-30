@@ -129,8 +129,26 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
 .map-container me-tpc {
   cursor: pointer;
 }
-.map-container me-tpc:hover {
-  filter: brightness(1.15);
+
+/* ─── Mind-elixir: source chip ─── */
+.mm-src-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 5px;
+  padding: 1px 7px;
+  border-radius: 9px;
+  font-size: 0.75em;
+  font-weight: 500;
+  background: rgba(var(--kb-rgb), 0.12);
+  color: var(--kb);
+  vertical-align: middle;
+  line-height: 1.5;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+me-tpc:hover .mm-src-chip {
+  opacity: 0.8;
 }
 
 @keyframes spin {

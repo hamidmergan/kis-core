@@ -450,22 +450,44 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         logger.info("KI Tutor: generating mindmap {}", mindmap_id)
 
         # 1. Build context from page summaries (with fallback to chunks)
+        from pathlib import Path as _Path
+        _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", ".aac"}
+
+        def _fmt_time(seconds: float) -> str:
+            s = int(seconds)
+            h, s = divmod(s, 3600)
+            m, s = divmod(s, 60)
+            return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
         context_parts: list[str] = []
         for sid, suuid in zip(source_ids, source_uuids):
             source = db.get_ki_tutor_source(suuid)
-            source_label = source["filename"] if source else f"Quelle"
-            summaries = db.get_paragraph_summaries_by_source(sid)
-            if summaries:
-                pages: dict[int, list[str]] = {}
-                for s in summaries:
-                    pages.setdefault(s["page_number"], []).append(s["summary"])
-                parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
-                context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
-            else:
+            source_label = source["filename"] if source else "Quelle"
+            is_media = _Path(source_label).suffix.lower() in _MEDIA_EXTS if source else False
+
+            if is_media:
+                # For media: use chunks with start_time as label
                 chunks = db.get_chunks_by_source(sid)
                 if chunks:
-                    parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
+                    parts = []
+                    for c in chunks[:20]:
+                        st = c.get("start_time")
+                        time_label = _fmt_time(st) if st is not None else f"Teil {c['page_number']}"
+                        parts.append(f"[{source_label}, {time_label}] {c['content']}")
                     context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+            else:
+                summaries = db.get_paragraph_summaries_by_source(sid)
+                if summaries:
+                    pages: dict[int, list[str]] = {}
+                    for s in summaries:
+                        pages.setdefault(s["page_number"], []).append(s["summary"])
+                    parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
+                    context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+                else:
+                    chunks = db.get_chunks_by_source(sid)
+                    if chunks:
+                        parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:20]]
+                        context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
 
         if not context_parts:
             db.update_ki_tutor_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")

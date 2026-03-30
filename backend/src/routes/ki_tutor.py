@@ -1193,10 +1193,6 @@ async def delete_note(
 # ─── Sprachtraining: Glossar ─────────────────────────────────────────────────
 
 
-class VocabProgressBody(BaseModel):
-    results: list[dict]  # [{glossary_entry_id, exercise_type, correct}]
-
-
 class GlossaryGenerateBody(BaseModel):
     active_source_ids: list[str]  # max 3 source UUIDs
 
@@ -2130,51 +2126,6 @@ async def generate_vocab_test(
     from src.tasks.ki_tutor_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(placeholder["id"], module["id"], "vokabeltest", "glossar", 10, None)
     return {"set_id": placeholder["id"], "status": "generating"}
-
-
-# ─── Sprachtraining: Progress & Analytics ─────────────────────────────────────
-
-
-@router.post("/ki-tutor/modules/{module_uuid}/vocab-progress")
-async def record_progress(
-    module_uuid: str,
-    body: VocabProgressBody,
-    current_user: dict = Depends(get_current_user),
-):
-    user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
-    if not module:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-
-    records = [
-        {
-            "glossary_entry_id": r["glossary_entry_id"],
-            "user_id": user_id,
-            "exercise_type": r["exercise_type"],
-            "correct": r["correct"],
-        }
-        for r in body.results
-    ]
-    db.bulk_record_vocab_progress(records)
-    return {"ok": True}
-
-
-@router.get("/ki-tutor/modules/{module_uuid}/vocab-analytics")
-async def get_analytics(
-    module_uuid: str,
-    current_user: dict = Depends(get_current_user),
-):
-    user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
-    if not module:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
-
-    return db.get_vocab_analytics_summary(module["id"], user_id)
 
 
 # ─── Exercise Sets CRUD ──────────────────────────────────────────────────────
