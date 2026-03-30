@@ -57,7 +57,7 @@ _SPLIT_SEARCH_WINDOW = 60   # seconds to search around each target split point
 def _get_audio_duration(file_path: str) -> float:
     """Return audio/video duration in seconds via ffprobe."""
     result = subprocess.run(
-        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_streams", file_path],
+        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", file_path],
         capture_output=True, text=True,
     )
     if result.returncode != 0:
@@ -67,6 +67,9 @@ def _get_audio_duration(file_path: str) -> float:
         duration = stream.get("duration")
         if duration:
             return float(duration)
+    fmt_duration = data.get("format", {}).get("duration")
+    if fmt_duration:
+        return float(fmt_duration)
     raise RuntimeError("Could not determine audio duration via ffprobe")
 
 

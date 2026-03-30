@@ -218,6 +218,30 @@ def run_index_source(self, source_uuid: str):
                     raise RuntimeError("Whisper returned no segments for this audio/video file.")
                 chunks = ki_tutor_chunker.segments_to_chunks(segments)
 
+                # Slide extraction: extract keyframes, classify via vision LLM, describe slides
+                _is_video = file_type in ("mp4", "webm")
+                if _is_video and _s.kisski_vision_model:
+                    from src.services.video_slide_extractor import (
+                        extract_slide_frames, classify_and_describe_slides, merge_slides_into_chunks,
+                    )
+                    import shutil as _shutil
+
+                    logger.info("KI Tutor: extracting slide frames for {}", source_uuid)
+                    keyframes = extract_slide_frames(local_path)
+                    if keyframes:
+                        slide_descriptions = classify_and_describe_slides(
+                            keyframes, _api_key, _base_url, _s.kisski_vision_model,
+                        )
+                        if slide_descriptions:
+                            chunks = merge_slides_into_chunks(chunks, slide_descriptions)
+                            logger.info(
+                                "KI Tutor: {} slide descriptions merged into chunks for {}",
+                                len(slide_descriptions), source_uuid,
+                            )
+                        # Cleanup temp slide images
+                        _tmpdir = os.path.dirname(keyframes[0]["image_path"])
+                        _shutil.rmtree(_tmpdir, ignore_errors=True)
+
                 # Save full transcript as .txt next to the source file
                 transcript_text = "\n".join(
                     f"[{_format_ts(s['start'])} - {_format_ts(s['end'])}] {s['text']}"
@@ -339,27 +363,63 @@ def run_generate_summaries(self, source_uuid: str):
             metadata={"provider": _provider, "base_url": _base_url, "model": model},
         )
 
-        # 4. Generate summaries
+        # 4. Skip pages that already have summaries (resume after partial failure)
+        existing = db.get_paragraph_summaries_by_source(source["id"])
+        existing_pages = {s["page_number"] for s in existing}
+        remaining_pages = [p for p in pages if p["page_number"] not in existing_pages]
+
+        if not remaining_pages:
+            db.update_ki_tutor_source_summaries_status(source_uuid, "ready")
+            logger.info("KI Tutor: all pages already summarized for {}", source_uuid)
+            return
+
+        logger.info(
+            "KI Tutor: {} of {} pages need summaries for {}",
+            len(remaining_pages), len(pages), source_uuid,
+        )
+
+        # 5. Generate summaries — save each batch/page immediately to DB
         #    Small models (ollama): parallel single-page requests
         #    Large models (cloud):  parallel batches of TUTOR_SUMMARY_BATCH_SIZE pages
-        all_summaries: list[str] = [""] * len(pages)
+        def _save_page_summaries(page_batch: list[dict], summary_batch: list[str]):
+            """Save a batch of summaries to DB immediately."""
+            db.bulk_create_paragraph_summaries(
+                source_id=source["id"],
+                summaries=[
+                    {
+                        "page_number": p["page_number"],
+                        "block_index": 0,
+                        "bbox": {"x0": 0, "y0": 0, "x1": 0, "y1": 0},
+                        "content": p["content"][:500],
+                        "summary": s,
+                    }
+                    for p, s in zip(page_batch, summary_batch)
+                    if s.strip()
+                ],
+            )
+
+        failed_batches = 0
 
         if is_small:
             with concurrent.futures.ThreadPoolExecutor(max_workers=TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL) as executor:
                 futures = {
                     executor.submit(_summarize_page, client, model, p, True, extra_body, lang): i
-                    for i, p in enumerate(pages)
+                    for i, p in enumerate(remaining_pages)
                 }
                 for future in concurrent.futures.as_completed(futures):
                     idx = futures[future]
-                    all_summaries[idx] = future.result()
-                    logger.info(
-                        "KI Tutor: summarized page {}/{} for source {}",
-                        idx + 1, len(pages), source_uuid,
-                    )
+                    try:
+                        summary = future.result()
+                        _save_page_summaries([remaining_pages[idx]], [summary])
+                        logger.info(
+                            "KI Tutor: summarized page {}/{} for source {}",
+                            idx + 1, len(remaining_pages), source_uuid,
+                        )
+                    except Exception as exc:
+                        failed_batches += 1
+                        logger.warning("KI Tutor: page {} failed for {}: {}", idx + 1, source_uuid, exc)
         else:
-            batches = [pages[i:i + TUTOR_SUMMARY_BATCH_SIZE] for i in range(0, len(pages), TUTOR_SUMMARY_BATCH_SIZE)]
-            batch_summaries: list[list[str]] = [[]] * len(batches)
+            batches = [remaining_pages[i:i + TUTOR_SUMMARY_BATCH_SIZE] for i in range(0, len(remaining_pages), TUTOR_SUMMARY_BATCH_SIZE)]
             with concurrent.futures.ThreadPoolExecutor(max_workers=TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
                 futures = {
                     executor.submit(_summarize_batch, client, model, batch, lang): i
@@ -367,34 +427,30 @@ def run_generate_summaries(self, source_uuid: str):
                 }
                 for future in concurrent.futures.as_completed(futures):
                     bidx = futures[future]
-                    batch_summaries[bidx] = future.result()
-                    start = bidx * TUTOR_SUMMARY_BATCH_SIZE + 1
-                    end = min(start + TUTOR_SUMMARY_BATCH_SIZE - 1, len(pages))
-                    logger.info(
-                        "KI Tutor: summarized pages {}-{}/{} for source {}",
-                        start, end, len(pages), source_uuid,
-                    )
-            all_summaries = [s for batch in batch_summaries for s in batch]
+                    batch = batches[bidx]
+                    try:
+                        summaries = future.result()
+                        _save_page_summaries(batch, summaries)
+                        start = batch[0]["page_number"]
+                        end = batch[-1]["page_number"]
+                        logger.info(
+                            "KI Tutor: summarized pages {}-{} for source {} (saved)",
+                            start, end, source_uuid,
+                        )
+                    except Exception as exc:
+                        failed_batches += 1
+                        logger.warning("KI Tutor: batch {} failed for {}: {}", bidx + 1, source_uuid, exc)
 
-        # 5. Save summaries to DB (block_index=0, bbox=full page placeholder)
-        db.bulk_create_paragraph_summaries(
-            source_id=source["id"],
-            summaries=[
-                {
-                    "page_number": p["page_number"],
-                    "block_index": 0,
-                    "bbox": {"x0": 0, "y0": 0, "x1": 0, "y1": 0},
-                    "content": p["content"][:500],
-                    "summary": s,
-                }
-                for p, s in zip(pages, all_summaries)
-                if s.strip()
-            ],
-        )
-
-        # 6. Done
-        db.update_ki_tutor_source_summaries_status(source_uuid, "ready")
-        logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
+        # 6. Set status based on results
+        if failed_batches > 0:
+            db.update_ki_tutor_source_summaries_status(source_uuid, "failed")
+            logger.warning(
+                "KI Tutor: {} batch(es) failed for {} — saved partial results, retry will resume",
+                failed_batches, source_uuid,
+            )
+        else:
+            db.update_ki_tutor_source_summaries_status(source_uuid, "ready")
+            logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
 
     except Exception as e:
         err_str = str(e)

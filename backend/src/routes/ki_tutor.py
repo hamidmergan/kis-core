@@ -770,6 +770,8 @@ async def get_paragraph_summaries(
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
+    status = source.get("summaries_status", "none")
+
     summaries = db.get_paragraph_summaries_by_source(source["id"])
 
     by_page: dict[int, str] = {}
@@ -777,7 +779,7 @@ async def get_paragraph_summaries(
         by_page[s["page_number"]] = s["summary"]
 
     return {
-        "status": source.get("summaries_status", "none"),
+        "status": status,
         "pages": by_page,
     }
 

@@ -461,13 +461,13 @@ function MediaPlayer({
         )}
       </div>
       {/* Player */}
-      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+      <div className="flex-1 flex items-start justify-center p-4 overflow-hidden">
         {isVideo ? (
           <video
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
             src={mediaUrl}
             controls
-            className="max-w-full max-h-full rounded-lg"
+            className="w-full max-h-full rounded-lg"
             style={{ backgroundColor: "#000" }}
           />
         ) : (
@@ -937,6 +937,22 @@ function PdfViewer({
               <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Wird generiert…</span>
             ) : pageSummaries[page] ? (
               <div dangerouslySetInnerHTML={{ __html: pageSummaries[page].replace(/\n/g, "<br/>") }} />
+            ) : summariesStatus === "failed" ? (
+              <div style={{ textAlign: "center", padding: "16px 12px" }}>
+                <span style={{ color: "#6b7280", display: "block", marginBottom: 10, fontSize: 12 }}>Generierung fehlgeschlagen.</span>
+                <button
+                  onClick={async () => {
+                    setSummariesStatus("generating");
+                    setSummariesLoaded(false);
+                    try {
+                      await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
+                    } catch { /* ignore */ }
+                  }}
+                  style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-fg-accent, #60a5fa)", background: "var(--color-bg-accent, #1e3a5f)", color: "#fff", cursor: "pointer", fontWeight: 500 }}
+                >
+                  Erneut versuchen
+                </button>
+              </div>
             ) : (
               <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Keine Zusammenfassung für diese Seite.</span>
             )}
@@ -1346,10 +1362,10 @@ function ChatPanel({
               <Chat size={22} style={{ color: "var(--kb)" }} />
             </div>
             <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-              Stell eine Frage
+              Dein KI-Tutor
             </p>
             <p className="text-xs text-center max-w-xs" style={{ color: "var(--muted)" }}>
-              Wähle Quellen links aus und stelle eine Frage – die KI antwortet auf Basis deiner Materialien.
+              Wähle Quellen links aus – stell Fragen, lass dir Inhalte erklären oder gib Anweisungen.
             </p>
             <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
               {[
@@ -4948,6 +4964,13 @@ export default function KiTutorModulePage() {
   const [prevSelectedSourceIds, setPrevSelectedSourceIds] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
+  // Persist selected sources to sessionStorage
+  useEffect(() => {
+    if (selectedSourceIds.length > 0) {
+      sessionStorage.setItem(`kis-selected-sources-${uuid}`, JSON.stringify(selectedSourceIds));
+    }
+  }, [selectedSourceIds, uuid]);
+
   const [viewerSource, setViewerSource] = useState<ViewerState | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -5039,7 +5062,18 @@ export default function KiTutorModulePage() {
 
         const srcs: Source[] = mod.sources ?? [];
         setSources(srcs);
-        setSelectedSourceIds(srcs.filter((s) => s.status === "ready").map((s) => s.uuid));
+        // Restore selected sources from sessionStorage, fallback to all ready
+        const storageKey = `kis-selected-sources-${uuid}`;
+        const saved = sessionStorage.getItem(storageKey);
+        if (saved) {
+          try {
+            const savedIds: string[] = JSON.parse(saved);
+            const validIds = savedIds.filter((id) => srcs.some((s) => s.uuid === id && s.status === "ready"));
+            setSelectedSourceIds(validIds.length > 0 ? validIds : srcs.filter((s) => s.status === "ready").map((s) => s.uuid));
+          } catch { setSelectedSourceIds(srcs.filter((s) => s.status === "ready").map((s) => s.uuid)); }
+        } else {
+          setSelectedSourceIds(srcs.filter((s) => s.status === "ready").map((s) => s.uuid));
+        }
 
         await loadMessages();
 
