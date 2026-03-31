@@ -1421,10 +1421,12 @@ _GLOSSARY_PROMPT = """Du bist ein Fachsprachen-Experte. Extrahiere die wichtigst
 Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
 [
   {
-    "term_de": "Deutscher Fachbegriff",
-    "term_en": "English translation",
-    "definition": "Kurze Definition auf Deutsch (1-2 Sätze)",
-    "example_sentence": "Ein Beispielsatz aus dem Text, der den Begriff verwendet",
+    "term_de": "Fachbegriff in der Quellsprache",
+    "term_en": "Übersetzung (siehe Regeln)",
+    "definition": "Kurze Erklärung auf Deutsch (B1 Niveau, 1-2 Sätze)",
+    "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
+    "example_sentence": "Ein Satz aus dem Text, der den Begriff verwendet",
+    "example_sentence_en": "English translation of the example sentence",
     "page_number": 5
   }
 ]
@@ -1432,8 +1434,12 @@ Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
 Regeln:
 - Extrahiere 10-20 Fachbegriffe (die wichtigsten und häufigsten)
 - Nur echte Fachbegriffe, keine allgemeinen Wörter
-- Definition muss präzise und verständlich sein (B1-B2 Niveau)
-- example_sentence muss ein echter Satz aus dem gegebenen Text sein
+- term_de: Der Fachbegriff so wie er im Quelltext steht
+- term_en: Wenn der Quelltext NICHT auf Englisch ist, übersetze den Begriff ins Englische. Wenn der Quelltext auf Englisch ist, übersetze den Begriff ins Deutsche. Niemals die gleiche Sprache wie term_de verwenden!
+- definition: Einfache Erklärung auf Deutsch, verständlich auf B1-Sprachniveau
+- definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
+- example_sentence: Ein Satz aus dem gegebenen Text, der den Begriff verwendet
+- example_sentence_en: Englische Übersetzung dieses Satzes
 - page_number ist die Seitenzahl, auf der der Begriff vorkommt
 - Antworte NUR mit dem JSON-Array, kein anderer Text"""
 
@@ -1467,10 +1473,17 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
             context_len += len(part)
         context = "\n\n---\n\n".join(context_parts)
 
+        # Tell LLM which terms already exist so it doesn't repeat them
+        existing = db.get_ki_tutor_glossary_by_module(module_id)
+        existing_terms_list = [e["term_de"] for e in existing]
+        exclude_hint = ""
+        if existing_terms_list:
+            exclude_hint = f"\n\nFolgende Begriffe existieren bereits — überspringe diese: {', '.join(existing_terms_list)}"
+
         client, model, _ = _get_llm_client()
         messages = [
             {"role": "system", "content": _GLOSSARY_PROMPT},
-            {"role": "user", "content": f"Extrahiere Fachbegriffe aus folgendem Text:\n\n{context}"},
+            {"role": "user", "content": f"Extrahiere Fachbegriffe aus folgendem Text:\n\n{context}{exclude_hint}"},
         ]
 
         response = client.chat.completions.create(model=model, messages=messages, temperature=0.1)
@@ -1484,12 +1497,22 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
             logger.error("KI Tutor: glossary generation — expected JSON array")
             return
 
-        # Delete old glossary for these sources, then create new
-        for sid in source_ids:
-            db.delete_ki_tutor_glossary(sid)
+        # Deduplicate: skip terms that already exist
+        existing = db.get_ki_tutor_glossary_by_module(module_id)
+        existing_terms = {e["term_de"].strip().lower() for e in existing}
+        new_entries = [e for e in entries_raw if e.get("term_de", "").strip().lower() not in existing_terms]
 
-        db.bulk_create_glossary_entries(source_ids[0], entries_raw)
-        logger.info("KI Tutor: glossary generated ({} entries) for module {}", len(entries_raw), module_id)
+        # Respect limit of 150
+        remaining_slots = 150 - len(existing)
+        if remaining_slots <= 0:
+            logger.info("KI Tutor: glossary limit reached for module {}, skipping", module_id)
+            return
+        new_entries = new_entries[:remaining_slots]
+
+        if new_entries:
+            db.bulk_create_glossary_entries(source_ids[0], new_entries)
+        logger.info("KI Tutor: glossary added {} new entries (skipped {} duplicates) for module {}",
+                     len(new_entries), len(entries_raw) - len(new_entries), module_id)
 
     except Exception as e:
         logger.error("KI Tutor: glossary generation failed for module {}: {}", module_id, e)

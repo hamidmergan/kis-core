@@ -220,14 +220,20 @@ TUTOR_MINDMAP_PROMPT = (
 TUTOR_LERNKARTEN_PROMPT = (
     "Du bist ein Experte für zweisprachige Fachsprach-Lernmaterialien. "
     "Erstelle Lernkarten für Fachbegriffe aus dem gegebenen Text.\n\n"
+    "WICHTIG — Sprachverhalten:\n"
+    "1. Erkenne die Hauptsprache des Quelltextes.\n"
+    "2. Je nach Quellsprache:\n"
+    "   - Deutsch → front/back auf Deutsch, back_en auf Englisch\n"
+    "   - Englisch → front/back auf Englisch, back_en auf Deutsch\n"
+    "   - Andere Sprache → front/back in der Originalsprache, back_en auf Englisch\n\n"
     "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
     "{\n"
     '  "title": "Kurzer Titel der das Thema zusammenfasst",\n'
     '  "cards": [\n'
     "    {\n"
-    '      "front": "Fachbegriff auf Deutsch",\n'
-    '      "back": "Fachbegriff — Deutsche Erklärung (1-2 Sätze)",\n'
-    '      "back_en": "English term",\n'
+    '      "front": "Fachbegriff in Quellsprache",\n'
+    '      "back": "Fachbegriff — Erklärung in Quellsprache (1-2 Sätze)",\n'
+    '      "back_en": "Übersetzter Begriff (Zielsprache, siehe oben)",\n'
     '      "source_label": "Dateiname der Quelle",\n'
     '      "page_number": 5\n'
     "    }\n"
@@ -236,9 +242,9 @@ TUTOR_LERNKARTEN_PROMPT = (
     "Regeln:\n"
     "- Erstelle genau {count} Lernkarten\n"
     "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
-    "- Vorderseite (front): Ein zentraler Fachbegriff auf Deutsch\n"
-    "- Rückseite (back): Der Begriff + kurze deutsche Erklärung (max 2 Sätze)\n"
-    "- back_en: Der englische Fachbegriff (nur das Wort/die Phrase, keine Erklärung)\n"
+    "- Vorderseite (front): Ein zentraler Fachbegriff in der Quellsprache\n"
+    "- Rückseite (back): Der Begriff + kurze Erklärung in der Quellsprache (max 2 Sätze)\n"
+    "- back_en: Der übersetzte Fachbegriff in der Zielsprache (nur das Wort/die Phrase, keine Erklärung)\n"
     "- source_label und page_number MÜSSEN aus den [Quellenname, S. X] Tags im Context stammen\n"
     "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
     "- Fokus auf zentrale Fachbegriffe und Definitionen, KEINE Verständnisfragen\n"

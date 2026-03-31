@@ -1268,6 +1268,18 @@ async def delete_glossary_entry_endpoint(
     return {"ok": True}
 
 
+@router.delete("/ki-tutor/modules/{module_uuid}/glossary")
+async def delete_all_glossary_endpoint(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    count = db.delete_all_glossary_entries(module["id"])
+    return {"ok": True, "deleted": count}
+
+
 # ─── Glossar: Aus Markierung extrahieren ─────────────────────────────────────
 
 _GLOSSARY_EXTRACT_PROMPT = """Du bist ein Fachsprachen-Experte. Analysiere den markierten Text und extrahiere daraus Fachbegriffe für ein Glossar.
@@ -1275,19 +1287,25 @@ _GLOSSARY_EXTRACT_PROMPT = """Du bist ein Fachsprachen-Experte. Analysiere den m
 Antworte NUR mit einem JSON-Array:
 [
   {
-    "term_de": "Deutscher Fachbegriff",
-    "term_en": "English translation",
-    "definition": "Kurze Definition auf Deutsch (1-2 Sätze)",
-    "example_sentence": "Beispielsatz mit dem Begriff"
+    "term_de": "Fachbegriff in der Quellsprache",
+    "term_en": "Übersetzung (siehe Regeln)",
+    "definition": "Kurze Erklärung auf Deutsch (B1 Niveau, 1-2 Sätze)",
+    "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
+    "example_sentence": "Beispielsatz mit dem Begriff",
+    "example_sentence_en": "English translation of the example sentence"
   }
 ]
 
 Regeln:
 - Nur echte Fachbegriffe extrahieren — KEINE allgemeinen Wörter (und, oder, ist, der, die, das, er, sie, es, etc.)
 - Keine Füllwörter, Pronomen, Artikel, Konjunktionen oder Präpositionen
+- term_de: Der Fachbegriff so wie er im Quelltext steht
+- term_en: Wenn der Quelltext NICHT auf Englisch ist, übersetze ins Englische. Wenn der Quelltext auf Englisch ist, übersetze ins Deutsche. Niemals die gleiche Sprache wie term_de!
+- definition: Einfache Erklärung auf Deutsch, verständlich auf B1-Sprachniveau
+- definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
+- example_sentence_en: Englische Übersetzung des Beispielsatzes
 - Maximal 5 Begriffe pro Markierung
 - Wenn der Text KEINE Fachbegriffe enthält, antworte mit einem leeren Array: []
-- Definition muss präzise und verständlich sein
 - Antworte NUR mit dem JSON-Array"""
 
 
@@ -1364,7 +1382,9 @@ async def extract_glossary_from_selection(
                 "term_de": t["term_de"],
                 "term_en": t.get("term_en", ""),
                 "definition": t.get("definition", ""),
+                "definition_en": t.get("definition_en", ""),
                 "example_sentence": t.get("example_sentence", ""),
+                "example_sentence_en": t.get("example_sentence_en", ""),
                 "page_number": body.page_number,
             })
             existing_terms.add(t["term_de"].lower())
@@ -2187,7 +2207,11 @@ async def list_exercise_sets(
     module = db.get_ki_tutor_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-    return {"sets": db.get_exercise_sets(module["id"], user_id, tool)}
+    sets = db.get_exercise_sets(module["id"], user_id, tool)
+    for s in sets:
+        if s.get("created_at") and hasattr(s["created_at"], "isoformat"):
+            s["created_at"] = s["created_at"].isoformat() + "Z"
+    return {"sets": sets}
 
 
 @router.get("/ki-tutor/modules/{module_uuid}/exercise-sets/{set_id}")
@@ -2199,6 +2223,8 @@ async def get_exercise_set(
     ex_set = db.get_exercise_set_with_items(set_id)
     if not ex_set:
         raise HTTPException(status_code=404, detail="Set nicht gefunden")
+    if ex_set.get("created_at") and hasattr(ex_set["created_at"], "isoformat"):
+        ex_set["created_at"] = ex_set["created_at"].isoformat() + "Z"
     return {"set": ex_set}
 
 

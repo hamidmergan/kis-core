@@ -40,6 +40,8 @@
 :root {
   --kb:       #004261;
   --kb-rgb:   0, 66, 97;
+  --accent:   #004261;
+  --accent-rgb: 0, 66, 97;
   --kb-dark:  #003350;
   --kb-darker:#00293d;
   --kb60:     #668DA0;

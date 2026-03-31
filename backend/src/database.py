@@ -432,7 +432,9 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     term_de          TEXT NOT NULL,
                     term_en          TEXT NOT NULL,
                     definition       TEXT NOT NULL,
+                    definition_en    TEXT,
                     example_sentence TEXT,
+                    example_sentence_en TEXT,
                     page_number      INTEGER,
                     created_at       TIMESTAMP NOT NULL DEFAULT NOW()
                 )
@@ -441,6 +443,9 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE INDEX IF NOT EXISTS idx_glossary_source
                 ON ki_tutor_glossary_entries(source_id)
             """)
+            # Migration: add English columns to glossary
+            cur.execute("ALTER TABLE ki_tutor_glossary_entries ADD COLUMN IF NOT EXISTS definition_en TEXT")
+            cur.execute("ALTER TABLE ki_tutor_glossary_entries ADD COLUMN IF NOT EXISTS example_sentence_en TEXT")
             # ─── Exercise Sets ──────────────────────────────────
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_exercise_sets (
@@ -2493,7 +2498,7 @@ def get_ki_tutor_glossary(source_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT id, term_de, term_en, definition, example_sentence, page_number
+                """SELECT id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number
                    FROM ki_tutor_glossary_entries
                    WHERE source_id = %s ORDER BY term_de""",
                 (source_id,),
@@ -2505,7 +2510,7 @@ def get_ki_tutor_glossary_by_module(module_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT g.id, g.term_de, g.term_en, g.definition, g.example_sentence, g.page_number,
+                """SELECT g.id, g.term_de, g.term_en, g.definition, g.definition_en, g.example_sentence, g.example_sentence_en, g.page_number,
                           s.filename
                    FROM ki_tutor_glossary_entries g
                    JOIN ki_tutor_sources s ON s.id = g.source_id
@@ -2521,25 +2526,25 @@ def bulk_create_glossary_entries(source_id: int, entries: list[dict]) -> list[di
         return []
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Clear existing entries for this source
-            cur.execute("DELETE FROM ki_tutor_glossary_entries WHERE source_id = %s", (source_id,))
             values = []
             params: list = []
             for e in entries:
-                values.append("(%s, %s, %s, %s, %s, %s)")
+                values.append("(%s, %s, %s, %s, %s, %s, %s, %s)")
                 params.extend([
                     source_id,
                     e["term_de"],
                     e["term_en"],
                     e["definition"],
+                    e.get("definition_en", ""),
                     e.get("example_sentence", ""),
+                    e.get("example_sentence_en", ""),
                     e.get("page_number"),
                 ])
             cur.execute(
                 f"""INSERT INTO ki_tutor_glossary_entries
-                    (source_id, term_de, term_en, definition, example_sentence, page_number)
+                    (source_id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number)
                     VALUES {', '.join(values)}
-                    RETURNING id, term_de, term_en, definition, example_sentence, page_number""",
+                    RETURNING id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number""",
                 params,
             )
             rows = [dict(r) for r in cur.fetchall()]
@@ -2552,6 +2557,19 @@ def delete_ki_tutor_glossary(source_id: int) -> None:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM ki_tutor_glossary_entries WHERE source_id = %s", (source_id,))
         conn.commit()
+
+
+def delete_all_glossary_entries(module_id: int) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """DELETE FROM ki_tutor_glossary_entries
+                   WHERE source_id IN (SELECT id FROM ki_tutor_sources WHERE module_id = %s)""",
+                (module_id,),
+            )
+            count = cur.rowcount
+        conn.commit()
+    return count
 
 
 def delete_glossary_entry(entry_id: int) -> bool:

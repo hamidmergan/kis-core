@@ -233,7 +233,9 @@ interface GlossaryEntry {
   term_de: string;
   term_en: string;
   definition: string;
+  definition_en?: string;
   example_sentence?: string;
+  example_sentence_en?: string;
   page_number?: number;
   filename?: string;
 }
@@ -372,8 +374,7 @@ function SourceStatus({ status }: { status: string }) {
   if (status === "pending" || status === "indexing")
     return (
       <span
-        className="inline-block h-3 w-3 rounded-full border-[1.5px] border-transparent animate-spin flex-shrink-0"
-        style={{ borderTopColor: "#B45309", borderRightColor: "#B45309" }}
+        className="inline-block h-3 w-3 rounded-full border-[1.5px] border-primary border-t-transparent animate-spin flex-shrink-0"
         title={status === "pending" ? "Warte auf Verarbeitung" : "Wird indiziert"}
       />
     );
@@ -1343,7 +1344,7 @@ function ChatPanel({
                 onClick={() => { onClear(); setChatMenuOpen(false); }}
                 disabled={messages.length === 0}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-black/5 disabled:opacity-40 transition-colors"
-                style={{ color: "var(--text)" }}
+                style={{ color: "#B91C1C" }}
               >
                 Chatprotokoll löschen
               </button>
@@ -1802,8 +1803,7 @@ function ExerciseSetsOverview({
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
           style={{
-            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
-            color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
+            color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--accent)",
           }}>
           <Files size={13} weight="bold" />
           {noSources
@@ -1822,7 +1822,7 @@ function ExerciseSetsOverview({
             <button type="button" onClick={onCreate}
               disabled={noSources || atLimit}
               className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+              style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
               <Plus size={12} weight="bold" /> Erstellen ({sets.length}/20)
             </button>
           </div>
@@ -1832,7 +1832,7 @@ function ExerciseSetsOverview({
               <button type="button" onClick={onCreate}
                 disabled={noSources || atLimit}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+                style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
                 <Plus size={12} weight="bold" /> Erstellen ({sets.length}/20)
               </button>
             </div>
@@ -1867,11 +1867,11 @@ function ExerciseSetsOverview({
                             style={{ fontSize: 13, fontWeight: 700, fill: "#EF4444" }}>!</text>
                         ) : (
                           <>
-                            <circle cx="19" cy="19" r="14" fill="none" stroke="var(--kb)" strokeWidth="3"
+                            <circle cx="19" cy="19" r="14" fill="none" stroke="var(--accent)" strokeWidth="3"
                               strokeDasharray={circumference} strokeDashoffset={circumference - (circumference * pct / 100)}
                               strokeLinecap="round" transform="rotate(-90 19 19)" style={{ transition: "stroke-dashoffset 0.5s" }} />
                             <text x="19" y="19" textAnchor="middle" dominantBaseline="central"
-                              style={{ fontSize: 8, fontWeight: 700, fill: "var(--kb)" }}>{pct}%</text>
+                              style={{ fontSize: 8, fontWeight: 700, fill: "var(--accent)" }}>{pct}%</text>
                           </>
                         )}
                       </svg>
@@ -1905,7 +1905,7 @@ function ExerciseSetsOverview({
 // ─── Lernkarten Learn View ──────────────────────────────────────────────────
 
 function LernkartenLearnView({
-  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs,
+  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation,
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
@@ -1913,6 +1913,7 @@ function LernkartenLearnView({
   onAskChat?: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: { label: string; onClick: () => void }[];
+  showTranslation?: boolean;
 }) {
   const minimize = useContext(MinimizeContext);
   const [shuffledItems, setShuffledItems] = useState<ExerciseItem[]>([]);
@@ -1961,7 +1962,7 @@ function LernkartenLearnView({
 
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
-      <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
       <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
     </div>
   );
@@ -1989,7 +1990,7 @@ function LernkartenLearnView({
       {/* Progress */}
       <div className="px-4 pb-2.5" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
         <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--kb), #0891b2)" }} />
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--accent), #0891b2)" }} />
         </div>
       </div>
       {/* Results */}
@@ -2006,12 +2007,12 @@ function LernkartenLearnView({
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={() => { setShowResults(false); setIndex(0); setFlipped(false); setResults([]); shuffledRef.current = false; }}
               className="px-5 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+              style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
               Erneut versuchen
             </button>
             <button type="button" onClick={onBack}
               className="px-5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: "var(--kb)" }}>
+              style={{ backgroundColor: "var(--accent)" }}>
               Fertig
             </button>
           </div>
@@ -2031,7 +2032,7 @@ function LernkartenLearnView({
               position: "absolute", inset: 0, backfaceVisibility: "hidden", borderRadius: 16,
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               padding: "36px 20px", gap: 8, backgroundColor: "var(--surface)",
-              border: "2px solid var(--kb)",
+              border: "2px solid var(--accent)",
               boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
             }}>
               <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>{isVocab ? "Fachbegriff" : "Frage"}</span>
@@ -2052,12 +2053,12 @@ function LernkartenLearnView({
               position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
               borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               padding: "36px 20px", gap: 8,
-              backgroundColor: "var(--kb)",
-              boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
+              backgroundColor: "var(--accent)",
+              boxShadow: "0 4px 20px rgba(var(--accent-rgb),0.2)",
             }}>
               <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{isVocab ? "Definition" : "Antwort"}</span>
               <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }}>{card.back}</p>
-              {isVocab && card.back_en && (
+              {showTranslation && isVocab && card.back_en && (
                 <p className="text-xs text-center italic" style={{ color: "rgba(255,255,255,0.6)" }}>{card.back_en}</p>
               )}
               {/* Source chip + Chat button */}
@@ -2097,7 +2098,7 @@ function LernkartenLearnView({
           ) : (
             <button type="button" onClick={() => setFlipped(true)}
               className="px-6 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+              style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
               Antwort zeigen
             </button>
           )}
@@ -2137,13 +2138,13 @@ function ExerciseCompletion({
           {correct < total && (
             <button type="button" onClick={onRetryWrong}
               className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
+              style={{ color: "var(--accent)", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
               Falsche wiederholen
             </button>
           )}
           <button type="button" onClick={onBack}
             className="px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-            style={{ backgroundColor: "var(--kb)" }}>
+            style={{ backgroundColor: "var(--accent)" }}>
             Zur Übersicht
           </button>
         </div>
@@ -2236,7 +2237,7 @@ function MCExerciseView({
 
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
-      <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
       <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
     </div>
   );
@@ -2271,7 +2272,7 @@ function MCExerciseView({
       {/* Progress */}
       <div className="px-4 pb-2.5" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
         <div className="h-1 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--border)" }}>
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--kb), #0891b2)" }} />
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--accent), #0891b2)" }} />
         </div>
       </div>
       {/* Quiz Results */}
@@ -2288,12 +2289,12 @@ function MCExerciseView({
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={() => { setShowResults(false); setIndex(0); setSelected(null); setResults([]); shuffledRef.current = false; }}
               className="px-5 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+              style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
               Erneut versuchen
             </button>
             <button type="button" onClick={onBack}
               className="px-5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: "var(--kb)" }}>
+              style={{ backgroundColor: "var(--accent)" }}>
               Fertig
             </button>
           </div>
@@ -2314,7 +2315,7 @@ function MCExerciseView({
                     /___+/g,
                     answered
                       ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${card.back}</span>`
-                      : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed var(--kb);color:var(--kb);font-weight:700;padding:0 4px">___________</span>'
+                      : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed var(--accent);color:var(--accent);font-weight:700;padding:0 4px">___________</span>'
                   ),
                 }}
               />
@@ -2337,7 +2338,7 @@ function MCExerciseView({
                     disabled={answered}
                     className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${!answered ? "hover:shadow-sm active:scale-[0.98] cursor-pointer" : ""}`}
                     style={{ border: `1.5px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}
-                    onMouseEnter={(e) => { if (!answered) e.currentTarget.style.borderColor = "var(--kb)"; }}
+                    onMouseEnter={(e) => { if (!answered) e.currentTarget.style.borderColor = "var(--accent)"; }}
                     onMouseLeave={(e) => { if (!answered) e.currentTarget.style.borderColor = borderColor; }}>
                     <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                       style={{ backgroundColor: dotBg, color: dotColor }}>
@@ -2360,7 +2361,7 @@ function MCExerciseView({
             {/* Explanation (Vokabeltest) */}
             {answered && tool === "vokabeltest" && card.explanation && (
               <div className="text-sm leading-relaxed p-4 rounded-xl"
-                style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", borderLeft: "3px solid var(--kb)" }}>
+                style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)", borderLeft: "3px solid var(--accent)" }}>
                 {card.explanation}
               </div>
             )}
@@ -2371,7 +2372,7 @@ function MCExerciseView({
                   <button type="button"
                     onClick={() => { if (onSourceClick && card.page_number) onSourceClick(card.source_label!, card.page_number, card.start_time); }}
                     className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
-                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                    style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
                     <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
                   </button>
                 )}
@@ -2380,7 +2381,7 @@ function MCExerciseView({
                 <button type="button" onClick={requestHint}
                   disabled={hintLoading}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
-                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                  style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
                   <Lightbulb size={13} weight="bold" />
                   {hintLoading ? "Wird geladen…" : "Tipp"}
                 </button>
@@ -2391,12 +2392,12 @@ function MCExerciseView({
               <div className="flex items-center justify-between mt-2">
                 <button type="button" onClick={() => onAskChat(`Erkläre mir folgendes Thema genauer: „${tool === "lueckentext" ? card.back : card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge? Verwende keine Personennamen, schreibe stattdessen „laut Quelle".`)}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80"
-                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                  style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
                   <Chat size={13} weight="bold" /> Mehr erfahren
                 </button>
                 <button type="button" onClick={advance}
                   className="flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold text-white transition-all hover:opacity-90"
-                  style={{ backgroundColor: "var(--kb)" }}>
+                  style={{ backgroundColor: "var(--accent)" }}>
                   {index >= total - 1 ? "Abschließen" : "Weiter"} <CaretRight size={14} weight="bold" />
                 </button>
               </div>
@@ -2440,13 +2441,13 @@ function CreateSetModal({
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
               style={{
                 ...(mode === "glossar"
-                  ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--text)" }
+                  ? { border: "1.5px solid var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)", color: "var(--text)" }
                   : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }),
                 ...(glossaryCount === 0 ? { opacity: 0.4, pointerEvents: "none" as const } : {}),
               }}>
               <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-                style={{ borderColor: mode === "glossar" ? "var(--kb)" : "var(--border)" }}>
-                {mode === "glossar" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
+                style={{ borderColor: mode === "glossar" ? "var(--accent)" : "var(--border)" }}>
+                {mode === "glossar" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} />}
               </div>
               Aus Glossar <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
             </button>
@@ -2455,15 +2456,15 @@ function CreateSetModal({
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
             style={{
               ...(mode === "quelle"
-                ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }
+                ? { border: "1.5px solid var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }
                 : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)" }),
               color: "var(--text)",
               opacity: selectedSource ? 1 : 0.4,
               pointerEvents: selectedSource ? "auto" : "none",
             }}>
             <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-              style={{ borderColor: mode === "quelle" ? "var(--kb)" : "var(--border)" }}>
-              {mode === "quelle" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
+              style={{ borderColor: mode === "quelle" ? "var(--accent)" : "var(--border)" }}>
+              {mode === "quelle" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} />}
             </div>
             Aus ausgewählter Quelle {selectedSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={selectedSource.filename} style={{ color: "var(--muted)" }}>({selectedSource.filename})</span>}
           </button>
@@ -2481,7 +2482,7 @@ function CreateSetModal({
             <button key={n} type="button" onClick={() => setCount(n)}
               className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-center"
               style={count === n
-                ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)", color: "var(--kb)" }
+                ? { border: "1.5px solid var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)", color: "var(--accent)" }
                 : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }}>
               {n}
             </button>
@@ -2492,13 +2493,13 @@ function CreateSetModal({
         <div className="flex gap-2">
           <button type="button" onClick={onClose}
             className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-            style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
+            style={{ color: "var(--accent)", backgroundColor: "var(--surface)", border: "1.5px solid var(--border)" }}>
             Abbrechen
           </button>
           <button type="button" onClick={() => onCreate(mode, count)} disabled={creating}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: "var(--kb)" }}>
-            {creating ? <ArrowsCounterClockwise size={13} className="animate-spin" /> : <Plus size={13} weight="bold" />}
+            style={{ backgroundColor: "var(--accent)" }}>
+            {creating ? <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" /> : <Plus size={13} weight="bold" />}
             {creating ? "Generieren…" : "Erstellen"}
           </button>
         </div>
@@ -2528,7 +2529,6 @@ function QuizStudio({
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
-              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
               color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
             }}>
             <Files size={13} weight="bold" />
@@ -2547,7 +2547,7 @@ function QuizStudio({
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
               style={{ backgroundColor: "var(--kb)", maxWidth: 280, width: "100%" }}>
               {loading
-                ? <><ArrowsCounterClockwise size={13} className="animate-spin" /> Wird generiert…</>
+                ? <><div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" /> Wird generiert…</>
                 : <><Plus size={13} weight="bold" /> Neues Quiz erstellen</>}
             </button>
           </div>
@@ -2574,7 +2574,7 @@ function QuizStudio({
           {loading && (
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
-                <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Quiz wird generiert…</p>
               </div>
             </div>
@@ -2910,7 +2910,6 @@ function InfografikStudio({
           <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
-              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
               color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
             }}>
             <Files size={13} weight="bold" />
@@ -2950,7 +2949,7 @@ function InfografikStudio({
                   <div className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <ArrowsCounterClockwise size={16} className="animate-spin" style={{ color: "var(--muted)", flexShrink: 0 }} />
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
                       <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>Wird generiert…</span>
                     </div>
                   </div>
@@ -3006,7 +3005,7 @@ function InfografikStudio({
           {loading && (
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
-                <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Infografik wird generiert…</p>
               </div>
             </div>
@@ -3058,7 +3057,6 @@ function DatentabelleStudio({
           <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
-              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
               color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
             }}>
             <Files size={13} weight="bold" />
@@ -3100,7 +3098,7 @@ function DatentabelleStudio({
                   <div className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <ArrowsCounterClockwise size={16} className="animate-spin" style={{ color: "var(--muted)", flexShrink: 0 }} />
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
                       <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>Wird generiert…</span>
                     </div>
                   </div>
@@ -3148,7 +3146,7 @@ function DatentabelleStudio({
           {!table && loading && (
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
-                <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Datentabelle wird generiert…</p>
               </div>
             </div>
@@ -3501,7 +3499,6 @@ function MindmapStudio({
           <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
-              backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
               color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
             }}>
             <Files size={13} weight="bold" />
@@ -3541,7 +3538,7 @@ function MindmapStudio({
                   <div className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <ArrowsCounterClockwise size={16} className="animate-spin" style={{ color: "var(--muted)", flexShrink: 0 }} />
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
                       <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>Wird generiert…</span>
                     </div>
                   </div>
@@ -3614,7 +3611,7 @@ function MindmapStudio({
           {!mindmap && loading && (
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
-                <ArrowsCounterClockwise size={20} className="animate-spin" style={{ color: "var(--muted)" }} />
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Mindmap wird generiert…</p>
               </div>
             </div>
@@ -3831,67 +3828,132 @@ function NotizenStudio({
 
 // ─── Sprachtraining: Glossar ──────────────────────────────────────────────────
 
+function GlossarInfoPopover() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <span ref={ref} className="relative inline-flex">
+      <button type="button" onClick={() => setOpen(!open)} className="hover:opacity-70 transition-opacity" style={{ color: "var(--muted)" }}>
+        <Info size={15} weight="bold" />
+      </button>
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 w-56 rounded-lg p-2.5 text-[11px] leading-relaxed shadow-lg"
+          style={{ backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)" }}>
+          Fügt 10–20 neue Fachbegriffe hinzu. Maximal 150 Einträge.
+        </div>
+      )}
+    </span>
+  );
+}
+
+function GlossarMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen(!open)}
+        className="w-5 h-5 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+        style={{ color: "var(--muted)" }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-6 z-50 rounded-lg py-1"
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
+          <button type="button"
+            onClick={() => { setOpen(false); onDeleteAll?.(); }}
+            className="w-full text-left px-3 py-1.5 text-[11px] hover:opacity-70 transition-opacity"
+            style={{ color: "#B91C1C" }}>
+            Alle Begriffe löschen
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GlossarView({
-  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete, sourceCount = 0, stats, breadcrumbs,
+  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete, onDeleteAll, sourceCount = 0, stats, breadcrumbs, showTranslation,
 }: {
   entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
   onGenerate: () => void; onBack?: () => void;
   onOpenSource?: (page: number, highlightText?: string) => void;
   onDelete?: (id: number) => void;
+  onDeleteAll?: () => void;
   sourceCount?: number;
   stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
+  showTranslation?: boolean;
 }) {
   const noSources = sourceCount === 0;
   return (
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title="Glossar" onBack={onBack} breadcrumbs={breadcrumbs} />}
-      <div className="px-3 pt-3">
-        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-          style={{
-            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 5 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
-            color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
-          }}>
-          <Files size={13} weight="bold" />
-          {noSources
-            ? "Keine Quelle ausgewählt"
-            : sourceCount === 1
-              ? "1 Quelle ausgewählt"
-              : sourceCount <= 5
-                ? `${sourceCount} Quellen ausgewählt`
-                : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
-        </div>
-      </div>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
+          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+            style={{
+              color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--accent)",
+            }}>
+            <Files size={13} weight="bold" />
+            {noSources
+              ? "Keine Quelle ausgewählt"
+              : sourceCount === 1
+                ? "1 Quelle ausgewählt"
+                : sourceCount <= 5
+                  ? `${sourceCount} Quellen ausgewählt`
+                  : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
+          </div>
           {extracting && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
-              style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}>
-              <ArrowsCounterClockwise size={13} weight="bold" className="animate-spin" />
+              style={{ backgroundColor: "rgba(var(--accent-rgb),0.06)", color: "var(--accent)" }}>
+              <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" />
               Begriffe werden aus Markierung extrahiert…
             </div>
           )}
-          <div className="flex justify-center">
-            <button
-              type="button"
-              onClick={onGenerate}
-              disabled={loading || noSources}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}
-            >
-              {loading ? <ArrowsCounterClockwise size={12} weight="bold" className="animate-spin" /> : <Plus size={12} weight="bold" />}
-              {loading ? "Extrahiere Begriffe…" : entries.length > 0 ? "Neu generieren" : "Glossar generieren"}
-            </button>
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onGenerate}
+                disabled={loading || noSources}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+                style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}
+              >
+                {loading ? <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" /> : <Plus size={12} weight="bold" />}
+                {loading ? "Begriffe werden extrahiert…" : "Begriffe extrahieren"}
+              </button>
+              <GlossarInfoPopover />
+            </div>
+            {entries.length > 0 && (
+              <div className="flex items-center gap-1.5 relative">
+                <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>{entries.length}/150</span>
+                <GlossarMenu onDeleteAll={onDeleteAll} />
+              </div>
+            )}
           </div>
 
-          {entries.length > 0 && (
-            <div
-              className="rounded-xl px-3 py-2 text-center text-xs font-medium"
-              style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}
-            >
-              {entries.length} Fachbegriffe extrahiert
-            </div>
-          )}
 
           {entries.length === 0 && !loading && (
             <p className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>
@@ -3908,24 +3970,30 @@ function GlossarView({
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{entry.term_de}</span>
-                  <span className="text-xs font-medium ml-2" style={{ color: "var(--kb)" }}>{entry.term_en}</span>
+                  {showTranslation && <span className="text-xs font-medium ml-2" style={{ color: "var(--accent)" }}>{entry.term_en}</span>}
                 </div>
                 {entry.page_number && (
                   <button type="button" onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
-                    className="inline-flex items-center gap-1 text-[10px] font-medium shrink-0 px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity cursor-pointer"
-                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>
-                    <FilePdf size={9} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!) : `S. ${entry.page_number}`}
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)" }}>
+                    <FilePdf size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!) : `S. ${entry.page_number}`}
                   </button>
                 )}
               </div>
-              <p className="text-xs leading-relaxed" style={{ color: "var(--text)", opacity: 0.8 }}>
-                {entry.definition}
-              </p>
-              {entry.example_sentence && (
-                <p className="text-[11px] italic leading-relaxed" style={{ color: "var(--muted)" }}>
-                  „{entry.example_sentence}"
-                </p>
+              {showTranslation && (entry.example_sentence) && (
+                <div>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Kontext</span>
+                  <p className="text-[11px] italic leading-relaxed mt-0.5" style={{ color: "var(--muted)" }}>
+                    „{entry.example_sentence}"
+                  </p>
+                </div>
               )}
+              <div>
+                <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Erklärung (B1)</span>
+                <p className="text-xs leading-relaxed mt-0.5" style={{ color: "var(--text)", opacity: 0.8 }}>
+                  {entry.definition}
+                </p>
+              </div>
               <div className="flex justify-end mt-1">
                 <button type="button" onClick={() => onDelete?.(entry.id)}
                   className="w-5 h-5 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
@@ -3935,6 +4003,7 @@ function GlossarView({
               </div>
             </div>
           ))}
+
         </div>
       </div>
     </div>
@@ -3983,7 +4052,7 @@ function VocabFlashcards({
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
               <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
-              <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
+              <p className="text-3xl font-bold mt-2" style={{ color: "var(--accent)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -4057,8 +4126,8 @@ function VocabFlashcards({
               className="w-full rounded-2xl p-6 text-center transition-all cursor-pointer"
               style={{
                 minHeight: 180,
-                backgroundColor: flipped ? "rgba(var(--kb-rgb),0.04)" : "var(--surface)",
-                border: `2px solid ${flipped ? "var(--kb)" : "var(--border)"}`,
+                backgroundColor: flipped ? "rgba(var(--accent-rgb),0.04)" : "var(--surface)",
+                border: `2px solid ${flipped ? "var(--accent)" : "var(--border)"}`,
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
               }}
             >
@@ -4069,7 +4138,7 @@ function VocabFlashcards({
                 </>
               ) : (
                 <>
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
                     {card.term_en}
                   </span>
                   <span className="text-sm leading-relaxed font-semibold" style={{ color: "var(--text)" }}>
@@ -4152,7 +4221,7 @@ function LueckentextView({
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
               <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
-              <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
+              <p className="text-3xl font-bold mt-2" style={{ color: "var(--accent)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -4167,7 +4236,7 @@ function LueckentextView({
                 type="button"
                 onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
                 className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: "var(--kb)" }}
+                style={{ backgroundColor: "var(--accent)" }}
               >
                 Neue Übung
               </button>
@@ -4194,7 +4263,7 @@ function LueckentextView({
             onClick={() => { onGenerate(); setCurrent(0); setAnswers({}); setFinished(false); }}
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--kb)" }}
+            style={{ backgroundColor: "var(--accent)" }}
           >
             <span className="flex items-center justify-center gap-2">
               <TextAa size={16} weight="bold" />
@@ -4250,7 +4319,7 @@ function LueckentextView({
                 {answers[current] !== undefined && (
                   <button type="button" onClick={handleAdvance}
                     className="mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-                    style={{ backgroundColor: "var(--kb)" }}>
+                    style={{ backgroundColor: "var(--accent)" }}>
                     {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
                   </button>
                 )}
@@ -4305,7 +4374,7 @@ function VokabeltestView({
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
               <p className="text-lg font-bold" style={{ color: "var(--text)" }}>Ergebnis</p>
-              <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
+              <p className="text-3xl font-bold mt-2" style={{ color: "var(--accent)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
@@ -4319,7 +4388,7 @@ function VokabeltestView({
               <button type="button"
                 onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
                 className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: "var(--kb)" }}
+                style={{ backgroundColor: "var(--accent)" }}
               >
                 Neuer Test
               </button>
@@ -4346,7 +4415,7 @@ function VokabeltestView({
             onClick={() => { onGenerate(); setCurrent(0); setAnswers({}); setFinished(false); }}
             disabled={loading}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--kb)" }}
+            style={{ backgroundColor: "var(--accent)" }}
           >
             <span className="flex items-center justify-center gap-2">
               <Exam size={16} weight="bold" />
@@ -4391,14 +4460,14 @@ function VokabeltestView({
                   })}
                 </div>
                 {answers[current] !== undefined && q.explanation && (
-                  <p className="text-xs mt-3 leading-relaxed p-2 rounded-lg font-semibold" style={{ backgroundColor: "rgba(var(--kb-rgb),0.05)", color: "var(--kb)" }}>
+                  <p className="text-xs mt-3 leading-relaxed p-2 rounded-lg font-semibold" style={{ backgroundColor: "rgba(var(--accent-rgb),0.05)", color: "var(--accent)" }}>
                     {q.explanation}
                   </p>
                 )}
                 {answers[current] !== undefined && (
                   <button type="button" onClick={handleAdvance}
                     className="mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-                    style={{ backgroundColor: "var(--kb)" }}>
+                    style={{ backgroundColor: "var(--accent)" }}>
                     {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
                   </button>
                 )}
@@ -4434,11 +4503,9 @@ function SprachtrainingOverview({
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         {/* Glossar counter */}
         {glossaryCount > 0 && (
-          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-            style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}>
-            <Files size={13} weight="bold" />
-            <span className="font-bold">{glossaryCount} / 150 Glossar</span>
-          </div>
+          <span className="text-xs font-medium px-1" style={{ color: "var(--muted)" }}>
+            {glossaryCount}/150 Glossar
+          </span>
         )}
 
         {/* Tool tiles */}
@@ -4572,25 +4639,34 @@ interface DayDetail {
 
 function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void }) {
   const [period, setPeriod] = useState<StatsPeriod>("30");
-  const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
-  const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
   const [dayDetailLoading, setDayDetailLoading] = useState(false);
   const [category, setCategory] = useState<"lerntools" | "sprachtraining">("lerntools");
-  const [autoSelected, setAutoSelected] = useState(false);
 
-  // Reset selected day when switching category
-  useEffect(() => {
-    setSelectedDay(null);
-    setDayDetail(null);
-  }, [category]);
+  // Per-category selection memory (only within this mount, resets on page reload)
+  const selectionRef = useRef<Record<string, { day: HeatmapDay; detail: DayDetail | null }>>({});
+  const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
+  const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
 
-  // Auto-select today on first render
+  // Save selection when user picks a day
   useEffect(() => {
-    if (autoSelected || !stats) return;
+    if (selectedDay) {
+      selectionRef.current[category] = { day: selectedDay, detail: dayDetail };
+    }
+  }, [selectedDay, dayDetail, category]);
+
+  // On category switch or stats load: restore saved day, or auto-select today
+  useEffect(() => {
+    if (!stats) return;
+    const saved = selectionRef.current[category];
+    if (saved) {
+      setSelectedDay(saved.day);
+      setDayDetail(saved.detail);
+      return;
+    }
+    // Auto-select today
     const catHeatmap = category === "lerntools" ? stats.lerntools_heatmap : stats.sprachtraining_heatmap;
     const todayEntry = catHeatmap.slice(-parseInt(period)).find(d => d.day === stats.today);
     if (todayEntry) {
-      setAutoSelected(true);
       setSelectedDay(todayEntry);
       if (todayEntry.answers > 0) {
         setDayDetailLoading(true);
@@ -4598,9 +4674,14 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
           .then(r => r.ok ? r.json() : null)
           .then(d => { if (d) setDayDetail(d); })
           .finally(() => setDayDetailLoading(false));
+      } else {
+        setDayDetail(null);
       }
+    } else {
+      setSelectedDay(null);
+      setDayDetail(null);
     }
-  }, [stats, autoSelected, period, moduleUuid, category]);
+  }, [category, stats]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center p-4">
@@ -4896,7 +4977,7 @@ function StudioTabs({ tabs, active, onSelect, accentColor }: {
     <div ref={ref} className="flex-shrink-0 px-3 pt-6 pb-2 w-full mx-auto" style={{ maxWidth: 500 }}>
       <div
         className="grid gap-1 p-1 rounded-xl"
-        style={{ backgroundColor: "rgba(0, 66, 97, 0.08)", gridTemplateColumns: cols }}
+        style={{ backgroundColor: "rgba(var(--accent-rgb), 0.08)", gridTemplateColumns: cols }}
       >
         {tabs.map((tab) => {
           const isActive = active === tab.key;
@@ -4907,9 +4988,9 @@ function StudioTabs({ tabs, active, onSelect, accentColor }: {
               onClick={() => onSelect(tab.key)}
               className={`py-1.5 px-3 text-xs font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!isActive ? "hover:bg-black/[0.03] hover:text-[var(--text)]" : ""}`}
               style={{
-                color: isActive ? (accentColor || "var(--kb)") : "var(--muted)",
+                color: isActive ? (accentColor || "var(--accent)") : "var(--muted)",
                 backgroundColor: isActive ? "var(--bg)" : undefined,
-                border: isActive ? `1.5px solid ${accentColor || "var(--kb)"}` : "1.5px solid transparent",
+                border: isActive ? `1.5px solid ${accentColor || "var(--accent)"}` : "1.5px solid transparent",
                 boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
               }}
             >
@@ -4993,6 +5074,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
             ]}
             active={studioTab}
             onSelect={(k) => setStudioTab(k as typeof studioTab)}
+            accentColor={studioTab === "sprachtraining" ? "#0D7C73" : undefined}
           />
         </>
       )}
@@ -5066,7 +5148,6 @@ function PresentationStudio({
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
           style={{
-            backgroundColor: noSources ? "rgba(239,68,68,0.06)" : sourceCount > 1 ? "rgba(196,130,14,0.08)" : "rgba(var(--kb-rgb),0.06)",
             color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
           }}>
           <Files size={13} weight="bold" />
@@ -5128,7 +5209,7 @@ function PresentationStudio({
                     ) : p.status === "failed" ? (
                       <WarningCircle size={16} style={{ color: "#EF4444", flexShrink: 0 }} />
                     ) : (
-                      <ArrowsCounterClockwise size={16} className="animate-spin" style={{ color: "var(--muted)", flexShrink: 0 }} />
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
                     )}
                     <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
                       {p.title || p.source_filename || "Präsentation"}
@@ -6151,6 +6232,16 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ }
   }
 
+  async function deleteAllGlossaryEntries() {
+    try {
+      await fetch(`/api/ki-tutor/modules/${uuid}/glossary`, {
+        method: "DELETE", credentials: "include",
+      });
+      setGlossary([]);
+      loadGlossaryCount();
+    } catch { /* ignore */ }
+  }
+
   const glossaryPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function stopGlossaryPolling() {
@@ -6380,7 +6471,7 @@ export default function KiTutorModulePage() {
     return src ? { uuid: src.uuid, filename: src.filename } : null;
   })();
 
-  const sprachtrainingContent = (() => {
+  const sprachtrainingContent = (<div style={{ "--accent": "#0D7C73", "--accent-rgb": "13,124,115" } as React.CSSProperties} className="flex flex-col flex-1 overflow-hidden">{(() => {
     switch (sprachView) {
       case "glossar":
         return (
@@ -6397,7 +6488,9 @@ export default function KiTutorModulePage() {
               if (src) handleOpenViewer(src, page, highlightText);
             }}
             onDelete={deleteGlossaryEntry}
+            onDeleteAll={deleteAllGlossaryEntries}
             stats={pageStats}
+            showTranslation
           />
         );
       case "karteikarten":
@@ -6457,6 +6550,7 @@ export default function KiTutorModulePage() {
               if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
             }}
             breadcrumbs={[{ label: "Sprachtraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            showTranslation
           />
         ) : null;
       case "lk-complete":
@@ -6565,7 +6659,7 @@ export default function KiTutorModulePage() {
           />
         );
     }
-  })();
+  })()}</div>);
 
   const glossarContent = (
     <GlossarView
@@ -6579,6 +6673,8 @@ export default function KiTutorModulePage() {
         if (src) handleOpenViewer(src, page, highlightText);
       }}
       onDelete={deleteGlossaryEntry}
+      onDeleteAll={deleteAllGlossaryEntries}
+      showTranslation={sprachtrainingActive}
     />
   );
 
@@ -6640,7 +6736,7 @@ export default function KiTutorModulePage() {
         <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
           <Header showLogout />
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-transparent" style={{ borderColor: "var(--kb)", borderTopColor: "transparent" }} />
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
           </div>
         </div>
       </ProtectedRoute>
