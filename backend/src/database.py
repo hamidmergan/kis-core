@@ -2872,10 +2872,12 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             cur.execute(
                 """SELECT s.id, s.tool, s.mode, s.title, s.card_count,
                           s.source_uuid, s.created_at,
-                          COALESCE(m.total_attempts, 0) AS total_attempts
+                          COALESCE(m.total_attempts, 0) AS total_attempts,
+                          COALESCE(m.total_correct, 0) AS total_correct
                    FROM ki_tutor_exercise_sets s
                    LEFT JOIN LATERAL (
-                     SELECT COUNT(*) AS total_attempts
+                     SELECT COUNT(*) AS total_attempts,
+                            COUNT(*) FILTER (WHERE p.correct) AS total_correct
                      FROM ki_tutor_exercise_progress p
                      WHERE p.set_id = s.id AND p.user_id = s.user_id
                    ) m ON true
@@ -2888,10 +2890,14 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             # ── Split by category: Lerntools (mode=quelle) vs Sprachtraining (mode=glossar) ──
             def _summarise(subset: list[dict]) -> dict:
                 total_cards = sum(s["card_count"] for s in subset)
+                total_attempts = sum(s["total_attempts"] for s in subset)
+                total_correct = sum(s["total_correct"] for s in subset)
                 return {
                     "total_sets": len(subset),
                     "total_cards": total_cards,
-                    "total_attempts": sum(s["total_attempts"] for s in subset),
+                    "total_attempts": total_attempts,
+                    "total_correct": total_correct,
+                    "accuracy": round(total_correct / total_attempts * 100) if total_attempts > 0 else 0,
                 }
 
             lerntools_sets = [s for s in sets if s["mode"] == "quelle"]
@@ -2903,46 +2909,55 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
 
             # (by_tool removed — not displayed anymore)
 
-            # ── Heatmap: activity per day (last 6 months, Berlin tz) ──
-            cur.execute(
-                """SELECT (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date AS day,
-                          COUNT(ep.id) AS answers,
-                          COUNT(ep.id) FILTER (WHERE ep.correct) AS correct,
-                          COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
-                          COUNT(DISTINCT ep.set_id) AS sets_practiced
-                   FROM ki_tutor_exercise_progress ep
-                   WHERE ep.user_id = %s
-                     AND ep.set_id IN (
-                       SELECT id FROM ki_tutor_exercise_sets
-                       WHERE module_id = %s AND user_id = %s
-                     )
-                     AND ep.answered_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date - INTERVAL '179 days'
-                   GROUP BY day ORDER BY day""",
-                (user_id, module_id, user_id),
-            )
-            heatmap_raw = {str(r["day"]): dict(r) for r in cur.fetchall()}
-
-            # Fill in all days for the last 180 days
+            # ── Heatmap: activity per day per category (last 6 months, Berlin tz) ──
             from datetime import date, timedelta, datetime
             today = datetime.now(tz).date()
-            heatmap = []
-            for i in range(179, -1, -1):
-                d = today - timedelta(days=i)
-                ds = str(d)
-                if ds in heatmap_raw:
-                    r = heatmap_raw[ds]
-                    heatmap.append({
-                        "day": ds,
-                        "answers": r["answers"],
-                        "correct": r["correct"],
-                        "wrong": r["wrong"],
-                        "sets_practiced": r["sets_practiced"],
-                    })
-                else:
-                    heatmap.append({
-                        "day": ds, "answers": 0, "correct": 0,
-                        "wrong": 0, "sets_practiced": 0,
-                    })
+
+            def _build_heatmap(mode_filter: str | None) -> list[dict]:
+                mode_clause = ""
+                params: list = [user_id, module_id, user_id]
+                if mode_filter:
+                    mode_clause = " AND s2.mode = %s"
+                    params.append(mode_filter)
+                cur.execute(
+                    f"""SELECT (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date AS day,
+                              COUNT(ep.id) AS answers,
+                              COUNT(ep.id) FILTER (WHERE ep.correct) AS correct,
+                              COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
+                              COUNT(DISTINCT ep.set_id) AS sets_practiced
+                       FROM ki_tutor_exercise_progress ep
+                       JOIN ki_tutor_exercise_sets s2 ON s2.id = ep.set_id
+                       WHERE ep.user_id = %s
+                         AND s2.module_id = %s AND s2.user_id = %s
+                         {mode_clause}
+                         AND ep.answered_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date - INTERVAL '179 days'
+                       GROUP BY day ORDER BY day""",
+                    params,
+                )
+                raw = {str(r["day"]): dict(r) for r in cur.fetchall()}
+                result = []
+                for i in range(179, -1, -1):
+                    d = today - timedelta(days=i)
+                    ds = str(d)
+                    if ds in raw:
+                        r = raw[ds]
+                        result.append({
+                            "day": ds,
+                            "answers": r["answers"],
+                            "correct": r["correct"],
+                            "wrong": r["wrong"],
+                            "sets_practiced": r["sets_practiced"],
+                        })
+                    else:
+                        result.append({
+                            "day": ds, "answers": 0, "correct": 0,
+                            "wrong": 0, "sets_practiced": 0,
+                        })
+                return result
+
+            heatmap = _build_heatmap(None)
+            heatmap_lerntools = _build_heatmap("quelle")
+            heatmap_sprachtraining = _build_heatmap("glossar")
 
             # ── Chat stats ──
             cur.execute(
@@ -2976,6 +2991,8 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
         "lerntools": overview_lerntools,
         "sprachtraining": overview_sprach,
         "heatmap": heatmap,
+        "lerntools_heatmap": heatmap_lerntools,
+        "sprachtraining_heatmap": heatmap_sprachtraining,
         "chat": {"total": chat_row["total"], "today": chat_row["today"]},
         "first_activity": first_activity,
         "active_days": active_days,
@@ -2983,12 +3000,23 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
     }
 
 
-def get_student_day_stats(module_id: int, user_id: int, day_str: str) -> dict:
-    """Per-set breakdown for a specific day."""
+def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: str | None = None) -> dict:
+    """Per-set breakdown for a specific day, optionally filtered by category."""
+    mode_filter = None
+    if category == "lerntools":
+        mode_filter = "quelle"
+    elif category == "sprachtraining":
+        mode_filter = "glossar"
+
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            mode_clause = ""
+            params: list = [module_id, user_id, day_str]
+            if mode_filter:
+                mode_clause = " AND s.mode = %s"
+                params.append(mode_filter)
             cur.execute(
-                """SELECT s.id AS set_id, s.tool, s.mode, s.title,
+                f"""SELECT s.id AS set_id, s.tool, s.mode, s.title,
                           COUNT(ep.id) AS answers,
                           COUNT(ep.id) FILTER (WHERE ep.correct) AS correct,
                           COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
@@ -2998,8 +3026,9 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str) -> dict:
                    JOIN ki_tutor_exercise_sets s ON s.id = ep.set_id
                    WHERE s.module_id = %s AND ep.user_id = %s
                      AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date
+                     {mode_clause}
                    GROUP BY s.id ORDER BY MIN(ep.answered_at)""",
-                (module_id, user_id, day_str),
+                params,
             )
             sets = []
             total_answers = 0

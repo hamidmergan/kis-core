@@ -2264,13 +2264,14 @@ async def get_student_stats_endpoint(
 async def get_student_day_stats_endpoint(
     module_uuid: str,
     date: str,
+    category: str | None = None,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
     module = db.get_ki_tutor_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-    return db.get_student_day_stats(module["id"], user_id, date)
+    return db.get_student_day_stats(module["id"], user_id, date, category)
 
 
 # ─── Glossar Count & Limit ───────────────────────────────────────────────────

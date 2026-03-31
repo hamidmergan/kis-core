@@ -301,6 +301,8 @@ interface ExerciseOverview {
   total_sets: number;
   total_cards: number;
   total_attempts: number;
+  total_correct: number;
+  accuracy: number;
 }
 
 interface HeatmapDay {
@@ -317,6 +319,8 @@ interface StudentStats {
   lerntools: ExerciseOverview;
   sprachtraining: ExerciseOverview;
   heatmap: HeatmapDay[];
+  lerntools_heatmap: HeatmapDay[];
+  sprachtraining_heatmap: HeatmapDay[];
   chat: { total: number; today: number };
   first_activity: string | null;
   active_days: number;
@@ -4547,6 +4551,14 @@ const TOOL_LABELS: Record<string, string> = {
   quiz: "Quiz",
 };
 
+const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
+  lernkarten:    { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  karteikarten:  { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  quiz:          { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
+  lueckentext:   { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
+  vokabeltest:   { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+};
+
 type StatsPeriod = "30" | "180";
 
 interface DayDetail {
@@ -4558,7 +4570,7 @@ interface DayDetail {
   chat_count: number;
 }
 
-function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats | null; loading: boolean; moduleUuid: string }) {
+function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void }) {
   const [period, setPeriod] = useState<StatsPeriod>("30");
   const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
   const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
@@ -4566,22 +4578,29 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
   const [category, setCategory] = useState<"lerntools" | "sprachtraining">("lerntools");
   const [autoSelected, setAutoSelected] = useState(false);
 
+  // Reset selected day when switching category
+  useEffect(() => {
+    setSelectedDay(null);
+    setDayDetail(null);
+  }, [category]);
+
   // Auto-select today on first render
   useEffect(() => {
     if (autoSelected || !stats) return;
-    const todayEntry = stats.heatmap.slice(-parseInt(period)).find(d => d.day === stats.today);
+    const catHeatmap = category === "lerntools" ? stats.lerntools_heatmap : stats.sprachtraining_heatmap;
+    const todayEntry = catHeatmap.slice(-parseInt(period)).find(d => d.day === stats.today);
     if (todayEntry) {
       setAutoSelected(true);
       setSelectedDay(todayEntry);
       if (todayEntry.answers > 0) {
         setDayDetailLoading(true);
-        fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${todayEntry.day}`, { credentials: "include" })
+        fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${todayEntry.day}&category=${category}`, { credentials: "include" })
           .then(r => r.ok ? r.json() : null)
           .then(d => { if (d) setDayDetail(d); })
           .finally(() => setDayDetailLoading(false));
       }
     }
-  }, [stats, autoSelected, period, moduleUuid]);
+  }, [stats, autoSelected, period, moduleUuid, category]);
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center p-4">
@@ -4594,12 +4613,13 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
     </div>
   );
 
-  const { lerntools, sprachtraining, heatmap, chat, active_days, today } = stats;
+  const { lerntools, sprachtraining, lerntools_heatmap, sprachtraining_heatmap, chat, active_days, today } = stats;
   const currentOverview = category === "lerntools" ? lerntools : sprachtraining;
+  const categoryHeatmap = category === "lerntools" ? lerntools_heatmap : sprachtraining_heatmap;
 
   // Filter heatmap by period
   const periodDays = parseInt(period);
-  const filteredHeatmap = heatmap.slice(-periodDays);
+  const filteredHeatmap = categoryHeatmap.slice(-periodDays);
   const periodAnswers = filteredHeatmap.reduce((s, d) => s + d.answers, 0);
   const periodCorrect = filteredHeatmap.reduce((s, d) => s + d.correct, 0);
   const periodWrong = filteredHeatmap.reduce((s, d) => s + d.wrong, 0);
@@ -4622,13 +4642,17 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
 
   const maxAns = Math.max(...filteredHeatmap.map(d => d.answers), 1);
 
+  // Lerntools: brand blue, Sprachtraining: teal
+  const accent = category === "lerntools" ? "var(--kb)" : "#0D7C73";
+  const heatRgb = category === "lerntools" ? "0,66,97" : "13,124,115";
+
   function heatColor(answers: number): string {
-    if (answers === 0) return "var(--border)";
+    if (answers === 0) return `rgba(${heatRgb},0.07)`;
     const intensity = Math.min(answers / maxAns, 1);
-    if (intensity < 0.25) return "rgba(34,197,94,0.25)";
-    if (intensity < 0.5) return "rgba(34,197,94,0.45)";
-    if (intensity < 0.75) return "rgba(34,197,94,0.65)";
-    return "rgba(34,197,94,0.9)";
+    if (intensity < 0.25) return `rgba(${heatRgb},0.20)`;
+    if (intensity < 0.5) return `rgba(${heatRgb},0.40)`;
+    if (intensity < 0.75) return `rgba(${heatRgb},0.60)`;
+    return `rgba(${heatRgb},0.85)`;
   }
 
   function formatDay(dayStr: string) {
@@ -4648,7 +4672,7 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
     if (d.answers === 0) { setDayDetail(null); return; }
     setDayDetailLoading(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${d.day}`, { credentials: "include" });
+      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${d.day}&category=${category}`, { credentials: "include" });
       if (res.ok) setDayDetail(await res.json());
     } catch { /* ignore */ }
     setDayDetailLoading(false);
@@ -4664,19 +4688,8 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
         ]}
         active={category}
         onSelect={(k) => setCategory(k as "lerntools" | "sprachtraining")}
+        accentColor={category === "sprachtraining" ? "#0D7C73" : undefined}
       />
-
-      {/* ── Overview summary ── */}
-      <div className="rounded-xl p-4" style={{ backgroundColor: "var(--bg)" }}>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-            {currentOverview.total_sets} {currentOverview.total_sets === 1 ? "Übung" : "Übungen"} · {currentOverview.total_cards} Karten
-          </span>
-          <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-            {currentOverview.total_attempts} Antworten
-          </span>
-        </div>
-      </div>
 
       {/* ── Period selector + period summary ── */}
       <div className="mt-4">
@@ -4687,10 +4700,10 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
               <button
                 key={val}
                 type="button"
-                onClick={() => { setPeriod(val); setSelectedDay(null); }}
+                onClick={() => setPeriod(val)}
                 className="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
                 style={{
-                  backgroundColor: period === val ? "var(--kb)" : "transparent",
+                  backgroundColor: period === val ? accent : "transparent",
                   color: period === val ? "#fff" : "var(--muted)",
                 }}
               >
@@ -4767,13 +4780,14 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
                               style={{
                                 width: cellSize,
                                 height: cellSize,
-                                backgroundColor: isSelected ? "var(--kb)" : heatColor(d.answers),
-                                outline: isToday && !isSelected ? "2px solid var(--kb)" : "none",
+                                backgroundColor: heatColor(d.answers),
+                                outline: isSelected ? `2px solid ${accent}` : "none",
                                 outlineOffset: 1,
+                                borderBottom: isToday && !isSelected ? `2.5px solid ${category === "sprachtraining" ? "#8BA59A" : "var(--muted)"}` : "none",
                               }}
                               title={`${formatDay(d.day)}: ${d.answers} Antworten`}
                             >
-                              {showDayNums && <span className="text-[10px] font-medium" style={{ color: isSelected || d.answers > 0 ? "rgba(255,255,255,0.9)" : "var(--muted)", opacity: isSelected ? 1 : 0.7 }}>{dayNum}</span>}
+                              {showDayNums && <span className="text-[10px] font-medium" style={{ color: d.answers > 0 ? `rgba(255,255,255,${Math.min(0.5 + (d.answers / maxAns) * 0.5, 1)})` : "var(--muted)" }}>{dayNum}</span>}
                             </button>
                           );
                         })}
@@ -4790,7 +4804,7 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
         <div className="flex items-center justify-center gap-2 mt-2">
           <span className="text-[10px]" style={{ color: "var(--muted)" }}>Weniger</span>
           {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
-            <div key={i} className="rounded-[3px]" style={{ width: 14, height: 14, backgroundColor: v === 0 ? "var(--border)" : `rgba(34,197,94,${0.15 + v * 0.75})` }} />
+            <div key={i} className="rounded-[3px]" style={{ width: 14, height: 14, backgroundColor: v === 0 ? `rgba(${heatRgb},0.07)` : `rgba(${heatRgb},${0.15 + v * 0.70})` }} />
           ))}
           <span className="text-[10px]" style={{ color: "var(--muted)" }}>Mehr</span>
         </div>
@@ -4798,7 +4812,7 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
 
       {/* ── Selected day detail ── */}
       {selectedDay && (
-        <div className="rounded-xl p-3" style={{ backgroundColor: "var(--bg)" }}>
+        <div className="rounded-xl p-3">
           <div className="mb-2">
             <div className="text-xs font-semibold" style={{ color: "var(--text)" }}>
               {formatDay(selectedDay.day)} {selectedDay.day === today && "(Heute)"}
@@ -4810,42 +4824,34 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
             <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
           ) : dayDetail ? (
             <div className="space-y-2">
-              {/* Summary line */}
-              <div className="flex gap-3 text-[10px]" style={{ color: "var(--muted)" }}>
-                <span>{dayDetail.total_answers} Antworten</span>
-                <span style={{ color: "#16a34a" }}>{dayDetail.total_correct} richtig</span>
-                <span style={{ color: "#dc2626" }}>{dayDetail.total_wrong} falsch</span>
-                {dayDetail.chat_count > 0 && <span>{dayDetail.chat_count} Chat-Fragen</span>}
-              </div>
               {/* Per-set breakdown */}
               {dayDetail.sets.map(s => {
                 const pct = s.answers > 0 ? Math.round(s.correct / s.answers * 100) : 0;
                 // Clean title: remove file extensions for display
                 const displayTitle = s.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
                 return (
-                  <div key={s.set_id} className="rounded-lg px-2.5 py-2" style={{ backgroundColor: "var(--surface)" }}>
+                  <div key={s.set_id} className="rounded-lg px-2.5 py-2 cursor-pointer transition-colors hover:brightness-95" style={{ backgroundColor: "var(--surface)" }} onClick={() => onNavigateToSet?.(s.set_id, s.tool, s.mode)}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-medium truncate" style={{ color: "var(--text)", maxWidth: "70%" }}>
                         {displayTitle}
                       </span>
-                      <span className="text-xs font-semibold" style={{ color: pct >= 70 ? "#16a34a" : pct >= 40 ? "#ca8a04" : "#dc2626" }}>
+                      <span className="text-xs font-semibold" style={{ color: pct >= 70 ? accent : "var(--muted)" }}>
                         {pct}%
                       </span>
                     </div>
                     {/* Mini progress bar */}
                     <div className="flex rounded-full overflow-hidden" style={{ height: 4, backgroundColor: "var(--border)" }}>
-                      <div style={{ width: `${pct}%`, backgroundColor: "#16a34a" }} />
-                      {s.wrong > 0 && <div style={{ width: `${100 - pct}%`, backgroundColor: "#dc2626", opacity: 0.4 }} />}
+                      <div style={{ width: `${pct}%`, backgroundColor: accent }} />
+                      {s.wrong > 0 && <div style={{ width: `${100 - pct}%`, backgroundColor: "var(--border)" }} />}
                     </div>
-                    <div className="flex items-center gap-2 mt-1 text-[9px]" style={{ color: "var(--muted)" }}>
+                    <div className="flex items-center justify-between mt-1 text-[9px]" style={{ color: "var(--muted)" }}>
                       <span className="px-1 py-0.5 rounded" style={{
-                        backgroundColor: s.mode === "glossar" ? "rgba(168,85,247,0.1)" : "rgba(59,130,246,0.1)",
-                        color: s.mode === "glossar" ? "#7c3aed" : "#2563eb",
+                        backgroundColor: (TOOL_COLORS[s.tool] || { bg: "var(--surface)" }).bg,
+                        color: (TOOL_COLORS[s.tool] || { color: "var(--muted)" }).color,
                       }}>
                         {TOOL_LABELS[s.tool] || s.tool}
                       </span>
-                      <span>{s.correct} richtig · {s.wrong} falsch</span>
-                      {s.first_answer && <span>{formatTime(s.first_answer)}</span>}
+                      <span>{s.correct}/{s.correct + s.wrong} richtig</span>
                     </div>
                   </div>
                 );
@@ -4862,10 +4868,11 @@ function StudentStatsView({ stats, loading, moduleUuid }: { stats: StudentStats 
 
 // ─── Studio Tabs (container-width responsive) ───────────────────────────────
 
-function StudioTabs({ tabs, active, onSelect }: {
+function StudioTabs({ tabs, active, onSelect, accentColor }: {
   tabs: { key: string; label: string }[];
   active: string;
   onSelect: (key: string) => void;
+  accentColor?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<"row" | "grid" | "stack">("row");
@@ -4900,9 +4907,9 @@ function StudioTabs({ tabs, active, onSelect }: {
               onClick={() => onSelect(tab.key)}
               className={`py-1.5 px-3 text-xs font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!isActive ? "hover:bg-black/[0.03] hover:text-[var(--text)]" : ""}`}
               style={{
-                color: isActive ? "var(--kb)" : "var(--muted)",
+                color: isActive ? (accentColor || "var(--kb)") : "var(--muted)",
                 backgroundColor: isActive ? "var(--bg)" : undefined,
-                border: isActive ? "1.5px solid var(--kb)" : "1.5px solid transparent",
+                border: isActive ? `1.5px solid ${accentColor || "var(--kb)"}` : "1.5px solid transparent",
                 boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
               }}
             >
@@ -4917,7 +4924,7 @@ function StudioTabs({ tabs, active, onSelect }: {
 
 // ─── Studio Overview ──────────────────────────────────────────────────────────
 
-function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid, statsVersion }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string; statsVersion: number }) {
+function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid, statsVersion, onNavigateToSet }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string; statsVersion: number; onNavigateToSet?: (setId: number, tool: string, mode: string) => void }) {
   const [studioTab, _setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen" | "statistik">(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("kis-studio-tab");
@@ -5018,7 +5025,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
 
       {/* Ergebnisse Inhalt */}
       {studioTab === "statistik" && (
-        <StudentStatsView stats={studentStats} loading={statsLoading} moduleUuid={moduleUuid} />
+        <StudentStatsView stats={studentStats} loading={statsLoading} moduleUuid={moduleUuid} onNavigateToSet={onNavigateToSet} />
       )}
     </div>
   );
@@ -6250,6 +6257,20 @@ export default function KiTutorModulePage() {
     setStudioView(view);
   }
 
+  function handleNavigateToSet(setId: number, tool: string, mode: string) {
+    loadExerciseSet(setId).then(() => {
+      if (mode === "glossar") {
+        // Sprachtraining
+        if (tool === "lernkarten" || tool === "karteikarten") setSprachView("lk-learn");
+        else if (tool === "lueckentext") setSprachView("cl-learn");
+        else if (tool === "vokabeltest") setSprachView("vt-learn");
+      } else {
+        // Lerntools (mode=quelle)
+        setStudioView(tool as StudioView);
+      }
+    });
+  }
+
   // ─── Exercise Sets Functions ──────────────────────────────────────────────
 
   async function loadExerciseSets(tool?: string) {
@@ -6830,7 +6851,7 @@ export default function KiTutorModulePage() {
               ) : sprachView !== "overview" ? (
                 sprachtrainingContent
               ) : studioView === "overview" ? (
-                <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} />
+                <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} />
               ) : activeSet && activeSet.tool === "karteikarten" ? (
                 <LernkartenLearnView
                   exerciseSet={activeSet}
@@ -7024,7 +7045,7 @@ export default function KiTutorModulePage() {
                   ) : sprachView !== "overview" ? (
                     sprachtrainingContent
                   ) : studioView === "overview" ? (
-                    <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} />
+                    <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} />
                   ) : activeSet && activeSet.tool === "karteikarten" ? (
                     <LernkartenLearnView
                       exerciseSet={activeSet}
