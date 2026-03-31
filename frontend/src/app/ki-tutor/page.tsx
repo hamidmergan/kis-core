@@ -304,6 +304,7 @@ function LinkRow({ link, onRequestDelete }: { link: AccessLink; onRequestDelete:
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: "Europe/Berlin",
   });
   const isExpired = new Date(link.expires_at) < new Date();
 
@@ -476,7 +477,7 @@ function ModuleCard({
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold text-gray-900 mb-2">Einschreibelink löschen?</h3>
             <p className="text-sm text-gray-600 mb-1">
-              <span className="font-medium">...{deleteLinkConfirm.code}</span> – gültig bis {new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}
+              <span className="font-medium">...{deleteLinkConfirm.code}</span> – gültig bis {new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}
             </p>
             <p className="text-sm text-red-600 mb-6">
               Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.
@@ -822,7 +823,7 @@ function StudentView() {
               ? `/ki-tutor/${m.uuid}?eid=${m.enrollment_id}`
               : `/ki-tutor/${m.uuid}`;
             const untilDate = m.enrolled_until
-              ? new Date(m.enrolled_until).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+              ? new Date(m.enrolled_until).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })
               : null;
             return (
               <li key={`${m.uuid}-${m.enrollment_id ?? i}`} className="px-5 py-4 bg-white hover:bg-gray-50">

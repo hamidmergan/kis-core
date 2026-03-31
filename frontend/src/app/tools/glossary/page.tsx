@@ -138,7 +138,7 @@ export default function GlossaryPage() {
 
   const formatDate = (iso: string) => {
     try {
-      return new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+      return new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
     } catch {
       return "";
     }

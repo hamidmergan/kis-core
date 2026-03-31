@@ -37,9 +37,9 @@ interface AdminJob {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + "Z").toLocaleString("de-DE", {
+  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").toLocaleString("de-DE", {
     day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
+    hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin",
   });
 }
 
@@ -1204,7 +1204,7 @@ function QuotaTab({ targetUserId, onConsumed, onBack }: { targetUserId: number |
 
         {selectedUser.global_reset_at && (
           <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
-            <span>Globaler Reset aktiv — alle Tools werden zurückgesetzt ab {new Date(selectedUser.global_reset_at).toLocaleString("de-DE", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })} Uhr.</span>
+            <span>Globaler Reset aktiv — alle Tools werden zurückgesetzt ab {new Date(selectedUser.global_reset_at).toLocaleString("de-DE", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", timeZone: "Europe/Berlin" })} Uhr.</span>
           </div>
         )}
 

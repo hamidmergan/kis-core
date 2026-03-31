@@ -99,7 +99,7 @@ def _dt(val) -> str | None:
     """Convert datetime or string to ISO string, or return None."""
     if val is None:
         return None
-    return val.isoformat() if hasattr(val, "isoformat") else val
+    return (val.isoformat() + "Z") if hasattr(val, "isoformat") else val
 
 
 _META_TOOLS = {"screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"}

@@ -52,9 +52,9 @@ function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + "Z").toLocaleString("de-DE", {
+  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").toLocaleString("de-DE", {
     day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
+    hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin",
   });
 }
 
@@ -69,7 +69,7 @@ function formatDuration(ms: number): string {
 }
 
 function toMs(dateStr: string): number {
-  return new Date(dateStr + "Z").getTime();
+  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").getTime();
 }
 
 function TimingInfo({ job, isAdmin }: { job: MyJob; isAdmin: boolean }) {
@@ -485,7 +485,7 @@ export default function MeineJobsPage() {
           <div className="flex items-center gap-2">
             {lastUpdated && !loading && (
               <span className="text-xs text-gray-400">
-                {lastUpdated.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                {lastUpdated.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })}
               </span>
             )}
             <button

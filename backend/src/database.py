@@ -516,6 +516,9 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS start_time REAL")
             # Migration: add back_en for bilingual flashcards
             cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
+            # Migration: drop legacy mastery columns if they exist
+            for col in ("correct_streak", "total_attempts", "total_correct"):
+                cur.execute(f"ALTER TABLE ki_tutor_exercise_items DROP COLUMN IF EXISTS {col}")
         conn.commit()
 
     # Backfill tsvector for existing chunks (separate transaction)
@@ -534,6 +537,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 _log.info("search_vector backfill done.")
             else:
                 _log.info("search_vector: all chunks already populated.")
+        conn.commit()
+
         conn.commit()
 
 
@@ -1079,7 +1084,7 @@ def get_job_stats(days: int = 30) -> dict:
 
             # 2. Jobs per day (last N days)
             cur.execute("""
-                SELECT (created_at AT TIME ZONE 'Europe/Berlin')::date AS day,
+                SELECT (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date AS day,
                        COUNT(*) AS cnt
                 FROM jobs
                 WHERE created_at >= NOW() - INTERVAL '%s days'
@@ -1425,7 +1430,7 @@ def quota_get_all_users_usage() -> list[dict]:
     for row in result:
         uid = row["user_id"]
         gr_at = resets_by_uid.get(uid)
-        row["global_reset_at"] = gr_at.isoformat() if gr_at else None
+        row["global_reset_at"] = (gr_at.isoformat() + "Z") if gr_at else None
     return result
 
 
@@ -2661,45 +2666,32 @@ def fail_exercise_set(set_id: int) -> None:
 
 
 def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> list[dict]:
-    """List exercise sets for a user in a module, optionally filtered by tool."""
+    """List exercise sets for a user in a module with mastery info."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            where = "s.module_id = %s AND s.user_id = %s"
+            params: list = [module_id, user_id]
             if tool:
-                cur.execute(
-                    """SELECT s.*,
-                              COALESCE(
-                                ROUND(COUNT(lp.item_id) FILTER (WHERE lp.correct)::numeric
-                                      / NULLIF(COUNT(lp.item_id), 0) * 100), 0
-                              ) AS progress_pct
-                       FROM ki_tutor_exercise_sets s
-                       LEFT JOIN LATERAL (
-                         SELECT DISTINCT ON (p.item_id) p.item_id, p.correct
-                         FROM ki_tutor_exercise_progress p
-                         WHERE p.set_id = s.id AND p.user_id = s.user_id
-                         ORDER BY p.item_id, p.id DESC
-                       ) lp ON true
-                       WHERE s.module_id = %s AND s.user_id = %s AND s.tool = %s
-                       GROUP BY s.id ORDER BY s.created_at DESC""",
-                    (module_id, user_id, tool),
-                )
-            else:
-                cur.execute(
-                    """SELECT s.*,
-                              COALESCE(
-                                ROUND(COUNT(lp.item_id) FILTER (WHERE lp.correct)::numeric
-                                      / NULLIF(COUNT(lp.item_id), 0) * 100), 0
-                              ) AS progress_pct
-                       FROM ki_tutor_exercise_sets s
-                       LEFT JOIN LATERAL (
-                         SELECT DISTINCT ON (p.item_id) p.item_id, p.correct
-                         FROM ki_tutor_exercise_progress p
-                         WHERE p.set_id = s.id AND p.user_id = s.user_id
-                         ORDER BY p.item_id, p.id DESC
-                       ) lp ON true
-                       WHERE s.module_id = %s AND s.user_id = %s
-                       GROUP BY s.id ORDER BY s.created_at DESC""",
-                    (module_id, user_id),
-                )
+                where += " AND s.tool = %s"
+                params.append(tool)
+            cur.execute(
+                f"""SELECT s.*,
+                           COALESCE(m.total_attempts, 0) AS total_attempts,
+                           COALESCE(m.items_correct, 0) AS items_correct,
+                           CASE WHEN s.card_count > 0
+                                THEN ROUND(COALESCE(m.items_correct, 0)::numeric / s.card_count * 100)
+                                ELSE 0 END AS progress_pct
+                    FROM ki_tutor_exercise_sets s
+                    LEFT JOIN LATERAL (
+                      SELECT COUNT(*) AS total_attempts,
+                             COUNT(DISTINCT item_id) FILTER (WHERE correct) AS items_correct
+                      FROM ki_tutor_exercise_progress p
+                      WHERE p.set_id = s.id AND p.user_id = s.user_id
+                    ) m ON true
+                    WHERE {where}
+                    ORDER BY s.created_at DESC""",
+                params,
+            )
             return [dict(r) for r in cur.fetchall()]
 
 
@@ -2784,9 +2776,9 @@ def bulk_record_exercise_progress(set_id: int, user_id: int, results: list[dict]
 
 
 def update_streak(module_id: int, user_id: int) -> dict:
-    """Update streak for today. Returns current and max streak."""
-    from datetime import date, timedelta
-    today = date.today()
+    """Update streak for today (Berlin timezone). Returns current and max streak."""
+    from datetime import timedelta, datetime
+    today = datetime.now(_TZ_BERLIN).date()
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -2876,45 +2868,30 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             if streak["last_active_date"]:
                 streak["last_active_date"] = str(streak["last_active_date"])
 
-            # ── All exercise sets with progress ──
+            # ── All exercise sets ──
             cur.execute(
                 """SELECT s.id, s.tool, s.mode, s.title, s.card_count,
                           s.source_uuid, s.created_at,
-                          COALESCE(
-                            ROUND(COUNT(lp.item_id) FILTER (WHERE lp.correct)::numeric
-                                  / NULLIF(COUNT(lp.item_id), 0) * 100), 0
-                          ) AS progress_pct,
-                          COUNT(lp.item_id) AS answered_count,
-                          COUNT(lp.item_id) FILTER (WHERE lp.correct) AS correct_count,
-                          COUNT(lp.item_id) FILTER (WHERE NOT lp.correct) AS wrong_count
+                          COALESCE(m.total_attempts, 0) AS total_attempts
                    FROM ki_tutor_exercise_sets s
                    LEFT JOIN LATERAL (
-                     SELECT DISTINCT ON (p.item_id) p.item_id, p.correct
+                     SELECT COUNT(*) AS total_attempts
                      FROM ki_tutor_exercise_progress p
                      WHERE p.set_id = s.id AND p.user_id = s.user_id
-                     ORDER BY p.item_id, p.id DESC
-                   ) lp ON true
+                   ) m ON true
                    WHERE s.module_id = %s AND s.user_id = %s AND s.status = 'ready'
-                   GROUP BY s.id ORDER BY s.created_at DESC""",
+                   ORDER BY s.created_at DESC""",
                 (module_id, user_id),
             )
             sets = [dict(r) for r in cur.fetchall()]
 
             # ── Split by category: Lerntools (mode=quelle) vs Sprachtraining (mode=glossar) ──
             def _summarise(subset: list[dict]) -> dict:
-                total = len(subset)
-                practiced = [s for s in subset if s["answered_count"] > 0]
+                total_cards = sum(s["card_count"] for s in subset)
                 return {
-                    "total_sets": total,
-                    "completed_sets": sum(1 for s in subset if s["answered_count"] > 0 and s["progress_pct"] == 100),
-                    "total_cards": sum(s["card_count"] for s in subset),
-                    "answered_cards": sum(s["answered_count"] for s in subset),
-                    "correct_cards": sum(s["correct_count"] for s in subset),
-                    "wrong_cards": sum(s["wrong_count"] for s in subset),
-                    "avg_accuracy": round(
-                        sum(s["progress_pct"] for s in practiced)
-                        / max(len(practiced), 1)
-                    ),
+                    "total_sets": len(subset),
+                    "total_cards": total_cards,
+                    "total_attempts": sum(s["total_attempts"] for s in subset),
                 }
 
             lerntools_sets = [s for s in sets if s["mode"] == "quelle"]
@@ -2924,36 +2901,11 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             overview_lerntools = _summarise(lerntools_sets)
             overview_sprach = _summarise(sprach_sets)
 
-            # ── Per-tool breakdown (with mode) ──
-            by_tool: dict[str, dict] = {}
-            for s in sets:
-                key = f"{s['mode']}:{s['tool']}"
-                if key not in by_tool:
-                    by_tool[key] = {"mode": s["mode"], "tool": s["tool"],
-                                    "count": 0, "answered": 0, "correct_sum": 0,
-                                    "correct_cards": 0, "wrong_cards": 0}
-                by_tool[key]["count"] += 1
-                if s["answered_count"] > 0:
-                    by_tool[key]["answered"] += 1
-                    by_tool[key]["correct_sum"] += s["progress_pct"]
-                    by_tool[key]["correct_cards"] += s["correct_count"]
-                    by_tool[key]["wrong_cards"] += s["wrong_count"]
-            tool_stats = [
-                {
-                    "mode": v["mode"],
-                    "tool": v["tool"],
-                    "total_sets": v["count"],
-                    "practiced_sets": v["answered"],
-                    "avg_accuracy": round(v["correct_sum"] / max(v["answered"], 1)),
-                    "correct_cards": v["correct_cards"],
-                    "wrong_cards": v["wrong_cards"],
-                }
-                for v in by_tool.values()
-            ]
+            # (by_tool removed — not displayed anymore)
 
             # ── Heatmap: activity per day (last 6 months, Berlin tz) ──
             cur.execute(
-                """SELECT (ep.answered_at AT TIME ZONE 'Europe/Berlin')::date AS day,
+                """SELECT (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date AS day,
                           COUNT(ep.id) AS answers,
                           COUNT(ep.id) FILTER (WHERE ep.correct) AS correct,
                           COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
@@ -2964,7 +2916,7 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                        SELECT id FROM ki_tutor_exercise_sets
                        WHERE module_id = %s AND user_id = %s
                      )
-                     AND ep.answered_at >= (NOW() AT TIME ZONE 'Europe/Berlin')::date - INTERVAL '179 days'
+                     AND ep.answered_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date - INTERVAL '179 days'
                    GROUP BY day ORDER BY day""",
                 (user_id, module_id, user_id),
             )
@@ -2996,7 +2948,7 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             cur.execute(
                 """SELECT COUNT(*) AS total,
                           COUNT(*) FILTER (
-                            WHERE created_at >= (NOW() AT TIME ZONE 'Europe/Berlin')::date
+                            WHERE created_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
                           ) AS today
                    FROM ki_tutor_messages
                    WHERE module_id = %s AND user_id = %s AND role = 'user'""",
@@ -3023,7 +2975,6 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
         "overview": overview_all,
         "lerntools": overview_lerntools,
         "sprachtraining": overview_sprach,
-        "by_tool": tool_stats,
         "heatmap": heatmap,
         "chat": {"total": chat_row["total"], "today": chat_row["today"]},
         "first_activity": first_activity,
@@ -3046,7 +2997,7 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str) -> dict:
                    FROM ki_tutor_exercise_progress ep
                    JOIN ki_tutor_exercise_sets s ON s.id = ep.set_id
                    WHERE s.module_id = %s AND ep.user_id = %s
-                     AND (ep.answered_at AT TIME ZONE 'Europe/Berlin')::date = %s::date
+                     AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date
                    GROUP BY s.id ORDER BY MIN(ep.answered_at)""",
                 (module_id, user_id, day_str),
             )
@@ -3056,8 +3007,8 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str) -> dict:
             total_wrong = 0
             for r in cur.fetchall():
                 row = dict(r)
-                row["first_answer"] = row["first_answer"].isoformat() if row["first_answer"] else None
-                row["last_answer"] = row["last_answer"].isoformat() if row["last_answer"] else None
+                row["first_answer"] = (row["first_answer"].isoformat() + "Z") if row["first_answer"] else None
+                row["last_answer"] = (row["last_answer"].isoformat() + "Z") if row["last_answer"] else None
                 total_answers += row["answers"]
                 total_correct += row["correct"]
                 total_wrong += row["wrong"]
@@ -3068,7 +3019,7 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str) -> dict:
                 """SELECT COUNT(*) AS cnt
                    FROM ki_tutor_messages
                    WHERE module_id = %s AND user_id = %s AND role = 'user'
-                     AND (created_at AT TIME ZONE 'Europe/Berlin')::date = %s::date""",
+                     AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date""",
                 (module_id, user_id, day_str),
             )
             chat_count = cur.fetchone()["cnt"]

@@ -102,7 +102,7 @@ def check_and_consume_quota(
                     "allowed": False,
                     "used": used,
                     "limit": limit,
-                    "reset_at": global_reset_at.isoformat() if global_reset_at else None,
+                    "reset_at": (global_reset_at.isoformat() + "Z") if global_reset_at else None,
                 }
 
             # --- Consume ---
@@ -130,7 +130,7 @@ def check_and_consume_quota(
         "allowed": True,
         "used": new_used,
         "limit": limit,
-        "reset_at": global_reset_at.isoformat() if global_reset_at else None,
+        "reset_at": (global_reset_at.isoformat() + "Z") if global_reset_at else None,
     }
 
 
@@ -148,7 +148,8 @@ def enforce_quota(user_id: int, quota_type: str, is_admin: bool) -> None:
         reset_text = ""
         if reset_at:
             try:
-                dt = datetime.fromisoformat(reset_at).replace(tzinfo=timezone.utc)
+                from zoneinfo import ZoneInfo
+                dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Berlin"))
                 reset_text = f" Erneut verfügbar ab {dt.strftime('%H:%M')} Uhr."
             except Exception:
                 pass

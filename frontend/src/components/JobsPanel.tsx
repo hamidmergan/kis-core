@@ -29,7 +29,7 @@ const needsAttention = (s: MyJob["status"]) => isActive(s);
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
 function timeAgo(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr + "Z").getTime()) / 1000);
+  const diff = Math.floor((Date.now() - new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").getTime()) / 1000);
   if (diff < 60) return "gerade eben";
   if (diff < 3600) return `vor ${Math.floor(diff / 60)} Min.`;
   if (diff < 86400) return `vor ${Math.floor(diff / 3600)} Std.`;
@@ -47,7 +47,7 @@ function formatDuration(ms: number): string {
 }
 
 function toMs(dateStr: string): number {
-  return new Date(dateStr + "Z").getTime();
+  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").getTime();
 }
 
 function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {

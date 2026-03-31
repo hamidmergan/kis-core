@@ -172,11 +172,11 @@ async def create_module(
         "access_links": [{
             "id": link["id"],
             "code": link["code"],
-            "expires_at": link["expires_at"].isoformat(),
+            "expires_at": link["expires_at"].isoformat() + "Z",
         }],
         # Legacy fields
         "enroll_code": enroll_code,
-        "enroll_code_expires": expires.isoformat(),
+        "enroll_code_expires": expires.isoformat() + "Z",
     }
 
 
@@ -199,17 +199,17 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
                 {
                     "id": l["id"],
                     "code": l["code"],
-                    "expires_at": l["expires_at"].isoformat(),
-                    "created_at": l["created_at"].isoformat() if l["created_at"] else None,
+                    "expires_at": l["expires_at"].isoformat() + "Z",
+                    "created_at": l["created_at"].isoformat() + "Z" if l["created_at"] else None,
                 }
                 for l in links
             ],
             # Legacy: first link as enroll_code for backward compat
             "enroll_code": links[0]["code"] if links else m.get("enroll_code"),
-            "enroll_code_expires": links[0]["expires_at"].isoformat() if links else (
-                m["enroll_code_expires"].isoformat() if m.get("enroll_code_expires") else None
+            "enroll_code_expires": links[0]["expires_at"].isoformat() + "Z" if links else (
+                m["enroll_code_expires"].isoformat() + "Z" if m.get("enroll_code_expires") else None
             ),
-            "created_at": m["created_at"].isoformat() if m["created_at"] else None,
+            "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
         })
     return result
 
@@ -229,16 +229,16 @@ async def get_module(module_uuid: str, current_user: dict = Depends(get_current_
             {
                 "id": l["id"],
                 "code": l["code"],
-                "expires_at": l["expires_at"].isoformat(),
-                "created_at": l["created_at"].isoformat() if l["created_at"] else None,
+                "expires_at": l["expires_at"].isoformat() + "Z",
+                "created_at": l["created_at"].isoformat() + "Z" if l["created_at"] else None,
             }
             for l in links
         ],
         "enroll_code": links[0]["code"] if links else module.get("enroll_code"),
-        "enroll_code_expires": links[0]["expires_at"].isoformat() if links else (
-            module["enroll_code_expires"].isoformat() if module.get("enroll_code_expires") else None
+        "enroll_code_expires": links[0]["expires_at"].isoformat() + "Z" if links else (
+            module["enroll_code_expires"].isoformat() + "Z" if module.get("enroll_code_expires") else None
         ),
-        "created_at": module["created_at"].isoformat() if module["created_at"] else None,
+        "created_at": module["created_at"].isoformat() + "Z" if module["created_at"] else None,
         "sources": [
             {
                 "uuid": s["uuid"],
@@ -246,7 +246,7 @@ async def get_module(module_uuid: str, current_user: dict = Depends(get_current_
                 "status": s["status"],
                 "chunk_count": s["chunk_count"],
                 "error_message": s.get("error_message"),
-                "created_at": s["created_at"].isoformat() if s["created_at"] else None,
+                "created_at": s["created_at"].isoformat() + "Z" if s["created_at"] else None,
             }
             for s in sources
         ],
@@ -283,7 +283,7 @@ async def renew_enroll_code(
     link = db.create_access_link(module["id"], new_code, expires)
     db.set_ki_tutor_module_enroll_code(module_uuid, new_code, expires)
     logger.info("KI Tutor: access link created for module {}", module_uuid)
-    return {"enroll_code": new_code, "enroll_code_expires": expires.isoformat(), "link_id": link["id"]}
+    return {"enroll_code": new_code, "enroll_code_expires": expires.isoformat() + "Z", "link_id": link["id"]}
 
 
 # ─── Access Links ────────────────────────────────────────────────────────────
@@ -305,7 +305,7 @@ async def create_module_access_link(
     return {
         "id": link["id"],
         "code": link["code"],
-        "expires_at": link["expires_at"].isoformat(),
+        "expires_at": link["expires_at"].isoformat() + "Z",
     }
 
 
@@ -320,8 +320,8 @@ async def list_access_links(
         {
             "id": l["id"],
             "code": l["code"],
-            "expires_at": l["expires_at"].isoformat(),
-            "created_at": l["created_at"].isoformat() if l["created_at"] else None,
+            "expires_at": l["expires_at"].isoformat() + "Z",
+            "created_at": l["created_at"].isoformat() + "Z" if l["created_at"] else None,
         }
         for l in links
     ]
@@ -454,8 +454,8 @@ async def my_modules(current_user: dict = Depends(get_current_user)):
             "description": m["description"],
             "status": m["status"],
             "enrollment_id": m.get("enrollment_id"),
-            "enrolled_until": m["enrolled_until"].isoformat() if m.get("enrolled_until") else None,
-            "created_at": m["created_at"].isoformat() if m["created_at"] else None,
+            "enrolled_until": m["enrolled_until"].isoformat() + "Z" if m.get("enrolled_until") else None,
+            "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
         }
         for m in modules
     ]
@@ -1074,7 +1074,7 @@ async def get_messages(
             "role": m["role"],
             "content": m["content"],
             "source_pages": m["source_pages"],
-            "created_at": m["created_at"].isoformat() if m["created_at"] else None,
+            "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
         }
         for m in messages
     ]
@@ -1143,7 +1143,7 @@ async def get_notes(
         {
             "id": n["id"],
             "content": n["content"],
-            "created_at": n["created_at"].isoformat() if n["created_at"] else None,
+            "created_at": n["created_at"].isoformat() + "Z" if n["created_at"] else None,
         }
         for n in notes
     ]
@@ -1169,7 +1169,7 @@ async def create_note(
     return {
         "id": note["id"],
         "content": note["content"],
-        "created_at": note["created_at"].isoformat() if note["created_at"] else None,
+        "created_at": note["created_at"].isoformat() + "Z" if note["created_at"] else None,
     }
 
 
@@ -1508,7 +1508,7 @@ async def list_mindmaps(
     return [
         {
             "id": r["id"],
-            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
             "topic": r["mindmap"].get("topic", "Mindmap") if r["mindmap"] else "Mindmap",
         }
         for r in rows
@@ -1673,7 +1673,7 @@ async def get_presentations(
             "slides": p["slides"],
             "presenton_id": p.get("presenton_id"),
             "error": p["error"],
-            "created_at": p["created_at"].isoformat() if p.get("created_at") else None,
+            "created_at": p["created_at"].isoformat() + "Z" if p.get("created_at") else None,
         }
         for p in presentations
     ]
@@ -1906,7 +1906,7 @@ async def list_infographics(
             "id": r["id"],
             "title": r["title"] or "Infografik",
             "style": r.get("style", "professional"),
-            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
         }
         for r in rows
     ]
@@ -2045,7 +2045,7 @@ async def get_datentabellen(
         {
             "id": r["id"],
             "title": r["title"] or "Datentabelle",
-            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
         }
         for r in rows
     ]

@@ -665,7 +665,7 @@ async def get_quota_overview(_admin=Depends(get_admin_user)):
                 "limit": effective_limit,
                 "limit_is_unlimited": effective_limit == -1,
                 "override": row["override"],
-                "reset_at": row["reset_at"].isoformat() if row["reset_at"] else None,
+                "reset_at": (row["reset_at"].isoformat() + "Z") if row["reset_at"] else None,
             })
     return {"users": list(users.values())}
 
@@ -688,12 +688,12 @@ async def get_user_quota(user_id: int, _admin=Depends(get_admin_user)):
             "limit": effective_limit,
             "limit_is_unlimited": effective_limit == -1,
             "override": override,
-            "reset_at": reset_at.isoformat() if reset_at else None,
+            "reset_at": (reset_at.isoformat() + "Z") if reset_at else None,
         })
     return {
         "user_id": user_id,
         "quotas": result,
-        "global_reset_at": global_reset_at.isoformat() if global_reset_at else None,
+        "global_reset_at": (global_reset_at.isoformat() + "Z") if global_reset_at else None,
     }
 
 
