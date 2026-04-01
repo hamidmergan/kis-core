@@ -222,12 +222,14 @@ function ScreencastPageInner() {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro" | "mylab">("kokoro");
+  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro" | "mylab" | "thorsten">("kokoro");
   const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
   const [fishSpeechEnabled, setFishSpeechEnabled] = useState(false);
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
   const [mylabEnabled, setMylabEnabled] = useState(false);
+  const [thorstenEnabled, setThorstenEnabled] = useState(false);
   const [mylabVoices, setMylabVoices] = useState<Array<{ voice_id: string; name: string; description: string }>>([]);
+  const [thorstenVoices, setThorstenVoices] = useState<Array<{ voice_id: string; name: string; language: string }>>([]);
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [audioId, setAudioId] = useState<string>("");
   const [audioCount, setAudioCount] = useState(0);
@@ -341,14 +343,16 @@ function ScreencastPageInner() {
 
   // ── Fetch available voices + providers ──
   useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
+    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean; thorsten_enabled: boolean }>("/api/tts/providers").then((data) => {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setFishSpeechEnabled(data.fish_speech_enabled);
       setKokoroEnabled(data.kokoro_enabled ?? false);
       setMylabEnabled(data.mylab_enabled ?? false);
-      // Default priority: kokoro > mylab > fish_speech > elevenlabs
+      setThorstenEnabled(data.thorsten_enabled ?? false);
+      // Default priority: kokoro > mylab > thorsten > fish_speech > elevenlabs
       if (data.kokoro_enabled) setTtsProvider("kokoro");
       else if (data.mylab_enabled) setTtsProvider("mylab");
+      else if (data.thorsten_enabled) setTtsProvider("thorsten");
       else if (data.fish_speech_enabled) setTtsProvider("fish_speech");
       else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
       if (data.elevenlabs_enabled) {
@@ -372,6 +376,15 @@ function ScreencastPageInner() {
             setMylabVoices(mData.voices ?? []);
             if (mData.voices?.length > 0 && !data.kokoro_enabled) {
               setVoiceId(mData.voices[0].voice_id);
+            }
+          }).catch(() => {});
+      }
+      if (data.thorsten_enabled) {
+        api.getJson<{ voices: Array<{ voice_id: string; name: string; language: string }> }>("/api/thorsten/voices")
+          .then((tData) => {
+            setThorstenVoices(tData.voices ?? []);
+            if (tData.voices?.length > 0 && !data.kokoro_enabled && !data.mylab_enabled) {
+              setVoiceId(tData.voices[0].voice_id);
             }
           }).catch(() => {});
       }
@@ -2268,7 +2281,7 @@ function ScreencastPageInner() {
             </h2>
 
             {/* TTS-Anbieter */}
-            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
+            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled || thorstenEnabled) && (
             <div className="mb-2">
               <label htmlFor="sc-provider-select" className="block text-sm font-medium text-gray-700 mb-2">
                 TTS-Anbieter
@@ -2277,17 +2290,19 @@ function ScreencastPageInner() {
                 id="sc-provider-select"
                 value={ttsProvider}
                 onChange={(e) => {
-                  const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro" | "mylab";
+                  const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro" | "mylab" | "thorsten";
                   setTtsProvider(p);
                   if (p === "fish_speech") setVoiceId("default");
                   else if (p === "kokoro" && kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
                   else if (p === "mylab" && mylabVoices.length > 0) setVoiceId(mylabVoices[0].voice_id);
+                  else if (p === "thorsten" && thorstenVoices.length > 0) setVoiceId(thorstenVoices[0].voice_id);
                   else if (p === "elevenlabs" && voices.length > 0) setVoiceId(voices[0].voice_id);
                 }}
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
               >
                 {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
                 {mylabEnabled && <option value="mylab">THL myLab (XTTS-v2)</option>}
+                {thorstenEnabled && <option value="thorsten">Thorsten (deutsch, lokal)</option>}
                 {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
                 {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
               </select>
@@ -2295,7 +2310,7 @@ function ScreencastPageInner() {
             )}
 
             {/* Stimme */}
-            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
+            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled || thorstenEnabled) && (
             <div className="mb-6 mt-4 space-y-3">
               <div>
                 <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">
@@ -2305,7 +2320,7 @@ function ScreencastPageInner() {
                   id="sc-voice-select"
                   value={voiceId}
                   onChange={(e) => setVoiceId(e.target.value)}
-                  disabled={ttsProvider === "fish_speech"}
+                  disabled={ttsProvider === "fish_speech" || ttsProvider === "thorsten"}
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {ttsProvider === "fish_speech" ? (
@@ -2323,6 +2338,12 @@ function ScreencastPageInner() {
                     mylabVoices.map((v) => (
                       <option key={v.voice_id} value={v.voice_id}>
                         {v.name} – {v.description}
+                      </option>
+                    ))
+                  ) : ttsProvider === "thorsten" ? (
+                    thorstenVoices.map((v) => (
+                      <option key={v.voice_id} value={v.voice_id}>
+                        {v.name}
                       </option>
                     ))
                   ) : (
