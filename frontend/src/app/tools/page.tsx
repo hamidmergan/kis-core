@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   SubtitlesIcon,
@@ -83,7 +82,6 @@ function ToolImage({ toolKey, title }: { toolKey: string; title: string }) {
 }
 
 export default function ToolsPage() {
-  const router = useRouter();
   const [disabledTools, setDisabledTools] = useState<Set<string> | null>(null);
 
   useEffect(() => {
@@ -123,13 +121,13 @@ export default function ToolsPage() {
                 const color = cfg?.color ?? "#7C3AED";
                 const Icon = WORKFLOW_ICONS[wf.key] ?? PresentationChartIcon;
                 return (
-                  <div
+                  <Link
                     key={wf.href}
-                    className="group flex flex-col sm:flex-row sm:min-h-40 lg:min-h-45 rounded-xl overflow-hidden transition-all duration-200 cursor-pointer select-text"
+                    href={wf.href}
+                    className="group flex flex-col sm:flex-row sm:min-h-40 lg:min-h-45 rounded-xl overflow-hidden transition-all duration-200 cursor-pointer select-text no-underline"
                     style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
-                    onClick={(e) => { if (window.getSelection()?.toString()) return; router.push(wf.href); }}
                   >
                     {/* Bild — oben (mobile) / links (desktop) */}
                     <div className="relative h-40 sm:h-auto sm:w-64 sm:self-stretch flex-shrink-0 overflow-hidden">
@@ -159,7 +157,7 @@ export default function ToolsPage() {
                       </div>
                       <p className="text-base" style={{ color: "var(--muted)" }}>{wf.description}</p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -203,13 +201,13 @@ export default function ToolsPage() {
                 }
 
                 return (
-                  <div
+                  <Link
                     key={tool.href}
-                    className="group block rounded-xl overflow-hidden transition-all duration-200 cursor-pointer select-text"
+                    href={tool.href}
+                    className="group block rounded-xl overflow-hidden transition-all duration-200 cursor-pointer select-text no-underline"
                     style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "var(--shadow-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "var(--shadow)")}
-                    onClick={(e) => { if (window.getSelection()?.toString()) return; router.push(tool.href); }}
                   >
                     <ToolImage toolKey={tool.key} title={tool.title} />
                     <div className="px-4 pt-0 pb-4">
@@ -219,7 +217,7 @@ export default function ToolsPage() {
                       </div>
                       <p className="text-base" style={{ color: "var(--muted)" }}>{tool.description}</p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

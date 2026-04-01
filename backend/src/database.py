@@ -521,6 +521,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS start_time REAL")
             # Migration: add back_en for bilingual flashcards
             cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
+            # Migration: last_run_start for tracking exercise run boundaries
+            cur.execute("ALTER TABLE ki_tutor_exercise_sets ADD COLUMN IF NOT EXISTS last_run_start TIMESTAMP")
             # Migration: drop legacy mastery columns if they exist
             for col in ("correct_streak", "total_attempts", "total_correct"):
                 cur.execute(f"ALTER TABLE ki_tutor_exercise_items DROP COLUMN IF EXISTS {col}")
@@ -1128,6 +1130,43 @@ def get_job_stats(days: int = 30) -> dict:
         "top_users": top_users,
         "avg_duration": avg_duration,
     }
+
+
+def get_job_activity_log(days: int = 30, limit: int = 50) -> list[dict]:
+    """Recent job activity for admin dashboard — chronological log."""
+    screencast_tools = {"screencast_render", "screencast_auto", "screencast_demo_render", "screencast_translate"}
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT j.tool, j.status, j.created_at, j.completed_at,
+                          j.started_at, j.render_started_at, j.original_filename,
+                          u.display_name, u.ldap_username
+                   FROM jobs j
+                   JOIN users u ON j.user_id = u.id
+                   WHERE j.created_at >= NOW() - INTERVAL '%s days'
+                   ORDER BY j.created_at DESC
+                   LIMIT %s""",
+                (days, limit),
+            )
+            rows = []
+            for r in cur.fetchall():
+                # Duration: for screencast tools use render time, otherwise total time
+                duration_sec = None
+                if r["status"] == "success" and r["completed_at"]:
+                    if r["tool"] in screencast_tools and r["render_started_at"]:
+                        duration_sec = (r["completed_at"] - r["render_started_at"]).total_seconds()
+                    elif r["started_at"]:
+                        duration_sec = (r["completed_at"] - r["started_at"]).total_seconds()
+
+                rows.append({
+                    "user": r["display_name"] or r["ldap_username"] or "Unbekannt",
+                    "tool": r["tool"],
+                    "status": r["status"],
+                    "filename": r["original_filename"],
+                    "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
+                    "duration_seconds": round(duration_sec, 1) if duration_sec is not None else None,
+                })
+    return rows
 
 
 def update_job_status(
@@ -1800,6 +1839,20 @@ def create_ki_tutor_chunk(
             chunk_id = cur.fetchone()[0]
         conn.commit()
     return chunk_id
+
+
+def get_ki_tutor_chunks_by_source(source_id: int) -> list[dict]:
+    """Return all chunks for a source (without embeddings), ordered by page/time."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT id, source_id, page_number, content, start_time, end_time
+                   FROM ki_tutor_chunks
+                   WHERE source_id = %s
+                   ORDER BY COALESCE(start_time, 0), page_number""",
+                (source_id,),
+            )
+            return [dict(row) for row in cur.fetchall()]
 
 
 def update_chunk_embedding(chunk_id: int, embedding: list[float]) -> None:
@@ -2698,7 +2751,8 @@ def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> 
                            COALESCE(m.items_correct, 0) AS items_correct,
                            CASE WHEN s.card_count > 0
                                 THEN ROUND(COALESCE(m.items_correct, 0)::numeric / s.card_count * 100)
-                                ELSE 0 END AS progress_pct
+                                ELSE 0 END AS progress_pct,
+                           COALESCE(lr.last_run_correct, 0) AS last_run_correct
                     FROM ki_tutor_exercise_sets s
                     LEFT JOIN LATERAL (
                       SELECT COUNT(*) AS total_attempts,
@@ -2706,6 +2760,13 @@ def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> 
                       FROM ki_tutor_exercise_progress p
                       WHERE p.set_id = s.id AND p.user_id = s.user_id
                     ) m ON true
+                    LEFT JOIN LATERAL (
+                      SELECT COUNT(DISTINCT item_id) FILTER (WHERE correct) AS last_run_correct
+                      FROM ki_tutor_exercise_progress p
+                      WHERE p.set_id = s.id AND p.user_id = s.user_id
+                        AND s.last_run_start IS NOT NULL
+                        AND p.answered_at >= s.last_run_start
+                    ) lr ON true
                     WHERE {where}
                     ORDER BY s.created_at DESC""",
                 params,
@@ -2773,6 +2834,17 @@ def record_exercise_progress(set_id: int, item_id: int, user_id: int, correct: b
                 """INSERT INTO ki_tutor_exercise_progress
                    (set_id, item_id, user_id, correct) VALUES (%s, %s, %s, %s)""",
                 (set_id, item_id, user_id, correct),
+            )
+        conn.commit()
+
+
+def start_new_run(set_id: int) -> None:
+    """Mark the start of a new exercise run."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ki_tutor_exercise_sets SET last_run_start = NOW() WHERE id = %s",
+                (set_id,),
             )
         conn.commit()
 
@@ -3078,4 +3150,233 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
         "total_correct": total_correct,
         "total_wrong": total_wrong,
         "chat_count": chat_count,
+    }
+
+
+# ─── Admin: KI-Tutor Statistics ──────────────────────────────────────────────
+
+
+def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
+    """Aggregated KI-Tutor statistics for the admin dashboard.
+
+    mode: None = all, "quelle" = Lerntools only, "glossar" = Sprachtraining only.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            interval = f"{days} days"
+
+            # Mode filter for exercise queries (requires JOIN with ki_tutor_exercise_sets as s)
+            mode_filter = ""
+            mode_params: tuple = ()
+            if mode in ("quelle", "glossar"):
+                mode_filter = " AND s.mode = %s"
+                mode_params = (mode,)
+
+            # ── 1. Summary ──
+            cur.execute("SELECT COUNT(*) AS cnt FROM ki_tutor_modules")
+            total_modules = cur.fetchone()["cnt"]
+
+            cur.execute(
+                f"""SELECT COUNT(DISTINCT p.user_id) AS cnt
+                    FROM ki_tutor_exercise_progress p
+                    JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                    WHERE p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                (interval, *mode_params),
+            )
+            active_students = cur.fetchone()["cnt"]
+
+            cur.execute(
+                f"""SELECT COUNT(*) AS cnt
+                    FROM ki_tutor_exercise_progress p
+                    JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                    WHERE p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                (interval, *mode_params),
+            )
+            total_answers = cur.fetchone()["cnt"]
+
+            cur.execute(
+                """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                   WHERE role = 'user' AND created_at >= NOW() - INTERVAL %s""",
+                (interval,),
+            )
+            total_chat_messages = cur.fetchone()["cnt"]
+
+            # ── 2. Module list with dozent activity + enrolled students ──
+            cur.execute(
+                """SELECT m.id, m.uuid, m.title, m.is_active, m.user_id AS owner_id,
+                          u.display_name AS owner_name, u.ldap_username AS owner_username,
+                          (SELECT COUNT(*) FROM ki_tutor_enrollments e WHERE e.module_id = m.id) AS enrollment_count,
+                          (SELECT COUNT(DISTINCT src.id) FROM ki_tutor_sources src WHERE src.module_id = m.id) AS source_count
+                   FROM ki_tutor_modules m
+                   JOIN users u ON m.user_id = u.id
+                   ORDER BY m.created_at DESC""",
+            )
+            modules_raw = [dict(r) for r in cur.fetchall()]
+
+            module_stats = []
+            for m in modules_raw:
+                mid = m["id"]
+                owner_id = m["owner_id"]
+                owner = m["owner_name"] or m["owner_username"] or "Unbekannt"
+
+                # Dozent activity: chat messages sent by owner in this module
+                cur.execute(
+                    """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                       WHERE module_id = %s AND user_id = %s AND role = 'user'
+                         AND created_at >= NOW() - INTERVAL %s""",
+                    (mid, owner_id, interval),
+                )
+                dozent_messages = cur.fetchone()["cnt"]
+
+                # Dozent activity: exercises answered by owner
+                cur.execute(
+                    f"""SELECT COUNT(p.id) AS attempts,
+                               COUNT(p.id) FILTER (WHERE p.correct) AS correct_cnt
+                        FROM ki_tutor_exercise_progress p
+                        JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                        WHERE s.module_id = %s AND p.user_id = %s
+                          AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                    (mid, owner_id, interval, *mode_params),
+                )
+                dozent_ex = cur.fetchone()
+
+                # Total module exercise stats
+                cur.execute(
+                    f"""SELECT COUNT(p.id) AS total_answers,
+                               COUNT(p.id) FILTER (WHERE p.correct) AS total_correct
+                        FROM ki_tutor_exercise_progress p
+                        JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                        WHERE s.module_id = %s AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                    (mid, interval, *mode_params),
+                )
+                ex_row = cur.fetchone()
+
+                # Total chat in module
+                cur.execute(
+                    """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                       WHERE module_id = %s AND role = 'user'
+                         AND created_at >= NOW() - INTERVAL %s""",
+                    (mid, interval),
+                )
+                chat_cnt = cur.fetchone()["cnt"]
+
+                # Enrolled students with their individual stats
+                cur.execute(
+                    """SELECT DISTINCT u.id AS user_id,
+                              u.display_name, u.ldap_username
+                       FROM ki_tutor_enrollments e
+                       JOIN users u ON e.user_id = u.id
+                       WHERE e.module_id = %s
+                       ORDER BY u.display_name""",
+                    (mid,),
+                )
+                enrolled = [dict(r) for r in cur.fetchall()]
+
+                students = []
+                for st in enrolled:
+                    sid = st["user_id"]
+                    # Student exercises in this module
+                    cur.execute(
+                        f"""SELECT COUNT(p.id) AS answers,
+                                   COUNT(p.id) FILTER (WHERE p.correct) AS correct_cnt,
+                                   COUNT(p.id) FILTER (WHERE s.mode = 'quelle') AS lerntools,
+                                   COUNT(p.id) FILTER (WHERE s.mode = 'glossar') AS sprachtraining
+                            FROM ki_tutor_exercise_progress p
+                            JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                            WHERE s.module_id = %s AND p.user_id = %s
+                              AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                        (mid, sid, interval, *mode_params),
+                    )
+                    st_ex = cur.fetchone()
+
+                    # Student chat messages in this module
+                    cur.execute(
+                        """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                           WHERE module_id = %s AND user_id = %s AND role = 'user'
+                             AND created_at >= NOW() - INTERVAL %s""",
+                        (mid, sid, interval),
+                    )
+                    st_chat = cur.fetchone()["cnt"]
+
+                    students.append({
+                        "name": st["display_name"] or st["ldap_username"] or "Unbekannt",
+                        "answers": st_ex["answers"],
+                        "correct": st_ex["correct_cnt"],
+                        "accuracy": round(st_ex["correct_cnt"] / st_ex["answers"] * 100) if st_ex["answers"] > 0 else 0,
+                        "lerntools": st_ex["lerntools"],
+                        "sprachtraining": st_ex["sprachtraining"],
+                        "chat_messages": st_chat,
+                    })
+
+                module_stats.append({
+                    "module_uuid": m["uuid"],
+                    "title": m["title"],
+                    "owner": owner,
+                    "is_active": m["is_active"],
+                    "source_count": m["source_count"],
+                    "enrollment_count": m["enrollment_count"],
+                    "total_answers": ex_row["total_answers"],
+                    "accuracy": round(ex_row["total_correct"] / ex_row["total_answers"] * 100) if ex_row["total_answers"] > 0 else 0,
+                    "chat_messages": chat_cnt,
+                    "dozent": {
+                        "messages": dozent_messages,
+                        "exercises": dozent_ex["attempts"],
+                    },
+                    "students": students,
+                })
+
+    return {
+        "summary": {
+            "total_modules": total_modules,
+            "active_students": active_students,
+            "total_answers": total_answers,
+            "total_chat_messages": total_chat_messages,
+        },
+        "module_stats": module_stats,
+        "days": days,
+        "mode": mode,
+    }
+
+
+# ─── Dozent: Module Statistics ──────────────────────────────────────────────
+
+
+def get_ki_tutor_module_stats(module_id: int) -> dict:
+    """Statistics for a single module – used by the module owner (Dozent)."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT COUNT(DISTINCT user_id) AS cnt FROM ki_tutor_enrollments WHERE module_id = %s",
+                (module_id,),
+            )
+            total_enrolled = cur.fetchone()["cnt"]
+
+            cur.execute(
+                """SELECT COUNT(DISTINCT user_id) AS cnt
+                   FROM ki_tutor_messages
+                   WHERE module_id = %s AND role = 'user'
+                     AND created_at >= NOW() - INTERVAL '30 days'""",
+                (module_id,),
+            )
+            active_30d = cur.fetchone()["cnt"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM ki_tutor_messages WHERE module_id = %s AND role = 'user'",
+                (module_id,),
+            )
+            total_chat = cur.fetchone()["cnt"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM ki_tutor_exercise_sets WHERE module_id = %s",
+                (module_id,),
+            )
+            total_sets = cur.fetchone()["cnt"]
+
+    return {
+        "overview": {
+            "total_enrolled": total_enrolled,
+            "active_30d": active_30d,
+            "total_chat_messages": total_chat,
+            "total_exercise_sets": total_sets,
+        },
     }

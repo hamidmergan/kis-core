@@ -550,44 +550,141 @@ async def chat(
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
 
-    # Embed question & RAG – gleiche Logik für Chat und Popup-Aktionen
-    from src.services.ki_tutor_embeddings import get_embedding_provider
-    provider = get_embedding_provider()
+    logger.info("Chat debug: active_source_ids={}, resolved source_ids={}, question='{}'",
+                body.active_source_ids, source_ids, body.question[:60])
 
-    # Bei Popup-Aktionen den markierten Text als Query nutzen (bessere Chunk-Treffer)
-    embed_text = body.source_text if body.source_text else body.question
-    query_vector = provider.embed_one(embed_text)
-
-    # Bei Popup-Aktionen nur in der Quell-Datei suchen
-    search_source_ids = source_ids
-    if body.source_uuid:
-        popup_source = db.get_ki_tutor_source(body.source_uuid)
-        if popup_source:
-            search_source_ids = [popup_source["id"]]
-
-    # Hybrid Search: Vector + Keyword mit RRF
-    chunks = db.hybrid_search_chunks(
-        module["id"], embed_text, query_vector,
-        source_ids=search_source_ids, limit=20,
+    # Erkennung: generische Zusammenfassungs-Anfrage vs. spezifische Frage
+    import re as _re
+    _q_lower = body.question.strip().lower()
+    # Generisch = Zusammenfassung/Überblick OHNE spezifisches Thema
+    # "fasse zusammen", "fasse die wichtigsten Punkte zusammen" → generisch
+    # "fasse social scoring zusammen" → spezifisch (enthält Fachbegriff)
+    _GENERIC_SIGNALS = [
+        r"fass\w*\b.*\bzusammen",                 # "fasse ... zusammen" in jeder Variante
+        r"zusammenfassung",                        # "zusammenfassung", "eine zusammenfassung"
+        r"überblick|übersicht",
+        r"worum\s+geht\s+es",
+        r"wovon\s+handelt",
+        r"(kern|haupt)(aussagen|punkte|themen)",
+        r"wichtigsten?\s+(punkte|aussagen|themen|inhalte)",
+    ]
+    # Stoppwörter die NICHT als spezifisches Thema zählen
+    _FILLER = {"die", "den", "das", "der", "des", "dem", "ein", "eine", "einen", "einem",
+               "einer", "mir", "mal", "bitte", "alle", "alles", "wichtigsten", "wichtigste",
+               "punkte", "inhalte", "themen", "aussagen", "kurz", "knapp", "zusammen",
+               "gib", "erstell", "erstelle", "mach", "mache", "zeig", "zeige",
+               "kannst", "du", "könntest", "bitte", "doch", "noch", "jetzt",
+               "worum", "wovon", "geht", "handelt", "kern", "haupt",
+               "kernaussagen", "hauptaussagen", "hauptpunkte", "kernpunkte",
+               "hauptthemen", "kernthemen"}
+    _has_signal = any(_re.search(p, _q_lower) for p in _GENERIC_SIGNALS)
+    # Prüfen ob spezifische Fachbegriffe enthalten sind (= nicht generisch)
+    _words = set(_re.findall(r"[a-zäöüß]{3,}", _q_lower))
+    _content_words = _words - _FILLER - {"fasse", "fasst", "fass", "zusammenfassung",
+                                          "überblick", "übersicht", "zusammen"}
+    _is_generic = (
+        not body.source_text
+        and source_ids and len(source_ids) > 1
+        and _has_signal
+        and len(_content_words) == 0  # keine Fachbegriffe → generisch
     )
-    # Debug: welche Seiten hat die Hybrid Search gefunden?
-    found_pages = sorted(set(c["page_number"] for c in chunks))
-    logger.info("Hybrid Search: {} chunks, Seiten: {}, Query: '{}'", len(chunks), found_pages, embed_text[:80])
+    logger.info("Generic detection: signal={}, content_words={}, is_generic={}", _has_signal, _content_words, _is_generic)
 
-    # Source-Diversity: bei mehreren aktiven Quellen sicherstellen,
-    # dass jede Quelle mindestens vertreten ist
-    if source_ids and len(source_ids) > 1:
-        seen_sources: set[int] = set()
-        diverse_chunks: list[dict] = []
-        remaining: list[dict] = []
-        for chunk in chunks:
-            if chunk["source_id"] not in seen_sources:
-                seen_sources.add(chunk["source_id"])
-                diverse_chunks.append(chunk)
+    if _is_generic:
+        # ── Generische Zusammenfassung: Summaries + zeitlich verteilte Media-Chunks ──
+        logger.info("Generic summary detected for {} sources, skipping hybrid search", len(source_ids))
+        all_sources_map = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
+        chunks: list[dict] = []
+        char_budget_per_source = 200000 // len(source_ids)
+
+        for sid in source_ids:
+            src = all_sources_map.get(sid)
+            if not src:
+                continue
+            is_media = Path(src["filename"]).suffix.lower() in _MEDIA_EXTENSIONS
+
+            if is_media:
+                # Media: alle Chunks zeitlich sortiert laden, bis Budget voll
+                all_media_chunks = db.get_ki_tutor_chunks_by_source(sid)
+                all_media_chunks.sort(key=lambda c: c.get("start_time") or 0)
+                taken: list[dict] = []
+                total_chars = 0
+                for c in all_media_chunks:
+                    total_chars += len(c.get("content", ""))
+                    if total_chars > char_budget_per_source:
+                        break
+                    taken.append(c)
+                chunks.extend(taken)
+                logger.info("Generic: source {} (media) → {} chunks from {} total", sid, len(taken), len(all_media_chunks))
             else:
-                remaining.append(chunk)
-        # Auffüllen mit restlichen Chunks nach Score
-        chunks = diverse_chunks + remaining
+                # PDF: vorhandene Paragraph-Summaries nutzen (kompakter als Raw-Chunks)
+                summaries = db.get_paragraph_summaries_by_source(sid)
+                if summaries:
+                    total_chars = 0
+                    for s in summaries:
+                        total_chars += len(s["summary"])
+                        if total_chars > char_budget_per_source:
+                            break
+                        chunks.append({
+                            "source_id": sid,
+                            "page_number": s["page_number"],
+                            "content": s["summary"],
+                            "start_time": None,
+                        })
+                    logger.info("Generic: source {} (PDF) → {} summaries used", sid, min(len(summaries), len([c for c in chunks if c["source_id"] == sid])))
+                else:
+                    # Fallback: Raw-Chunks gleichmäßig über Seiten verteilt
+                    all_pdf_chunks = db.get_ki_tutor_chunks_by_source(sid)
+                    all_pdf_chunks.sort(key=lambda c: c.get("page_number") or 0)
+                    sampled = []
+                    total_chars = 0
+                    if all_pdf_chunks:
+                        step = max(1, len(all_pdf_chunks) // 10)
+                        for i in range(0, len(all_pdf_chunks), step):
+                            c = all_pdf_chunks[i]
+                            total_chars += len(c.get("content", ""))
+                            if total_chars > char_budget_per_source:
+                                break
+                            sampled.append(c)
+                    chunks.extend(sampled)
+                    logger.info("Generic: source {} (PDF, no summaries) → {} sampled chunks", sid, len(sampled))
+
+        logger.info("Generic summary: {} total context chunks across {} sources", len(chunks), len(source_ids))
+    else:
+        # ── Normaler Pfad: Hybrid Search ──
+        from src.services.ki_tutor_embeddings import get_embedding_provider
+        provider = get_embedding_provider()
+
+        embed_text = body.source_text if body.source_text else body.question
+        query_vector = provider.embed_one(embed_text)
+
+        # Bei Popup-Aktionen nur in der Quell-Datei suchen
+        search_source_ids = source_ids
+        if body.source_uuid:
+            popup_source = db.get_ki_tutor_source(body.source_uuid)
+            if popup_source:
+                search_source_ids = [popup_source["id"]]
+
+        chunks = db.hybrid_search_chunks(
+            module["id"], embed_text, query_vector,
+            source_ids=search_source_ids, limit=20,
+        )
+        found_pages = sorted(set(c["page_number"] for c in chunks))
+        found_source_ids = sorted(set(c["source_id"] for c in chunks))
+        logger.info("Hybrid Search: {} chunks, source_ids={}, Seiten: {}, Query: '{}'", len(chunks), found_source_ids, found_pages, embed_text[:80])
+
+        # Source-Diversity: bei mehreren aktiven Quellen min. 1 Chunk pro Quelle
+        if source_ids and len(source_ids) > 1:
+            seen_sources: set[int] = set()
+            diverse_chunks: list[dict] = []
+            remaining: list[dict] = []
+            for chunk in chunks:
+                if chunk["source_id"] not in seen_sources:
+                    seen_sources.add(chunk["source_id"])
+                    diverse_chunks.append(chunk)
+                else:
+                    remaining.append(chunk)
+            chunks = diverse_chunks + remaining
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
     all_sources_list = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
@@ -617,7 +714,7 @@ async def chat(
             part = f"[Q{qn}, {_format_timestamp(chunk['start_time'])}]\n{chunk['content']}"
         else:
             part = f"[Q{qn}, S. {chunk['page_number']}]\n{chunk['content']}"
-        if context_len + len(part) > 16000:
+        if context_len + len(part) > 200000:
             break
         context_parts.append(part)
         context_len += len(part)
@@ -2162,6 +2259,7 @@ class CreateSetBody(BaseModel):
 
 class ExerciseProgressBody(BaseModel):
     results: list[dict]  # [{"item_id": int, "correct": bool}]
+    new_run: bool = False
 
 
 @router.post("/ki-tutor/modules/{module_uuid}/exercise-sets")
@@ -2250,6 +2348,8 @@ async def record_set_progress(
     module = db.get_ki_tutor_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    if body.new_run:
+        db.start_new_run(set_id)
     db.bulk_record_exercise_progress(set_id, user_id, body.results)
     db.update_streak(module["id"], user_id)
     return {"ok": True}
@@ -2298,6 +2398,18 @@ async def get_student_day_stats_endpoint(
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     return db.get_student_day_stats(module["id"], user_id, date, category)
+
+
+# ─── Dozent: Module Statistics ───────────────────────────────────────────────
+
+
+@router.get("/ki-tutor/modules/{module_uuid}/dozent-stats")
+async def get_dozent_module_stats(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    module = _require_own_module(module_uuid, current_user["user_id"])
+    return db.get_ki_tutor_module_stats(module["id"])
 
 
 # ─── Glossar Count & Limit ───────────────────────────────────────────────────

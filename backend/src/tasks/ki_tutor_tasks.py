@@ -493,8 +493,8 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
             db.update_ki_tutor_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
             return
 
-        # Fair budget split per source (64k total, whole summaries only)
-        budget_per_source = 64000 // len(source_ids)
+        # Fair budget split per source (200k total, whole summaries only)
+        budget_per_source = 200000 // len(source_ids)
         trimmed_parts: list[str] = []
         for part in context_parts:
             lines = part.split("\n")
@@ -681,7 +681,7 @@ def run_generate_presentation(self, presentation_id: int, source_id: int, source
                 db.update_ki_tutor_presentation(presentation_id, "failed", error="Keine Inhalte vorhanden")
                 return
 
-        context = context[:64000]
+        context = context[:200000]
 
         from langfuse.openai import OpenAI
         from src.dependencies import _resolve_llm_provider
@@ -1175,7 +1175,7 @@ def run_generate_infographic(self, infographic_id: int, source_ids: list[int],
             db.update_ki_tutor_infographic(infographic_id, "failed", error="Keine Inhalte vorhanden")
             return
 
-        budget_per_source = 16000 // len(source_ids)
+        budget_per_source = 200000 // len(source_ids)
         trimmed_parts = [p[:budget_per_source] for p in context_parts]
         context = "\n\n".join(trimmed_parts)
 
@@ -1308,7 +1308,7 @@ def _clean_llm_json(raw: str) -> str:
 
 
 def _build_source_context(source_ids: list[int], source_uuids: list[str],
-                          max_chars: int = 16000) -> str:
+                          max_chars: int = 200000) -> str:
     """Build text context from page summaries (falling back to chunks).
 
     Fairly splits budget across sources. Used by multiple generation tasks.
@@ -1369,7 +1369,7 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
                     part = f"[{filename}, {ts}]\n{chunk['content']}"
                 else:
                     part = f"[{filename}, S. {chunk['page_number']}]\n{chunk['content']}"
-                if context_len + len(part) > 15000:
+                if context_len + len(part) > 200000:
                     break
                 context_parts.append(part)
                 context_len += len(part)
@@ -1418,6 +1418,8 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
 
 _GLOSSARY_PROMPT = """Du bist ein Fachsprachen-Experte. Extrahiere die wichtigsten Fachbegriffe aus dem folgenden Text.
 
+Die Textausschnitte sind mit Quellenangaben markiert: [Q1, S. 5] = Quelle 1, Seite 5.
+
 Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
 [
   {
@@ -1427,6 +1429,7 @@ Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
     "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
     "example_sentence": "Ein Satz aus dem Text, der den Begriff verwendet",
     "example_sentence_en": "English translation of the example sentence",
+    "source_label": "Q1",
     "page_number": 5
   }
 ]
@@ -1440,6 +1443,7 @@ Regeln:
 - definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
 - example_sentence: Ein Satz aus dem gegebenen Text, der den Begriff verwendet
 - example_sentence_en: Englische Übersetzung dieses Satzes
+- source_label: Die Quellenangabe (Q1, Q2, ...) aus der der Begriff stammt
 - page_number ist die Seitenzahl, auf der der Begriff vorkommt
 - Antworte NUR mit dem JSON-Array, kein anderer Text"""
 
@@ -1454,20 +1458,32 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
     try:
         logger.info("KI Tutor: generating glossary for module {} sources {}", module_id, source_ids)
 
-        # Gather chunks from all selected sources
+        # Gather chunks from all selected sources, track which source each chunk belongs to
         all_chunks: list[dict] = []
         for sid in source_ids:
-            all_chunks.extend(db.get_chunks_by_source(sid))
+            chunks = db.get_chunks_by_source(sid)
+            for c in chunks:
+                c["_source_id"] = sid
+            all_chunks.extend(chunks)
         if not all_chunks:
             logger.warning("KI Tutor: glossary generation — no chunks found")
             return
 
-        # Build context (max ~12000 chars)
+        # Build source label map: source_id → "Q1", "Q2", ...
+        sid_to_label: dict[int, str] = {}
+        label_to_sid: dict[str, int] = {}
+        for i, sid in enumerate(source_ids, 1):
+            label = f"Q{i}"
+            sid_to_label[sid] = label
+            label_to_sid[label] = sid
+
+        # Build context (max ~200000 chars) with source labels
         context_parts: list[str] = []
         context_len = 0
         for chunk in all_chunks:
-            part = f"[S. {chunk['page_number']}]\n{chunk['content']}"
-            if context_len + len(part) > 12000:
+            label = sid_to_label.get(chunk["_source_id"], "Q1")
+            part = f"[{label}, S. {chunk['page_number']}]\n{chunk['content']}"
+            if context_len + len(part) > 200000:
                 break
             context_parts.append(part)
             context_len += len(part)
@@ -1510,7 +1526,15 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         new_entries = new_entries[:remaining_slots]
 
         if new_entries:
-            db.bulk_create_glossary_entries(source_ids[0], new_entries)
+            # Group entries by source_id based on LLM's source_label
+            from collections import defaultdict
+            entries_by_source: dict[int, list[dict]] = defaultdict(list)
+            for entry in new_entries:
+                lbl = entry.pop("source_label", "Q1")
+                sid = label_to_sid.get(lbl, source_ids[0])
+                entries_by_source[sid].append(entry)
+            for sid, entries in entries_by_source.items():
+                db.bulk_create_glossary_entries(sid, entries)
         logger.info("KI Tutor: glossary added {} new entries (skipped {} duplicates) for module {}",
                      len(new_entries), len(entries_raw) - len(new_entries), module_id)
 
@@ -1662,8 +1686,8 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 db.fail_exercise_set(set_id)
                 return
 
-            # Fair budget split per source (64k total, whole lines only)
-            budget_per_source = 64000 // len(context_parts)
+            # Fair budget split per source (200k total, whole lines only)
+            budget_per_source = 200000 // len(context_parts)
             trimmed: list[str] = []
             for part in context_parts:
                 lines = part.split("\n")

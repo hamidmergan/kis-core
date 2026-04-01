@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import { checkAuthStatus } from "@/lib/auth";
 
-type Tab = "pending" | "whitelist" | "users" | "jobs" | "stats" | "settings" | "prompts" | "quota";
+type Tab = "pending" | "whitelist" | "users" | "jobs" | "stats" | "ki-tutor" | "settings" | "prompts" | "quota";
 
 interface PendingUser {
   id: number;
@@ -393,12 +393,18 @@ interface ToolStat {
   failed: number;
   avg_seconds: number | null;
 }
-interface DayStat { day: string; count: number; }
-interface UserStat { name: string; count: number; }
+interface ActivityEntry {
+  user: string;
+  tool: string;
+  tool_label: string;
+  status: string;
+  filename: string | null;
+  created_at: string;
+  duration_seconds: number | null;
+}
 interface StatsData {
   by_tool: ToolStat[];
-  by_day: DayStat[];
-  top_users: UserStat[];
+  activity: ActivityEntry[];
   days: number;
 }
 
@@ -421,17 +427,16 @@ function StatsTab() {
   const totalJobs = data.by_tool.reduce((s, t) => s + t.total, 0);
   const totalSuccess = data.by_tool.reduce((s, t) => s + t.success, 0);
   const totalFailed = data.by_tool.reduce((s, t) => s + t.failed, 0);
-  const maxDay = Math.max(...data.by_day.map((d) => d.count), 1);
 
   return (
     <div className="space-y-6">
       {/* Zeitraum-Auswahl */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-gray-500">Zeitraum:</span>
-        {[7, 30, 90].map((d) => (
+        {[7, 30, 90, 180].map((d) => (
           <button key={d} onClick={() => setDays(d)}
             className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 hover:border-gray-400"}`}>
-            {d} Tage
+            {d === 7 ? "7 Tage" : d === 30 ? "1 Monat" : d === 90 ? "3 Monate" : "6 Monate"}
           </button>
         ))}
       </div>
@@ -452,81 +457,266 @@ function StatsTab() {
         </div>
       </div>
 
-      {/* Jobs pro Tag — Mini-Balkendiagramm */}
-      {data.by_day.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Jobs pro Tag</h3>
-          <div className="flex items-end gap-[2px] h-24">
-            {data.by_day.map((d) => (
-              <div key={d.day} className="flex-1 group relative flex flex-col items-center justify-end h-full">
-                <div className="absolute -top-5 hidden group-hover:block text-[10px] bg-gray-800 text-white px-1.5 py-0.5 rounded whitespace-nowrap z-10">
-                  {d.day.slice(5)}: {d.count}
-                </div>
-                <div className="w-full bg-primary rounded-t-sm transition-all"
-                  style={{ height: `${Math.max((d.count / maxDay) * 100, 2)}%` }} />
+      {/* Jobs pro Tool */}
+      {data.by_tool.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {data.by_tool.map((t) => (
+            <div key={t.tool} className="bg-white border border-gray-200 rounded-lg p-4">
+              <p className="text-xs font-medium text-gray-500 truncate">{t.label}</p>
+              <p className="text-xl font-bold text-gray-800 mt-1">{t.total}</p>
+              <div className="flex items-center gap-3 mt-2 text-xs">
+                <span className="text-green-600">{t.success} ok</span>
+                {t.failed > 0 && <span className="text-red-600">{t.failed} fehl</span>}
               </div>
-            ))}
+              <p className="text-[10px] text-gray-400 mt-1">
+                {t.avg_seconds != null
+                  ? t.avg_seconds >= 60
+                    ? `Ø ${Math.round(t.avg_seconds / 60)} min`
+                    : `Ø ${Math.round(t.avg_seconds)} s`
+                  : ""}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Aktivitätslog */}
+      {data.activity.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <h3 className="text-sm font-medium text-gray-700 p-4 pb-2">Letzte Aktivität</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
+                  <th className="px-4 py-2">User</th>
+                  <th className="px-4 py-2">Tool</th>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2 text-right">Dauer</th>
+                  <th className="px-4 py-2 text-right">Datum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.activity.map((a, i) => (
+                  <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-700">{a.user}</td>
+                    <td className="px-4 py-2 text-gray-600">{a.tool_label}</td>
+                    <td className="px-4 py-2"><StatusBadge status={a.status} /></td>
+                    <td className="px-4 py-2 text-right text-gray-500">
+                      {a.duration_seconds != null
+                        ? a.duration_seconds >= 60
+                          ? `${Math.round(a.duration_seconds / 60)} min`
+                          : `${Math.round(a.duration_seconds)} s`
+                        : "–"}
+                    </td>
+                    <td className="px-4 py-2 text-right text-gray-400 whitespace-nowrap">{formatDate(a.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Jobs pro Tool */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <h3 className="text-sm font-medium text-gray-700 p-4 pb-2">Jobs pro Tool</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
-              <th className="px-4 py-2">Tool</th>
-              <th className="px-4 py-2 text-right">Gesamt</th>
-              <th className="px-4 py-2 text-right">Erfolg</th>
-              <th className="px-4 py-2 text-right">Fehler</th>
-              <th className="px-4 py-2 text-right">Ø Dauer</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.by_tool.map((t) => (
-              <tr key={t.tool} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-2 font-medium text-gray-700">{t.label}</td>
-                <td className="px-4 py-2 text-right text-gray-600">{t.total}</td>
-                <td className="px-4 py-2 text-right text-green-600">{t.success}</td>
-                <td className="px-4 py-2 text-right text-red-600">{t.failed || "–"}</td>
-                <td className="px-4 py-2 text-right text-gray-500">
-                  {t.avg_seconds != null
-                    ? t.avg_seconds >= 60
-                      ? `${Math.round(t.avg_seconds / 60)} min`
-                      : `${Math.round(t.avg_seconds)} s`
-                    : "–"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+// --- Tab: KI-Tutor ---
+interface KiTutorSummary {
+  total_modules: number;
+  active_students: number;
+  total_answers: number;
+  total_chat_messages: number;
+}
+interface KiTutorStudentStat {
+  name: string;
+  answers: number;
+  correct: number;
+  accuracy: number;
+  lerntools: number;
+  sprachtraining: number;
+  chat_messages: number;
+}
+interface KiTutorModuleStat {
+  module_uuid: string;
+  title: string;
+  owner: string;
+  is_active: boolean;
+  source_count: number;
+  enrollment_count: number;
+  total_answers: number;
+  accuracy: number;
+  chat_messages: number;
+  dozent: { messages: number; exercises: number };
+  students: KiTutorStudentStat[];
+}
+interface KiTutorStatsData {
+  summary: KiTutorSummary;
+  module_stats: KiTutorModuleStat[];
+  days: number;
+}
+
+type StatsMode = "quelle" | "glossar";
+const MODE_META: Record<StatsMode, { label: string; accent: string }> = {
+  quelle:  { label: "Lerntools",       accent: "var(--kb)" },
+  glossar: { label: "Sprachtraining",  accent: "#0D7C73" },
+};
+
+function KiTutorTab() {
+  const [data, setData] = useState<KiTutorStatsData | null>(null);
+  const [days, setDays] = useState(30);
+  const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<StatsMode>("quelle");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/admin/ki-tutor/stats?days=${days}&mode=${mode}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .finally(() => setLoading(false));
+  }, [days, mode]);
+
+  const toggle = (uuid: string) => setExpanded((prev) => {
+    const next = new Set(prev);
+    next.has(uuid) ? next.delete(uuid) : next.add(uuid);
+    return next;
+  });
+
+  if (loading && !data) return <p className="text-sm text-gray-500">Laden…</p>;
+  if (!data) return <p className="text-sm text-red-500">Fehler beim Laden</p>;
+
+  const accent = MODE_META[mode].accent;
+
+  return (
+    <div className={`space-y-6 transition-opacity ${loading ? "opacity-50 pointer-events-none" : ""}`}>
+      {/* Mode + Zeitraum */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1">
+          {(["quelle", "glossar"] as StatsMode[]).map((m) => {
+            const active = mode === m;
+            const meta = MODE_META[m];
+            return (
+              <button key={m} onClick={() => setMode(m)}
+                className="px-4 py-1.5 text-xs font-medium rounded-full border transition-colors"
+                style={active
+                  ? { backgroundColor: meta.accent, color: "#fff", borderColor: meta.accent }
+                  : { borderColor: "#d1d5db", color: "#6b7280" }}>
+                {meta.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2">
+          {[7, 30, 90, 180].map((d) => (
+            <button key={d} onClick={() => setDays(d)}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 hover:border-gray-400"}`}>
+              {d === 7 ? "7 Tage" : d === 30 ? "1 Monat" : d === 90 ? "3 Monate" : "6 Monate"}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Top User */}
-      {data.top_users.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <h3 className="text-sm font-medium text-gray-700 p-4 pb-2">Top User</h3>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Module</p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{data.summary.total_modules}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Aktive Teilnehmer ({days}T)</p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{data.summary.active_students}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Übungen ({days}T)</p>
+          <p className="text-2xl font-bold mt-1" style={{ color: accent }}>{data.summary.total_answers.toLocaleString("de-DE")}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Chat ({days}T)</p>
+          <p className="text-2xl font-bold mt-1" style={{ color: "#0D7C73" }}>{data.summary.total_chat_messages.toLocaleString("de-DE")}</p>
+        </div>
+      </div>
+
+      {/* Module-Tabelle */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
-                <th className="px-4 py-2">#</th>
-                <th className="px-4 py-2">User</th>
-                <th className="px-4 py-2 text-right">Jobs</th>
+                <th className="px-4 py-2 w-6"></th>
+                <th className="px-4 py-2">Modul</th>
+                <th className="px-4 py-2">Ersteller</th>
+                <th className="px-4 py-2 text-right">Quellen</th>
+                <th className="px-4 py-2 text-right">Teilnehmer</th>
+                <th className="px-4 py-2 text-right">Übungen</th>
+                <th className="px-4 py-2 text-right">Chat</th>
               </tr>
             </thead>
             <tbody>
-              {data.top_users.map((u, i) => (
-                <tr key={u.name} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-4 py-2 text-gray-400">{i + 1}</td>
-                  <td className="px-4 py-2 text-gray-700">{u.name}</td>
-                  <td className="px-4 py-2 text-right text-gray-600">{u.count}</td>
-                </tr>
-              ))}
+              {data.module_stats.map((m) => {
+                const isOpen = expanded.has(m.module_uuid);
+                return (
+                  <React.Fragment key={m.module_uuid}>
+                    <tr onClick={() => toggle(m.module_uuid)}
+                        className={`border-b border-gray-50 cursor-pointer transition-colors ${isOpen ? "bg-gray-50" : "hover:bg-gray-50"}`}>
+                      <td className="px-4 py-2 text-gray-400 text-xs">{isOpen ? "▼" : "▶"}</td>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${m.is_active ? "bg-green-400" : "bg-gray-300"}`} />
+                          <span className="font-medium text-gray-700 truncate max-w-[200px]">{m.title}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-gray-600">{m.owner}</td>
+                      <td className="px-4 py-2 text-right text-gray-600">{m.source_count}</td>
+                      <td className="px-4 py-2 text-right text-gray-600">{m.enrollment_count}</td>
+                      <td className="px-4 py-2 text-right" style={{ color: accent }}>{(m.total_answers + m.dozent.exercises).toLocaleString("de-DE")}</td>
+                      <td className="px-4 py-2 text-right text-gray-600">{(m.chat_messages + m.dozent.messages).toLocaleString("de-DE")}</td>
+                    </tr>
+                    {isOpen && (
+                      <tr>
+                        <td colSpan={7} className="px-0 py-0">
+                          <div className="bg-gray-50 border-t border-gray-100">
+                            {m.students.length === 0 ? (
+                              <p className="px-8 py-3 text-xs text-gray-400">Keine eingeschriebenen Teilnehmer</p>
+                            ) : (
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="text-left text-gray-400 uppercase">
+                                    <th className="pl-12 pr-4 py-2">Student</th>
+                                    <th className="px-4 py-2 text-right">Übungen</th>
+                                    <th className="px-4 py-2 text-right">Richtig</th>
+                                    <th className="px-4 py-2 text-right">Lerntools</th>
+                                    <th className="px-4 py-2 text-right">Sprachtr.</th>
+                                    <th className="px-4 py-2 text-right">Chat</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {m.students.map((s) => (
+                                    <tr key={s.name} className="border-t border-gray-100 hover:bg-gray-100/50">
+                                      <td className="pl-12 pr-4 py-2 text-gray-700">{s.name}</td>
+                                      <td className="px-4 py-2 text-right text-gray-600">{s.answers.toLocaleString("de-DE")}</td>
+                                      <td className="px-4 py-2 text-right text-green-600">{s.correct.toLocaleString("de-DE")}</td>
+                                      <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>{s.lerntools}</td>
+                                      <td className="px-4 py-2 text-right" style={{ color: "#0D7C73" }}>{s.sprachtraining}</td>
+                                      <td className="px-4 py-2 text-right text-gray-600">{s.chat_messages}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {data.module_stats.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Keine Module vorhanden</td></tr>
+              )}
             </tbody>
           </table>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1333,6 +1523,7 @@ export default function AdminPage() {
     { key: "users", label: "Alle User" },
     { key: "jobs", label: "Alle Jobs" },
     { key: "stats", label: "Statistiken" },
+    { key: "ki-tutor", label: "KI-Tutor" },
   ];
 
   return (
@@ -1362,6 +1553,7 @@ export default function AdminPage() {
         {tab === "users" && <UsersTab onOpenQuota={openQuotaForUser} />}
         {tab === "jobs" && <JobsTab />}
         {tab === "stats" && <StatsTab />}
+        {tab === "ki-tutor" && <KiTutorTab />}
         {tab === "settings" && <SettingsTab />}
         {tab === "prompts" && <PromptsTab />}
         {tab === "quota" && <QuotaTab targetUserId={quotaTargetId} onConsumed={() => setQuotaTargetId(null)} onBack={() => setTab("users")} />}

@@ -116,7 +116,11 @@ TUTOR_SYSTEM_RAG = (
     "Füge KEINE Hinweise, Disclaimers oder Kommentare zu irrelevanten Stellen hinzu. "
     "Quellen sind gekennzeichnet als [QN, S. X] (Dokument: Quelle N, Seite X) oder [QN, MM:SS] (Audio/Video: Quelle N, Zeitstempel). "
     "Füge nach jedem Satz oder Abschnitt die Quellenangabe im EXAKT gleichen Format ein: [Q1, S. 3] oder [Q1, 05:32]. "
-    "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S bzw. dem Zeitstempel."
+    "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S bzw. dem Zeitstempel.\n\n"
+    "WICHTIG zur Quellenabgrenzung: Die Antwort muss sich auf die unter 'Quellen:' bereitgestellten Textausschnitte stützen. "
+    "Falls die Frage nur anhand des bisherigen Chatverlaufs beantwortet werden kann, aber NICHT in den aktuellen Quellen steht, "
+    "weise darauf hin: 'Hinweis: Diese Information stammt aus unserem bisherigen Gesprächsverlauf und ist in den aktuell ausgewählten Quellen nicht enthalten.' "
+    "Verwende in diesem Fall KEINE Quellenangaben wie [Q1, S. X]."
 )
 
 

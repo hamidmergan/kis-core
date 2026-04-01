@@ -492,10 +492,14 @@ async def get_stats(
     for t, info in tools.items():
         info["avg_seconds"] = raw["avg_duration"].get(t)
 
+    # Activity log
+    activity = db.get_job_activity_log(days, limit=50)
+    for a in activity:
+        a["tool_label"] = _TOOL_LABELS.get(a["tool"], a["tool"])
+
     return {
         "by_tool": sorted(tools.values(), key=lambda x: x["total"], reverse=True),
-        "by_day": raw["by_day"],
-        "top_users": raw["top_users"],
+        "activity": activity,
         "days": days,
     }
 
@@ -735,3 +739,23 @@ async def reset_user_quota(
         raise HTTPException(status_code=400, detail=f"Unbekannter Quota-Typ: {quota_type}")
     db.quota_reset(user_id, quota_type)
     return {"ok": True}
+
+
+# ─── KI-Tutor Stats ─────────────────────────────────────────────────────────
+
+_TOOL_LABELS_TUTOR = {
+    "lernkarten": "Lernkarten",
+    "karteikarten": "Karteikarten",
+    "quiz": "Quiz",
+    "lueckentext": "Lückentext",
+    "vokabeltest": "Vokabeltest",
+}
+
+@router.get("/ki-tutor/stats")
+async def get_ki_tutor_stats(
+    days: int = Query(default=30, ge=1, le=365),
+    mode: str | None = Query(default=None, regex="^(quelle|glossar)$"),
+    _admin=Depends(get_admin_user),
+):
+    """Aggregated KI-Tutor statistics for the admin dashboard."""
+    return db.get_ki_tutor_admin_stats(days, mode=mode)

@@ -366,6 +366,73 @@ function LinkRow({ link, onRequestDelete }: { link: AccessLink; onRequestDelete:
   );
 }
 
+// ─── Stats Modal ─────────────────────────────────────────────────────────────
+
+interface ModuleStats {
+  overview: {
+    total_enrolled: number;
+    active_30d: number;
+    total_chat_messages: number;
+    total_exercise_sets: number;
+  };
+}
+
+function StatsModal({ moduleUuid, moduleTitle, onClose }: { moduleUuid: string; moduleTitle: string; onClose: () => void }) {
+  const [stats, setStats] = useState<ModuleStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/dozent-stats`, { credentials: "include" });
+        if (!res.ok) throw new Error("Fehler beim Laden");
+        setStats(await res.json());
+      } catch {
+        setError("Statistiken konnten nicht geladen werden.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [moduleUuid]);
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-80" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Statistik</h2>
+          <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-4">
+          {loading && <p className="text-sm text-gray-500 text-center py-4">Laden...</p>}
+          {error && <p className="text-sm text-red-600 text-center py-4">{error}</p>}
+
+          {stats && (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Teilnehmer", value: stats.overview.total_enrolled },
+                { label: "Aktiv (30 Tage)", value: stats.overview.active_30d },
+                { label: "Chat-Anfragen", value: stats.overview.total_chat_messages },
+                { label: "Erstellte Übungen", value: stats.overview.total_exercise_sets },
+              ].map((item) => (
+                <div key={item.label} className="bg-gray-50 rounded-lg px-3 py-2.5">
+                  <div className="text-xs text-gray-500">{item.label}</div>
+                  <div className="text-lg font-semibold mt-0.5" style={{ color: "var(--text)" }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Module Card (Lecturer) ───────────────────────────────────────────────────
 
 function ModuleCard({
@@ -382,6 +449,7 @@ function ModuleCard({
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showAddLink, setShowAddLink] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
   const [deletingLink, setDeletingLink] = useState(false);
@@ -434,6 +502,14 @@ function ModuleCard({
 
   return (
     <>
+      {showStats && (
+        <StatsModal
+          moduleUuid={module.uuid}
+          moduleTitle={module.title}
+          onClose={() => setShowStats(false)}
+        />
+      )}
+
       {showAddLink && (
         <AddLinkModal
           moduleUuid={module.uuid}
@@ -546,6 +622,15 @@ function ModuleCard({
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                <button
+                  onClick={() => { setMenuOpen(false); setShowStats(true); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 13h12M4 9v4M8 5v8M12 2v11" />
+                  </svg>
+                  Statistik
+                </button>
                 <button
                   onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"

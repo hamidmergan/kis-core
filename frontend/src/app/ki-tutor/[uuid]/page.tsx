@@ -290,6 +290,7 @@ interface ExerciseSet {
   created_at: string;
   total_attempts?: number;
   progress_pct?: number;
+  last_run_correct?: number;
   items?: ExerciseItem[];
 }
 
@@ -545,6 +546,25 @@ function PdfViewer({
   const popupActionsRef = useRef(popupActions);
   popupActionsRef.current = popupActions;
 
+  // Block EmbedPDF's document-level Ctrl+C handler when focus is outside the viewer
+  // so native copy works in chat / tools panels
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.key === "c" || e.key === "C") && (e.ctrlKey || e.metaKey)) {
+        // window.getSelection() only sees selections outside shadow DOM.
+        // If text is selected outside (chat/tools) → block EmbedPDF, let native copy run.
+        // If empty → selection is likely inside EmbedPDF's shadow DOM → let EmbedPDF handle it.
+        const sel = window.getSelection();
+        if (sel && sel.toString().length > 0) {
+          e.stopImmediatePropagation();
+        }
+      }
+    };
+    document.addEventListener("keydown", handler, true); // capture phase
+    return () => document.removeEventListener("keydown", handler, true);
+  }, []);
 
   // Watch for EmbedPDF summary sidebar DOM (shadow root) to sync React state + portal target
   useEffect(() => {
@@ -1525,7 +1545,6 @@ function ChatPanel({
                       />
                     ))}
                   </span>
-                  <span className="text-xs" style={{ color: "var(--muted)" }}>Denkt nach…</span>
                 </span>
               ) : msg.role === "assistant" ? (
                 <ReactMarkdown
@@ -1611,7 +1630,7 @@ function ChatPanel({
               >
                 {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
               </button>
-              {msg.role === "assistant" && onSaveNote && (
+              {msg.role === "assistant" && onSaveNote && !loading && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1742,8 +1761,30 @@ function FlipCard({ front, back, flipped, onFlip }: { front: string; back: strin
 
 // ─── Studio Subviews ──────────────────────────────────────────────────────────
 
-function SubviewHeader({ title, onBack, breadcrumbs, rightContent }: { title: string; onBack: () => void; breadcrumbs?: { label: string; onClick: () => void }[]; rightContent?: React.ReactNode }) {
+// Lerntools: var(--kb) blue tones
+const LERNTOOLS_BADGE: Record<string, { bg: string; color: string }> = {
+  Karteikarten:   { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  Quiz:           { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
+  Datentabelle:   { bg: "rgba(255,237,213,0.7)", color: "#C2410C" },
+  Mindmap:        { bg: "rgba(236,254,255,0.7)", color: "#0E7490" },
+  Infografik:     { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+  "Präsentation": { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
+};
+// Sprachtraining: #0D7C73 teal tones
+const SPRACHTRAINING_BADGE: Record<string, { bg: string; color: string }> = {
+  Karteikarten:   { bg: "rgba(204,251,241,0.7)", color: "#115E59" },
+  Glossar:        { bg: "rgba(204,251,241,0.7)", color: "#115E59" },
+  "Lückentext":   { bg: "rgba(204,251,241,0.7)", color: "#115E59" },
+  Vokabeltest:    { bg: "rgba(204,251,241,0.7)", color: "#115E59" },
+};
+const SHARED_BADGE: Record<string, { bg: string; color: string }> = {
+  Notizen:        { bg: "rgba(241,245,249,0.7)", color: "#475569" },
+  Statistik:      { bg: "rgba(241,245,249,0.7)", color: "#475569" },
+};
+
+function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: { title: string; onBack: () => void; breadcrumbs?: { label: string; onClick: () => void }[]; rightContent?: React.ReactNode; category?: "lerntools" | "sprachtraining" }) {
   const minimize = useContext(MinimizeContext);
+  const badge = (category === "sprachtraining" ? SPRACHTRAINING_BADGE[title] : LERNTOOLS_BADGE[title]) ?? SHARED_BADGE[title];
   return (
     <div
       className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
@@ -1765,10 +1806,18 @@ function SubviewHeader({ title, onBack, breadcrumbs, rightContent }: { title: st
               <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
             </React.Fragment>
           ))}
-          <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{title}</span>
+          {badge ? (
+            <span className="font-semibold truncate px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{title}</span>
+          ) : (
+            <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{title}</span>
+          )}
         </div>
       ) : (
-        <span className="text-sm font-semibold flex-1" style={{ color: "var(--text)" }}>{title}</span>
+        badge ? (
+          <span className="text-sm font-semibold flex-1 inline-flex"><span className="px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{title}</span></span>
+        ) : (
+          <span className="text-sm font-semibold flex-1" style={{ color: "var(--text)" }}>{title}</span>
+        )
       )}
       {rightContent}
       {minimize && (
@@ -1794,7 +1843,7 @@ function ExerciseSetsOverview({
   sourceCount: number; stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
 }) {
-  const circumference = Math.PI * 2 * 14;
+
   const noSources = sourceCount === 0;
   const atLimit = sets.length >= 20;
   return (
@@ -1821,9 +1870,9 @@ function ExerciseSetsOverview({
             <p className="text-sm text-center" style={{ color: "var(--muted)" }}>Wähle Quellen aus und drücke auf Erstellen.</p>
             <button type="button" onClick={onCreate}
               disabled={noSources || atLimit}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
               style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
-              <Plus size={12} weight="bold" /> Erstellen ({sets.length}/20)
+              <Plus size={14} weight="bold" /> Erstellen ({sets.length}/20)
             </button>
           </div>
         ) : (
@@ -1831,54 +1880,54 @@ function ExerciseSetsOverview({
             <div className="flex justify-center">
               <button type="button" onClick={onCreate}
                 disabled={noSources || atLimit}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
                 style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
-                <Plus size={12} weight="bold" /> Erstellen ({sets.length}/20)
+                <Plus size={14} weight="bold" /> Erstellen ({sets.length}/20)
               </button>
             </div>
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{sets.length} Übungen</span>
-              <span className="text-[10px]" style={{ color: "var(--muted)" }}>{sets.reduce((s, e) => s + e.card_count, 0)} Karten</span>
+              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{sets.length} Übungen</span>
+              <span className="text-xs" style={{ color: "var(--muted)" }}>{sets.reduce((s, e) => s + e.card_count, 0)} Karten</span>
             </div>
             <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
               {sets.map((s) => {
                 const generating = s.status === "generating";
                 const failed = s.status === "failed";
-                const pct = s.progress_pct ?? 0;
+                const lastCorrect = s.last_run_correct ?? 0;
+                const hasRun = (s.total_attempts ?? 0) > 0;
                 return (
                   <div key={s.id} onClick={() => !generating && !failed && onSelect(s)}
                     className={`bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group ${generating ? "opacity-70" : "cursor-pointer"}`}
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
-                    {/* Title + Donut */}
+                    {/* Title + Score */}
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2 mt-0.5" style={{ color: "var(--text)" }}>
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2 mt-0.5" style={{ color: "var(--text)" }}>
                         {generating ? "Wird generiert…" : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Quiz)\s*(aus|von)\s*/i, "")}
                       </span>
-                      <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0">
-                        <circle cx="19" cy="19" r="14" fill="none" stroke="var(--border)" strokeWidth="3" />
-                        {generating ? (
+                      {generating ? (
+                        <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0">
+                          <circle cx="19" cy="19" r="14" fill="none" stroke="var(--border)" strokeWidth="3" />
                           <g transform="translate(19,19)">
                             <circle r="6" fill="none" stroke="var(--muted)" strokeWidth="2" strokeDasharray="20" strokeLinecap="round">
                               <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s" repeatCount="indefinite" />
                             </circle>
                           </g>
-                        ) : failed ? (
-                          <text x="19" y="19" textAnchor="middle" dominantBaseline="central"
-                            style={{ fontSize: 13, fontWeight: 700, fill: "#EF4444" }}>!</text>
-                        ) : (
-                          <>
-                            <circle cx="19" cy="19" r="14" fill="none" stroke="var(--accent)" strokeWidth="3"
-                              strokeDasharray={circumference} strokeDashoffset={circumference - (circumference * pct / 100)}
-                              strokeLinecap="round" transform="rotate(-90 19 19)" style={{ transition: "stroke-dashoffset 0.5s" }} />
-                            <text x="19" y="19" textAnchor="middle" dominantBaseline="central"
-                              style={{ fontSize: 8, fontWeight: 700, fill: "var(--accent)" }}>{pct}%</text>
-                          </>
-                        )}
-                      </svg>
+                        </svg>
+                      ) : failed ? (
+                        <span className="shrink-0 text-xs font-bold" style={{ color: "#EF4444" }}>!</span>
+                      ) : hasRun ? (
+                        <span className="shrink-0 text-xs font-bold whitespace-nowrap" style={{ color: "var(--accent)" }}>
+                          {lastCorrect}/{s.card_count}
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-xs font-medium whitespace-nowrap" style={{ color: "var(--muted)" }}>
+                          {s.card_count}
+                        </span>
+                      )}
                     </div>
                     {/* Bottom row: meta left, delete right */}
                     <div className="flex items-center justify-between mt-auto pt-1">
-                      <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                      <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
                         {generating ? "Wird generiert…" : failed ? "Fehlgeschlagen" : `${s.card_count} Karten`}
                         {s.mode === "glossar" && " · Glossar"}
                         {!generating && ` · ${new Date(s.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`}
@@ -1909,7 +1958,7 @@ function LernkartenLearnView({
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
   onAskChat?: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: { label: string; onClick: () => void }[];
@@ -1943,10 +1992,11 @@ function LernkartenLearnView({
 
   function answer(correct: boolean) {
     if (!card || animating) return;
+    const isFirst = results.length === 0;
     setResults(prev => [...prev, { item_id: card.id, correct }]);
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
-    onAnswer(card.id, correct);
+    onAnswer(card.id, correct, isFirst);
 
     if (index >= total - 1) {
       setShowResults(true);
@@ -2161,7 +2211,7 @@ function MCExerciseView({
   exerciseSet: ExerciseSet;
   tool: "lueckentext" | "vokabeltest" | "quiz";
   onBack: () => void;
-  onAnswer: (itemId: number, correct: boolean) => void;
+  onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
   onAskChat: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number) => void;
   breadcrumbs?: { label: string; onClick: () => void }[];
@@ -2206,10 +2256,11 @@ function MCExerciseView({
     if (answered || !card) return;
     setSelected(optIdx);
     const correct = optIdx === card.correct_idx;
+    const isFirst = results.length === 0;
     setResults(prev => [...prev, { item_id: card.id, correct }]);
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
-    onAnswer(card.id, correct);
+    onAnswer(card.id, correct, isFirst);
   }
 
   function advance() {
@@ -2544,7 +2595,7 @@ function QuizStudio({
           <div className="flex justify-center">
             <button type="button" onClick={() => { onGenerate(); setView("viewer"); }}
               disabled={noSources || loading}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
               style={{ backgroundColor: "var(--kb)", maxWidth: 280, width: "100%" }}>
               {loading
                 ? <><div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" /> Wird generiert…</>
@@ -3909,7 +3960,7 @@ function GlossarView({
   const noSources = sourceCount === 0;
   return (
     <div className="flex flex-col h-full">
-      {onBack && <SubviewHeader title="Glossar" onBack={onBack} breadcrumbs={breadcrumbs} />}
+      {onBack && <SubviewHeader title="Glossar" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
@@ -3948,7 +3999,7 @@ function GlossarView({
             </div>
             {entries.length > 0 && (
               <div className="flex items-center gap-1.5 relative">
-                <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>{entries.length}/150</span>
+                <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>{entries.length}/150</span>
                 <GlossarMenu onDeleteAll={onDeleteAll} />
               </div>
             )}
@@ -4047,7 +4098,7 @@ function VocabFlashcards({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} />
+        <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -4115,7 +4166,7 @@ function VocabFlashcards({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} />
+      <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           {/* Card */}
@@ -4216,7 +4267,7 @@ function LueckentextView({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} />
+        <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -4255,7 +4306,7 @@ function LueckentextView({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} />
+      <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           <button
@@ -4369,7 +4420,7 @@ function VokabeltestView({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Vokabeltest" onBack={onBack} breadcrumbs={breadcrumbs} />
+        <SubviewHeader title="Vokabeltest" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -4407,7 +4458,7 @@ function VokabeltestView({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Vokabeltest" onBack={onBack} breadcrumbs={breadcrumbs} />
+      <SubviewHeader title="Vokabeltest" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           <button
@@ -4529,7 +4580,7 @@ function SprachtrainingOverview({
                 <span className="text-xs font-semibold leading-tight" style={{ color: tile.iconColor }}>
                   {tile.label}
                 </span>
-                <span className="text-[10px]" style={{ color: tile.iconColor, opacity: 0.7 }}>
+                <span className="text-xs" style={{ color: tile.iconColor, opacity: 0.7 }}>
                   {tile.desc}
                 </span>
               </button>
@@ -4551,10 +4602,10 @@ function MasteryBar({ stats }: { stats: StudentStats | null }) {
   return (
     <div className="px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold" style={{ color: "var(--text)" }}>
+        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
           {o.total_sets} {o.total_sets === 1 ? "Übung" : "Übungen"} · {o.total_cards} Karten
         </span>
-        <span className="text-[10px]" style={{ color: "var(--muted)" }}>{o.total_attempts} Antworten</span>
+        <span className="text-xs" style={{ color: "var(--muted)" }}>{o.total_attempts} Antworten</span>
       </div>
     </div>
   );
@@ -4639,49 +4690,51 @@ interface DayDetail {
 
 function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void }) {
   const [period, setPeriod] = useState<StatsPeriod>("30");
-  const [dayDetailLoading, setDayDetailLoading] = useState(false);
   const [category, setCategory] = useState<"lerntools" | "sprachtraining">("lerntools");
 
-  // Per-category selection memory (only within this mount, resets on page reload)
-  const selectionRef = useRef<Record<string, { day: HeatmapDay; detail: DayDetail | null }>>({});
-  const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
-  const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
+  // ── Lerntools: eigener State ──
+  const [selDayLt, setSelDayLt] = useState<HeatmapDay | null>(null);
+  const [detailLt, setDetailLt] = useState<DayDetail | null>(null);
+  const [loadLt, setLoadLt] = useState(false);
 
-  // Save selection when user picks a day
-  useEffect(() => {
-    if (selectedDay) {
-      selectionRef.current[category] = { day: selectedDay, detail: dayDetail };
-    }
-  }, [selectedDay, dayDetail, category]);
-
-  // On category switch or stats load: restore saved day, or auto-select today
   useEffect(() => {
     if (!stats) return;
-    const saved = selectionRef.current[category];
-    if (saved) {
-      setSelectedDay(saved.day);
-      setDayDetail(saved.detail);
-      return;
+    const entry = stats.lerntools_heatmap.find(d => d.day === stats.today) ?? null;
+    setSelDayLt(entry);
+    setDetailLt(null);
+    if (entry && entry.answers > 0) {
+      setLoadLt(true);
+      fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${entry.day}&category=lerntools`, { credentials: "include" })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setDetailLt(d))
+        .finally(() => setLoadLt(false));
     }
-    // Auto-select today
-    const catHeatmap = category === "lerntools" ? stats.lerntools_heatmap : stats.sprachtraining_heatmap;
-    const todayEntry = catHeatmap.slice(-parseInt(period)).find(d => d.day === stats.today);
-    if (todayEntry) {
-      setSelectedDay(todayEntry);
-      if (todayEntry.answers > 0) {
-        setDayDetailLoading(true);
-        fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${todayEntry.day}&category=${category}`, { credentials: "include" })
-          .then(r => r.ok ? r.json() : null)
-          .then(d => { if (d) setDayDetail(d); })
-          .finally(() => setDayDetailLoading(false));
-      } else {
-        setDayDetail(null);
-      }
-    } else {
-      setSelectedDay(null);
-      setDayDetail(null);
+  }, [stats, moduleUuid]);
+
+  // ── Sprachtraining: eigener State ──
+  const [selDaySt, setSelDaySt] = useState<HeatmapDay | null>(null);
+  const [detailSt, setDetailSt] = useState<DayDetail | null>(null);
+  const [loadSt, setLoadSt] = useState(false);
+
+  useEffect(() => {
+    if (!stats) return;
+    const entry = stats.sprachtraining_heatmap.find(d => d.day === stats.today) ?? null;
+    setSelDaySt(entry);
+    setDetailSt(null);
+    if (entry && entry.answers > 0) {
+      setLoadSt(true);
+      fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${entry.day}&category=sprachtraining`, { credentials: "include" })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setDetailSt(d))
+        .finally(() => setLoadSt(false));
     }
-  }, [category, stats]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stats, moduleUuid]);
+
+  // ── Aktive Kategorie ──
+  const selectedDay = category === "lerntools" ? selDayLt : selDaySt;
+  const dayDetail = category === "lerntools" ? detailLt : detailSt;
+  const dayDetailLoading = category === "lerntools" ? loadLt : loadSt;
+
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center p-4">
@@ -4748,15 +4801,20 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
   }
 
   async function selectDay(d: HeatmapDay) {
-    if (selectedDay?.day === d.day) { setSelectedDay(null); setDayDetail(null); return; }
-    setSelectedDay(d);
-    if (d.answers === 0) { setDayDetail(null); return; }
-    setDayDetailLoading(true);
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${d.day}&category=${category}`, { credentials: "include" });
-      if (res.ok) setDayDetail(await res.json());
-    } catch { /* ignore */ }
-    setDayDetailLoading(false);
+    const setDay = category === "lerntools" ? setSelDayLt : setSelDaySt;
+    const setDetail = category === "lerntools" ? setDetailLt : setDetailSt;
+    const setLoad = category === "lerntools" ? setLoadLt : setLoadSt;
+    if (selectedDay?.day === d.day) { setDay(null); setDetail(null); return; }
+    setDay(d);
+    setDetail(null);
+    if (d.answers > 0) {
+      setLoad(true);
+      try {
+        const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${d.day}&category=${category}`, { credentials: "include" });
+        if (res.ok) setDetail(await res.json());
+      } catch { /* ignore */ }
+      setLoad(false);
+    }
   }
 
   return (
@@ -4775,14 +4833,14 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
       {/* ── Period selector + period summary ── */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold" style={{ color: "var(--text)" }}>Aktivität</h3>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Aktivität</h3>
           <div className="flex gap-1">
             {([["30", "30 Tage"], ["180", "6 Monate"]] as [StatsPeriod, string][]).map(([val, label]) => (
               <button
                 key={val}
                 type="button"
                 onClick={() => setPeriod(val)}
-                className="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
+                className="px-2 py-0.5 rounded text-xs font-medium transition-colors"
                 style={{
                   backgroundColor: period === val ? accent : "transparent",
                   color: period === val ? "#fff" : "var(--muted)",
@@ -4795,7 +4853,7 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
         </div>
 
         {/* Period summary line */}
-        <div className="flex gap-3 mb-2 text-[10px]" style={{ color: "var(--muted)" }}>
+        <div className="flex gap-3 mb-2 text-xs" style={{ color: "var(--muted)" }}>
           <span>{periodActiveDays} aktive Tage</span>
           <span>{periodAnswers} Antworten</span>
           {periodAnswers > 0 && <span>{periodAccuracy}% richtig</span>}
@@ -5160,7 +5218,7 @@ function PresentationStudio({
 
         {templates.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium whitespace-nowrap" style={{ color: "var(--muted)" }}>Template:</span>
+            <span className="text-xs font-medium whitespace-nowrap" style={{ color: "var(--muted)" }}>Template:</span>
             <select
               value={selectedTemplate}
               onChange={(e) => setSelectedTemplate(e.target.value)}
@@ -5180,9 +5238,9 @@ function PresentationStudio({
             <p className="text-sm text-center" style={{ color: "var(--muted)" }}>Wähle Quellen aus und drücke auf Erstellen.</p>
             <button type="button" onClick={() => onGenerate(selectedTemplate || undefined)}
               disabled={noSources || loading || atLimit}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
               style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-              <Plus size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+              <Plus size={14} weight="bold" /> Erstellen ({savedList.length}/20)
             </button>
           </div>
         ) : (
@@ -5190,13 +5248,13 @@ function PresentationStudio({
             <div className="flex justify-center">
               <button type="button" onClick={() => onGenerate(selectedTemplate || undefined)}
                 disabled={noSources || loading || atLimit}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
                 style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-                <Plus size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+                <Plus size={14} weight="bold" /> Erstellen ({savedList.length}/20)
               </button>
             </div>
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{savedList.length} {savedList.length === 1 ? "Präsentation" : "Präsentationen"}</span>
+              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{savedList.length} {savedList.length === 1 ? "Präsentation" : "Präsentationen"}</span>
             </div>
             <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
               {savedList.map((p) => (
@@ -5211,12 +5269,12 @@ function PresentationStudio({
                     ) : (
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
                     )}
-                    <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
+                    <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
                       {p.title || p.source_filename || "Präsentation"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between mt-auto pt-1">
-                    <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                    <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
                       {p.status === "success"
                         ? `${p.slides?.length || 0} Folien`
                         : p.status === "failed"
@@ -6422,12 +6480,12 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ }
   }
 
-  async function submitSingleAnswer(setId: number, itemId: number, correct: boolean) {
+  async function submitSingleAnswer(setId: number, itemId: number, correct: boolean, newRun = false) {
     try {
       await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${setId}/progress`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ results: [{ item_id: itemId, correct }] }),
+        body: JSON.stringify({ results: [{ item_id: itemId, correct }], new_run: newRun }),
       });
     } catch { /* ignore */ }
   }
@@ -6541,7 +6599,7 @@ export default function KiTutorModulePage() {
           <LernkartenLearnView
             exerciseSet={activeSet}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={(text) => {
               setChatInput(text);
             }}
@@ -6585,7 +6643,7 @@ export default function KiTutorModulePage() {
             exerciseSet={activeSet}
             tool="lueckentext"
             onBack={() => { setSprachView("cl-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={(text) => setChatInput(text)}
             onSourceClick={(filename, page, startTime) => {
               const src = sources.find((s) => s.filename === filename);
@@ -6626,7 +6684,7 @@ export default function KiTutorModulePage() {
             exerciseSet={activeSet}
             tool="vokabeltest"
             onBack={() => { setSprachView("vt-sets"); setActiveSet(null); refreshProgress(); }}
-            onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+            onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={(text) => setChatInput(text)}
             onSourceClick={(filename, page, startTime) => {
               const src = sources.find((s) => s.filename === filename);
@@ -6952,7 +7010,7 @@ export default function KiTutorModulePage() {
                 <LernkartenLearnView
                   exerciseSet={activeSet}
                   onBack={() => { setActiveSet(null); refreshProgress(); }}
-                  onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+                  onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
                   onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
                   onSourceClick={(filename, page, startTime) => {
                     const src = sources.find((s) => s.filename === filename);
@@ -6965,7 +7023,7 @@ export default function KiTutorModulePage() {
                   exerciseSet={activeSet}
                   tool="quiz"
                   onBack={() => { setActiveSet(null); refreshProgress(); }}
-                  onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+                  onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
                   onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
                   onSourceClick={(filename, page, startTime) => {
                     const src = sources.find((s) => s.filename === filename);
@@ -7146,7 +7204,7 @@ export default function KiTutorModulePage() {
                     <LernkartenLearnView
                       exerciseSet={activeSet}
                       onBack={() => { setActiveSet(null); refreshProgress(); }}
-                      onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+                      onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
                       onAskChat={(text) => { setChatInput(text); }}
                       onSourceClick={(filename, page, startTime) => {
                         const src = sources.find((s) => s.filename === filename);
@@ -7159,7 +7217,7 @@ export default function KiTutorModulePage() {
                       exerciseSet={activeSet}
                       tool="quiz"
                       onBack={() => { setActiveSet(null); refreshProgress(); }}
-                      onAnswer={(itemId, correct) => submitSingleAnswer(activeSet.id, itemId, correct)}
+                      onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
                       onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
                       onSourceClick={(filename, page, startTime) => {
                         const src = sources.find((s) => s.filename === filename);
