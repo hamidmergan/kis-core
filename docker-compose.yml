@@ -239,13 +239,6 @@ services:
     container_name: kis-thorsten
     ports:
       - "5002:5002"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     restart: unless-stopped
     logging:
       driver: json-file
@@ -259,16 +252,8 @@ services:
     container_name: kis-ollama
     ports:
       - "11434:11434"
-
     volumes:
       - kis-ollama-data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     restart: unless-stopped
     logging:
       driver: json-file

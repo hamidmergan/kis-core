@@ -223,8 +223,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     END IF;
                 END $$
             """)
-            # Migration: add enrollment_id to messages for per-link scoping
-            cur.execute("ALTER TABLE ki_tutor_messages ADD COLUMN IF NOT EXISTS enrollment_id INTEGER REFERENCES ki_tutor_enrollments(id) ON DELETE SET NULL")
             # Migration: migrate existing enroll_code from modules to access_links
             cur.execute("""
                 INSERT INTO ki_tutor_access_links (module_id, code, expires_at)
@@ -401,6 +399,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     created_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Migration: add enrollment_id to messages for per-link scoping
+            cur.execute("ALTER TABLE ki_tutor_messages ADD COLUMN IF NOT EXISTS enrollment_id INTEGER REFERENCES ki_tutor_enrollments(id) ON DELETE SET NULL")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_user_settings (
                     id                   SERIAL PRIMARY KEY,

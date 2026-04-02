@@ -14,13 +14,6 @@ services:
   celery-worker-general:
     volumes:
       - ./backend/src:/app/src
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   celery-beat:
     volumes:

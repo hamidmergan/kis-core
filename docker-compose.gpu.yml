@@ -1,0 +1,30 @@
+# GPU-Override für Linux/Windows — aktiviert NVIDIA GPU-Anforderungen
+# Wird automatisch von start-local.sh auf Nicht-Mac-Systemen geladen
+
+services:
+  thorsten:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  celery-worker-general:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
