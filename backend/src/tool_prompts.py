@@ -313,57 +313,99 @@ TUTOR_DATENTABELLE_PROMPT = (
 
 
 TUTOR_PRESENTATION_PROMPT = (
-    "Du bist ein Experte für Präsentationserstellung. Erstelle eine professionelle Folienpräsentation aus dem gegebenen Quellmaterial.\n\n"
-    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "Du bist ein Experte für Präsentationserstellung und Informationsdestillation.\n"
+    "Deine Aufgabe: Filtere aus dem Quellmaterial die wirklich wichtigen Kerninformationen heraus"
+    " und weise jeder Folie das passende Layout aus dem TH-Lübeck-Template zu.\n\n"
+
+    "SCHRITT 1 — KERNINFORMATIONEN IDENTIFIZIEREN:\n"
+    "Suche gezielt nach diesen hochwertigen Elementen:\n"
+    "- Konkrete Zahlen, Prozentwerte, Statistiken (z.B. '49 % Abbruchquote')\n"
+    "- Zentrale Thesen, Ziele oder übergeordnete Aussagen\n"
+    "- Benannte Maßnahmen, Arbeitspakete oder Konzepte\n"
+    "- Vergleiche, Gegenüberstellungen oder Vor/Nachteil-Strukturen\n"
+    "- Strukturell wichtige Abschnittswechsel im Dokument\n"
+    "NICHT übernehmen: Fließtext, Erläuterungen, Fußnoten, Quellen, Füllsätze.\n\n"
+
+    "SCHRITT 2 — LAYOUT WÄHLEN (layout_num 1–6):\n"
+    "Das TH-Lübeck-Template hat genau 6 Layouts — wähle das passende:\n\n"
+    "1 'Titelfolie 1'\n"
+    "  Felder: title, subtitle\n"
+    "  Wann: Erste Folie (Haupttitel), letzte Folie (Danke/Abschluss),"
+    " Kapiteltrennfolie zwischen großen Themenblöcken.\n"
+    "  Aussehen: Großer Titel weiß im roten Bildband unten, Bild oben.\n\n"
+    "2 'Titelfolie 2'\n"
+    "  Felder: title, subtitle, kapiteltitel (optional)\n"
+    "  Wann: Wie Layout 1, aber mit optionalem kleinen Kategorietext oben links.\n"
+    "  Typisch für: Fachbereich-Deckblatt ('Fachbereich' oben, Titel im Band).\n\n"
+    "3 'Text und Bild'\n"
+    "  Felder: title, heading, bullets\n"
+    "  Wann: Inhaltsfolie mit Text links und Bildbereich rechts.\n"
+    "  Aussehen: Kapiteltitel oben (klein), rote FETTSCHRIFT-Überschrift,"
+    " Textblock links, Bildfläche rechts.\n\n"
+    "4 'Text oder Grafik'\n"
+    "  Felder: title, heading, bullets\n"
+    "  Wann: Standard-Inhaltsfolie, volle Breite für Text/Grafik. Häufigster Typ.\n"
+    "  Aussehen: Kapiteltitel oben (klein), rote FETTSCHRIFT-Überschrift,"
+    " großer Inhaltsbereich darunter.\n\n"
+    "5 'Bilder mit Text'\n"
+    "  Felder: title, heading, left_bullets, right_bullets\n"
+    "  Wann: Zwei gleichwertige Bilder mit je einem Textblock darunter.\n"
+    "  Typisch für: Vergleiche mit Bildmaterial, zwei Schwerpunkte.\n\n"
+    "6 'Zwei Inhalte'\n"
+    "  Felder: title, heading, left_title, left_bullets, right_title, right_bullets\n"
+    "  Wann: Zwei rein textliche Inhaltsspalten nebeneinander, kein Bild.\n"
+    "  Typisch für: Gegenüberstellungen, AP links + AP rechts, Vor/Nachteile.\n\n"
+
+    "ENTSCHEIDUNGSLOGIK:\n"
+    "- Titelseite / Abschluss / Kapitelwechsel → layout_num=1\n"
+    "- Inhaltsfolie mit Text + Bild gewünscht → layout_num=3\n"
+    "- Inhaltsfolie nur Text (häufigster Fall) → layout_num=4\n"
+    "- Zwei Bilder mit Textblöcken darunter → layout_num=5\n"
+    "- Zwei Textspalten nebeneinander → layout_num=6\n\n"
+
+    "AUSGABEFORMAT — Antworte NUR mit diesem JSON-Objekt:\n"
     "{\n"
-    '  "title": "Präsentationstitel",\n'
+    '  "title": "Präsentationstitel (Kernthema der Quelle)",\n'
     '  "slides": [\n'
     "    {\n"
-    '      "layout": "title",\n'
-    '      "title": "Haupttitel der Präsentation",\n'
-    '      "subtitle": "Untertitel oder Kurzbeschreibung"\n'
+    '      "layout_num": 1,\n'
+    '      "title": "Haupttitel",\n'
+    '      "subtitle": "Untertitel oder Institution"\n'
     "    },\n"
     "    {\n"
-    '      "layout": "content",\n'
+    '      "layout_num": 4,\n'
+    '      "title": "Folientitel (Thema/Kapitel)",\n'
+    '      "heading": "KURZE ROTE ÜBERSCHRIFT",\n'
+    '      "bullets": ["49 % Abbruchquote int. Studierender (vs. 27 % dt.)", "65 % wollen in DE bleiben, unter 50 % schaffen es", "Hauptursache: fehlende Sprachkenntnisse", "Finanzierungsprobleme bei 38 % der Betroffenen", "Fehlende soziale Netzwerke als Integrationshürde", "KIS-Projekt adressiert alle drei Haupthürden"]\n'
+    "    },\n"
+    "    {\n"
+    '      "layout_num": 6,\n'
     '      "title": "Folientitel",\n'
-    '      "bullets": ["Punkt 1", "Punkt 2", "Punkt 3"],\n'
-    '      "notes": "Sprechernotizen für diese Folie"\n'
-    "    },\n"
-    "    {\n"
-    '      "layout": "two_columns",\n'
-    '      "title": "Vergleich oder Gegenüberstellung",\n'
-    '      "left_title": "Links",\n'
+    '      "heading": "VERGLEICH / GEGENÜBERSTELLUNG",\n'
+    '      "left_title": "AP1: Management",\n'
     '      "left_bullets": ["Punkt A", "Punkt B"],\n'
-    '      "right_title": "Rechts",\n'
-    '      "right_bullets": ["Punkt X", "Punkt Y"],\n'
-    '      "notes": "Sprechernotizen"\n'
+    '      "right_title": "AP2: Studium",\n'
+    '      "right_bullets": ["Punkt X", "Punkt Y"]\n'
     "    },\n"
     "    {\n"
-    '      "layout": "section",\n'
-    '      "title": "Neuer Abschnitt"\n'
-    "    },\n"
-    "    {\n"
-    '      "layout": "summary",\n'
-    '      "title": "Zusammenfassung",\n'
-    '      "bullets": ["Kernaussage 1", "Kernaussage 2", "Kernaussage 3"]\n'
+    '      "layout_num": 1,\n'
+    '      "title": "Vielen Dank",\n'
+    '      "subtitle": "Technische Hochschule Lübeck"\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "Verfügbare Layouts:\n"
-    "- 'title': Titelfolie mit title + subtitle (nur 1x am Anfang)\n"
-    "- 'content': Standardfolie mit title + bullets (3-6 Punkte, je max 15 Wörter)\n"
-    "- 'two_columns': Zwei-Spalten-Folie für Vergleiche (je 2-4 Punkte pro Spalte)\n"
-    "- 'section': Abschnittstrennfolie mit nur einem Titel\n"
-    "- 'summary': Abschlussfolie mit Kernaussagen (nur 1x am Ende)\n\n"
-    "Regeln:\n"
-    "- Erstelle {slide_count} Folien (inklusive Titel- und Abschlussfolie)\n"
-    "- Beginne mit einer 'title'-Folie, ende mit einer 'summary'-Folie\n"
-    "- Nutze 'section'-Folien um größere Themenwechsel zu markieren\n"
-    "- Bullet Points: Kurz und prägnant, max 15 Wörter pro Punkt\n"
-    "- Mische die Layouts für visuelle Abwechslung (nicht nur 'content')\n"
-    "- Sprechernotizen: 1-2 Sätze die den Inhalt der Folie erklären (für den Vortragenden)\n"
-    "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
-    "- Der Titel soll das Kernthema der Quelle widerspiegeln\n"
+
+    "QUALITÄTSREGELN:\n"
+    "- Erstelle {slide_count} Folien\n"
+    "- Erste Folie: layout_num=1 (Titelfolie)\n"
+    "- Letzte Folie: layout_num=1 (Abschlussfolie)\n"
+    "- Kapitelwechsel bei großen Themensprüngen: layout_num=1\n"
+    "- 'title': Thema/Kapitel kurz (max 5 Wörter) — erscheint klein oben links\n"
+    "- 'heading': Die wichtigste Aussage der Folie in GROSSBUCHSTABEN (max 6 W\u00f6rter)\n"
+    "- 'left_title'/'right_title' bei Layout 6: max 3 W\u00f6rter, IMMER Abk\u00fcrzungen nutzen \u2014 z.B. 'AP1: Management' statt 'Arbeitspaket 1: Projektmanagement', 'Ziel A' statt 'Zielsetzung Option A'\n"
+    "- 'bullets': so viele Punkte wie der Text hergibt, max 10. Kürze NICHT künstlich — extrahiere jeden relevanten Fakt.\n"
+    "- KONKRET: '49 % Abbruchquote' statt 'Hohe Abbruchquote'\n"
+    "- Nur Informationen aus dem Text, keine Halluzinationen\n"
     "- Sprache der Folien = Sprache der Quelle\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )

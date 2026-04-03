@@ -29,6 +29,7 @@ from src.tool_prompts import (
     TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
     TUTOR_MINDMAP_PROMPT,
     TUTOR_INFOGRAPHIC_PROMPT,
+    TUTOR_PRESENTATION_PROMPT as _PRES_PROMPT_TEMPLATE,
 )
 
 
@@ -655,7 +656,11 @@ def _generate_slide_image(prompt: str, size: str = "1024x1024") -> bytes | None:
                  soft_time_limit=600, time_limit=660)
 @observe(name="ki-tutor-presentation")
 def run_generate_presentation(self, presentation_id: int, source_id: int, source_uuid: str, slide_count: int = 12, template_path: str | None = None):
-    """Generate a presentation from a single source (NotebookLM-style + FLUX images)."""
+    """Generate a PPTX presentation from a single source using the THL template.
+
+    Uses TUTOR_PRESENTATION_PROMPT which instructs the LLM to output layout_num (1-6)
+    matching the THL Slide Master layouts directly.
+    """
     import json as _json
 
     try:
@@ -666,6 +671,7 @@ def run_generate_presentation(self, presentation_id: int, source_id: int, source
         source_label = source["filename"] if source else "Quelle"
         summaries = db.get_paragraph_summaries_by_source(source_id)
 
+        # Build context from summaries (preferred) or raw chunks
         if summaries:
             pages: dict[int, list[str]] = {}
             for s in summaries:
@@ -673,7 +679,7 @@ def run_generate_presentation(self, presentation_id: int, source_id: int, source
             parts = [f"[{source_label}, S. {p}] {' '.join(texts)}" for p, texts in sorted(pages.items())]
             context = f"--- {source_label} ---\n" + "\n".join(parts)
         else:
-            chunks = db.get_chunks_by_source(source_id)
+            chunks = db.get_ki_tutor_chunks_by_source(source_id)
             if chunks:
                 parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks[:40]]
                 context = f"--- {source_label} ---\n" + "\n".join(parts)
@@ -691,7 +697,8 @@ def run_generate_presentation(self, presentation_id: int, source_id: int, source
             metadata={"provider": _provider, "base_url": _base_url, "model": _model},
         )
 
-        prompt = _PRES_PROMPT.replace("{slide_count}", str(slide_count))
+        # Use TUTOR_PRESENTATION_PROMPT — layout_num based, matches THL Slide Master
+        prompt = _PRES_PROMPT_TEMPLATE.replace("{slide_count}", str(slide_count))
         response = client.chat.completions.create(
             model=_model,
             messages=[

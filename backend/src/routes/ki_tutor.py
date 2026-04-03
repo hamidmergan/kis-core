@@ -1657,7 +1657,7 @@ async def delete_mindmap(
 
 class PresentationGenerateBody(BaseModel):
     source_uuid: str
-    template: str | None = None  # Template name (e.g. "isy", "thl") or None for fallback
+    template: str | None = None  # Template name (e.g. "thl") or None for default (THL)
 
 
 def _get_available_templates() -> list[dict]:
@@ -1679,10 +1679,15 @@ def _get_available_templates() -> list[dict]:
 
 
 def _resolve_template_path(template_id: str | None) -> str | None:
-    """Resolve a template ID to its PPTX file path."""
+    """Resolve a template ID to its PPTX file path. Defaults to THL template."""
+    templates = _get_available_templates()
     if not template_id:
-        return None
-    for t in _get_available_templates():
+        # Default: use THL template
+        for t in templates:
+            if t["id"] == "thl":
+                return t["path"]
+        return templates[0]["path"] if templates else None
+    for t in templates:
         if t["id"] == template_id:
             return t["path"]
     return None

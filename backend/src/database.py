@@ -273,6 +273,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE ki_tutor_sources ADD COLUMN IF NOT EXISTS duration REAL
             """)
+            # Migration: add error_message column for failed sources
+            cur.execute("""
+                ALTER TABLE ki_tutor_sources ADD COLUMN IF NOT EXISTS error_message TEXT
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_chunks (
                     id          SERIAL PRIMARY KEY,
