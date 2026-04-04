@@ -314,98 +314,179 @@ TUTOR_DATENTABELLE_PROMPT = (
 
 TUTOR_PRESENTATION_PROMPT = (
     "Du bist ein Experte für Präsentationserstellung und Informationsdestillation.\n"
-    "Deine Aufgabe: Filtere aus dem Quellmaterial die wirklich wichtigen Kerninformationen heraus"
-    " und weise jeder Folie das passende Layout aus dem TH-Lübeck-Template zu.\n\n"
+    "Deine Aufgabe: Filtere aus dem Quellmaterial die wichtigsten Kerninformationen heraus"
+    " und erstelle daraus visuell abwechslungsreiche Folien.\n\n"
 
     "SCHRITT 1 — KERNINFORMATIONEN IDENTIFIZIEREN:\n"
-    "Suche gezielt nach diesen hochwertigen Elementen:\n"
     "- Konkrete Zahlen, Prozentwerte, Statistiken (z.B. '49 % Abbruchquote')\n"
     "- Zentrale Thesen, Ziele oder übergeordnete Aussagen\n"
     "- Benannte Maßnahmen, Arbeitspakete oder Konzepte\n"
-    "- Vergleiche, Gegenüberstellungen oder Vor/Nachteil-Strukturen\n"
-    "- Strukturell wichtige Abschnittswechsel im Dokument\n"
+    "- Vergleiche, Gegenüberstellungen, Vor/Nachteil-Strukturen\n"
     "NICHT übernehmen: Fließtext, Erläuterungen, Fußnoten, Quellen, Füllsätze.\n\n"
 
-    "SCHRITT 2 — LAYOUT WÄHLEN (layout_num 1–6):\n"
-    "Das TH-Lübeck-Template hat genau 6 Layouts — wähle das passende:\n\n"
-    "1 'Titelfolie 1'\n"
-    "  Felder: title, subtitle\n"
-    "  Wann: Erste Folie (Haupttitel), letzte Folie (Danke/Abschluss),"
-    " Kapiteltrennfolie zwischen großen Themenblöcken.\n"
-    "  Aussehen: Großer Titel weiß im roten Bildband unten, Bild oben.\n\n"
-    "2 'Titelfolie 2'\n"
-    "  Felder: title, subtitle, kapiteltitel (optional)\n"
-    "  Wann: Wie Layout 1, aber mit optionalem kleinen Kategorietext oben links.\n"
-    "  Typisch für: Fachbereich-Deckblatt ('Fachbereich' oben, Titel im Band).\n\n"
-    "3 'Text und Bild'\n"
-    "  Felder: title, heading, bullets\n"
-    "  Wann: Inhaltsfolie mit Text links und Bildbereich rechts.\n"
-    "  Aussehen: Kapiteltitel oben (klein), rote FETTSCHRIFT-Überschrift,"
-    " Textblock links, Bildfläche rechts.\n\n"
-    "4 'Text oder Grafik'\n"
-    "  Felder: title, heading, bullets\n"
-    "  Wann: Standard-Inhaltsfolie, volle Breite für Text/Grafik. Häufigster Typ.\n"
-    "  Aussehen: Kapiteltitel oben (klein), rote FETTSCHRIFT-Überschrift,"
-    " großer Inhaltsbereich darunter.\n\n"
-    "5 'Bilder mit Text'\n"
-    "  Felder: title, heading, left_bullets, right_bullets\n"
-    "  Wann: Zwei gleichwertige Bilder mit je einem Textblock darunter.\n"
-    "  Typisch für: Vergleiche mit Bildmaterial, zwei Schwerpunkte.\n\n"
-    "6 'Zwei Inhalte'\n"
-    "  Felder: title, heading, left_title, left_bullets, right_title, right_bullets\n"
-    "  Wann: Zwei rein textliche Inhaltsspalten nebeneinander, kein Bild.\n"
-    "  Typisch für: Gegenüberstellungen, AP links + AP rechts, Vor/Nachteile.\n\n"
+    "SCHRITT 2 — FOLIENSTRUKTUR:\n"
+    "Erste Folie = Deckblatt (layout_num=1), letzte Folie = Abschluss (layout_num=2).\n"
+    "Alle anderen Folien sind Content-Folien mit 'type'.\n\n"
+
+    "DECKBLATT UND ABSCHLUSS:\n"
+    "layout_num=1: title, subtitle, image_prompt — NUR erste Folie\n"
+    "layout_num=2: title, subtitle, image_prompt — NUR letzte Folie\n\n"
+
+    "CONTENT-FOLIEN (type):\n"
+    "Jede Content-Folie hat: title (oben links, max 5 Wörter), heading (rote Überschrift, GROSSBUCHSTABEN, max 6 Wörter).\n"
+    "Zusätzlich je nach type:\n\n"
+
+    "type='bullets' — Aufzählung\n"
+    "  Felder: bullets, icon (optional)\n"
+    "  Wann: Standard-Inhaltsfolie mit Fakten.\n"
+    "  icon: Name für roten Marker (check, star, arrow, lightning, gear, flag, target, info, up, diamond).\n\n"
+
+    "type='two_column' — Zwei Spalten\n"
+    "  Felder: left_title, left_bullets, right_title, right_bullets\n"
+    "  Wann: Gegenüberstellungen, Vergleiche, verwandte Mini-Topics konsolidieren (AP1+AP2 etc.).\n\n"
+
+    "type='image_text' — Bild + Text\n"
+    "  Felder: bullets, image_prompt, image_position ('left' oder 'right')\n"
+    "  Wann: Thema profitiert von einem unterstützenden Bild.\n"
+    "  Wechsle image_position zwischen 'left' und 'right' ab — nicht immer gleich.\n\n"
+
+    "type='icon_grid' — Icon-Karten-Raster (2 Spalten)\n"
+    "  Felder: items (Array von {icon, title, bullets: [...]})\n"
+    "  Wann: 3–6 gleichwertige Aspekte/Konzepte, z.B. Arbeitspakete, Maßnahmen, Ziele.\n"
+    "  bullets pro Item: 2–4 Stichpunkte — NICHT nur ein Wort, sondern kurze Fakten.\n"
+    "  Verfügbare Icons: check, star, arrow, lightning, gear, flag, target, info, up, diamond, heart, pen, mail, sun, warning.\n\n"
+
+    "type='stats' — Statistik-Highlight\n"
+    "  Felder: items (Array von {icon, value, label})\n"
+    "  Wann: 2–4 zentrale Kennzahlen hervorheben.\n\n"
+
+    "type='timeline' — Zeitstrahl / Phasen\n"
+    "  Felder: items (Array von {title, text, icon (optional)})\n"
+    "  Wann: Chronologische Abfolge, Projektphasen, Meilensteine (3–5 Schritte).\n\n"
+
+    "type='process' — Nummerierte Karten nebeneinander\n"
+    "  Felder: items (Array von {title, text}), sequential (optional, true nur bei echten Abfolgen)\n"
+    "  Wann: Gleichwertige Aspekte, Arbeitspakete, Schritte (3–4 Karten).\n"
+    "  sequential=true NUR bei echten zeitlichen/logischen Abfolgen (zeigt Pfeile).\n\n"
+
+    "type='comparison' — Zwei Boxen nebeneinander\n"
+    "  Felder: left (Object: {title, icon, bullets}), right (Object: {title, icon, bullets})\n"
+    "  Wann: Pro/Contra, Vorher/Nachher, Option A vs B.\n\n"
+
+    "type='big_number' — Eine große Zahl hervorheben\n"
+    "  Felder: value, label, bullets (5–7 ergänzende Punkte, PFLICHT)\n"
+    "  Wann: Ein einzelner Kernwert soll im Fokus stehen. KEIN icon setzen.\n"
+    "  Die bullets MÜSSEN zum value passen und die Zahl erklären/kontextualisieren.\n\n"
+
+    "type='checklist' — Liste mit Icons pro Zeile\n"
+    "  Felder: items (Array von {text, icon})\n"
+    "  Wann: Ziele, Anforderungen, Aufgaben — jedes Item mit passendem Icon.\n"
+    "  Wähle das Icon passend zum Inhalt (target für Ziele, check für Erledigtes, star für Highlights etc.).\n\n"
+
+    "type='dual_image' — Zwei Bilder oben, Texte darunter\n"
+    "  Felder: image_prompt, image_prompt_2, left_title, left_bullets, right_title, right_bullets\n"
+    "  Wann: Zwei visuelle Aspekte vergleichen/zeigen, je mit Bild + Erklärung darunter.\n\n"
 
     "ENTSCHEIDUNGSLOGIK:\n"
-    "- Titelseite / Abschluss / Kapitelwechsel → layout_num=1\n"
-    "- Inhaltsfolie mit Text + Bild gewünscht → layout_num=3\n"
-    "- Inhaltsfolie nur Text (häufigster Fall) → layout_num=4\n"
-    "- Zwei Bilder mit Textblöcken darunter → layout_num=5\n"
-    "- Zwei Textspalten nebeneinander → layout_num=6\n\n"
+    "- Kernzahlen/Statistiken (mehrere) → type='stats'\n"
+    "- Ein einzelner Kernwert hervorheben → type='big_number'\n"
+    "- 3–6 gleichwertige Konzepte → type='icon_grid'\n"
+    "- Vergleich zweier Spalten → type='two_column'\n"
+    "- Pro/Contra, Vorher/Nachher → type='comparison'\n"
+    "- Thema profitiert von Bild → type='image_text'\n"
+    "- Chronologische Abfolge / Phasen → type='timeline'\n"
+    "- Nummerierte Schritte / Methodik → type='process'\n"
+    "- Aufgaben / Erfüllung → type='checklist'\n"
+    "- Zwei visuelle Aspekte mit Bild + Text → type='dual_image'\n"
+    "- Standard-Fakten → type='bullets'\n\n"
 
-    "AUSGABEFORMAT — Antworte NUR mit diesem JSON-Objekt:\n"
+    "LAYOUT-VIELFALT (PFLICHT):\n"
+    "- NIEMALS 2x denselben type hintereinander\n"
+    "- Jeder type max 1x in der Präsentation — maximale Abwechslung\n"
+    "- Nutze mindestens 6 verschiedene types\n"
+    "- 11 types verfügbar: bullets, two_column, image_text, icon_grid, stats,"
+    " timeline, process, comparison, big_number, checklist, dual_image\n\n"
+
+    "AUSGABEFORMAT — NUR dieses JSON-Objekt:\n"
     "{\n"
-    '  "title": "Präsentationstitel (Kernthema der Quelle)",\n'
+    '  "title": "Präsentationstitel",\n'
     '  "slides": [\n'
     "    {\n"
     '      "layout_num": 1,\n'
-    '      "title": "Haupttitel",\n'
-    '      "subtitle": "Untertitel oder Institution"\n'
+    '      "title": "KIS-Projekt TH Lübeck",\n'
+    '      "subtitle": "KI-gestützte Lehrarchitektur für internationale Studierende",\n'
+    '      "image_prompt": "modern university campus diverse students"\n'
     "    },\n"
     "    {\n"
-    '      "layout_num": 4,\n'
-    '      "title": "Folientitel (Thema/Kapitel)",\n'
-    '      "heading": "KURZE ROTE ÜBERSCHRIFT",\n'
-    '      "bullets": ["49 % Abbruchquote int. Studierender (vs. 27 % dt.)", "65 % wollen in DE bleiben, unter 50 % schaffen es", "Hauptursache: fehlende Sprachkenntnisse", "Finanzierungsprobleme bei 38 % der Betroffenen", "Fehlende soziale Netzwerke als Integrationshürde", "KIS-Projekt adressiert alle drei Haupthürden"]\n'
+    '      "type": "stats",\n'
+    '      "title": "AUSGANGSLAGE",\n'
+    '      "heading": "ZAHLEN UND FAKTEN",\n'
+    '      "items": [\n'
+    '        {"icon": "warning", "value": "49 %", "label": "Abbruchquote int. Studierende"},\n'
+    '        {"icon": "target", "value": "12 %", "label": "Int. Studierende an TH Lübeck"},\n'
+    '        {"icon": "up", "value": "65 %", "label": "Wollen in DE bleiben"}\n'
+    "      ]\n"
     "    },\n"
     "    {\n"
-    '      "layout_num": 6,\n'
-    '      "title": "Folientitel",\n'
-    '      "heading": "VERGLEICH / GEGENÜBERSTELLUNG",\n'
-    '      "left_title": "AP1: Management",\n'
-    '      "left_bullets": ["Punkt A", "Punkt B"],\n'
-    '      "right_title": "AP2: Studium",\n'
-    '      "right_bullets": ["Punkt X", "Punkt Y"]\n'
+    '      "type": "bullets",\n'
+    '      "title": "PROJEKTZIELE",\n'
+    '      "heading": "KIS-PROJEKT IM ÜBERBLICK",\n'
+    '      "bullets": ["Pilotstudiengang Elektrotechnik für int. Studierende mit B1", "KI-gestützte Maßnahmen: Untertitel, Coaching, Sprachqualifizierung", "Skalierbare Lösung für MINT-Fachkräftemangel", "Zweisprachige Lehre Deutsch/Englisch", "Microcredentials und Fachlandkarten"]\n'
     "    },\n"
     "    {\n"
-    '      "layout_num": 1,\n'
+    '      "type": "icon_grid",\n'
+    '      "title": "ARBEITSPAKETE",\n'
+    '      "heading": "PROJEKTSTRUKTUR",\n'
+    '      "items": [\n'
+    '        {"icon": "flag", "title": "AP1: Koordination", "bullets": ["Kick-off und Kennzahlen-Dashboard", "Raumausstattung für hybride Lehre", "Verstetigung der Strukturen"]},\n'
+    '        {"icon": "gear", "title": "AP2: Studium", "bullets": ["Zweisprachige Lehre DE/EN", "KI-Assistent für individuelle Unterstützung", "Microcredentials und Fachlandkarten"]},\n'
+    '        {"icon": "pen", "title": "AP3: Sprache", "bullets": ["Buddy-Programm für Sprachpraxis", "KI-Fachsprachen-Trainer im Lernkontext", "Bewerbungstraining und bedarfsorientierte Kurse"]},\n'
+    '        {"icon": "heart", "title": "AP4: Interkultur.", "bullets": ["Welcome Weeks und interkulturelle Workshops", "Learning-Analytics-Dashboard", "Employability Camp für Arbeitsmarkt"]}\n'
+    "      ]\n"
+    "    },\n"
+    "    {\n"
+    '      "type": "two_column",\n'
+    '      "title": "VERGLEICH",\n'
+    '      "heading": "STANDARD VS. ADAPTED TRACK",\n'
+    '      "left_title": "Standard (7 Sem.)",\n'
+    '      "left_bullets": ["Reguläres Curriculum", "Deutsche Vorlesungen", "Ohne Praxissemester"],\n'
+    '      "right_title": "Adapted (9 Sem.)",\n'
+    '      "right_bullets": ["Zweisprachige Module", "KI-Sprachunterstützung", "Mit Praxiseinbindung"]\n'
+    "    },\n"
+    "    {\n"
+    '      "type": "image_text",\n'
+    '      "title": "INNOVATION",\n'
+    '      "heading": "KI IM STUDENT LIFE-CYCLE",\n'
+    '      "bullets": ["KI-Assistent für alle Studierende nutzbar", "Automatische Untertitelung in Echtzeit", "Personalisiertes Sprachtraining"],\n'
+    '      "image_prompt": "artificial intelligence education technology concept",\n'
+    '      "image_position": "right"\n'
+    "    },\n"
+    "    {\n"
+    '      "layout_num": 2,\n'
     '      "title": "Vielen Dank",\n'
-    '      "subtitle": "Technische Hochschule Lübeck"\n'
+    '      "subtitle": "Technische Hochschule Lübeck",\n'
+    '      "image_prompt": "university campus sunset"\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
 
     "QUALITÄTSREGELN:\n"
     "- Erstelle {slide_count} Folien\n"
-    "- Erste Folie: layout_num=1 (Titelfolie)\n"
-    "- Letzte Folie: layout_num=1 (Abschlussfolie)\n"
-    "- Kapitelwechsel bei großen Themensprüngen: layout_num=1\n"
-    "- 'title': Thema/Kapitel kurz (max 5 Wörter) — erscheint klein oben links\n"
-    "- 'heading': Die wichtigste Aussage der Folie in GROSSBUCHSTABEN (max 6 W\u00f6rter)\n"
-    "- 'left_title'/'right_title' bei Layout 6: max 3 W\u00f6rter, IMMER Abk\u00fcrzungen nutzen \u2014 z.B. 'AP1: Management' statt 'Arbeitspaket 1: Projektmanagement', 'Ziel A' statt 'Zielsetzung Option A'\n"
-    "- 'bullets': so viele Punkte wie der Text hergibt, max 10. Kürze NICHT künstlich — extrahiere jeden relevanten Fakt.\n"
+    "- Erste Folie: layout_num=1 (Deckblatt), letzte: layout_num=2 (Abschluss)\n"
+    "- layout_num=1 und 2 NIEMALS für Zwischenfolien\n"
+    "- Deckblatt: title = vollständiger Projekttitel (nicht abkürzen!), subtitle = Kurzbeschreibung\n"
+    "- Folie 2 (direkt nach Deckblatt): MUSS eine Einführung/Überblick sein — worum geht es, was ist der Kontext?"
+    " Typ bullets oder image_text. Nie sofort mit Kernzahlen/Stats starten.\n"
+    "- 'title': Thema/Kapitel kurz (max 5 Wörter)\n"
+    "- 'heading': GROSSBUCHSTABEN (max 6 Wörter)\n"
+    "- ÜBERALL wo bullets vorkommen (bullets, left_bullets, right_bullets, comparison left/right bullets):"
+    " IMMER mindestens 5 Punkte, idealerweise 6–7. Max 12 Wörter pro Bullet."
+    " Die Folie MUSS gefüllt wirken — 3 Punkte sind NIEMALS genug!\n"
     "- KONKRET: '49 % Abbruchquote' statt 'Hohe Abbruchquote'\n"
-    "- Nur Informationen aus dem Text, keine Halluzinationen\n"
+    "- Verwandte Mini-Topics konsolidieren (two_column oder icon_grid)\n"
+    "- 'image_prompt': Englisch, 5–10 Wörter, bei image_text, dual_image und Layout 1/2\n"
+    "- STRENG VERBOTEN: Zahlen, Ziele, Fakten oder Aussagen erfinden die NICHT wörtlich im Quelltext stehen!"
+    " Wenn eine Zahl nicht im Text vorkommt, NIEMALS verwenden oder ableiten.\n"
     "- Sprache der Folien = Sprache der Quelle\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )

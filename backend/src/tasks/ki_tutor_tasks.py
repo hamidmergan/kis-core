@@ -628,7 +628,7 @@ def _generate_slide_image(prompt: str, size: str = "1024x1024") -> bytes | None:
     import httpx
     import base64
     # Enforce illustration style
-    full_prompt = f"{prompt}, flat vector illustration style, minimal clean lines, muted soft colors, white background, no text, no watermark"
+    full_prompt = f"{prompt}, flat vector illustration style, minimal clean lines, muted soft colors, white background, absolutely no text, no letters, no words, no numbers, no writing, no labels, no captions, no watermark"
     try:
         from src.dependencies import _resolve_llm_provider
         _api_key, _base_url, _, _ = _resolve_llm_provider()
@@ -729,23 +729,39 @@ def run_generate_presentation(self, presentation_id: int, source_id: int, source
         pres_title = data.get("title", source_label)
         slides = data["slides"][:20]
 
-        # Generate FLUX images (max 4, parallel)
+        # Generate FLUX images for slides with image_prompt (parallel)
         images: dict[int, bytes] = {}
-        image_tasks = [(i, s["image_prompt"]) for i, s in enumerate(slides) if s.get("image_prompt")][:4]
+        # (slide_idx, prompt, size, key) — key is 'img' or 'img2'
+        image_tasks = []
+        for i, s in enumerate(slides):
+            if s.get("image_prompt"):
+                ln = s.get("layout_num")
+                sz = "1536x1024" if ln in (1, 2) else "1024x1024"
+                image_tasks.append((i, s["image_prompt"], sz, "img"))
+            if s.get("image_prompt_2"):
+                image_tasks.append((i, s["image_prompt_2"], "1024x1024", "img2"))
         if image_tasks:
             logger.info("KI Tutor: generating {} FLUX images", len(image_tasks))
             import concurrent.futures as _cf
-            with _cf.ThreadPoolExecutor(max_workers=2) as pool:
-                futures = {pool.submit(_generate_slide_image, p): i for i, p in image_tasks}
+            with _cf.ThreadPoolExecutor(max_workers=3) as pool:
+                futures = {pool.submit(_generate_slide_image, p, size=sz): (i, key) for i, p, sz, key in image_tasks}
                 for f in _cf.as_completed(futures):
-                    i = futures[f]
+                    idx, key = futures[f]
                     img = f.result()
                     if img:
-                        images[i] = img
+                        if key == "img2":
+                            # Inject into slide data so builder can access it
+                            slides[idx]["_img2_bytes"] = img
+                        else:
+                            images[idx] = img
             logger.info("KI Tutor: {} images generated", len(images))
 
         from src.templates.pptx_builder import build_pptx
         pptx_bytes = build_pptx(pres_title, slides, images, template_path=template_path)
+
+        # Remove binary data before JSON serialization
+        for s in slides:
+            s.pop("_img2_bytes", None)
 
         from src.storage import save_file
         pres = db.get_ki_tutor_presentation(presentation_id)

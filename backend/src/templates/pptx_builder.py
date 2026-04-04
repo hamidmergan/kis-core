@@ -117,7 +117,7 @@ def _bullets(sl, left, top, w, h, items, size=15, color=BLACK,
 
 
 def _box(sl, left, top, w, h, color):
-    sh = sl.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, w, h)
+    sh = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, w, h)
     sh.fill.solid()
     sh.fill.fore_color.rgb = color
     sh.line.fill.background()
@@ -575,23 +575,634 @@ def _render_layout(sl, s, img_bytes, idx, section_counter, branded=False, area=N
 
 
 # ============================================================================
-# Layout-num slide filler -- SINGLE DEFINITION, verified against
-# TH_Praesentation_Deutsch_April2025.pptx (40 real slides)
+# Custom content renderers — draw inside Layout 4 content area
 # ============================================================================
 
-def _fill_layout_num_slide(sl, s, img_bytes, slide_idx):
+# Content area bounds (below heading, above footer)
+_CL = Inches(0.6)
+_CT = Inches(2.2)
+_CW = Inches(12.1)
+_CB = Inches(6.0)
+_CH = _CB - _CT
+
+# Icon cache: name -> PNG bytes
+_icon_cache: dict[str, bytes] = {}
+
+# Phosphor icon name mapping (kebab-case for CDN URL)
+_PHOSPHOR_NAMES = {
+    "check": "check-circle", "star": "star", "arrow": "arrow-right",
+    "lightning": "lightning", "gear": "gear-six", "heart": "heart",
+    "flag": "flag", "pen": "pencil-simple", "mail": "envelope",
+    "sun": "sun", "diamond": "diamond", "up": "trend-up",
+    "warning": "warning", "info": "info", "target": "crosshair",
+    "book": "book-open", "users": "users-three", "chart": "chart-bar",
+    "clock": "clock", "globe": "globe", "search": "magnifying-glass",
+    "shield": "shield-check", "graduation": "graduation-cap",
+    "lightbulb": "lightbulb", "rocket": "rocket",
+}
+
+
+def _get_icon_png(name: str, size: int = 128) -> bytes | None:
+    """Fetch a Phosphor icon as red PNG. Cached in memory."""
+    cache_key = f"{name}_{size}"
+    if cache_key in _icon_cache:
+        return _icon_cache[cache_key]
+
+    phosphor_name = _PHOSPHOR_NAMES.get(name, name)
+    # THL_RED = #E3002B
+    color = "E3002B"
+    url = f"https://api.iconify.design/ph/{phosphor_name}-bold.svg?color=%23{color}&width={size}&height={size}"
+
+    try:
+        import httpx
+        import cairosvg
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(url)
+            if resp.status_code != 200:
+                return None
+            svg_data = resp.content
+            png_data = cairosvg.svg2png(bytestring=svg_data, output_width=size, output_height=size)
+            _icon_cache[cache_key] = png_data
+            return png_data
+    except Exception:
+        return None
+
+
+def _icon(sl, left, top, size, icon_name):
+    """Insert a red Phosphor icon as PNG image."""
+    px = max(128, int(size / Inches(1) * 128))
+    png = _get_icon_png(icon_name, px)
+    if png:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp.write(png)
+            path = tmp.name
+        try:
+            sl.shapes.add_picture(path, left, top, size, size)
+        finally:
+            os.unlink(path)
+    return None
+
+
+def _write_ph(shape, text, bold=False):
+    """Write text into a placeholder with normAutofit."""
+    if not shape or not text:
+        return
+    from pptx.oxml.ns import qn as _qn
+    from lxml import etree as _et
+    tf = shape.text_frame
+    body_pr = tf._txBody.find(_qn("a:bodyPr"))
+    if body_pr is not None:
+        for tag in ("a:normAutofit", "a:spAutoFit", "a:noAutofit"):
+            el = body_pr.find(_qn(tag))
+            if el is not None:
+                body_pr.remove(el)
+        _et.SubElement(body_pr, _qn("a:normAutofit"))
+    tf.clear()
+    p = tf.paragraphs[0]
+    run = p.add_run()
+    run.text = text
+    if bold:
+        run.font.bold = True
+    run.font.name = FONT
+
+
+def _render_content(sl, s, img_bytes):
+    """Dispatch to the right content renderer based on slide type."""
+    # Fill title and heading placeholders from template
+    for shape in sl.shapes:
+        try:
+            ph = shape.placeholder_format
+        except ValueError:
+            continue
+        if ph is None:
+            continue
+        idx = ph.idx
+        if idx == 0:
+            _write_ph(shape, s.get("title", ""))
+        elif idx == 13:
+            _write_ph(shape, s.get("heading", ""), bold=True)
+        elif idx == 2:
+            shape.text_frame.clear()
+
+    t = s.get("type", "bullets")
+    if t == "two_column":
+        _render_two_col(sl, s)
+    elif t == "image_text":
+        _render_img_text(sl, s, img_bytes)
+    elif t == "icon_grid":
+        _render_icon_grid(sl, s)
+    elif t == "stats":
+        _render_stats(sl, s)
+    elif t == "timeline":
+        _render_timeline(sl, s)
+    elif t == "quote":
+        _render_quote(sl, s)
+    elif t == "process":
+        _render_process(sl, s)
+    elif t == "comparison":
+        _render_comparison(sl, s)
+    elif t == "big_number":
+        _render_big_number(sl, s)
+    elif t == "checklist":
+        _render_checklist(sl, s)
+    elif t == "agenda":
+        _render_agenda(sl, s)
+    elif t == "dual_image":
+        _render_dual_image(sl, s, img_bytes)
+    else:
+        _render_bullet_list(sl, s)
+
+
+def _render_bullet_list(sl, s):
+    """Bullets with small red circle markers, vertically centered."""
+    items = s.get("bullets", [])
+    n = len(items)
+    if not n:
+        return
+    row_h = min(Inches(0.55), _CH / n)
+    dot_sz = Inches(0.12)
+    content_h = n * row_h
+    y0 = _CT + max(0, (_CH - content_h) // 2)
+    for i, text in enumerate(items):
+        y = y0 + i * row_h
+        dot = sl.shapes.add_shape(MSO_SHAPE.OVAL, _CL, y + Inches(0.12), dot_sz, dot_sz)
+        dot.fill.solid()
+        dot.fill.fore_color.rgb = THL_RED
+        dot.line.fill.background()
+        _txt(sl, _CL + Inches(0.3), y, _CW - Inches(0.3), row_h,
+             text, size=15, color=BLACK)
+
+
+def _render_two_col(sl, s):
+    """Two columns with red accent lines."""
+    col_w = (_CW - Inches(1.0)) / 2
+    r_left = _CL + col_w + Inches(1.0)
+    dot_sz = Inches(0.1)
+    title_h = Inches(0.4)
+
+    lt = s.get("left_title", "")
+    rt = s.get("right_title", "")
+    if lt:
+        _txt(sl, _CL, _CT, col_w, title_h, lt, size=16, bold=True, color=BLACK)
+    if rt:
+        _txt(sl, r_left, _CT, col_w, title_h, rt, size=16, bold=True, color=BLACK)
+
+    # Vertical divider
+    _rect(sl, _CL + col_w + Inches(0.45), _CT, Inches(0.02), _CH, LIGHT_GRAY)
+
+    bt = _CT + Inches(0.6)
+    for i, text in enumerate(s.get("left_bullets", [])):
+        y = bt + i * Inches(0.5)
+        d = sl.shapes.add_shape(MSO_SHAPE.OVAL, _CL, y + Inches(0.1), dot_sz, dot_sz)
+        d.fill.solid(); d.fill.fore_color.rgb = THL_RED; d.line.fill.background()
+        _txt(sl, _CL + Inches(0.25), y, col_w - Inches(0.25), Inches(0.45),
+             text, size=14, color=BLACK)
+    for i, text in enumerate(s.get("right_bullets", [])):
+        y = bt + i * Inches(0.5)
+        d = sl.shapes.add_shape(MSO_SHAPE.OVAL, r_left, y + Inches(0.1), dot_sz, dot_sz)
+        d.fill.solid(); d.fill.fore_color.rgb = THL_RED; d.line.fill.background()
+        _txt(sl, r_left + Inches(0.25), y, col_w - Inches(0.25), Inches(0.45),
+             text, size=14, color=BLACK)
+
+
+def _render_img_text(sl, s, img_bytes):
+    """Image + bullet text side by side."""
+    items = s.get("bullets", [])
+    pos = s.get("image_position", "right")
+    img_w, img_h = Inches(5.0), Inches(3.5)
+    text_w = _CW - img_w - Inches(0.5)
+    dot_sz = Inches(0.1)
+
+    if pos == "left":
+        img_left, txt_left = _CL, _CL + img_w + Inches(0.5)
+    else:
+        txt_left, img_left = _CL, _CL + text_w + Inches(0.5)
+
+    if img_bytes:
+        _img(sl, img_bytes, img_left, _CT, img_w, img_h)
+
+    for i, text in enumerate(items):
+        y = _CT + i * Inches(0.55)
+        d = sl.shapes.add_shape(MSO_SHAPE.OVAL, txt_left, y + Inches(0.12), dot_sz, dot_sz)
+        d.fill.solid(); d.fill.fore_color.rgb = THL_RED; d.line.fill.background()
+        _txt(sl, txt_left + Inches(0.25), y, text_w - Inches(0.25), Inches(0.5),
+             text, size=14, color=BLACK)
+
+
+def _render_icon_grid(sl, s):
+    """Grid of icon cards with bullet text."""
+    items = s.get("items", [])
+    n = len(items)
+    if not n:
+        return
+    cols = 2
+    rows = (n + cols - 1) // cols
+    gap_x, gap_y = Inches(0.5), Inches(0.35)
+    card_w = (_CW - gap_x * (cols - 1)) / cols
+    card_h = min(Inches(1.8), (_CH - gap_y * (rows - 1)) / rows)
+    icon_sz = Inches(0.4)
+    dot_sz = Inches(0.08)
+
+    for i, item in enumerate(items):
+        c, r = i % cols, i // cols
+        x = _CL + c * (card_w + gap_x)
+        y = _CT + r * (card_h + gap_y)
+
+        # Card background
+        _box(sl, x, y, card_w, card_h, LIGHT_GRAY)
+        # Red left accent bar
+        _rect(sl, x, y, Inches(0.05), card_h, THL_RED)
+
+        # Icon + Title row
+        _icon(sl, x + Inches(0.2), y + Inches(0.15), icon_sz,
+              item.get("icon", "star"))
+        _txt(sl, x + Inches(0.2) + icon_sz + Inches(0.15), y + Inches(0.15),
+             card_w - icon_sz - Inches(0.55), Inches(0.35),
+             item.get("title", ""), size=14, bold=True, color=BLACK)
+
+        # Bullet items inside card
+        bullets = item.get("bullets", [])
+        if not bullets:
+            # Fallback: split text by comma or use as single bullet
+            text = item.get("text", "")
+            if text:
+                bullets = [t.strip() for t in text.split(",")]
+        for j, bt in enumerate(bullets):
+            by = y + Inches(0.65) + j * Inches(0.3)
+            d = sl.shapes.add_shape(MSO_SHAPE.OVAL, x + Inches(0.25), by + Inches(0.07), dot_sz, dot_sz)
+            d.fill.solid(); d.fill.fore_color.rgb = THL_RED; d.line.fill.background()
+            _txt(sl, x + Inches(0.45), by, card_w - Inches(0.65), Inches(0.28),
+                 bt, size=11, color=BLACK)
+
+
+def _render_stats(sl, s):
+    """Statistics with big numbers and icons, vertically centered."""
+    items = s.get("items", [])
+    n = len(items)
+    if not n:
+        return
+    stat_w = _CW / n
+    icon_sz = Inches(0.55)
+    content_h = Inches(2.2)
+    y0 = _CT + (_CH - content_h) // 2  # vertical center
+
+    for i, item in enumerate(items):
+        x = _CL + i * stat_w
+        cx = x + stat_w // 2
+        _icon(sl, cx - icon_sz // 2, y0, icon_sz,
+              item.get("icon", "star"))
+        _txt(sl, x, y0 + Inches(0.7), stat_w, Inches(0.7),
+             str(item.get("value", "")), size=36, bold=True, color=BLACK,
+             align=PP_ALIGN.CENTER)
+        _txt(sl, x, y0 + Inches(1.5), stat_w, Inches(0.4),
+             item.get("label", ""), size=12, color=BLACK,
+             align=PP_ALIGN.CENTER)
+
+
+def _render_timeline(sl, s):
+    """Horizontal timeline: icon on top, line below, then label + description."""
+    items = s.get("items", [])
+    n = len(items)
+    if not n:
+        return
+    step_w = _CW / n
+    icon_sz = Inches(0.35)
+    content_h = Inches(2.5)
+    y0 = _CT + (_CH - content_h) // 2  # vertical center
+    icon_top = y0
+    line_y = icon_top + icon_sz + Inches(0.15)
+
+    # Horizontal red line between icons and labels
+    _rect(sl, _CL, line_y, _CW, Inches(0.03), THL_RED)
+
+    for i, item in enumerate(items):
+        cx = _CL + i * step_w + step_w // 2
+
+        # Icon above the line
+        icon_name = item.get("icon")
+        if icon_name:
+            _icon(sl, cx - icon_sz // 2, icon_top, icon_sz, icon_name)
+        else:
+            dot_sz = Inches(0.22)
+            dot = sl.shapes.add_shape(MSO_SHAPE.OVAL,
+                                      cx - dot_sz // 2, icon_top + Inches(0.06), dot_sz, dot_sz)
+            dot.fill.solid()
+            dot.fill.fore_color.rgb = THL_RED
+            dot.line.fill.background()
+
+        # Step label below the line
+        _txt(sl, cx - step_w // 2, line_y + Inches(0.15),
+             step_w, Inches(0.35),
+             item.get("title", ""), size=13, bold=True, color=BLACK,
+             align=PP_ALIGN.CENTER)
+
+        # Step description
+        desc = item.get("text", "")
+        if desc:
+            _txt(sl, cx - step_w // 2, line_y + Inches(0.55),
+                 step_w, Inches(1.5),
+                 desc, size=11, color=BLACK, align=PP_ALIGN.CENTER)
+
+
+def _render_quote(sl, s):
+    """Big quote with attribution."""
+    text = s.get("quote", "")
+    author = s.get("author", "")
+
+    # Large red opening quote mark
+    _txt(sl, _CL + Inches(0.5), _CT - Inches(0.2),
+         Inches(1.0), Inches(1.0),
+         "\u201E", size=72, bold=True, color=THL_RED)
+
+    # Quote text
+    _txt(sl, _CL + Inches(1.0), _CT + Inches(0.5),
+         _CW - Inches(2.0), Inches(2.0),
+         text, size=22, italic=True, color=BLACK)
+
+    # Closing quote mark
+    _txt(sl, _CL + _CW - Inches(1.5), _CT + Inches(2.3),
+         Inches(1.0), Inches(1.0),
+         "\u201C", size=72, bold=True, color=THL_RED)
+
+    # Red accent line
+    _rect(sl, _CL + Inches(1.0), _CT + Inches(3.0),
+          Inches(2.0), Inches(0.03), THL_RED)
+
+    # Author
+    if author:
+        _txt(sl, _CL + Inches(1.0), _CT + Inches(3.2),
+             _CW - Inches(2.0), Inches(0.4),
+             f"— {author}", size=14, bold=True, color=BLACK)
+
+
+def _render_process(sl, s):
+    """Numbered cards in a row. Arrows only if sequential=true."""
+    items = s.get("items", [])
+    n = len(items)
+    if not n:
+        return
+    sequential = s.get("sequential", False)
+    arrow_w = Inches(0.4) if sequential else Inches(0.2)
+    step_w = (_CW - arrow_w * (n - 1)) / n
+
+    for i, item in enumerate(items):
+        x = _CL + i * (step_w + arrow_w)
+
+        # Step box
+        _box(sl, x, _CT, step_w, Inches(3.2), LIGHT_GRAY)
+
+        # Step number circle
+        num_sz = Inches(0.45)
+        num_x = x + step_w // 2 - num_sz // 2
+        num_sh = sl.shapes.add_shape(MSO_SHAPE.OVAL, num_x, _CT + Inches(0.2),
+                                      num_sz, num_sz)
+        num_sh.fill.solid()
+        num_sh.fill.fore_color.rgb = THL_RED
+        num_sh.line.fill.background()
+        tf = num_sh.text_frame
+        tf.word_wrap = False
+        from pptx.oxml.ns import qn as _qn
+        body_pr = tf._txBody.find(_qn("a:bodyPr"))
+        if body_pr is not None:
+            body_pr.set("anchor", "ctr")
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        run = p.add_run()
+        run.text = str(i + 1)
+        run.font.size = Pt(18)
+        run.font.bold = True
+        run.font.color.rgb = WHITE
+        run.font.name = FONT
+
+        # Title
+        _txt(sl, x + Inches(0.15), _CT + Inches(0.8),
+             step_w - Inches(0.3), Inches(0.35),
+             item.get("title", ""), size=13, bold=True, color=BLACK,
+             align=PP_ALIGN.CENTER)
+
+        # Description
+        desc = item.get("text", "")
+        if desc:
+            _txt(sl, x + Inches(0.15), _CT + Inches(1.25),
+                 step_w - Inches(0.3), Inches(1.8),
+                 desc, size=11, color=BLACK, align=PP_ALIGN.CENTER)
+
+        # Arrow between steps (only if sequential)
+        if sequential and i < n - 1:
+            arrow_x = x + step_w
+            _txt(sl, arrow_x, _CT + Inches(1.2),
+                 arrow_w, Inches(0.5),
+                 "\u279C", size=24, bold=True, color=THL_RED,
+                 align=PP_ALIGN.CENTER)
+
+
+def _render_dual_image(sl, s, img_bytes):
+    """Two images on top, two text/bullet blocks below."""
+    gap = Inches(0.5)
+    col_w = (_CW - gap) / 2
+    img_h = Inches(2.0)
+    r_left = _CL + col_w + gap
+    dot_sz = Inches(0.1)
+
+    # Left image
+    if img_bytes:
+        _img(sl, img_bytes, _CL, _CT, col_w, img_h)
+
+    # Right image (img2)
+    img2 = s.get("_img2_bytes")
+    if img2:
+        _img(sl, img2, r_left, _CT, col_w, img_h)
+
+    # Left title + bullets
+    text_top = _CT + img_h + Inches(0.2)
+    lt = s.get("left_title", "")
+    if lt:
+        _txt(sl, _CL, text_top, col_w, Inches(0.35),
+             lt, size=14, bold=True, color=BLACK)
+
+    for i, bt in enumerate(s.get("left_bullets", [])):
+        y = text_top + Inches(0.45) + i * Inches(0.4)
+        d = sl.shapes.add_shape(MSO_SHAPE.OVAL, _CL, y + Inches(0.1), dot_sz, dot_sz)
+        d.fill.solid(); d.fill.fore_color.rgb = THL_RED; d.line.fill.background()
+        _txt(sl, _CL + Inches(0.25), y, col_w - Inches(0.25), Inches(0.35),
+             bt, size=13, color=BLACK)
+
+    # Right title + bullets
+    rt = s.get("right_title", "")
+    if rt:
+        _txt(sl, r_left, text_top, col_w, Inches(0.35),
+             rt, size=14, bold=True, color=BLACK)
+
+    for i, bt in enumerate(s.get("right_bullets", [])):
+        y = text_top + Inches(0.45) + i * Inches(0.4)
+        d = sl.shapes.add_shape(MSO_SHAPE.OVAL, r_left, y + Inches(0.1), dot_sz, dot_sz)
+        d.fill.solid(); d.fill.fore_color.rgb = THL_RED; d.line.fill.background()
+        _txt(sl, r_left + Inches(0.25), y, col_w - Inches(0.25), Inches(0.35),
+             bt, size=13, color=BLACK)
+
+
+def _render_comparison(sl, s):
+    """Two boxes side by side (Pro/Contra, Vorher/Nachher)."""
+    left_data = s.get("left", {})
+    right_data = s.get("right", {})
+    gap = Inches(0.5)
+    box_w = (_CW - gap) / 2
+    box_h = _CH - Inches(0.2)
+    r_left = _CL + box_w + gap
+    dot_sz = Inches(0.1)
+
+    for _, data, x in [("left", left_data, _CL), ("right", right_data, r_left)]:
+        # Box background
+        _box(sl, x, _CT, box_w, box_h, LIGHT_GRAY)
+
+        # Icon + Title
+        icon_name = data.get("icon")
+        title_x = x + Inches(0.3)
+        if icon_name:
+            _icon(sl, x + Inches(0.25), _CT + Inches(0.2), Inches(0.35), icon_name)
+            title_x = x + Inches(0.75)
+        _txt(sl, title_x, _CT + Inches(0.2),
+             box_w - Inches(1.0), Inches(0.35),
+             data.get("title", ""), size=16, bold=True, color=BLACK)
+
+        # Bullets
+        for j, bt in enumerate(data.get("bullets", [])):
+            by = _CT + Inches(0.75) + j * Inches(0.45)
+            d = sl.shapes.add_shape(MSO_SHAPE.OVAL, x + Inches(0.3), by + Inches(0.1), dot_sz, dot_sz)
+            d.fill.solid(); d.fill.fore_color.rgb = THL_RED; d.line.fill.background()
+            _txt(sl, x + Inches(0.55), by, box_w - Inches(0.85), Inches(0.4),
+                 bt, size=13, color=BLACK)
+
+
+def _render_big_number(sl, s):
+    """One big number with subtitle and bullets below, vertically centered."""
+    value = str(s.get("value", ""))
+    label = s.get("label", "")
+    bullets = s.get("bullets", [])
+    icon_name = s.get("icon")
+    icon_sz = Inches(0.6)
+
+    # Calculate content height for vertical centering
+    num_h = Inches(1.2) + Inches(0.5) + len(bullets) * Inches(0.45)
+    y0 = _CT + max(0, (_CH - num_h) // 2 - Inches(0.3))
+
+    # Icon above number
+    if icon_name:
+        _icon(sl, _CL + _CW // 2 - icon_sz // 2, y0, icon_sz, icon_name)
+
+    # Big number
+    num_top = y0 + (Inches(0.8) if icon_name else Inches(0.2))
+    _txt(sl, _CL, num_top, _CW, Inches(1.2),
+         value, size=72, bold=True, color=BLACK, align=PP_ALIGN.CENTER)
+
+    # Label
+    _txt(sl, _CL, num_top + Inches(1.2), _CW, Inches(0.5),
+         label, size=18, color=BLACK, align=PP_ALIGN.CENTER)
+
+    # Bullets in 2 columns (max 4 rows per column)
+    dot_sz = Inches(0.1)
+    bt_start = num_top + Inches(1.9)
+    n = len(bullets)
+    col_w = (_CW - Inches(1.0)) / 2
+    left_x = _CL + Inches(0.5)
+    right_x = _CL + col_w + Inches(1.0)
+    rows = (n + 1) // 2  # items split across 2 columns
+
+    for i, bt in enumerate(bullets):
+        col = 0 if i < rows else 1
+        row = i if col == 0 else i - rows
+        x = left_x if col == 0 else right_x
+        y = bt_start + row * Inches(0.42)
+        d = sl.shapes.add_shape(MSO_SHAPE.OVAL, x, y + Inches(0.1), dot_sz, dot_sz)
+        d.fill.solid(); d.fill.fore_color.rgb = THL_RED; d.line.fill.background()
+        _txt(sl, x + Inches(0.25), y, col_w - Inches(0.5), Inches(0.38),
+             bt, size=13, color=BLACK)
+
+
+def _render_checklist(sl, s):
+    """Checklist with icons per item, vertically centered."""
+    items = s.get("items", [])
+    n = len(items)
+    if not n:
+        return
+    row_h = min(Inches(0.55), _CH / n)
+    icon_sz = Inches(0.3)
+    content_h = n * row_h
+    y0 = _CT + max(0, (_CH - content_h) // 2)
+
+    for i, item in enumerate(items):
+        y = y0 + i * row_h
+        icon_name = item.get("icon", "check")
+        _icon(sl, _CL, y + Inches(0.05), icon_sz, icon_name)
+        _txt(sl, _CL + Inches(0.5), y, _CW - Inches(0.5), row_h,
+             item.get("text", ""), size=15, color=BLACK)
+
+
+def _render_agenda(sl, s):
+    """Numbered agenda items with optional highlight on current item."""
+    items = s.get("items", [])
+    highlight = s.get("highlight")  # 1-based index of current item
+    n = len(items)
+    if not n:
+        return
+    row_h = min(Inches(0.65), _CH / n)
+    num_sz = Inches(0.4)
+
+    for i, item in enumerate(items):
+        y = _CT + i * row_h
+        is_active = (highlight is not None and i + 1 == highlight)
+
+        # Highlight background
+        if is_active:
+            _rect(sl, _CL - Inches(0.1), y - Inches(0.05),
+                  _CW + Inches(0.2), row_h, LIGHT_GRAY)
+
+        # Number circle
+        num_sh = sl.shapes.add_shape(MSO_SHAPE.OVAL, _CL, y + Inches(0.05),
+                                      num_sz, num_sz)
+        num_sh.fill.solid()
+        num_sh.fill.fore_color.rgb = THL_RED if is_active else RGBColor(0xD1, 0xD5, 0xDB)
+        num_sh.line.fill.background()
+        tf = num_sh.text_frame
+        tf.word_wrap = False
+        from pptx.oxml.ns import qn as _qn
+        body_pr = tf._txBody.find(_qn("a:bodyPr"))
+        if body_pr is not None:
+            body_pr.set("anchor", "ctr")
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        run = p.add_run()
+        run.text = str(i + 1)
+        run.font.size = Pt(16)
+        run.font.bold = True
+        run.font.color.rgb = WHITE
+        run.font.name = FONT
+
+        # Text
+        text = item if isinstance(item, str) else item.get("text", "")
+        _txt(sl, _CL + Inches(0.6), y + Inches(0.02), _CW - Inches(0.6), row_h,
+             text, size=16, bold=is_active, color=BLACK)
+
+
+# ============================================================================
+# Layout-num slide filler (Layout 1 + 2 only)
+# ============================================================================
+
+def _fill_layout_num_slide(sl, s, img_bytes, slide_idx, img2_bytes=None):
     """Fill a new slide created from the THL Slide Master (layout_num 1-6).
 
-    Layout 1: ph[0]=title, ph[1]=subtitle, ph[21]=img, ph[24]=LEAVE EMPTY
+    Layout 1: ph[0]=title, ph[1]=subtitle, ph[26]=img, ph[24]=LEAVE EMPTY
     Layout 2: ph[24]=label, ph[0]=title, ph[1]=subtitle, ph[21]=img
-    Layout 3: ph[0]=title, ph[1]=heading(bold), ph[2]=bullets, ph[21]=img
+    Layout 3: ph[0]=title, ph[1]=heading(bold), ph[2]=bullets, ph[21]=img, ph[13]=img2
     Layout 4: ph[0]=title, ph[13]=heading(bold), ph[2]=bullets
-    Layout 5: ph[0]=title, ph[13]=heading, ph[21]=img, ph[2]=left_bullets, ph[4]=right_bullets
+    Layout 5: ph[0]=title, ph[13]=heading, ph[21]=img, ph[22]=img2, ph[2]=left_bullets, ph[4]=right_bullets
     Layout 6: ph[0]=title, ph[13]=heading, ph[1]=left_title, ph[3]=right_title,
               ph[2]=left_bullets, ph[4]=right_bullets
     ph[23] is always left empty (Quellenangaben).
     """
-    SKIP = {23}
+    layout_num = s.get("layout_num", 4)
+    # ph[23] = Quellenangaben — only used on Layout 2 (closing slide)
+    SKIP = set() if layout_num == 2 else {23}
 
     def _write(shape, text, bold=False):
         if not shape or not text:
@@ -636,12 +1247,28 @@ def _fill_layout_num_slide(sl, s, img_bytes, slide_idx):
                     if el is not None:
                         bodyPr.remove(el)
                 _et.SubElement(bodyPr, _qn("a:normAutofit"))
-            # Write paragraphs
+            # Empty first line for spacing, then bullet paragraphs
             tf.clear()
-            for i, item in enumerate(items):
-                p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            # Blank spacer paragraph (no bullet)
+            spacer = tf.paragraphs[0]
+            spacer_pPr = spacer._p.get_or_add_pPr()
+            _et.SubElement(spacer_pPr, _qn("a:buNone"))
+            spacer.add_run().text = ""
+            for item in items:
+                p = tf.add_paragraph()
+                # Set bullet via XML: char bullet "•"
+                pPr = p._p.get_or_add_pPr()
+                buChar = pPr.find(_qn("a:buChar"))
+                if buChar is None:
+                    buChar = _et.SubElement(pPr, _qn("a:buChar"))
+                buChar.set("char", "\u2022")
+                # Add space after bullet character
+                buSzPct = pPr.find(_qn("a:buSzPct"))
+                if buSzPct is None:
+                    buSzPct = _et.SubElement(pPr, _qn("a:buSzPct"))
+                buSzPct.set("val", "100000")
                 run = p.add_run()
-                run.text = item
+                run.text = " " + item
                 run.font.name = FONT
         except Exception:
             pass
@@ -653,7 +1280,12 @@ def _fill_layout_num_slide(sl, s, img_bytes, slide_idx):
             except Exception:
                 pass
 
-    layout_num = s.get("layout_num", 4)
+    def _insert_img2(ph_idx):
+        if img2_bytes:
+            try:
+                _insert_picture_ph(sl, ph_idx, img2_bytes)
+            except Exception:
+                pass
 
     for shape in sl.shapes:
         try:
@@ -669,7 +1301,7 @@ def _fill_layout_num_slide(sl, s, img_bytes, slide_idx):
         if layout_num == 1:
             if ph_idx == 0:    _write(shape, s.get("title", ""))
             elif ph_idx == 1:  _write(shape, s.get("subtitle", ""))
-            elif ph_idx == 21: _insert_img(21)
+            elif ph_idx == 26: _insert_img(26)
             # ph[24] left empty intentionally
 
         elif layout_num == 2:
@@ -677,12 +1309,14 @@ def _fill_layout_num_slide(sl, s, img_bytes, slide_idx):
             elif ph_idx == 0:  _write(shape, s.get("title", ""))
             elif ph_idx == 1:  _write(shape, s.get("subtitle", ""))
             elif ph_idx == 21: _insert_img(21)
+            elif ph_idx == 23: _write(shape, "KI-generiert mit KIS \u2022 Technische Hochschule Lübeck")
 
         elif layout_num == 3:
             if ph_idx == 0:    _write(shape, s.get("title", ""))
             elif ph_idx == 1:  _write(shape, s.get("heading", ""), bold=True)
             elif ph_idx == 2:  _write_bullets(shape, s.get("bullets", []))
             elif ph_idx == 21: _insert_img(21)
+            elif ph_idx == 13: _insert_img2(13)
 
         elif layout_num == 4:
             if ph_idx == 0:    _write(shape, s.get("title", ""))
@@ -693,6 +1327,7 @@ def _fill_layout_num_slide(sl, s, img_bytes, slide_idx):
             if ph_idx == 0:    _write(shape, s.get("title", ""))
             elif ph_idx == 13: _write(shape, s.get("heading", ""), bold=True)
             elif ph_idx == 21: _insert_img(21)
+            elif ph_idx == 22: _insert_img2(22)
             elif ph_idx == 2:  _write_bullets(shape, s.get("left_bullets", []))
             elif ph_idx == 4:  _write_bullets(shape, s.get("right_bullets", []))
 
@@ -712,15 +1347,14 @@ def _fill_layout_num_slide(sl, s, img_bytes, slide_idx):
 def build_pptx(pres_title, slides_data, images, template_path=None):
     """Build a PPTX presentation.
 
-    slides_data: list of slide dicts with 'layout_num' (1-6) for THL template
-                 mode, or 'layout' string for legacy fallback mode.
+    slides_data: list of slide dicts with 'layout_num' (1/2) or 'type' for content.
     images: dict mapping slide_index -> PNG bytes.
     template_path: path to .pptx template; defaults to THL template.
     """
     if template_path is None:
         default_thl = os.path.join(
-            os.path.dirname(__file__), "thl",
-            "TH_Pr\u00e4sentationsvorlage_Image_16_zu_9.pptx"
+            os.path.dirname(__file__), "thl", "examples", "template",
+            "TH_Praesentationsvorlage.pptx"
         )
         if os.path.exists(default_thl):
             template_path = default_thl
@@ -886,51 +1520,35 @@ def _fill_template_slide(sl, s, img_bytes, idx, section_counter, tmpl_info):
 
 
 def _build_with_template(pres_title, slides_data, images, template_path):
-    """Build PPTX using the THL template (layout_num mode) or legacy tags."""
+    """Build PPTX using the THL template."""
     prs = PptxPresentation(template_path)
     master = prs.slide_masters[0]
     num_layouts = len(master.slide_layouts)
 
     original_count = len(prs.slides)
-    section_counter = 0
 
     for idx, s in enumerate(slides_data):
         img_bytes = images.get(idx)
         layout_num = s.get("layout_num")
+        slide_type = s.get("type")
 
-        if layout_num is not None:
-            # layout_num mode: directly use THL Slide Master layout
-            li = max(0, min(int(layout_num) - 1, num_layouts - 1))
+        if layout_num in (1, 2):
+            # Title / closing slide — use template layout directly
+            li = layout_num - 1
             slide_layout = master.slide_layouts[li]
             sl = prs.slides.add_slide(slide_layout)
             _fill_layout_num_slide(sl, s, img_bytes, idx)
+        elif slide_type:
+            # Content slide — Layout 4 shell (index 3) + custom rendering
+            slide_layout = master.slide_layouts[3]
+            sl = prs.slides.add_slide(slide_layout)
+            _render_content(sl, s, img_bytes)
         else:
-            # Legacy tag-based mode
-            lay = s.get("layout", "content")
-            if lay == "kapitel":
-                section_counter += 1
-
-            tag_to_idx = {}
-            for i, slide in enumerate(prs.slides[:original_count]):
-                tags = _get_slide_tags(slide)
-                for tag in tags:
-                    if tag not in tag_to_idx:
-                        tag_to_idx[tag] = i
-
-            tmpl_idx = tag_to_idx.get(lay)
-            if tmpl_idx is None and lay not in ("deckblatt", "kapitel", "abschluss"):
-                tmpl_idx = tag_to_idx.get("content")
-            if tmpl_idx is None:
-                tmpl_idx = tag_to_idx.get("headerfooter")
-
-            if tmpl_idx is not None:
-                sl = _clone_slide(prs, tmpl_idx)
-                info = _analyze_template(prs.slides[tmpl_idx])
-                _fill_template_slide(sl, s, img_bytes, idx, section_counter, info)
-            else:
-                blank = prs.slide_layouts[6]
-                sl = prs.slides.add_slide(blank)
-                _render_layout(sl, s, img_bytes, idx, section_counter, branded=False)
+            # Fallback — old layout_num behavior
+            li = max(0, min(int(layout_num or 4) - 1, num_layouts - 1))
+            slide_layout = master.slide_layouts[li]
+            sl = prs.slides.add_slide(slide_layout)
+            _fill_layout_num_slide(sl, s, img_bytes, idx)
 
         if s.get("notes"):
             sl.notes_slide.notes_text_frame.text = s["notes"]
