@@ -6,6 +6,8 @@ import { checkAuthStatus } from "@/lib/auth";
 import Header from "@/components/Header";
 import { getToolConfigByJobTool } from "@/lib/toolConfig";
 import BackLink from "@/components/BackLink";
+import { ArrowsCounterClockwise, DownloadSimple, Trash } from "@phosphor-icons/react";
+import IconButton from "@/components/IconButton";
 
 interface MyJob {
   job_uuid: string;
@@ -156,9 +158,7 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
       {busy ? (
         <span className="w-3 h-3 shrink-0 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block" aria-hidden="true" />
       ) : (
-        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
+        <DownloadSimple size={12} weight="bold" className="shrink-0" />
       )}
       {busy ? "Wird erstellt…" : label}
     </button>
@@ -173,9 +173,7 @@ function DownloadButton({ href, filename, label }: { href?: string; filename?: s
 function DisabledChip({ label }: { label: string }) {
   return (
     <span className="text-xs text-gray-400 flex items-center gap-1 cursor-not-allowed select-none">
-      <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-      </svg>
+      <DownloadSimple size={12} weight="bold" className="shrink-0" />
       {label}
     </span>
   );
@@ -494,18 +492,7 @@ export default function MeineJobsPage() {
               title="Aktualisieren"
               className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-40 transition-colors"
             >
-              <svg
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M13.5 8A5.5 5.5 0 1 1 9 2.6" />
-                <path d="M13.5 2.5v3h-3" />
-              </svg>
+              <ArrowsCounterClockwise size={16} className={loading ? "animate-spin" : ""} />
               Aktualisieren
             </button>
           </div>
@@ -585,11 +572,11 @@ export default function MeineJobsPage() {
           </p>
         ) : (
           <>
-            <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+            <ul className="divide-y divide-gray-200 rounded-xl overflow-hidden" style={{ backgroundColor: "var(--surface)" }}>
               {jobs.map((job) => {
                 const expired = isExpired(job);
                 return (
-                  <li key={job.job_uuid} className={`px-5 py-4 bg-white ${expired ? "opacity-50" : "hover:bg-gray-50"}`}>
+                  <li key={job.job_uuid} className={`px-5 py-4 ${expired ? "opacity-50" : ""}`}>
                     <div className="flex items-stretch justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 mb-0.5">
@@ -636,15 +623,13 @@ export default function MeineJobsPage() {
                           </button>
                         )}
                         {!isActive(job.status) && (
-                          <button
+                          <IconButton
                             onClick={() => setDeleteConfirm(job)}
                             title="Job löschen"
-                            className="mt-auto w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-primary hover:bg-gray-200 transition-colors"
+                            className="mt-auto"
                           >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M2 4h12M5 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4M6.5 7v5M9.5 7v5M3 4l1 9.5a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5L13 4" />
-                            </svg>
-                          </button>
+                            <Trash size={13} />
+                          </IconButton>
                         )}
                       </div>
                     </div>

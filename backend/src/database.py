@@ -1558,7 +1558,7 @@ def update_ki_tutor_module_status(
 
 
 def set_ki_tutor_module_enroll_code(
-    uuid: str, code: str, expires_at: datetime
+    uuid: str, code: str, expires_at: datetime | None
 ) -> None:
     """Legacy: kept for backward compat. Prefer create_access_link."""
     with get_connection() as conn:
@@ -1581,7 +1581,7 @@ def delete_ki_tutor_module(uuid: str) -> None:
 
 # --- KI Tutor: Access Links ---
 
-def create_access_link(module_id: int, code: str, expires_at: datetime) -> dict:
+def create_access_link(module_id: int, code: str, expires_at: datetime | None) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(

@@ -2918,11 +2918,6 @@ function ScreencastPageInner() {
                     )}
                   </button>
                 </div>
-                <div className="flex items-center justify-end mt-2 px-1">
-                  <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-                    Shift+Enter für Zeilenumbruch
-                  </span>
-                </div>
               </div>
             </div>
           </>

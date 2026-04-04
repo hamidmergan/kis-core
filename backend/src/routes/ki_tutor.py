@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from langfuse.decorators import langfuse_context, observe
 
@@ -93,14 +93,14 @@ def _delete_source_files_for_module(module: dict) -> None:
 # ─── Pydantic models ──────────────────────────────────────────────────────────
 
 class CreateModuleForm(BaseModel):
-    title: str
-    description: Optional[str] = None
+    title: str = Field(..., max_length=100)
+    description: Optional[str] = Field(None, max_length=300)
     expires_at: Optional[str] = None  # ISO datetime string
 
 
 class PatchModuleBody(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = Field(None, max_length=300)
     is_active: Optional[bool] = None
 
 
@@ -141,8 +141,8 @@ class NoteBody(BaseModel):
 
 @router.post("/ki-tutor/modules")
 async def create_module(
-    title: str = Form(...),
-    description: Optional[str] = Form(None),
+    title: str = Form(..., max_length=100),
+    description: Optional[str] = Form(None, max_length=300),
     expires_at: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user),
 ):
@@ -158,7 +158,7 @@ async def create_module(
         except ValueError:
             raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für expires_at")
     else:
-        expires = datetime.now(timezone.utc) + timedelta(days=30)
+        expires = None
 
     module = db.get_ki_tutor_module(module_uuid)
     link = db.create_access_link(module["id"], enroll_code, expires)

@@ -6,13 +6,32 @@ import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { checkAuthStatus } from "@/lib/auth";
+import {
+  ArrowRight,
+  CalendarBlank,
+  CaretRight,
+  ChartBar,
+  Check,
+  Copy,
+  DotsThreeVertical,
+  Files,
+  Link as LinkIcon,
+  List,
+  Plus,
+  SquaresFour,
+  Table,
+  Trash,
+  X,
+} from "@phosphor-icons/react";
+import HelpTooltip from "@/components/HelpTooltip";
+import IconButton from "@/components/IconButton";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AccessLink {
   id: number;
   code: string;
-  expires_at: string;
+  expires_at: string | null;
   created_at?: string | null;
 }
 
@@ -40,31 +59,6 @@ interface StudentModule {
   created_at: string | null;
 }
 
-// ─── Help Tooltip ────────────────────────────────────────────────────────────
-
-function HelpTooltip({ text }: { text: string }) {
-  return (
-    <span className="relative group inline-flex">
-      <svg
-        className="w-3.5 h-3.5 cursor-help"
-        style={{ color: "var(--muted)" }}
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <circle cx="8" cy="8" r="6.5" />
-        <path d="M6 6.5a2 2 0 1 1 2.5 1.94V9.5" strokeLinecap="round" />
-        <circle cx="8.25" cy="11.5" r="0.5" fill="currentColor" stroke="none" />
-      </svg>
-      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded-lg px-3 py-2 w-64 text-center shadow-lg z-20 leading-relaxed pointer-events-none whitespace-normal break-words">
-        {text}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
-      </span>
-    </span>
-  );
-}
-
 // ─── Create Module Modal ──────────────────────────────────────────────────────
 
 function CreateModuleModal({
@@ -82,14 +76,14 @@ function CreateModuleModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !expiresAt) return;
+    if (!title.trim()) return;
     setLoading(true);
     setError(null);
     try {
       const form = new FormData();
       form.append("title", title.trim());
       if (description.trim()) form.append("description", description.trim());
-      form.append("expires_at", new Date(expiresAt).toISOString());
+      if (expiresAt) form.append("expires_at", new Date(expiresAt).toISOString());
       const res = await fetch("/api/ki-tutor/modules", {
         method: "POST",
         credentials: "include",
@@ -141,12 +135,14 @@ function CreateModuleModal({
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => setTitle(e.target.value.slice(0, 100))}
               required
+              maxLength={100}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
               style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)", color: "var(--text)" }}
               placeholder="z. B. Einführung in die Informatik"
             />
+            <p className="text-xs text-gray-400 text-right mt-1">{title.length}/100</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
@@ -154,22 +150,23 @@ function CreateModuleModal({
             </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => setDescription(e.target.value.slice(0, 300))}
+              maxLength={300}
               rows={2}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)", color: "var(--text)" }}
               placeholder="z. B. Sommersemester 2026, Grundlagen der Programmierung"
             />
+            <p className="text-xs text-gray-400 text-right mt-1">{description.length}/300</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
-              Einschreibecode gültig bis <span style={{ color: "#E11D48" }}>*</span>
+              Einschreibecode gültig bis
             </label>
             <input
               type="date"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              required
               min={new Date().toISOString().split("T")[0]}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
               style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)", color: "var(--text)" }}
@@ -187,7 +184,7 @@ function CreateModuleModal({
             </button>
             <button
               type="submit"
-              disabled={loading || !title.trim() || !expiresAt}
+              disabled={loading || !title.trim()}
               className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 bg-primary"
             >
               {loading ? "Erstellen…" : "Erstellen"}
@@ -295,18 +292,36 @@ function AddLinkModal({
   );
 }
 
+// ─── Expandable Text ────────────────────────────────────────────────────────
+
+function ExpandableText({ children, className = "", clampClass = "", style }: { children: React.ReactNode; className?: string; clampClass?: string; style?: React.CSSProperties }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <p
+      className={`${className} ${expanded ? "" : clampClass} cursor-pointer`}
+      style={style}
+      onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+      title={expanded ? "Klicken zum Einklappen" : "Klicken zum Aufklappen"}
+    >
+      {children}
+    </p>
+  );
+}
+
 // ─── Link Row (per Access Link) ──────────────────────────────────────────────
 
 function LinkRow({ link, onRequestDelete }: { link: AccessLink; onRequestDelete: (link: AccessLink) => void }) {
   const [copied, setCopied] = useState(false);
   const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/ki-tutor?code=${link.code}`;
-  const expiresDate = new Date(link.expires_at).toLocaleDateString("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Europe/Berlin",
-  });
-  const isExpired = new Date(link.expires_at) < new Date();
+  const expiresDate = link.expires_at
+    ? new Date(link.expires_at).toLocaleDateString("de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "Europe/Berlin",
+      })
+    : null;
+  const isExpired = link.expires_at ? new Date(link.expires_at) < new Date() : false;
 
   async function handleCopy() {
     try {
@@ -317,7 +332,7 @@ function LinkRow({ link, onRequestDelete }: { link: AccessLink; onRequestDelete:
   }
 
   return (
-    <div className="group/row flex items-center gap-2 min-w-0 -mx-2 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+    <div className="group/row flex items-center gap-2 min-w-0 -mx-2 px-2 py-1 rounded-lg hover:bg-gray-200/50 transition-colors">
       <button
         onClick={handleCopy}
         className={`flex items-center gap-0 min-w-0 rounded-lg border transition-all cursor-pointer overflow-hidden group ${
@@ -332,36 +347,26 @@ function LinkRow({ link, onRequestDelete }: { link: AccessLink; onRequestDelete:
         </span>
         <span className="flex items-center px-2 py-1.5 border-l border-gray-200 text-gray-400 group-hover:text-primary transition-colors">
           {copied ? (
-            <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 8.5l3.5 3.5 6.5-8" />
-            </svg>
+            <Check size={13} weight="bold" className="text-green-600" />
           ) : (
-            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="5" y="5" width="8" height="8" rx="1.5" />
-              <path d="M3 11V3.5A.5.5 0 0 1 3.5 3H11" />
-            </svg>
+            <Copy size={13} />
           )}
         </span>
       </button>
       {copied && <span className="text-xs text-green-600 font-medium whitespace-nowrap">Kopiert!</span>}
       {!copied && (
         <span className={`inline-flex items-center gap-1 text-xs whitespace-nowrap ${isExpired ? "text-red-400" : "text-gray-400"}`}>
-          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="3" width="12" height="11" rx="1.5" />
-            <path d="M5 1v3M11 1v3M2 7h12" />
-          </svg>
-          {isExpired ? "abgelaufen" : `bis ${expiresDate}`}
+          <CalendarBlank size={12} />
+          {isExpired ? "abgelaufen" : expiresDate ? `bis ${expiresDate}` : "unbegrenzt"}
         </span>
       )}
-      <button
+      <IconButton
         onClick={() => onRequestDelete(link)}
         title="Link löschen"
-        className="ml-auto w-7 h-7 flex items-center justify-center rounded-full text-gray-300 opacity-0 group-hover/row:opacity-100 hover:text-primary hover:bg-gray-200 transition-all"
+        className="ml-auto opacity-0 group-hover/row:opacity-100 transition-all"
       >
-        <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 4h12M5 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4M6.5 7v5M9.5 7v5M3 4l1 9.5a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5L13 4" />
-        </svg>
-      </button>
+        <Trash size={13} />
+      </IconButton>
     </div>
   );
 }
@@ -402,9 +407,9 @@ function StatsModal({ moduleUuid, moduleTitle, onClose }: { moduleUuid: string; 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Statistik</h2>
-          <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-          </button>
+          <IconButton onClick={onClose}>
+            <X size={13} weight="bold" />
+          </IconButton>
         </div>
 
         {/* Body */}
@@ -435,16 +440,20 @@ function StatsModal({ moduleUuid, moduleTitle, onClose }: { moduleUuid: string; 
 
 // ─── Module Card (Lecturer) ───────────────────────────────────────────────────
 
+type ViewMode = "grid" | "list" | "table";
+
 function ModuleCard({
   module,
   onToggleActive,
   onDelete,
   onLinksChanged,
+  viewMode = "grid",
 }: {
   module: KiTutorModule;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
+  viewMode?: ViewMode;
 }) {
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -553,7 +562,7 @@ function ModuleCard({
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold text-gray-900 mb-2">Einschreibelink löschen?</h3>
             <p className="text-sm text-gray-600 mb-1">
-              <span className="font-medium">...{deleteLinkConfirm.code}</span> – gültig bis {new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}
+              <span className="font-medium">...{deleteLinkConfirm.code}</span> – {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
             </p>
             <p className="text-sm text-red-600 mb-6">
               Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.
@@ -578,10 +587,10 @@ function ModuleCard({
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 transition-shadow hover:shadow-md">
+      <div className={`rounded-xl p-5 transition-shadow hover:shadow-md ${viewMode === "grid" ? "flex flex-col" : ""}`} style={{ backgroundColor: "var(--surface)" }}>
         {/* Row 1: Header */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-start justify-between gap-3">
+          <div className={`flex items-center gap-2.5 min-w-0 ${viewMode === "grid" ? "flex-wrap" : ""}`}>
             <h3 className="text-base font-semibold truncate" style={{ color: "var(--text)" }}>
               {module.title}
             </h3>
@@ -601,43 +610,30 @@ function ModuleCard({
             <HelpTooltip text="Wenn aktiv, können sich Studierende mit dem Einschreibelink einschreiben und das Modul nutzen. Klicken zum Umschalten." />
             {/* Sources pill */}
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 whitespace-nowrap">
-              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 3h10v12H3zM6 1v4M10 1v4M6 9h4M6 12h2" />
-              </svg>
+              <Files size={12} />
               {module.source_count} {module.source_count === 1 ? "Quelle" : "Quellen"}
             </span>
           </div>
 
           {/* Overflow menu */}
           <div className="relative shrink-0" ref={menuRef}>
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-100 transition-colors"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-                <circle cx="8" cy="3" r="1.5" />
-                <circle cx="8" cy="8" r="1.5" />
-                <circle cx="8" cy="13" r="1.5" />
-              </svg>
-            </button>
+            <IconButton onClick={() => setMenuOpen(!menuOpen)}>
+              <DotsThreeVertical size={16} weight="bold" />
+            </IconButton>
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
                 <button
                   onClick={() => { setMenuOpen(false); setShowStats(true); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 13h12M4 9v4M8 5v8M12 2v11" />
-                  </svg>
+                  <ChartBar size={13} />
                   Statistik
                 </button>
                 <button
                   onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 4h12M5 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4M6.5 7v5M9.5 7v5M3 4l1 9.5a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5L13 4" />
-                  </svg>
+                  <Trash size={13} />
                   Modul löschen
                 </button>
               </div>
@@ -647,13 +643,13 @@ function ModuleCard({
 
         {/* Row 2: Description */}
         {module.description && (
-          <p className="text-sm mt-1.5" style={{ color: "var(--muted)" }}>
+          <ExpandableText className={`text-sm mt-1.5`} style={{ color: "var(--muted)" }} clampClass={viewMode === "grid" ? "line-clamp-2" : ""}>
             {module.description}
-          </p>
+          </ExpandableText>
         )}
 
         {/* Row 3: Access Links */}
-        <div className="flex flex-col gap-2 mt-3">
+        <div className={`flex flex-col gap-2 mt-3 ${viewMode === "grid" ? "flex-1" : ""}`}>
           {links.map((link) => (
             <LinkRow key={link.id} link={link} onRequestDelete={setDeleteLinkConfirm} />
           ))}
@@ -661,24 +657,20 @@ function ModuleCard({
             onClick={() => setShowAddLink(true)}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
           >
-            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M8 3v10M3 8h10" />
-            </svg>
+            <Plus size={12} weight="bold" />
             Neuen Link erstellen
           </button>
         </div>
 
         {/* Row 4: CTA */}
-        <div className="flex justify-end mt-3">
+        <div className={`flex justify-end mt-3 ${viewMode === "grid" ? "pt-3 border-t border-gray-100" : ""}`}>
           <Link
             href={`/ki-tutor/${module.uuid}`}
-            className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium shrink-0 transition-colors hover:opacity-90 border-2"
-            style={{ backgroundColor: "white", color: "var(--kb)", borderColor: "var(--kb)" }}
+            className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium shrink-0 transition-colors hover:opacity-90 border"
+            style={{ backgroundColor: "white", color: "var(--kb)", borderColor: "var(--muted)" }}
           >
             Öffnen
-            <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 8h10M9 4l4 4-4 4" />
-            </svg>
+            <ArrowRight size={14} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
       </div>
@@ -688,10 +680,247 @@ function ModuleCard({
 
 // ─── Lecturer View ────────────────────────────────────────────────────────────
 
+function ModuleTableRow({
+  module,
+  onToggleActive,
+  onDelete,
+  onLinksChanged,
+}: {
+  module: KiTutorModule;
+  onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
+  onDelete: (uuid: string) => Promise<void>;
+  onLinksChanged: (uuid: string, links: AccessLink[]) => void;
+}) {
+  const [toggling, setToggling] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showAddLink, setShowAddLink] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
+  const [deletingLink, setDeletingLink] = useState(false);
+
+  const links = module.access_links ?? [];
+
+  async function handleToggle(newVal: boolean) {
+    setToggling(true);
+    await onToggleActive(module.uuid, newVal);
+    setToggling(false);
+  }
+
+  async function handleDeleteConfirm() {
+    setDeleting(true);
+    await onDelete(module.uuid);
+    setDeleteConfirm(false);
+    setDeleting(false);
+  }
+
+  async function handleDeleteLinkConfirm() {
+    if (!deleteLinkConfirm) return;
+    setDeletingLink(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        onLinksChanged(module.uuid, links.filter((l) => l.id !== deleteLinkConfirm.id));
+      }
+      setDeleteLinkConfirm(null);
+    } finally {
+      setDeletingLink(false);
+    }
+  }
+
+  function handleLinkCreated(newLink: AccessLink) {
+    onLinksChanged(module.uuid, [...links, newLink]);
+  }
+
+  return (
+    <>
+      {showStats && (
+        <StatsModal moduleUuid={module.uuid} moduleTitle={module.title} onClose={() => setShowStats(false)} />
+      )}
+      {showAddLink && (
+        <AddLinkModal moduleUuid={module.uuid} onClose={() => setShowAddLink(false)} onCreated={handleLinkCreated} />
+      )}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Modul löschen?</h3>
+            <p className="text-sm text-gray-600 mb-1"><span className="font-medium">{module.title}</span></p>
+            <p className="text-sm text-red-600 mb-6">Das Modul und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setDeleteConfirm(false)} disabled={deleting} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
+              <button onClick={handleDeleteConfirm} disabled={deleting} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteLinkConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Einschreibelink löschen?</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              <span className="font-medium">...{deleteLinkConfirm.code}</span> – {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
+            </p>
+            <p className="text-sm text-red-600 mb-6">Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setDeleteLinkConfirm(null)} disabled={deletingLink} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
+              <button onClick={handleDeleteLinkConfirm} disabled={deletingLink} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deletingLink ? "..." : "Löschen"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main row */}
+      <tr className="hover:bg-gray-50 transition-colors">
+        <td className="px-4 py-3 cursor-pointer select-none" onClick={() => setExpanded(!expanded)}>
+          <div className="flex items-center gap-2">
+            <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); setExpanded(!expanded); }}>
+              <CaretRight size={13} weight="bold" className={`transition-transform ${expanded ? "rotate-90" : ""}`} />
+            </IconButton>
+            <div className="min-w-0">
+              <div className="font-medium text-gray-900">{module.title}</div>
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <button
+            onClick={() => handleToggle(!module.is_active)}
+            disabled={toggling}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap disabled:opacity-50 ${
+              module.is_active
+                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${module.is_active ? "bg-emerald-500" : "bg-gray-400"}`} />
+            {module.is_active ? "Aktiv" : "Inaktiv"}
+          </button>
+        </td>
+        <td className="px-4 py-3 text-gray-600">{module.source_count}</td>
+        <td className="px-4 py-3 text-gray-600">{links.length}</td>
+        <td className="px-4 py-3 text-right">
+          <div className="flex items-center justify-end gap-4">
+            <div className="flex items-center gap-1.5">
+            <IconButton onClick={() => setShowStats(true)} title="Statistik">
+              <ChartBar size={13} />
+            </IconButton>
+            <IconButton onClick={() => setDeleteConfirm(true)} title="Löschen">
+              <Trash size={13} />
+            </IconButton>
+            </div>
+            <Link
+              href={`/ki-tutor/${module.uuid}`}
+              className="group inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-90 border"
+              style={{ backgroundColor: "white", color: "var(--kb)", borderColor: "var(--muted)" }}
+            >
+              Öffnen
+              <ArrowRight size={12} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        </td>
+      </tr>
+
+      {/* Expanded row: links */}
+      {expanded && (
+        <tr>
+          <td colSpan={5} className="px-4 py-3" style={{ backgroundColor: "var(--surface)" }}>
+            <div className="pl-6 flex flex-col gap-2">
+              {module.description && (
+                <p className="text-xs text-gray-400">{module.description}</p>
+              )}
+              {links.map((link) => (
+                <LinkRow key={link.id} link={link} onRequestDelete={setDeleteLinkConfirm} />
+              ))}
+              <button
+                onClick={() => setShowAddLink(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
+              >
+                <Plus size={12} weight="bold" />
+                Neuen Link erstellen
+              </button>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function ModuleTable({
+  modules,
+  onToggleActive,
+  onDelete,
+  onLinksChanged,
+}: {
+  modules: KiTutorModule[];
+  onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
+  onDelete: (uuid: string) => Promise<void>;
+  onLinksChanged: (uuid: string, links: AccessLink[]) => void;
+}) {
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "var(--surface)" }}>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-200 bg-gray-50">
+            <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Modul</th>
+            <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Status</th>
+            <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Quellen</th>
+            <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Links</th>
+            <th className="text-right px-4 py-2.5 font-medium text-gray-500 text-xs"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200">
+          {modules.map((m) => (
+            <ModuleTableRow
+              key={m.uuid}
+              module={m}
+              onToggleActive={onToggleActive}
+              onDelete={onDelete}
+              onLinksChanged={onLinksChanged}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+  return (
+    <div className="flex items-center rounded-lg border border-gray-200 p-0.5 bg-gray-50">
+      <button
+        onClick={() => onChange("grid")}
+        className={`p-1.5 rounded-md transition-colors ${mode === "grid" ? "bg-white shadow-sm text-primary" : "text-gray-400 hover:text-gray-600"}`}
+        title="Kachelansicht"
+      >
+        <SquaresFour size={16} />
+      </button>
+      <button
+        onClick={() => onChange("list")}
+        className={`p-1.5 rounded-md transition-colors ${mode === "list" ? "bg-white shadow-sm text-primary" : "text-gray-400 hover:text-gray-600"}`}
+        title="Listenansicht"
+      >
+        <List size={16} />
+      </button>
+      <button
+        onClick={() => onChange("table")}
+        className={`p-1.5 rounded-md transition-colors ${mode === "table" ? "bg-white shadow-sm text-primary" : "text-gray-400 hover:text-gray-600"}`}
+        title="Tabellenansicht"
+      >
+        <Table size={16} />
+      </button>
+    </div>
+  );
+}
+
 function LecturerView() {
   const [modules, setModules] = useState<KiTutorModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const loadModules = useCallback(async () => {
     try {
@@ -753,7 +982,7 @@ function LecturerView() {
         />
       )}
 
-      <div className="mb-8">
+      <div className="mb-3">
         <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold" style={{ color: "var(--text)" }}>Meine Module</h2>
@@ -764,6 +993,9 @@ function LecturerView() {
           >
             + Neues Modul erstellen
           </button>
+        </div>
+        <div className="flex justify-end mt-6">
+          <ViewToggle mode={viewMode} onChange={setViewMode} />
         </div>
       </div>
 
@@ -776,12 +1008,20 @@ function LecturerView() {
           <p className="text-base">Noch keine Module vorhanden.</p>
           <p className="text-sm mt-1">Erstelle dein erstes Modul mit dem Button oben.</p>
         </div>
+      ) : viewMode === "table" ? (
+        <ModuleTable
+          modules={modules}
+          onToggleActive={handleToggleActive}
+          onDelete={handleDelete}
+          onLinksChanged={handleLinksChanged}
+        />
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "flex flex-col gap-4"}>
           {modules.map((m) => (
             <ModuleCard
               key={m.uuid}
               module={m}
+              viewMode={viewMode}
               onToggleActive={handleToggleActive}
               onDelete={handleDelete}
               onLinksChanged={handleLinksChanged}
@@ -917,14 +1157,11 @@ function StudentView() {
                     <h3 className="text-sm font-medium text-gray-800 truncate">{m.title}</h3>
                     <div className="flex items-center gap-2 mt-0.5">
                       {m.description && (
-                        <p className="text-xs text-gray-400 line-clamp-1">{m.description}</p>
+                        <ExpandableText className="text-xs text-gray-400" clampClass="line-clamp-1">{m.description}</ExpandableText>
                       )}
                       {untilDate && (
                         <span className="inline-flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap">
-                          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="2" y="3" width="12" height="11" rx="1.5" />
-                            <path d="M5 1v3M11 1v3M2 7h12" />
-                          </svg>
+                          <CalendarBlank size={12} />
                           bis {untilDate}
                         </span>
                       )}
