@@ -10,7 +10,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
       <div className="flex flex-col items-center gap-3 text-center">
         {/* KI-Hinweis */}
         {loggedIn && (
-          <p className="text-xs max-w-xl opacity-60 leading-relaxed mb-2">
+          <p className="text-xs max-w-xl leading-relaxed mb-2">
             Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
           </p>
         )}

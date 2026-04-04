@@ -41,8 +41,6 @@ celery_app.conf.update(
         "ki_tutor.index_source": {"queue": "ki_tutor"},
         "ki_tutor.generate_summaries": {"queue": "ki_tutor"},
         "ki_tutor.generate_mindmap": {"queue": "ki_tutor"},
-        "ki_tutor.generate_presentation": {"queue": "ki_tutor"},
-        "ki_tutor.generate_infographic": {"queue": "ki_tutor"},
         "ki_tutor.generate_exercise_set": {"queue": "ki_tutor"},
         "ki_tutor.generate_datentabelle": {"queue": "ki_tutor"},
         "ki_tutor.generate_glossary": {"queue": "ki_tutor"},

@@ -341,41 +341,6 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS ki_tutor_presentations (
-                    id          SERIAL PRIMARY KEY,
-                    module_id   INTEGER NOT NULL
-                                  REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
-                    user_id     INTEGER NOT NULL,
-                    source_id   INTEGER NOT NULL
-                                  REFERENCES ki_tutor_sources(id) ON DELETE CASCADE,
-                    status      TEXT NOT NULL DEFAULT 'pending',
-                    title       TEXT,
-                    slides      JSONB,
-                    pptx_path   TEXT,
-                    presenton_id TEXT,
-                    error       TEXT,
-                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
-                )
-            """)
-            cur.execute("ALTER TABLE ki_tutor_presentations ADD COLUMN IF NOT EXISTS presenton_id TEXT")
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS ki_tutor_infographics (
-                    id          SERIAL PRIMARY KEY,
-                    module_id   INTEGER NOT NULL
-                                  REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
-                    user_id     INTEGER NOT NULL,
-                    source_ids  JSONB NOT NULL,
-                    style       TEXT NOT NULL DEFAULT 'professional',
-                    status      TEXT NOT NULL DEFAULT 'pending',
-                    title       TEXT,
-                    layout_data JSONB,
-                    error       TEXT,
-                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
-                )
-            """)
-            cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_datentabellen (
                     id          SERIAL PRIMARY KEY,
                     module_id   INTEGER NOT NULL
@@ -2286,170 +2251,6 @@ def delete_ki_tutor_mindmap(mindmap_id: int) -> None:
         conn.commit()
 
 
-# --- KI Tutor: Presentations ---
-
-def create_ki_tutor_presentation(module_id: int, user_id: int, source_id: int) -> int:
-    """Create a pending presentation record, return its id."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """INSERT INTO ki_tutor_presentations (module_id, user_id, source_id, status)
-                   VALUES (%s, %s, %s, 'pending') RETURNING id""",
-                (module_id, user_id, source_id),
-            )
-            row = cur.fetchone()
-        conn.commit()
-    return row[0]
-
-
-def update_ki_tutor_presentation(
-    presentation_id: int,
-    status: str,
-    title: str | None = None,
-    slides: list | None = None,
-    pptx_path: str | None = None,
-    presenton_id: str | None = None,
-    error: str | None = None,
-) -> None:
-    import json as _json
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """UPDATE ki_tutor_presentations
-                   SET status = %s, title = %s, slides = %s, pptx_path = %s,
-                       presenton_id = %s, error = %s, updated_at = NOW()
-                   WHERE id = %s""",
-                (status, title, _json.dumps(slides) if slides else None, pptx_path,
-                 presenton_id, error, presentation_id),
-            )
-        conn.commit()
-
-
-def get_ki_tutor_presentation(presentation_id: int) -> dict | None:
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM ki_tutor_presentations WHERE id = %s", (presentation_id,))
-            row = cur.fetchone()
-    return dict(row) if row else None
-
-
-def get_latest_ki_tutor_presentation(module_id: int, user_id: int, source_id: int) -> dict | None:
-    """Get the most recent presentation for a module/user/source."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT * FROM ki_tutor_presentations
-                   WHERE module_id = %s AND user_id = %s AND source_id = %s
-                   ORDER BY created_at DESC LIMIT 1""",
-                (module_id, user_id, source_id),
-            )
-            row = cur.fetchone()
-    return dict(row) if row else None
-
-
-def get_ki_tutor_presentations_by_module(module_id: int, user_id: int) -> list[dict]:
-    """Get all presentations for a module/user."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT p.*, s.filename as source_filename
-                   FROM ki_tutor_presentations p
-                   JOIN ki_tutor_sources s ON s.id = p.source_id
-                   WHERE p.module_id = %s AND p.user_id = %s
-                   ORDER BY p.created_at DESC""",
-                (module_id, user_id),
-            )
-            rows = cur.fetchall()
-    return [dict(row) for row in rows]
-
-
-def delete_ki_tutor_presentation(presentation_id: int) -> None:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM ki_tutor_presentations WHERE id = %s", (presentation_id,))
-        conn.commit()
-
-
-# --- KI Tutor: Infographics ---
-
-def create_ki_tutor_infographic(module_id: int, user_id: int, source_ids: list[int], style: str = "professional") -> int:
-    """Create a pending infographic record, return its id."""
-    import json as _json
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """INSERT INTO ki_tutor_infographics (module_id, user_id, source_ids, style, status)
-                   VALUES (%s, %s, %s, %s, 'pending') RETURNING id""",
-                (module_id, user_id, _json.dumps(source_ids), style),
-            )
-            row = cur.fetchone()
-        conn.commit()
-    return row[0]
-
-
-def update_ki_tutor_infographic(
-    infographic_id: int,
-    status: str,
-    title: str | None = None,
-    layout_data: dict | None = None,
-    error: str | None = None,
-) -> None:
-    import json as _json
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """UPDATE ki_tutor_infographics
-                   SET status = %s, title = %s, layout_data = %s, error = %s, updated_at = NOW()
-                   WHERE id = %s""",
-                (status, title, _json.dumps(layout_data) if layout_data else None, error, infographic_id),
-            )
-        conn.commit()
-
-
-def get_ki_tutor_infographic(infographic_id: int) -> dict | None:
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM ki_tutor_infographics WHERE id = %s", (infographic_id,))
-            row = cur.fetchone()
-    return dict(row) if row else None
-
-
-def get_latest_ki_tutor_infographic(module_id: int, user_id: int) -> dict | None:
-    """Get the most recent infographic for a module/user."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT * FROM ki_tutor_infographics
-                   WHERE module_id = %s AND user_id = %s
-                   ORDER BY created_at DESC LIMIT 1""",
-                (module_id, user_id),
-            )
-            row = cur.fetchone()
-    return dict(row) if row else None
-
-
-def get_ki_tutor_infographics_by_module(module_id: int, user_id: int) -> list[dict]:
-    """Get all successful infographics for a module/user (without image_data for listing)."""
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """SELECT id, status, title, style, created_at
-                   FROM ki_tutor_infographics
-                   WHERE module_id = %s AND user_id = %s AND status = 'success'
-                   ORDER BY created_at DESC""",
-                (module_id, user_id),
-            )
-            rows = cur.fetchall()
-    return [dict(row) for row in rows]
-
-
-def delete_ki_tutor_infographic(infographic_id: int) -> None:
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM ki_tutor_infographics WHERE id = %s", (infographic_id,))
-        conn.commit()
-
-
 # --- KI Tutor: Datentabellen ---
 
 def create_ki_tutor_datentabelle(module_id: int, user_id: int, source_ids: list[int]) -> int:
@@ -3158,26 +2959,49 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
 
 
 def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[dict]:
-    """Return the most recently practiced exercise sets for the activity feed."""
+    """Return the most recently used or created exercise sets + mindmaps for the activity feed."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT s.id AS set_id, s.tool, s.mode, s.title,
-                          MAX(ep.answered_at) AS last_answer,
-                          COUNT(ep.id) AS answers,
-                          COUNT(ep.id) FILTER (WHERE ep.correct) AS correct
-                   FROM ki_tutor_exercise_progress ep
-                   JOIN ki_tutor_exercise_sets s ON s.id = ep.set_id
-                   WHERE s.module_id = %s AND ep.user_id = %s
-                   GROUP BY s.id
-                   ORDER BY MAX(ep.answered_at) DESC
+                """SELECT * FROM (
+                     SELECT s.id AS set_id, s.tool, s.mode, s.title,
+                            s.created_at,
+                            MAX(ep.answered_at) AS last_answer,
+                            COUNT(ep.id) AS answers,
+                            COUNT(ep.id) FILTER (WHERE ep.correct) AS correct
+                     FROM ki_tutor_exercise_sets s
+                     LEFT JOIN ki_tutor_exercise_progress ep
+                          ON ep.set_id = s.id AND ep.user_id = %s
+                     WHERE s.module_id = %s AND s.user_id = %s
+                       AND s.status = 'ready'
+                     GROUP BY s.id
+                   UNION ALL
+                     SELECT m.id AS set_id, 'mindmap' AS tool, 'quelle' AS mode,
+                            COALESCE(m.mindmap->>'topic', 'Mindmap') AS title,
+                            m.created_at,
+                            m.created_at AS last_answer,
+                            0 AS answers, 0 AS correct
+                     FROM ki_tutor_mindmaps m
+                     WHERE m.module_id = %s AND m.user_id = %s AND m.status = 'success'
+                   UNION ALL
+                     SELECT d.id AS set_id, 'datentabelle' AS tool, 'quelle' AS mode,
+                            COALESCE(d.title, 'Datentabelle') AS title,
+                            d.created_at,
+                            d.created_at AS last_answer,
+                            0 AS answers, 0 AS correct
+                     FROM ki_tutor_datentabellen d
+                     WHERE d.module_id = %s AND d.user_id = %s AND d.status = 'success'
+                   ) combined
+                   ORDER BY COALESCE(last_answer, created_at) DESC
                    LIMIT %s""",
-                (module_id, user_id, limit),
+                (user_id, module_id, user_id, module_id, user_id, module_id, user_id, limit),
             )
             results = []
             for r in cur.fetchall():
                 row = dict(r)
-                row["last_answer"] = row["last_answer"].isoformat() + "Z" if row["last_answer"] else None
+                ts = row["last_answer"] or row["created_at"]
+                row["last_answer"] = ts.isoformat() + "Z" if ts else None
+                row.pop("created_at", None)
                 results.append(row)
             return results
 

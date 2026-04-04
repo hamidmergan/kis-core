@@ -332,12 +332,12 @@ export default function JobsPanel() {
             </p>
           </div>
 
-          <div className="max-h-80 overflow-y-auto">
+          <div>
             {jobs.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-8">Keine Jobs vorhanden</p>
             ) : (
               <ul className="divide-y divide-gray-100">
-                {jobs.map((job) => {
+                {jobs.slice(0, 3).map((job) => {
                   const expired = isExpired(job);
                   return (
                     <li

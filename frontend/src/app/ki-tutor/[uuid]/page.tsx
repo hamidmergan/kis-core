@@ -52,7 +52,6 @@ import {
   TrendUp,
   WarningCircle,
   Info,
-  Presentation,
   DownloadSimple,
   Play,
   SpeakerHigh,
@@ -203,30 +202,7 @@ interface DatentabelleSource {
   filename: string;
 }
 
-interface PresentationSlide {
-  layout: "title" | "content" | "two_columns" | "section" | "summary";
-  title: string;
-  subtitle?: string;
-  bullets?: string[];
-  left_title?: string;
-  left_bullets?: string[];
-  right_title?: string;
-  right_bullets?: string[];
-  notes?: string;
-}
-
-interface PresentationData {
-  id: number;
-  status: "pending" | "running" | "success" | "failed";
-  title: string | null;
-  slides: PresentationSlide[] | null;
-  presenton_id?: string | null;
-  source_filename?: string;
-  error: string | null;
-  created_at?: string;
-}
-
-type StudioView = "overview" | "karteikarten" | "quiz" | "infografik" | "datentabelle" | "mindmap" | "notizen" | "praesentation";
+type StudioView = "overview" | "karteikarten" | "quiz" | "datentabelle" | "mindmap" | "notizen";
 type PanelKey = "quellen" | "chat" | "studio";
 
 interface GlossaryEntry {
@@ -2746,334 +2722,10 @@ function PhIcon({ name, size = 24, color, weight = "duotone" as const }: { name:
 
 // ─── Infografik: Layout Renderer ─────────────────────────────────────────────
 
-function InfographicRenderer({ layout }: { layout: any }) {
-  const cs = COLOR_SCHEMES[layout.color_scheme] || COLOR_SCHEMES.blue;
-  const sections = layout.sections || [];
-  // A4 landscape: 297mm x 210mm
-  return (
-    <div style={{ width: 1123, minHeight: 794, margin: "0 auto", backgroundColor: "#FFFFFF", padding: 32, boxSizing: "border-box", position: "relative" }}>
-      {/* Hero */}
-      <div className="relative rounded-2xl overflow-hidden" style={{ background: cs.gradient, minHeight: 110, marginBottom: 20 }}>
-        {layout.hero_image && (
-          <img src={`data:image/png;base64,${layout.hero_image}`} alt="" className="absolute inset-0 w-full h-full object-cover opacity-35" />
-        )}
-        <div className="relative z-10 px-7 py-5">
-          <h1 className="text-xl font-bold text-white leading-tight mb-1">{layout.title}</h1>
-          {layout.subtitle && <p className="text-xs text-white/80">{layout.subtitle}</p>}
-        </div>
-      </div>
-      {/* Sections with visual flow line */}
-      <div style={{ display: "flex", gap: 0, position: "relative" }}>
-        {/* Vertical flow line */}
-        <div style={{ width: 36, flexShrink: 0, position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ position: "absolute", top: 16, bottom: 16, width: 3, backgroundColor: cs.light, borderRadius: 2 }} />
-          {sections.map((_: any, si: number) => (
-            <div key={si} style={{
-              width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-              backgroundColor: cs.primary, color: "#FFF", fontSize: 12, fontWeight: 700, position: "relative", zIndex: 1,
-              marginTop: si === 0 ? 4 : "auto", flexShrink: 0,
-            }}>
-              {si + 1}
-            </div>
-          ))}
-        </div>
-        {/* Section content */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-          {sections.map((sec: any, si: number) => (
-            <InfographicSection key={si} sec={sec} cs={cs} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function InfographicSection({ sec, cs }: { sec: any; cs: { primary: string; accent: string; light: string; gradient: string } }) {
-  if (sec.type === "stats") {
-    return (
-      <div>
-        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: `repeat(${Math.min(sec.items?.length || 2, 4)}, 1fr)` }}>
-          {(sec.items || []).map((item: any, i: number) => (
-            <div key={i} className="rounded-xl p-3.5 text-center" style={{ backgroundColor: cs.light }}>
-              <PhIcon name={item.icon || "ChartBar"} size={24} color={cs.accent} />
-              <div className="text-xl font-extrabold mt-1.5" style={{ color: cs.primary }}>{item.value}</div>
-              <div className="text-[11px] font-semibold mt-0.5" style={{ color: "#1E293B" }}>{item.label}</div>
-              {item.description && <div className="text-[10px] mt-0.5" style={{ color: "#64748B" }}>{item.description}</div>}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (sec.type === "icon_grid") {
-    return (
-      <div>
-        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
-        <div className="grid grid-cols-2 gap-2.5">
-          {(sec.items || []).map((item: any, i: number) => (
-            <div key={i} className="flex gap-2.5 p-2.5 rounded-xl" style={{ backgroundColor: "#F8FAFC" }}>
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: cs.light }}>
-                <PhIcon name={item.icon || "Star"} size={20} color={cs.accent} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[11px] font-bold" style={{ color: "#1E293B" }}>{item.label}</div>
-                {item.description && <div className="text-[10px] mt-0.5" style={{ color: "#64748B" }}>{item.description}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (sec.type === "process") {
-    return (
-      <div>
-        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
-        {(sec.items || []).map((item: any, i: number) => (
-          <div key={i} className="flex gap-2.5 items-start">
-            <div className="flex flex-col items-center flex-shrink-0">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold" style={{ backgroundColor: cs.accent }}>{i + 1}</div>
-              {i < (sec.items?.length || 0) - 1 && <div className="w-0.5 flex-1 min-h-[20px]" style={{ backgroundColor: cs.light }} />}
-            </div>
-            <div className="pb-3 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <PhIcon name={item.icon || "ArrowRight"} size={14} color={cs.accent} />
-                <span className="text-[11px] font-bold" style={{ color: "#1E293B" }}>{item.label}</span>
-              </div>
-              {item.description && <div className="text-[10px] mt-0.5 ml-5" style={{ color: "#64748B" }}>{item.description}</div>}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (sec.type === "two_column") {
-    return (
-      <div>
-        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
-        <div className="grid grid-cols-2 gap-2.5">
-          {[sec.left, sec.right].filter(Boolean).map((col: any, ci: number) => (
-            <div key={ci} className="rounded-xl p-3" style={{ backgroundColor: ci === 0 ? cs.light : "#F1F5F9", borderLeft: `3px solid ${ci === 0 ? cs.accent : "#94A3B8"}` }}>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <PhIcon name={col.icon || "Info"} size={16} color={ci === 0 ? cs.accent : "#64748B"} />
-                <span className="text-[11px] font-bold" style={{ color: ci === 0 ? cs.primary : "#334155" }}>{col.title}</span>
-              </div>
-              <ul className="space-y-0.5">
-                {(col.items || []).map((txt: string, ti: number) => (
-                  <li key={ti} className="text-[10px] flex items-start gap-1" style={{ color: "#475569" }}>
-                    <span className="mt-1 w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: ci === 0 ? cs.accent : "#94A3B8" }} />
-                    {txt}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (sec.type === "highlight") {
-    return (
-      <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: cs.gradient }}>
-        <PhIcon name={sec.icon || "Lightbulb"} size={28} color="#FFFFFF" weight="fill" />
-        <p className="text-xs font-medium text-white leading-relaxed italic">{sec.text}</p>
-      </div>
-    );
-  }
-  if (sec.type === "image_row") {
-    return (
-      <div>
-        {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: `repeat(${Math.min(sec.items?.length || 2, 3)}, 1fr)` }}>
-          {(sec.items || []).map((item: any, i: number) => (
-            <div key={i} className="rounded-xl overflow-hidden" style={{ backgroundColor: "#F8FAFC" }}>
-              {item.image && <img src={`data:image/png;base64,${item.image}`} alt={item.label || ""} className="w-full h-28 object-cover" />}
-              <div className="p-2.5">
-                <div className="text-[11px] font-bold" style={{ color: "#1E293B" }}>{item.label}</div>
-                {item.description && <div className="text-[10px] mt-0.5" style={{ color: "#64748B" }}>{item.description}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  // list default
-  return (
-    <div>
-      {sec.heading && <h2 className="text-sm font-bold mb-2" style={{ color: cs.primary }}>{sec.heading}</h2>}
-      {(sec.items || []).map((item: any, i: number) => (
-        <div key={i} className="flex items-start gap-2 py-0.5">
-          <PhIcon name={item.icon || "Checks"} size={16} color={cs.accent} />
-          <div className="min-w-0">
-            <span className="text-[11px] font-semibold" style={{ color: "#1E293B" }}>{item.label}</span>
-            {item.description && <span className="text-[10px] ml-1" style={{ color: "#64748B" }}>— {item.description}</span>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─── Infografik Studio ───────────────────────────────────────────────────────
 
-function InfografikStudio({
-  layoutData, title, loading, onGenerate, onBack,
-  savedList, onSelect, onDelete, sourceCount, stats, breadcrumbs,
-}: {
-  layoutData: any;
-  title: string | null;
-  loading: boolean;
-  onGenerate: () => void;
-  onBack: () => void;
-  savedList: { id: number; title: string; style: string; created_at: string | null }[];
-  onSelect: (id: number) => void;
-  onDelete: (id: number) => void;
-  sourceCount: number;
-  stats?: StudentStats | null;
-  breadcrumbs?: { label: string; onClick: () => void }[];
-}) {
-  const [view, setView] = useState<"viewer" | "list">("list");
-  const noSources = sourceCount === 0;
-  const atLimit = savedList.length >= 20;
-  const activeTitle = title || "Infografik";
-  const infographicRef = useRef<HTMLDivElement>(null);
-
-  const handleDownload = async () => {
-    if (!infographicRef.current) return;
-    try {
-      const { toPng } = await import("html-to-image");
-      const url = await toPng(infographicRef.current, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${(title || "infografik").replace(/\s+/g, "_")}.png`;
-      a.click();
-    } catch (e) {
-      console.error("Download failed:", e);
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* ── List view ── */}
-      <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
-        <SubviewHeader title="Infografik" onBack={onBack} breadcrumbs={breadcrumbs} />
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-            style={{
-              color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
-            }}>
-            <Files size={13} weight="bold" />
-            {noSources
-              ? "Keine Quelle ausgewählt"
-              : sourceCount === 1
-                ? "1 Quelle ausgewählt"
-                : `${sourceCount} Quellen vorhanden — es wird maximal 1 berücksichtigt`}
-          </div>
-
-          {savedList.length === 0 && !loading ? (
-            <div className="flex flex-col items-center gap-3 pt-[15%]">
-              <ChartBar size={48} weight="duotone" style={{ color: "var(--border)" }} />
-              <p className="text-sm text-center" style={{ color: "var(--muted)" }}>Wähle Quellen aus und drücke auf Erstellen.</p>
-              <button type="button" onClick={() => onGenerate()}
-                disabled={noSources || loading || atLimit}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-                <Plus size={12} weight="bold" /> Erstellen ({savedList.length}/20)
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-center">
-                <button type="button" onClick={() => onGenerate()}
-                  disabled={noSources || loading || atLimit}
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                  style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-                  <Plus size={12} weight="bold" /> Erstellen ({savedList.length}/20)
-                </button>
-              </div>
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{savedList.length} {savedList.length === 1 ? "Infografik" : "Infografiken"}</span>
-              </div>
-              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-                {loading && (
-                  <div className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
-                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
-                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>Wird generiert…</span>
-                    </div>
-                  </div>
-                )}
-                {savedList.map((item) => (
-                  <div key={item.id}
-                    onClick={() => { onSelect(item.id); setView("viewer"); }}
-                    className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <ChartBar size={16} weight="duotone" style={{ color: "#534AB7", flexShrink: 0 }} />
-                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
-                        {item.title}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-auto pt-1">
-                      <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
-                        {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
-                      </span>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
-                        <Trash size={12} color="var(--text)" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── Viewer ── */}
-      <div style={{ display: view === "viewer" ? "flex" : "none" }} className="flex-col h-full">
-        <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-          <button type="button" onClick={() => setView("list")}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
-            <CaretLeft size={13} />
-          </button>
-          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
-          {layoutData && !loading && (
-            <button type="button" onClick={handleDownload}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--border)" }}
-              title="Als PNG herunterladen">
-              <DownloadSimple size={14} />
-            </button>
-          )}
-        </div>
-        <div className="flex-1 overflow-hidden flex flex-col">
-          {loading && (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
-                <p className="text-xs" style={{ color: "var(--muted)" }}>Infografik wird generiert…</p>
-              </div>
-            </div>
-          )}
-          {layoutData && !loading && (
-            <div className="flex-1 overflow-auto p-4">
-              <div ref={infographicRef} style={{ backgroundColor: "#FFFFFF", padding: 16, borderRadius: 12 }}>
-                <InfographicRenderer layout={layoutData} />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Datentabelle Studio ─────────────────────────────────────────────────────
 
@@ -4545,8 +4197,8 @@ function SprachtrainingOverview({
   const noSources = activeSourceCount === 0;
 
   const tiles = [
-    { key: "lk-sets" as const, Icon: Cards, label: "Lernkarten", desc: "Übungen", iconBg: "rgba(220,252,231,0.7)", iconColor: "#166534" },
-    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Übungen", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
+    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", desc: "Übungen", iconBg: "rgba(207,250,254,0.7)", iconColor: "#0E7490" },
+    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Übungen", iconBg: "rgba(255,237,213,0.7)", iconColor: "#C2410C" },
     { key: "vt-sets" as const, Icon: Exam, label: "Vokabeltest", desc: "Übungen", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
   ];
 
@@ -4663,7 +4315,7 @@ function LerntoolsGrid({ tiles, onSelect }: {
 // ─── Tool Label / Color Maps ──────────────────────────────────────────────
 
 const TOOL_LABELS: Record<string, string> = {
-  lernkarten: "Karteikarten",
+  lernkarten: "Lernkarten",
   karteikarten: "Karteikarten",
   lueckentext: "Lückentext",
   vokabeltest: "Vokabeltest",
@@ -4691,27 +4343,23 @@ interface RecentActivity {
 }
 
 const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
-  lernkarten: Cards,
   karteikarten: Cards,
+  lernkarten: BookOpenText,
   quiz: Question,
-  lueckentext: Exam,
-  vokabeltest: TextAa,
+  lueckentext: TextAa,
+  vokabeltest: Exam,
   datentabelle: Table,
   mindmap: TreeStructure,
-  infografik: ChartBar,
-  praesentation: Presentation,
 };
 
 const ACTIVITY_TOOL_COLORS: Record<string, string> = {
-  lernkarten: "#166534",
   karteikarten: "#166534",
+  lernkarten: "#0E7490",
   quiz: "#A16207",
-  lueckentext: "#A16207",
+  lueckentext: "#C2410C",
   vokabeltest: "#534AB7",
-  datentabelle: "#C2410C",
-  mindmap: "#0E7490",
-  infografik: "#534AB7",
-  praesentation: "#BE123C",
+  datentabelle: "#9333EA",
+  mindmap: "#0369A1",
 };
 
 function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; refreshKey?: number }) {
@@ -5208,8 +4856,6 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
     { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
     { key: "datentabelle" as const, Icon: Table, label: "Datentabelle", iconBg: "rgba(255,237,213,0.7)", iconColor: "#C2410C" },
     { key: "mindmap" as const, Icon: TreeStructure, label: "Mindmap", iconBg: "rgba(236,254,255,0.7)", iconColor: "#0E7490" },
-    { key: "infografik" as const, Icon: ChartBar, label: "Infografik", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
-    { key: "praesentation" as const, Icon: Presentation, label: "Präsentation", iconBg: "rgba(255,228,230,0.7)", iconColor: "#BE123C" },
   ];
 
   return (
@@ -5288,171 +4934,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
   );
 }
 
-// ─── Presentation Studio ────────────────────────────────────────────────────
 
-function PresentationStudio({
-  loading, onGenerate, onBack,
-  savedList, onDelete, onDownload, sourceCount, stats, breadcrumbs,
-}: {
-  loading: boolean;
-  onGenerate: (template?: string) => void;
-  onBack: () => void;
-  savedList: PresentationData[];
-  onDelete: (id: number) => void;
-  onDownload: (id: number) => void;
-  sourceCount: number;
-  stats?: StudentStats | null;
-  breadcrumbs?: { label: string; onClick: () => void }[];
-}) {
-  const noSources = sourceCount === 0;
-  const atLimit = savedList.length >= 20;
-  const [deleteTarget, setDeleteTarget] = useState<PresentationData | null>(null);
-  const [templates, setTemplates] = useState<{ id: string; name: string }[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
-
-  useEffect(() => {
-    fetch("/api/ki-tutor/presentation-templates", { credentials: "include" })
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setTemplates(data))
-      .catch(() => {});
-  }, []);
-
-  return (
-    <div className="flex flex-col h-full">
-      <SubviewHeader title="Präsentation" onBack={onBack} breadcrumbs={breadcrumbs} />
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-          style={{
-            color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
-          }}>
-          <Files size={13} weight="bold" />
-          {noSources
-            ? "Keine Quelle ausgewählt"
-            : sourceCount === 1
-              ? "1 Quelle ausgewählt"
-              : `${sourceCount} Quellen vorhanden — es wird maximal 1 berücksichtigt`}
-        </div>
-
-        {templates.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium whitespace-nowrap" style={{ color: "var(--muted)" }}>Template:</span>
-            <select
-              value={selectedTemplate}
-              onChange={(e) => setSelectedTemplate(e.target.value)}
-              className="flex-1 text-xs rounded-lg px-2.5 py-1.5 border outline-none"
-              style={{ borderColor: "var(--border)", backgroundColor: "var(--surface)", color: "var(--text)" }}>
-              <option value="">Standard (ohne Template)</option>
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {savedList.length === 0 && !loading ? (
-          <div className="flex flex-col items-center gap-3 pt-[15%]">
-            <Presentation size={48} weight="duotone" style={{ color: "var(--border)" }} />
-            <p className="text-sm text-center" style={{ color: "var(--muted)" }}>Wähle Quellen aus und drücke auf Erstellen.</p>
-            <button type="button" onClick={() => onGenerate(selectedTemplate || undefined)}
-              disabled={noSources || loading || atLimit}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-              <Plus size={14} weight="bold" /> Erstellen ({savedList.length}/20)
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="flex justify-center">
-              <button type="button" onClick={() => onGenerate(selectedTemplate || undefined)}
-                disabled={noSources || loading || atLimit}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-                <Plus size={14} weight="bold" /> Erstellen ({savedList.length}/20)
-              </button>
-            </div>
-            <div className="flex items-center justify-between px-1">
-              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{savedList.length} {savedList.length === 1 ? "Präsentation" : "Präsentationen"}</span>
-            </div>
-            <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-              {savedList.map((p) => (
-                <div key={p.id}
-                  className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group"
-                  style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {p.status === "success" ? (
-                      <Presentation size={16} weight="duotone" style={{ color: "#BE123C", flexShrink: 0 }} />
-                    ) : p.status === "failed" ? (
-                      <WarningCircle size={16} style={{ color: "#EF4444", flexShrink: 0 }} />
-                    ) : (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
-                    )}
-                    <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
-                      {p.title || p.source_filename || "Präsentation"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between mt-auto pt-1">
-                    <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                      {p.status === "success"
-                        ? `${p.slides?.length || 0} Folien`
-                        : p.status === "failed"
-                          ? "Fehlgeschlagen"
-                          : "Wird generiert…"}
-                      {p.source_filename && ` · ${p.source_filename.length > 20 ? p.source_filename.slice(0, 20) + "…" : p.source_filename}`}
-                      {p.created_at && ` · ${new Date(p.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })}`}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {p.status === "success" && (
-                        <button type="button" onClick={() => onDownload(p.id)}
-                          className="w-7 h-7 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }} title="PPTX herunterladen">
-                          <DownloadSimple size={13} />
-                        </button>
-                      )}
-                      <button type="button" onClick={() => setDeleteTarget(p)}
-                        className="w-7 h-7 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
-                        <Trash size={13} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Delete confirmation modal */}
-      {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Präsentation löschen?</h3>
-            <p className="text-sm text-gray-600 mb-1">
-              <span className="font-medium">{deleteTarget.title || deleteTarget.source_filename || "Präsentation"}</span>
-            </p>
-            <p className="text-sm text-red-600 mb-6">
-              Die Präsentation wird vollständig entfernt und ist nicht mehr herunterladbar.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={() => { onDelete(deleteTarget.id); setDeleteTarget(null); }}
-                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
-              >
-                Löschen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Mini Panel Strip ─��────────────────────────────────────────────────────────
 
@@ -5562,17 +5044,10 @@ export default function KiTutorModulePage() {
   const [mindmapData, setMindmapData] = useState<MindmapNodeData | null>(null);
   const [mindmapLoading, setMindmapLoading] = useState(false);
   const [mindmapList, setMindmapList] = useState<{ id: number; created_at: string | null; topic: string }[]>([]);
-  const [infographicLayout, setInfographicLayout] = useState<any>(null);
-  const [infographicTitle, setInfographicTitle] = useState<string | null>(null);
-  const [infographicLoading, setInfographicLoading] = useState(false);
-  const infographicStyle = "scientific" as const;
-  const [infographicList, setInfographicList] = useState<{ id: number; title: string; style: string; created_at: string | null }[]>([]);
   const [datentabelle, setDatentabelle] = useState<DatentabelleData | null>(null);
   const [datentabelleSources, setDatentabelleSources] = useState<DatentabelleSource[]>([]);
   const [datentabelleLoading, setDatentabelleLoading] = useState(false);
   const [datentabelleList, setDatentabelleList] = useState<{ id: number; title: string; created_at: string | null }[]>([]);
-  const [presentations, setPresentations] = useState<PresentationData[]>([]);
-  const [presentationLoading, setPresentationLoading] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
 
   // ─── Sprachtraining State ─────────────────────────────────────────────────
@@ -6114,103 +5589,7 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ }
   }
 
-  // ─── Infographic polling ────────────────────────────────────────────────────
-  const infographicPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  function stopInfographicPolling() {
-    if (infographicPollRef.current) { clearInterval(infographicPollRef.current); infographicPollRef.current = null; }
-  }
-
-  async function refreshInfographicList() {
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographics`, { credentials: "include" });
-      if (res.ok) setInfographicList(await res.json());
-    } catch { /* ignore */ }
-  }
-
-  function startInfographicPolling(infographicId: number) {
-    stopInfographicPolling();
-    setInfographicLoading(true);
-    infographicPollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/${infographicId}`, { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === "success" && data.layout_data) {
-          setInfographicLayout(data.layout_data);
-          setInfographicTitle(data.title || null);
-          setInfographicLoading(false);
-          stopInfographicPolling();
-          refreshInfographicList();
-        } else if (data.status === "failed") {
-          console.error("Infographic failed:", data.error);
-          setInfographicLoading(false);
-          stopInfographicPolling();
-        }
-      } catch { /* ignore */ }
-    }, 3000);
-  }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic`, { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === "success" && data.layout_data) {
-          setInfographicLayout(data.layout_data);
-          setInfographicTitle(data.title || null);
-        } else if (data.id && (data.status === "pending" || data.status === "running")) {
-          startInfographicPolling(data.id);
-        }
-      } catch { /* ignore */ }
-    })();
-    refreshInfographicList();
-    return () => stopInfographicPolling();
-  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function generateInfographic() {
-    if (selectedSourceIds.length === 0) return;
-    setInfographicLoading(true);
-    setInfographicLayout(null);
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/generate`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: selectedSourceIds.slice(0, 1), style: infographicStyle }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        startInfographicPolling(data.infographic_id);
-      } else {
-        const err = await res.text();
-        console.error("Infographic generate error:", res.status, err);
-        setInfographicLoading(false);
-      }
-    } catch {
-      setInfographicLoading(false);
-    }
-  }
-
-  async function selectInfographic(id: number) {
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/infographic/${id}`, { credentials: "include" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.status === "success" && data.layout_data) {
-        setInfographicLayout(data.layout_data);
-        setInfographicTitle(data.title || null);
-      }
-    } catch { /* ignore */ }
-  }
-
-  async function deleteInfographic(id: number) {
-    try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/infographic/${id}`, { method: "DELETE", credentials: "include" });
-      setInfographicList((prev) => prev.filter((ig) => ig.id !== id));
-    } catch { /* ignore */ }
-  }
+  // ─── Datentabelle Functions ──────────────────────────────────────────────
 
   const datentabellePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -6235,11 +5614,12 @@ export default function KiTutorModulePage() {
         const data = await res.json();
         if (data.status === "success" && data.table_data) {
           setDatentabelle(data.table_data);
-          setDatentabelleSources(data.sources || []);
+          setDatentabelleSources(data.table_data.sources || []);
           setDatentabelleLoading(false);
           stopDatentabellePolling();
           refreshDatentabelleList();
         } else if (data.status === "failed") {
+          console.error("Datentabelle failed:", data.error);
           setDatentabelleLoading(false);
           stopDatentabellePolling();
         }
@@ -6251,13 +5631,14 @@ export default function KiTutorModulePage() {
     (async () => {
       try {
         const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle`, { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === "success" && data.table_data) {
-          setDatentabelle(data.table_data);
-          setDatentabelleSources(data.sources || []);
-        } else if (data.id && (data.status === "pending" || data.status === "running")) {
-          startDatentabellePolling(data.id);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.status === "success" && data.table_data) {
+            setDatentabelle(data.table_data);
+            setDatentabelleSources(data.table_data.sources || []);
+          } else if (data && (data.status === "pending" || data.status === "running")) {
+            startDatentabellePolling(data.id);
+          }
         }
       } catch { /* ignore */ }
     })();
@@ -6279,6 +5660,7 @@ export default function KiTutorModulePage() {
         const data = await res.json();
         startDatentabellePolling(data.datentabelle_id);
       } else {
+        console.error("Datentabelle generate error:", res.status);
         setDatentabelleLoading(false);
       }
     } catch {
@@ -6293,7 +5675,7 @@ export default function KiTutorModulePage() {
       const data = await res.json();
       if (data.status === "success" && data.table_data) {
         setDatentabelle(data.table_data);
-        setDatentabelleSources(data.sources || []);
+        setDatentabelleSources(data.table_data.sources || []);
       }
     } catch { /* ignore */ }
   }
@@ -6301,95 +5683,8 @@ export default function KiTutorModulePage() {
   async function deleteDatentabelle(id: number) {
     try {
       await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/${id}`, { method: "DELETE", credentials: "include" });
-      setDatentabelleList((prev) => prev.filter((dt) => dt.id !== id));
+      setDatentabelleList((prev) => prev.filter((d) => d.id !== id));
     } catch { /* ignore */ }
-  }
-
-  // ─── Presentation Functions ────────────────────────────────────────────
-
-  const presentationPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  function stopPresentationPolling() {
-    if (presentationPollRef.current) { clearInterval(presentationPollRef.current); presentationPollRef.current = null; }
-  }
-
-  function startPresentationPolling(presId: number) {
-    stopPresentationPolling();
-    setPresentationLoading(true);
-    presentationPollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/ki-tutor/modules/${uuid}/presentation/${presId}`, { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.status === "success" && data.slides) {
-          setPresentationLoading(false);
-          stopPresentationPolling();
-          loadPresentations();
-        } else if (data.status === "failed") {
-          setPresentationLoading(false);
-          stopPresentationPolling();
-          loadPresentations();
-        }
-      } catch { /* ignore */ }
-    }, 4000);
-  }
-
-  async function loadPresentations() {
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/presentations`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setPresentations(data);
-        // Resume polling for any pending/running
-        const pending = data.find((p: PresentationData) => p.status === "pending" || p.status === "running");
-        if (pending) {
-          startPresentationPolling(pending.id);
-        }
-      }
-    } catch { /* ignore */ }
-  }
-
-  // Load presentations on mount
-  useEffect(() => {
-    loadPresentations();
-    return () => stopPresentationPolling();
-  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function generatePresentation(template?: string) {
-    if (selectedSourceIds.length === 0) return;
-    const sourceUuid = selectedSourceIds[0];
-    setPresentationLoading(true);
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/presentation/generate`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source_uuid: sourceUuid, template: template || null }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        startPresentationPolling(data.presentation_id);
-        loadPresentations();
-      } else {
-        setPresentationLoading(false);
-      }
-    } catch {
-      setPresentationLoading(false);
-    }
-  }
-
-  async function deletePresentation(presId: number) {
-    try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/presentation/${presId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      setPresentations((prev) => prev.filter((p) => p.id !== presId));
-    } catch { /* ignore */ }
-  }
-
-  function downloadPresentation(presId: number) {
-    window.open(`/api/ki-tutor/modules/${uuid}/presentation/${presId}/download`, "_blank");
   }
 
   // ─── Sprachtraining Functions ────────────────────────────────────────────
@@ -6524,6 +5819,16 @@ export default function KiTutorModulePage() {
   }
 
   function handleNavigateToSet(setId: number, tool: string, mode: string) {
+    if (tool === "mindmap") {
+      selectMindmap(setId);
+      setStudioView("mindmap");
+      return;
+    }
+    if (tool === "datentabelle") {
+      selectDatentabelle(setId);
+      setStudioView("datentabelle");
+      return;
+    }
     loadExerciseSet(setId).then(() => {
       if (mode === "glossar") {
         // Sprachtraining
@@ -7171,8 +6476,6 @@ export default function KiTutorModulePage() {
                   stats={pageStats}
                   breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
                 />
-              ) : studioView === "infografik" ? (
-                <InfografikStudio layoutData={infographicLayout} title={infographicTitle} loading={infographicLoading} onGenerate={generateInfographic} onBack={() => setStudioView("overview")} savedList={infographicList} onSelect={selectInfographic} onDelete={deleteInfographic} sourceCount={selectedSourceIds.length} stats={pageStats} />
               ) : studioView === "datentabelle" ? (
                 <DatentabelleStudio
                     table={datentabelle}
@@ -7189,18 +6492,6 @@ export default function KiTutorModulePage() {
                     stats={pageStats}
                     breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
                   />
-              ) : studioView === "praesentation" ? (
-                <PresentationStudio
-                  loading={presentationLoading}
-                  onGenerate={generatePresentation}
-                  onBack={() => setStudioView("overview")}
-                  savedList={presentations}
-                  onDelete={deletePresentation}
-                  onDownload={downloadPresentation}
-                  sourceCount={selectedSourceIds.length}
-                  stats={pageStats}
-                  breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
-                />
               ) : studioView === "mindmap" ? (
                 <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} />
               ) : studioView === "quiz" ? (
@@ -7366,8 +6657,6 @@ export default function KiTutorModulePage() {
                       stats={pageStats}
                       breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
                     />
-                  ) : studioView === "infografik" ? (
-                    <InfografikStudio layoutData={infographicLayout} title={infographicTitle} loading={infographicLoading} onGenerate={generateInfographic} onBack={() => setStudioView("overview")} savedList={infographicList} onSelect={selectInfographic} onDelete={deleteInfographic} sourceCount={selectedSourceIds.length} stats={pageStats} />
                   ) : studioView === "datentabelle" ? (
                     <DatentabelleStudio
                       table={datentabelle}
@@ -7381,18 +6670,6 @@ export default function KiTutorModulePage() {
                       sourceCount={selectedSourceIds.length}
                       allSources={sources}
                       onPillClick={handlePillClick}
-                      stats={pageStats}
-                      breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
-                    />
-                  ) : studioView === "praesentation" ? (
-                    <PresentationStudio
-                      loading={presentationLoading}
-                      onGenerate={generatePresentation}
-                      onBack={() => setStudioView("overview")}
-                      savedList={presentations}
-                      onDelete={deletePresentation}
-                      onDownload={downloadPresentation}
-                      sourceCount={selectedSourceIds.length}
                       stats={pageStats}
                       breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
                     />
