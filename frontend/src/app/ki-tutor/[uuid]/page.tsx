@@ -60,6 +60,7 @@ import {
   FileVideo,
   FileAudio,
   Files,
+  ClockCounterClockwise,
   type IconWeight,
 } from "@phosphor-icons/react";
 import Header from "@/components/Header";
@@ -461,7 +462,7 @@ function MediaPlayer({
       >
         <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--border)" }} title="Zurück">
+          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }} title="Zurück">
           <CaretLeft size={13} weight="bold" color="var(--muted)" />
         </button>
         <FileIcon filename={source.filename} />
@@ -469,7 +470,7 @@ function MediaPlayer({
         {onMinimize && (
           <button type="button" onClick={onMinimize}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
-            style={{ backgroundColor: "var(--border)" }} title="Panel minimieren">
+            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }} title="Panel minimieren">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
             </svg>
@@ -922,7 +923,7 @@ function PdfViewer({
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--border)" }} title="Zurück">
+          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }} title="Zurück">
           <CaretLeft size={13} weight="bold" color="var(--muted)" />
         </button>
         <FileIcon filename={source.filename} />
@@ -930,7 +931,7 @@ function PdfViewer({
         {onMinimize && (
           <button type="button" onClick={onMinimize}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
-            style={{ backgroundColor: "var(--border)" }} title="Panel minimieren">
+            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }} title="Panel minimieren">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
             </svg>
@@ -1063,7 +1064,7 @@ function SourcesPanel({
         <button
           type="button"
           onClick={onMinimize}
-          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
           style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
           title="Panel minimieren"
         >
@@ -1375,7 +1376,7 @@ function ChatPanel({
           <button
             type="button"
             onClick={onMinimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
             style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
             title="Panel minimieren"
           >
@@ -1794,7 +1795,7 @@ function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: {
         type="button"
         onClick={onBack}
         className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-        style={{ backgroundColor: "var(--border)" }}
+        style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
       >
         <CaretLeft size={13} />
       </button>
@@ -1822,7 +1823,7 @@ function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: {
       {rightContent}
       {minimize && (
         <button type="button" onClick={minimize}
-          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity ml-auto"
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-auto"
           style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
           title="Panel minimieren">
           <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
@@ -1934,9 +1935,9 @@ function ExerciseSetsOverview({
                       </span>
                       <div className="flex items-center gap-1">
                         {!generating && <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
-                          className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
-                          style={{ backgroundColor: "var(--border)" }}>
-                          <Trash size={12} color="var(--text)" />
+                          className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
+                          <Trash size={12} />
                         </button>}
                       </div>
                     </div>
@@ -2024,13 +2025,13 @@ function LernkartenLearnView({
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
         <button type="button" onClick={onBack}
           className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--border)" }}>
+          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
           <CaretLeft size={13} />
         </button>
         {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
             style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
             title="Panel minimieren">
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
@@ -2301,7 +2302,7 @@ function MCExerciseView({
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
         <button type="button" onClick={onBack}
           className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--border)" }}>
+          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
           <CaretLeft size={13} />
         </button>
         {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span>)}
@@ -2313,7 +2314,7 @@ function MCExerciseView({
         )}
         {minimize && (
           <button type="button" onClick={minimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
             style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
             title="Panel minimieren">
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
@@ -2610,7 +2611,7 @@ function QuizStudio({
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => setView("list")}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--border)" }}>
+            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>Quiz</span></div>) : (<span className="text-base font-bold flex-1" style={{ color: "var(--text)" }}>Quiz</span>)}
@@ -3021,8 +3022,8 @@ function InfografikStudio({
                         {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
-                        style={{ backgroundColor: "var(--border)" }}>
+                        className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                        style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
                         <Trash size={12} color="var(--text)" />
                       </button>
                     </div>
@@ -3039,7 +3040,7 @@ function InfografikStudio({
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => setView("list")}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--border)" }}>
+            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
@@ -3170,8 +3171,8 @@ function DatentabelleStudio({
                         {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
-                        style={{ backgroundColor: "var(--border)" }}>
+                        className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                        style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
                         <Trash size={12} color="var(--text)" />
                       </button>
                     </div>
@@ -3188,7 +3189,7 @@ function DatentabelleStudio({
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => setView("list")}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--border)" }}>
+            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
@@ -3610,8 +3611,8 @@ function MindmapStudio({
                         {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
-                        style={{ backgroundColor: "var(--border)" }}>
+                        className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                        style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
                         <Trash size={12} color="var(--text)" />
                       </button>
                     </div>
@@ -3631,7 +3632,7 @@ function MindmapStudio({
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); else setView("list"); }}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--border)" }}>
+            style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
@@ -3862,7 +3863,7 @@ function NotizenStudio({
                     {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                   </span>
                   <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
-                    className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+                    className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
                     style={{ backgroundColor: "var(--border)" }}>
                     <Trash size={12} color="var(--text)" />
                   </button>
@@ -4047,8 +4048,8 @@ function GlossarView({
               </div>
               <div className="flex justify-end mt-1">
                 <button type="button" onClick={() => onDelete?.(entry.id)}
-                  className="w-5 h-5 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: "var(--border)" }}>
+                  className="w-5 h-5 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                  style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
                   <Trash size={10} color="var(--text)" />
                 </button>
               </div>
@@ -4631,7 +4632,7 @@ function LerntoolsGrid({ tiles, onSelect }: {
   }, []);
 
   return (
-    <div ref={ref} className="flex-1 overflow-y-auto p-3">
+    <div ref={ref} className="p-3 flex-shrink-0">
       <div className="grid gap-2" style={{ gridTemplateColumns: compact ? "repeat(auto-fill, minmax(50px, 1fr))" : "repeat(auto-fill, minmax(120px, 1fr))" }}>
         {tiles.map((tile) => (
           <button
@@ -4659,7 +4660,7 @@ function LerntoolsGrid({ tiles, onSelect }: {
   );
 }
 
-// ─── Student Stats View ────────────────────────────────────────────────────
+// ─── Tool Label / Color Maps ──────────────────────────────────────────────
 
 const TOOL_LABELS: Record<string, string> = {
   lernkarten: "Karteikarten",
@@ -4676,6 +4677,119 @@ const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
   lueckentext:   { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
   vokabeltest:   { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
 };
+
+// ─── Recent Activities ────────────────────────────────────────────────────
+
+interface RecentActivity {
+  set_id: number;
+  tool: string;
+  mode: string;
+  title: string;
+  last_answer: string | null;
+  answers: number;
+  correct: number;
+}
+
+const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
+  lernkarten: Cards,
+  karteikarten: Cards,
+  quiz: Question,
+  lueckentext: Exam,
+  vokabeltest: TextAa,
+  datentabelle: Table,
+  mindmap: TreeStructure,
+  infografik: ChartBar,
+  praesentation: Presentation,
+};
+
+const ACTIVITY_TOOL_COLORS: Record<string, string> = {
+  lernkarten: "#166534",
+  karteikarten: "#166534",
+  quiz: "#A16207",
+  lueckentext: "#A16207",
+  vokabeltest: "#534AB7",
+  datentabelle: "#C2410C",
+  mindmap: "#0E7490",
+  infografik: "#534AB7",
+  praesentation: "#BE123C",
+};
+
+function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; refreshKey?: number }) {
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/ki-tutor/modules/${moduleUuid}/recent-activities`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setActivities(data))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, [moduleUuid, refreshKey]);
+
+  if (!loaded) return null;
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "gerade eben";
+    if (diffMin < 60) return `vor ${diffMin} Min.`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `vor ${diffH} Std.`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD === 1) return "gestern";
+    if (diffD < 7) return `vor ${diffD} Tagen`;
+    return d.toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+  };
+
+  if (activities.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-8 px-4" style={{ color: "var(--muted)" }}>
+        <ClockCounterClockwise size={32} weight="light" />
+        <span className="text-xs text-center">Noch keine Aktivitäten. Starte mit einem Lerntool!</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 pb-3">
+      <span className="text-[10px] font-semibold uppercase tracking-wider my-2 block" style={{ color: "var(--muted)" }}>
+        Letzte Aktivitäten
+      </span>
+      <div className="flex flex-col gap-1">
+        {activities.map((a) => {
+          const iconColor = ACTIVITY_TOOL_COLORS[a.tool] ?? "var(--muted)";
+          const Icon = ACTIVITY_TOOL_ICONS[a.tool] ?? Cards;
+          const displayTitle = a.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
+          return (
+            <button
+              key={a.set_id}
+              type="button"
+              onClick={() => onNavigateToSet?.(a.set_id, a.tool, a.mode)}
+              className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-opacity hover:opacity-70"
+              style={{ backgroundColor: "var(--hover)" }}
+            >
+              <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                <Icon size={16} color={iconColor} weight="bold" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>
+                  {displayTitle}
+                </div>
+                <div className="text-[10px]" style={{ color: "var(--muted)" }}>
+                  {TOOL_LABELS[a.tool] ?? a.tool} · {a.last_answer ? formatTime(a.last_answer) : ""}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Student Stats View ────────────────────────────────────────────────────
 
 type StatsPeriod = "30" | "180";
 
@@ -5113,7 +5227,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
             <button
               type="button"
               onClick={onMinimize}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-60 transition-opacity"
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
               style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
               title="Panel minimieren"
             >
@@ -5137,9 +5251,12 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
         </>
       )}
 
-      {/* Tile grid */}
+      {/* Tile grid + Recent Activities */}
       {studioTab === "tools" && (
-        <LerntoolsGrid tiles={tiles} onSelect={(key) => onSelect(key as StudioView)} />
+        <div className="flex-1 overflow-y-auto flex flex-col">
+          <LerntoolsGrid tiles={tiles} onSelect={(key) => onSelect(key as StudioView)} />
+          <RecentActivities moduleUuid={moduleUuid} onNavigateToSet={onNavigateToSet} refreshKey={statsVersion} />
+        </div>
       )}
 
       {/* Sprachtraining Inhalt */}
@@ -5286,15 +5403,15 @@ function PresentationStudio({
                     <div className="flex items-center gap-1">
                       {p.status === "success" && (
                         <button type="button" onClick={() => onDownload(p.id)}
-                          className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
-                          style={{ backgroundColor: "var(--border)" }} title="PPTX herunterladen">
-                          <DownloadSimple size={12} color="var(--text)" />
+                          className="w-7 h-7 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                          style={{ backgroundColor: "var(--border)", color: "var(--muted)" }} title="PPTX herunterladen">
+                          <DownloadSimple size={13} />
                         </button>
                       )}
                       <button type="button" onClick={() => setDeleteTarget(p)}
-                        className="w-6 h-6 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
-                        style={{ backgroundColor: "var(--border)" }}>
-                        <Trash size={12} color="var(--text)" />
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                        style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
+                        <Trash size={13} />
                       </button>
                     </div>
                   </div>
@@ -5350,7 +5467,7 @@ function MiniStrip({ label, onClick, side }: { label: string; onClick: () => voi
     >
       <span
         className="w-7 h-7 flex items-center justify-center rounded-full"
-        style={{ backgroundColor: "var(--border)" }}
+        style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
       >
         <SidebarSimple
           size={13}

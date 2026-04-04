@@ -3157,6 +3157,31 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
     }
 
 
+def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[dict]:
+    """Return the most recently practiced exercise sets for the activity feed."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT s.id AS set_id, s.tool, s.mode, s.title,
+                          MAX(ep.answered_at) AS last_answer,
+                          COUNT(ep.id) AS answers,
+                          COUNT(ep.id) FILTER (WHERE ep.correct) AS correct
+                   FROM ki_tutor_exercise_progress ep
+                   JOIN ki_tutor_exercise_sets s ON s.id = ep.set_id
+                   WHERE s.module_id = %s AND ep.user_id = %s
+                   GROUP BY s.id
+                   ORDER BY MAX(ep.answered_at) DESC
+                   LIMIT %s""",
+                (module_id, user_id, limit),
+            )
+            results = []
+            for r in cur.fetchall():
+                row = dict(r)
+                row["last_answer"] = row["last_answer"].isoformat() + "Z" if row["last_answer"] else None
+                results.append(row)
+            return results
+
+
 # ─── Admin: KI-Tutor Statistics ──────────────────────────────────────────────
 
 

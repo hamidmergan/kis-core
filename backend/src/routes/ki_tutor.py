@@ -2405,6 +2405,18 @@ async def get_student_day_stats_endpoint(
     return db.get_student_day_stats(module["id"], user_id, date, category)
 
 
+@router.get("/ki-tutor/modules/{module_uuid}/recent-activities")
+async def get_recent_activities_endpoint(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+    return db.get_recent_activities(module["id"], user_id)
+
+
 # ─── Dozent: Module Statistics ───────────────────────────────────────────────
 
 
