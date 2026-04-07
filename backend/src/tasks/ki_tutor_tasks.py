@@ -622,6 +622,31 @@ _PRES_PROMPT = (
 
 
 
+# ── Shared helpers for exercise / datentabelle / glossary generation ─────────
+
+def _get_llm_client():
+    """Return (client, model, provider) using the configured LLM provider."""
+    from langfuse.openai import OpenAI
+    from src.dependencies import _resolve_llm_provider
+    _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+    client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=120)
+    langfuse_context.update_current_observation(
+        metadata={"provider": _provider, "base_url": _base_url, "model": _model},
+    )
+    return client, _model, _provider
+
+
+def _clean_llm_json(text: str) -> str:
+    """Strip markdown fences and leading/trailing whitespace from LLM JSON output."""
+    text = text.strip()
+    if text.startswith("```"):
+        # Remove opening fence (```json or ```)
+        text = re.sub(r"^```(?:json)?\s*\n?", "", text)
+        # Remove closing fence
+        text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
+
+
 # ── Datentabelle generation ──────────────────────────────────────────────────
 
 
@@ -867,6 +892,9 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                      "source_label": e.get("filename", ""), "page_number": e.get("page_number")}
                     for e in selected
                 ]
+                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+                if len(title) > 40:
+                    title = title[:37] + "…"
             elif tool == "karteikarten":
                 items = [
                     {"front": e["term_de"], "back": f"{e['term_en']} — {e['definition']}",
@@ -874,6 +902,8 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     for e in selected
                 ]
                 title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+                if len(title) > 40:
+                    title = title[:37] + "…"
             elif tool == "lueckentext":
                 terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
                 messages = [
@@ -904,22 +934,25 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     for ex in exercises
                 ]
                 title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+                if len(title) > 40:
+                    title = title[:37] + "…"
             elif tool == "vokabeltest":
                 terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
                 messages = [
                     {"role": "system", "content": (
-                        "Du erstellst Vokabeltest-Fragen (Multiple Choice).\n\n"
+                        "Du erstellst ein Begriffe-Quiz zu Fachbegriffen (Multiple Choice).\n\n"
                         "Antworte NUR mit einem JSON-Array:\n"
                         '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
                         '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
                         '"correct_idx": 1, "explanation": "Normalization ist...", '
-                        '"term_de": "Normalisierung", "page_number": 12}]\n\n'
+                        '"term_de": "Normalisierung"}]\n\n'
                         "Regeln:\n- Mische DE→EN, EN→DE, Definitionsfragen\n"
+                        "- Wähle Begriffe die sich gut für MC eignen (klare Definition, plausible Distraktoren)\n"
                         "- Genau 4 Optionen, eine korrekt\n- correct_idx = 0-3\n"
                         "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'\n"
                         "- Antworte NUR mit dem JSON-Array"
                     )},
-                    {"role": "user", "content": f"Erstelle Vokabeltest-Fragen:\n\n{terms_text}"},
+                    {"role": "user", "content": f"Erstelle Begriffe-Quiz-Fragen zu diesen Fachbegriffen:\n\n{terms_text}"},
                 ]
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
@@ -932,6 +965,8 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     for q in questions
                 ]
                 title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
+                if len(title) > 40:
+                    title = title[:37] + "…"
 
         elif mode == "quelle":
             # Support multi-source: prefer source_uuids list, fall back to single source_uuid
@@ -1005,7 +1040,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                      "start_time": _time_map.get((c.get("source_label", first_label), c.get("page_number", 0)))}
                     for c in data.get("cards", [])
                 ]
-                title = data.get("title", multi_label)
+                title = data.get("title", multi_label)[:40]
             elif tool == "karteikarten":
                 prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
@@ -1021,7 +1056,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                      "start_time": _time_map.get((c.get("source_label", first_label), c.get("page_number", 0)))}
                     for c in data.get("cards", [])
                 ]
-                title = data.get("title", multi_label)
+                title = data.get("title", multi_label)[:40]
             else:
                 tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
                 if tool == "lueckentext":
@@ -1029,8 +1064,10 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         "Erstelle Lückentext-Übungen. Antworte NUR mit einem JSON-Array:\n"
                         '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
                         '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
-                        '"source_label": "Dateiname", "page_number": 5}]\n'
-                        "WICHTIG: Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
+                        '"source_label": "Dateiname.pdf", "page_number": 5}]\n'
+                        "WICHTIG:\n"
+                        "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
+                        "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Inhalt stammt.\n"
                         f"Erstelle genau {count} Übungen."
                     )
                 elif tool == "quiz":
@@ -1039,18 +1076,28 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         "Die Fragen sollen das Verständnis des Inhalts prüfen.\n\n"
                         "Antworte NUR mit einem JSON-Array:\n"
                         '[{"question": "Verständnisfrage?", "options": ["A", "B", "C", "D"], '
-                        '"correct_idx": 0, "explanation": "Kurze Erklärung warum diese Antwort richtig ist", '
-                        '"source_label": "Dateiname", "page_number": 5}]\n'
-                        "WICHTIG: Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
+                        '"correct_idx": 0, "source_label": "Dateiname.pdf", "page_number": 5}]\n'
+                        "WICHTIG:\n"
+                        "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
+                        "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Inhalt stammt.\n"
                         f"Erstelle genau {count} Fragen. Mische leichte und schwierige Fragen."
                     )
                 else:
                     tool_prompt += (
-                        "Erstelle Multiple-Choice Vokabeltest-Fragen. Antworte NUR mit einem JSON-Array:\n"
-                        '[{"question": "Frage?", "options": ["A", "B", "C", "D"], '
-                        '"correct_idx": 0, "explanation": "Erklärung", '
-                        '"source_label": "Dateiname", "page_number": 5}]\n'
-                        "WICHTIG: Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
+                        "Erstelle ein Begriffe-Quiz: Multiple-Choice-Fragen zu Fachbegriffen aus dem Quelltext.\n\n"
+                        "Identifiziere zuerst die wichtigsten Fachbegriffe im Text, dann erstelle Fragen dazu.\n"
+                        "Fragetypen mischen:\n"
+                        "- Was bedeutet der Begriff X?\n"
+                        "- Wie lautet die englische Übersetzung von X? (bzw. deutsche Übersetzung)\n"
+                        "- Welcher Fachbegriff beschreibt folgendes: [Definition]?\n\n"
+                        "Wähle Fachbegriffe, die sich gut für Multiple Choice eignen "
+                        "(klare Definition, plausible Distraktoren möglich).\n\n"
+                        "Antworte NUR mit einem JSON-Array:\n"
+                        '[{"question": "Frage zum Fachbegriff?", "options": ["A", "B", "C", "D"], '
+                        '"correct_idx": 0, "source_label": "Dateiname.pdf", "page_number": 5}]\n'
+                        "WICHTIG:\n"
+                        "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
+                        "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Begriff stammt.\n"
                         f"Erstelle genau {count} Fragen."
                     )
                 messages = [
@@ -1060,23 +1107,64 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
                 exercises = _json.loads(answer)
+                # Build page index from context for text matching
+                import re as _re
+                _page_index: list[tuple[str, int, str]] = []  # (source_label, page, text)
+                for line in context.split("\n"):
+                    m = _re.match(r"\[(.+?),\s*S\.\s*(\d+)\]\s*(.*)", line)
+                    if m:
+                        _page_index.append((m.group(1), int(m.group(2)), m.group(3).lower()))
+
+                def _find_page(search_text: str) -> tuple[str, int | None]:
+                    """Match exercise text against context lines to find source + page."""
+                    words = _re.findall(r"\w+", search_text.lower())
+                    if not words or not _page_index:
+                        return first_label, None
+                    best_label, best_page, best_score = first_label, None, 0
+                    for label, page, text in _page_index:
+                        score = sum(1 for w in words if w in text)
+                        if score > best_score:
+                            best_label, best_page, best_score = label, page, score
+                    return best_label, best_page
+
                 if tool == "lueckentext":
-                    items = [
-                        {"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
-                         "correct_idx": ex["correct_idx"],
-                         "source_label": ex.get("source_label", first_label), "page_number": ex.get("page_number"),
-                         "start_time": _time_map.get((ex.get("source_label", first_label), ex.get("page_number", 0)))}
-                        for ex in exercises
-                    ]
+                    items = []
+                    for ex in exercises:
+                        sl = ex.get("source_label") or first_label
+                        pn = ex.get("page_number")
+                        if not pn:
+                            sl, pn = _find_page(ex["sentence"] + " " + ex["answer"])
+                        items.append({"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
+                            "correct_idx": ex["correct_idx"],
+                            "source_label": sl, "page_number": pn,
+                            "start_time": _time_map.get((sl, pn or 0))})
                 else:  # quiz + vokabeltest
-                    items = [
-                        {"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
-                         "correct_idx": q["correct_idx"], "explanation": q.get("explanation"),
-                         "source_label": q.get("source_label", first_label), "page_number": q.get("page_number"),
-                         "start_time": _time_map.get((q.get("source_label", first_label), q.get("page_number", 0)))}
-                        for q in exercises
-                    ]
-                title = multi_label
+                    items = []
+                    for q in exercises:
+                        sl = q.get("source_label") or first_label
+                        pn = q.get("page_number")
+                        if not pn:
+                            sl, pn = _find_page(q["question"] + " " + q["options"][q["correct_idx"]])
+                        items.append({"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
+                            "correct_idx": q["correct_idx"],
+                            "source_label": sl, "page_number": pn,
+                            "start_time": _time_map.get((sl, pn or 0))})
+                # Generate a short descriptive title via LLM
+                try:
+                    title_resp = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": "Gib einen kurzen, prägnanten Titel (max 6 Wörter) für diese Übung. Antworte NUR mit dem Titel, ohne Anführungszeichen."},
+                            {"role": "user", "content": context[:2000]},
+                        ],
+                        temperature=0.3,
+                        max_tokens=30,
+                    )
+                    title = (title_resp.choices[0].message.content or "").strip().strip('"\'')[:40]
+                    if not title:
+                        title = multi_label
+                except Exception:
+                    title = multi_label
 
         if not items:
             db.fail_exercise_set(set_id)

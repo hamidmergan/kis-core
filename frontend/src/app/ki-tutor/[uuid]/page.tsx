@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import HelpTooltip from "@/components/HelpTooltip";
+import Spinner from "@/components/Spinner";
 import {
   Eye,
   CaretLeft,
@@ -361,10 +362,7 @@ function parseQuiz(text: string): QuizQuestion[] {
 function SourceStatus({ status }: { status: string }) {
   if (status === "pending" || status === "indexing")
     return (
-      <span
-        className="inline-block h-3 w-3 rounded-full border-[1.5px] border-primary border-t-transparent animate-spin flex-shrink-0"
-        title={status === "pending" ? "Warte auf Verarbeitung" : "Wird indiziert"}
-      />
+      <Spinner size="xs" className="" />
     );
   if (status === "ready") return null;
   return (
@@ -448,7 +446,7 @@ function MediaPlayer({
       >
         <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }} title="Zurück">
+          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }} title="Zurück">
           <CaretLeft size={13} weight="bold" color="var(--muted)" />
         </button>
         <FileIcon filename={source.filename} />
@@ -456,13 +454,13 @@ function MediaPlayer({
         {onMinimize && (
           <button type="button" onClick={onMinimize}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }} title="Panel minimieren">
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }} title="Panel minimieren">
             <SidebarSimple size={13} />
           </button>
         )}
       </div>
       {/* Player */}
-      <div className="flex-1 flex items-start justify-center p-4 overflow-hidden">
+      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
         {isVideo ? (
           <video
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
@@ -907,7 +905,7 @@ function PdfViewer({
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }} title="Zurück">
+          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }} title="Zurück">
           <CaretLeft size={13} weight="bold" color="var(--muted)" />
         </button>
         <FileIcon filename={source.filename} />
@@ -915,7 +913,7 @@ function PdfViewer({
         {onMinimize && (
           <button type="button" onClick={onMinimize}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }} title="Panel minimieren">
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }} title="Panel minimieren">
             <SidebarSimple size={13} />
           </button>
         )}
@@ -1047,7 +1045,7 @@ function SourcesPanel({
           type="button"
           onClick={onMinimize}
           className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
           title="Panel minimieren"
         >
           <SidebarSimple size={13} />
@@ -1170,7 +1168,7 @@ function SourcesPanel({
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onOpenViewer(src); }}
                       className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                      style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+                      style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
                       title="Im Viewer öffnen"
                     >
                       <Eye size={13} />
@@ -1180,7 +1178,7 @@ function SourcesPanel({
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setDeleteSourceId(src.uuid); }}
                         className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
                         title="Quelle löschen"
                       >
                         <Trash size={13} weight="regular" />
@@ -1330,7 +1328,7 @@ function ChatPanel({
             type="button"
             onClick={() => setChatMenuOpen((v) => !v)}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
             title="Optionen"
           >
             <DotsThreeVertical size={16} weight="bold" />
@@ -1357,7 +1355,7 @@ function ChatPanel({
             type="button"
             onClick={onMinimize}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
             title="Panel minimieren"
           >
             <SidebarSimple size={13} />
@@ -1605,7 +1603,7 @@ function ChatPanel({
                   setCopiedIdx(i);
                   setTimeout(() => setCopiedIdx(null), 1500);
                 }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
                 style={{ color: "var(--muted)" }}
                 title="Kopieren"
               >
@@ -1619,7 +1617,7 @@ function ChatPanel({
                     setSavedNoteIdx(i);
                     setTimeout(() => setSavedNoteIdx(null), 1500);
                   }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                  className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
                   style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
                   title="Als Notiz speichern"
                 >
@@ -1748,13 +1746,13 @@ const LERNTOOLS_BADGE: Record<string, { bg: string; color: string }> = {
   Infografik:     { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
   "Präsentation": { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
 };
-// Sprachtraining: individual tool colors
+// Sprachtraining: distinct tool colors (each unique)
 const SPRACHTRAINING_BADGE: Record<string, { bg: string; color: string }> = {
   Karteikarten:   { bg: "rgba(207,250,254,0.7)", color: "#0E7490" },
-  Lernkarten:     { bg: "rgba(219,234,254,0.7)", color: "#1E40AF" },
-  Glossar:        { bg: "rgba(204,251,241,0.7)", color: "#115E59" },
-  "Lückentext":   { bg: "rgba(254,226,226,0.7)", color: "#B91C1C" },
-  Vokabeltest:    { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+  Lernkarten:     { bg: "rgba(245,235,220,0.7)", color: "#78350F" },
+  Glossar:        { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  "Lückentext":   { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
+  "Begriffe-Quiz": { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
 };
 const SHARED_BADGE: Record<string, { bg: string; color: string }> = {
   Notizen:        { bg: "rgba(241,245,249,0.7)", color: "#475569" },
@@ -1764,8 +1762,8 @@ const SHARED_BADGE: Record<string, { bg: string; color: string }> = {
 function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: { title: string; onBack: () => void; breadcrumbs?: { label: string; onClick: () => void }[]; rightContent?: React.ReactNode; category?: "lerntools" | "sprachtraining" }) {
   const minimize = useContext(MinimizeContext);
   const badge = (category === "sprachtraining" ? SPRACHTRAINING_BADGE[title] : LERNTOOLS_BADGE[title]) ?? SHARED_BADGE[title];
-  const mutedColor = category === "sprachtraining" ? "#6B9E95" : "var(--muted)";
-  const btnBg = category === "sprachtraining" ? "rgba(13,124,115,0.12)" : "var(--kb20)";
+  const mutedColor = "var(--muted)";
+  const btnBg = "var(--surface-dim)";
   return (
     <div
       className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
@@ -1783,8 +1781,8 @@ function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: {
         <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
           {breadcrumbs.map((b, i) => (
             <React.Fragment key={i}>
-              <button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: mutedColor }}>{b.label}</button>
-              <CaretRight size={10} weight="bold" style={{ color: mutedColor, opacity: 0.5 }} className="shrink-0" />
+              <button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor }}>{b.label}</button>
+              <CaretRight size={10} weight="bold" style={{ color: category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor, opacity: 0.5 }} className="shrink-0" />
             </React.Fragment>
           ))}
           {badge ? (
@@ -1804,7 +1802,7 @@ function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: {
       {minimize && (
         <button type="button" onClick={minimize}
           className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-auto"
-          style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
           title="Panel minimieren">
           <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
         </button>
@@ -1834,7 +1832,7 @@ function ExerciseSetsOverview({
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
           style={{
-            color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--accent)",
+            color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
           }}>
           <Files size={13} weight="bold" />
           {noSources
@@ -1853,7 +1851,7 @@ function ExerciseSetsOverview({
             <button type="button" onClick={onCreate}
               disabled={noSources || atLimit}
               className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-              style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
+              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
               <Plus size={14} weight="bold" /> Erstellen ({sets.length}/20)
             </button>
           </div>
@@ -1863,7 +1861,7 @@ function ExerciseSetsOverview({
               <button type="button" onClick={onCreate}
                 disabled={noSources || atLimit}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
+                style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
                 <Plus size={14} weight="bold" /> Erstellen ({sets.length}/20)
               </button>
             </div>
@@ -1884,40 +1882,38 @@ function ExerciseSetsOverview({
                     {/* Title + Score */}
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
                       <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2 mt-0.5" style={{ color: "var(--text)" }}>
-                        {generating ? "Wird generiert…" : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Quiz)\s*(aus|von)\s*/i, "")}
+                        {generating ? "Wird generiert…" : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}
                       </span>
                       {generating ? (
-                        <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0">
-                          <circle cx="19" cy="19" r="14" fill="none" stroke="var(--border)" strokeWidth="3" />
-                          <g transform="translate(19,19)">
-                            <circle r="6" fill="none" stroke="var(--muted)" strokeWidth="2" strokeDasharray="20" strokeLinecap="round">
-                              <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s" repeatCount="indefinite" />
-                            </circle>
-                          </g>
-                        </svg>
+                        <Spinner size="sm" />
                       ) : failed ? (
                         <span className="shrink-0 text-xs font-bold" style={{ color: "#EF4444" }}>!</span>
-                      ) : hasRun ? (
-                        <span className="shrink-0 text-xs font-bold whitespace-nowrap" style={{ color: "var(--accent)" }}>
-                          {lastCorrect}/{s.card_count}
-                        </span>
-                      ) : (
-                        <span className="shrink-0 text-xs font-medium whitespace-nowrap" style={{ color: "var(--muted)" }}>
-                          {s.card_count}
-                        </span>
-                      )}
+                      ) : (() => {
+                          const pct = hasRun ? Math.round((lastCorrect / s.card_count) * 100) : 0;
+                          const r = 14; const c = 2 * Math.PI * r; const offset = c - (pct / 100) * c;
+                          return (
+                            <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0">
+                              <circle cx="19" cy="19" r={r} fill="none" stroke="var(--border)" strokeWidth="3" />
+                              <circle cx="19" cy="19" r={r} fill="none" stroke="var(--kb)" strokeWidth="3"
+                                strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+                                transform="rotate(-90 19 19)" />
+                              <text x="19" y="19" textAnchor="middle" dominantBaseline="central"
+                                fontSize="9" fontWeight="700" fill="var(--kb)">{pct}%</text>
+                            </svg>
+                          );
+                        })()}
                     </div>
                     {/* Bottom row: meta left, delete right */}
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                        {generating ? "Wird generiert…" : failed ? "Fehlgeschlagen" : `${s.card_count} Karten`}
-                        {s.mode === "glossar" && " · Glossar"}
+                        {generating ? (s.mode === "glossar" ? "Glossar" : s.mode === "quiz" ? "Quiz" : s.mode === "lueckentext" ? "Lückentext" : s.mode === "vokabeltest" ? "Vokabeltest" : "Lernkarten") : failed ? "Fehlgeschlagen" : `${s.card_count} Karten`}
+                        {!generating && s.mode === "glossar" && " · Glossar"}
                         {!generating && ` · ${new Date(s.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`}
                       </span>
                       <div className="flex items-center gap-1">
                         {!generating && <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
                           className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                          style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+                          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
                           <Trash size={12} />
                         </button>}
                       </div>
@@ -1994,7 +1990,7 @@ function LernkartenLearnView({
 
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
-      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+      <Spinner />
       <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
     </div>
   );
@@ -2006,24 +2002,22 @@ function LernkartenLearnView({
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
         <button type="button" onClick={onBack}
           className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
             title="Panel minimieren">
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
           </button>
         )}
       </div>
-      {/* Progress */}
-      <div className="px-4 pb-2.5" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
-        <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--accent), #0891b2)" }} />
-        </div>
+      {/* Progress bar as top border */}
+      <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
+        <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--kb)" }} />
       </div>
       {/* Results */}
       {showResults ? (
@@ -2052,8 +2046,8 @@ function LernkartenLearnView({
       ) : card ? (
       <>
       {/* Card */}
-      <div className="flex-1 flex flex-col items-center px-3 sm:px-4 py-3 gap-4">
-        <div className="w-full" style={{ perspective: 1200, maxWidth: 640, cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
+      <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 pb-3 gap-4">
+        <div className="w-full mt-6" style={{ perspective: 1200, maxWidth: 560, cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
           <div style={{
             position: "relative", width: "100%", minHeight: 300, transformStyle: "preserve-3d",
             transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
@@ -2064,7 +2058,7 @@ function LernkartenLearnView({
               position: "absolute", inset: 0, backfaceVisibility: "hidden", borderRadius: 16,
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               padding: "36px 20px", gap: 8, backgroundColor: "var(--surface)",
-              border: "2px solid var(--accent)",
+              border: "2px solid var(--kb)",
               boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
             }}>
               <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>{isVocab ? "Fachbegriff" : "Frage"}</span>
@@ -2072,9 +2066,9 @@ function LernkartenLearnView({
               <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                 <span />
                 {onAskChat && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten. Verwende keine Personennamen, schreibe stattdessen „laut Quelle": „${card.front}"`); }}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all opacity-55 hover:opacity-100"
-                    style={{ color: "var(--muted)", backgroundColor: "rgba(0,0,0,0.04)" }}>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${card.front}"`); }}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all hover:opacity-100"
+                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.08)", opacity: 0.7 }}>
                     <Lightbulb size={13} weight="bold" /> Tipp
                   </button>
                 )}
@@ -2085,8 +2079,8 @@ function LernkartenLearnView({
               position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
               borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               padding: "36px 20px", gap: 8,
-              backgroundColor: "var(--accent)",
-              boxShadow: "0 4px 20px rgba(var(--accent-rgb),0.2)",
+              backgroundColor: "var(--kb)",
+              boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
             }}>
               <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{isVocab ? "Definition" : "Antwort"}</span>
               <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }} dangerouslySetInnerHTML={{ __html: _md(card.back) }} />
@@ -2097,13 +2091,15 @@ function LernkartenLearnView({
               <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                 {card.source_label && (
                   <button type="button"
-                    onClick={(e) => { e.stopPropagation(); if (onSourceClick && card.page_number) onSourceClick(card.source_label!, card.page_number, card.start_time); }}
+                    onClick={(e) => { e.stopPropagation(); if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time); }}
                     className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
                     <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
                   </button>
                 )}
                 {onAskChat && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge? Verwende keine Personennamen, schreibe stattdessen „laut Quelle".`); }}
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(isVocab
+                      ? `Erkläre mir den Begriff „${card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
+                      : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`); }}
                     className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
                     <Chat size={13} weight="bold" /> Mehr erfahren
                   </button>
@@ -2130,7 +2126,7 @@ function LernkartenLearnView({
           ) : (
             <button type="button" onClick={() => setFlipped(true)}
               className="px-6 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
+              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
               Antwort zeigen
             </button>
           )}
@@ -2263,14 +2259,14 @@ function MCExerciseView({
     if (!card || hintLoading) return;
     setHintLoading(true);
     try {
-      onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten. Verwende keine Personennamen, schreibe stattdessen „laut Quelle": „${card.front}"`);
+      onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${card.front}"`);
     } catch { /* ignore */ }
     setHintLoading(false);
   }
 
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
-      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+      <Spinner />
       <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
     </div>
   );
@@ -2283,31 +2279,20 @@ function MCExerciseView({
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
         <button type="button" onClick={onBack}
           className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title}</span>)}
-        {tool !== "quiz" && streak > 0 && (
-          <span className="text-[10px] font-semibold px-2 py-1 rounded-full"
-            style={{ color: "#c4820e", backgroundColor: "rgba(196,130,14,0.08)" }}>
-            🔥 {streak}
-          </span>
-        )}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
             title="Panel minimieren">
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
           </button>
         )}
       </div>
-      {/* Progress */}
-      <div className="px-4 pb-2.5" style={{ backgroundColor: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
-        <div className="h-1 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--border)" }}>
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--accent), #0891b2)" }} />
-        </div>
-      </div>
+      {/* Progress — rendered inside question card */}
       {/* Quiz Results */}
       {showResults && tool === "quiz" ? (
         <div className="flex-1 flex flex-col items-center justify-center px-6 gap-3">
@@ -2334,10 +2319,15 @@ function MCExerciseView({
         </div>
       ) : card ? (
       <>
+      {/* Progress bar */}
+      <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
+        <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--kb)" }} />
+      </div>
       {/* Question Card */}
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto w-full" style={{ maxWidth: 560 }}>
-          <div className="rounded-2xl p-6 flex flex-col gap-4" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
+        <div className="mx-auto mt-6 w-full" style={{ maxWidth: 560 }}>
+          <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
+            <div className="px-6 pt-5 pb-6 flex flex-col gap-4">
             {/* Counter */}
             <span className="text-[11px] font-semibold" style={{ color: "var(--muted)" }}>Frage {index + 1} / {total}</span>
             {/* Question text */}
@@ -2348,7 +2338,7 @@ function MCExerciseView({
                     /___+/g,
                     answered
                       ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${card.back}</span>`
-                      : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed var(--accent);color:var(--accent);font-weight:700;padding:0 4px">___________</span>'
+                      : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed var(--kb);color:var(--kb);font-weight:700;padding:0 4px">___________</span>'
                   ),
                 }}
               />
@@ -2371,7 +2361,7 @@ function MCExerciseView({
                     disabled={answered}
                     className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${!answered ? "hover:shadow-sm active:scale-[0.98] cursor-pointer" : ""}`}
                     style={{ border: `1.5px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}
-                    onMouseEnter={(e) => { if (!answered) e.currentTarget.style.borderColor = "var(--accent)"; }}
+                    onMouseEnter={(e) => { if (!answered) e.currentTarget.style.borderColor = "var(--kb)"; }}
                     onMouseLeave={(e) => { if (!answered) e.currentTarget.style.borderColor = borderColor; }}>
                     <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                       style={{ backgroundColor: dotBg, color: dotColor }}>
@@ -2391,21 +2381,14 @@ function MCExerciseView({
                 {isCorrect ? "✓ Richtig!" : <span dangerouslySetInnerHTML={{ __html: `✗ Richtig wäre: ${_md(card.back)}` }} />}
               </div>
             )}
-            {/* Explanation (Vokabeltest) */}
-            {answered && tool === "vokabeltest" && card.explanation && (
-              <div className="text-sm leading-relaxed p-4 rounded-xl"
-                style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)", borderLeft: "3px solid var(--accent)" }}>
-                <span dangerouslySetInnerHTML={{ __html: _md(card.explanation) }} />
-              </div>
-            )}
             {/* Source chip + Hint */}
             <div className="flex items-center justify-between mt-1">
               <div>
                 {card.source_label && (
                   <button type="button"
-                    onClick={() => { if (onSourceClick && card.page_number) onSourceClick(card.source_label!, card.page_number, card.start_time); }}
+                    onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time); }}
                     className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
-                    style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
+                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                     <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
                   </button>
                 )}
@@ -2414,7 +2397,7 @@ function MCExerciseView({
                 <button type="button" onClick={requestHint}
                   disabled={hintLoading}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
-                  style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
+                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                   <Lightbulb size={13} weight="bold" />
                   {hintLoading ? "Wird geladen…" : "Tipp"}
                 </button>
@@ -2423,18 +2406,21 @@ function MCExerciseView({
             {/* Action row: Chat + Weiter */}
             {answered && (
               <div className="flex items-center justify-between mt-2">
-                <button type="button" onClick={() => onAskChat(`Erkläre mir folgendes Thema genauer: „${tool === "lueckentext" ? card.back : card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge? Verwende keine Personennamen, schreibe stattdessen „laut Quelle".`)}
+                <button type="button" onClick={() => onAskChat(tool === "vokabeltest" || tool === "lueckentext"
+                    ? `Erkläre mir den Begriff „${tool === "lueckentext" ? card.back : card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
+                    : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`)}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80"
-                  style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
+                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                   <Chat size={13} weight="bold" /> Mehr erfahren
                 </button>
                 <button type="button" onClick={advance}
                   className="flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold text-white transition-all hover:opacity-90"
-                  style={{ backgroundColor: "var(--accent)" }}>
+                  style={{ backgroundColor: "var(--kb)" }}>
                   {index >= total - 1 ? "Abschließen" : "Weiter"} <CaretRight size={14} weight="bold" />
                 </button>
               </div>
             )}
+          </div>
           </div>
         </div>
       </div>
@@ -2458,7 +2444,7 @@ function CreateSetModal({
   const isQuiz = tool === "quiz";
   const [mode, setMode] = useState<"glossar" | "quelle">(isQuiz || glossaryCount === 0 ? "quelle" : "glossar");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
-  const toolLabels: Record<string, string> = { karteikarten: "Karteikarten", lernkarten: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Vokabeltest", quiz: "Quiz" };
+  const toolLabels: Record<string, string> = { karteikarten: "Karteikarten", lernkarten: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Begriffe-Quiz", quiz: "Quiz" };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
@@ -2532,7 +2518,7 @@ function CreateSetModal({
           <button type="button" onClick={() => onCreate(mode, count)} disabled={creating}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: "var(--accent)" }}>
-            {creating ? <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" /> : <Plus size={13} weight="bold" />}
+            {creating ? <Spinner size="xs" color="current" /> : <Plus size={13} weight="bold" />}
             {creating ? "Generieren…" : "Erstellen"}
           </button>
         </div>
@@ -2580,7 +2566,7 @@ function QuizStudio({
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
               style={{ backgroundColor: "var(--kb)", maxWidth: 280, width: "100%" }}>
               {loading
-                ? <><div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" /> Wird generiert…</>
+                ? <><Spinner size="xs" color="current" /> Wird generiert…</>
                 : <><Plus size={13} weight="bold" /> Neues Quiz erstellen</>}
             </button>
           </div>
@@ -2592,7 +2578,7 @@ function QuizStudio({
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => setView("list")}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>Quiz</span></div>) : (<span className="text-base font-bold flex-1" style={{ color: "var(--text)" }}>Quiz</span>)}
@@ -2607,13 +2593,13 @@ function QuizStudio({
           {loading && (
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+                <Spinner />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Quiz wird generiert…</p>
               </div>
             </div>
           )}
           {!loading && questions.length > 0 && (
-            <div className="mx-auto w-full p-4 flex flex-col gap-4" style={{ maxWidth: 700 }}>
+            <div className="mx-auto w-full p-4 flex flex-col gap-4" style={{ maxWidth: 560 }}>
               {questions.map((q, qi) => {
                 const answered = answers[qi] !== undefined;
                 const isCorrect = answered && answers[qi] === q.correct;
@@ -2807,7 +2793,7 @@ function DatentabelleStudio({
                   <div className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
+                      <Spinner size="sm" />
                       <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>Wird generiert…</span>
                     </div>
                   </div>
@@ -2829,7 +2815,7 @@ function DatentabelleStudio({
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
                         className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
                         <Trash size={12} />
                       </button>
                     </div>
@@ -2846,7 +2832,7 @@ function DatentabelleStudio({
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => setView("list")}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
@@ -2855,7 +2841,7 @@ function DatentabelleStudio({
           {!table && loading && (
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+                <Spinner />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Datentabelle wird generiert…</p>
               </div>
             </div>
@@ -3247,7 +3233,7 @@ function MindmapStudio({
                   <div className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent flex-shrink-0" />
+                      <Spinner size="sm" />
                       <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>Wird generiert…</span>
                     </div>
                   </div>
@@ -3269,7 +3255,7 @@ function MindmapStudio({
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
                         className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
                         <Trash size={12} />
                       </button>
                     </div>
@@ -3289,29 +3275,29 @@ function MindmapStudio({
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); else setView("list"); }}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={handleZoomOut} title="Verkleinern"
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
               <MagnifyingGlassMinus size={13} />
             </button>
             <button type="button" onClick={handleZoomIn} title="Vergrößern"
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
               <MagnifyingGlassPlus size={13} />
             </button>
             <button type="button" onClick={handleToggleExpand} title={allExpanded ? "Alle einklappen" : "Alle ausklappen"}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
               {allExpanded ? <ArrowsInLineVertical size={13} /> : <ArrowsOutLineVertical size={13} />}
             </button>
             <button type="button" onClick={() => setFullscreen(!fullscreen)} title={fullscreen ? "Vollbild beenden" : "Vollbild"}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
               {fullscreen ? <CornersIn size={13} /> : <CornersOut size={13} />}
             </button>
           </div>
@@ -3320,7 +3306,7 @@ function MindmapStudio({
           {!mindmap && loading && (
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+                <Spinner />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Mindmap wird generiert…</p>
               </div>
             </div>
@@ -3440,7 +3426,7 @@ function NotizenStudio({
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title="Notizen" onBack={onBack} breadcrumbs={breadcrumbs} />}
       <div className="flex-1 overflow-y-auto">
-        <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-3">
+        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {/* New note input */}
           <div
             className="flex gap-2 items-center rounded-xl p-2"
@@ -3449,15 +3435,21 @@ function NotizenStudio({
             <textarea
               ref={textareaRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => { if (e.target.value.length <= 2000) setDraft(e.target.value); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && draft.trim()) { e.preventDefault(); onAdd(draft.trim()); setDraft(""); }
               }}
               placeholder="Neue Notiz…"
+              maxLength={2000}
               rows={1}
               className="flex-1 text-sm resize-none focus:outline-none bg-transparent"
               style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
             />
+            {draft.length > 1800 && (
+              <span className="text-[10px] flex-shrink-0" style={{ color: draft.length >= 2000 ? "#ef4444" : "var(--muted)" }}>
+                {draft.length}/2000
+              </span>
+            )}
             <button
               type="button"
               onClick={() => { if (draft.trim()) { onAdd(draft.trim()); setDraft(""); } }}
@@ -3472,9 +3464,10 @@ function NotizenStudio({
 
           {/* Notes grid */}
           {notes.length === 0 && (
-            <p className="text-xs text-center py-8" style={{ color: "var(--muted)" }}>
-              Noch keine Notizen. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.
-            </p>
+            <div className="flex flex-col items-center justify-center gap-2 py-8" style={{ color: "var(--muted)" }}>
+              <NotePencil size={32} weight="light" />
+              <span className="text-xs text-center">Noch keine Notizen. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.</span>
+            </div>
           )}
           <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
             {notes.map((note) => {
@@ -3521,7 +3514,7 @@ function NotizenStudio({
                   </span>
                   <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
                     className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                    style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+                    style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
                     <Trash size={12} />
                   </button>
                 </div>
@@ -3554,7 +3547,7 @@ function GlossarMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)}
         className="w-5 h-5 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-        style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
         <DotsThreeVertical size={12} weight="bold" />
       </button>
       {open && (
@@ -3593,7 +3586,7 @@ function GlossarView({
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
-              color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--accent)",
+              color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
             }}>
             <Files size={13} weight="bold" />
             {noSources
@@ -3607,26 +3600,24 @@ function GlossarView({
           {extracting && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
               style={{ backgroundColor: "rgba(var(--accent-rgb),0.06)", color: "var(--accent)" }}>
-              <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" />
+              <Spinner size="xs" color="current" />
               Begriffe werden aus Markierung extrahiert…
             </div>
           )}
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={onGenerate}
-                disabled={loading || noSources}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}
-              >
-                {loading ? <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" /> : <Plus size={12} weight="bold" />}
-                {loading ? "Begriffe werden extrahiert…" : "Begriffe extrahieren"}
-              </button>
-              <HelpTooltip text="Fügt 10–20 neue Fachbegriffe hinzu. Maximal 150 Einträge." />
-            </div>
+          <div className="relative flex items-center justify-center gap-1.5 px-1">
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={loading || noSources}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+              style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}
+            >
+              {loading ? <Spinner size="xs" color="current" /> : <Plus size={12} weight="bold" />}
+              {loading ? "Begriffe werden extrahiert…" : "Begriffe extrahieren"}
+            </button>
+            <HelpTooltip text="Extrahiert 10–20 Fachbegriffe aus den ausgewählten Quellen. Maximal 150 Einträge." />
             {entries.length > 0 && (
-              <div className="flex items-center gap-1.5 relative">
+              <div className="absolute right-0 flex items-center gap-1.5">
                 <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>{entries.length}/150</span>
                 <GlossarMenu onDeleteAll={onDeleteAll} />
               </div>
@@ -3635,9 +3626,10 @@ function GlossarView({
 
 
           {entries.length === 0 && !loading && (
-            <p className="text-xs text-center py-6" style={{ color: "var(--muted)" }}>
-              Noch kein Glossar generiert. Klicke oben auf „Glossar generieren", um Fachbegriffe aus deinen Quellen zu extrahieren. Du kannst auch Text im Dokument markieren und über das Kontextmenü einzelne Begriffe hinzufügen.
-            </p>
+            <div className="flex flex-col items-center justify-center gap-2 py-8" style={{ color: "var(--muted)" }}>
+              <Book size={32} weight="light" />
+              <span className="text-xs text-center">Noch kein Glossar generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.</span>
+            </div>
           )}
 
           {entries.map((entry) => (
@@ -3649,7 +3641,7 @@ function GlossarView({
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{entry.term_de}</span>
-                  {showTranslation && <span className="text-xs font-medium ml-2" style={{ color: "var(--accent)" }}>{entry.term_en}</span>}
+                  {showTranslation && <span className="text-sm font-medium ml-2" style={{ color: "var(--accent)" }}>{entry.term_en}</span>}
                 </div>
                 {entry.page_number && (
                   <button type="button" onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
@@ -3661,22 +3653,22 @@ function GlossarView({
               </div>
               {showTranslation && (entry.example_sentence) && (
                 <div>
-                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Kontext</span>
-                  <p className="text-[11px] italic leading-relaxed mt-0.5" style={{ color: "var(--muted)" }}>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>Kontext</span>
+                  <p className="text-sm italic leading-relaxed mt-0.5" style={{ color: "var(--muted)" }}>
                     „{entry.example_sentence}"
                   </p>
                 </div>
               )}
               <div>
-                <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Erklärung (B1)</span>
-                <p className="text-xs leading-relaxed mt-0.5" style={{ color: "var(--text)", opacity: 0.8 }}>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>Erklärung (B1)</span>
+                <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--text)", opacity: 0.8 }}>
                   {entry.definition}
                 </p>
               </div>
               <div className="flex justify-end mt-1">
                 <button type="button" onClick={() => onDelete?.(entry.id)}
                   className="w-5 h-5 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                  style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}>
+                  style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
                   <Trash size={10} />
                 </button>
               </div>
@@ -3795,18 +3787,23 @@ function VocabFlashcards({
   return (
     <div className="flex flex-col h-full">
       <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="mx-auto mt-6 w-full flex flex-col gap-4" style={{ maxWidth: 560 }}>
           {/* Card */}
           {card && (
+            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: flipped ? "rgba(var(--accent-rgb),0.04)" : "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
+              {/* Progress bar as top border */}
+              <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
+                <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${((index + 1) / total) * 100}%`, backgroundColor: "var(--kb)" }} />
+              </div>
             <button
               type="button"
               onClick={() => setFlipped(!flipped)}
-              className="w-full rounded-2xl p-6 text-center transition-all cursor-pointer"
+              className="w-full p-6 text-center transition-all cursor-pointer"
               style={{
                 minHeight: 180,
-                backgroundColor: flipped ? "rgba(var(--accent-rgb),0.04)" : "var(--surface)",
-                border: `2px solid ${flipped ? "var(--accent)" : "var(--border)"}`,
+                backgroundColor: "transparent",
+                border: "none",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
               }}
             >
@@ -3828,6 +3825,7 @@ function VocabFlashcards({
                 </>
               )}
             </button>
+            </div>
           )}
 
           {/* Answer buttons */}
@@ -4047,7 +4045,7 @@ function VokabeltestView({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Vokabeltest" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
+        <SubviewHeader title="Begriffe-Quiz" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -4085,7 +4083,7 @@ function VokabeltestView({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Vokabeltest" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
+      <SubviewHeader title="Begriffe-Quiz" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           <button
@@ -4097,7 +4095,7 @@ function VokabeltestView({
           >
             <span className="flex items-center justify-center gap-2">
               <Exam size={16} weight="bold" />
-              {loading ? "Generiere…" : "Vokabeltest starten"}
+              {loading ? "Generiere…" : "Begriffe-Quiz starten"}
             </span>
           </button>
 
@@ -4137,11 +4135,6 @@ function VokabeltestView({
                     );
                   })}
                 </div>
-                {answers[current] !== undefined && q.explanation && (
-                  <p className="text-xs mt-3 leading-relaxed p-2 rounded-lg font-semibold" style={{ backgroundColor: "rgba(var(--accent-rgb),0.05)", color: "var(--accent)" }}>
-                    {q.explanation}
-                  </p>
-                )}
                 {answers[current] !== undefined && (
                   <button type="button" onClick={handleAdvance}
                     className="mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
@@ -4171,9 +4164,9 @@ function SprachtrainingOverview({
   const noSources = activeSourceCount === 0;
 
   const tiles = [
-    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", desc: "Übungen", iconBg: "rgba(219,234,254,0.7)", iconColor: "#1E40AF" },
+    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", desc: "Übungen", iconBg: "rgba(245,235,220,0.7)", iconColor: "#78350F" },
     { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Übungen", iconBg: "rgba(254,226,226,0.7)", iconColor: "#B91C1C" },
-    { key: "vt-sets" as const, Icon: Exam, label: "Vokabeltest", desc: "Übungen", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
+    { key: "vt-sets" as const, Icon: Exam, label: "Begriffe-Quiz", desc: "Übungen", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
   ];
 
   return (
@@ -4292,7 +4285,7 @@ const TOOL_LABELS: Record<string, string> = {
   lernkarten: "Lernkarten",
   karteikarten: "Karteikarten",
   lueckentext: "Lückentext",
-  vokabeltest: "Vokabeltest",
+  vokabeltest: "Begriffe-Quiz",
   quiz: "Quiz",
 };
 
@@ -4332,7 +4325,7 @@ const ACTIVITY_TOOL_COLORS: Record<string, string> = {
   quiz: "#A16207",
   lueckentext: "#B91C1C",
   vokabeltest: "#534AB7",
-  datentabelle: "#9333EA",
+  datentabelle: "#C2410C",
   mindmap: "#0369A1",
 };
 
@@ -4367,9 +4360,9 @@ function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { moduleU
 
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-8 px-4" style={{ color: "var(--muted)" }}>
+      <div className="flex flex-col items-center justify-center gap-2 pt-16 pb-8 px-4" style={{ color: "var(--muted)" }}>
         <ClockCounterClockwise size={32} weight="light" />
-        <span className="text-xs text-center">Noch keine Aktivitäten. Starte mit einem Lerntool!</span>
+        <span className="text-xs text-center">Noch keine Aktivitäten.</span>
       </div>
     );
   }
@@ -4435,7 +4428,8 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
 
   useEffect(() => {
     if (!stats) return;
-    const entry = stats.lerntools_heatmap.find(d => d.day === stats.today) ?? null;
+    const hasAnyActivity = stats.lerntools_heatmap.some(d => d.answers > 0);
+    const entry = hasAnyActivity ? (stats.lerntools_heatmap.find(d => d.day === stats.today) ?? null) : null;
     setSelDayLt(entry);
     setDetailLt(null);
     if (entry && entry.answers > 0) {
@@ -4454,7 +4448,8 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
 
   useEffect(() => {
     if (!stats) return;
-    const entry = stats.sprachtraining_heatmap.find(d => d.day === stats.today) ?? null;
+    const hasAnyActivity = stats.sprachtraining_heatmap.some(d => d.answers > 0);
+    const entry = hasAnyActivity ? (stats.sprachtraining_heatmap.find(d => d.day === stats.today) ?? null) : null;
     setSelDaySt(entry);
     setDetailSt(null);
     if (entry && entry.answers > 0) {
@@ -4512,9 +4507,9 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
 
   const maxAns = Math.max(...filteredHeatmap.map(d => d.answers), 1);
 
-  // Lerntools: brand blue, Sprachtraining: teal
-  const accent = category === "lerntools" ? "var(--kb)" : "#0D7C73";
-  const heatRgb = category === "lerntools" ? "0,66,97" : "13,124,115";
+  // Lerntools: brand blue, Sprachtraining: green
+  const accent = category === "lerntools" ? "var(--kb)" : "#9333EA";
+  const heatRgb = category === "lerntools" ? "0,66,97" : "147,51,234";
 
   function heatColor(answers: number): string {
     if (answers === 0) return `rgba(${heatRgb},0.07)`;
@@ -4559,11 +4554,11 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
       <StudioTabs
         tabs={[
           { key: "lerntools", label: "Lerntools" },
-          { key: "sprachtraining", label: "Sprachtraining" },
+          { key: "sprachtraining", label: "Fachsprachentraining" },
         ]}
         active={category}
         onSelect={(k) => setCategory(k as "lerntools" | "sprachtraining")}
-        accentColor={category === "sprachtraining" ? "#0D7C73" : undefined}
+        accentColor={category === "sprachtraining" ? "#9333EA" : undefined}
       />
 
       {/* ── Period selector + period summary ── */}
@@ -4588,6 +4583,13 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
           </div>
         </div>
 
+        {periodAnswers === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-8" style={{ color: "var(--muted)" }}>
+            <ChartBar size={32} weight="light" />
+            <span className="text-xs text-center">Noch keine Aktivitäten in diesem Zeitraum.</span>
+          </div>
+        ) : (
+        <>
         {/* Period summary line */}
         <div className="flex gap-3 mb-2 text-xs" style={{ color: "var(--muted)" }}>
           <span>{periodActiveDays} aktive Tage</span>
@@ -4658,7 +4660,7 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
                                 backgroundColor: heatColor(d.answers),
                                 outline: isSelected ? `2px solid ${accent}` : "none",
                                 outlineOffset: 1,
-                                borderBottom: isToday && !isSelected ? `2.5px solid ${category === "sprachtraining" ? "#8BA59A" : "var(--muted)"}` : "none",
+                                borderBottom: isToday && !isSelected ? `2.5px solid ${category === "sprachtraining" ? "#C084FC" : "var(--muted)"}` : "none",
                               }}
                               title={`${formatDay(d.day)}: ${d.answers} Antworten`}
                             >
@@ -4683,6 +4685,8 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
           ))}
           <span className="text-[10px]" style={{ color: "var(--muted)" }}>Mehr</span>
         </div>
+        </>
+        )}
       </div>
 
       {/* ── Selected day detail ── */}
@@ -4694,7 +4698,10 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
             </div>
           </div>
           {selectedDay.answers === 0 ? (
-            <p className="text-xs" style={{ color: "var(--muted)" }}>Keine Aktivität an diesem Tag.</p>
+            <div className="flex flex-col items-center justify-center gap-2 py-4" style={{ color: "var(--muted)" }}>
+              <ClockCounterClockwise size={24} weight="light" />
+              <span className="text-xs text-center">Keine Aktivität an diesem Tag.</span>
+            </div>
           ) : dayDetailLoading ? (
             <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
           ) : dayDetail ? (
@@ -4784,7 +4791,7 @@ function StudioTabs({ tabs, active, onSelect, accentColor }: {
               style={{
                 color: isActive ? (accentColor || "var(--accent)") : "var(--muted)",
                 backgroundColor: isActive ? "var(--bg)" : undefined,
-                border: isActive ? `1.5px solid ${accentColor || "var(--accent)"}` : "1.5px solid transparent",
+                border: "none",
                 boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
               }}
             >
@@ -4833,9 +4840,9 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
   ];
 
   const sprachTiles = [
-    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", iconBg: "rgba(207,250,254,0.7)", iconColor: "#0E7490" },
+    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", iconBg: "rgba(245,235,220,0.7)", iconColor: "#78350F" },
     { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", iconBg: "rgba(254,226,226,0.7)", iconColor: "#B91C1C" },
-    { key: "vt-sets" as const, Icon: Exam, label: "Vokabeltest", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
+    { key: "vt-sets" as const, Icon: Exam, label: "Begriffe-Quiz", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
   ];
 
   const noSources = (activeSourceCount ?? 0) === 0;
@@ -4865,7 +4872,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
               type="button"
               onClick={onMinimize}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
               title="Panel minimieren"
             >
               <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
@@ -4897,7 +4904,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
           {sprachtrainingActive && (
             <>
               <div className="px-3 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#0D7C73" }}>Sprachtraining</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#9333EA" }}>Fachsprachentraining</span>
               </div>
               <LerntoolsGrid tiles={sprachTiles} onSelect={(key) => {
                 if (!noSources && onSprachNavigate) {
@@ -4956,7 +4963,7 @@ function MiniStrip({ label, onClick, side }: { label: string; onClick: () => voi
     >
       <span
         className="w-7 h-7 flex items-center justify-center rounded-full"
-        style={{ backgroundColor: "var(--kb20)", color: "var(--muted)" }}
+        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
       >
         <SidebarSimple
           size={13}
@@ -5966,7 +5973,7 @@ export default function KiTutorModulePage() {
     return src ? { uuid: src.uuid, filename: src.filename } : null;
   })();
 
-  const sprachtrainingContent = (<div style={{ "--accent": "#0D7C73", "--accent-rgb": "13,124,115" } as React.CSSProperties} className="flex flex-col flex-1 overflow-hidden">{(() => {
+  const sprachtrainingContent = (<div style={{ "--accent": "#9333EA", "--accent-rgb": "147,51,234" } as React.CSSProperties} className="flex flex-col flex-1 overflow-hidden">{(() => {
     switch (sprachView) {
       case "glossar":
         return (
@@ -5976,7 +5983,7 @@ export default function KiTutorModulePage() {
             extracting={glossaryExtracting}
             onGenerate={generateGlossary}
             onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
             sourceCount={selectedSourceIds.length}
             onOpenSource={(page, highlightText) => {
               const src = sources.find((s) => selectedSourceIds.includes(s.uuid));
@@ -5993,7 +6000,7 @@ export default function KiTutorModulePage() {
           <VocabFlashcards
             entries={glossary}
             onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
           />
         );
       case "lueckentext":
@@ -6003,7 +6010,7 @@ export default function KiTutorModulePage() {
             loading={clozeLoading}
             onGenerate={generateCloze}
             onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
           />
         );
       case "vokabeltest":
@@ -6013,7 +6020,7 @@ export default function KiTutorModulePage() {
             loading={vocabLoading}
             onGenerate={generateVocabTest}
             onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
           />
         );
       // ─── Lernkarten Sets Flow ──────────────────────────────
@@ -6028,7 +6035,7 @@ export default function KiTutorModulePage() {
             onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
             category="sprachtraining"
           />
         );
@@ -6045,19 +6052,19 @@ export default function KiTutorModulePage() {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
             }}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
             showTranslation
           />
         ) : null;
       case "lk-complete":
         return activeSet ? (
           <ExerciseCompletion
-            title={activeSet.title}
+            title={activeSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}
             results={[]}
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("lk-learn")}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); loadExerciseSets("lernkarten"); }}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
           />
         ) : null;
       // ─── Lückentext Sets Flow ──────────────────────────────
@@ -6072,7 +6079,7 @@ export default function KiTutorModulePage() {
             onDelete={(id) => deleteExerciseSet(id, "lueckentext")}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
             category="sprachtraining"
           />
         );
@@ -6088,25 +6095,25 @@ export default function KiTutorModulePage() {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
             }}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
           />
         ) : null;
       case "cl-complete":
         return activeSet ? (
           <ExerciseCompletion
-            title={activeSet.title}
+            title={activeSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}
             results={[]}
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("cl-learn")}
             onBack={() => { setSprachView("cl-sets"); setActiveSet(null); loadExerciseSets("lueckentext"); }}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
           />
         ) : null;
       // ─── Vokabeltest Sets Flow ─────────────────────────────
       case "vt-sets":
         return (
           <ExerciseSetsOverview
-            title="Vokabeltest"
+            title="Begriffe-Quiz"
             sets={exerciseSets.filter((s) => s.tool === "vokabeltest")}
             onBack={() => setSprachView("overview")}
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("vt-learn")); }}
@@ -6114,7 +6121,7 @@ export default function KiTutorModulePage() {
             onDelete={(id) => deleteExerciseSet(id, "vokabeltest")}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
             category="sprachtraining"
           />
         );
@@ -6130,17 +6137,18 @@ export default function KiTutorModulePage() {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
             }}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
           />
         ) : null;
       case "vt-complete":
         return activeSet ? (
           <ExerciseCompletion
-            title={activeSet.title}
+            title={activeSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}
             results={[]}
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("vt-learn")}
             onBack={() => { setSprachView("vt-sets"); setActiveSet(null); loadExerciseSets("vokabeltest"); }}
-            breadcrumbs={[{ label: "Sprachtraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Vokabeltest", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
           />
         ) : null;
       default:
@@ -6223,7 +6231,7 @@ export default function KiTutorModulePage() {
         <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
           <Header showLogout />
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+            <Spinner size="lg" />
           </div>
         </div>
       </ProtectedRoute>
@@ -6250,16 +6258,16 @@ export default function KiTutorModulePage() {
               Zurück zur Übersicht
             </Link>
             <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-base font-bold truncate px-16" style={{ color: "var(--text)" }}>
+              <span className="text-base font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--text)" }}>
                 {moduleDetail?.title ?? ""}
               </span>
             </span>
-            <div ref={settingsRef} className="relative flex-shrink-0 ml-auto">
+            <div ref={!isMobile ? settingsRef : undefined} className="relative flex-shrink-0 ml-auto">
             <button
               type="button"
               onClick={() => setShowSettings((v) => !v)}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--kb20)", color: showSettings ? "white" : "var(--muted)" }}
+              style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--surface-dim)", color: showSettings ? "white" : "var(--muted)" }}
               title="Einstellungen"
             >
               <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
@@ -6320,8 +6328,8 @@ export default function KiTutorModulePage() {
                 {/* Sprachtraining */}
                 <div className="flex items-center justify-between px-4 py-3" style={{ opacity: studioEnabled ? 1 : 0.4 }}>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Sprachtraining</p>
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>Zeigt Sprachtraining-Tab im Studio</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Fachsprachentraining</p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>Zeigt Fachsprachentraining-Tab im Studio</p>
                   </div>
                   <button
                     type="button"
@@ -6347,15 +6355,100 @@ export default function KiTutorModulePage() {
         {/* Tab bar — Mobile only */}
         {isMobile && (
           <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
-          <div className="px-4 pt-2 pb-1">
+          <div className="flex items-center gap-2 px-3 pt-2 pb-1">
             <Link
               href="/ki-tutor"
-              className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors group"
+              className="inline-flex items-center justify-center w-7 h-7 flex-shrink-0 transition-colors group"
               style={{ color: "var(--kb)" }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-              Zurück zur Übersicht
             </Link>
+            <span className="text-sm font-bold truncate min-w-0" style={{ color: "var(--text)" }}>
+              {moduleDetail?.title ?? ""}
+            </span>
+            <div ref={isMobile ? settingsRef : undefined} className="relative flex-shrink-0 ml-auto">
+              <button
+                type="button"
+                onClick={() => setShowSettings((v) => !v)}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--surface-dim)", color: showSettings ? "white" : "var(--muted)" }}
+                title="Einstellungen"
+              >
+                <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
+              </button>
+              {/* Settings dropdown — Mobile */}
+              {showSettings && (
+                <div
+                  className="absolute right-0 top-10 z-50 rounded-xl shadow-lg"
+                  style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", width: 260 }}
+                >
+                  <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                    <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>Meine Einstellungen</p>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)", opacity: 0.4 }}>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Chat-Sprache</p>
+                      <p className="text-xs" style={{ color: "var(--muted)" }}>Sprache der KI-Antworten</p>
+                    </div>
+                    <div className="flex gap-1">
+                      {(["de", "en"] as const).map((lang) => (
+                        <button
+                          key={lang}
+                          type="button"
+                          disabled
+                          className="text-xs font-semibold px-2.5 py-1 rounded-lg cursor-not-allowed"
+                          style={{
+                            backgroundColor: chatLang === lang ? "var(--kb)" : "var(--border)",
+                            color: chatLang === lang ? "white" : "var(--muted)",
+                          }}
+                        >
+                          {lang.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Studio</p>
+                      <p className="text-xs" style={{ color: "var(--muted)" }}>Studio-Panel anzeigen</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={studioEnabled}
+                      onClick={() => setStudioEnabled((v) => !v)}
+                      className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+                      style={{ backgroundColor: studioEnabled ? "var(--kb)" : "#CBD5E1" }}
+                    >
+                      <span
+                        className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                        style={{ transform: studioEnabled ? "translateX(16px)" : "translateX(0)" }}
+                      />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3" style={{ opacity: studioEnabled ? 1 : 0.4 }}>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Fachsprachentraining</p>
+                      <p className="text-xs" style={{ color: "var(--muted)" }}>Zeigt Fachsprachentraining-Tab im Studio</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={sprachtrainingActive}
+                      onClick={() => studioEnabled && setSprachtrainingActive((v) => !v)}
+                      disabled={!studioEnabled}
+                      className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+                      style={{ backgroundColor: sprachtrainingActive && studioEnabled ? "var(--kb)" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
+                    >
+                      <span
+                        className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                        style={{ transform: sprachtrainingActive && studioEnabled ? "translateX(16px)" : "translateX(0)" }}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div
             className="flex"

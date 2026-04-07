@@ -181,7 +181,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     module_id  INTEGER NOT NULL
                                  REFERENCES ki_tutor_modules(id) ON DELETE CASCADE,
                     code       TEXT NOT NULL UNIQUE,
-                    expires_at TIMESTAMP NOT NULL,
+                    expires_at TIMESTAMP,
                     created_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
@@ -245,6 +245,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                   AND al.code = m.enroll_code
                   AND e.link_id IS NULL
             """)
+            # Migration: allow NULL expires_at in access_links
+            cur.execute("ALTER TABLE ki_tutor_access_links ALTER COLUMN expires_at DROP NOT NULL")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_sources (
                     id              SERIAL PRIMARY KEY,
@@ -1624,7 +1626,7 @@ def get_module_by_access_link_code(code: str) -> tuple[dict, dict] | None:
                 """SELECT m.*, al.id AS link_id, al.expires_at AS link_expires_at
                    FROM ki_tutor_access_links al
                    JOIN ki_tutor_modules m ON m.id = al.module_id
-                   WHERE al.code = %s AND al.expires_at > NOW()""",
+                   WHERE al.code = %s AND (al.expires_at IS NULL OR al.expires_at > NOW())""",
                 (code,),
             )
             row = cur.fetchone()

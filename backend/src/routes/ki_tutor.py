@@ -134,7 +134,7 @@ class UserSettingsBody(BaseModel):
 
 
 class NoteBody(BaseModel):
-    content: str
+    content: str = Field(..., max_length=2000)
 
 
 # ─── Dozenten-Endpunkte ───────────────────────────────────────────────────────
@@ -172,11 +172,11 @@ async def create_module(
         "access_links": [{
             "id": link["id"],
             "code": link["code"],
-            "expires_at": link["expires_at"].isoformat() + "Z",
+            "expires_at": (link["expires_at"].isoformat() + "Z") if link["expires_at"] else None,
         }],
         # Legacy fields
         "enroll_code": enroll_code,
-        "enroll_code_expires": expires.isoformat() + "Z",
+        "enroll_code_expires": (expires.isoformat() + "Z") if expires else None,
     }
 
 
@@ -199,14 +199,14 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
                 {
                     "id": l["id"],
                     "code": l["code"],
-                    "expires_at": l["expires_at"].isoformat() + "Z",
+                    "expires_at": l["expires_at"].isoformat() + "Z" if l["expires_at"] else None,
                     "created_at": l["created_at"].isoformat() + "Z" if l["created_at"] else None,
                 }
                 for l in links
             ],
             # Legacy: first link as enroll_code for backward compat
             "enroll_code": links[0]["code"] if links else m.get("enroll_code"),
-            "enroll_code_expires": links[0]["expires_at"].isoformat() + "Z" if links else (
+            "enroll_code_expires": (links[0]["expires_at"].isoformat() + "Z" if links[0]["expires_at"] else None) if links else (
                 m["enroll_code_expires"].isoformat() + "Z" if m.get("enroll_code_expires") else None
             ),
             "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
@@ -229,13 +229,13 @@ async def get_module(module_uuid: str, current_user: dict = Depends(get_current_
             {
                 "id": l["id"],
                 "code": l["code"],
-                "expires_at": l["expires_at"].isoformat() + "Z",
+                "expires_at": l["expires_at"].isoformat() + "Z" if l["expires_at"] else None,
                 "created_at": l["created_at"].isoformat() + "Z" if l["created_at"] else None,
             }
             for l in links
         ],
         "enroll_code": links[0]["code"] if links else module.get("enroll_code"),
-        "enroll_code_expires": links[0]["expires_at"].isoformat() + "Z" if links else (
+        "enroll_code_expires": (links[0]["expires_at"].isoformat() + "Z" if links[0]["expires_at"] else None) if links else (
             module["enroll_code_expires"].isoformat() + "Z" if module.get("enroll_code_expires") else None
         ),
         "created_at": module["created_at"].isoformat() + "Z" if module["created_at"] else None,

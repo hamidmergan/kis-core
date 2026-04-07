@@ -16,15 +16,13 @@ import {
   DotsThreeVertical,
   Files,
   Link as LinkIcon,
-  List,
   Plus,
-  SquaresFour,
-  Table,
   Trash,
   X,
 } from "@phosphor-icons/react";
 import HelpTooltip from "@/components/HelpTooltip";
 import IconButton from "@/components/IconButton";
+import Spinner from "@/components/Spinner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -135,14 +133,14 @@ function CreateModuleModal({
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value.slice(0, 100))}
+              onChange={(e) => setTitle(e.target.value.slice(0, 50))}
               required
-              maxLength={100}
+              maxLength={50}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
               style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)", color: "var(--text)" }}
               placeholder="z. B. Einführung in die Informatik"
             />
-            <p className="text-xs text-gray-400 text-right mt-1">{title.length}/100</p>
+            <p className="text-xs text-gray-400 text-right mt-1">{title.length}/50</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
@@ -296,12 +294,21 @@ function AddLinkModal({
 
 function ExpandableText({ children, className = "", clampClass = "", style }: { children: React.ReactNode; className?: string; clampClass?: string; style?: React.CSSProperties }) {
   const [expanded, setExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el) setIsClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [children]);
+
   return (
     <p
-      className={`${className} ${expanded ? "" : clampClass} cursor-pointer`}
+      ref={ref}
+      className={`${className} ${expanded ? "" : clampClass} ${isClamped || expanded ? "cursor-pointer" : ""}`}
       style={style}
-      onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-      title={expanded ? "Klicken zum Einklappen" : "Klicken zum Aufklappen"}
+      onClick={isClamped || expanded ? (e) => { e.stopPropagation(); setExpanded(!expanded); } : undefined}
+      title={isClamped || expanded ? (expanded ? "Klicken zum Einklappen" : "Klicken zum Aufklappen") : undefined}
     >
       {children}
     </p>
@@ -435,246 +442,6 @@ function StatsModal({ moduleUuid, moduleTitle, onClose }: { moduleUuid: string; 
         </div>
       </div>
     </div>
-  );
-}
-
-// ─── Module Card (Lecturer) ───────────────────────────────────────────────────
-
-type ViewMode = "grid" | "list" | "table";
-
-function ModuleCard({
-  module,
-  onToggleActive,
-  onDelete,
-  onLinksChanged,
-  viewMode = "grid",
-}: {
-  module: KiTutorModule;
-  onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
-  onDelete: (uuid: string) => Promise<void>;
-  onLinksChanged: (uuid: string, links: AccessLink[]) => void;
-  viewMode?: ViewMode;
-}) {
-  const [toggling, setToggling] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [showAddLink, setShowAddLink] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
-  const [deletingLink, setDeletingLink] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const links = module.access_links ?? [];
-
-  // Close overflow menu on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
-
-  async function handleToggle(v: boolean) {
-    setToggling(true);
-    await onToggleActive(module.uuid, v);
-    setToggling(false);
-  }
-
-  async function handleDeleteConfirm() {
-    setDeleting(true);
-    await onDelete(module.uuid);
-  }
-
-  async function handleDeleteLinkConfirm() {
-    if (!deleteLinkConfirm) return;
-    setDeletingLink(true);
-    try {
-      const res = await fetch(`/api/ki-tutor/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (res.ok) {
-        onLinksChanged(module.uuid, links.filter((l) => l.id !== deleteLinkConfirm.id));
-      }
-      setDeleteLinkConfirm(null);
-    } finally {
-      setDeletingLink(false);
-    }
-  }
-
-  function handleLinkCreated(newLink: AccessLink) {
-    onLinksChanged(module.uuid, [...links, newLink]);
-  }
-
-  return (
-    <>
-      {showStats && (
-        <StatsModal
-          moduleUuid={module.uuid}
-          moduleTitle={module.title}
-          onClose={() => setShowStats(false)}
-        />
-      )}
-
-      {showAddLink && (
-        <AddLinkModal
-          moduleUuid={module.uuid}
-          onClose={() => setShowAddLink(false)}
-          onCreated={handleLinkCreated}
-        />
-      )}
-
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Modul löschen?</h3>
-            <p className="text-sm text-gray-600 mb-1">
-              <span className="font-medium">{module.title}</span>
-            </p>
-            <p className="text-sm text-red-600 mb-6">
-              Das Modul und alle zugehörigen Daten werden unwiderruflich gelöscht.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteConfirm(false)}
-                disabled={deleting}
-                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleting}
-                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
-              >
-                {deleting ? "..." : "Löschen"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deleteLinkConfirm && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Einschreibelink löschen?</h3>
-            <p className="text-sm text-gray-600 mb-1">
-              <span className="font-medium">...{deleteLinkConfirm.code}</span> – {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
-            </p>
-            <p className="text-sm text-red-600 mb-6">
-              Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteLinkConfirm(null)}
-                disabled={deletingLink}
-                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={handleDeleteLinkConfirm}
-                disabled={deletingLink}
-                className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
-              >
-                {deletingLink ? "..." : "Löschen"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className={`rounded-xl p-5 transition-shadow hover:shadow-md ${viewMode === "grid" ? "flex flex-col" : ""}`} style={{ backgroundColor: "var(--surface)" }}>
-        {/* Row 1: Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className={`flex items-center gap-2.5 min-w-0 ${viewMode === "grid" ? "flex-wrap" : ""}`}>
-            <h3 className="text-base font-semibold truncate" style={{ color: "var(--text)" }}>
-              {module.title}
-            </h3>
-            {/* Active pill */}
-            <button
-              onClick={() => handleToggle(!module.is_active)}
-              disabled={toggling}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap disabled:opacity-50 ${
-                module.is_active
-                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${module.is_active ? "bg-emerald-500" : "bg-gray-400"}`} />
-              {module.is_active ? "Aktiv" : "Inaktiv"}
-            </button>
-            <HelpTooltip text="Wenn aktiv, können sich Studierende mit dem Einschreibelink einschreiben und das Modul nutzen. Klicken zum Umschalten." />
-            {/* Sources pill */}
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 whitespace-nowrap">
-              <Files size={12} />
-              {module.source_count} {module.source_count === 1 ? "Quelle" : "Quellen"}
-            </span>
-          </div>
-
-          {/* Overflow menu */}
-          <div className="relative shrink-0" ref={menuRef}>
-            <IconButton onClick={() => setMenuOpen(!menuOpen)}>
-              <DotsThreeVertical size={16} weight="bold" />
-            </IconButton>
-            {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                <button
-                  onClick={() => { setMenuOpen(false); setShowStats(true); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <ChartBar size={13} />
-                  Statistik
-                </button>
-                <button
-                  onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <Trash size={13} />
-                  Modul löschen
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Row 2: Description */}
-        {module.description && (
-          <ExpandableText className={`text-sm mt-1.5`} style={{ color: "var(--muted)" }} clampClass={viewMode === "grid" ? "line-clamp-2" : ""}>
-            {module.description}
-          </ExpandableText>
-        )}
-
-        {/* Row 3: Access Links */}
-        <div className={`flex flex-col gap-2 mt-3 ${viewMode === "grid" ? "flex-1" : ""}`}>
-          {links.map((link) => (
-            <LinkRow key={link.id} link={link} onRequestDelete={setDeleteLinkConfirm} />
-          ))}
-          <button
-            onClick={() => setShowAddLink(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
-          >
-            <Plus size={12} weight="bold" />
-            Neuen Link erstellen
-          </button>
-        </div>
-
-        {/* Row 4: CTA */}
-        <div className={`flex justify-end mt-3 ${viewMode === "grid" ? "pt-3 border-t border-gray-100" : ""}`}>
-          <Link
-            href={`/ki-tutor/${module.uuid}`}
-            className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium shrink-0 transition-colors hover:opacity-90 border"
-            style={{ backgroundColor: "white", color: "var(--kb)", borderColor: "var(--muted)" }}
-          >
-            Öffnen
-            <ArrowRight size={14} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -861,10 +628,10 @@ function ModuleTable({
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   return (
-    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "var(--surface)" }}>
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
+          <tr className="border-b border-gray-200" style={{ backgroundColor: "var(--surface)" }}>
             <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Modul</th>
             <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Status</th>
             <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Quellen</th>
@@ -888,39 +655,10 @@ function ModuleTable({
   );
 }
 
-function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
-  return (
-    <div className="flex items-center rounded-lg border border-gray-200 p-0.5 bg-gray-50">
-      <button
-        onClick={() => onChange("grid")}
-        className={`p-1.5 rounded-md transition-colors ${mode === "grid" ? "bg-white shadow-sm text-primary" : "text-gray-400 hover:text-gray-600"}`}
-        title="Kachelansicht"
-      >
-        <SquaresFour size={16} />
-      </button>
-      <button
-        onClick={() => onChange("list")}
-        className={`p-1.5 rounded-md transition-colors ${mode === "list" ? "bg-white shadow-sm text-primary" : "text-gray-400 hover:text-gray-600"}`}
-        title="Listenansicht"
-      >
-        <List size={16} />
-      </button>
-      <button
-        onClick={() => onChange("table")}
-        className={`p-1.5 rounded-md transition-colors ${mode === "table" ? "bg-white shadow-sm text-primary" : "text-gray-400 hover:text-gray-600"}`}
-        title="Tabellenansicht"
-      >
-        <Table size={16} />
-      </button>
-    </div>
-  );
-}
-
 function LecturerView() {
   const [modules, setModules] = useState<KiTutorModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const loadModules = useCallback(async () => {
     try {
@@ -994,40 +732,23 @@ function LecturerView() {
             + Neues Modul erstellen
           </button>
         </div>
-        <div className="flex justify-end mt-6">
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
-        </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-        </div>
+        <Spinner size="lg" className="flex items-center justify-center py-20" />
       ) : modules.length === 0 ? (
-        <div className="text-center py-20" style={{ color: "var(--muted)" }}>
+        <div className="flex flex-col items-center justify-center py-20" style={{ color: "var(--muted)" }}>
+          <Files size={40} weight="duotone" className="mb-3 opacity-40" />
           <p className="text-base">Noch keine Module vorhanden.</p>
           <p className="text-sm mt-1">Erstelle dein erstes Modul mit dem Button oben.</p>
         </div>
-      ) : viewMode === "table" ? (
+      ) : (
         <ModuleTable
           modules={modules}
           onToggleActive={handleToggleActive}
           onDelete={handleDelete}
           onLinksChanged={handleLinksChanged}
         />
-      ) : (
-        <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "flex flex-col gap-4"}>
-          {modules.map((m) => (
-            <ModuleCard
-              key={m.uuid}
-              module={m}
-              viewMode={viewMode}
-              onToggleActive={handleToggleActive}
-              onDelete={handleDelete}
-              onLinksChanged={handleLinksChanged}
-            />
-          ))}
-        </div>
       )}
     </>
   );
@@ -1134,9 +855,7 @@ function StudentView() {
 
       {/* Module list */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-        </div>
+        <Spinner size="lg" className="flex items-center justify-center py-20" />
       ) : modules.length === 0 ? (
         <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
           Du bist noch in keinem Modul eingeschrieben.

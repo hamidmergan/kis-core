@@ -6,6 +6,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_IMAGE_BYTES } from "@/lib/constants";
 import BackLink from "@/components/BackLink";
+import Spinner from "@/components/Spinner";
 
 type Tab = "generate" | "edit" | "analyze";
 
@@ -20,14 +21,6 @@ function validateImageFile(file: File): string | null {
   return null;
 }
 
-function Spinner({ label }: { label: string }) {
-  return (
-    <div className="flex justify-center items-center gap-2 mt-6" role="status" aria-live="polite">
-      <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
-      <p className="text-sm text-gray-500 animate-pulse">{label}</p>
-    </div>
-  );
-}
 
 function UploadZone({
   file,
@@ -380,7 +373,7 @@ export default function ImagePage() {
               </button>
             )}
 
-            {genLoading && <Spinner label={genSpinnerLabel} />}
+            {genLoading && <Spinner label={genSpinnerLabel} className="justify-center mt-6" />}
             {genError && <p className="mt-4 text-sm text-red-600" role="alert">{genError}</p>}
             {genResults.length > 0 && (
               <div className="mt-6">
@@ -475,7 +468,7 @@ export default function ImagePage() {
               </button>
             )}
 
-            {editLoading && <Spinner label={editSpinnerLabel} />}
+            {editLoading && <Spinner label={editSpinnerLabel} className="justify-center mt-6" />}
             {editError && <p className="mt-4 text-sm text-red-600" role="alert">{editError}</p>}
             {editResultUrl && (
               <div className="mt-6">
@@ -549,7 +542,7 @@ export default function ImagePage() {
               </button>
             )}
 
-            {analyzeLoading && <Spinner label={analyzeSpinnerLabel} />}
+            {analyzeLoading && <Spinner label={analyzeSpinnerLabel} className="justify-center mt-6" />}
             {analyzeError && <p className="mt-4 text-sm text-red-600" role="alert">{analyzeError}</p>}
             {analyzeResultText && (
               <div className="mt-6">

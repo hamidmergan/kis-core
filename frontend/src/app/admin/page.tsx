@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import { checkAuthStatus } from "@/lib/auth";
+import Spinner from "@/components/Spinner";
 
 type Tab = "pending" | "whitelist" | "users" | "jobs" | "stats" | "ki-tutor" | "settings" | "prompts" | "quota";
 
@@ -81,7 +82,7 @@ function PendingTab() {
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return <Spinner className="flex justify-center py-12" />;
   if (users.length === 0)
     return <p className="text-sm text-gray-400 text-center py-12">Keine ausstehenden Anfragen</p>;
 
@@ -187,7 +188,7 @@ function WhitelistTab({ adminEmail }: { adminEmail: string }) {
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
 
-      {loading ? <Spinner /> : emails.length === 0 ? (
+      {loading ? <Spinner className="flex justify-center py-12" /> : emails.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-8">Whitelist ist leer</p>
       ) : (
         <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
@@ -300,7 +301,7 @@ function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
         </span>
       </div>
 
-      {loading ? <Spinner /> : users.length === 0 ? (
+      {loading ? <Spinner className="flex justify-center py-12" /> : users.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-12">Keine User gefunden</p>
       ) : (
         <div className="overflow-x-auto">
@@ -558,7 +559,7 @@ interface KiTutorStatsData {
 type StatsMode = "quelle" | "glossar";
 const MODE_META: Record<StatsMode, { label: string; accent: string }> = {
   quelle:  { label: "Lerntools",       accent: "var(--kb)" },
-  glossar: { label: "Sprachtraining",  accent: "#0D7C73" },
+  glossar: { label: "Fachsprachentraining",  accent: "var(--st)" },
 };
 
 function KiTutorTab() {
@@ -632,7 +633,7 @@ function KiTutorTab() {
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Chat ({days}T)</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "#0D7C73" }}>{data.summary.total_chat_messages.toLocaleString("de-DE")}</p>
+          <p className="text-2xl font-bold mt-1" style={{ color: "var(--st)" }}>{data.summary.total_chat_messages.toLocaleString("de-DE")}</p>
         </div>
       </div>
 
@@ -696,7 +697,7 @@ function KiTutorTab() {
                                       <td className="px-4 py-2 text-right text-gray-600">{s.answers.toLocaleString("de-DE")}</td>
                                       <td className="px-4 py-2 text-right text-green-600">{s.correct.toLocaleString("de-DE")}</td>
                                       <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>{s.lerntools}</td>
-                                      <td className="px-4 py-2 text-right" style={{ color: "#0D7C73" }}>{s.sprachtraining}</td>
+                                      <td className="px-4 py-2 text-right" style={{ color: "var(--st)" }}>{s.sprachtraining}</td>
                                       <td className="px-4 py-2 text-right text-gray-600">{s.chat_messages}</td>
                                     </tr>
                                   ))}
@@ -813,7 +814,7 @@ function JobsTab() {
       </div>
 
       {/* Table */}
-      {loading ? <Spinner /> : jobs.length === 0 ? (
+      {loading ? <Spinner className="flex justify-center py-12" /> : jobs.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-12">Keine Jobs gefunden</p>
       ) : (
         <div className="overflow-x-auto">
@@ -995,7 +996,7 @@ function GeneralSettingsSection() {
     <ProviderToggle {...props} saving={saving} onToggle={toggle} />
   );
 
-  if (whitelistEnabled === null) return <Spinner />;
+  if (whitelistEnabled === null) return <Spinner className="flex justify-center py-12" />;
 
   return (
     <div className="space-y-4">
@@ -1115,7 +1116,7 @@ function ToolsSettingsSection() {
     }
   };
 
-  if (!tools) return <Spinner />;
+  if (!tools) return <Spinner className="flex justify-center py-12" />;
 
   return (
     <div className="border border-gray-200 rounded-xl bg-white p-5">
@@ -1204,7 +1205,7 @@ function PromptsTab() {
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return <Spinner className="flex justify-center py-12" />;
 
   return (
     <div className="space-y-5">
@@ -1274,13 +1275,6 @@ function SettingsTab() {
   );
 }
 
-function Spinner() {
-  return (
-    <div className="flex justify-center py-12">
-      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-}
 
 // ─── Tab: Kontingente ─────────────────────────────────────────────────────────
 
@@ -1379,7 +1373,7 @@ function QuotaTab({ targetUserId, onConsumed, onBack }: { targetUserId: number |
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return <Spinner className="flex justify-center py-12" />;
 
   if (selectedUser) {
     return (

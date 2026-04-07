@@ -45,10 +45,20 @@
   --kb-dark:  #003350;
   --kb-darker:#00293d;
   --kb60:     #668DA0;
-  --kb20:     #CCD9DF;
+  --kb20:     #EBEDF0;
+
+  /* Sprachtraining purple */
+  --st:       #9333EA;
+  --st-rgb:   147, 51, 234;
+  --st-dark:  #7E22CE;
+  --st-darker:#6B21A8;
+  --st60:     #B07CE8;
+  --st20:     #E9D5FF;
+  --st-today: #C084FC;
 
   --bg:      #ffffff;
   --surface: #F3F4F6;
+  --surface-dim: #EBEDF0;
   --border:  #B8CDD5;
   --text:    #0D1F2D;
   --muted:   #668DA0;
@@ -151,8 +161,4 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
 }
 me-tpc:hover .mm-src-chip {
   opacity: 0.8;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }

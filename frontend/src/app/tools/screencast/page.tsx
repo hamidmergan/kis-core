@@ -10,6 +10,7 @@ import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
 import BackLink from "@/components/BackLink";
+import Spinner from "@/components/Spinner";
 import type {
   ScreencastState,
   ScreencastStep,
@@ -1513,7 +1514,7 @@ function ScreencastPageInner() {
         {/* ── Resume loading ── */}
         {resumeLoading && (
           <section className="animate-[fadeIn_0.2s_ease-out] text-center py-16" role="status" aria-live="polite">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-4" />
+            <Spinner size="lg" className="justify-center mb-4" />
             <p className="text-sm text-gray-700">Screencast wird wiederhergestellt…</p>
           </section>
         )}
@@ -1778,7 +1779,7 @@ function ScreencastPageInner() {
             role="status"
             aria-live="polite"
           >
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-4" />
+            <Spinner size="lg" className="justify-center mb-4" />
             <p className="text-sm text-gray-700 animate-pulse">
               {sourceLang === targetLang
                 ? "Präsentation wird vorbereitet..."
@@ -2044,7 +2045,7 @@ function ScreencastPageInner() {
             role="status"
             aria-live="polite"
           >
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-4" />
+            <Spinner size="lg" className="justify-center mb-4" />
             <p className="text-sm text-gray-700 animate-pulse">
               Sprechskripte werden generiert...
             </p>
@@ -2159,7 +2160,7 @@ function ScreencastPageInner() {
                                 </button>
                               ) : (
                                 <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center">
-                                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                  <Spinner size="sm" />
                                 </div>
                               )}
                             </div>
@@ -2553,7 +2554,7 @@ function ScreencastPageInner() {
             role="status"
             aria-live="polite"
           >
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-4" />
+            <Spinner size="lg" className="justify-center mb-4" />
             <p className="text-sm text-gray-700">
               {renderProgressLabel || "Video wird erstellt..."}
             </p>
@@ -2912,7 +2913,7 @@ function ScreencastPageInner() {
                     style={{ backgroundColor: "var(--kb)" }}
                   >
                     {regenLoading ? (
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                      <Spinner size="sm" color="current" />
                     ) : (
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
                     )}

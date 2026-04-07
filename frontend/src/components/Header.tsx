@@ -49,7 +49,13 @@ export default function Header({ showLogout = false }: HeaderProps) {
 
         {showLogout && (
           <div className="flex items-center gap-1.5">
-            <JobsPanel />
+            <Link
+              href="/ki-tutor"
+              aria-label="Zur Übersicht"
+              className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <House size={18} weight="bold" />
+            </Link>
 
             {role !== "student" && (
               <Link
@@ -62,13 +68,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
               </Link>
             )}
 
-            <Link
-              href="/ki-tutor"
-              aria-label="Zur Übersicht"
-              className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <House size={18} weight="bold" />
-            </Link>
+            <JobsPanel />
 
             {isAdmin && (
               <Link

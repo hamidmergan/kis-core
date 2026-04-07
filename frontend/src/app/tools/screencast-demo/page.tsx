@@ -6,6 +6,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { api, parseDetail } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
 import BackLink from "@/components/BackLink";
+import Spinner from "@/components/Spinner";
 import type {
   ScreencastStep,
   SlideData,
@@ -665,7 +666,7 @@ function ScreencastDemoPageInner() {
         {/* ── Step: Translating ── */}
         {step === "translating" && (
           <section className="animate-[fadeIn_0.3s_ease-out] text-center py-16" role="status" aria-live="polite">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-4" />
+            <Spinner size="lg" className="justify-center mb-4" />
             <p className="text-sm text-gray-700 animate-pulse">Demo wird geladen...</p>
             <p className="text-xs text-gray-400 mt-2">Das kann je nach Dateigröße einige Sekunden dauern.</p>
             <button
@@ -830,7 +831,7 @@ function ScreencastDemoPageInner() {
         {/* ── Step: Generating Scripts ── */}
         {step === "generating-scripts" && (
           <section className="animate-[fadeIn_0.3s_ease-out] text-center py-16" role="status" aria-live="polite">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-4" />
+            <Spinner size="lg" className="justify-center mb-4" />
             <p className="text-sm text-gray-700 animate-pulse">Sprechskripte werden generiert...</p>
             <p className="text-xs text-gray-400 mt-2">Die KI erstellt Skripte für {slides.length} Folien.</p>
             <button
@@ -936,7 +937,7 @@ function ScreencastDemoPageInner() {
                                       <button onClick={closeRegen} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">Abbrechen</button>
                                       <button onClick={() => runRegen(i)} disabled={regenLoading}
                                         className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center gap-1.5">
-                                        {regenLoading && <span className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent shrink-0" />}
+                                        {regenLoading && <Spinner size="xs" color="current" />}
                                         {regenLoading ? "Generiere…" : "Generieren"}
                                       </button>
                                     </div>
@@ -1123,7 +1124,7 @@ function ScreencastDemoPageInner() {
         {/* ── Step: Rendering ── */}
         {step === "rendering" && (
           <section className="animate-[fadeIn_0.3s_ease-out] text-center py-16" role="status" aria-live="polite">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-4" />
+            <Spinner size="lg" className="justify-center mb-4" />
             <p className="text-sm text-gray-700">{renderProgressLabel || "Video wird erstellt..."}</p>
             {!renderProgressLabel && <p className="text-xs text-gray-400 mt-2">Vertonung und Videoproduktion, das kann ein paar Minuten dauern.</p>}
             <button

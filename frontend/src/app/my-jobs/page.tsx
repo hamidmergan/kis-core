@@ -8,6 +8,7 @@ import { getToolConfigByJobTool } from "@/lib/toolConfig";
 import BackLink from "@/components/BackLink";
 import { ArrowsCounterClockwise, DownloadSimple, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/IconButton";
+import Spinner from "@/components/Spinner";
 
 interface MyJob {
   job_uuid: string;
@@ -156,7 +157,7 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
       className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {busy ? (
-        <span className="w-3 h-3 shrink-0 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block" aria-hidden="true" />
+        <Spinner size="sm" />
       ) : (
         <DownloadSimple size={12} weight="bold" className="shrink-0" />
       )}
@@ -192,7 +193,7 @@ function JobArtifacts({ job }: { job: MyJob }) {
           <div className="flex flex-wrap gap-2 items-center">
             {job.is_generating_scripts ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
-                <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block shrink-0" />
+                <Spinner size="sm" />
                 Skripte werden generiert…
               </span>
             ) : (
@@ -245,7 +246,7 @@ function JobArtifacts({ job }: { job: MyJob }) {
         <div className="flex flex-wrap gap-2 items-center">
           {job.is_generating_scripts ? (
             <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
-              <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block shrink-0" />
+              <Spinner size="xs" />
               Skripte werden generiert…
             </span>
           ) : (
@@ -389,8 +390,8 @@ export default function MeineJobsPage() {
   // Reset offset when limit, dates or tool filter change
   useEffect(() => { setOffset(0); }, [limit, dateFrom, dateTo, toolFilter]);
 
-  const fetchJobs = useCallback(async () => {
-    setLoading(true);
+  const fetchJobs = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
         limit: String(limit),
@@ -418,7 +419,7 @@ export default function MeineJobsPage() {
 
   // Refresh when JobsPanel detects a status change (e.g. running→success)
   useEffect(() => {
-    const handler = () => fetchJobs();
+    const handler = () => fetchJobs(true);
     window.addEventListener("kis-jobs-status-changed", handler);
     return () => window.removeEventListener("kis-jobs-status-changed", handler);
   }, [fetchJobs]);
@@ -563,16 +564,14 @@ export default function MeineJobsPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
+          <Spinner className="flex justify-center py-16" />
         ) : jobs.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-16">
             {debouncedQ ? "Keine Ergebnisse für diese Suche" : "Keine Jobs in den letzten 7 Tagen"}
           </p>
         ) : (
           <>
-            <ul className="divide-y divide-gray-200 rounded-xl overflow-hidden" style={{ backgroundColor: "var(--surface)" }}>
+            <ul className="border border-gray-200 divide-y divide-gray-200 rounded-xl overflow-hidden">
               {jobs.map((job) => {
                 const expired = isExpired(job);
                 return (

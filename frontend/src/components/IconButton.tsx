@@ -16,7 +16,7 @@ const IconButton = forwardRef<
       ref={ref}
       type="button"
       className={`${sizeClass} flex items-center justify-center rounded-full hover:opacity-70 transition-opacity flex-shrink-0 ${className}`}
-      style={{ backgroundColor: "var(--kb20)", color: "var(--muted)", ...style }}
+      style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)", ...style }}
       {...props}
     >
       {children}

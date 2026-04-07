@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BackLink from "@/components/BackLink";
+import Spinner from "@/components/Spinner";
 
 interface Voice {
   voice_id: string;
@@ -363,7 +364,7 @@ function StimmenPageInner() {
                   >
                     {loadingKokoroId === voice.voice_id ? (
                       <>
-                        <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block" />
+                        <Spinner size="sm" />
                         Laden…
                       </>
                     ) : playingId === voice.voice_id ? (
@@ -435,7 +436,7 @@ function StimmenPageInner() {
                           >
                             {loadingKokoroId === voice.voice_id ? (
                               <>
-                                <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block" />
+                                <Spinner size="sm" />
                                 Laden…
                               </>
                             ) : playingId === voice.voice_id ? (

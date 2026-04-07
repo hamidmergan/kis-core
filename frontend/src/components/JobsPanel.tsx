@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getToolConfigByJobTool } from "@/lib/toolConfig";
+import Spinner from "@/components/Spinner";
 
 interface MyJob {
   job_uuid: string;
@@ -289,19 +290,16 @@ export default function JobsPanel() {
       <button
         onClick={handleButtonClick}
         onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open("/my-jobs", "_blank"); } }}
-        aria-label="Meine Jobs"
-        className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm text-white/80 hover:text-white rounded-full transition-colors"
-        style={{ backgroundColor: "rgba(255,255,255,0.10)" }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.18)")}
-        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.10)")}
+        aria-label="Aufträge"
+        title="Aufträge"
+        className="relative flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.2} aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round"
             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
-        <span className="text-sm font-medium">Jobs</span>
         {attentionCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-primary text-[9px] font-bold rounded-full flex items-center justify-center shadow">
+          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-white text-primary text-[9px] font-bold rounded-full flex items-center justify-center shadow">
             {attentionCount}
           </span>
         )}
@@ -322,7 +320,7 @@ export default function JobsPanel() {
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-800">Meine Jobs</span>
             {loading && (
-              <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <Spinner size="sm" />
             )}
           </div>
 
@@ -426,12 +424,12 @@ export default function JobsPanel() {
                         <div className="mt-2">
                           {job.is_generating_scripts ? (
                             <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
-                              <span className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block shrink-0" />
+                              <Spinner size="sm" />
                               Skripte werden generiert…
                             </span>
                           ) : (
                             <a
-                              href={job.tool === "screencast_demo_render" ? `/screencast-demo?resume=${job.job_uuid}` : `/screencast?resume=${job.job_uuid}`}
+                              href={job.tool === "screencast_demo_render" ? `/tools/screencast-demo?resume=${job.job_uuid}` : `/tools/screencast?resume=${job.job_uuid}`}
                               onClick={(e) => { e.stopPropagation(); setOpen(false); }}
                               className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
                             >

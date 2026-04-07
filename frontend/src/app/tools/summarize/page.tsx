@@ -6,6 +6,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 import BackLink from "@/components/BackLink";
+import Spinner from "@/components/Spinner";
 
 const ACCEPTED_EXTENSIONS = [".srt", ".vtt", ".txt", ".md", ".pptx", ".docx"];
 const MAX_SIZE_MB = MAX_UPLOAD_MB;
@@ -181,7 +182,7 @@ export default function ZusammenfassungPage() {
                 className="self-start px-5 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {processing && (
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent shrink-0" />
+                  <Spinner size="sm" color="current" />
                 )}
                 {processing ? "Wird verarbeitet…" : "Zusammenfassung erstellen"}
               </button>

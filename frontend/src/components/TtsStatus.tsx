@@ -1,6 +1,7 @@
 "use client";
 
 import type { TTSState } from "@/types";
+import Spinner from "@/components/Spinner";
 
 interface TtsStatusProps {
   state: TTSState;
@@ -23,7 +24,7 @@ export default function TtsStatus({
     <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6" role="status" aria-live="polite">
       {(state === "uploading" || state === "processing") && (
         <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
+          <Spinner />
           <span className="text-sm text-gray-700">
             {state === "uploading" ? "Datei wird hochgeladen..." : "Audio wird generiert..."}
           </span>
