@@ -43,7 +43,7 @@ _TOOL_LABELS = {
     "screencast_render": "Screencast",
     "screencast_translate": "Screencast-Übersetzung",
     "screencast_auto": "Screencast (Auto)",
-    "tts": "Text-to-Speech",
+    "tts": "Text in Sprache",
     "translation": "Übersetzung",
     "transcription": "Transkription",
     "image_generate": "Bild-Generierung",

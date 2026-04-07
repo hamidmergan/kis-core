@@ -162,3 +162,32 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
 me-tpc:hover .mm-src-chip {
   opacity: 0.8;
 }
+
+/* Black tooltip for truncated card titles */
+.kis-tooltip {
+  position: relative;
+}
+.kis-tooltip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  max-width: 240px;
+  width: max-content;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 50;
+}
+.kis-tooltip:hover::after {
+  opacity: 1;
+}

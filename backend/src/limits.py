@@ -10,7 +10,7 @@
 # window_hours: Stunden bis Reset (startet wenn Limit erstmals erreicht wird)
 # label:        Anzeigename für Admin-UI und Fehlermeldungen
 QUOTA_DEFAULTS: dict[str, dict] = {
-    "tts":            {"limit": 20, "window_hours": 4, "label": "Text-to-Speech"},
+    "tts":            {"limit": 20, "window_hours": 4, "label": "Text in Sprache"},
     "summary":        {"limit": 30, "window_hours": 4, "label": "Zusammenfassung"},
     "translate":      {"limit": 30, "window_hours": 4, "label": "Dokumentenübersetzung"},
     "transcription":  {"limit": 30, "window_hours": 4, "label": "Transkription"},

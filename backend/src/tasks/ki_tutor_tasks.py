@@ -892,18 +892,12 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                      "source_label": e.get("filename", ""), "page_number": e.get("page_number")}
                     for e in selected
                 ]
-                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
-                if len(title) > 40:
-                    title = title[:37] + "…"
             elif tool == "karteikarten":
                 items = [
                     {"front": e["term_de"], "back": f"{e['term_en']} — {e['definition']}",
                      "source_label": e.get("filename", ""), "page_number": e.get("page_number")}
                     for e in selected
                 ]
-                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
-                if len(title) > 40:
-                    title = title[:37] + "…"
             elif tool == "lueckentext":
                 terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
                 messages = [
@@ -933,9 +927,6 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                      "page_number": ex.get("page_number")}
                     for ex in exercises
                 ]
-                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
-                if len(title) > 40:
-                    title = title[:37] + "…"
             elif tool == "vokabeltest":
                 terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
                 messages = [
@@ -964,9 +955,24 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                      "page_number": q.get("page_number")}
                     for q in questions
                 ]
-                title = ", ".join(e["term_de"] for e in selected[:3]) + ("…" if len(selected) > 3 else "")
-                if len(title) > 40:
-                    title = title[:37] + "…"
+
+            # Generate a short title via LLM from glossary terms
+            terms_summary = ", ".join(e["term_de"] for e in selected)
+            try:
+                title_resp = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "Gib einen kurzen, prägnanten Titel der das Thema dieser Fachbegriffe zusammenfasst. Antworte NUR mit dem Titel, ohne Anführungszeichen."},
+                        {"role": "user", "content": terms_summary},
+                    ],
+                    temperature=0.3,
+                    max_tokens=80,
+                )
+                title = (title_resp.choices[0].message.content or "").strip().strip('"\'')
+                if not title:
+                    title = ", ".join(e["term_de"] for e in selected)
+            except Exception:
+                title = ", ".join(e["term_de"] for e in selected)
 
         elif mode == "quelle":
             # Support multi-source: prefer source_uuids list, fall back to single source_uuid
@@ -1040,7 +1046,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                      "start_time": _time_map.get((c.get("source_label", first_label), c.get("page_number", 0)))}
                     for c in data.get("cards", [])
                 ]
-                title = data.get("title", multi_label)[:40]
+                title = data.get("title", multi_label)
             elif tool == "karteikarten":
                 prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
@@ -1056,7 +1062,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                      "start_time": _time_map.get((c.get("source_label", first_label), c.get("page_number", 0)))}
                     for c in data.get("cards", [])
                 ]
-                title = data.get("title", multi_label)[:40]
+                title = data.get("title", multi_label)
             else:
                 tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
                 if tool == "lueckentext":
@@ -1154,13 +1160,13 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     title_resp = client.chat.completions.create(
                         model=model,
                         messages=[
-                            {"role": "system", "content": "Gib einen kurzen, prägnanten Titel (max 6 Wörter) für diese Übung. Antworte NUR mit dem Titel, ohne Anführungszeichen."},
+                            {"role": "system", "content": "Gib einen kurzen, prägnanten Titel für diese Übung. Antworte NUR mit dem Titel, ohne Anführungszeichen."},
                             {"role": "user", "content": context[:2000]},
                         ],
                         temperature=0.3,
-                        max_tokens=30,
+                        max_tokens=80,
                     )
-                    title = (title_resp.choices[0].message.content or "").strip().strip('"\'')[:40]
+                    title = (title_resp.choices[0].message.content or "").strip().strip('"\'')
                     if not title:
                         title = multi_label
                 except Exception:

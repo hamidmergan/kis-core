@@ -1881,8 +1881,9 @@ function ExerciseSetsOverview({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     {/* Title + Score */}
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2 mt-0.5" style={{ color: "var(--text)" }}>
-                        {generating ? "Wird generiert…" : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 mt-0.5 kis-tooltip" style={{ color: "var(--text)" }}
+                        data-tip={generating ? undefined : (s.title === "Wird generiert…" ? undefined : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, ""))}>
+                        {generating ? "Wird generiert…" : (s.title === "Wird generiert…" ? (TOOL_LABELS[s.tool] || s.tool) : s.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, ""))}
                       </span>
                       {generating ? (
                         <Spinner size="sm" />
@@ -2067,8 +2068,8 @@ function LernkartenLearnView({
                 <span />
                 {onAskChat && (
                   <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${card.front}"`); }}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all hover:opacity-100"
-                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.08)", opacity: 0.7 }}>
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                     <Lightbulb size={13} weight="bold" /> Tipp
                   </button>
                 )}
@@ -2078,7 +2079,7 @@ function LernkartenLearnView({
             <div style={{
               position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
               borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              padding: "36px 20px", gap: 8,
+              padding: "36px 20px 56px", gap: 8,
               backgroundColor: "var(--kb)",
               boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
             }}>
@@ -2805,7 +2806,7 @@ function DatentabelleStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Table size={16} weight="duotone" style={{ color: "var(--kb)", flexShrink: 0 }} />
-                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
+                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--text)" }} data-tip={item.title}>
                         {item.title}
                       </span>
                     </div>
@@ -3245,7 +3246,7 @@ function MindmapStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <TreeStructure size={16} weight="duotone" style={{ color: "var(--kb)", flexShrink: 0 }} />
-                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--text)" }}>
+                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--text)" }} data-tip={item.topic}>
                         {item.topic}
                       </span>
                     </div>

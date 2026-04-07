@@ -44,8 +44,8 @@ type Tool = { key: string; title: string; description: string; href: string; una
 
 const ALL_TOOLS: Tool[] = [
   { key: "translation",   title: "Translate",      description: "Dokumente in andere Sprachen übersetzen.", href: "/tools/translate" },
-  { key: "tts",           title: "Text-to-Speech", description: "Texte und Dokumente in Audio umwandeln.", href: "/tools/tts" },
-  { key: "transcription", title: "Speech-to-Text", description: "Audio- und Videoinhalte in Text oder Untertitel umwandeln.", href: "/tools/stt" },
+  { key: "tts",           title: "Text in Sprache", description: "Texte und Dokumente in Audio umwandeln.", href: "/tools/tts" },
+  { key: "transcription", title: "Sprache in Text", description: "Audio- und Videoinhalte in Text oder Untertitel umwandeln.", href: "/tools/stt" },
   { key: "image",         title: "Image",          description: "Bilder erstellen, bearbeiten oder analysieren.", href: "/tools/image" },
   { key: "summary",       title: "Summarize",      description: "Dokumente und Medieninhalte zusammenfassen.", href: "/tools/summarize" },
   { key: "glossary",      title: "Glossary",       description: "Begriffslisten für Übersetzungen und Skripte verwalten.", href: "/tools/glossary" },

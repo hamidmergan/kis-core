@@ -519,10 +519,10 @@ export default function MeineJobsPage() {
               className="text-sm px-2 py-2 bg-transparent outline-none text-gray-500 cursor-pointer appearance-none pr-3"
             >
               <option value="">Alle Tools</option>
-              <option value="transcription">Speech-to-Text</option>
+              <option value="transcription">Sprache in Text</option>
               <option value="translation">Translate</option>
               <option value="summary">Summarize</option>
-              <option value="tts">Text-to-Speech</option>
+              <option value="tts">Text in Sprache</option>
               <option value="screencast">Screencast</option>
               <option value="image">Image</option>
             </select>
