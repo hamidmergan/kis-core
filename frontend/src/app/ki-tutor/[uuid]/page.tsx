@@ -599,56 +599,181 @@ function PdfViewer({
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
   const pendingHighlightRef = useRef<{ page: number; text: string } | null>(null);
+  const prevHighlightRef = useRef<{ pageIndex: number; id: string } | null>(null);
 
   function doHighlightSearch(reg: unknown, page: number, text: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = reg as any;
     const scroll = r.getPlugin?.("scroll")?.provides?.();
-    const search = r.getPlugin?.("search")?.provides?.();
     scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant" });
-    if (!search) return;
-    search.stopSearch?.();
 
-    // Strip parenthetical abbreviations, quotes, and special chars that LLM adds
-    const cleanText = text
-      .replace(/\s*\([^)]*\)/g, "")
-      .replace(/[„""«»‹›""'']/g, "")
-      .replace(/^["']|["']$/g, "")
-      .trim();
+    const anno = r.getPlugin?.("annotation")?.provides?.();
+    // Remove previous highlight annotation
+    if (prevHighlightRef.current && anno) {
+      try { anno.deleteAnnotation(prevHighlightRef.current.pageIndex, prevHighlightRef.current.id); } catch { /* ignore */ }
+      prevHighlightRef.current = null;
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const goToFirstOnPage = (results: any[], p: number) => {
+    if (!text?.trim() || !anno) { console.log("[HL] abort: no text or no anno plugin", { text: text?.slice(0, 30), anno: !!anno }); return; }
+
+    const engine = r.getEngine?.();
+    const docMgr = r.getPlugin?.("document-manager")?.provides?.();
+    const selection = r.getPlugin?.("selection")?.provides?.();
+    console.log("[HL] plugins:", { engine: !!engine, docMgr: !!docMgr, selection: !!selection });
+    if (!engine || !docMgr) return;
+
+    const doc = docMgr.getActiveDocument?.();
+    console.log("[HL] doc:", { doc: !!doc, pages: doc?.pages?.length });
+    if (!doc) return;
+
+    const pageIndex = page - 1;
+    const pageObj = doc.pages?.[pageIndex];
+    console.log("[HL] pageObj:", { pageIndex, pageObj: !!pageObj });
+    if (!pageObj) return;
+
+    // Get geometry (from selection cache or engine)
+    const cachedGeo = selection?.getState?.()?.geometry?.[pageIndex];
+    const geoPromise: Promise<unknown> = cachedGeo
+      ? Promise.resolve(cachedGeo)
+      : (engine.getPageGeometry?.(doc, pageObj)?.toPromise?.() ?? Promise.resolve(null));
+
+    geoPromise.then((geo: unknown) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pageOf = (rr: any) => rr.pageIndex != null ? rr.pageIndex + 1 : (rr.pageNumber ?? 1);
-      const exact = results.findIndex(rr => pageOf(rr) === p);
-      search.goToResult?.(exact >= 0 ? exact : 0);
-    };
+      const g = geo as any;
+      console.log("[HL] geometry:", { hasRuns: !!g?.runs?.length, runCount: g?.runs?.length });
+      if (!g?.runs?.length) return;
 
-    const doSearch = (q: string): Promise<boolean> => {
-      search.stopSearch?.();
-      const task = search.searchAllPages?.(q);
-      const promise: Promise<unknown> = task?.toPromise?.() ?? Promise.resolve(null);
-      return promise.then((result: unknown) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const lastRun = g.runs[g.runs.length - 1] as any;
+      const totalChars = lastRun.charStart + lastRun.glyphs.length;
+      if (totalChars === 0) return;
+
+      const sliceTask = engine.getTextSlices?.(doc, [{ pageIndex, charIndex: 0, charCount: totalChars }]);
+      const slicePromise: Promise<unknown> = sliceTask?.toPromise?.() ?? Promise.resolve(null);
+
+      return slicePromise.then((slices: unknown) => {
+        const arr = slices as string[] | null;
+        if (!arr?.[0]) return;
+        const pageText = arr[0];
+
+        // Normalize text: keep only letters, digits, spaces — strip everything else
+        const stripToCore = (s: string): { text: string; map: number[] } => {
+          const out: string[] = [];
+          const map: number[] = [];
+          for (let i = 0; i < s.length; i++) {
+            // Dehyphenation: '-' + '\n' between letters → skip both
+            if (s[i] === "-" && s[i + 1] === "\n" &&
+                i > 0 && /\p{L}/u.test(s[i - 1]) && i + 2 < s.length && /\p{L}/u.test(s[i + 2])) {
+              i++; continue;
+            }
+            const ch = s[i];
+            if (ch === "\n" || ch === "\r") {
+              if (out.length > 0 && out[out.length - 1] !== " ") { out.push(" "); map.push(i); }
+              continue;
+            }
+            // Keep letters, digits, spaces only
+            if (/[\p{L}\p{N} ]/u.test(ch)) {
+              if (ch === " " && out.length > 0 && out[out.length - 1] === " ") continue;
+              out.push(ch); map.push(i);
+            }
+            // Everything else (quotes, punctuation, symbols) → skip
+          }
+          return { text: out.join(""), map };
+        };
+
+        const { text: normalized, map: mapping } = stripToCore(pageText);
+        const { text: searchText } = stripToCore(text);
+
+        const matchPos = normalized.toLowerCase().indexOf(searchText.toLowerCase());
+        if (matchPos === -1) return;
+
+        const origStart = mapping[matchPos];
+        // Find end position by searching for the last few words separately in the page text
+        // This avoids character-count drift from stripped symbols
+        const searchWords = searchText.split(/\s+/);
+        const lastWords = searchWords.slice(-3).join(" ").toLowerCase();
+        // Only search within ~110% of expected range to avoid matching elsewhere
+        const maxEnd = Math.min(matchPos + Math.ceil(searchText.length * 1.1), normalized.length);
+        const searchSlice = normalized.toLowerCase().slice(matchPos, maxEnd);
+        const tailInSlice = searchSlice.lastIndexOf(lastWords);
+        const tailPos = tailInSlice >= 0 ? matchPos + tailInSlice : -1;
+        let origEnd: number;
+        if (tailPos >= 0) {
+          origEnd = mapping[Math.min(tailPos + lastWords.length - 1, mapping.length - 1)];
+        } else {
+          origEnd = mapping[Math.min(matchPos + searchText.length - 1, mapping.length - 1)];
+        }
+        // Extend to include trailing punctuation
+        while (origEnd + 1 < pageText.length && /[.,;:!?)}\]\-]/.test(pageText[origEnd + 1])) origEnd++;
+
+        // Use RUN rects directly — find all runs that overlap with [origStart, origEnd]
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const results: any[] = Array.isArray(result) ? result : ((result as any)?.results ?? []);
-        if (results.length > 0) { goToFirstOnPage(results, page); return true; }
-        return false;
-      });
-    };
+        const runs = g.runs as any[];
+        const segmentRects: { origin: { x: number; y: number }; size: { width: number; height: number } }[] = [];
 
-    const query = cleanText || text;
-    const words = query.split(/\s+/);
-    const longest = words.length > 1 ? [...words].sort((a, b) => b.length - a.length)[0] : "";
-    doSearch(query).then((found) => {
-      if (found) return;
-      // Fallback: first 2 words (handles hyphenated line breaks in PDFs)
-      if (words.length > 2) return doSearch(words.slice(0, 2).join(" "));
-      if (words.length > 1) return doSearch(words[0]);
-    }).then((found) => {
-      if (found) return;
-      // Last resort: longest single word
-      if (longest.length >= 4) return doSearch(longest);
-    }).catch(() => { /* ignore */ });
+        for (const run of runs) {
+          const runEnd = run.charStart + run.glyphs.length - 1;
+          // Check if this run overlaps with our character range
+          if (runEnd < origStart || run.charStart > origEnd) continue;
+          // Use the run's bounding rect directly
+          const r = run.rect;
+          if (r && r.width > 0 && r.height > 0) {
+            // If run partially overlaps, clip to the overlapping glyphs
+            const clipStart = Math.max(0, origStart - run.charStart);
+            const clipEnd = Math.min(run.glyphs.length - 1, origEnd - run.charStart);
+            const firstGlyph = run.glyphs[clipStart];
+            const lastGlyph = run.glyphs[clipEnd];
+            const x1 = firstGlyph.x;
+            const x2 = lastGlyph.x + lastGlyph.width;
+            segmentRects.push({
+              origin: { x: x1, y: r.y },
+              size: { width: x2 - x1, height: r.height },
+            });
+          }
+        }
+
+        // Merge segments on the same visual line
+        const merged: typeof segmentRects = [];
+        for (const sr of segmentRects) {
+          const prev = merged[merged.length - 1];
+          if (prev && Math.abs(sr.origin.y - prev.origin.y) < prev.size.height * 0.6) {
+            const minX = Math.min(prev.origin.x, sr.origin.x);
+            const maxX = Math.max(prev.origin.x + prev.size.width, sr.origin.x + sr.size.width);
+            const minY = Math.min(prev.origin.y, sr.origin.y);
+            const maxY = Math.max(prev.origin.y + prev.size.height, sr.origin.y + sr.size.height);
+            merged[merged.length - 1] = { origin: { x: minX, y: minY }, size: { width: maxX - minX, height: maxY - minY } };
+          } else {
+            merged.push({ ...sr });
+          }
+        }
+        const finalSegments = merged.length > 0 ? merged : segmentRects;
+        console.log("[HL] segments:", finalSegments.length);
+        if (finalSegments.length === 0) return;
+
+        const bMinX = Math.min(...finalSegments.map(sr => sr.origin.x));
+        const bMinY = Math.min(...finalSegments.map(sr => sr.origin.y));
+        const bMaxX = Math.max(...finalSegments.map(sr => sr.origin.x + sr.size.width));
+        const bMaxY = Math.max(...finalSegments.map(sr => sr.origin.y + sr.size.height));
+
+        const boundingRect = { origin: { x: bMinX - 2, y: bMinY - 2 }, size: { width: bMaxX - bMinX + 4, height: bMaxY - bMinY + 4 } };
+        const highlightId = `kis-hl-${Date.now()}`;
+        // Use timeout to ensure page is fully rendered before adding annotation
+        setTimeout(() => {
+          anno.createAnnotation(pageIndex, {
+            id: highlightId,
+            type: 9, // HIGHLIGHT
+            pageIndex,
+            rect: boundingRect,
+            segmentRects: finalSegments,
+            opacity: 0.35,
+            strokeColor: "#FFFF00",
+          });
+          prevHighlightRef.current = { pageIndex, id: highlightId };
+          console.log("[HL] created annotation", highlightId, "segments:", segmentRects.length);
+        }, 300);
+        console.log("[HL] created annotation", highlightId);
+      });
+    }).catch((err) => { console.error("[HL] error:", err); });
   }
 
   useEffect(() => {

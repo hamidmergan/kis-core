@@ -748,7 +748,7 @@ Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
 Regeln:
 - Extrahiere 10-20 Fachbegriffe (die wichtigsten und häufigsten)
 - Nur echte Fachbegriffe, keine allgemeinen Wörter
-- term_de: Der Fachbegriff so wie er im Quelltext steht
+- KRITISCH für term_de: Der Begriff muss WÖRTLICH als zusammenhängendes Wort oder Phrase im Text vorkommen. Wenn der Text "in den deutschen Arbeitsmarkt zu integrieren" sagt, darfst du NICHT "Arbeitsmarktintegration" daraus machen. Nimm stattdessen "Arbeitsmarkt" oder lass es weg. Erfinde KEINE Komposita oder Nominalisierungen die nicht exakt so im Text stehen.
 - term_en: Wenn der Quelltext NICHT auf Englisch ist, übersetze den Begriff ins Englische. Wenn der Quelltext auf Englisch ist, übersetze den Begriff ins Deutsche. Niemals die gleiche Sprache wie term_de verwenden!
 - definition: Einfache Erklärung auf Deutsch, verständlich auf B1-Sprachniveau
 - definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
@@ -823,6 +823,10 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         if not isinstance(entries_raw, list):
             logger.error("KI Tutor: glossary generation — expected JSON array")
             return
+
+        # Validate: term must appear verbatim in source text
+        context_lower = context.lower()
+        entries_raw = [e for e in entries_raw if e.get("term_de", "").strip().lower() in context_lower]
 
         # Deduplicate: skip terms that already exist
         existing = db.get_ki_tutor_glossary_by_module(module_id)

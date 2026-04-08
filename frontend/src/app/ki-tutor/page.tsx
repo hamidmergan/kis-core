@@ -540,8 +540,8 @@ function ModuleTableRow({
         </div>
       )}
 
-      {/* Main row */}
-      <tr className="hover:bg-gray-50 transition-colors">
+      {/* Desktop: table row */}
+      <tr className="hover:bg-gray-50 transition-colors hidden md:table-row">
         <td className="px-4 py-3 cursor-pointer select-none" onClick={() => setExpanded(!expanded)}>
           <div className="flex items-center gap-2">
             <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); setExpanded(!expanded); }}>
@@ -590,9 +590,9 @@ function ModuleTableRow({
         </td>
       </tr>
 
-      {/* Expanded row: links */}
+      {/* Desktop: expanded row */}
       {expanded && (
-        <tr>
+        <tr className="hidden md:table-row">
           <td colSpan={5} className="px-4 py-3" style={{ backgroundColor: "var(--surface)" }}>
             <div className="pl-6 flex flex-col gap-2">
               {module.description && (
@@ -616,6 +616,169 @@ function ModuleTableRow({
   );
 }
 
+// ─── Mobile Module Card ──────────────────────────────────────────────────────
+
+function ModuleCard({
+  module,
+  onToggleActive,
+  onDelete,
+  onLinksChanged,
+}: {
+  module: KiTutorModule;
+  onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
+  onDelete: (uuid: string) => Promise<void>;
+  onLinksChanged: (uuid: string, links: AccessLink[]) => void;
+}) {
+  const [toggling, setToggling] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showAddLink, setShowAddLink] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
+  const [deletingLink, setDeletingLink] = useState(false);
+
+  const links = module.access_links ?? [];
+
+  async function handleToggle(newVal: boolean) {
+    setToggling(true);
+    await onToggleActive(module.uuid, newVal);
+    setToggling(false);
+  }
+
+  async function handleDeleteConfirm() {
+    setDeleting(true);
+    await onDelete(module.uuid);
+    setDeleteConfirm(false);
+    setDeleting(false);
+  }
+
+  async function handleDeleteLinkConfirm() {
+    if (!deleteLinkConfirm) return;
+    setDeletingLink(true);
+    try {
+      const res = await fetch(`/api/ki-tutor/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        onLinksChanged(module.uuid, links.filter((l) => l.id !== deleteLinkConfirm.id));
+      }
+      setDeleteLinkConfirm(null);
+    } finally {
+      setDeletingLink(false);
+    }
+  }
+
+  return (
+    <>
+      {showStats && (
+        <StatsModal moduleUuid={module.uuid} moduleTitle={module.title} onClose={() => setShowStats(false)} />
+      )}
+      {showAddLink && (
+        <AddLinkModal moduleUuid={module.uuid} onClose={() => setShowAddLink(false)} onCreated={(newLink) => onLinksChanged(module.uuid, [...links, newLink])} />
+      )}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Modul löschen?</h3>
+            <p className="text-sm text-gray-600 mb-1"><span className="font-medium">{module.title}</span></p>
+            <p className="text-sm text-red-600 mb-6">Das Modul und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setDeleteConfirm(false)} disabled={deleting} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
+              <button onClick={handleDeleteConfirm} disabled={deleting} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteLinkConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Einschreibelink löschen?</h3>
+            <p className="text-sm text-gray-600 mb-1">
+              <span className="font-medium">...{deleteLinkConfirm.code}</span> – {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
+            </p>
+            <p className="text-sm text-red-600 mb-6">Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setDeleteLinkConfirm(null)} disabled={deletingLink} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
+              <button onClick={handleDeleteLinkConfirm} disabled={deletingLink} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deletingLink ? "..." : "Löschen"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        {/* Title + Status + Open */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="font-medium text-gray-900 text-sm truncate">{module.title}</div>
+            <div className="flex items-center gap-2 mt-1.5">
+              <button
+                onClick={() => handleToggle(!module.is_active)}
+                disabled={toggling}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap disabled:opacity-50 ${
+                  module.is_active
+                    ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${module.is_active ? "bg-emerald-500" : "bg-gray-400"}`} />
+                {module.is_active ? "Aktiv" : "Inaktiv"}
+              </button>
+              <span className="text-xs text-gray-400">{module.source_count} Quellen</span>
+              <span className="text-xs text-gray-400">{links.length} Links</span>
+            </div>
+          </div>
+          <Link
+            href={`/ki-tutor/${module.uuid}`}
+            className="group inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-90 border flex-shrink-0"
+            style={{ backgroundColor: "white", color: "var(--kb)", borderColor: "var(--muted)" }}
+          >
+            Öffnen
+            <ArrowRight size={12} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+
+        {/* Actions row */}
+        <div className="flex items-center gap-2 mt-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <IconButton onClick={() => setShowStats(true)} title="Statistik">
+            <ChartBar size={13} />
+          </IconButton>
+          <IconButton onClick={() => setDeleteConfirm(true)} title="Löschen">
+            <Trash size={13} />
+          </IconButton>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors ml-auto"
+          >
+            <CaretRight size={11} weight="bold" className={`transition-transform ${expanded ? "rotate-90" : ""}`} />
+            Links
+          </button>
+        </div>
+
+        {/* Expanded: links */}
+        {expanded && (
+          <div className="flex flex-col gap-2 mt-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+            {module.description && (
+              <p className="text-xs text-gray-400">{module.description}</p>
+            )}
+            {links.map((link) => (
+              <LinkRow key={link.id} link={link} onRequestDelete={setDeleteLinkConfirm} />
+            ))}
+            <button
+              onClick={() => setShowAddLink(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
+            >
+              <Plus size={12} weight="bold" />
+              Neuen Link erstellen
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 function ModuleTable({
   modules,
   onToggleActive,
@@ -628,30 +791,46 @@ function ModuleTable({
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-200" style={{ backgroundColor: "var(--surface)" }}>
-            <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Modul</th>
-            <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Status</th>
-            <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Quellen</th>
-            <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Links</th>
-            <th className="text-right px-4 py-2.5 font-medium text-gray-500 text-xs"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {modules.map((m) => (
-            <ModuleTableRow
-              key={m.uuid}
-              module={m}
-              onToggleActive={onToggleActive}
-              onDelete={onDelete}
-              onLinksChanged={onLinksChanged}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {/* Desktop: table */}
+      <div className="border border-gray-200 rounded-xl overflow-hidden hidden md:block">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200" style={{ backgroundColor: "var(--surface)" }}>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Modul</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Status</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Quellen</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Links</th>
+              <th className="text-right px-4 py-2.5 font-medium text-gray-500 text-xs"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {modules.map((m) => (
+              <ModuleTableRow
+                key={m.uuid}
+                module={m}
+                onToggleActive={onToggleActive}
+                onDelete={onDelete}
+                onLinksChanged={onLinksChanged}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile: cards */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {modules.map((m) => (
+          <ModuleCard
+            key={m.uuid}
+            module={m}
+            onToggleActive={onToggleActive}
+            onDelete={onDelete}
+            onLinksChanged={onLinksChanged}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
