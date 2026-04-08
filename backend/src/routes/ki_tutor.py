@@ -1396,7 +1396,7 @@ Antworte NUR mit einem JSON-Array:
 Regeln:
 - Nur echte Fachbegriffe extrahieren — KEINE allgemeinen Wörter (und, oder, ist, der, die, das, er, sie, es, etc.)
 - Keine Füllwörter, Pronomen, Artikel, Konjunktionen oder Präpositionen
-- term_de: Der Fachbegriff so wie er im Quelltext steht
+- KRITISCH für term_de: Der Begriff muss WÖRTLICH als zusammenhängendes Wort oder Phrase im Text vorkommen. Wenn der Text "in den deutschen Arbeitsmarkt zu integrieren" sagt, darfst du NICHT "Arbeitsmarktintegration" daraus machen. Nimm stattdessen "Arbeitsmarkt" oder lass es weg. Erfinde KEINE Komposita oder Nominalisierungen die nicht exakt so im Text stehen.
 - term_en: Wenn der Quelltext NICHT auf Englisch ist, übersetze ins Englische. Wenn der Quelltext auf Englisch ist, übersetze ins Deutsche. Niemals die gleiche Sprache wie term_de!
 - definition: Einfache Erklärung auf Deutsch, verständlich auf B1-Sprachniveau
 - definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
@@ -1467,13 +1467,17 @@ async def extract_glossary_from_selection(
         if not isinstance(terms, list):
             return {"added": 0, "message": "Keine Fachbegriffe erkannt."}
 
-        # Filter duplicates and limit
+        # Filter: must appear in source text, no duplicates
+        text_lower = text.lower()
         remaining_slots = GLOSSARY_LIMIT - current_count
         new_entries = []
         for t in terms[:5]:
             if not t.get("term_de"):
                 continue
-            if t["term_de"].lower() in existing_terms:
+            term = t["term_de"]
+            if term.lower() not in text_lower:
+                continue
+            if term.lower() in existing_terms:
                 continue
             new_entries.append({
                 "term_de": t["term_de"],

@@ -9,7 +9,11 @@ if "%1"=="down" (
     docker compose %COMPOSE_FILES% %PROFILES% down
     docker compose %COMPOSE_FILES% %PROFILES% up -d --build
     docker image prune -f
+    docker volume prune -f
+    docker builder prune -f
 ) else (
     docker compose %COMPOSE_FILES% %PROFILES% up -d --build
     docker image prune -f
+    docker volume prune -f
+    docker builder prune -f
 )
