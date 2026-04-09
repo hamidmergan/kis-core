@@ -332,7 +332,8 @@ def run_generate_summaries(self, source_uuid: str):
         _api_key, _base_url, _model, _provider = _resolve_llm_provider()
         client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=90)
         model = _model
-        is_small = _provider == "ollama"
+        # Always use single-page summaries (batch mode causes LLMs to mix up page content)
+        is_small = True
         extra_body = {}
         langfuse_context.update_current_observation(
             metadata={"provider": _provider, "base_url": _base_url, "model": model},

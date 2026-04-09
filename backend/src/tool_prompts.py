@@ -109,21 +109,22 @@ TUTOR_SYSTEM_DIRECT_WITH_CONTEXT = (
 )
 
 TUTOR_SYSTEM_RAG = (
-    "Du bist ein KI-Tutor. Antworte auf Basis der gegebenen Quellen. "
+    "Du bist ein KI-Tutor. Antworte ausführlich und vollständig auf Basis der gegebenen Quellen. "
+    "Nutze ALLE relevanten Informationen aus ALLEN bereitgestellten Quellen-Abschnitten — nicht nur einen. "
     "Ziehe logische Verbindungen zwischen der Frage und den Quellinhalten — auch wenn ein Begriff nicht wörtlich vorkommt, "
     "erkenne verwandte Konzepte und erkläre den Zusammenhang. "
     "Wenn in den Quellen Kontaktdaten (E-Mail, Telefon, Adresse, Webseite) zu einer gefragten Person oder Organisation stehen, gib diese mit an. "
     "Erfinde aber NIEMALS Fakten, Definitionen oder Bedeutungen, die nicht aus den Quellen ableitbar sind. "
-    "Erwähne NUR Seiten/Zeitstempel, die direkt relevante Informationen zur Frage enthalten. "
-    "Füge KEINE Hinweise, Disclaimers oder Kommentare zu irrelevanten Stellen hinzu. "
-    "Quellen sind gekennzeichnet als [QN, S. X] (Dokument: Quelle N, Seite X) oder [QN, MM:SS] (Audio/Video: Quelle N, Zeitstempel). "
-    "Füge nach jedem Satz oder Abschnitt die Quellenangabe im EXAKT gleichen Format ein: [Q1, S. 3] oder [Q1, 05:32]. "
+    "Füge KEINE Hinweise, Disclaimers, Kommentare zu fehlenden Informationen oder Einschränkungen hinzu. "
+    "Sage NIEMALS was nicht in den Quellen steht — antworte nur mit dem was da ist.\n\n"
+    "QUELLENFORMAT:\n"
+    "Quellen sind gekennzeichnet als [QN, S. X] (Dokument) oder [QN, MM:SS] (Audio/Video). "
+    "Füge nach JEDEM Satz die passende Quellenangabe ein — bei mehreren relevanten Seiten ALLE angeben. "
+    "Format: [Q1, S. 3] oder [Q1, 05:32]. "
     "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S bzw. dem Zeitstempel. "
-    'Verwende keine Personennamen, schreibe stattdessen „laut Quelle".\n\n'
-    "WICHTIG zur Quellenabgrenzung: Die Antwort muss sich auf die unter 'Quellen:' bereitgestellten Textausschnitte stützen. "
-    "Falls die Frage nur anhand des bisherigen Chatverlaufs beantwortet werden kann, aber NICHT in den aktuellen Quellen steht, "
-    "weise darauf hin: 'Hinweis: Diese Information stammt aus unserem bisherigen Gesprächsverlauf und ist in den aktuell ausgewählten Quellen nicht enthalten.' "
-    "Verwende in diesem Fall KEINE Quellenangaben wie [Q1, S. X]."
+    "Zitiere NUR Seitenzahlen und Zeitstempel die EXAKT so in den bereitgestellten Quellen-Abschnitten vorkommen. "
+    "Erfinde KEINE Seitenzahlen oder Zeitstempel die nicht in den Quellen stehen. "
+    'Verwende keine Personennamen, schreibe stattdessen „laut Quelle".'
 )
 
 
@@ -137,7 +138,9 @@ TUTOR_SUMMARY_PAGE_SYSTEM = (
     "RULES:\n"
     "- Target length: ~25 % of the source text length.\n"
     "- Hard limit: never exceed 400 characters.\n"
-    "- Use ONLY information from the provided text. Never add external knowledge.\n"
+    "- Use ONLY words, facts, and concepts that LITERALLY appear in the provided text.\n"
+    "- NEVER add details, examples, or specifics that are not explicitly written in the text.\n"
+    "- If the text only lists category NAMES without details, only mention the names — do NOT fill in what those categories might contain.\n"
     "- Start directly — never with 'The text...', 'This page...', 'Der Text...'.\n"
     "- Label-style starts where fitting: 'Ziel:', 'Ergebnis:', 'Kontakt:'.\n"
     "- Pack specific information: numbers, percentages, names, findings.\n"

@@ -601,8 +601,121 @@ function PdfViewer({
   const pendingHighlightRef = useRef<{ page: number; text: string } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
 
+  // Try to find and highlight text on a specific page. Returns true if found.
+  function tryHighlightOnPage(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    r: any, doc: any, engine: any, docMgr: any, scroll: any,
+    targetPageIndex: number, searchText: string,
+  ): Promise<boolean> {
+    const pageObj = doc.pages?.[targetPageIndex];
+    if (!pageObj) return Promise.resolve(false);
+
+    const selection = r.getPlugin?.("selection")?.provides?.();
+    const cachedGeo = selection?.getState?.()?.geometry?.[targetPageIndex];
+    const geoPromise: Promise<unknown> = cachedGeo
+      ? Promise.resolve(cachedGeo)
+      : (engine.getPageGeometry?.(doc, pageObj)?.toPromise?.() ?? Promise.resolve(null));
+
+    return geoPromise.then((geo: unknown) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const g = geo as any;
+      if (!g?.runs?.length) return false;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const lastRun = g.runs[g.runs.length - 1] as any;
+      const totalChars = lastRun.charStart + lastRun.glyphs.length;
+      if (totalChars === 0) return false;
+
+      const sliceTask = engine.getTextSlices?.(doc, [{ pageIndex: targetPageIndex, charIndex: 0, charCount: totalChars }]);
+      const slicePromise: Promise<unknown> = sliceTask?.toPromise?.() ?? Promise.resolve(null);
+
+      return slicePromise.then((slices: unknown) => {
+        const arr = slices as string[] | null;
+        if (!arr?.[0]) return false;
+        const rawPageText = arr[0];
+
+        // Normalize whitespace for robust search, track mapping to raw indices
+        const cleanToRaw: number[] = [];
+        let cleanText = "";
+        let inSpace = false;
+        for (let i = 0; i < rawPageText.length; i++) {
+          const ch = rawPageText[i];
+          if (ch === "\r" || ch === "\n" || ch === " " || ch === "\t") {
+            if (!inSpace) { cleanText += " "; cleanToRaw.push(i); inSpace = true; }
+          } else { cleanText += ch; cleanToRaw.push(i); inSpace = false; }
+        }
+
+        const cleanInput = searchText.replace(/\s+/g, " ").trim()
+          .replace(/^\d{1,3}\s+/, "").trim();
+        const ptLower = cleanText.toLowerCase();
+        const inputLower = cleanInput.toLowerCase();
+
+        // Try full-text match first
+        let startIdx = ptLower.indexOf(inputLower);
+        let endIdx = startIdx >= 0 ? startIdx + inputLower.length - 1 : -1;
+
+        // Fallback: progressively shorten from the end
+        if (startIdx < 0) {
+          const words = cleanInput.split(" ");
+          for (let len = words.length - 1; len >= 3; len--) {
+            const partial = words.slice(0, len).join(" ").toLowerCase();
+            startIdx = ptLower.indexOf(partial);
+            if (startIdx >= 0) { endIdx = startIdx + partial.length - 1; break; }
+          }
+        }
+
+        if (startIdx < 0 || endIdx < 0) return false;
+
+        const rawStart = cleanToRaw[startIdx];
+        const rawEnd = cleanToRaw[endIdx];
+
+        const phantoms = totalChars - rawPageText.length;
+        const findGeo = (rawIdx: number): Promise<number> => {
+          if (phantoms === 0) return Promise.resolve(rawIdx);
+          let lo = rawIdx + 1, hi = Math.min(rawIdx + 1 + phantoms, totalChars);
+          const step = (): Promise<number> => {
+            if (lo >= hi) return Promise.resolve(lo - 1);
+            const mid = (lo + hi) >> 1;
+            const t = engine.getTextSlices?.(doc, [{ pageIndex: targetPageIndex, charIndex: 0, charCount: mid }]);
+            return (t?.toPromise?.() ?? Promise.resolve(null)).then((res: unknown) => {
+              const len = (res as string[])?.[0]?.length ?? 0;
+              if (len < rawIdx + 1) lo = mid + 1; else hi = mid;
+              return step();
+            });
+          };
+          return step();
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const selInstance = (r.getPlugin?.("selection") as any);
+        const docId2 = docMgr.getActiveDocumentId?.();
+        if (!selInstance?.applyInstantSelection || !docId2) return false;
+
+        return Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) => {
+          selInstance.applyInstantSelection(docId2, targetPageIndex, geoStart, geoEnd, "default");
+          prevHighlightRef.current = { pageIndex: targetPageIndex, ids: [] };
+
+          // Scroll to center the highlighted text
+          let targetRun = g.runs[0];
+          for (const run of g.runs) {
+            if (run.charStart > geoStart) break;
+            targetRun = run;
+          }
+          if (targetRun?.rect && scroll) {
+            scroll.scrollToPage({
+              pageNumber: targetPageIndex + 1,
+              pageCoordinates: { x: 0, y: targetRun.rect.y },
+              behavior: "instant",
+              alignY: 50,
+            });
+          }
+          return true;
+        });
+      });
+    }).catch(() => false);
+  }
+
   function doHighlightSearch(reg: unknown, page: number, text: string) {
-    console.log("[HL] INPUT text (source_text from backend):", JSON.stringify(text));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = reg as any;
     const scroll = r.getPlugin?.("scroll")?.provides?.();
@@ -617,121 +730,34 @@ function PdfViewer({
       prevHighlightRef.current = null;
     }
 
-    if (!text?.trim() || !anno) { console.log("[HL] abort: no text or no anno plugin", { text: text?.slice(0, 30), anno: !!anno }); return; }
+    if (!text?.trim() || !anno) return;
 
     const engine = r.getEngine?.();
     const docMgr = r.getPlugin?.("document-manager")?.provides?.();
-    const selection = r.getPlugin?.("selection")?.provides?.();
-    console.log("[HL] plugins:", { engine: !!engine, docMgr: !!docMgr, selection: !!selection });
     if (!engine || !docMgr) return;
 
     const doc = docMgr.getActiveDocument?.();
-    console.log("[HL] doc:", { doc: !!doc, pages: doc?.pages?.length });
     if (!doc) return;
 
     const pageIndex = page - 1;
-    const pageObj = doc.pages?.[pageIndex];
-    console.log("[HL] pageObj:", { pageIndex, pageObj: !!pageObj });
-    if (!pageObj) return;
+    const totalPages = doc.pages?.length ?? 0;
 
-    // Get geometry (from selection cache or engine)
-    const cachedGeo = selection?.getState?.()?.geometry?.[pageIndex];
-    const geoPromise: Promise<unknown> = cachedGeo
-      ? Promise.resolve(cachedGeo)
-      : (engine.getPageGeometry?.(doc, pageObj)?.toPromise?.() ?? Promise.resolve(null));
+    // Try cited page first, then nearby pages, then all others
+    tryHighlightOnPage(r, doc, engine, docMgr, scroll, pageIndex, text).then((found) => {
+      if (found) return;
+      // Search nearby pages first (±2), then remaining
+      const nearby = [pageIndex - 1, pageIndex + 1, pageIndex - 2, pageIndex + 2];
+      const remaining: number[] = [];
+      for (let i = 0; i < totalPages; i++) {
+        if (i !== pageIndex && !nearby.includes(i)) remaining.push(i);
+      }
+      const candidates = [...nearby.filter(i => i >= 0 && i < totalPages), ...remaining];
 
-    geoPromise.then((geo: unknown) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const g = geo as any;
-      console.log("[HL] geometry:", { hasRuns: !!g?.runs?.length, runCount: g?.runs?.length });
-      if (!g?.runs?.length) return;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lastRun = g.runs[g.runs.length - 1] as any;
-      const totalChars = lastRun.charStart + lastRun.glyphs.length;
-      if (totalChars === 0) return;
-
-      const sliceTask = engine.getTextSlices?.(doc, [{ pageIndex, charIndex: 0, charCount: totalChars }]);
-      const slicePromise: Promise<unknown> = sliceTask?.toPromise?.() ?? Promise.resolve(null);
-
-      return slicePromise.then((slices: unknown) => {
-        const arr = slices as string[] | null;
-        if (!arr?.[0]) return;
-        const rawPageText = arr[0];
-
-        // Normalize whitespace for robust search, track mapping to raw indices
-        const cleanToRaw: number[] = [];
-        let cleanText = "";
-        let inSpace = false;
-        for (let i = 0; i < rawPageText.length; i++) {
-          const ch = rawPageText[i];
-          if (ch === "\r" || ch === "\n" || ch === " " || ch === "\t") {
-            if (!inSpace) { cleanText += " "; cleanToRaw.push(i); inSpace = true; }
-          } else { cleanText += ch; cleanToRaw.push(i); inSpace = false; }
-        }
-
-        const cleanInput = text.replace(/\s+/g, " ").trim();
-        const inputWords = cleanInput.split(" ");
-        const firstWords = inputWords.slice(0, 3).join(" ").toLowerCase();
-        const lastWords = inputWords.slice(-3).join(" ").toLowerCase();
-        const ptLower = cleanText.toLowerCase();
-
-        const startIdx = ptLower.indexOf(firstWords);
-        const endSearch = ptLower.indexOf(lastWords, startIdx > 0 ? startIdx : 0);
-        const endIdx = endSearch >= 0 ? endSearch + lastWords.length - 1 : -1;
-        if (startIdx < 0 || endIdx < 0) return;
-
-        const rawStart = cleanToRaw[startIdx];
-        const rawEnd = cleanToRaw[endIdx];
-
-        // applyInstantSelection uses geometry char indices.
-        // getTextSlices(0, G) returns L chars where L <= G (some geo positions are "phantom").
-        // Binary search: find smallest G where getTextSlices(0, G).length >= rawIdx + 1.
-        // Then geoIdx = G - 1 (the geo position that produced the rawIdx-th char).
-        const phantoms = totalChars - rawPageText.length;
-        const findGeo = (rawIdx: number): Promise<number> => {
-          if (phantoms === 0) return Promise.resolve(rawIdx);
-          let lo = rawIdx + 1, hi = Math.min(rawIdx + 1 + phantoms, totalChars);
-          const step = (): Promise<number> => {
-            if (lo >= hi) return Promise.resolve(lo - 1);
-            const mid = (lo + hi) >> 1;
-            const t = engine.getTextSlices?.(doc, [{ pageIndex, charIndex: 0, charCount: mid }]);
-            return (t?.toPromise?.() ?? Promise.resolve(null)).then((res: unknown) => {
-              const len = (res as string[])?.[0]?.length ?? 0;
-              if (len < rawIdx + 1) lo = mid + 1; else hi = mid;
-              return step();
-            });
-          };
-          return step();
-        };
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const selInstance = (r.getPlugin?.("selection") as any);
-        const docId2 = docMgr.getActiveDocumentId?.();
-        if (!selInstance?.applyInstantSelection || !docId2) return;
-
-        Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) => {
-          console.log("[HL] geo:", { rawStart, rawEnd, geoStart, geoEnd, phantoms });
-          selInstance.applyInstantSelection(docId2, pageIndex, geoStart, geoEnd, "default");
-          prevHighlightRef.current = { pageIndex, ids: [] };
-
-          // Scroll to center the highlighted text in the viewport
-          let targetRun = g.runs[0];
-          for (const run of g.runs) {
-            if (run.charStart > geoStart) break;
-            targetRun = run;
-          }
-          if (targetRun?.rect && scroll) {
-            scroll.scrollToPage({
-              pageNumber: page,
-              pageCoordinates: { x: 0, y: targetRun.rect.y },
-              behavior: "instant",
-              alignY: 50,
-            });
-          }
-        });
-      });
-    }).catch((err) => { console.error("[HL] error:", err); });
+      let chain: Promise<boolean> = Promise.resolve(false);
+      for (const pi of candidates) {
+        chain = chain.then((f) => f ? Promise.resolve(true) : tryHighlightOnPage(r, doc, engine, docMgr, scroll, pi, text));
+      }
+    });
   }
 
   useEffect(() => {
@@ -1507,9 +1533,11 @@ function ChatPanel({
 
             // Parse [QN, S. X] and legacy [S. X] tags → inline pill buttons
             const msgQmap = msg.source_qmap ?? [];
+            // Track which source_pages entry was used per page to cycle through chunks
+            const spUsedCount = new Map<string, number>();
             function parseCitations(text: string): React.ReactNode[] {
-              // Matches [Q1, S. 2], [S. 2], [Q1, 05:32], [Q1, 1:05:32]
-              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))\]/g;
+              // Matches [Q1, S. 2], [S. 2], [Q1, 05:32], [Q1, 1:05:32] (tolerates trailing whitespace)
+              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))\s*\]/g;
               const nodes: React.ReactNode[] = [];
               let last = 0;
               let m: RegExpExecArray | null;
@@ -1524,7 +1552,15 @@ function ChatPanel({
                 const isMedia = qEntry?.is_media || !!timestamp;
                 const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
                 const filename = qEntry?.filename ?? getFilename(sourceUuid);
-                const sp = msgSourcePages.find(s => s.source_uuid === sourceUuid && (timestamp ? s.start_time !== undefined : s.page_number === pageNum));
+
+                // Cycle through source_pages entries for same page (each chunk gets its own highlight)
+                const pageKey = `${sourceUuid}:${pageNum}`;
+                const usedIdx = spUsedCount.get(pageKey) ?? 0;
+                const matchingEntries = msgSourcePages.filter(s => s.source_uuid === sourceUuid && (timestamp ? s.start_time !== undefined : s.page_number === pageNum));
+                const sp = matchingEntries[usedIdx % Math.max(1, matchingEntries.length)];
+                spUsedCount.set(pageKey, usedIdx + 1);
+
+                const highlightText = sp?.source_text;
 
                 if (isMedia && timestamp) {
                   // Parse timestamp to seconds
@@ -1548,7 +1584,7 @@ function ChatPanel({
                     <button
                       key={m.index}
                       type="button"
-                      onClick={() => onPillClick(sourceUuid, pageNum, filename, sp?.source_text)}
+                      onClick={() => onPillClick(sourceUuid, pageNum, filename, highlightText)}
                       className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
                       style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                       title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
@@ -1626,15 +1662,7 @@ function ChatPanel({
                         td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{withCitations(children)}</td>,
                       }}
                     >
-                      {(() => {
-                        const seen = new Set<string>();
-                        return msg.content.replace(/\s*\[(?:Q(\d+),\s*)?S\.\s*(\d+)\]/g, (m, q, p) => {
-                          const k = `${q ?? ""}:${p}`;
-                          if (seen.has(k)) return "";
-                          seen.add(k);
-                          return m;
-                        });
-                      })()}
+                      {msg.content}
                     </ReactMarkdown>
                   ) : (
                     <>
@@ -5481,7 +5509,11 @@ export default function KiTutorModulePage() {
               // Flush remaining tokens before applying metadata
               if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
               flushTokens();
-              updateLast({ source_pages: evt.source_pages, source_qmap: evt.source_qmap });
+              // Apply corrected answer (page numbers fixed) + metadata
+              const patch: Record<string, unknown> = { source_pages: evt.source_pages, source_qmap: evt.source_qmap };
+              if (evt.answer) patch.content = evt.answer;
+              console.log("[DONE] source_pages:", evt.source_pages?.length, evt.source_pages?.map((s: {page_number: number; source_text?: string}) => `S.${s.page_number}:${(s.source_text || "").slice(0,30)}`));
+              updateLast(patch);
             } else if (evt.error) {
               updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
             }

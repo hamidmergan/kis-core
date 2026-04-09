@@ -1,6 +1,7 @@
 """KI Tutor routes – Dozenten- und Studenten-Endpunkte."""
 
 import json
+import re
 import uuid
 from collections.abc import Generator
 from datetime import datetime, timezone
@@ -584,7 +585,7 @@ async def chat(
                                           "überblick", "übersicht", "zusammen"}
     _is_generic = (
         not body.source_text
-        and source_ids and len(source_ids) > 1
+        and source_ids
         and _has_signal
         and len(_content_words) == 0  # keine Fachbegriffe → generisch
     )
@@ -720,6 +721,12 @@ async def chat(
         context_len += len(part)
     context = "\n\n---\n\n".join(context_parts)
 
+    # Log chunks sent to LLM for debugging page attribution
+    for chunk in chunks:
+        qn = source_id_to_qnum.get(chunk["source_id"], 1)
+        content_preview = (chunk.get("content") or "")[:80].replace("\n", " ")
+        logger.info("CHUNK → LLM: [Q{}, S. {}] '{}'", qn, chunk["page_number"], content_preview)
+
     # Popup-Aktionen: User hat Text selbst markiert
     if body.source_text:
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
@@ -742,10 +749,12 @@ async def chat(
     enrollment_id = body.enrollment_id if not is_owner else None
 
     # Include recent chat history for follow-up questions (skip for popup actions)
+    # Strip citation tags [Q1, S. 3] from history so the LLM doesn't re-cite old pages
     if not body.source_text:
         history = db.get_ki_tutor_messages(module["id"], user_id, limit=10, enrollment_id=enrollment_id)
+        citation_re = re.compile(r"\s*\[(?:Q\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)\]")
         for msg in history:
-            messages.append({"role": msg["role"], "content": msg["content"]})
+            messages.append({"role": msg["role"], "content": citation_re.sub("", msg["content"])})
 
     messages.append({"role": "user", "content": user_message})
 
@@ -762,24 +771,21 @@ async def chat(
         })
     else:
         all_sources = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
-        seen: set[tuple] = set()
         for chunk in chunks:
             source = all_sources.get(chunk["source_id"])
             if source:
-                key = (source["uuid"], chunk["page_number"])
-                if key not in seen:
-                    seen.add(key)
-                    snippet = (chunk.get("content") or "")[:120].strip()
-                    entry = {
-                        "source_uuid": source["uuid"],
-                        "filename": source["filename"],
-                        "page_number": chunk["page_number"],
-                        "source_text": snippet,
-                    }
-                    if chunk.get("start_time") is not None:
-                        entry["start_time"] = chunk["start_time"]
-                        entry["end_time"] = chunk.get("end_time")
-                    source_pages.append(entry)
+                snippet = (chunk.get("content") or "")[:500].strip()
+                snippet = re.sub(r"^\d{1,3}\s+", "", snippet).strip()
+                entry = {
+                    "source_uuid": source["uuid"],
+                    "filename": source["filename"],
+                    "page_number": chunk["page_number"],
+                    "source_text": snippet,
+                }
+                if chunk.get("start_time") is not None:
+                    entry["start_time"] = chunk["start_time"]
+                    entry["end_time"] = chunk.get("end_time")
+                source_pages.append(entry)
         source_pages.sort(key=lambda x: x["page_number"])
 
     def _stream() -> Generator[str, None, None]:
@@ -808,12 +814,15 @@ async def chat(
             answer += suffix
             yield f"data: {json.dumps({'token': suffix})}\n\n"
 
+        # Post-process: strip any | quote parts the LLM might still add
+        answer = re.sub(r"\s*\|\s*[^\]]+(?=\])", "", answer)
+
         # Save messages
         db.save_ki_tutor_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
         db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id)
 
-        # Send final metadata event
-        yield f"data: {json.dumps({'done': True, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
+        # Send final metadata event — also send corrected answer
+        yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
 
     return StreamingResponse(
         _stream(),
