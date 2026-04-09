@@ -2215,8 +2215,11 @@ function LernkartenLearnView({
       ) : card ? (
         <>
           {/* Card */}
-          <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 pb-3 gap-4">
-            <div className="w-full mt-6" style={{ perspective: 1200, maxWidth: 560, cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
+          <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-3 gap-3">
+            <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
+              {index + 1} / {total}
+            </div>
+            <div className="w-full" style={{ perspective: 1200, maxWidth: 560, cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
               <div style={{
                 position: "relative", width: "100%", minHeight: 300, transformStyle: "preserve-3d",
                 transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
@@ -2496,11 +2499,12 @@ function MCExerciseView({
           </div>
           {/* Question Card */}
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="mx-auto mt-6 w-full" style={{ maxWidth: 560 }}>
+            <div className="mx-auto mt-4 sm:mt-6 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
+              <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
+                {index + 1} / {total}
+              </div>
               <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
                 <div className="px-6 pt-5 pb-6 flex flex-col gap-4">
-                  {/* Counter */}
-                  <span className="text-[11px] font-semibold" style={{ color: "var(--muted)" }}>Frage {index + 1} / {total}</span>
                   {/* Question text */}
                   {tool === "lueckentext" ? (
                     <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}
@@ -3959,9 +3963,13 @@ function VocabFlashcards({
     <div className="flex flex-col h-full">
       <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto mt-6 w-full flex flex-col gap-4" style={{ maxWidth: 560 }}>
+        <div className="mx-auto mt-4 sm:mt-6 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {/* Card */}
           {card && (
+            <>
+            <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
+              {index + 1} / {total}
+            </div>
             <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: flipped ? "rgba(var(--accent-rgb),0.04)" : "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
               {/* Progress bar as top border */}
               <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
@@ -3997,6 +4005,7 @@ function VocabFlashcards({
                 )}
               </button>
             </div>
+          </>
           )}
 
           {/* Answer buttons */}
@@ -4121,7 +4130,7 @@ function LueckentextView({
           {ex && !loading && (
             <>
               <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
-                Frage {current + 1} / {total}
+                {current + 1} / {total}
               </div>
 
               <div className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -4273,7 +4282,7 @@ function VokabeltestView({
           {q && !loading && (
             <>
               <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
-                Frage {current + 1} / {total}
+                {current + 1} / {total}
               </div>
 
               <div className="rounded-xl p-4" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -5634,12 +5643,37 @@ export default function KiTutorModulePage() {
     }
   }
 
+  function handleAskChat(text: string, switchTab = false) {
+    const chatWasOpen = isMobile ? activeTab === "chat" : panels.chat;
+    const value = text + "\n\n";
+    setChatInput(value);
+    if (isMobile || switchTab) setActiveTab("chat");
+    else setPanels((prev) => ({ ...prev, chat: true }));
+    const delay = chatWasOpen ? 50 : 300;
+    setTimeout(() => {
+      const el = chatTextareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(value.length, value.length);
+      el.scrollTop = el.scrollHeight;
+    }, delay);
+  }
+
   function handleCustomQuestion(selectedText: string) {
+    const chatWasOpen = isMobile ? activeTab === "chat" : panels.chat;
     if (isMobile) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
-    setChatInput(`"${selectedText}"\n\n`);
-    // Focus textarea after React renders the new input
-    setTimeout(() => chatTextareaRef.current?.focus(), 50);
+    const value = `"${selectedText}"\n\n`;
+    setChatInput(value);
+    // If chat was closed, wait longer for React to render the panel before focusing
+    const delay = chatWasOpen ? 50 : 300;
+    setTimeout(() => {
+      const ta = chatTextareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(value.length, value.length);
+      ta.scrollTop = ta.scrollHeight;
+    }, delay);
   }
 
   function handlePillClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) {
@@ -6220,9 +6254,7 @@ export default function KiTutorModulePage() {
             exerciseSet={activeSet}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-            onAskChat={(text) => {
-              setChatInput(text);
-            }}
+            onAskChat={(text) => handleAskChat(text)}
             onSourceClick={(filename, page, startTime) => {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
@@ -6265,7 +6297,7 @@ export default function KiTutorModulePage() {
             tool="lueckentext"
             onBack={() => { setSprachView("cl-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-            onAskChat={(text) => setChatInput(text)}
+            onAskChat={(text) => handleAskChat(text)}
             onSourceClick={(filename, page, startTime) => {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
@@ -6307,7 +6339,7 @@ export default function KiTutorModulePage() {
             tool="vokabeltest"
             onBack={() => { setSprachView("vt-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-            onAskChat={(text) => setChatInput(text)}
+            onAskChat={(text) => handleAskChat(text)}
             onSourceClick={(filename, page, startTime) => {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
@@ -6708,7 +6740,7 @@ export default function KiTutorModulePage() {
                     exerciseSet={activeSet}
                     onBack={() => { setActiveSet(null); refreshProgress(); }}
                     onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-                    onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
+                    onAskChat={(text) => handleAskChat(text, true)}
                     onSourceClick={(filename, page, startTime) => {
                       const src = sources.find((s) => s.filename === filename);
                       if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
@@ -6721,7 +6753,7 @@ export default function KiTutorModulePage() {
                     tool="quiz"
                     onBack={() => { setActiveSet(null); refreshProgress(); }}
                     onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-                    onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
+                    onAskChat={(text) => handleAskChat(text, true)}
                     onSourceClick={(filename, page, startTime) => {
                       const src = sources.find((s) => s.filename === filename);
                       if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
@@ -6888,7 +6920,7 @@ export default function KiTutorModulePage() {
                           exerciseSet={activeSet}
                           onBack={() => { setActiveSet(null); refreshProgress(); }}
                           onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-                          onAskChat={(text) => { setChatInput(text); }}
+                          onAskChat={(text) => handleAskChat(text)}
                           onSourceClick={(filename, page, startTime) => {
                             const src = sources.find((s) => s.filename === filename);
                             if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
@@ -6901,7 +6933,7 @@ export default function KiTutorModulePage() {
                           tool="quiz"
                           onBack={() => { setActiveSet(null); refreshProgress(); }}
                           onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-                          onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
+                          onAskChat={(text) => handleAskChat(text, true)}
                           onSourceClick={(filename, page, startTime) => {
                             const src = sources.find((s) => s.filename === filename);
                             if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
