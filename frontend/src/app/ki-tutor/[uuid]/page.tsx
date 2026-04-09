@@ -5410,11 +5410,38 @@ export default function KiTutorModulePage() {
 
   function startDrag(divider: 1 | 2, e: React.MouseEvent) {
     e.preventDefault();
-    const refA = divider === 1 ? p1Ref : p2Ref;
-    const refB = divider === 1 ? p2Ref : p3Ref;
+    const p = panelsRef.current;
+
+    const panelKeys: PanelKey[] = ["quellen", "chat", "studio"];
+    const refs = [p1Ref, p2Ref, p3Ref];
+    const keys = ["p1", "p2", "p3"] as const;
+
+    // Collect all open panel indices
+    const openIdxs = [0, 1, 2].filter((i) => p[panelKeys[i]]);
+    if (openIdxs.length < 2) return;
+
+    // Pick the two open panels to resize:
+    // - If both neighbors of the divider are open, use them
+    // - Otherwise use the first two open panels (they're the only resizable pair)
+    const idx = divider === 1 ? 1 : 2;
+    let leftIdx: number, rightIdx: number;
+    const directLeft = openIdxs.filter((i) => i < idx);
+    const directRight = openIdxs.filter((i) => i >= idx);
+    if (directLeft.length > 0 && directRight.length > 0) {
+      leftIdx = directLeft[directLeft.length - 1];
+      rightIdx = directRight[0];
+    } else {
+      leftIdx = openIdxs[0];
+      rightIdx = openIdxs[1];
+    }
+
+    const refA = refs[leftIdx], refB = refs[rightIdx];
+    const keyA = keys[leftIdx], keyB = keys[rightIdx];
+
+    const widths = { p1: p1Width, p2: p2Width, p3: p3Width };
     const startX = e.clientX;
-    const startA = divider === 1 ? p1Width : p2Width;
-    const startB = divider === 1 ? p2Width : p3Width;
+    const startA = widths[keyA];
+    const startB = widths[keyB];
 
     function clampDelta(raw: number) {
       return Math.min(startB - MIN_PANEL, Math.max(-(startA - MIN_PANEL), raw));
@@ -5423,7 +5450,6 @@ export default function KiTutorModulePage() {
     function onMove(ev: MouseEvent) {
       if (!refA.current || !refB.current) return;
       const d = clampDelta(ev.clientX - startX);
-      // Direct DOM write — no React re-render during drag
       refA.current.style.flexBasis = `${startA + d}px`;
       refB.current.style.flexBasis = `${startB - d}px`;
     }
@@ -5432,13 +5458,10 @@ export default function KiTutorModulePage() {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       const d = clampDelta(ev.clientX - startX);
-      if (divider === 1) {
-        setP1Width(startA + d);
-        setP2Width(startB - d);
-      } else {
-        setP2Width(startA + d);
-        setP3Width(startB - d);
-      }
+      const setA = keyA === "p1" ? setP1Width : keyA === "p2" ? setP2Width : setP3Width;
+      const setB = keyB === "p1" ? setP1Width : keyB === "p2" ? setP2Width : setP3Width;
+      setA(startA + d);
+      setB(startB - d);
     }
 
     document.addEventListener("mousemove", onMove);
@@ -6432,6 +6455,9 @@ export default function KiTutorModulePage() {
     ? { flex: `1 1 ${p3Width}px`, minWidth: 200, overflow: "hidden" }
     : { width: 48, flexShrink: 0, flexGrow: 0 };
 
+  const openCount = [panels.quellen, panels.chat, panels.studio].filter(Boolean).length;
+  const canDrag = openCount >= 2;
+
   if (!initialized) {
     return (
       <ProtectedRoute>
@@ -6851,8 +6877,8 @@ export default function KiTutorModulePage() {
               {/* Drag handle 1 */}
               <div
                 className="group flex-shrink-0 flex items-center justify-center"
-                style={{ width: 8, cursor: panels.quellen && panels.chat ? "col-resize" : "default" }}
-                onMouseDown={(e) => panels.quellen && panels.chat && startDrag(1, e)}
+                style={{ width: 8, cursor: canDrag ? "col-resize" : "default" }}
+                onMouseDown={(e) => canDrag && startDrag(1, e)}
               >
                 <div
                   className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -6893,8 +6919,8 @@ export default function KiTutorModulePage() {
                   {/* Drag handle 2 */}
                   <div
                     className="group flex-shrink-0 flex items-center justify-center"
-                    style={{ width: 8, cursor: panels.chat && panels.studio ? "col-resize" : "default" }}
-                    onMouseDown={(e) => panels.chat && panels.studio && startDrag(2, e)}
+                    style={{ width: 8, cursor: canDrag ? "col-resize" : "default" }}
+                    onMouseDown={(e) => canDrag && startDrag(2, e)}
                   >
                     <div
                       className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
