@@ -593,7 +593,7 @@ function ModuleTableRow({
       {/* Desktop: expanded row */}
       {expanded && (
         <tr className="hidden md:table-row">
-          <td colSpan={5} className="px-4 py-3" style={{ backgroundColor: "var(--surface)" }}>
+          <td colSpan={5} className="px-4 py-3">
             <div className="pl-6 flex flex-col gap-2">
               {module.description && (
                 <p className="text-xs text-gray-400">{module.description}</p>

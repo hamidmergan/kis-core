@@ -35,7 +35,7 @@ const ALL_WORKFLOWS = [
   {
     key: "screencast",
     title: "Screencast",
-    description: "Aus PowerPoint-Dateien vertonte Videos mit übersetzten Folien generieren.",
+    description: "Aus einer PowerPoint-Datei ein vertontes Video mit übersetzten Folien generieren.",
     href: "/tools/screencast",
   },
 ];
@@ -43,12 +43,12 @@ const ALL_WORKFLOWS = [
 type Tool = { key: string; title: string; description: string; href: string; unavailable?: boolean };
 
 const ALL_TOOLS: Tool[] = [
-  { key: "translation",   title: "Translate",      description: "Dokumente in andere Sprachen übersetzen.", href: "/tools/translate" },
+  { key: "translation",   title: "Übersetzung",     description: "Dokumente in andere Sprachen übersetzen.", href: "/tools/translate" },
   { key: "tts",           title: "Text in Sprache", description: "Texte und Dokumente in Audio umwandeln.", href: "/tools/tts" },
   { key: "transcription", title: "Sprache in Text", description: "Audio- und Videoinhalte in Text oder Untertitel umwandeln.", href: "/tools/stt" },
-  { key: "image",         title: "Image",          description: "Bilder erstellen, bearbeiten oder analysieren.", href: "/tools/image" },
-  { key: "summary",       title: "Summarize",      description: "Dokumente und Medieninhalte zusammenfassen.", href: "/tools/summarize" },
-  { key: "glossary",      title: "Glossary",       description: "Begriffslisten für Übersetzungen und Skripte verwalten.", href: "/tools/glossary" },
+  { key: "image",         title: "Bildgenerierung",           description: "Bilder erstellen, bearbeiten oder analysieren.", href: "/tools/image" },
+  { key: "summary",       title: "Zusammenfassung", description: "Dokumente und Medieninhalte zusammenfassen.", href: "/tools/summarize" },
+  { key: "glossary",      title: "Glossar",        description: "Begriffslisten für Übersetzungen und Skripte verwalten.", href: "/tools/glossary" },
 ];
 
 function ToolImage({ toolKey, title }: { toolKey: string; title: string }) {
@@ -107,7 +107,7 @@ export default function ToolsPage() {
 
       <div className="max-w-5xl mx-auto px-4 pt-10 pb-20 lg:pt-15 lg:pb-30">
 
-        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Tools</h1>
+        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Tools & Workflows</h1>
 
         {/* ── Workflows ── */}
         {workflows.length > 0 && (
