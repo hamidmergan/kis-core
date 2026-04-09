@@ -433,7 +433,7 @@ function MediaPlayer({
   useEffect(() => {
     if (source.startTime !== undefined && mediaRef.current) {
       mediaRef.current.currentTime = source.startTime;
-      mediaRef.current.play().catch(() => {});
+      mediaRef.current.play().catch(() => { });
     }
   }, [source.startTime, source.nonce]);
 
@@ -599,18 +599,21 @@ function PdfViewer({
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
   const pendingHighlightRef = useRef<{ page: number; text: string } | null>(null);
-  const prevHighlightRef = useRef<{ pageIndex: number; id: string } | null>(null);
+  const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
 
   function doHighlightSearch(reg: unknown, page: number, text: string) {
+    console.log("[HL] INPUT text (source_text from backend):", JSON.stringify(text));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = reg as any;
     const scroll = r.getPlugin?.("scroll")?.provides?.();
     scroll?.scrollToPage?.({ pageNumber: page, behavior: "instant" });
 
     const anno = r.getPlugin?.("annotation")?.provides?.();
-    // Remove previous highlight annotation
+    // Remove previous highlight annotations
     if (prevHighlightRef.current && anno) {
-      try { anno.deleteAnnotation(prevHighlightRef.current.pageIndex, prevHighlightRef.current.id); } catch { /* ignore */ }
+      for (const id of prevHighlightRef.current.ids) {
+        try { anno.deleteAnnotation(prevHighlightRef.current.pageIndex, id); } catch { /* ignore */ }
+      }
       prevHighlightRef.current = null;
     }
 
@@ -654,124 +657,64 @@ function PdfViewer({
       return slicePromise.then((slices: unknown) => {
         const arr = slices as string[] | null;
         if (!arr?.[0]) return;
-        const pageText = arr[0];
+        const rawPageText = arr[0];
 
-        // Normalize text: keep only letters, digits, spaces — strip everything else
-        const stripToCore = (s: string): { text: string; map: number[] } => {
-          const out: string[] = [];
-          const map: number[] = [];
-          for (let i = 0; i < s.length; i++) {
-            // Dehyphenation: '-' + '\n' between letters → skip both
-            if (s[i] === "-" && s[i + 1] === "\n" &&
-                i > 0 && /\p{L}/u.test(s[i - 1]) && i + 2 < s.length && /\p{L}/u.test(s[i + 2])) {
-              i++; continue;
-            }
-            const ch = s[i];
-            if (ch === "\n" || ch === "\r") {
-              if (out.length > 0 && out[out.length - 1] !== " ") { out.push(" "); map.push(i); }
-              continue;
-            }
-            // Keep letters, digits, spaces only
-            if (/[\p{L}\p{N} ]/u.test(ch)) {
-              if (ch === " " && out.length > 0 && out[out.length - 1] === " ") continue;
-              out.push(ch); map.push(i);
-            }
-            // Everything else (quotes, punctuation, symbols) → skip
-          }
-          return { text: out.join(""), map };
+        // Normalize whitespace for robust search, track mapping to raw indices
+        const cleanToRaw: number[] = [];
+        let cleanText = "";
+        let inSpace = false;
+        for (let i = 0; i < rawPageText.length; i++) {
+          const ch = rawPageText[i];
+          if (ch === "\r" || ch === "\n" || ch === " " || ch === "\t") {
+            if (!inSpace) { cleanText += " "; cleanToRaw.push(i); inSpace = true; }
+          } else { cleanText += ch; cleanToRaw.push(i); inSpace = false; }
+        }
+
+        const cleanInput = text.replace(/\s+/g, " ").trim();
+        const inputWords = cleanInput.split(" ");
+        const firstWords = inputWords.slice(0, 3).join(" ").toLowerCase();
+        const lastWords = inputWords.slice(-3).join(" ").toLowerCase();
+        const ptLower = cleanText.toLowerCase();
+
+        const startIdx = ptLower.indexOf(firstWords);
+        const endSearch = ptLower.indexOf(lastWords, startIdx > 0 ? startIdx : 0);
+        const endIdx = endSearch >= 0 ? endSearch + lastWords.length - 1 : -1;
+        if (startIdx < 0 || endIdx < 0) return;
+
+        const rawStart = cleanToRaw[startIdx];
+        const rawEnd = cleanToRaw[endIdx];
+
+        // applyInstantSelection uses geometry char indices.
+        // getTextSlices(0, G) returns L chars where L <= G (some geo positions are "phantom").
+        // Binary search: find smallest G where getTextSlices(0, G).length >= rawIdx + 1.
+        // Then geoIdx = G - 1 (the geo position that produced the rawIdx-th char).
+        const phantoms = totalChars - rawPageText.length;
+        const findGeo = (rawIdx: number): Promise<number> => {
+          if (phantoms === 0) return Promise.resolve(rawIdx);
+          let lo = rawIdx + 1, hi = Math.min(rawIdx + 1 + phantoms, totalChars);
+          const step = (): Promise<number> => {
+            if (lo >= hi) return Promise.resolve(lo - 1);
+            const mid = (lo + hi) >> 1;
+            const t = engine.getTextSlices?.(doc, [{ pageIndex, charIndex: 0, charCount: mid }]);
+            return (t?.toPromise?.() ?? Promise.resolve(null)).then((res: unknown) => {
+              const len = (res as string[])?.[0]?.length ?? 0;
+              if (len < rawIdx + 1) lo = mid + 1; else hi = mid;
+              return step();
+            });
+          };
+          return step();
         };
 
-        const { text: normalized, map: mapping } = stripToCore(pageText);
-        const { text: searchText } = stripToCore(text);
-
-        const matchPos = normalized.toLowerCase().indexOf(searchText.toLowerCase());
-        if (matchPos === -1) return;
-
-        const origStart = mapping[matchPos];
-        // Find end position by searching for the last few words separately in the page text
-        // This avoids character-count drift from stripped symbols
-        const searchWords = searchText.split(/\s+/);
-        const lastWords = searchWords.slice(-3).join(" ").toLowerCase();
-        // Only search within ~110% of expected range to avoid matching elsewhere
-        const maxEnd = Math.min(matchPos + Math.ceil(searchText.length * 1.1), normalized.length);
-        const searchSlice = normalized.toLowerCase().slice(matchPos, maxEnd);
-        const tailInSlice = searchSlice.lastIndexOf(lastWords);
-        const tailPos = tailInSlice >= 0 ? matchPos + tailInSlice : -1;
-        let origEnd: number;
-        if (tailPos >= 0) {
-          origEnd = mapping[Math.min(tailPos + lastWords.length - 1, mapping.length - 1)];
-        } else {
-          origEnd = mapping[Math.min(matchPos + searchText.length - 1, mapping.length - 1)];
-        }
-        // Extend to include trailing punctuation
-        while (origEnd + 1 < pageText.length && /[.,;:!?)}\]\-]/.test(pageText[origEnd + 1])) origEnd++;
-
-        // Use RUN rects directly — find all runs that overlap with [origStart, origEnd]
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const runs = g.runs as any[];
-        const segmentRects: { origin: { x: number; y: number }; size: { width: number; height: number } }[] = [];
+        const selInstance = (r.getPlugin?.("selection") as any);
+        const docId2 = docMgr.getActiveDocumentId?.();
+        if (!selInstance?.applyInstantSelection || !docId2) return;
 
-        for (const run of runs) {
-          const runEnd = run.charStart + run.glyphs.length - 1;
-          // Check if this run overlaps with our character range
-          if (runEnd < origStart || run.charStart > origEnd) continue;
-          // Use the run's bounding rect directly
-          const r = run.rect;
-          if (r && r.width > 0 && r.height > 0) {
-            // If run partially overlaps, clip to the overlapping glyphs
-            const clipStart = Math.max(0, origStart - run.charStart);
-            const clipEnd = Math.min(run.glyphs.length - 1, origEnd - run.charStart);
-            const firstGlyph = run.glyphs[clipStart];
-            const lastGlyph = run.glyphs[clipEnd];
-            const x1 = firstGlyph.x;
-            const x2 = lastGlyph.x + lastGlyph.width;
-            segmentRects.push({
-              origin: { x: x1, y: r.y },
-              size: { width: x2 - x1, height: r.height },
-            });
-          }
-        }
-
-        // Merge segments on the same visual line
-        const merged: typeof segmentRects = [];
-        for (const sr of segmentRects) {
-          const prev = merged[merged.length - 1];
-          if (prev && Math.abs(sr.origin.y - prev.origin.y) < prev.size.height * 0.6) {
-            const minX = Math.min(prev.origin.x, sr.origin.x);
-            const maxX = Math.max(prev.origin.x + prev.size.width, sr.origin.x + sr.size.width);
-            const minY = Math.min(prev.origin.y, sr.origin.y);
-            const maxY = Math.max(prev.origin.y + prev.size.height, sr.origin.y + sr.size.height);
-            merged[merged.length - 1] = { origin: { x: minX, y: minY }, size: { width: maxX - minX, height: maxY - minY } };
-          } else {
-            merged.push({ ...sr });
-          }
-        }
-        const finalSegments = merged.length > 0 ? merged : segmentRects;
-        console.log("[HL] segments:", finalSegments.length);
-        if (finalSegments.length === 0) return;
-
-        const bMinX = Math.min(...finalSegments.map(sr => sr.origin.x));
-        const bMinY = Math.min(...finalSegments.map(sr => sr.origin.y));
-        const bMaxX = Math.max(...finalSegments.map(sr => sr.origin.x + sr.size.width));
-        const bMaxY = Math.max(...finalSegments.map(sr => sr.origin.y + sr.size.height));
-
-        const boundingRect = { origin: { x: bMinX - 2, y: bMinY - 2 }, size: { width: bMaxX - bMinX + 4, height: bMaxY - bMinY + 4 } };
-        const highlightId = `kis-hl-${Date.now()}`;
-        // Use timeout to ensure page is fully rendered before adding annotation
-        setTimeout(() => {
-          anno.createAnnotation(pageIndex, {
-            id: highlightId,
-            type: 9, // HIGHLIGHT
-            pageIndex,
-            rect: boundingRect,
-            segmentRects: finalSegments,
-            opacity: 0.35,
-            strokeColor: "#FFFF00",
-          });
-          prevHighlightRef.current = { pageIndex, id: highlightId };
-          console.log("[HL] created annotation", highlightId, "segments:", segmentRects.length);
-        }, 300);
-        console.log("[HL] created annotation", highlightId);
+        Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) => {
+          console.log("[HL] geo:", { rawStart, rawEnd, geoStart, geoEnd, phantoms });
+          selInstance.applyInstantSelection(docId2, pageIndex, geoStart, geoEnd, "default");
+          prevHighlightRef.current = { pageIndex, ids: [] };
+        });
       });
     }).catch((err) => { console.error("[HL] error:", err); });
   }
@@ -1448,315 +1391,315 @@ function ChatPanel({
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
         <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Chat</span>
         <div className="flex items-center gap-1.5">
-        <div className="relative" ref={chatMenuRef}>
-          <button
-            type="button"
-            onClick={() => setChatMenuOpen((v) => !v)}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
-            title="Optionen"
-          >
-            <DotsThreeVertical size={16} weight="bold" />
-          </button>
-          {chatMenuOpen && (
-            <div
-              className="absolute right-0 top-8 z-50 rounded-xl py-1"
-              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
+          <div className="relative" ref={chatMenuRef}>
+            <button
+              type="button"
+              onClick={() => setChatMenuOpen((v) => !v)}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+              title="Optionen"
             >
-              <button
-                type="button"
-                onClick={() => { onClear(); setChatMenuOpen(false); }}
-                disabled={messages.length === 0}
-                className="w-full text-left px-4 py-2.5 text-sm hover:bg-black/5 disabled:opacity-40 transition-colors"
-                style={{ color: "#B91C1C" }}
+              <DotsThreeVertical size={16} weight="bold" />
+            </button>
+            {chatMenuOpen && (
+              <div
+                className="absolute right-0 top-8 z-50 rounded-xl py-1"
+                style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
               >
-                Chatprotokoll löschen
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => { onClear(); setChatMenuOpen(false); }}
+                  disabled={messages.length === 0}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-black/5 disabled:opacity-40 transition-colors"
+                  style={{ color: "#B91C1C" }}
+                >
+                  Chatprotokoll löschen
+                </button>
+              </div>
+            )}
+          </div>
+          {onMinimize && (
+            <button
+              type="button"
+              onClick={onMinimize}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+              title="Panel minimieren"
+            >
+              <SidebarSimple size={13} />
+            </button>
           )}
-        </div>
-        {onMinimize && (
-          <button
-            type="button"
-            onClick={onMinimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
-            title="Panel minimieren"
-          >
-            <SidebarSimple size={13} />
-          </button>
-        )}
         </div>
       </div>
 
       {/* Messages */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-      <div className="mx-auto w-full px-6 py-6 flex flex-col gap-5" style={{ maxWidth: 720 }}>
-        {messages.length === 0 && !loading && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)" }}
-            >
-              <Chat size={22} style={{ color: "var(--kb)" }} />
-            </div>
-            <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-              Dein KI-Tutor
-            </p>
-            <p className="text-xs text-center max-w-xs" style={{ color: "var(--muted)" }}>
-              Wähle Quellen links aus – stell Fragen, lass dir Inhalte erklären oder gib Anweisungen.
-            </p>
-            <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
-              {[
-                "Fasse die wichtigsten Punkte zusammen.",
-                "Erkläre mir das Thema in einfachen Worten.",
-                "Welche Prüfungsfragen könnten dazu gestellt werden?",
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  disabled={activeSourceIds.length === 0}
-                  onClick={() => onSendPrompt?.(prompt)}
-                  className="text-left text-xs px-4 py-2.5 rounded-xl border transition-all"
-                  style={{
-                    borderColor: activeSourceIds.length === 0 ? "var(--border)" : "rgba(var(--kb-rgb),0.25)",
-                    color: activeSourceIds.length === 0 ? "var(--muted)" : "var(--text)",
-                    backgroundColor: activeSourceIds.length === 0 ? "transparent" : "rgba(var(--kb-rgb),0.04)",
-                    cursor: activeSourceIds.length === 0 ? "default" : "pointer",
-                    opacity: activeSourceIds.length === 0 ? 0.5 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (activeSourceIds.length > 0) {
-                      e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.10)";
-                      e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.4)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (activeSourceIds.length > 0) {
-                      e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.04)";
-                      e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.25)";
-                    }
-                  }}
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {messages.map((msg, i) => {
-          const msgSourcePages = msg.source_pages ?? [];
-
-          // Parse [QN, S. X] and legacy [S. X] tags → inline pill buttons
-          const msgQmap = msg.source_qmap ?? [];
-          function parseCitations(text: string): React.ReactNode[] {
-            // Matches [Q1, S. 2], [S. 2], [Q1, 05:32], [Q1, 1:05:32]
-            const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))\]/g;
-            const nodes: React.ReactNode[] = [];
-            let last = 0;
-            let m: RegExpExecArray | null;
-            while ((m = pattern.exec(text)) !== null) {
-              if (m.index > last) nodes.push(text.slice(last, m.index));
-              const qNum = m[1] ? parseInt(m[1]) : null;
-              const pageNum = m[2] ? parseInt(m[2]) : 0;
-              const timestamp = m[3] || null;
-
-              // Resolve source via qmap (preferred) or fallback to source_pages
-              const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
-              const isMedia = qEntry?.is_media || !!timestamp;
-              const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
-              const filename = qEntry?.filename ?? getFilename(sourceUuid);
-              const sp = msgSourcePages.find(s => s.source_uuid === sourceUuid && (timestamp ? s.start_time !== undefined : s.page_number === pageNum));
-
-              if (isMedia && timestamp) {
-                // Parse timestamp to seconds
-                const parts = timestamp.split(":").map(Number);
-                const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
-                nodes.push(
-                  <button
-                    key={m.index}
-                    type="button"
-                    onClick={() => onPillClick(sourceUuid, 0, filename, undefined, seconds)}
-                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-                    title={`${filename}, ${timestamp}`}
-                  >
-                    <Play size={8} weight="bold" />
-                    {timestamp}
-                  </button>
-                );
-              } else {
-                nodes.push(
-                  <button
-                    key={m.index}
-                    type="button"
-                    onClick={() => onPillClick(sourceUuid, pageNum, filename, sp?.source_text)}
-                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-                    title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
-                  >
-                    <FilePdf size={8} weight="bold" />
-                    {_chunkLabel(filename, pageNum)}
-                  </button>
-                );
-              }
-              last = pattern.lastIndex;
-            }
-            if (last < text.length) nodes.push(text.slice(last));
-            return nodes;
-          }
-
-          function withCitations(children: React.ReactNode): React.ReactNode {
-            return React.Children.map(children, (child) =>
-              typeof child === "string" ? parseCitations(child) : child
-            );
-          }
-
-          return (
-          <div
-            key={msg.id ?? i}
-            className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}
-          >
-            {msg.role === "assistant" && (
-              <div className="flex items-center gap-2 mb-0.5">
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                  style={{ backgroundColor: "var(--kb)" }}
-                >
-                  KI
-                </div>
-                <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
-                  KI Tutor
-                </span>
+        <div className="mx-auto w-full px-6 py-6 flex flex-col gap-5" style={{ maxWidth: 720 }}>
+          {messages.length === 0 && !loading && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)" }}
+              >
+                <Chat size={22} style={{ color: "var(--kb)" }} />
               </div>
-            )}
-            <div
-              className="max-w-[96%] px-4 py-3 rounded-2xl text-sm leading-relaxed break-words"
-              style={
-                msg.role === "user"
-                  ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
-                  : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6, overflowWrap: "break-word" }
-              }
-            >
-              {msg.role === "assistant" && !msg.content ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-flex gap-1">
-                    {[0, 1, 2].map((n) => (
-                      <span
-                        key={n}
-                        className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
-                        style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
-                      />
-                    ))}
-                  </span>
-                </span>
-              ) : msg.role === "assistant" ? (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    p: ({ children }) => <p className="mb-2 last:mb-0">{withCitations(children)}</p>,
-                    ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
-                    ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                    li: ({ children }) => <li className="leading-relaxed">{withCitations(children)}</li>,
-                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                    h1: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
-                    h2: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
-                    h3: ({ children }) => <p className="font-medium mb-1">{withCitations(children)}</p>,
-                    table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
-                    thead: ({ children }) => <thead className="border-b border-current/20">{children}</thead>,
-                    th: ({ children }) => <th className="text-left px-2 py-1 font-semibold">{children}</th>,
-                    td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{withCitations(children)}</td>,
-                  }}
-                >
-                  {(() => {
-                    const seen = new Set<string>();
-                    return msg.content.replace(/\s*\[(?:Q(\d+),\s*)?S\.\s*(\d+)\]/g, (m, q, p) => {
-                      const k = `${q ?? ""}:${p}`;
-                      if (seen.has(k)) return "";
-                      seen.add(k);
-                      return m;
-                    });
-                  })()}
-                </ReactMarkdown>
-              ) : (
-                <>
-                  <div
+              <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                Dein KI-Tutor
+              </p>
+              <p className="text-xs text-center max-w-xs" style={{ color: "var(--muted)" }}>
+                Wähle Quellen links aus – stell Fragen, lass dir Inhalte erklären oder gib Anweisungen.
+              </p>
+              <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
+                {[
+                  "Fasse die wichtigsten Punkte zusammen.",
+                  "Erkläre mir das Thema in einfachen Worten.",
+                  "Welche Prüfungsfragen könnten dazu gestellt werden?",
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    disabled={activeSourceIds.length === 0}
+                    onClick={() => onSendPrompt?.(prompt)}
+                    className="text-left text-xs px-4 py-2.5 rounded-xl border transition-all"
                     style={{
-                      maxHeight: expandedMsgs.has(i) ? "none" : "8em",
-                      overflow: "hidden",
+                      borderColor: activeSourceIds.length === 0 ? "var(--border)" : "rgba(var(--kb-rgb),0.25)",
+                      color: activeSourceIds.length === 0 ? "var(--muted)" : "var(--text)",
+                      backgroundColor: activeSourceIds.length === 0 ? "transparent" : "rgba(var(--kb-rgb),0.04)",
+                      cursor: activeSourceIds.length === 0 ? "default" : "pointer",
+                      opacity: activeSourceIds.length === 0 ? 0.5 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activeSourceIds.length > 0) {
+                        e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.10)";
+                        e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.4)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeSourceIds.length > 0) {
+                        e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.04)";
+                        e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.25)";
+                      }
                     }}
                   >
-                    {msg.content}
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((msg, i) => {
+            const msgSourcePages = msg.source_pages ?? [];
+
+            // Parse [QN, S. X] and legacy [S. X] tags → inline pill buttons
+            const msgQmap = msg.source_qmap ?? [];
+            function parseCitations(text: string): React.ReactNode[] {
+              // Matches [Q1, S. 2], [S. 2], [Q1, 05:32], [Q1, 1:05:32]
+              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))\]/g;
+              const nodes: React.ReactNode[] = [];
+              let last = 0;
+              let m: RegExpExecArray | null;
+              while ((m = pattern.exec(text)) !== null) {
+                if (m.index > last) nodes.push(text.slice(last, m.index));
+                const qNum = m[1] ? parseInt(m[1]) : null;
+                const pageNum = m[2] ? parseInt(m[2]) : 0;
+                const timestamp = m[3] || null;
+
+                // Resolve source via qmap (preferred) or fallback to source_pages
+                const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
+                const isMedia = qEntry?.is_media || !!timestamp;
+                const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
+                const filename = qEntry?.filename ?? getFilename(sourceUuid);
+                const sp = msgSourcePages.find(s => s.source_uuid === sourceUuid && (timestamp ? s.start_time !== undefined : s.page_number === pageNum));
+
+                if (isMedia && timestamp) {
+                  // Parse timestamp to seconds
+                  const parts = timestamp.split(":").map(Number);
+                  const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+                  nodes.push(
+                    <button
+                      key={m.index}
+                      type="button"
+                      onClick={() => onPillClick(sourceUuid, 0, filename, undefined, seconds)}
+                      className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+                      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+                      title={`${filename}, ${timestamp}`}
+                    >
+                      <Play size={8} weight="bold" />
+                      {timestamp}
+                    </button>
+                  );
+                } else {
+                  nodes.push(
+                    <button
+                      key={m.index}
+                      type="button"
+                      onClick={() => onPillClick(sourceUuid, pageNum, filename, sp?.source_text)}
+                      className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+                      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+                      title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
+                    >
+                      <FilePdf size={8} weight="bold" />
+                      {_chunkLabel(filename, pageNum)}
+                    </button>
+                  );
+                }
+                last = pattern.lastIndex;
+              }
+              if (last < text.length) nodes.push(text.slice(last));
+              return nodes;
+            }
+
+            function withCitations(children: React.ReactNode): React.ReactNode {
+              return React.Children.map(children, (child) =>
+                typeof child === "string" ? parseCitations(child) : child
+              );
+            }
+
+            return (
+              <div
+                key={msg.id ?? i}
+                className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}
+              >
+                {msg.role === "assistant" && (
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      style={{ backgroundColor: "var(--kb)" }}
+                    >
+                      KI
+                    </div>
+                    <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
+                      KI Tutor
+                    </span>
                   </div>
-                  {msg.content.split("\n").length > 5 || msg.content.length > 300 ? (
+                )}
+                <div
+                  className="max-w-[96%] px-4 py-3 rounded-2xl text-sm leading-relaxed break-words"
+                  style={
+                    msg.role === "user"
+                      ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
+                      : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6, overflowWrap: "break-word" }
+                  }
+                >
+                  {msg.role === "assistant" && !msg.content ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex gap-1">
+                        {[0, 1, 2].map((n) => (
+                          <span
+                            key={n}
+                            className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
+                            style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
+                          />
+                        ))}
+                      </span>
+                    </span>
+                  ) : msg.role === "assistant" ? (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0">{withCitations(children)}</p>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+                        li: ({ children }) => <li className="leading-relaxed">{withCitations(children)}</li>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        h1: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
+                        h2: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
+                        h3: ({ children }) => <p className="font-medium mb-1">{withCitations(children)}</p>,
+                        table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                        thead: ({ children }) => <thead className="border-b border-current/20">{children}</thead>,
+                        th: ({ children }) => <th className="text-left px-2 py-1 font-semibold">{children}</th>,
+                        td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{withCitations(children)}</td>,
+                      }}
+                    >
+                      {(() => {
+                        const seen = new Set<string>();
+                        return msg.content.replace(/\s*\[(?:Q(\d+),\s*)?S\.\s*(\d+)\]/g, (m, q, p) => {
+                          const k = `${q ?? ""}:${p}`;
+                          if (seen.has(k)) return "";
+                          seen.add(k);
+                          return m;
+                        });
+                      })()}
+                    </ReactMarkdown>
+                  ) : (
+                    <>
+                      <div
+                        style={{
+                          maxHeight: expandedMsgs.has(i) ? "none" : "8em",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                      {msg.content.split("\n").length > 5 || msg.content.length > 300 ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedMsgs((prev) => {
+                              const next = new Set(prev);
+                              next.has(i) ? next.delete(i) : next.add(i);
+                              return next;
+                            })
+                          }
+                          className="flex items-center gap-1 mt-1.5 text-[11px] opacity-70 hover:opacity-100 transition-opacity"
+                          style={{ color: "white" }}
+                        >
+                          {expandedMsgs.has(i) ? (
+                            <>
+                              <CaretUp size={12} /> Einklappen
+                            </>
+                          ) : (
+                            <>
+                              <CaretDown size={12} /> Mehr anzeigen
+                            </>
+                          )}
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+                <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                  {msg.sourceCount != null && msg.sourceCount > 0 && (
+                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                      {msg.sourceCount} {msg.sourceCount === 1 ? "Quelle" : "Quellen"}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
+                      setCopiedIdx(i);
+                      setTimeout(() => setCopiedIdx(null), 1500);
+                    }}
+                    className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                    style={{ color: "var(--muted)" }}
+                    title="Kopieren"
+                  >
+                    {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
+                  </button>
+                  {msg.role === "assistant" && onSaveNote && !loading && (
                     <button
                       type="button"
-                      onClick={() =>
-                        setExpandedMsgs((prev) => {
-                          const next = new Set(prev);
-                          next.has(i) ? next.delete(i) : next.add(i);
-                          return next;
-                        })
-                      }
-                      className="flex items-center gap-1 mt-1.5 text-[11px] opacity-70 hover:opacity-100 transition-opacity"
-                      style={{ color: "white" }}
+                      onClick={() => {
+                        onSaveNote(msg.content);
+                        setSavedNoteIdx(i);
+                        setTimeout(() => setSavedNoteIdx(null), 1500);
+                      }}
+                      className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                      style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
+                      title="Als Notiz speichern"
                     >
-                      {expandedMsgs.has(i) ? (
-                        <>
-                          <CaretUp size={12} /> Einklappen
-                        </>
-                      ) : (
-                        <>
-                          <CaretDown size={12} /> Mehr anzeigen
-                        </>
-                      )}
+                      {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
                     </button>
-                  ) : null}
-                </>
-              )}
-            </div>
-            <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-              {msg.sourceCount != null && msg.sourceCount > 0 && (
-                <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-                  {msg.sourceCount} {msg.sourceCount === 1 ? "Quelle" : "Quellen"}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
-                  setCopiedIdx(i);
-                  setTimeout(() => setCopiedIdx(null), 1500);
-                }}
-                className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
-                style={{ color: "var(--muted)" }}
-                title="Kopieren"
-              >
-                {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
-              </button>
-              {msg.role === "assistant" && onSaveNote && !loading && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSaveNote(msg.content);
-                    setSavedNoteIdx(i);
-                    setTimeout(() => setSavedNoteIdx(null), 1500);
-                  }}
-                  className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
-                  style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
-                  title="Als Notiz speichern"
-                >
-                  {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
-                </button>
-              )}
-            </div>
-          </div>
-          );
-        })}
+                  )}
+                </div>
+              </div>
+            );
+          })}
 
-        {/* Loading indicator removed – streaming messages show inline dots */}
-        <div ref={bottomRef} />
-      </div>
+          {/* Loading indicator removed – streaming messages show inline dots */}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Input area */}
@@ -1764,44 +1707,44 @@ function ChatPanel({
         className="flex-shrink-0 px-6 pt-4 pb-0"
         style={{ borderTop: "1px solid var(--border)" }}
       >
-      <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
-        <div
-          className="flex items-center gap-2 rounded-2xl px-4 py-3"
-          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
-        >
-          <textarea
-            ref={textareaCallbackRef}
-            value={input}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
-            }}
-            placeholder="Text eingeben…"
-            rows={1}
-            disabled={loading}
-            className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
-            style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
-          />
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={loading || !input.trim() || activeSourceIds.length === 0}
-            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
-            style={{ backgroundColor: "var(--kb)" }}
-            title="Senden"
+        <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
+          <div
+            className="flex items-center gap-2 rounded-2xl px-4 py-3"
+            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
           >
-            <PaperPlaneRight size={16} weight="bold" />
-          </button>
+            <textarea
+              ref={textareaCallbackRef}
+              value={input}
+              onChange={(e) => onInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
+              }}
+              placeholder="Text eingeben…"
+              rows={1}
+              disabled={loading}
+              className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
+              style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
+            />
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={loading || !input.trim() || activeSourceIds.length === 0}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
+              style={{ backgroundColor: "var(--kb)" }}
+              title="Senden"
+            >
+              <PaperPlaneRight size={16} weight="bold" />
+            </button>
+          </div>
+          <div className="flex items-center justify-between mt-2 px-1">
+            <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+              {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
+            </span>
+          </div>
+          <p className="text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+            Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
+          </p>
         </div>
-        <div className="flex items-center justify-between mt-2 px-1">
-          <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-            {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
-          </span>
-        </div>
-        <p className="text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
-          Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
-        </p>
-      </div>
       </div>
     </div>
   );
@@ -1864,24 +1807,24 @@ function FlipCard({ front, back, flipped, onFlip }: { front: string; back: strin
 
 // Lerntools: var(--kb) blue tones
 const LERNTOOLS_BADGE: Record<string, { bg: string; color: string }> = {
-  Karteikarten:   { bg: "rgba(220,252,231,0.7)", color: "#166534" },
-  Quiz:           { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
-  Datentabelle:   { bg: "rgba(255,237,213,0.7)", color: "#C2410C" },
-  Mindmap:        { bg: "rgba(236,254,255,0.7)", color: "#0E7490" },
-  Infografik:     { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+  Karteikarten: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  Quiz: { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
+  Datentabelle: { bg: "rgba(255,237,213,0.7)", color: "#C2410C" },
+  Mindmap: { bg: "rgba(236,254,255,0.7)", color: "#0E7490" },
+  Infografik: { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
   "Präsentation": { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
 };
 // Sprachtraining: distinct tool colors (each unique)
 const SPRACHTRAINING_BADGE: Record<string, { bg: string; color: string }> = {
-  Karteikarten:   { bg: "rgba(207,250,254,0.7)", color: "#0E7490" },
-  Lernkarten:     { bg: "rgba(245,235,220,0.7)", color: "#78350F" },
-  Glossar:        { bg: "rgba(220,252,231,0.7)", color: "#166534" },
-  "Lückentext":   { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
+  Karteikarten: { bg: "rgba(207,250,254,0.7)", color: "#0E7490" },
+  Lernkarten: { bg: "rgba(245,235,220,0.7)", color: "#78350F" },
+  Glossar: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  "Lückentext": { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
   "Begriffe-Quiz": { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
 };
 const SHARED_BADGE: Record<string, { bg: string; color: string }> = {
-  Notizen:        { bg: "rgba(241,245,249,0.7)", color: "#475569" },
-  Statistik:      { bg: "rgba(241,245,249,0.7)", color: "#475569" },
+  Notizen: { bg: "rgba(241,245,249,0.7)", color: "#475569" },
+  Statistik: { bg: "rgba(241,245,249,0.7)", color: "#475569" },
 };
 
 function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: { title: string; onBack: () => void; breadcrumbs?: { label: string; onClick: () => void }[]; rightContent?: React.ReactNode; category?: "lerntools" | "sprachtraining" }) {
@@ -2015,19 +1958,19 @@ function ExerciseSetsOverview({
                       ) : failed ? (
                         <span className="shrink-0 text-xs font-bold" style={{ color: "#EF4444" }}>!</span>
                       ) : (() => {
-                          const pct = hasRun ? Math.round((lastCorrect / s.card_count) * 100) : 0;
-                          const r = 14; const c = 2 * Math.PI * r; const offset = c - (pct / 100) * c;
-                          return (
-                            <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0">
-                              <circle cx="19" cy="19" r={r} fill="none" stroke="var(--border)" strokeWidth="3" />
-                              <circle cx="19" cy="19" r={r} fill="none" stroke="var(--kb)" strokeWidth="3"
-                                strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
-                                transform="rotate(-90 19 19)" />
-                              <text x="19" y="19" textAnchor="middle" dominantBaseline="central"
-                                fontSize="9" fontWeight="700" fill="var(--kb)">{pct}%</text>
-                            </svg>
-                          );
-                        })()}
+                        const pct = hasRun ? Math.round((lastCorrect / s.card_count) * 100) : 0;
+                        const r = 14; const c = 2 * Math.PI * r; const offset = c - (pct / 100) * c;
+                        return (
+                          <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0">
+                            <circle cx="19" cy="19" r={r} fill="none" stroke="var(--border)" strokeWidth="3" />
+                            <circle cx="19" cy="19" r={r} fill="none" stroke="var(--kb)" strokeWidth="3"
+                              strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+                              transform="rotate(-90 19 19)" />
+                            <text x="19" y="19" textAnchor="middle" dominantBaseline="central"
+                              fontSize="9" fontWeight="700" fill="var(--kb)">{pct}%</text>
+                          </svg>
+                        );
+                      })()}
                     </div>
                     {/* Bottom row: meta left, delete right */}
                     <div className="flex items-center justify-between mt-auto pt-1">
@@ -2075,7 +2018,7 @@ function LernkartenLearnView({
     const raw = exerciseSet.items || [];
     if (raw.length > 0 && !shuffledRef.current) {
       const arr = [...raw];
-      for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+      for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
       setShuffledItems(arr);
       shuffledRef.current = true;
     }
@@ -2170,95 +2113,97 @@ function LernkartenLearnView({
           </div>
         </div>
       ) : card ? (
-      <>
-      {/* Card */}
-      <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 pb-3 gap-4">
-        <div className="w-full mt-6" style={{ perspective: 1200, maxWidth: 560, cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
-          <div style={{
-            position: "relative", width: "100%", minHeight: 300, transformStyle: "preserve-3d",
-            transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
-            transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-          }}>
-            {/* Front */}
-            <div style={{
-              position: "absolute", inset: 0, backfaceVisibility: "hidden", borderRadius: 16,
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              padding: "36px 20px", gap: 8, backgroundColor: "var(--surface)",
-              border: "2px solid var(--kb)",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
-            }}>
-              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>{isVocab ? "Fachbegriff" : "Frage"}</span>
-              <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "var(--text)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
-              <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-                <span />
-                {onAskChat && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${card.front}"`); }}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
-                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                    <Lightbulb size={13} weight="bold" /> Tipp
-                  </button>
-                )}
+        <>
+          {/* Card */}
+          <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 pb-3 gap-4">
+            <div className="w-full mt-6" style={{ perspective: 1200, maxWidth: 560, cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
+              <div style={{
+                position: "relative", width: "100%", minHeight: 300, transformStyle: "preserve-3d",
+                transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
+                transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+              }}>
+                {/* Front */}
+                <div style={{
+                  position: "absolute", inset: 0, backfaceVisibility: "hidden", borderRadius: 16,
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  padding: "36px 20px", gap: 8, backgroundColor: "var(--surface)",
+                  border: "2px solid var(--kb)",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
+                }}>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>{isVocab ? "Fachbegriff" : "Frage"}</span>
+                  <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "var(--text)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
+                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+                    <span />
+                    {onAskChat && (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${card.front}"`); }}
+                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                        style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                        <Lightbulb size={13} weight="bold" /> Tipp
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {/* Back */}
+                <div style={{
+                  position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
+                  borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  padding: "36px 20px 56px", gap: 8,
+                  backgroundColor: "var(--kb)",
+                  boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
+                }}>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{isVocab ? "Definition" : "Antwort"}</span>
+                  <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }} dangerouslySetInnerHTML={{ __html: _md(card.back) }} />
+                  {showTranslation && isVocab && card.back_en && (
+                    <p className="text-xs text-center italic" style={{ color: "rgba(255,255,255,0.6)" }}>{card.back_en}</p>
+                  )}
+                  {/* Source chip + Chat button */}
+                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+                    {card.source_label && (
+                      <button type="button"
+                        onClick={(e) => { e.stopPropagation(); if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time); }}
+                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
+                        <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
+                      </button>
+                    )}
+                    {onAskChat && (
+                      <button type="button" onClick={(e) => {
+                        e.stopPropagation(); onAskChat(isVocab
+                          ? `Erkläre mir den Begriff „${card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
+                          : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`);
+                      }}
+                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
+                        <Chat size={13} weight="bold" /> Mehr erfahren
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-            {/* Back */}
-            <div style={{
-              position: "absolute", inset: 0, backfaceVisibility: "hidden", transform: "rotateY(180deg)",
-              borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              padding: "36px 20px 56px", gap: 8,
-              backgroundColor: "var(--kb)",
-              boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
-            }}>
-              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{isVocab ? "Definition" : "Antwort"}</span>
-              <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }} dangerouslySetInnerHTML={{ __html: _md(card.back) }} />
-              {showTranslation && isVocab && card.back_en && (
-                <p className="text-xs text-center italic" style={{ color: "rgba(255,255,255,0.6)" }}>{card.back_en}</p>
+            {/* Actions */}
+            <div className="flex items-center justify-center gap-6 min-h-[48px]">
+              {flipped ? (
+                <>
+                  <button type="button" onClick={() => answer(false)} title="Nochmal"
+                    className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                    style={{ border: "2px solid #d4453a", color: "#d4453a", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
+                    <XIcon size={18} weight="bold" />
+                  </button>
+                  <button type="button" onClick={() => answer(true)} title="Gewusst!"
+                    className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                    style={{ border: "2px solid #1a8a5c", color: "#1a8a5c", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
+                    <Check size={18} weight="bold" />
+                  </button>
+                </>
+              ) : (
+                <button type="button" onClick={() => setFlipped(true)}
+                  className="px-6 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                  Antwort zeigen
+                </button>
               )}
-              {/* Source chip + Chat button */}
-              <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-                {card.source_label && (
-                  <button type="button"
-                    onClick={(e) => { e.stopPropagation(); if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time); }}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
-                    <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
-                  </button>
-                )}
-                {onAskChat && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(isVocab
-                      ? `Erkläre mir den Begriff „${card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
-                      : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`); }}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
-                    <Chat size={13} weight="bold" /> Mehr erfahren
-                  </button>
-                )}
-              </div>
             </div>
           </div>
-        </div>
-        {/* Actions */}
-        <div className="flex items-center justify-center gap-6 min-h-[48px]">
-          {flipped ? (
-            <>
-              <button type="button" onClick={() => answer(false)} title="Nochmal"
-                className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110"
-                style={{ border: "2px solid #d4453a", color: "#d4453a", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
-                <XIcon size={18} weight="bold" />
-              </button>
-              <button type="button" onClick={() => answer(true)} title="Gewusst!"
-                className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110"
-                style={{ border: "2px solid #1a8a5c", color: "#1a8a5c", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
-                <Check size={18} weight="bold" />
-              </button>
-            </>
-          ) : (
-            <button type="button" onClick={() => setFlipped(true)}
-              className="px-6 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-              Antwort zeigen
-            </button>
-          )}
-        </div>
-      </div>
-      </>
+        </>
       ) : null}
     </div>
   );
@@ -2327,12 +2272,12 @@ function MCExerciseView({
     const raw = exerciseSet.items || [];
     if (raw.length > 0 && !shuffledRef.current) {
       const arr = [...raw];
-      for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+      for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
       if (tool === "quiz") {
         const shuffled = arr.map((item) => {
           if (!item.options || item.correct_idx === undefined) return item;
           const indices = item.options.map((_, i) => i);
-          for (let i = indices.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [indices[i], indices[j]] = [indices[j], indices[i]]; }
+          for (let i = indices.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[indices[i], indices[j]] = [indices[j], indices[i]]; }
           return { ...item, options: indices.map((i) => item.options![i]), correct_idx: indices.indexOf(item.correct_idx) };
         });
         setShuffledItems(shuffled);
@@ -2444,113 +2389,113 @@ function MCExerciseView({
           </div>
         </div>
       ) : card ? (
-      <>
-      {/* Progress bar */}
-      <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
-        <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--kb)" }} />
-      </div>
-      {/* Question Card */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto mt-6 w-full" style={{ maxWidth: 560 }}>
-          <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
-            <div className="px-6 pt-5 pb-6 flex flex-col gap-4">
-            {/* Counter */}
-            <span className="text-[11px] font-semibold" style={{ color: "var(--muted)" }}>Frage {index + 1} / {total}</span>
-            {/* Question text */}
-            {tool === "lueckentext" ? (
-              <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}
-                dangerouslySetInnerHTML={{
-                  __html: card.front.replace(
-                    /___+/g,
-                    answered
-                      ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${card.back}</span>`
-                      : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed var(--kb);color:var(--kb);font-weight:700;padding:0 4px">___________</span>'
-                  ),
-                }}
-              />
-            ) : (
-              <p className="text-sm font-semibold leading-snug" style={{ color: "var(--text)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
-            )}
-            {/* Options */}
-            <div className="flex flex-col gap-2 mt-1">
-              {options.map((opt, oi) => {
-                const isThis = selected === oi;
-                const isRight = oi === card.correct_idx;
-                let borderColor = "var(--border)";
-                let bg = "var(--bg)";
-                let dotBg = "var(--border)";
-                let dotColor = "var(--muted)";
-                if (answered && isRight) { borderColor = "#1a8a5c"; bg = "rgba(26,138,92,0.08)"; dotBg = "#1a8a5c"; dotColor = "#fff"; }
-                else if (answered && isThis && !isRight) { borderColor = "#d4453a"; bg = "rgba(212,69,58,0.07)"; dotBg = "#d4453a"; dotColor = "#fff"; }
-                return (
-                  <button key={oi} type="button" onClick={() => select(oi)}
-                    disabled={answered}
-                    className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${!answered ? "hover:shadow-sm active:scale-[0.98] cursor-pointer" : ""}`}
-                    style={{ border: `1.5px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}
-                    onMouseEnter={(e) => { if (!answered) e.currentTarget.style.borderColor = "var(--kb)"; }}
-                    onMouseLeave={(e) => { if (!answered) e.currentTarget.style.borderColor = borderColor; }}>
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{ backgroundColor: dotBg, color: dotColor }}>
-                      {String.fromCharCode(65 + oi)}
-                    </span>
-                    <span dangerouslySetInnerHTML={{ __html: _md(opt) }} />
-                  </button>
-                );
-              })}
-            </div>
-            {/* Feedback */}
-            {answered && (
-              <div className="text-sm font-semibold px-4 py-2.5 rounded-xl"
-                style={isCorrect
-                  ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
-                  : { color: "#d4453a", backgroundColor: "rgba(212,69,58,0.07)" }}>
-                {isCorrect ? "✓ Richtig!" : <span dangerouslySetInnerHTML={{ __html: `✗ Richtig wäre: ${_md(card.back)}` }} />}
-              </div>
-            )}
-            {/* Source chip + Hint */}
-            <div className="flex items-center justify-between mt-1">
-              <div>
-                {card.source_label && (
-                  <button type="button"
-                    onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time); }}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
-                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                    <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
-                  </button>
-                )}
-              </div>
-              {tool === "quiz" && !answered && (
-                <button type="button" onClick={requestHint}
-                  disabled={hintLoading}
-                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
-                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                  <Lightbulb size={13} weight="bold" />
-                  {hintLoading ? "Wird geladen…" : "Tipp"}
-                </button>
-              )}
-            </div>
-            {/* Action row: Chat + Weiter */}
-            {answered && (
-              <div className="flex items-center justify-between mt-2">
-                <button type="button" onClick={() => onAskChat(tool === "vokabeltest" || tool === "lueckentext"
-                    ? `Erkläre mir den Begriff „${tool === "lueckentext" ? card.back : card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
-                    : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`)}
-                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80"
-                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                  <Chat size={13} weight="bold" /> Mehr erfahren
-                </button>
-                <button type="button" onClick={advance}
-                  className="flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold text-white transition-all hover:opacity-90"
-                  style={{ backgroundColor: "var(--kb)" }}>
-                  {index >= total - 1 ? "Abschließen" : "Weiter"} <CaretRight size={14} weight="bold" />
-                </button>
-              </div>
-            )}
+        <>
+          {/* Progress bar */}
+          <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
+            <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--kb)" }} />
           </div>
+          {/* Question Card */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="mx-auto mt-6 w-full" style={{ maxWidth: 560 }}>
+              <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
+                <div className="px-6 pt-5 pb-6 flex flex-col gap-4">
+                  {/* Counter */}
+                  <span className="text-[11px] font-semibold" style={{ color: "var(--muted)" }}>Frage {index + 1} / {total}</span>
+                  {/* Question text */}
+                  {tool === "lueckentext" ? (
+                    <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}
+                      dangerouslySetInnerHTML={{
+                        __html: card.front.replace(
+                          /___+/g,
+                          answered
+                            ? `<span style="font-weight:700;color:${isCorrect ? '#1a8a5c' : '#d4453a'};border-bottom:2px solid ${isCorrect ? '#1a8a5c' : '#d4453a'};padding:0 4px">${card.back}</span>`
+                            : '<span style="display:inline-block;min-width:80px;border-bottom:2px dashed var(--kb);color:var(--kb);font-weight:700;padding:0 4px">___________</span>'
+                        ),
+                      }}
+                    />
+                  ) : (
+                    <p className="text-sm font-semibold leading-snug" style={{ color: "var(--text)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
+                  )}
+                  {/* Options */}
+                  <div className="flex flex-col gap-2 mt-1">
+                    {options.map((opt, oi) => {
+                      const isThis = selected === oi;
+                      const isRight = oi === card.correct_idx;
+                      let borderColor = "var(--border)";
+                      let bg = "var(--bg)";
+                      let dotBg = "var(--border)";
+                      let dotColor = "var(--muted)";
+                      if (answered && isRight) { borderColor = "#1a8a5c"; bg = "rgba(26,138,92,0.08)"; dotBg = "#1a8a5c"; dotColor = "#fff"; }
+                      else if (answered && isThis && !isRight) { borderColor = "#d4453a"; bg = "rgba(212,69,58,0.07)"; dotBg = "#d4453a"; dotColor = "#fff"; }
+                      return (
+                        <button key={oi} type="button" onClick={() => select(oi)}
+                          disabled={answered}
+                          className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${!answered ? "hover:shadow-sm active:scale-[0.98] cursor-pointer" : ""}`}
+                          style={{ border: `1.5px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}
+                          onMouseEnter={(e) => { if (!answered) e.currentTarget.style.borderColor = "var(--kb)"; }}
+                          onMouseLeave={(e) => { if (!answered) e.currentTarget.style.borderColor = borderColor; }}>
+                          <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                            style={{ backgroundColor: dotBg, color: dotColor }}>
+                            {String.fromCharCode(65 + oi)}
+                          </span>
+                          <span dangerouslySetInnerHTML={{ __html: _md(opt) }} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Feedback */}
+                  {answered && (
+                    <div className="text-sm font-semibold px-4 py-2.5 rounded-xl"
+                      style={isCorrect
+                        ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
+                        : { color: "#d4453a", backgroundColor: "rgba(212,69,58,0.07)" }}>
+                      {isCorrect ? "✓ Richtig!" : <span dangerouslySetInnerHTML={{ __html: `✗ Richtig wäre: ${_md(card.back)}` }} />}
+                    </div>
+                  )}
+                  {/* Source chip + Hint */}
+                  <div className="flex items-center justify-between mt-1">
+                    <div>
+                      {card.source_label && (
+                        <button type="button"
+                          onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time); }}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                          style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                          <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
+                        </button>
+                      )}
+                    </div>
+                    {tool === "quiz" && !answered && (
+                      <button type="button" onClick={requestHint}
+                        disabled={hintLoading}
+                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
+                        style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                        <Lightbulb size={13} weight="bold" />
+                        {hintLoading ? "Wird geladen…" : "Tipp"}
+                      </button>
+                    )}
+                  </div>
+                  {/* Action row: Chat + Weiter */}
+                  {answered && (
+                    <div className="flex items-center justify-between mt-2">
+                      <button type="button" onClick={() => onAskChat(tool === "vokabeltest" || tool === "lueckentext"
+                        ? `Erkläre mir den Begriff „${tool === "lueckentext" ? card.back : card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
+                        : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`)}
+                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80"
+                        style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                        <Chat size={13} weight="bold" /> Mehr erfahren
+                      </button>
+                      <button type="button" onClick={advance}
+                        className="flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold text-white transition-all hover:opacity-90"
+                        style={{ backgroundColor: "var(--kb)" }}>
+                        {index >= total - 1 ? "Abschließen" : "Weiter"} <CaretRight size={14} weight="bold" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      </>
+        </>
       ) : null}
     </div>
   );
@@ -2875,7 +2820,7 @@ function DatentabelleStudio({
       {/* ── List view ── */}
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
         <SubviewHeader title="Datentabelle" onBack={onBack} breadcrumbs={breadcrumbs} />
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
               color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
@@ -3305,7 +3250,7 @@ function MindmapStudio({
       meInstanceRef.current = null;
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mindmap, view]);
 
   const activeTopicName = mindmap?.topic ?? "Mindmap";
@@ -3317,7 +3262,7 @@ function MindmapStudio({
       {/* ── List view ── */}
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
         <SubviewHeader title="Mindmap" onBack={onBack} breadcrumbs={breadcrumbs} />
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
               color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
@@ -3599,52 +3544,52 @@ function NotizenStudio({
             {notes.map((note) => {
               const isExpanded = expandedId === note.id;
               return (
-              <div
-                key={note.id}
-                className="group relative rounded-xl p-3 cursor-pointer hover:opacity-80 transition-opacity flex flex-col"
-                style={{
-                  backgroundColor: "var(--background)",
-                  boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)",
-                  minHeight: 90,
-                  ...(isExpanded ? { gridColumn: "1 / -1" } : {}),
-                }}
-                onClick={() => setExpandedId(isExpanded ? null : note.id)}
-              >
                 <div
-                  className={`text-sm pr-6 ki-note-content overflow-hidden flex-1 ${isExpanded ? "" : "max-h-[4.5em]"}`}
-                  style={{ color: "var(--text)", ...(isExpanded ? {} : { WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)" }) }}
+                  key={note.id}
+                  className="group relative rounded-xl p-3 cursor-pointer hover:opacity-80 transition-opacity flex flex-col"
+                  style={{
+                    backgroundColor: "var(--background)",
+                    boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)",
+                    minHeight: 90,
+                    ...(isExpanded ? { gridColumn: "1 / -1" } : {}),
+                  }}
+                  onClick={() => setExpandedId(isExpanded ? null : note.id)}
                 >
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      p: ({ children }) => <p className="mb-2 last:mb-0">{withNoteCitations(children)}</p>,
-                      ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                      li: ({ children }) => <li className="leading-relaxed">{withNoteCitations(children)}</li>,
-                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                      h1: ({ children }) => <p className="font-semibold mb-1">{withNoteCitations(children)}</p>,
-                      h2: ({ children }) => <p className="font-semibold mb-1">{withNoteCitations(children)}</p>,
-                      h3: ({ children }) => <p className="font-medium mb-1">{withNoteCitations(children)}</p>,
-                      table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
-                      th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
-                      td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{children}</td>,
-                      hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
-                    }}
+                  <div
+                    className={`text-sm pr-6 ki-note-content overflow-hidden flex-1 ${isExpanded ? "" : "max-h-[4.5em]"}`}
+                    style={{ color: "var(--text)", ...(isExpanded ? {} : { WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)" }) }}
                   >
-                    {note.content}
-                  </ReactMarkdown>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0">{withNoteCitations(children)}</p>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+                        li: ({ children }) => <li className="leading-relaxed">{withNoteCitations(children)}</li>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        h1: ({ children }) => <p className="font-semibold mb-1">{withNoteCitations(children)}</p>,
+                        h2: ({ children }) => <p className="font-semibold mb-1">{withNoteCitations(children)}</p>,
+                        h3: ({ children }) => <p className="font-medium mb-1">{withNoteCitations(children)}</p>,
+                        table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                        th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
+                        td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{children}</td>,
+                        hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
+                      }}
+                    >
+                      {note.content}
+                    </ReactMarkdown>
+                  </div>
+                  <div className="flex items-center justify-between mt-auto pt-1">
+                    <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                      {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
+                    </span>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
+                      className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                      style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+                      <Trash size={12} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between mt-auto pt-1">
-                  <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
-                    {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
-                  </span>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
-                    className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                    style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
-                    <Trash size={12} />
-                  </button>
-                </div>
-              </div>
               );
             })}
           </div>
@@ -3922,35 +3867,35 @@ function VocabFlashcards({
               <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
                 <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${((index + 1) / total) * 100}%`, backgroundColor: "var(--kb)" }} />
               </div>
-            <button
-              type="button"
-              onClick={() => setFlipped(!flipped)}
-              className="w-full p-6 text-center transition-all cursor-pointer"
-              style={{
-                minHeight: 180,
-                backgroundColor: "transparent",
-                border: "none",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
-              }}
-            >
-              {!flipped ? (
-                <>
-                  <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{card.term_de}</span>
-                  <span className="text-[10px]" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
-                    {card.term_en}
-                  </span>
-                  <span className="text-sm leading-relaxed font-semibold" style={{ color: "var(--text)" }}
-                    dangerouslySetInnerHTML={{ __html: _md(card.definition) }} />
-                  {card.page_number && (
-                    <span className="text-xs mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!) : `S. ${card.page_number}`}</span>
-                  )}
-                </>
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => setFlipped(!flipped)}
+                className="w-full p-6 text-center transition-all cursor-pointer"
+                style={{
+                  minHeight: 180,
+                  backgroundColor: "transparent",
+                  border: "none",
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+                }}
+              >
+                {!flipped ? (
+                  <>
+                    <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{card.term_de}</span>
+                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
+                      {card.term_en}
+                    </span>
+                    <span className="text-sm leading-relaxed font-semibold" style={{ color: "var(--text)" }}
+                      dangerouslySetInnerHTML={{ __html: _md(card.definition) }} />
+                    {card.page_number && (
+                      <span className="text-xs mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!) : `S. ${card.page_number}`}</span>
+                    )}
+                  </>
+                )}
+              </button>
             </div>
           )}
 
@@ -4416,11 +4361,11 @@ const TOOL_LABELS: Record<string, string> = {
 };
 
 const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
-  lernkarten:    { bg: "rgba(220,252,231,0.7)", color: "#166534" },
-  karteikarten:  { bg: "rgba(220,252,231,0.7)", color: "#166534" },
-  quiz:          { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
-  lueckentext:   { bg: "rgba(254,226,226,0.7)", color: "#B91C1C" },
-  vokabeltest:   { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+  lernkarten: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  karteikarten: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  quiz: { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
+  lueckentext: { bg: "rgba(254,226,226,0.7)", color: "#B91C1C" },
+  vokabeltest: { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
 };
 
 // ─── Recent Activities ────────────────────────────────────────────────────
@@ -4463,7 +4408,7 @@ function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { moduleU
     fetch(`/api/ki-tutor/modules/${moduleUuid}/recent-activities`, { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => setActivities(data))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoaded(true));
   }, [moduleUuid, refreshKey]);
 
@@ -4715,103 +4660,103 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
             <span className="text-xs text-center">Noch keine Aktivitäten in diesem Zeitraum.</span>
           </div>
         ) : (
-        <>
-        {/* Period summary line */}
-        <div className="flex gap-3 mb-2 text-xs" style={{ color: "var(--muted)" }}>
-          <span>{periodActiveDays} aktive Tage</span>
-          <span>{periodAnswers} Antworten</span>
-          {periodAnswers > 0 && <span>{periodAccuracy}% richtig</span>}
-        </div>
-
-        {/* ── Heatmap ── */}
-        {(() => {
-          const cellSize = 32;
-          const gap = 4;
-          const showDayNums = true;
-          // Build month labels with correct column spans
-          const monthLabels: { label: string; colSpan: number }[] = [];
-          let prevMonth = -1;
-          for (const week of heatmapWeeks) {
-            const d = new Date(week[0].day + "T12:00:00+02:00");
-            const m = d.getMonth();
-            if (m !== prevMonth) {
-              monthLabels.push({ label: d.toLocaleDateString("de-DE", { month: "short", timeZone: "Europe/Berlin" }), colSpan: 1 });
-              prevMonth = m;
-            } else {
-              monthLabels[monthLabels.length - 1].colSpan++;
-            }
-          }
-          return (
-            <div className="overflow-x-auto p-1">
-              <div className="flex mx-auto" style={{ width: "fit-content" }}>
-              {/* Row labels — fixed */}
-              <div className="flex flex-col flex-shrink-0 mr-2" style={{ paddingTop: cellSize + gap + 2 }}>
-                  {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(d => (
-                    <div key={d} className="flex items-center justify-end text-[10px] font-medium" style={{ height: cellSize, marginBottom: gap, color: "var(--muted)" }}>{d}</div>
-                  ))}
-                </div>
-                {/* Grid with month headers */}
-                <div>
-                  {/* Month labels */}
-                  <div className="flex" style={{ marginBottom: gap, width: "fit-content" }}>
-                    {monthLabels.map((m, i) => (
-                      <div key={i} className="text-[10px] font-medium" style={{
-                        width: m.colSpan * (cellSize + gap) - gap,
-                        marginRight: gap,
-                        color: "var(--muted)",
-                        height: cellSize,
-                        display: "flex",
-                        alignItems: "center",
-                      }}>{m.label}</div>
-                    ))}
-                  </div>
-                  {/* Cells */}
-                  <div className="flex" style={{ gap, width: "fit-content" }}>
-                    {heatmapWeeks.map((week, wi) => (
-                      <div key={wi} className="flex flex-col" style={{ gap }}>
-                        {week.map(d => {
-                          const isSelected = selectedDay?.day === d.day;
-                          const dateObj = new Date(d.day + "T12:00:00+02:00");
-                          const dayNum = dateObj.getDate();
-                          const isToday = d.day === today;
-                          return (
-                            <button
-                              key={d.day}
-                              type="button"
-                              onClick={() => selectDay(d)}
-                              className="rounded-[4px] transition-all flex items-center justify-center"
-                              style={{
-                                width: cellSize,
-                                height: cellSize,
-                                backgroundColor: heatColor(d.answers),
-                                outline: isSelected ? `2px solid ${accent}` : "none",
-                                outlineOffset: 1,
-                                borderBottom: isToday && !isSelected ? `2.5px solid ${category === "sprachtraining" ? "#C084FC" : "var(--muted)"}` : "none",
-                              }}
-                              title={`${formatDay(d.day)}: ${d.answers} Antworten`}
-                            >
-                              {showDayNums && <span className="text-[10px] font-medium" style={{ color: d.answers > 0 ? `rgba(255,255,255,${Math.min(0.5 + (d.answers / maxAns) * 0.5, 1)})` : "var(--muted)" }}>{dayNum}</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+          <>
+            {/* Period summary line */}
+            <div className="flex gap-3 mb-2 text-xs" style={{ color: "var(--muted)" }}>
+              <span>{periodActiveDays} aktive Tage</span>
+              <span>{periodAnswers} Antworten</span>
+              {periodAnswers > 0 && <span>{periodAccuracy}% richtig</span>}
             </div>
-          );
-        })()}
 
-        {/* Legend */}
-        <div className="flex items-center justify-center gap-2 mt-2">
-          <span className="text-[10px]" style={{ color: "var(--muted)" }}>Weniger</span>
-          {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
-            <div key={i} className="rounded-[3px]" style={{ width: 14, height: 14, backgroundColor: v === 0 ? `rgba(${heatRgb},0.07)` : `rgba(${heatRgb},${0.15 + v * 0.70})` }} />
-          ))}
-          <span className="text-[10px]" style={{ color: "var(--muted)" }}>Mehr</span>
-        </div>
-        </>
+            {/* ── Heatmap ── */}
+            {(() => {
+              const cellSize = 32;
+              const gap = 4;
+              const showDayNums = true;
+              // Build month labels with correct column spans
+              const monthLabels: { label: string; colSpan: number }[] = [];
+              let prevMonth = -1;
+              for (const week of heatmapWeeks) {
+                const d = new Date(week[0].day + "T12:00:00+02:00");
+                const m = d.getMonth();
+                if (m !== prevMonth) {
+                  monthLabels.push({ label: d.toLocaleDateString("de-DE", { month: "short", timeZone: "Europe/Berlin" }), colSpan: 1 });
+                  prevMonth = m;
+                } else {
+                  monthLabels[monthLabels.length - 1].colSpan++;
+                }
+              }
+              return (
+                <div className="overflow-x-auto p-1">
+                  <div className="flex mx-auto" style={{ width: "fit-content" }}>
+                    {/* Row labels — fixed */}
+                    <div className="flex flex-col flex-shrink-0 mr-2" style={{ paddingTop: cellSize + gap + 2 }}>
+                      {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(d => (
+                        <div key={d} className="flex items-center justify-end text-[10px] font-medium" style={{ height: cellSize, marginBottom: gap, color: "var(--muted)" }}>{d}</div>
+                      ))}
+                    </div>
+                    {/* Grid with month headers */}
+                    <div>
+                      {/* Month labels */}
+                      <div className="flex" style={{ marginBottom: gap, width: "fit-content" }}>
+                        {monthLabels.map((m, i) => (
+                          <div key={i} className="text-[10px] font-medium" style={{
+                            width: m.colSpan * (cellSize + gap) - gap,
+                            marginRight: gap,
+                            color: "var(--muted)",
+                            height: cellSize,
+                            display: "flex",
+                            alignItems: "center",
+                          }}>{m.label}</div>
+                        ))}
+                      </div>
+                      {/* Cells */}
+                      <div className="flex" style={{ gap, width: "fit-content" }}>
+                        {heatmapWeeks.map((week, wi) => (
+                          <div key={wi} className="flex flex-col" style={{ gap }}>
+                            {week.map(d => {
+                              const isSelected = selectedDay?.day === d.day;
+                              const dateObj = new Date(d.day + "T12:00:00+02:00");
+                              const dayNum = dateObj.getDate();
+                              const isToday = d.day === today;
+                              return (
+                                <button
+                                  key={d.day}
+                                  type="button"
+                                  onClick={() => selectDay(d)}
+                                  className="rounded-[4px] transition-all flex items-center justify-center"
+                                  style={{
+                                    width: cellSize,
+                                    height: cellSize,
+                                    backgroundColor: heatColor(d.answers),
+                                    outline: isSelected ? `2px solid ${accent}` : "none",
+                                    outlineOffset: 1,
+                                    borderBottom: isToday && !isSelected ? `2.5px solid ${category === "sprachtraining" ? "#C084FC" : "var(--muted)"}` : "none",
+                                  }}
+                                  title={`${formatDay(d.day)}: ${d.answers} Antworten`}
+                                >
+                                  {showDayNums && <span className="text-[10px] font-medium" style={{ color: d.answers > 0 ? `rgba(255,255,255,${Math.min(0.5 + (d.answers / maxAns) * 0.5, 1)})` : "var(--muted)" }}>{dayNum}</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <span className="text-[10px]" style={{ color: "var(--muted)" }}>Weniger</span>
+              {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
+                <div key={i} className="rounded-[3px]" style={{ width: 14, height: 14, backgroundColor: v === 0 ? `rgba(${heatRgb},0.07)` : `rgba(${heatRgb},${0.15 + v * 0.70})` }} />
+              ))}
+              <span className="text-[10px]" style={{ color: "var(--muted)" }}>Mehr</span>
+            </div>
+          </>
         )}
       </div>
 
@@ -4950,7 +4895,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
     fetch(`/api/ki-tutor/modules/${moduleUuid}/stats`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setStudentStats(data); })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setStatsLoading(false));
   }, [moduleUuid]);
 
@@ -5284,7 +5229,7 @@ export default function KiTutorModulePage() {
     fetch(`/api/ki-tutor/modules/${uuid}/stats`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setPageStats(data); })
-      .catch(() => {});
+      .catch(() => { });
   }, [uuid]);
 
   useEffect(() => {
@@ -6389,110 +6334,6 @@ export default function KiTutorModulePage() {
               </span>
             </span>
             <div ref={!isMobile ? settingsRef : undefined} className="relative flex-shrink-0 ml-auto">
-            <button
-              type="button"
-              onClick={() => setShowSettings((v) => !v)}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--surface-dim)", color: showSettings ? "white" : "var(--muted)" }}
-              title="Einstellungen"
-            >
-              <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
-            </button>
-
-            {/* Settings dropdown */}
-            {showSettings && (
-              <div
-                className="absolute right-0 top-10 z-50 rounded-xl shadow-lg"
-                style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", width: 260 }}
-              >
-                <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-                  <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>Meine Einstellungen</p>
-                </div>
-                {/* Chat-Sprache (disabled – requires full UI + tool language support) */}
-                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)", opacity: 0.4 }}>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Chat-Sprache</p>
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>Sprache der KI-Antworten</p>
-                  </div>
-                  <div className="flex gap-1">
-                    {(["de", "en"] as const).map((lang) => (
-                      <button
-                        key={lang}
-                        type="button"
-                        disabled
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg cursor-not-allowed"
-                        style={{
-                          backgroundColor: chatLang === lang ? "var(--kb)" : "var(--border)",
-                          color: chatLang === lang ? "white" : "var(--muted)",
-                        }}
-                      >
-                        {lang.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Studio-Panel */}
-                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Studio</p>
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>Studio-Panel anzeigen</p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={studioEnabled}
-                    onClick={() => setStudioEnabled((v) => !v)}
-                    className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
-                    style={{ backgroundColor: studioEnabled ? "var(--kb)" : "#CBD5E1" }}
-                  >
-                    <span
-                      className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
-                      style={{ transform: studioEnabled ? "translateX(16px)" : "translateX(0)" }}
-                    />
-                  </button>
-                </div>
-                {/* Sprachtraining */}
-                <div className="flex items-center justify-between px-4 py-3" style={{ opacity: studioEnabled ? 1 : 0.4 }}>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Fachsprachentraining</p>
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>Zeigt Fachsprachentraining-Tab im Studio</p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={sprachtrainingActive}
-                    onClick={() => studioEnabled && setSprachtrainingActive((v) => !v)}
-                    disabled={!studioEnabled}
-                    className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
-                    style={{ backgroundColor: sprachtrainingActive && studioEnabled ? "var(--kb)" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
-                  >
-                    <span
-                      className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
-                      style={{ transform: sprachtrainingActive && studioEnabled ? "translateX(16px)" : "translateX(0)" }}
-                    />
-                  </button>
-                </div>
-              </div>
-            )}
-            </div>
-          </div>
-        )}
-
-        {/* Tab bar — Mobile only */}
-        {isMobile && (
-          <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
-          <div className="flex items-center gap-2 px-3 pt-2 pb-1">
-            <Link
-              href="/ki-tutor"
-              className="inline-flex items-center justify-center w-7 h-7 flex-shrink-0 transition-colors group"
-              style={{ color: "var(--kb)" }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-            </Link>
-            <span className="text-sm font-bold truncate min-w-0" style={{ color: "var(--text)" }}>
-              {moduleDetail?.title ?? ""}
-            </span>
-            <div ref={isMobile ? settingsRef : undefined} className="relative flex-shrink-0 ml-auto">
               <button
                 type="button"
                 onClick={() => setShowSettings((v) => !v)}
@@ -6502,7 +6343,8 @@ export default function KiTutorModulePage() {
               >
                 <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
               </button>
-              {/* Settings dropdown — Mobile */}
+
+              {/* Settings dropdown */}
               {showSettings && (
                 <div
                   className="absolute right-0 top-10 z-50 rounded-xl shadow-lg"
@@ -6511,6 +6353,7 @@ export default function KiTutorModulePage() {
                   <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
                     <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>Meine Einstellungen</p>
                   </div>
+                  {/* Chat-Sprache (disabled – requires full UI + tool language support) */}
                   <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)", opacity: 0.4 }}>
                     <div>
                       <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Chat-Sprache</p>
@@ -6533,6 +6376,7 @@ export default function KiTutorModulePage() {
                       ))}
                     </div>
                   </div>
+                  {/* Studio-Panel */}
                   <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
                     <div>
                       <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Studio</p>
@@ -6552,6 +6396,7 @@ export default function KiTutorModulePage() {
                       />
                     </button>
                   </div>
+                  {/* Sprachtraining */}
                   <div className="flex items-center justify-between px-4 py-3" style={{ opacity: studioEnabled ? 1 : 0.4 }}>
                     <div>
                       <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Fachsprachentraining</p>
@@ -6576,28 +6421,128 @@ export default function KiTutorModulePage() {
               )}
             </div>
           </div>
-          <div
-            className="flex"
-            style={{ borderBottom: "1px solid var(--border)" }}
-          >
-            {(["quellen", "chat", ...(studioEnabled ? ["studio"] : [])] as PanelKey[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setActiveTab(key)}
-                className="flex-1 py-3 text-sm font-medium transition-colors relative"
-                style={{ color: activeTab === key ? "var(--kb)" : "var(--muted)", background: "none", border: "none" }}
+        )}
+
+        {/* Tab bar — Mobile only */}
+        {isMobile && (
+          <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
+            <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+              <Link
+                href="/ki-tutor"
+                className="inline-flex items-center justify-center w-7 h-7 flex-shrink-0 transition-colors group"
+                style={{ color: "var(--kb)" }}
               >
-                {key === "quellen" ? "Quellen" : key === "chat" ? "Chat" : "Studio"}
-                {activeTab === key && (
-                  <span
-                    className="absolute bottom-0 left-0 right-0"
-                    style={{ height: 2, backgroundColor: "var(--kb)", display: "block" }}
-                  />
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
+              </Link>
+              <span className="text-sm font-bold truncate min-w-0" style={{ color: "var(--text)" }}>
+                {moduleDetail?.title ?? ""}
+              </span>
+              <div ref={isMobile ? settingsRef : undefined} className="relative flex-shrink-0 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowSettings((v) => !v)}
+                  className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                  style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--surface-dim)", color: showSettings ? "white" : "var(--muted)" }}
+                  title="Einstellungen"
+                >
+                  <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
+                </button>
+                {/* Settings dropdown — Mobile */}
+                {showSettings && (
+                  <div
+                    className="absolute right-0 top-10 z-50 rounded-xl shadow-lg"
+                    style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", width: 260 }}
+                  >
+                    <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>Meine Einstellungen</p>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)", opacity: 0.4 }}>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Chat-Sprache</p>
+                        <p className="text-xs" style={{ color: "var(--muted)" }}>Sprache der KI-Antworten</p>
+                      </div>
+                      <div className="flex gap-1">
+                        {(["de", "en"] as const).map((lang) => (
+                          <button
+                            key={lang}
+                            type="button"
+                            disabled
+                            className="text-xs font-semibold px-2.5 py-1 rounded-lg cursor-not-allowed"
+                            style={{
+                              backgroundColor: chatLang === lang ? "var(--kb)" : "var(--border)",
+                              color: chatLang === lang ? "white" : "var(--muted)",
+                            }}
+                          >
+                            {lang.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Studio</p>
+                        <p className="text-xs" style={{ color: "var(--muted)" }}>Studio-Panel anzeigen</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={studioEnabled}
+                        onClick={() => setStudioEnabled((v) => !v)}
+                        className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+                        style={{ backgroundColor: studioEnabled ? "var(--kb)" : "#CBD5E1" }}
+                      >
+                        <span
+                          className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                          style={{ transform: studioEnabled ? "translateX(16px)" : "translateX(0)" }}
+                        />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-3" style={{ opacity: studioEnabled ? 1 : 0.4 }}>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Fachsprachentraining</p>
+                        <p className="text-xs" style={{ color: "var(--muted)" }}>Zeigt Fachsprachentraining-Tab im Studio</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={sprachtrainingActive}
+                        onClick={() => studioEnabled && setSprachtrainingActive((v) => !v)}
+                        disabled={!studioEnabled}
+                        className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+                        style={{ backgroundColor: sprachtrainingActive && studioEnabled ? "var(--kb)" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
+                      >
+                        <span
+                          className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                          style={{ transform: sprachtrainingActive && studioEnabled ? "translateX(16px)" : "translateX(0)" }}
+                        />
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </button>
-            ))}
-          </div>
+              </div>
+            </div>
+            <div
+              className="flex"
+              style={{ borderBottom: "1px solid var(--border)" }}
+            >
+              {(["quellen", "chat", ...(studioEnabled ? ["studio"] : [])] as PanelKey[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveTab(key)}
+                  className="flex-1 py-3 text-sm font-medium transition-colors relative"
+                  style={{ color: activeTab === key ? "var(--kb)" : "var(--muted)", background: "none", border: "none" }}
+                >
+                  {key === "quellen" ? "Quellen" : key === "chat" ? "Chat" : "Studio"}
+                  {activeTab === key && (
+                    <span
+                      className="absolute bottom-0 left-0 right-0"
+                      style={{ height: 2, backgroundColor: "var(--kb)", display: "block" }}
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -6610,100 +6555,100 @@ export default function KiTutorModulePage() {
           {isMobile ? (
             /* Mobile: single panel, switched via activeTab */
             <MinimizeContext.Provider value={() => setActiveTab("chat")}>
-            <div
-              className="flex flex-col flex-1 overflow-hidden rounded-2xl"
-              style={{ backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
-            >
-              {activeTab === "quellen" ? (
-                viewerSource ? (
-                  _isMediaFile(viewerSource.filename) ? (
-                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} />
+              <div
+                className="flex flex-col flex-1 overflow-hidden rounded-2xl"
+                style={{ backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
+              >
+                {activeTab === "quellen" ? (
+                  viewerSource ? (
+                    _isMediaFile(viewerSource.filename) ? (
+                      <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} />
+                    ) : (
+                      <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => setActiveTab("chat")} />
+                    )
                   ) : (
-                    <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => setActiveTab("chat")} />
+                    <SourcesPanel
+                      sources={sources}
+                      selectedSourceIds={selectedSourceIds}
+                      onToggleSource={handleToggleSource}
+                      onOpenViewer={(src) => handleOpenViewer(src)}
+                      onDeleteSource={handleDeleteSource}
+                      onUpload={handleUpload}
+                      uploadProgress={uploadProgress}
+                      isLecturer={isLecturer}
+                      onMinimize={() => setActiveTab("chat")}
+                    />
                   )
-                ) : (
-                  <SourcesPanel
+                ) : activeTab === "chat" ? (
+                  <ChatPanel
+                    messages={messages}
+                    activeSourceIds={activeSourceIds}
                     sources={sources}
-                    selectedSourceIds={selectedSourceIds}
-                    onToggleSource={handleToggleSource}
-                    onOpenViewer={(src) => handleOpenViewer(src)}
-                    onDeleteSource={handleDeleteSource}
-                    onUpload={handleUpload}
-                    uploadProgress={uploadProgress}
-                    isLecturer={isLecturer}
-                    onMinimize={() => setActiveTab("chat")}
+                    loading={chatLoading}
+                    input={chatInput}
+                    onInputChange={setChatInput}
+                    onSend={() => sendChatMessage(chatInput)}
+                    onSendPrompt={(text) => sendChatMessage(text)}
+                    onPillClick={handlePillClick}
+                    moduleReady={moduleDetail?.status === "ready"}
+                    onClear={() => { const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : ""; fetch(`/api/ki-tutor/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
+                    externalTextareaRef={chatTextareaRef}
+                    onSaveNote={addNote}
                   />
-                )
-              ) : activeTab === "chat" ? (
-                <ChatPanel
-                  messages={messages}
-                  activeSourceIds={activeSourceIds}
-                  sources={sources}
-                  loading={chatLoading}
-                  input={chatInput}
-                  onInputChange={setChatInput}
-                  onSend={() => sendChatMessage(chatInput)}
-                  onSendPrompt={(text) => sendChatMessage(text)}
-                  onPillClick={handlePillClick}
-                  moduleReady={moduleDetail?.status === "ready"}
-                  onClear={() => { const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : ""; fetch(`/api/ki-tutor/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
-                  externalTextareaRef={chatTextareaRef}
-                  onSaveNote={addNote}
-                />
-              ) : sprachView !== "overview" ? (
-                sprachtrainingContent
-              ) : studioView === "overview" ? (
-                <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} />
-              ) : activeSet && activeSet.tool === "karteikarten" ? (
-                <LernkartenLearnView
-                  exerciseSet={activeSet}
-                  onBack={() => { setActiveSet(null); refreshProgress(); }}
-                  onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-                  onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
-                  onSourceClick={(filename, page, startTime) => {
-                    const src = sources.find((s) => s.filename === filename);
-                    if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
-                  }}
-                  breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
-                />
-              ) : activeSet && activeSet.tool === "quiz" ? (
-                <MCExerciseView
-                  exerciseSet={activeSet}
-                  tool="quiz"
-                  onBack={() => { setActiveSet(null); refreshProgress(); }}
-                  onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-                  onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
-                  onSourceClick={(filename, page, startTime) => {
-                    const src = sources.find((s) => s.filename === filename);
-                    if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
-                  }}
-                  breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
-                />
-              ) : studioView === "karteikarten" ? (
-                <ExerciseSetsOverview
-                  title="Karteikarten"
-                  sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
-                  onBack={() => setStudioView("overview")}
-                  onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
-                  onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
-                  onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
-                  sourceCount={selectedSourceIds.length}
-                  stats={pageStats}
-                />
-              ) : studioView === "notizen" ? (
-                <NotizenStudio
-                  notes={notes}
-                  onAdd={addNote}
-                  onDelete={deleteNote}
-                  onBack={() => setStudioView("overview")}
-                  sources={sources}
-                  activeSourceIds={selectedSourceIds}
-                  onPillClick={handlePillClick}
-                  stats={pageStats}
-                  breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
-                />
-              ) : studioView === "datentabelle" ? (
-                <DatentabelleStudio
+                ) : sprachView !== "overview" ? (
+                  sprachtrainingContent
+                ) : studioView === "overview" ? (
+                  <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} />
+                ) : activeSet && activeSet.tool === "karteikarten" ? (
+                  <LernkartenLearnView
+                    exerciseSet={activeSet}
+                    onBack={() => { setActiveSet(null); refreshProgress(); }}
+                    onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+                    onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
+                    onSourceClick={(filename, page, startTime) => {
+                      const src = sources.find((s) => s.filename === filename);
+                      if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                    }}
+                    breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+                  />
+                ) : activeSet && activeSet.tool === "quiz" ? (
+                  <MCExerciseView
+                    exerciseSet={activeSet}
+                    tool="quiz"
+                    onBack={() => { setActiveSet(null); refreshProgress(); }}
+                    onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+                    onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
+                    onSourceClick={(filename, page, startTime) => {
+                      const src = sources.find((s) => s.filename === filename);
+                      if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                    }}
+                    breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+                  />
+                ) : studioView === "karteikarten" ? (
+                  <ExerciseSetsOverview
+                    title="Karteikarten"
+                    sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
+                    onBack={() => setStudioView("overview")}
+                    onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+                    onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
+                    onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
+                    sourceCount={selectedSourceIds.length}
+                    stats={pageStats}
+                  />
+                ) : studioView === "notizen" ? (
+                  <NotizenStudio
+                    notes={notes}
+                    onAdd={addNote}
+                    onDelete={deleteNote}
+                    onBack={() => setStudioView("overview")}
+                    sources={sources}
+                    activeSourceIds={selectedSourceIds}
+                    onPillClick={handlePillClick}
+                    stats={pageStats}
+                    breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
+                  />
+                ) : studioView === "datentabelle" ? (
+                  <DatentabelleStudio
                     table={datentabelle}
                     sources={datentabelleSources}
                     loading={datentabelleLoading}
@@ -6718,22 +6663,22 @@ export default function KiTutorModulePage() {
                     stats={pageStats}
                     breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
                   />
-              ) : studioView === "mindmap" ? (
-                <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} />
-              ) : studioView === "quiz" ? (
-                <ExerciseSetsOverview
-                  title="Quiz"
-                  sets={exerciseSets.filter((s) => s.tool === "quiz")}
-                  onBack={() => setStudioView("overview")}
-                  onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
-                  onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
-                  onDelete={(id) => deleteExerciseSet(id, "quiz")}
-                  sourceCount={selectedSourceIds.length}
-                  stats={pageStats}
-                  breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
-                />
-              ) : null}
-            </div>
+                ) : studioView === "mindmap" ? (
+                  <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} />
+                ) : studioView === "quiz" ? (
+                  <ExerciseSetsOverview
+                    title="Quiz"
+                    sets={exerciseSets.filter((s) => s.tool === "quiz")}
+                    onBack={() => setStudioView("overview")}
+                    onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+                    onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
+                    onDelete={(id) => deleteExerciseSet(id, "quiz")}
+                    sourceCount={selectedSourceIds.length}
+                    stats={pageStats}
+                    breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
+                  />
+                ) : null}
+              </div>
             </MinimizeContext.Provider>
           ) : (
             /* Desktop: 3 panels with drag handles */
@@ -6809,113 +6754,113 @@ export default function KiTutorModulePage() {
 
               {studioEnabled && (
                 <>
-                {/* Drag handle 2 */}
-                <div
-                  className="group flex-shrink-0 flex items-center justify-center"
-                  style={{ width: 8, cursor: panels.chat && panels.studio ? "col-resize" : "default" }}
-                  onMouseDown={(e) => panels.chat && panels.studio && startDrag(2, e)}
-                >
+                  {/* Drag handle 2 */}
                   <div
-                    className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ height: 48, backgroundColor: "var(--kb)" }}
-                  />
-                </div>
+                    className="group flex-shrink-0 flex items-center justify-center"
+                    style={{ width: 8, cursor: panels.chat && panels.studio ? "col-resize" : "default" }}
+                    onMouseDown={(e) => panels.chat && panels.studio && startDrag(2, e)}
+                  >
+                    <div
+                      className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ height: 48, backgroundColor: "var(--kb)" }}
+                    />
+                  </div>
 
-                {/* Panel 3 — Studio */}
-                <div
-                  ref={p3Ref}
-                  className="flex flex-col overflow-hidden rounded-2xl"
-                  style={{ ...p3Style, backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
-                >
-                  <MinimizeContext.Provider value={() => togglePanel("studio")}>
-                  {!panels.studio ? (
-                    <MiniStrip label="Studio" onClick={() => togglePanel("studio")} side="right" />
-                  ) : sprachView !== "overview" ? (
-                    sprachtrainingContent
-                  ) : studioView === "overview" ? (
-                    <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} />
-                  ) : activeSet && activeSet.tool === "karteikarten" ? (
-                    <LernkartenLearnView
-                      exerciseSet={activeSet}
-                      onBack={() => { setActiveSet(null); refreshProgress(); }}
-                      onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-                      onAskChat={(text) => { setChatInput(text); }}
-                      onSourceClick={(filename, page, startTime) => {
-                        const src = sources.find((s) => s.filename === filename);
-                        if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
-                      }}
-                      breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
-                    />
-                  ) : activeSet && activeSet.tool === "quiz" ? (
-                    <MCExerciseView
-                      exerciseSet={activeSet}
-                      tool="quiz"
-                      onBack={() => { setActiveSet(null); refreshProgress(); }}
-                      onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
-                      onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
-                      onSourceClick={(filename, page, startTime) => {
-                        const src = sources.find((s) => s.filename === filename);
-                        if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
-                      }}
-                      breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
-                    />
-                  ) : studioView === "karteikarten" ? (
-                    <ExerciseSetsOverview
-                      title="Karteikarten"
-                      sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
-                      onBack={() => setStudioView("overview")}
-                      onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
-                      onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
-                      onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
-                      sourceCount={selectedSourceIds.length}
-                      stats={pageStats}
-                      breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
-                    />
-                  ) : studioView === "notizen" ? (
-                    <NotizenStudio
-                      notes={notes}
-                      onAdd={addNote}
-                      onDelete={deleteNote}
-                      onBack={() => setStudioView("overview")}
-                      sources={sources}
-                      activeSourceIds={selectedSourceIds}
-                      onPillClick={handlePillClick}
-                      stats={pageStats}
-                      breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
-                    />
-                  ) : studioView === "datentabelle" ? (
-                    <DatentabelleStudio
-                      table={datentabelle}
-                      sources={datentabelleSources}
-                      loading={datentabelleLoading}
-                      onGenerate={generateDatentabelle}
-                      onBack={() => setStudioView("overview")}
-                      savedList={datentabelleList}
-                      onSelect={selectDatentabelle}
-                      onDelete={deleteDatentabelle}
-                      sourceCount={selectedSourceIds.length}
-                      allSources={sources}
-                      onPillClick={handlePillClick}
-                      stats={pageStats}
-                      breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
-                    />
-                  ) : studioView === "mindmap" ? (
-                    <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} />
-                  ) : studioView === "quiz" ? (
-                    <ExerciseSetsOverview
-                      title="Quiz"
-                      sets={exerciseSets.filter((s) => s.tool === "quiz")}
-                      onBack={() => setStudioView("overview")}
-                      onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
-                      onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
-                      onDelete={(id) => deleteExerciseSet(id, "quiz")}
-                      sourceCount={selectedSourceIds.length}
-                      stats={pageStats}
-                      breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
-                    />
-                  ) : null}
-                  </MinimizeContext.Provider>
-                </div>
+                  {/* Panel 3 — Studio */}
+                  <div
+                    ref={p3Ref}
+                    className="flex flex-col overflow-hidden rounded-2xl"
+                    style={{ ...p3Style, backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
+                  >
+                    <MinimizeContext.Provider value={() => togglePanel("studio")}>
+                      {!panels.studio ? (
+                        <MiniStrip label="Studio" onClick={() => togglePanel("studio")} side="right" />
+                      ) : sprachView !== "overview" ? (
+                        sprachtrainingContent
+                      ) : studioView === "overview" ? (
+                        <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} />
+                      ) : activeSet && activeSet.tool === "karteikarten" ? (
+                        <LernkartenLearnView
+                          exerciseSet={activeSet}
+                          onBack={() => { setActiveSet(null); refreshProgress(); }}
+                          onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+                          onAskChat={(text) => { setChatInput(text); }}
+                          onSourceClick={(filename, page, startTime) => {
+                            const src = sources.find((s) => s.filename === filename);
+                            if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                          }}
+                          breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+                        />
+                      ) : activeSet && activeSet.tool === "quiz" ? (
+                        <MCExerciseView
+                          exerciseSet={activeSet}
+                          tool="quiz"
+                          onBack={() => { setActiveSet(null); refreshProgress(); }}
+                          onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
+                          onAskChat={(text) => { setChatInput(text); setActiveTab("chat"); }}
+                          onSourceClick={(filename, page, startTime) => {
+                            const src = sources.find((s) => s.filename === filename);
+                            if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                          }}
+                          breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+                        />
+                      ) : studioView === "karteikarten" ? (
+                        <ExerciseSetsOverview
+                          title="Karteikarten"
+                          sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
+                          onBack={() => setStudioView("overview")}
+                          onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+                          onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
+                          onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
+                          sourceCount={selectedSourceIds.length}
+                          stats={pageStats}
+                          breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
+                        />
+                      ) : studioView === "notizen" ? (
+                        <NotizenStudio
+                          notes={notes}
+                          onAdd={addNote}
+                          onDelete={deleteNote}
+                          onBack={() => setStudioView("overview")}
+                          sources={sources}
+                          activeSourceIds={selectedSourceIds}
+                          onPillClick={handlePillClick}
+                          stats={pageStats}
+                          breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
+                        />
+                      ) : studioView === "datentabelle" ? (
+                        <DatentabelleStudio
+                          table={datentabelle}
+                          sources={datentabelleSources}
+                          loading={datentabelleLoading}
+                          onGenerate={generateDatentabelle}
+                          onBack={() => setStudioView("overview")}
+                          savedList={datentabelleList}
+                          onSelect={selectDatentabelle}
+                          onDelete={deleteDatentabelle}
+                          sourceCount={selectedSourceIds.length}
+                          allSources={sources}
+                          onPillClick={handlePillClick}
+                          stats={pageStats}
+                          breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
+                        />
+                      ) : studioView === "mindmap" ? (
+                        <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} />
+                      ) : studioView === "quiz" ? (
+                        <ExerciseSetsOverview
+                          title="Quiz"
+                          sets={exerciseSets.filter((s) => s.tool === "quiz")}
+                          onBack={() => setStudioView("overview")}
+                          onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
+                          onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
+                          onDelete={(id) => deleteExerciseSet(id, "quiz")}
+                          sourceCount={selectedSourceIds.length}
+                          stats={pageStats}
+                          breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
+                        />
+                      ) : null}
+                    </MinimizeContext.Provider>
+                  </div>
                 </>
               )}
             </>
