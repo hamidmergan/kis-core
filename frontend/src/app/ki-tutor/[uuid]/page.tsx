@@ -714,6 +714,21 @@ function PdfViewer({
           console.log("[HL] geo:", { rawStart, rawEnd, geoStart, geoEnd, phantoms });
           selInstance.applyInstantSelection(docId2, pageIndex, geoStart, geoEnd, "default");
           prevHighlightRef.current = { pageIndex, ids: [] };
+
+          // Scroll to center the highlighted text in the viewport
+          let targetRun = g.runs[0];
+          for (const run of g.runs) {
+            if (run.charStart > geoStart) break;
+            targetRun = run;
+          }
+          if (targetRun?.rect && scroll) {
+            scroll.scrollToPage({
+              pageNumber: page,
+              pageCoordinates: { x: 0, y: targetRun.rect.y },
+              behavior: "instant",
+              alignY: 50,
+            });
+          }
         });
       });
     }).catch((err) => { console.error("[HL] error:", err); });
@@ -736,7 +751,7 @@ function PdfViewer({
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
-      scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant" });
+      scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant", alignY: 50 });
     }
 
   }, [source.nonce, source.page, source.highlightText]);
