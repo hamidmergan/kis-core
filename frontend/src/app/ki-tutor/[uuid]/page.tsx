@@ -648,26 +648,78 @@ function PdfViewer({
         const cleanInput = searchText.replace(/\s+/g, " ").trim()
           .replace(/^\d{1,3}\s+/, "").trim();
         const ptLower = cleanText.toLowerCase();
-        const inputLower = cleanInput.toLowerCase();
+        const inputWords = cleanInput.toLowerCase().split(" ").filter(w => w.length > 0);
 
-        // Try full-text match first
-        let startIdx = ptLower.indexOf(inputLower);
-        let endIdx = startIdx >= 0 ? startIdx + inputLower.length - 1 : -1;
+        // Find keywords on the page — try as phrase first, then individual keywords
+        let matchStart = -1;
+        let matchEnd = -1;
 
-        // Fallback: progressively shorten from the end
-        if (startIdx < 0) {
-          const words = cleanInput.split(" ");
-          for (let len = words.length - 1; len >= 3; len--) {
-            const partial = words.slice(0, len).join(" ").toLowerCase();
-            startIdx = ptLower.indexOf(partial);
-            if (startIdx >= 0) { endIdx = startIdx + partial.length - 1; break; }
+        // 1. Try full phrase match
+        const fullPhrase = inputWords.join(" ");
+        const fullIdx = ptLower.indexOf(fullPhrase);
+        if (fullIdx >= 0) {
+          matchStart = fullIdx;
+          matchEnd = fullIdx + fullPhrase.length - 1;
+        }
+
+        // 2. Try sliding windows (decreasing size)
+        if (matchStart < 0) {
+          outer:
+          for (let windowSize = inputWords.length; windowSize >= 2; windowSize--) {
+            for (let skip = 0; skip <= inputWords.length - windowSize; skip++) {
+              const phrase = inputWords.slice(skip, skip + windowSize).join(" ");
+              const idx = ptLower.indexOf(phrase);
+              if (idx >= 0) {
+                matchStart = idx;
+                matchEnd = idx + phrase.length - 1;
+                break outer;
+              }
+            }
           }
         }
 
-        if (startIdx < 0 || endIdx < 0) return false;
+        // 3. Find individual keywords and use the position of the most specific one (longest word)
+        if (matchStart < 0) {
+          const sorted = [...inputWords].sort((a, b) => b.length - a.length);
+          for (const word of sorted) {
+            if (word.length < 4) continue;
+            const idx = ptLower.indexOf(word);
+            if (idx >= 0) {
+              matchStart = idx;
+              matchEnd = idx + word.length - 1;
+              break;
+            }
+          }
+        }
 
-        const rawStart = cleanToRaw[startIdx];
-        const rawEnd = cleanToRaw[endIdx];
+        if (matchStart < 0 || matchEnd < 0) return false;
+
+        // Expand to sentence boundaries (period, newline, or start/end of text)
+        let sentStart = matchStart;
+        let sentEnd = matchEnd;
+        // Search backwards for sentence start
+        for (let i = matchStart - 1; i >= 0; i--) {
+          const ch = cleanText[i];
+          if (ch === "." || ch === "\n" || ch === "!" || ch === "?") {
+            sentStart = i + 1;
+            // Skip whitespace after punctuation
+            while (sentStart < matchStart && cleanText[sentStart] === " ") sentStart++;
+            break;
+          }
+          if (i === 0) sentStart = 0;
+        }
+        // Search forwards for sentence end
+        for (let i = matchEnd + 1; i < cleanText.length; i++) {
+          const ch = cleanText[i];
+          if (ch === "." || ch === "\n" || ch === "!" || ch === "?") {
+            sentEnd = i;
+            break;
+          }
+          if (i === cleanText.length - 1) sentEnd = i;
+        }
+
+        const rawStart = cleanToRaw[sentStart];
+        const rawEnd = cleanToRaw[sentEnd];
 
         const phantoms = totalChars - rawPageText.length;
         const findGeo = (rawIdx: number): Promise<number> => {
@@ -1536,8 +1588,13 @@ function ChatPanel({
             // Track which source_pages entry was used per page to cycle through chunks
             const spUsedCount = new Map<string, number>();
             function parseCitations(text: string): React.ReactNode[] {
-              // Matches [Q1, S. 2], [S. 2], [Q1, 05:32], [Q1, 1:05:32] (tolerates trailing whitespace)
-              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))\s*\]/g;
+              // Split multi-page citations: [Q1, S. 9, S. 15] → [Q1, S. 9] [Q1, S. 15]
+              text = text.replace(/\[(Q\d+),\s*((?:S\.\s*\d+(?:\s*\|[^,\]]+)?,?\s*)+)\]/g, (_m, q, body) => {
+                const parts = body.match(/S\.\s*\d+(?:\s*\|[^,\]]*)*/g) || [];
+                return parts.map((p: string) => `[${q}, ${p.trim()}]`).join(" ");
+              });
+              // Matches [Q1, S. 2 | keywords], [S. 2], [Q1, 05:32] (keywords optional)
+              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
               const nodes: React.ReactNode[] = [];
               let last = 0;
               let m: RegExpExecArray | null;
@@ -1546,21 +1603,21 @@ function ChatPanel({
                 const qNum = m[1] ? parseInt(m[1]) : null;
                 const pageNum = m[2] ? parseInt(m[2]) : 0;
                 const timestamp = m[3] || null;
+                const keywords = m[4]?.trim().replace(/^["„"']+|["„"']+$/g, "").trim() || null;
 
                 // Resolve source via qmap (preferred) or fallback to source_pages
                 const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
                 const isMedia = qEntry?.is_media || !!timestamp;
                 const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
                 const filename = qEntry?.filename ?? getFilename(sourceUuid);
-
-                // Cycle through source_pages entries for same page (each chunk gets its own highlight)
                 const pageKey = `${sourceUuid}:${pageNum}`;
                 const usedIdx = spUsedCount.get(pageKey) ?? 0;
                 const matchingEntries = msgSourcePages.filter(s => s.source_uuid === sourceUuid && (timestamp ? s.start_time !== undefined : s.page_number === pageNum));
                 const sp = matchingEntries[usedIdx % Math.max(1, matchingEntries.length)];
                 spUsedCount.set(pageKey, usedIdx + 1);
 
-                const highlightText = sp?.source_text;
+                // Prefer LLM keywords for highlighting, fall back to chunk text
+                const highlightText = keywords || sp?.source_text;
 
                 if (isMedia && timestamp) {
                   // Parse timestamp to seconds

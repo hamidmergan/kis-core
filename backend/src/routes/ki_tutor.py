@@ -774,8 +774,13 @@ async def chat(
         for chunk in chunks:
             source = all_sources.get(chunk["source_id"])
             if source:
-                snippet = (chunk.get("content") or "")[:500].strip()
-                snippet = re.sub(r"^\d{1,3}\s+", "", snippet).strip()
+                raw = (chunk.get("content") or "").strip()
+                raw = re.sub(r"^\d{1,3}\s+", "", raw).strip()
+                # Skip leading partial word (chunk overlap can start mid-word)
+                first_space = raw.find(" ")
+                if first_space > 0 and first_space < 20:
+                    raw = raw[first_space + 1:]
+                snippet = raw[:400].strip()
                 entry = {
                     "source_uuid": source["uuid"],
                     "filename": source["filename"],
@@ -814,8 +819,7 @@ async def chat(
             answer += suffix
             yield f"data: {json.dumps({'token': suffix})}\n\n"
 
-        # Post-process: strip any | quote parts the LLM might still add
-        answer = re.sub(r"\s*\|\s*[^\]]+(?=\])", "", answer)
+        # Keywords in citations stay (used by frontend for highlighting)
 
         # Save messages
         db.save_ki_tutor_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
