@@ -702,14 +702,30 @@ function PdfViewer({
         if (matchStart < 0 || matchEnd < 0) return false;
 
         // Expand to sentence boundaries (period, newline, or start/end of text)
+        // Skip abbreviation dots: bzw. z.B. u.a. etc. ca. vs. Dr. Nr. Prof. d.h. o.ä. ggf. S. Abs.
+        const _abbrPattern = /(?:bzw|z\.B|u\.a|etc|ca|vs|Dr|Nr|Prof|d\.h|o\.ä|ggf|Abs|Abb|vgl|inkl|sog|evtl|S)\s*$/i;
+        const _isAbbrevDot = (text: string, dotIdx: number) => {
+          if (dotIdx < 1) return false;
+          const before = text.slice(Math.max(0, dotIdx - 6), dotIdx);
+          if (_abbrPattern.test(before)) return true;
+          // Single uppercase letter + dot (e.g. "S." "A.")
+          if (dotIdx >= 1 && /^[A-ZÄÖÜ]$/.test(text[dotIdx - 1]) && (dotIdx < 2 || text[dotIdx - 2] === " ")) return true;
+          // Number + dot (e.g. "3." "49%.")
+          if (/\d$/.test(text.slice(Math.max(0, dotIdx - 1), dotIdx))) return true;
+          return false;
+        };
         let sentStart = matchStart;
         let sentEnd = matchEnd;
         // Search backwards for sentence start
         for (let i = matchStart - 1; i >= 0; i--) {
           const ch = cleanText[i];
-          if (ch === "." || ch === "\n" || ch === "!" || ch === "?") {
+          if (ch === "\n" || ch === "!" || ch === "?") {
             sentStart = i + 1;
-            // Skip whitespace after punctuation
+            while (sentStart < matchStart && cleanText[sentStart] === " ") sentStart++;
+            break;
+          }
+          if (ch === "." && !_isAbbrevDot(cleanText, i)) {
+            sentStart = i + 1;
             while (sentStart < matchStart && cleanText[sentStart] === " ") sentStart++;
             break;
           }
@@ -718,7 +734,11 @@ function PdfViewer({
         // Search forwards for sentence end
         for (let i = matchEnd + 1; i < cleanText.length; i++) {
           const ch = cleanText[i];
-          if (ch === "." || ch === "\n" || ch === "!" || ch === "?") {
+          if (ch === "\n" || ch === "!" || ch === "?") {
+            sentEnd = i;
+            break;
+          }
+          if (ch === "." && !_isAbbrevDot(cleanText, i)) {
             sentEnd = i;
             break;
           }
@@ -1955,8 +1975,8 @@ function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: {
         <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
           {breadcrumbs.map((b, i) => (
             <React.Fragment key={i}>
-              <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor }} onMouseEnter={(e) => e.currentTarget.style.color = category === "sprachtraining" ? "#9333EA" : "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor}>{b.label}</button>
-              <CaretRight size={10} weight="bold" style={{ color: category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor, opacity: 0.5 }} className="shrink-0" />
+              <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: mutedColor }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = mutedColor}>{b.label}</button>
+              <CaretRight size={10} weight="bold" style={{ color: mutedColor, opacity: 0.5 }} className="shrink-0" />
             </React.Fragment>
           ))}
           {badge ? (
@@ -2124,12 +2144,16 @@ function LernkartenLearnView({
   useEffect(() => {
     const raw = exerciseSet.items || [];
     if (raw.length > 0 && !shuffledRef.current) {
-      const arr = [...raw];
-      for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
-      setShuffledItems(arr);
+      if (exerciseSet.tool === "lernkarten") {
+        setShuffledItems(raw);
+      } else {
+        const arr = [...raw];
+        for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[arr[i], arr[j]] = [arr[j], arr[i]]; }
+        setShuffledItems(arr);
+      }
       shuffledRef.current = true;
     }
-  }, [exerciseSet.items]);
+  }, [exerciseSet.items, exerciseSet.tool]);
   const items = shuffledItems;
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -2203,28 +2227,139 @@ function LernkartenLearnView({
             <Check size={30} weight="bold" color="white" />
           </div>
           <h3 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Geschafft!</h3>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            <strong style={{ color: "#1a8a5c" }}>{results.filter(r => r.correct).length} / {total}</strong> gewusst — <strong style={{ color: "#1a8a5c" }}>{Math.round((results.filter(r => r.correct).length / total) * 100)}%</strong>
-          </p>
+          {isVocab ? (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              <strong style={{ color: "#1a8a5c" }}>{total}</strong> {total === 1 ? "Begriff" : "Begriffe"} durchgearbeitet
+            </p>
+          ) : (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              <strong style={{ color: "#1a8a5c" }}>{results.filter(r => r.correct).length} / {total}</strong> gewusst — <strong style={{ color: "#1a8a5c" }}>{Math.round((results.filter(r => r.correct).length / total) * 100)}%</strong>
+            </p>
+          )}
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={() => { setShowResults(false); setIndex(0); setFlipped(false); setResults([]); shuffledRef.current = false; }}
               className="px-5 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
-              Erneut versuchen
+              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+              Nochmal
             </button>
             <button type="button" onClick={onBack}
               className="px-5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: "var(--accent)" }}>
+              style={{ backgroundColor: "var(--kb)" }}>
               Fertig
             </button>
           </div>
         </div>
       ) : card ? (() => {
-        const cardSources: ExerciseItemSource[] = card.sources?.length ? card.sources : card.source_label ? [{ source_label: card.source_label, page_number: card.page_number, start_time: card.start_time }] : [];
-        // Deduplicate filenames for legend
-        const sourceFiles = [...new Set(cardSources.map(s => s.source_label))];
+        const cardSource = card.source_label ? { source_label: card.source_label, page_number: card.page_number, start_time: card.start_time } : null;
+
+        // ── Lernkarten: single-page card, no flip ──
+        if (isVocab) {
+          const raw = card.back || "";
+          const defMatch = raw.match(/^([\s\S]*?)(?=\n\*\*Wortzerlegung\*\*|\n\*\*Beispiel:\*\*|\n\*\*Im Kontext:\*\*|$)/);
+          const wpMatch = raw.match(/\*\*Wortzerlegung\*\*\n([^\n]+)\n([^\n]+)/);
+          const ctxMatch = raw.match(/\*\*(?:Beispiel|Im Kontext):\*\*\n\*([\s\S]*?)\*/);
+          const definition = defMatch?.[1]?.trim() || raw;
+          return <>
+            <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
+              <div className="mx-auto w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
+                <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
+                  {index + 1} / {total}
+                </div>
+                <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
+                  <div className="p-5 flex flex-col gap-4">
+                    {/* Term */}
+                    <div className="text-center">
+                      <p className="text-lg font-bold" style={{ color: "var(--text)" }}>{card.front}</p>
+                      {showTranslation && card.back_en && (
+                        <p className="text-xs italic mt-0.5" style={{ color: "var(--muted)" }}>EN: {card.back_en}</p>
+                      )}
+                    </div>
+                    {/* Definition */}
+                    <div>
+                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Definition</span>
+                      <p className="text-sm leading-relaxed mt-1" style={{ color: "var(--text)" }}>{definition}</p>
+                    </div>
+                    {/* Word parts */}
+                    {wpMatch && (() => {
+                      const parts = wpMatch[2].split("|").map(p => p.trim()).filter(Boolean);
+                      return (
+                        <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--surface-dim)" }}>
+                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Wortzerlegung</span>
+                          <p className="text-sm font-semibold mt-1.5" style={{ color: "var(--text)" }}>{wpMatch[1]}</p>
+                          <div className="flex flex-col gap-1 mt-2">
+                            {parts.map((part, pi) => {
+                              const [term, ...rest] = part.split("=");
+                              const explanation = rest.join("=").trim();
+                              return (
+                                <div key={pi} className="flex items-baseline gap-1.5 text-xs">
+                                  <span className="font-semibold shrink-0" style={{ color: "var(--text)" }}>{term.trim()}</span>
+                                  {explanation && <span style={{ color: "var(--muted)" }}>{explanation}</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {/* Context sentence */}
+                    {ctxMatch && (
+                      <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
+                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Beispiel</span>
+                        <p className="text-xs italic leading-relaxed mt-1" style={{ color: "var(--text)" }}>{ctxMatch[1]?.trim()}</p>
+                      </div>
+                    )}
+                    {/* Sources + Chat */}
+                    {(() => {
+                      const srcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
+                      const uniqueFiles = [...new Set(srcs.map(s => s.source_label))];
+                      const fileIndex = Object.fromEntries(uniqueFiles.map((f, i) => [f, i + 1]));
+                      const multiFile = uniqueFiles.length > 1;
+                      return <>
+                    {srcs.length > 0 && (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {srcs.map((s, si) => (
+                            <button key={si} type="button"
+                              onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, card.front); }}
+                              className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                              <FilePdf size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                            </button>
+                          ))}
+                        </div>
+                        {uniqueFiles.map((f, fi) => (
+                          <span key={fi} className="text-[9px]" style={{ color: "var(--muted)" }}>
+                            {multiFile ? `[${fi + 1}] ` : ""}{f}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                      </>;
+                    })()}
+                    <div className="flex items-center justify-end">
+                      {onAskChat && (
+                        <button type="button" onClick={() => onAskChat(`Erkläre mir den Begriff \u201E${card.front}\u201C genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`)}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full transition-opacity hover:opacity-80"
+                          style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                          <Chat size={10} weight="bold" /> Mehr erfahren
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {/* Next button */}
+                <button type="button" onClick={() => { answer(true); }}
+                  className="w-full py-2.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                  {index >= total - 1 ? "Abschließen" : "Nächster Begriff"} <CaretRight size={12} weight="bold" className="inline ml-0.5" style={{ verticalAlign: "-1px" }} />
+                </button>
+              </div>
+            </div>
+          </>;
+        }
+
+        // ── Karteikarten: flip card ──
         return <>
-          {/* Card */}
           <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-3 gap-3">
             <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
               {index + 1} / {total}
@@ -2240,15 +2375,15 @@ function LernkartenLearnView({
                   position: "absolute", inset: 0, backfaceVisibility: "hidden", borderRadius: 16,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                   padding: "36px 20px", gap: 8, backgroundColor: "var(--surface)",
-                  border: "2px solid var(--kb)",
+                  border: "1px solid var(--border)",
                   boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
                 }}>
-                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>{isVocab ? "Fachbegriff" : "Frage"}</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Frage</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "var(--text)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                     <span />
                     {onAskChat && (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${card.front}"`); }}
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: \u201E${card.front}\u201C`); }}
                         className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
                         style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                         <Lightbulb size={13} weight="bold" /> Tipp
@@ -2264,27 +2399,13 @@ function LernkartenLearnView({
                   backgroundColor: "var(--kb)",
                   boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
                 }}>
-                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{isVocab ? "Definition" : "Antwort"}</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Antwort</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }} dangerouslySetInnerHTML={{ __html: _md(card.back) }} />
-                  {showTranslation && isVocab && card.back_en && (
-                    <p className="text-xs text-center italic" style={{ color: "rgba(255,255,255,0.6)" }}>{card.back_en}</p>
-                  )}
-                  {/* Source chips + Chat button */}
-                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {cardSources.map((s, si) => (
-                        <button key={si} type="button"
-                          onClick={(e) => { e.stopPropagation(); if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
-                          className="flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
-                          [{si + 1}] {_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
-                        </button>
-                      ))}
-                    </div>
+                  {/* Chat button */}
+                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-end">
                     {onAskChat && (
                       <button type="button" onClick={(e) => {
-                        e.stopPropagation(); onAskChat(isVocab
-                          ? `Erkläre mir den Begriff „${card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
-                          : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`);
+                        e.stopPropagation(); onAskChat(`Erkläre mir folgendes Thema genauer: \u201E${card.front}\u201C. Was sind wichtige Details, Beispiele und Zusammenhänge?`);
                       }}
                         className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
                         <Chat size={13} weight="bold" /> Mehr erfahren
@@ -2322,14 +2443,15 @@ function LernkartenLearnView({
                 </button>
               )}
             </div>
-            {/* Source legend */}
-            {cardSources.length > 0 && (
-              <div className="flex flex-wrap gap-x-4 gap-y-0.5 w-full" style={{ maxWidth: 560 }}>
-                {cardSources.map((s, si) => (
-                  <span key={si} className="text-[10px]" style={{ color: "var(--muted)" }}>
-                    [{si + 1}] {s.source_label}
-                  </span>
-                ))}
+            {/* Source chip */}
+            {cardSource && (
+              <div className="flex flex-wrap gap-1 w-full" style={{ maxWidth: 560 }}>
+                <button type="button"
+                  onClick={() => { if (onSourceClick) onSourceClick(cardSource.source_label, cardSource.page_number ?? 1, cardSource.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
+                  className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                  <FilePdf size={10} weight="bold" /> {cardSource.source_label}, {_chunkLabel(cardSource.source_label, cardSource.page_number ?? 1, cardSource.start_time)}
+                </button>
               </div>
             )}
           </div>
@@ -2508,12 +2630,12 @@ function MCExerciseView({
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={() => { setShowResults(false); setIndex(0); setSelected(null); setResults([]); shuffledRef.current = false; }}
               className="px-5 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}>
+              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
               Erneut versuchen
             </button>
             <button type="button" onClick={onBack}
               className="px-5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: "var(--accent)" }}>
+              style={{ backgroundColor: "var(--kb)" }}>
               Fertig
             </button>
           </div>
@@ -2583,20 +2705,17 @@ function MCExerciseView({
                       {isCorrect ? "✓ Richtig!" : <span dangerouslySetInnerHTML={{ __html: `✗ Richtig wäre: ${_md(card.back)}` }} />}
                     </div>
                   )}
-                  {/* Source chips + Hint */}
-                  {(() => {
-                    const mcSources: ExerciseItemSource[] = card.sources?.length ? card.sources : card.source_label ? [{ source_label: card.source_label, page_number: card.page_number, start_time: card.start_time }] : [];
-                    return <>
+                  {/* Source chip + Hint */}
                   <div className="flex items-center justify-between mt-1">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {mcSources.map((s, si) => (
-                        <button key={si} type="button"
-                          onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
+                    <div>
+                      {card.source_label && (
+                        <button type="button"
+                          onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
                           className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
                           style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                          [{si + 1}] {_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                          <FilePdf size={10} weight="bold" /> {card.source_label}, {_chunkLabel(card.source_label, card.page_number ?? 1, card.start_time)}
                         </button>
-                      ))}
+                      )}
                     </div>
                     {tool === "quiz" && !answered && (
                       <button type="button" onClick={requestHint}
@@ -2625,18 +2744,6 @@ function MCExerciseView({
                       </button>
                     </div>
                   )}
-                  {/* Source legend */}
-                  {mcSources.length > 0 && (
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                      {mcSources.map((s, si) => (
-                        <span key={si} className="text-[10px]" style={{ color: "var(--muted)" }}>
-                          [{si + 1}] {s.source_label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  </>;
-                  })()}
                 </div>
               </div>
             </div>
@@ -4528,7 +4635,7 @@ const TOOL_LABELS: Record<string, string> = {
 };
 
 const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
-  lernkarten: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+  lernkarten: { bg: "rgba(245,235,220,0.7)", color: "#78350F" },
   karteikarten: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
   quiz: { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
   lueckentext: { bg: "rgba(254,226,226,0.7)", color: "#B91C1C" },
@@ -4559,7 +4666,7 @@ const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
 
 const ACTIVITY_TOOL_COLORS: Record<string, string> = {
   karteikarten: "#166534",
-  lernkarten: "#0E7490",
+  lernkarten: "#78350F",
   quiz: "#A16207",
   lueckentext: "#B91C1C",
   vokabeltest: "#534AB7",
@@ -5142,7 +5249,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
           {sprachtrainingActive && (
             <>
               <div className="px-3 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#9333EA" }}>Fachsprachentraining</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Fachsprachentraining</span>
               </div>
               <LerntoolsGrid tiles={sprachTiles} onSelect={(key) => {
                 if (onSprachNavigate) {

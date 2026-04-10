@@ -991,11 +991,14 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
             first_label = ""
             # Mapping: (source_label, page_number) → start_time for media files
             _time_map: dict[tuple[str, int], float] = {}
+            # Mapping: filename → source dict (for chunk lookup in lernkarten)
+            _source_by_name: dict[str, dict] = {}
             for suuid in uuids:
                 source = db.get_ki_tutor_source(suuid)
                 if not source:
                     continue
                 source_label = source["filename"]
+                _source_by_name[source_label] = source
                 if not first_label:
                     first_label = source_label
                 summaries = db.get_paragraph_summaries_by_source(source["id"])
@@ -1046,31 +1049,66 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 answer = _clean_llm_json(response.choices[0].message.content or "")
                 data = _json.loads(answer)
                 def _parse_card(c: dict, include_back_en: bool = False) -> dict:
-                    """Parse card with sources array, fallback to legacy source_label/page_number."""
-                    srcs = c.get("sources") or []
-                    if not srcs and c.get("source_label"):
-                        srcs = [{"source_label": c["source_label"], "page_number": c.get("page_number")}]
-                    # Enrich with start_time for media sources
-                    for s in srcs:
-                        sl = s.get("source_label", first_label)
-                        pn = s.get("page_number", 0)
-                        st = _time_map.get((sl, pn))
-                        if st is not None:
-                            s["start_time"] = st
-                    # Keep first source as legacy fields for backward compat
-                    first = srcs[0] if srcs else {}
+                    """Parse card with single source_label/page_number."""
+                    sl = c.get("source_label", first_label)
+                    pn = c.get("page_number")
                     item: dict = {
                         "front": c["front"], "back": c["back"],
-                        "source_label": first.get("source_label", first_label),
-                        "page_number": first.get("page_number"),
-                        "start_time": first.get("start_time"),
-                        "sources": srcs,
+                        "source_label": sl,
+                        "page_number": pn,
+                        "start_time": _time_map.get((sl, pn or 0)),
                     }
                     if include_back_en:
                         item["back_en"] = c.get("back_en", "")
                     return item
 
-                items = [_parse_card(c, include_back_en=True) for c in data.get("cards", [])]
+                def _format_lernkarte(c: dict) -> dict:
+                    """Format lernkarte with word parts, example sentence, etc."""
+                    item = _parse_card(c, include_back_en=True)
+                    # Build structured back text from new fields
+                    parts = [c.get("back", "").strip()]
+                    wp = c.get("word_parts", "").strip()
+                    wpe = c.get("word_parts_explained", "").strip()
+                    if wp:
+                        parts.append(f"\n**Wortzerlegung**\n{wp}")
+                        if wpe:
+                            parts.append(wpe)
+                    # Use LLM-generated example sentence (simple B1-level usage example)
+                    ex = c.get("example_sentence", "").strip()
+                    if ex:
+                        parts.append(f"\n**Beispiel:**\n*\u201E{ex}\u201C*")
+
+                    # Find ALL pages where the term appears and store as sources
+                    import re as _re2
+                    term_lower = c.get("front", "").lower()
+                    if term_lower:
+                        def _normalize(text: str) -> str:
+                            text = _re2.sub(r"-\s*\n\s*", "", text)
+                            text = _re2.sub(r"\s*\n\s*", " ", text)
+                            return text.strip()
+                        seen_pages: set[tuple[str, int]] = set()
+                        all_sources: list[dict] = []
+                        for sname, src in _source_by_name.items():
+                            for ch in db.get_chunks_by_source(src["id"]):
+                                key = (sname, ch["page_number"])
+                                if key in seen_pages:
+                                    continue
+                                if term_lower in _normalize(ch["content"]).lower():
+                                    seen_pages.add(key)
+                                    all_sources.append({
+                                        "source_label": sname,
+                                        "page_number": ch["page_number"],
+                                        "start_time": _time_map.get(key),
+                                    })
+                        if all_sources:
+                            item["sources"] = all_sources
+                            item["source_label"] = all_sources[0]["source_label"]
+                            item["page_number"] = all_sources[0]["page_number"]
+                            item["start_time"] = all_sources[0].get("start_time")
+
+                    item["back"] = "\n".join(parts)
+                    return item
+                items = [_format_lernkarte(c) for c in data.get("cards", [])]
                 title = data.get("title", multi_label)
             elif tool == "karteikarten":
                 prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
@@ -1085,20 +1123,16 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 title = data.get("title", multi_label)
             else:
                 tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
-                _sources_rule = (
-                    "- sources: WICHTIG — Liste JEDE einzelne Seite auf, aus der Informationen stammen. "
-                    "Auch bei derselben Datei verschiedene Seiten einzeln auflisten! "
-                    "Jeder Eintrag braucht source_label und page_number aus den [Quellenname, S. X] Tags.\n"
-                )
+                _source_rule = "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Inhalt stammt.\n"
                 if tool == "lueckentext":
                     tool_prompt += (
                         "Erstelle Lückentext-Übungen. Antworte NUR mit einem JSON-Array:\n"
                         '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
                         '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
-                        '"sources": [{"source_label": "Dateiname.pdf", "page_number": 5}]}]\n'
+                        '"source_label": "Dateiname.pdf", "page_number": 5}]\n'
                         "WICHTIG:\n"
                         "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
-                        + _sources_rule +
+                        + _source_rule +
                         f"Erstelle genau {count} Übungen."
                     )
                 elif tool == "quiz":
@@ -1108,10 +1142,10 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         "Antworte NUR mit einem JSON-Array:\n"
                         '[{"question": "Verständnisfrage?", "options": ["A", "B", "C", "D"], '
                         '"correct_idx": 0, '
-                        '"sources": [{"source_label": "Dateiname.pdf", "page_number": 5}, {"source_label": "Dateiname.pdf", "page_number": 12}]}]\n'
+                        '"source_label": "Dateiname.pdf", "page_number": 5}]\n'
                         "WICHTIG:\n"
                         "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
-                        + _sources_rule +
+                        + _source_rule +
                         f"Erstelle genau {count} Fragen. Mische leichte und schwierige Fragen."
                     )
                 else:
@@ -1127,10 +1161,10 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         "Antworte NUR mit einem JSON-Array:\n"
                         '[{"question": "Frage zum Fachbegriff?", "options": ["A", "B", "C", "D"], '
                         '"correct_idx": 0, '
-                        '"sources": [{"source_label": "Dateiname.pdf", "page_number": 5}]}]\n'
+                        '"source_label": "Dateiname.pdf", "page_number": 5}]\n'
                         "WICHTIG:\n"
                         "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
-                        + _sources_rule +
+                        + _source_rule +
                         f"Erstelle genau {count} Fragen."
                     )
                 messages = [
@@ -1160,41 +1194,28 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                             best_label, best_page, best_score = label, page, score
                     return best_label, best_page
 
-                def _parse_sources(item_dict: dict, fallback_text: str = "") -> list[dict]:
-                    """Parse sources array from LLM output with fallback to legacy fields."""
-                    srcs = item_dict.get("sources") or []
-                    if not srcs:
-                        sl = item_dict.get("source_label") or first_label
-                        pn = item_dict.get("page_number")
-                        if not pn and fallback_text:
-                            sl, pn = _find_page(fallback_text)
-                        srcs = [{"source_label": sl, "page_number": pn}]
-                    for s in srcs:
-                        sl = s.get("source_label", first_label)
-                        pn = s.get("page_number", 0)
-                        st = _time_map.get((sl, pn))
-                        if st is not None:
-                            s["start_time"] = st
-                    return srcs
-
                 if tool == "lueckentext":
                     items = []
                     for ex in exercises:
-                        srcs = _parse_sources(ex, ex["sentence"] + " " + ex["answer"])
-                        first = srcs[0] if srcs else {}
+                        sl = ex.get("source_label") or first_label
+                        pn = ex.get("page_number")
+                        if not pn:
+                            sl, pn = _find_page(ex["sentence"] + " " + ex["answer"])
                         items.append({"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
                             "correct_idx": ex["correct_idx"],
-                            "source_label": first.get("source_label", first_label), "page_number": first.get("page_number"),
-                            "start_time": first.get("start_time"), "sources": srcs})
+                            "source_label": sl, "page_number": pn,
+                            "start_time": _time_map.get((sl, pn or 0))})
                 else:  # quiz + vokabeltest
                     items = []
                     for q in exercises:
-                        srcs = _parse_sources(q, q["question"] + " " + q["options"][q["correct_idx"]])
-                        first = srcs[0] if srcs else {}
+                        sl = q.get("source_label") or first_label
+                        pn = q.get("page_number")
+                        if not pn:
+                            sl, pn = _find_page(q["question"] + " " + q["options"][q["correct_idx"]])
                         items.append({"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
                             "correct_idx": q["correct_idx"],
-                            "source_label": first.get("source_label", first_label), "page_number": first.get("page_number"),
-                            "start_time": first.get("start_time"), "sources": srcs})
+                            "source_label": sl, "page_number": pn,
+                            "start_time": _time_map.get((sl, pn or 0))})
                 # Generate a short descriptive title via LLM
                 try:
                     title_resp = client.chat.completions.create(

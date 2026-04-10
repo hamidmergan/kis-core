@@ -2806,8 +2806,8 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                     "accuracy": round(total_correct / total_attempts * 100) if total_attempts > 0 else 0,
                 }
 
-            lerntools_sets = [s for s in sets if s["mode"] == "quelle"]
-            sprach_sets = [s for s in sets if s["mode"] == "glossar"]
+            lerntools_sets = [s for s in sets if s["tool"] in ("karteikarten", "quiz")]
+            sprach_sets = [s for s in sets if s["tool"] in ("lernkarten", "lueckentext", "vokabeltest")]
 
             overview_all = _summarise(sets)
             overview_lerntools = _summarise(lerntools_sets)
@@ -2819,12 +2819,13 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             from datetime import date, timedelta, datetime
             today = datetime.now(tz).date()
 
-            def _build_heatmap(mode_filter: str | None) -> list[dict]:
+            def _build_heatmap(category_filter: str | None) -> list[dict]:
                 mode_clause = ""
                 params: list = [user_id, module_id, user_id]
-                if mode_filter:
-                    mode_clause = " AND s2.mode = %s"
-                    params.append(mode_filter)
+                if category_filter == "sprachtraining":
+                    mode_clause = " AND s2.tool IN ('lernkarten', 'lueckentext', 'vokabeltest')"
+                elif category_filter == "lerntools":
+                    mode_clause = " AND s2.tool IN ('karteikarten', 'quiz')"
                 cur.execute(
                     f"""SELECT (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date AS day,
                               COUNT(ep.id) AS answers,
@@ -2862,8 +2863,8 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                 return result
 
             heatmap = _build_heatmap(None)
-            heatmap_lerntools = _build_heatmap("quelle")
-            heatmap_sprachtraining = _build_heatmap("glossar")
+            heatmap_lerntools = _build_heatmap("lerntools")
+            heatmap_sprachtraining = _build_heatmap("sprachtraining")
 
             # ── Chat stats ──
             cur.execute(
@@ -2908,19 +2909,14 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
 
 def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: str | None = None) -> dict:
     """Per-set breakdown for a specific day, optionally filtered by category."""
-    mode_filter = None
-    if category == "lerntools":
-        mode_filter = "quelle"
-    elif category == "sprachtraining":
-        mode_filter = "glossar"
-
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             mode_clause = ""
             params: list = [module_id, user_id, day_str]
-            if mode_filter:
-                mode_clause = " AND s.mode = %s"
-                params.append(mode_filter)
+            if category == "sprachtraining":
+                mode_clause = " AND s.tool IN ('lernkarten', 'lueckentext', 'vokabeltest')"
+            elif category == "lerntools":
+                mode_clause = " AND s.tool IN ('karteikarten', 'quiz')"
             cur.execute(
                 f"""SELECT s.id AS set_id, s.tool, s.mode, s.title,
                           COUNT(ep.id) AS answers,

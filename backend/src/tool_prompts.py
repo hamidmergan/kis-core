@@ -231,37 +231,45 @@ TUTOR_MINDMAP_PROMPT = (
 )
 
 TUTOR_LERNKARTEN_PROMPT = (
-    "Du bist ein Experte für zweisprachige Fachsprach-Lernmaterialien. "
+    "Du bist ein Sprachlehrer für internationale Studierende mit Deutschniveau B1. "
     "Erstelle Lernkarten für Fachbegriffe aus dem gegebenen Text.\n\n"
-    "WICHTIG — Sprachverhalten:\n"
-    "1. Erkenne die Hauptsprache des Quelltextes.\n"
-    "2. Je nach Quellsprache:\n"
-    "   - Deutsch → front/back auf Deutsch, back_en auf Englisch\n"
-    "   - Englisch → front/back auf Englisch, back_en auf Deutsch\n"
-    "   - Andere Sprache → front/back in der Originalsprache, back_en auf Englisch\n\n"
+    "WICHTIG: Alle Texte MÜSSEN für B1-Niveau verständlich sein — einfache Wörter, kurze Sätze, keine verschachtelten Nebensätze.\n\n"
     "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
     "{\n"
     '  "title": "Kurzer Titel der das Thema zusammenfasst",\n'
     '  "cards": [\n'
     "    {\n"
-    '      "front": "Fachbegriff in Quellsprache",\n'
-    '      "back": "Fachbegriff — Erklärung in Quellsprache (1-2 Sätze)",\n'
-    '      "back_en": "Übersetzter Begriff (Zielsprache, siehe oben)",\n'
-    '      "sources": [{"source_label": "Dateiname.pdf", "page_number": 5}, {"source_label": "Dateiname.pdf", "page_number": 12}]\n'
+    '      "front": "Fachbegriff",\n'
+    '      "back": "Einfache Definition (1-2 kurze Sätze)",\n'
+    '      "word_parts": "Teil1 + Teil2 + Teil3",\n'
+    '      "word_parts_explained": "Teil1 = einfache Erklärung | Teil2 = einfache Erklärung",\n'
+    '      "example_sentence": "Ein einfacher Beispielsatz mit dem Begriff, wie man ihn im Studienalltag benutzt.",\n'
+    '      "back_en": "English translation",\n'
+    '      "source_label": "Dateiname.pdf",\n'
+    '      "page_number": 5\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
     "Regeln:\n"
     "- Erstelle genau {count} Lernkarten\n"
     "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
-    "- Vorderseite (front): Ein zentraler Fachbegriff in der Quellsprache\n"
-    "- Rückseite (back): Der Begriff + kurze Erklärung in der Quellsprache (max 2 Sätze)\n"
-    "- back_en: Der übersetzte Fachbegriff in der Zielsprache (nur das Wort/die Phrase, keine Erklärung)\n"
-    "- sources: WICHTIG — Liste JEDE einzelne Seite auf, aus der Informationen in der Erklärung stammen. "
-    "Wenn ein Satz von S. 3 kommt und ein anderer Satz von S. 9, dann MÜSSEN beide Seiten in sources stehen. "
-    "Auch bei derselben Datei verschiedene Seiten einzeln auflisten! Jeder Eintrag braucht source_label und page_number aus den [Quellenname, S. X] Tags.\n"
-    "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
-    "- Fokus auf zentrale Fachbegriffe und Definitionen, KEINE Verständnisfragen\n"
+    "- front: Ein zentraler deutscher Fachbegriff aus dem Text\n"
+    "- back: Einfache Definition auf Deutsch. Schreibe so, dass ein Student mit B1-Deutsch es sofort versteht. "
+    "Keine Fachsprache in der Erklärung — erkläre Fachsprache MIT einfacher Sprache.\n"
+    "- word_parts: Zerlegung in SINNVOLLE Wortbestandteile (z.B. 'Studien + Abbruch + Quote'). "
+    "NUR bei zusammengesetzten deutschen Wörtern aus 2+ bedeutungstragenden Teilen. "
+    "NICHT bei Fremdwörtern (Microcredentials, Employability), Adjektiv+Nomen-Kombinationen (Hybride Lehre) oder einfachen Wörtern — dort leer lassen. "
+    "Verbindungs-Buchstaben wie 's' oder 'e' gehören zum vorherigen Teil, NICHT als eigenes Element.\n"
+    "- word_parts_explained: Erkläre jeden Teil so einfach wie möglich — wie man es einem Freund erklären würde. "
+    "Beispiel: 'Studien = wenn man an der Uni lernt | Abbruch = wenn man aufhört | Quote = eine Zahl in Prozent'. "
+    "NICHT: 'Studien = Plural von Studium' — das hilft einem B1-Studenten nicht.\n"
+    "- example_sentence: Ein EINFACHER Beispielsatz der zeigt, wie man den Begriff im Studienalltag benutzt. "
+    "Beispiel für 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch — viele Studenten hören auf, bevor sie fertig sind.' "
+    "Der Satz soll dem Studenten helfen, den Begriff im Kontext zu verstehen.\n"
+    "- back_en: Englische Übersetzung des Begriffs\n"
+    "- source_label und page_number: Die Hauptquelle aus den [Quellenname, S. X] Tags\n"
+    "- Nur Begriffe aus dem gegebenen Text verwenden\n"
+    "- Fokus auf zentrale Fachbegriffe, KEINE Verständnisfragen\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )
 
@@ -274,7 +282,8 @@ TUTOR_KARTEIKARTEN_PROMPT = (
     "    {\n"
     '      "front": "Verständnisfrage",\n'
     '      "back": "Ausführliche Antwort",\n'
-    '      "sources": [{"source_label": "Dateiname.pdf", "page_number": 5}, {"source_label": "Dateiname.pdf", "page_number": 12}]\n'
+    '      "source_label": "Dateiname.pdf",\n'
+    '      "page_number": 5\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
@@ -283,9 +292,7 @@ TUTOR_KARTEIKARTEN_PROMPT = (
     "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
     "- Vorderseite: Verständnisfrage (z.B. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
     "- Rückseite: Ausführliche Erklärung mit Zusammenhängen (2-4 Sätze)\n"
-    "- sources: WICHTIG — Liste JEDE einzelne Seite auf, aus der Informationen in der Antwort stammen. "
-    "Wenn ein Satz von S. 3 kommt und ein anderer Satz von S. 9, dann MÜSSEN beide Seiten in sources stehen. "
-    "Auch bei derselben Datei verschiedene Seiten einzeln auflisten! Jeder Eintrag braucht source_label und page_number aus den [Quellenname, S. X] Tags.\n"
+    "- source_label und page_number: Die Hauptquelle (Dateiname + Seitenzahl) aus den [Quellenname, S. X] Tags.\n"
     "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
     "- Mischung aus Verständnisfragen, Vergleichsfragen und Anwendungsfragen\n"
     "- KEINE reinen Definitionsfragen — es geht um Verständnis und Zusammenhänge\n"
