@@ -250,6 +250,12 @@ type SprachtrainingView = "overview" | "glossar" | "karteikarten" | "lueckentext
   | "vt-sets" | "vt-learn" | "vt-complete"
   | "create-set";
 
+interface ExerciseItemSource {
+  source_label: string;
+  page_number?: number;
+  start_time?: number;
+}
+
 interface ExerciseItem {
   id: number;
   set_id: number;
@@ -263,6 +269,7 @@ interface ExerciseItem {
   page_number?: number;
   start_time?: number;
   explanation?: string;
+  sources?: ExerciseItemSource[];
 }
 
 interface ExerciseSet {
@@ -815,7 +822,6 @@ function PdfViewer({
   useEffect(() => {
     if (source.nonce == null) return;
     const reg = registryRef.current;
-
     if (!reg) {
       // Viewer not ready yet — save for later
       if (source.highlightText) {
@@ -1616,8 +1622,8 @@ function ChatPanel({
                 const sp = matchingEntries[usedIdx % Math.max(1, matchingEntries.length)];
                 spUsedCount.set(pageKey, usedIdx + 1);
 
-                // Prefer LLM keywords for highlighting, fall back to chunk text
-                const highlightText = keywords || sp?.source_text;
+                // Prefer LLM keywords for highlighting, fall back to first ~80 chars of chunk
+                const highlightText = keywords || (sp?.source_text ? sp.source_text.slice(0, 80).trim() : undefined);
 
                 if (isMedia && timestamp) {
                   // Parse timestamp to seconds
@@ -1949,7 +1955,7 @@ function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: {
         <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
           {breadcrumbs.map((b, i) => (
             <React.Fragment key={i}>
-              <button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor }}>{b.label}</button>
+              <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor }} onMouseEnter={(e) => e.currentTarget.style.color = category === "sprachtraining" ? "#9333EA" : "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor}>{b.label}</button>
               <CaretRight size={10} weight="bold" style={{ color: category === "sprachtraining" && b.label === "Fachsprachentraining" ? "#B07CE8" : mutedColor, opacity: 0.5 }} className="shrink-0" />
             </React.Fragment>
           ))}
@@ -1994,6 +2000,7 @@ function ExerciseSetsOverview({
 
   const noSources = sourceCount === 0;
   const atLimit = sets.length >= 20;
+  const isGenerating = sets.some((s) => s.status === "generating");
   return (
     <div className="flex flex-col h-full">
       <SubviewHeader title={title} onBack={onBack} breadcrumbs={breadcrumbs} category={category} />
@@ -2017,10 +2024,10 @@ function ExerciseSetsOverview({
             <Cards size={48} weight="duotone" style={{ color: "var(--border)" }} />
             <p className="text-sm text-center" style={{ color: "var(--muted)" }}>Wähle Quellen aus und drücke auf Erstellen.</p>
             <button type="button" onClick={onCreate}
-              disabled={noSources || atLimit}
+              disabled={noSources || atLimit || isGenerating}
               className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
               style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-              <Plus size={14} weight="bold" /> Erstellen ({sets.length}/20)
+              <Plus size={14} weight="bold" /> {isGenerating ? "Wird generiert…" : `Erstellen (${sets.length}/20)`}
             </button>
           </div>
         ) : (
@@ -2107,7 +2114,7 @@ function LernkartenLearnView({
   onBack: () => void;
   onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
   onAskChat?: (text: string) => void;
-  onSourceClick?: (filename: string, page: number, startTime?: number) => void;
+  onSourceClick?: (filename: string, page: number, startTime?: number, highlightText?: string) => void;
   breadcrumbs?: { label: string; onClick: () => void }[];
   showTranslation?: boolean;
 }) {
@@ -2159,7 +2166,7 @@ function LernkartenLearnView({
 
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
-      <Spinner />
+      <Spinner size="lg" />
       <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
     </div>
   );
@@ -2174,7 +2181,7 @@ function LernkartenLearnView({
           style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
@@ -2212,14 +2219,17 @@ function LernkartenLearnView({
             </button>
           </div>
         </div>
-      ) : card ? (
-        <>
+      ) : card ? (() => {
+        const cardSources: ExerciseItemSource[] = card.sources?.length ? card.sources : card.source_label ? [{ source_label: card.source_label, page_number: card.page_number, start_time: card.start_time }] : [];
+        // Deduplicate filenames for legend
+        const sourceFiles = [...new Set(cardSources.map(s => s.source_label))];
+        return <>
           {/* Card */}
           <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-3 gap-3">
             <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
               {index + 1} / {total}
             </div>
-            <div className="w-full" style={{ perspective: 1200, maxWidth: 560, cursor: "pointer", userSelect: "none" }} onClick={() => setFlipped((f) => !f)}>
+            <div className="w-full" style={{ perspective: 1200, maxWidth: 560, userSelect: "none" }}>
               <div style={{
                 position: "relative", width: "100%", minHeight: 300, transformStyle: "preserve-3d",
                 transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)",
@@ -2259,15 +2269,17 @@ function LernkartenLearnView({
                   {showTranslation && isVocab && card.back_en && (
                     <p className="text-xs text-center italic" style={{ color: "rgba(255,255,255,0.6)" }}>{card.back_en}</p>
                   )}
-                  {/* Source chip + Chat button */}
+                  {/* Source chips + Chat button */}
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-                    {card.source_label && (
-                      <button type="button"
-                        onClick={(e) => { e.stopPropagation(); if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time); }}
-                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
-                        <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {cardSources.map((s, si) => (
+                        <button key={si} type="button"
+                          onClick={(e) => { e.stopPropagation(); if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
+                          className="flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
+                          [{si + 1}] {_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                        </button>
+                      ))}
+                    </div>
                     {onAskChat && (
                       <button type="button" onClick={(e) => {
                         e.stopPropagation(); onAskChat(isVocab
@@ -2291,6 +2303,11 @@ function LernkartenLearnView({
                     style={{ border: "2px solid #d4453a", color: "#d4453a", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
                     <XIcon size={18} weight="bold" />
                   </button>
+                  <button type="button" onClick={() => setFlipped(false)}
+                    className="px-5 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                    Frage zeigen
+                  </button>
                   <button type="button" onClick={() => answer(true)} title="Gewusst!"
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-all hover:scale-110"
                     style={{ border: "2px solid #1a8a5c", color: "#1a8a5c", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
@@ -2305,9 +2322,19 @@ function LernkartenLearnView({
                 </button>
               )}
             </div>
+            {/* Source legend */}
+            {cardSources.length > 0 && (
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 w-full" style={{ maxWidth: 560 }}>
+                {cardSources.map((s, si) => (
+                  <span key={si} className="text-[10px]" style={{ color: "var(--muted)" }}>
+                    [{si + 1}] {s.source_label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-        </>
-      ) : null}
+        </>;
+      })() : null}
     </div>
   );
 }
@@ -2365,7 +2392,7 @@ function MCExerciseView({
   onBack: () => void;
   onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
   onAskChat: (text: string) => void;
-  onSourceClick?: (filename: string, page: number, startTime?: number) => void;
+  onSourceClick?: (filename: string, page: number, startTime?: number, highlightText?: string) => void;
   breadcrumbs?: { label: string; onClick: () => void }[];
 }) {
   const minimize = useContext(MinimizeContext);
@@ -2440,7 +2467,7 @@ function MCExerciseView({
 
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
-      <Spinner />
+      <Spinner size="lg" />
       <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
     </div>
   );
@@ -2456,7 +2483,7 @@ function MCExerciseView({
           style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
@@ -2556,17 +2583,20 @@ function MCExerciseView({
                       {isCorrect ? "✓ Richtig!" : <span dangerouslySetInnerHTML={{ __html: `✗ Richtig wäre: ${_md(card.back)}` }} />}
                     </div>
                   )}
-                  {/* Source chip + Hint */}
+                  {/* Source chips + Hint */}
+                  {(() => {
+                    const mcSources: ExerciseItemSource[] = card.sources?.length ? card.sources : card.source_label ? [{ source_label: card.source_label, page_number: card.page_number, start_time: card.start_time }] : [];
+                    return <>
                   <div className="flex items-center justify-between mt-1">
-                    <div>
-                      {card.source_label && (
-                        <button type="button"
-                          onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time); }}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {mcSources.map((s, si) => (
+                        <button key={si} type="button"
+                          onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
                           style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                          <FilePdf size={12} weight="bold" /> {card.source_label}{card.page_number && card.source_label ? `, ${_chunkLabel(card.source_label, card.page_number, card.start_time)}` : card.page_number ? `, S. ${card.page_number}` : ""}
+                          [{si + 1}] {_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
                         </button>
-                      )}
+                      ))}
                     </div>
                     {tool === "quiz" && !answered && (
                       <button type="button" onClick={requestHint}
@@ -2595,6 +2625,18 @@ function MCExerciseView({
                       </button>
                     </div>
                   )}
+                  {/* Source legend */}
+                  {mcSources.length > 0 && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                      {mcSources.map((s, si) => (
+                        <span key={si} className="text-[10px]" style={{ color: "var(--muted)" }}>
+                          [{si + 1}] {s.source_label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  </>;
+                  })()}
                 </div>
               </div>
             </div>
@@ -2756,7 +2798,7 @@ function QuizStudio({
             style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
-          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>Quiz</span></div>) : (<span className="text-base font-bold flex-1" style={{ color: "var(--text)" }}>Quiz</span>)}
+          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>Quiz</span></div>) : (<span className="text-base font-bold flex-1" style={{ color: "var(--text)" }}>Quiz</span>)}
           {total > 0 && questions.length > 0 && (
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
               style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>
@@ -2768,7 +2810,7 @@ function QuizStudio({
           {loading && (
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
-                <Spinner />
+                <Spinner size="lg" />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Quiz wird generiert…</p>
               </div>
             </div>
@@ -3010,28 +3052,32 @@ function DatentabelleStudio({
             style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
-          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
+          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
         </div>
         <div className="flex-1 overflow-y-auto">
           {!table && loading && (
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
-                <Spinner />
+                <Spinner size="lg" />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Datentabelle wird generiert…</p>
               </div>
             </div>
           )}
           {table && (
-            <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 900, userSelect: "text" }}>
+            <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ userSelect: "text" }}>
               <p className="text-[11px]" style={{ color: "var(--muted)" }}>
                 Basierend auf {sources.length} Quelle{sources.length !== 1 ? "n" : ""}
               </p>
 
+              {(() => {
+                const sourceColKeywords = ["quelle", "quellen", "source", "sources", "quellenangabe"];
+                const visibleColIndices = table.columns.map((col, i) => ({ col, i })).filter(({ col }) => !sourceColKeywords.includes(col.trim().toLowerCase()));
+                return (
               <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid var(--border)" }}>
                 <table className="w-full border-collapse text-xs" style={{ minWidth: 500 }}>
                   <thead>
                     <tr>
-                      {table.columns.map((col, i) => (
+                      {visibleColIndices.map(({ col, i }) => (
                         <th key={i}
                           className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap"
                           style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", borderBottom: "1px solid var(--border)" }}>
@@ -3047,10 +3093,10 @@ function DatentabelleStudio({
                   <tbody>
                     {table.rows.map((row, ri) => (
                       <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? "var(--bg)" : "var(--surface)" }}>
-                        {row.cells.map((cell, ci) => (
+                        {visibleColIndices.map(({ i: ci }) => (
                           <td key={ci} className="px-3 py-2 align-top leading-snug"
                             style={{ borderBottom: "1px solid var(--border)", color: "var(--text)" }}>
-                            {cell}
+                            {row.cells[ci]}
                           </td>
                         ))}
                         <td className="px-3 py-2 align-top"
@@ -3072,13 +3118,14 @@ function DatentabelleStudio({
                                 } else {
                                   pageNum = typeof rs.page === "number" ? rs.page : parseInt(String(rs.page), 10) || 0;
                                 }
+                                const sourceNum = sources.find((sl) => sl.filename === rs.source_label)?.number ?? (si + 1);
                                 return (
                                   <button key={si} type="button"
                                     onClick={() => src && onPillClick?.(src.uuid, pageNum, src.filename, rs.highlight, startTime)}
                                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap"
                                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
                                     <SourceIcon size={10} weight="bold" />
-                                    [{si + 1}] {label}
+                                    [{sourceNum}] {label}
                                   </button>
                                 );
                               }
@@ -3105,6 +3152,8 @@ function DatentabelleStudio({
                   </tbody>
                 </table>
               </div>
+                );
+              })()}
 
               {sources.length > 0 && (
                 <div className="flex flex-col gap-1 pt-2">
@@ -3369,14 +3418,16 @@ function MindmapStudio({
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
-              color: noSources ? "#B91C1C" : sourceCount > 1 ? "#c4820e" : "var(--kb)",
+              color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
             }}>
             <Files size={13} weight="bold" />
             {noSources
               ? "Keine Quelle ausgewählt"
               : sourceCount === 1
                 ? "1 Quelle ausgewählt"
-                : `${sourceCount} Quellen vorhanden — es wird maximal 1 berücksichtigt`}
+                : sourceCount <= 5
+                  ? `${sourceCount} Quellen ausgewählt`
+                  : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
           </div>
 
           {savedList.length === 0 && !loading ? (
@@ -3453,7 +3504,7 @@ function MindmapStudio({
             style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
-          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium hover:underline shrink-0" style={{ color: "var(--muted)" }}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
+          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={handleZoomOut} title="Verkleinern"
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
@@ -3481,7 +3532,7 @@ function MindmapStudio({
           {!mindmap && loading && (
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
-                <Spinner />
+                <Spinner size="lg" />
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Mindmap wird generiert…</p>
               </div>
             </div>
@@ -3757,21 +3808,21 @@ function GlossarView({
   return (
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title="Glossar" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-3" style={{ maxWidth: 560 }}>
-          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
-            style={{
-              color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
-            }}>
-            <Files size={13} weight="bold" />
-            {noSources
-              ? "Keine Quelle ausgewählt"
-              : sourceCount === 1
-                ? "1 Quelle ausgewählt"
-                : sourceCount <= 5
-                  ? `${sourceCount} Quellen ausgewählt`
-                  : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
-          </div>
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+        <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+          style={{
+            color: noSources ? "#B91C1C" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
+          }}>
+          <Files size={13} weight="bold" />
+          {noSources
+            ? "Keine Quelle ausgewählt"
+            : sourceCount === 1
+              ? "1 Quelle ausgewählt"
+              : sourceCount <= 5
+                ? `${sourceCount} Quellen ausgewählt`
+                : `${sourceCount} Quellen vorhanden — es werden maximal 5 berücksichtigt`}
+        </div>
+        <div className="mx-auto w-full px-1 pb-3 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {extracting && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
               style={{ backgroundColor: "rgba(var(--accent-rgb),0.06)", color: "var(--accent)" }}>
@@ -3975,22 +4026,16 @@ function VocabFlashcards({
               <div className="w-full" style={{ height: 3, backgroundColor: "var(--border)" }}>
                 <div className="h-full transition-all duration-500 rounded-r-full" style={{ width: `${((index + 1) / total) * 100}%`, backgroundColor: "var(--kb)" }} />
               </div>
-              <button
-                type="button"
-                onClick={() => setFlipped(!flipped)}
-                className="w-full p-6 text-center transition-all cursor-pointer"
+              <div
+                className="w-full p-6 text-center"
                 style={{
                   minHeight: 180,
                   backgroundColor: "transparent",
-                  border: "none",
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
                 }}
               >
                 {!flipped ? (
-                  <>
-                    <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{card.term_de}</span>
-                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>Tippen zum Umdrehen</span>
-                  </>
+                  <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{card.term_de}</span>
                 ) : (
                   <>
                     <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
@@ -4003,32 +4048,45 @@ function VocabFlashcards({
                     )}
                   </>
                 )}
-              </button>
+              </div>
             </div>
           </>
           )}
 
-          {/* Answer buttons */}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => handleAnswer(false)}
-              className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
-              style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#B91C1C", border: "1px solid rgba(239,68,68,0.2)" }}
-            >
-              <XIcon size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
-              Nochmal
+          {/* Toggle + Answer buttons */}
+          {!flipped ? (
+            <button type="button" onClick={() => setFlipped(true)}
+              className="w-full py-2.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+              Antwort zeigen
             </button>
-            <button
-              type="button"
-              onClick={() => handleAnswer(true)}
-              className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
-              style={{ backgroundColor: "rgba(34,197,94,0.1)", color: "#166534", border: "1px solid rgba(34,197,94,0.2)" }}
-            >
-              <Check size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
-              Gewusst
-            </button>
-          </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => handleAnswer(false)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#B91C1C", border: "1px solid rgba(239,68,68,0.2)" }}
+              >
+                <XIcon size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
+                Nochmal
+              </button>
+              <button type="button" onClick={() => setFlipped(false)}
+                className="py-2.5 px-4 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+                style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                Frage zeigen
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAnswer(true)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "rgba(34,197,94,0.1)", color: "#166534", border: "1px solid rgba(34,197,94,0.2)" }}
+              >
+                <Check size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
+                Gewusst
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -5087,7 +5145,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#9333EA" }}>Fachsprachentraining</span>
               </div>
               <LerntoolsGrid tiles={sprachTiles} onSelect={(key) => {
-                if (!noSources && onSprachNavigate) {
+                if (onSprachNavigate) {
                   onSprachNavigate(key as SprachtrainingView);
                   setStudioTab("sprachtraining");
                 }
@@ -5860,7 +5918,7 @@ export default function KiTutorModulePage() {
         const data = await res.json();
         if (data.status === "success" && data.table_data) {
           setDatentabelle(data.table_data);
-          setDatentabelleSources(data.table_data.sources || []);
+          setDatentabelleSources(data.sources || data.table_data.sources || []);
           setDatentabelleLoading(false);
           stopDatentabellePolling();
           refreshDatentabelleList();
@@ -5881,7 +5939,7 @@ export default function KiTutorModulePage() {
           const data = await res.json();
           if (data && data.status === "success" && data.table_data) {
             setDatentabelle(data.table_data);
-            setDatentabelleSources(data.table_data.sources || []);
+            setDatentabelleSources(data.sources || data.table_data.sources || []);
           } else if (data && (data.status === "pending" || data.status === "running")) {
             startDatentabellePolling(data.id);
           }
@@ -5921,7 +5979,7 @@ export default function KiTutorModulePage() {
       const data = await res.json();
       if (data.status === "success" && data.table_data) {
         setDatentabelle(data.table_data);
-        setDatentabelleSources(data.table_data.sources || []);
+        setDatentabelleSources(data.sources || data.table_data.sources || []);
       }
     } catch { /* ignore */ }
   }
@@ -6278,9 +6336,9 @@ export default function KiTutorModulePage() {
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={(text) => handleAskChat(text)}
-            onSourceClick={(filename, page, startTime) => {
+            onSourceClick={(filename, page, startTime, highlightText) => {
               const src = sources.find((s) => s.filename === filename);
-              if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+              if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
             }}
             breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
             showTranslation
@@ -6321,9 +6379,9 @@ export default function KiTutorModulePage() {
             onBack={() => { setSprachView("cl-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={(text) => handleAskChat(text)}
-            onSourceClick={(filename, page, startTime) => {
+            onSourceClick={(filename, page, startTime, highlightText) => {
               const src = sources.find((s) => s.filename === filename);
-              if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+              if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
             }}
             breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
           />
@@ -6363,9 +6421,9 @@ export default function KiTutorModulePage() {
             onBack={() => { setSprachView("vt-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={(text) => handleAskChat(text)}
-            onSourceClick={(filename, page, startTime) => {
+            onSourceClick={(filename, page, startTime, highlightText) => {
               const src = sources.find((s) => s.filename === filename);
-              if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+              if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
             }}
             breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
           />
@@ -6767,9 +6825,9 @@ export default function KiTutorModulePage() {
                     onBack={() => { setActiveSet(null); refreshProgress(); }}
                     onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
                     onAskChat={(text) => handleAskChat(text, true)}
-                    onSourceClick={(filename, page, startTime) => {
+                    onSourceClick={(filename, page, startTime, highlightText) => {
                       const src = sources.find((s) => s.filename === filename);
-                      if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                      if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
                     }}
                     breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
                   />
@@ -6780,9 +6838,9 @@ export default function KiTutorModulePage() {
                     onBack={() => { setActiveSet(null); refreshProgress(); }}
                     onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
                     onAskChat={(text) => handleAskChat(text, true)}
-                    onSourceClick={(filename, page, startTime) => {
+                    onSourceClick={(filename, page, startTime, highlightText) => {
                       const src = sources.find((s) => s.filename === filename);
-                      if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                      if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
                     }}
                     breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
                   />
@@ -6826,7 +6884,7 @@ export default function KiTutorModulePage() {
                     breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
                   />
                 ) : studioView === "mindmap" ? (
-                  <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} />
+                  <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]} />
                 ) : studioView === "quiz" ? (
                   <ExerciseSetsOverview
                     title="Quiz"
@@ -6947,9 +7005,9 @@ export default function KiTutorModulePage() {
                           onBack={() => { setActiveSet(null); refreshProgress(); }}
                           onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
                           onAskChat={(text) => handleAskChat(text)}
-                          onSourceClick={(filename, page, startTime) => {
+                          onSourceClick={(filename, page, startTime, highlightText) => {
                             const src = sources.find((s) => s.filename === filename);
-                            if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                            if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
                           }}
                           breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
                         />
@@ -6960,9 +7018,9 @@ export default function KiTutorModulePage() {
                           onBack={() => { setActiveSet(null); refreshProgress(); }}
                           onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
                           onAskChat={(text) => handleAskChat(text, true)}
-                          onSourceClick={(filename, page, startTime) => {
+                          onSourceClick={(filename, page, startTime, highlightText) => {
                             const src = sources.find((s) => s.filename === filename);
-                            if (src) handlePillClick(src.uuid, page, filename, undefined, startTime);
+                            if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
                           }}
                           breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
                         />
@@ -7007,7 +7065,7 @@ export default function KiTutorModulePage() {
                           breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
                         />
                       ) : studioView === "mindmap" ? (
-                        <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} />
+                        <MindmapStudio mindmap={mindmapData} loading={mindmapLoading} onGenerate={generateMindmap} onBack={() => setStudioView("overview")} savedList={mindmapList} onSelect={selectMindmap} onDelete={deleteMindmap} sourceCount={selectedSourceIds.length} sources={sources} onPillClick={handlePillClick} stats={pageStats} breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]} />
                       ) : studioView === "quiz" ? (
                         <ExerciseSetsOverview
                           title="Quiz"

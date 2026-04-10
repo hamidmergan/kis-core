@@ -120,7 +120,8 @@ TUTOR_SYSTEM_RAG = (
     "QUELLENFORMAT:\n"
     "Quellen sind gekennzeichnet als [QN, S. X] (Dokument) oder [QN, MM:SS] (Audio/Video). "
     "Füge nach JEDEM Satz die passende Quellenangabe ein — bei mehreren relevanten Seiten ALLE angeben. "
-    "Füge nach der Seitenzahl ein | gefolgt von 2-5 SCHLÜSSELWÖRTERN aus dem Originaltext ein, die die Stelle identifizieren. "
+    "WICHTIG: Füge nach der Seitenzahl IMMER ein | gefolgt von 2-5 SCHLÜSSELWÖRTERN aus dem Originaltext ein, die die Stelle identifizieren. "
+    "JEDE Quellenangabe MUSS Keywords enthalten — NIEMALS [Q1, S. 3] ohne Keywords schreiben! "
     "Format: [Q1, S. 3 | Schlüsselwort1 Schlüsselwort2] oder [Q1, 05:32 | Schlüsselwort1 Schlüsselwort2]. "
     "Die Schlüsselwörter MÜSSEN exakt so im Quelltext stehen — wähle markante, spezifische Wörter (Namen, Fachbegriffe, Zahlen). "
     "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S bzw. dem Zeitstempel. "
@@ -246,8 +247,7 @@ TUTOR_LERNKARTEN_PROMPT = (
     '      "front": "Fachbegriff in Quellsprache",\n'
     '      "back": "Fachbegriff — Erklärung in Quellsprache (1-2 Sätze)",\n'
     '      "back_en": "Übersetzter Begriff (Zielsprache, siehe oben)",\n'
-    '      "source_label": "Dateiname der Quelle",\n'
-    '      "page_number": 5\n'
+    '      "sources": [{"source_label": "Dateiname.pdf", "page_number": 5}, {"source_label": "Dateiname.pdf", "page_number": 12}]\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
@@ -257,7 +257,9 @@ TUTOR_LERNKARTEN_PROMPT = (
     "- Vorderseite (front): Ein zentraler Fachbegriff in der Quellsprache\n"
     "- Rückseite (back): Der Begriff + kurze Erklärung in der Quellsprache (max 2 Sätze)\n"
     "- back_en: Der übersetzte Fachbegriff in der Zielsprache (nur das Wort/die Phrase, keine Erklärung)\n"
-    "- source_label und page_number MÜSSEN aus den [Quellenname, S. X] Tags im Context stammen\n"
+    "- sources: WICHTIG — Liste JEDE einzelne Seite auf, aus der Informationen in der Erklärung stammen. "
+    "Wenn ein Satz von S. 3 kommt und ein anderer Satz von S. 9, dann MÜSSEN beide Seiten in sources stehen. "
+    "Auch bei derselben Datei verschiedene Seiten einzeln auflisten! Jeder Eintrag braucht source_label und page_number aus den [Quellenname, S. X] Tags.\n"
     "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
     "- Fokus auf zentrale Fachbegriffe und Definitionen, KEINE Verständnisfragen\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
@@ -272,8 +274,7 @@ TUTOR_KARTEIKARTEN_PROMPT = (
     "    {\n"
     '      "front": "Verständnisfrage",\n'
     '      "back": "Ausführliche Antwort",\n'
-    '      "source_label": "Dateiname der Quelle",\n'
-    '      "page_number": 5\n'
+    '      "sources": [{"source_label": "Dateiname.pdf", "page_number": 5}, {"source_label": "Dateiname.pdf", "page_number": 12}]\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
@@ -282,7 +283,9 @@ TUTOR_KARTEIKARTEN_PROMPT = (
     "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
     "- Vorderseite: Verständnisfrage (z.B. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
     "- Rückseite: Ausführliche Erklärung mit Zusammenhängen (2-4 Sätze)\n"
-    "- source_label und page_number MÜSSEN aus den [Quellenname, S. X] Tags im Context stammen\n"
+    "- sources: WICHTIG — Liste JEDE einzelne Seite auf, aus der Informationen in der Antwort stammen. "
+    "Wenn ein Satz von S. 3 kommt und ein anderer Satz von S. 9, dann MÜSSEN beide Seiten in sources stehen. "
+    "Auch bei derselben Datei verschiedene Seiten einzeln auflisten! Jeder Eintrag braucht source_label und page_number aus den [Quellenname, S. X] Tags.\n"
     "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
     "- Mischung aus Verständnisfragen, Vergleichsfragen und Anwendungsfragen\n"
     "- KEINE reinen Definitionsfragen — es geht um Verständnis und Zusammenhänge\n"
@@ -316,6 +319,7 @@ TUTOR_DATENTABELLE_PROMPT = (
     "- Der Titel soll den Tabelleninhalt kurz beschreiben\n"
     "- Halte Zellenwerte prägnant aber informativ\n"
     "- Nur Informationen aus dem gegebenen Text verwenden\n"
+    "- KEINE Spalte für Quellen/Quellenangaben/Dateinamen in 'columns' erstellen — die Quellen werden separat über das 'sources'-Array pro Zeile referenziert\n"
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )
 

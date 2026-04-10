@@ -823,7 +823,7 @@ async def chat(
 
         # Save messages
         db.save_ki_tutor_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
-        db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id)
+        db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
 
         # Send final metadata event — also send corrected answer
         yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
@@ -1184,6 +1184,7 @@ async def get_messages(
             "role": m["role"],
             "content": m["content"],
             "source_pages": m["source_pages"],
+            "source_qmap": m.get("source_qmap"),
             "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
         }
         for m in messages

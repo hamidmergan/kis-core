@@ -1045,12 +1045,32 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
                 data = _json.loads(answer)
-                items = [
-                    {"front": c["front"], "back": c["back"], "back_en": c.get("back_en", ""),
-                     "source_label": c.get("source_label", first_label), "page_number": c.get("page_number"),
-                     "start_time": _time_map.get((c.get("source_label", first_label), c.get("page_number", 0)))}
-                    for c in data.get("cards", [])
-                ]
+                def _parse_card(c: dict, include_back_en: bool = False) -> dict:
+                    """Parse card with sources array, fallback to legacy source_label/page_number."""
+                    srcs = c.get("sources") or []
+                    if not srcs and c.get("source_label"):
+                        srcs = [{"source_label": c["source_label"], "page_number": c.get("page_number")}]
+                    # Enrich with start_time for media sources
+                    for s in srcs:
+                        sl = s.get("source_label", first_label)
+                        pn = s.get("page_number", 0)
+                        st = _time_map.get((sl, pn))
+                        if st is not None:
+                            s["start_time"] = st
+                    # Keep first source as legacy fields for backward compat
+                    first = srcs[0] if srcs else {}
+                    item: dict = {
+                        "front": c["front"], "back": c["back"],
+                        "source_label": first.get("source_label", first_label),
+                        "page_number": first.get("page_number"),
+                        "start_time": first.get("start_time"),
+                        "sources": srcs,
+                    }
+                    if include_back_en:
+                        item["back_en"] = c.get("back_en", "")
+                    return item
+
+                items = [_parse_card(c, include_back_en=True) for c in data.get("cards", [])]
                 title = data.get("title", multi_label)
             elif tool == "karteikarten":
                 prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
@@ -1061,24 +1081,24 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
                 data = _json.loads(answer)
-                items = [
-                    {"front": c["front"], "back": c["back"],
-                     "source_label": c.get("source_label", first_label), "page_number": c.get("page_number"),
-                     "start_time": _time_map.get((c.get("source_label", first_label), c.get("page_number", 0)))}
-                    for c in data.get("cards", [])
-                ]
+                items = [_parse_card(c) for c in data.get("cards", [])]
                 title = data.get("title", multi_label)
             else:
                 tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
+                _sources_rule = (
+                    "- sources: WICHTIG — Liste JEDE einzelne Seite auf, aus der Informationen stammen. "
+                    "Auch bei derselben Datei verschiedene Seiten einzeln auflisten! "
+                    "Jeder Eintrag braucht source_label und page_number aus den [Quellenname, S. X] Tags.\n"
+                )
                 if tool == "lueckentext":
                     tool_prompt += (
                         "Erstelle Lückentext-Übungen. Antworte NUR mit einem JSON-Array:\n"
                         '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
                         '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
-                        '"source_label": "Dateiname.pdf", "page_number": 5}]\n'
+                        '"sources": [{"source_label": "Dateiname.pdf", "page_number": 5}]}]\n'
                         "WICHTIG:\n"
                         "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
-                        "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Inhalt stammt.\n"
+                        + _sources_rule +
                         f"Erstelle genau {count} Übungen."
                     )
                 elif tool == "quiz":
@@ -1087,10 +1107,11 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         "Die Fragen sollen das Verständnis des Inhalts prüfen.\n\n"
                         "Antworte NUR mit einem JSON-Array:\n"
                         '[{"question": "Verständnisfrage?", "options": ["A", "B", "C", "D"], '
-                        '"correct_idx": 0, "source_label": "Dateiname.pdf", "page_number": 5}]\n'
+                        '"correct_idx": 0, '
+                        '"sources": [{"source_label": "Dateiname.pdf", "page_number": 5}, {"source_label": "Dateiname.pdf", "page_number": 12}]}]\n'
                         "WICHTIG:\n"
                         "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
-                        "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Inhalt stammt.\n"
+                        + _sources_rule +
                         f"Erstelle genau {count} Fragen. Mische leichte und schwierige Fragen."
                     )
                 else:
@@ -1105,10 +1126,11 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         "(klare Definition, plausible Distraktoren möglich).\n\n"
                         "Antworte NUR mit einem JSON-Array:\n"
                         '[{"question": "Frage zum Fachbegriff?", "options": ["A", "B", "C", "D"], '
-                        '"correct_idx": 0, "source_label": "Dateiname.pdf", "page_number": 5}]\n'
+                        '"correct_idx": 0, '
+                        '"sources": [{"source_label": "Dateiname.pdf", "page_number": 5}]}]\n'
                         "WICHTIG:\n"
                         "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
-                        "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Begriff stammt.\n"
+                        + _sources_rule +
                         f"Erstelle genau {count} Fragen."
                     )
                 messages = [
@@ -1138,28 +1160,41 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                             best_label, best_page, best_score = label, page, score
                     return best_label, best_page
 
+                def _parse_sources(item_dict: dict, fallback_text: str = "") -> list[dict]:
+                    """Parse sources array from LLM output with fallback to legacy fields."""
+                    srcs = item_dict.get("sources") or []
+                    if not srcs:
+                        sl = item_dict.get("source_label") or first_label
+                        pn = item_dict.get("page_number")
+                        if not pn and fallback_text:
+                            sl, pn = _find_page(fallback_text)
+                        srcs = [{"source_label": sl, "page_number": pn}]
+                    for s in srcs:
+                        sl = s.get("source_label", first_label)
+                        pn = s.get("page_number", 0)
+                        st = _time_map.get((sl, pn))
+                        if st is not None:
+                            s["start_time"] = st
+                    return srcs
+
                 if tool == "lueckentext":
                     items = []
                     for ex in exercises:
-                        sl = ex.get("source_label") or first_label
-                        pn = ex.get("page_number")
-                        if not pn:
-                            sl, pn = _find_page(ex["sentence"] + " " + ex["answer"])
+                        srcs = _parse_sources(ex, ex["sentence"] + " " + ex["answer"])
+                        first = srcs[0] if srcs else {}
                         items.append({"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
                             "correct_idx": ex["correct_idx"],
-                            "source_label": sl, "page_number": pn,
-                            "start_time": _time_map.get((sl, pn or 0))})
+                            "source_label": first.get("source_label", first_label), "page_number": first.get("page_number"),
+                            "start_time": first.get("start_time"), "sources": srcs})
                 else:  # quiz + vokabeltest
                     items = []
                     for q in exercises:
-                        sl = q.get("source_label") or first_label
-                        pn = q.get("page_number")
-                        if not pn:
-                            sl, pn = _find_page(q["question"] + " " + q["options"][q["correct_idx"]])
+                        srcs = _parse_sources(q, q["question"] + " " + q["options"][q["correct_idx"]])
+                        first = srcs[0] if srcs else {}
                         items.append({"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
                             "correct_idx": q["correct_idx"],
-                            "source_label": sl, "page_number": pn,
-                            "start_time": _time_map.get((sl, pn or 0))})
+                            "source_label": first.get("source_label", first_label), "page_number": first.get("page_number"),
+                            "start_time": first.get("start_time"), "sources": srcs})
                 # Generate a short descriptive title via LLM
                 try:
                     title_resp = client.chat.completions.create(

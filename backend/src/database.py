@@ -372,6 +372,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add enrollment_id to messages for per-link scoping
             cur.execute("ALTER TABLE ki_tutor_messages ADD COLUMN IF NOT EXISTS enrollment_id INTEGER REFERENCES ki_tutor_enrollments(id) ON DELETE SET NULL")
+            # Migration: add source_qmap (Q-number → source UUID mapping) to messages
+            cur.execute("ALTER TABLE ki_tutor_messages ADD COLUMN IF NOT EXISTS source_qmap JSONB")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_user_settings (
                     id                   SERIAL PRIMARY KEY,
@@ -446,9 +448,12 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     source_label TEXT,
                     page_number INTEGER,
                     explanation TEXT,
-                    start_time  REAL
+                    start_time  REAL,
+                    sources     JSONB
                 )
             """)
+            # Migration: add sources JSONB to exercise_items
+            cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS sources JSONB")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS ki_tutor_exercise_progress (
                     id          SERIAL PRIMARY KEY,
@@ -1989,13 +1994,14 @@ def save_ki_tutor_message(
     content: str,
     source_pages: list | dict | None = None,
     enrollment_id: int | None = None,
+    source_qmap: list | None = None,
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO ki_tutor_messages
-                   (module_id, user_id, role, content, source_pages, enrollment_id)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                   (module_id, user_id, role, content, source_pages, enrollment_id, source_qmap)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                 (
                     module_id,
                     user_id,
@@ -2003,6 +2009,7 @@ def save_ki_tutor_message(
                     content,
                     json.dumps(source_pages) if source_pages is not None else None,
                     enrollment_id,
+                    json.dumps(source_qmap) if source_qmap is not None else None,
                 ),
             )
         conn.commit()
@@ -2463,8 +2470,8 @@ def create_exercise_set(
                 cur.execute(
                     """INSERT INTO ki_tutor_exercise_items
                        (set_id, position, front, back, back_en, options, correct_idx,
-                        source_label, page_number, explanation, start_time)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                        source_label, page_number, explanation, start_time, sources)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                     (
                         ex_set["id"], i,
                         item["front"], item["back"], item.get("back_en"),
@@ -2474,6 +2481,7 @@ def create_exercise_set(
                         item.get("page_number"),
                         item.get("explanation"),
                         item.get("start_time"),
+                        json.dumps(item.get("sources")) if item.get("sources") else None,
                     ),
                 )
                 created_items.append(dict(cur.fetchone()))
@@ -2508,8 +2516,8 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
                 cur.execute(
                     """INSERT INTO ki_tutor_exercise_items
                        (set_id, position, front, back, back_en, options, correct_idx,
-                        source_label, page_number, explanation, start_time)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        source_label, page_number, explanation, start_time, sources)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         set_id, i,
                         item["front"], item["back"], item.get("back_en"),
@@ -2519,6 +2527,7 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
                         item.get("page_number"),
                         item.get("explanation"),
                         item.get("start_time"),
+                        json.dumps(item.get("sources")) if item.get("sources") else None,
                     ),
                 )
             cur.execute(
