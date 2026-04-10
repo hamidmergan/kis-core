@@ -924,7 +924,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 ]
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
-                exercises = _json.loads(answer)
+                exercises = _json.loads(answer)[:count]
                 items = [
                     {"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
                      "correct_idx": ex["correct_idx"],
@@ -952,7 +952,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 ]
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
-                questions = _json.loads(answer)
+                questions = _json.loads(answer)[:count]
                 items = [
                     {"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
                      "correct_idx": q["correct_idx"], "explanation": q.get("explanation"),
@@ -1138,7 +1138,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
 
                     item["back"] = "\n".join(parts)
                     return item
-                items = [_format_lernkarte(c) for c in data.get("cards", [])]
+                items = [_format_lernkarte(c) for c in data.get("cards", [])][:count]
                 title = data.get("title", multi_label)
             elif tool == "karteikarten":
                 prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
@@ -1380,7 +1380,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                                 item["page_number"] = first_pn
                                 item["start_time"] = _time_map.get((sl, first_pn))
                     return item
-                items = [_parse_karteikarte(c) for c in data.get("cards", [])]
+                items = [_parse_karteikarte(c) for c in data.get("cards", [])][:count]
                 title = data.get("title", multi_label)
             else:
                 tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
@@ -1435,6 +1435,8 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
                 exercises = _json.loads(answer)
+                if isinstance(exercises, list):
+                    exercises = exercises[:count]
                 # Build page index from context for text matching
                 import re as _re
                 _page_index: list[tuple[str, int, str]] = []  # (source_label, page, text)
