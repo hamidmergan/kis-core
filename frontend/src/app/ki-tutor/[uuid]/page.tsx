@@ -6635,7 +6635,7 @@ export default function KiTutorModulePage() {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("lk-learn")); }}
             onCreate={() => { setCreateSetTool("lernkarten"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
-            onDownload={downloadExerciseSet}
+            onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
             breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
@@ -6678,7 +6678,7 @@ export default function KiTutorModulePage() {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("cl-learn")); }}
             onCreate={() => { setCreateSetTool("lueckentext"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "lueckentext")}
-            onDownload={downloadExerciseSet}
+            onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
             breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
@@ -6721,7 +6721,7 @@ export default function KiTutorModulePage() {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("vt-learn")); }}
             onCreate={() => { setCreateSetTool("vokabeltest"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "vokabeltest")}
-            onDownload={downloadExerciseSet}
+            onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
             breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
@@ -6814,6 +6814,7 @@ export default function KiTutorModulePage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const isLecturer = auth?.role === "lecturer";
+  const isAdmin = auth?.is_admin ?? false;
   const activeSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
 
   const p1Style: React.CSSProperties = panels.quellen
@@ -7168,7 +7169,7 @@ export default function KiTutorModulePage() {
                     onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
                     onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
                     onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
-                    onDownload={downloadExerciseSet}
+                    onDownload={isAdmin ? downloadExerciseSet : undefined}
                     sourceCount={selectedSourceIds.length}
                     stats={pageStats}
                   />
@@ -7210,7 +7211,7 @@ export default function KiTutorModulePage() {
                     onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
                     onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
                     onDelete={(id) => deleteExerciseSet(id, "quiz")}
-                    onDownload={downloadExerciseSet}
+                    onDownload={isAdmin ? downloadExerciseSet : undefined}
                     sourceCount={selectedSourceIds.length}
                     stats={pageStats}
                     breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
@@ -7351,7 +7352,7 @@ export default function KiTutorModulePage() {
                           onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
                           onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
                           onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
-                          onDownload={downloadExerciseSet}
+                          onDownload={isAdmin ? downloadExerciseSet : undefined}
                           sourceCount={selectedSourceIds.length}
                           stats={pageStats}
                           breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
@@ -7394,7 +7395,7 @@ export default function KiTutorModulePage() {
                           onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
                           onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
                           onDelete={(id) => deleteExerciseSet(id, "quiz")}
-                          onDownload={downloadExerciseSet}
+                          onDownload={isAdmin ? downloadExerciseSet : undefined}
                           sourceCount={selectedSourceIds.length}
                           stats={pageStats}
                           breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
