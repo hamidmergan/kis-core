@@ -281,20 +281,35 @@ TUTOR_KARTEIKARTEN_PROMPT = (
     '  "cards": [\n'
     "    {\n"
     '      "front": "Verständnisfrage",\n'
-    '      "back": "Ausführliche Antwort",\n'
-    '      "keyword": "Hauptfachbegriff",\n'
     '      "source_label": "Dateiname.pdf",\n'
-    '      "page_number": 5\n'
+    '      "answer_parts": [\n'
+    '        {"statement": "Erster Satz der Antwort, der einen Fakt ausdrückt.", "page_number": 5, "evidence": "Wörtliches Zitat aus Seite 5 das diesen Fakt belegt."},\n'
+    '        {"statement": "Zweiter Satz der Antwort mit einem anderen Fakt.", "page_number": 7, "evidence": "Wörtliches Zitat aus Seite 7."},\n'
+    '        {"statement": "Dritter Satz.", "page_number": 11, "evidence": "Wörtliches Zitat aus Seite 11."}\n'
+    "      ]\n"
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "Regeln:\n"
+    "KRITISCHE REGELN:\n"
     "- Erstelle genau {count} Karteikarten\n"
-    "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
-    "- Vorderseite: Verständnisfrage (z.B. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
-    "- Rückseite: Ausführliche Erklärung mit Zusammenhängen (2-4 Sätze)\n"
-    "- keyword: Der zentrale Fachbegriff der Karte (z.B. 'Microcredentials', 'Hybride Lehre'). Muss exakt so im Quelltext vorkommen.\n"
-    "- source_label und page_number: Die Seite wo der keyword-Begriff erklärt/eingeführt wird. Aus den [Quellenname, S. X] Tags.\n"
+    "- Jede Karteikarte hat GENAU EINE Quelle (source_label) — NIEMALS mehrere Dateien pro Karte mischen! "
+    "Frage und Antwort müssen ausschließlich aus EINEM Dokument stammen.\n"
+    "- Vorderseite (front): Verständnisfrage (z.B. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
+    "- answer_parts: Die Antwort wird als Liste von Sätzen strukturiert. "
+    "JEDER Satz muss mit einem wörtlichen Zitat aus dem Quelltext belegt sein. "
+    "Beim Zusammenführen aller statements entsteht die komplette Antwort.\n"
+    "- statement: Ein einzelner präziser Satz der einen Aspekt der Antwort ausdrückt. "
+    "Maximal 15-20 Wörter. Kein Roman, keine Abschweifung, keine Einleitung. "
+    "Formuliere statements natürlich, sodass sie zusammen eine fließende Antwort ergeben.\n"
+    "- evidence: Ein WÖRTLICHES Zitat aus dem Quelltext der angegebenen Seite, das den statement-Satz belegt. "
+    "KEIN paraphrasieren, KEIN umformulieren — exakt wie im Quelltext. "
+    "Mindestens 8 Wörter, maximal 2 Sätze lang. "
+    "Muss exakt so im [Quellenname, S. X] Block vorkommen.\n"
+    "- page_number: Die Seitenzahl aus den [Quellenname, S. X] Tags.\n"
+    "- Antwortlänge: 2-5 answer_parts pro Karte — so viele wie nötig, um die Frage präzise zu beantworten. "
+    "Keine Abschweifungen, keine zusätzlichen Aspekte die nicht gefragt wurden.\n"
+    "- Jeder Aspekt der Antwort braucht einen eigenen answer_part mit eigener Evidence. "
+    "Wenn du mehrere Dinge nennst (z.B. 'Assistent, Self-Assessments, Microcredentials'), brauchst du mindestens 3 answer_parts.\n"
     "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
     "- Mischung aus Verständnisfragen, Vergleichsfragen und Anwendungsfragen\n"
     "- KEINE reinen Definitionsfragen — es geht um Verständnis und Zusammenhänge\n"

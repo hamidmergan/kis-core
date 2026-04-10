@@ -1001,8 +1001,18 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 _source_by_name[source_label] = source
                 if not first_label:
                     first_label = source_label
-                summaries = db.get_paragraph_summaries_by_source(source["id"])
-                if summaries:
+                # For karteikarten: use raw chunks so LLM can quote verbatim for evidence validation
+                # For other tools: use summaries (faster, denser)
+                use_chunks = tool == "karteikarten"
+                chunks_all = db.get_chunks_by_source(source["id"]) if use_chunks else None
+                summaries = None if use_chunks else db.get_paragraph_summaries_by_source(source["id"])
+                if use_chunks and chunks_all:
+                    for c in chunks_all:
+                        if c.get("start_time") is not None:
+                            _time_map[(source_label, c["page_number"])] = c["start_time"]
+                    parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks_all]
+                    context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
+                elif summaries:
                     pages_map: dict[int, list[str]] = {}
                     for s in summaries:
                         pages_map.setdefault(s["page_number"], []).append(s["summary"])
@@ -1065,6 +1075,11 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                                 "page_number": ch["page_number"],
                                 "start_time": _time_map.get(key),
                             })
+                # Sort: by filename, then by start_time (media) or page_number
+                result.sort(key=lambda s: (
+                    s.get("source_label", ""),
+                    s.get("start_time") if s.get("start_time") is not None else (s.get("page_number") or 0),
+                ))
                 return result
 
             def _parse_card(c: dict, include_back_en: bool = False, search_term: str = "", multi_source: bool = False) -> dict:
@@ -1084,10 +1099,15 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     if pages:
                         if multi_source:
                             item["sources"] = pages
-                        # Always correct source to first match (most relevant page)
-                        item["source_label"] = pages[0]["source_label"]
-                        item["page_number"] = pages[0]["page_number"]
-                        item["start_time"] = pages[0].get("start_time")
+                        # Keep LLM-assigned page if it contains the term, otherwise use first match
+                        llm_page_valid = any(
+                            p["source_label"] == sl and p["page_number"] == pn
+                            for p in pages
+                        )
+                        if not llm_page_valid:
+                            item["source_label"] = pages[0]["source_label"]
+                            item["page_number"] = pages[0]["page_number"]
+                            item["start_time"] = pages[0].get("start_time")
                 return item
 
             if tool == "lernkarten":
@@ -1129,7 +1149,238 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
                 data = _json.loads(answer)
-                items = [_parse_card(c, search_term=c.get("keyword", "")) for c in data.get("cards", [])]
+                def _normalize_for_match(text: str) -> str:
+                    """Normalize text for fuzzy substring matching (whitespace, punctuation, case)."""
+                    text = _normalize_chunk(text).lower()
+                    text = _re_card.sub(r"[^\w\säöüß]+", " ", text)
+                    text = _re_card.sub(r"\s+", " ", text)
+                    return text.strip()
+
+                def _evidence_matches_page(evidence_norm: str, page_text_norm: str) -> bool:
+                    """Check if evidence is fully or partially (6+ consecutive words) contained in page."""
+                    if not evidence_norm or not page_text_norm:
+                        return False
+                    if evidence_norm in page_text_norm:
+                        return True
+                    ev_words = evidence_norm.split()
+                    if len(ev_words) < 6:
+                        return False
+                    for window in range(min(len(ev_words), 20), 5, -1):
+                        for i in range(len(ev_words) - window + 1):
+                            phrase = " ".join(ev_words[i:i + window])
+                            if phrase in page_text_norm:
+                                return True
+                    return False
+
+                def _parse_karteikarte(c: dict) -> dict:
+                    # Build back text from answer_parts statements
+                    answer_parts = c.get("answer_parts") or []
+                    back_text = " ".join((p.get("statement") or "").strip() for p in answer_parts if p.get("statement"))
+                    c_merged = dict(c)
+                    c_merged["back"] = back_text or c.get("back", "")
+                    item = _parse_card(c_merged)
+
+                    # Enforce single source per karteikarte
+                    sl = c.get("source_label") or first_label
+                    src_obj = _source_by_name.get(sl)
+                    if not src_obj:
+                        return item
+
+                    # Build original page_text lookup (deduped for overlapping chunks)
+                    def _build_page_text(chunks: list) -> str:
+                        """Concatenate chunks, removing overlap between consecutive chunks."""
+                        result = ""
+                        for ch in chunks:
+                            content = (ch.get("content") or "").strip()
+                            if not content:
+                                continue
+                            if not result:
+                                result = content
+                                continue
+                            # Find overlap: check if last 100 chars of result appear at start of content
+                            overlap_max = min(200, len(result), len(content))
+                            best_overlap = 0
+                            for n in range(overlap_max, 20, -1):
+                                if result[-n:] == content[:n]:
+                                    best_overlap = n
+                                    break
+                            if best_overlap > 0:
+                                result += content[best_overlap:]
+                            else:
+                                result += " " + content
+                        return result
+
+                    page_chunks_raw: dict[int, list] = {}
+                    for ch in db.get_chunks_by_source(src_obj["id"]):
+                        page_chunks_raw.setdefault(ch["page_number"], []).append(ch)
+                    page_texts: dict[int, str] = {p: _build_page_text(chs) for p, chs in page_chunks_raw.items()}
+                    page_texts_norm = {p: _normalize_for_match(t) for p, t in page_texts.items()}
+
+
+                    # Validate each answer_part's evidence — allow multiple chips per page
+                    # but dedupe if two evidences share a long substring (likely the same fact)
+                    validated_chips: list[dict] = []
+                    seen_norms: list[str] = []
+                    logger.info(f"[KARTEIKARTE] card '{c.get('front', '')[:60]}' has {len(answer_parts)} answer_parts")
+
+                    def _is_duplicate_evidence(new_norm: str) -> bool:
+                        new_words = new_norm.split()
+                        if len(new_words) < 4:
+                            return new_norm in seen_norms
+                        for seen in seen_norms:
+                            seen_words = seen.split()
+                            # Check if longest common substring is ≥70% of the shorter evidence
+                            shorter_len = min(len(new_words), len(seen_words))
+                            threshold = max(4, int(shorter_len * 0.7))
+                            # Look for any sequence of `threshold` words from new in seen
+                            for i in range(len(new_words) - threshold + 1):
+                                phrase = " ".join(new_words[i:i + threshold])
+                                if phrase in seen:
+                                    return True
+                        return False
+
+                    for part in answer_parts:
+                        ev_text = (part.get("evidence") or "").strip()
+                        ev_page = part.get("page_number")
+                        if not ev_text or ev_page is None:
+                            logger.info(f"  [PART] skipped (no evidence or page)")
+                            continue
+                        ev_norm = _normalize_for_match(ev_text)
+                        if _is_duplicate_evidence(ev_norm):
+                            logger.info(f"  [PART] dedup (overlaps existing)")
+                            continue
+                        logger.info(f"  [PART] page={ev_page} ev={ev_text[:80]!r}")
+                        target_page: int | None = None
+                        if ev_page in page_texts_norm and _evidence_matches_page(ev_norm, page_texts_norm[ev_page]):
+                            target_page = ev_page
+                        else:
+                            for p, pt in page_texts_norm.items():
+                                if _evidence_matches_page(ev_norm, pt):
+                                    target_page = p
+                                    break
+                        if target_page is None:
+                            logger.info(f"  [PART] NO MATCH on any page")
+                            continue
+                        logger.info(f"  [PART] matched page {target_page}")
+                        seen_norms.append(ev_norm)
+                        validated_chips.append({
+                            "source_label": sl,
+                            "page_number": target_page,
+                            "start_time": _time_map.get((sl, target_page)),
+                            "highlight_text": ev_text,
+                        })
+
+                    # Merge all chips on the same page into one (full span from first to last evidence)
+                    def _find_orig_span(orig: str, ev_text: str) -> tuple[int, int] | None:
+                        """Find a fuzzy position of ev_text inside orig. Returns (start, end) in orig."""
+                        orig_norm = _normalize_for_match(orig)
+                        ev_norm = _normalize_for_match(ev_text)
+                        if not ev_norm:
+                            return None
+                        # Find position in normalized, then map to original by finding first word
+                        pos_norm = orig_norm.find(ev_norm)
+                        phrase_len = len(ev_norm)
+                        if pos_norm < 0:
+                            ev_words = ev_norm.split()
+                            if len(ev_words) < 6:
+                                return None
+                            for window in range(min(len(ev_words), 20), 5, -1):
+                                for i in range(len(ev_words) - window + 1):
+                                    phrase = " ".join(ev_words[i:i + window])
+                                    found = orig_norm.find(phrase)
+                                    if found >= 0:
+                                        pos_norm = found
+                                        phrase_len = len(phrase)
+                                        break
+                                if pos_norm >= 0:
+                                    break
+                        if pos_norm < 0:
+                            return None
+                        # Map norm position to orig position by searching for the first few words
+                        first_words = orig_norm[pos_norm:pos_norm + min(40, phrase_len)].split()
+                        if not first_words:
+                            return None
+                        # Search in original for a sequence matching the first word(s)
+                        import re as _re_find
+                        for first_w in first_words[:3]:
+                            if len(first_w) < 3:
+                                continue
+                            pattern = _re_find.escape(first_w)
+                            for m in _re_find.finditer(pattern, orig, _re_find.IGNORECASE):
+                                # Verify: the rest of the phrase also matches from here
+                                tail_norm = _normalize_for_match(orig[m.start():m.start() + phrase_len + 100])
+                                if tail_norm.startswith(orig_norm[pos_norm:pos_norm + min(30, phrase_len)]):
+                                    start = m.start()
+                                    # End: consume phrase_len worth of non-whitespace chars from original
+                                    end = start
+                                    consumed_norm = 0
+                                    while end < len(orig) and consumed_norm < phrase_len:
+                                        if not orig[end].isspace():
+                                            consumed_norm += 1
+                                        end += 1
+                                    return (start, end)
+                            break
+                        return None
+
+                    def _merge_page_chips(chips: list[dict]) -> list[dict]:
+                        by_page: dict[int, list[dict]] = {}
+                        for ch in chips:
+                            pn = ch.get("page_number") or 0
+                            by_page.setdefault(pn, []).append(ch)
+                        merged: list[dict] = []
+                        for pn, page_chips in by_page.items():
+                            if len(page_chips) == 1:
+                                merged.append(page_chips[0])
+                                continue
+                            page_orig = page_texts.get(pn, "")
+                            if not page_orig:
+                                merged.append(page_chips[0])
+                                continue
+                            # Find position of each evidence in the ORIGINAL page text
+                            positions: list[tuple[int, int]] = []
+                            for ch in page_chips:
+                                span = _find_orig_span(page_orig, ch["highlight_text"])
+                                if span:
+                                    positions.append(span)
+                            if not positions:
+                                merged.append(page_chips[0])
+                                continue
+                            span_start = min(p[0] for p in positions)
+                            span_end = max(p[1] for p in positions)
+                            combined = page_orig[span_start:span_end].strip()
+                            # Collapse internal whitespace (keep paragraph breaks)
+                            combined = _re_card.sub(r"[ \t]+", " ", combined)
+                            combined = _re_card.sub(r" *\n *", "\n", combined)
+                            first_ch = page_chips[0]
+                            merged.append({
+                                "source_label": first_ch["source_label"],
+                                "page_number": first_ch["page_number"],
+                                "start_time": first_ch.get("start_time"),
+                                "highlight_text": combined,
+                            })
+                        return merged
+
+                    validated_chips = _merge_page_chips(validated_chips)
+
+                    # Sort chips by page number (or start_time for media)
+                    validated_chips.sort(key=lambda s: (
+                        s.get("start_time") if s.get("start_time") is not None else (s.get("page_number") or 0),
+                    ))
+
+                    if validated_chips:
+                        item["sources"] = validated_chips
+                        item["source_label"] = validated_chips[0]["source_label"]
+                        item["page_number"] = validated_chips[0]["page_number"]
+                        item["start_time"] = validated_chips[0].get("start_time")
+                    else:
+                        item["source_label"] = sl
+                        if answer_parts:
+                            first_pn = answer_parts[0].get("page_number")
+                            if first_pn is not None:
+                                item["page_number"] = first_pn
+                                item["start_time"] = _time_map.get((sl, first_pn))
+                    return item
+                items = [_parse_karteikarte(c) for c in data.get("cards", [])]
                 title = data.get("title", multi_label)
             else:
                 tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"

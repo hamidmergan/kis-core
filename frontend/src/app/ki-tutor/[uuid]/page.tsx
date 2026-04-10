@@ -254,6 +254,7 @@ interface ExerciseItemSource {
   source_label: string;
   page_number?: number;
   start_time?: number;
+  highlight_text?: string;
 }
 
 interface ExerciseItem {
@@ -714,35 +715,135 @@ function PdfViewer({
           if (/\d$/.test(text.slice(Math.max(0, dotIdx - 1), dotIdx))) return true;
           return false;
         };
-        let sentStart = matchStart;
-        let sentEnd = matchEnd;
-        // Search backwards for sentence start
-        for (let i = matchStart - 1; i >= 0; i--) {
-          const ch = cleanText[i];
-          if (ch === "\n" || ch === "!" || ch === "?") {
-            sentStart = i + 1;
-            while (sentStart < matchStart && cleanText[sentStart] === " ") sentStart++;
-            break;
+        // Helper: find sentence boundaries around a position
+        const _findSentBounds = (startPos: number, endPos: number): [number, number] => {
+          let sStart = startPos, sEnd = endPos;
+          for (let i = startPos - 1; i >= 0; i--) {
+            const ch = cleanText[i];
+            if (ch === "\n" || ch === "!" || ch === "?") {
+              sStart = i + 1;
+              while (sStart < startPos && cleanText[sStart] === " ") sStart++;
+              break;
+            }
+            if (ch === "." && !_isAbbrevDot(cleanText, i)) {
+              sStart = i + 1;
+              while (sStart < startPos && cleanText[sStart] === " ") sStart++;
+              break;
+            }
+            if (i === 0) sStart = 0;
           }
-          if (ch === "." && !_isAbbrevDot(cleanText, i)) {
-            sentStart = i + 1;
-            while (sentStart < matchStart && cleanText[sentStart] === " ") sentStart++;
-            break;
+          for (let i = endPos + 1; i < cleanText.length; i++) {
+            const ch = cleanText[i];
+            if (ch === "\n" || ch === "!" || ch === "?") { sEnd = i; break; }
+            if (ch === "." && !_isAbbrevDot(cleanText, i)) { sEnd = i; break; }
+            if (i === cleanText.length - 1) sEnd = i;
           }
-          if (i === 0) sentStart = 0;
+          return [sStart, sEnd];
+        };
+
+        // Smart expansion: if searchText has many words, expand across
+        // sentences that contain words from the answer
+        const _stopwords = new Set([
+          "nicht", "diese", "dieser", "dieses", "einen", "einem", "einer",
+          "werden", "durch", "zwischen", "sowie", "welche", "welcher", "welches",
+          "andere", "anderen", "wurde", "haben", "können", "sollten", "sollen",
+          "müssen", "wird", "eine", "der", "die", "das", "den", "dem", "des",
+          "und", "oder", "aber", "auch", "auf", "für", "mit", "von", "zu",
+          "bei", "nach", "als", "wie", "wenn", "dann", "weil", "dass", "noch",
+          "nur", "schon", "sehr", "mehr", "keine", "kein", "ist", "sind", "hat",
+          "dies", "wird", "werden", "dem", "dass", "aus", "ohne", "über", "unter",
+          "ihre", "ihrer", "seine", "seiner", "um", "im", "am", "in", "an",
+        ]);
+        // Extract words (5+ chars alphanumeric with hyphens) and numbers (3+ digits)
+        const allAnswerWords = new Set<string>([
+          ...(searchText.toLowerCase().match(/[a-zäöüß][\wäöüß-]{4,}/g) || [])
+            .filter(w => !_stopwords.has(w)),
+          ...(searchText.match(/\b\d+\b/g) || []),
+        ]);
+        // Count occurrences of each answer word in the page
+        const wordCounts = new Map<string, number>();
+        for (const w of allAnswerWords) {
+          const regex = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+          const matches = ptLower.match(regex);
+          wordCounts.set(w, matches?.length ?? 0);
         }
-        // Search forwards for sentence end
-        for (let i = matchEnd + 1; i < cleanText.length; i++) {
-          const ch = cleanText[i];
-          if (ch === "\n" || ch === "!" || ch === "?") {
-            sentEnd = i;
-            break;
+        // Rare = max 5 occurrences, Very rare = max 2 occurrences
+        const rareAnswerWords = new Set<string>();
+        const veryRareAnswerWords = new Set<string>();
+        for (const [w, count] of wordCounts) {
+          if (count > 0 && count <= 5) rareAnswerWords.add(w);
+          if (count > 0 && count <= 2) veryRareAnswerWords.add(w);
+        }
+
+        // Get initial sentence bounds
+        let [sentStart, sentEnd] = _findSentBounds(matchStart, matchEnd);
+
+        // Smart mode: expand across related sentences
+        if (rareAnswerWords.size >= 3) {
+          const sentenceHasAnswerWord = (start: number, end: number): boolean => {
+            const sentText = cleanText.slice(start, end + 1).toLowerCase();
+            // Count rare words and very rare words in sentence
+            let rareCount = 0;
+            let veryRareCount = 0;
+            for (const w of rareAnswerWords) {
+              if (sentText.includes(w)) {
+                rareCount++;
+                if (veryRareAnswerWords.has(w)) veryRareCount++;
+              }
+            }
+            // Either 2+ rare words, or 1+ very rare (specific) word
+            return rareCount >= 2 || veryRareCount >= 1;
+          };
+          // Detect paragraph break: looks at raw text around position for double newline
+          // or new paragraph heading (e.g. "Fachlandkarte:" at start of line)
+          const _isHeading = (text: string): boolean => {
+            // Matches: "Wort:" or "Wort Wort:" at start (typical section headings)
+            return /^\s*[A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ]?[\wäöüß-]+){0,3}\s*:/.test(text);
+          };
+          const _isParagraphBreakBefore = (startInRaw: number): boolean => {
+            // Check raw text (has newlines) at the position mapped from cleanText
+            const rawPos = cleanToRaw[Math.max(0, startInRaw - 1)];
+            if (rawPos == null) return false;
+            // Look back for newlines
+            let nlCount = 0;
+            for (let i = rawPos; i >= Math.max(0, rawPos - 10) && i >= 0; i--) {
+              if (rawPageText[i] === "\n") nlCount++;
+              else if (rawPageText[i] !== " " && rawPageText[i] !== "\r") break;
+            }
+            if (nlCount >= 2) return true;
+            // Check if next sentence starts with a heading pattern
+            const preview = cleanText.slice(startInRaw, Math.min(cleanText.length, startInRaw + 40));
+            return _isHeading(preview);
+          };
+          // Expand backwards: include previous sentences that share words with answer
+          let backStart = sentStart;
+          for (let attempts = 0; attempts < 10 && backStart > 0; attempts++) {
+            // Find previous sentence
+            let prevEnd = backStart - 1;
+            while (prevEnd > 0 && (cleanText[prevEnd] === " " || cleanText[prevEnd] === "\n")) prevEnd--;
+            if (prevEnd <= 0) break;
+            const [prevStart] = _findSentBounds(prevEnd, prevEnd);
+            if (prevStart >= backStart) break;
+            // Stop at paragraph break between prev and current
+            if (_isParagraphBreakBefore(backStart)) break;
+            if (!sentenceHasAnswerWord(prevStart, prevEnd)) break;
+            backStart = prevStart;
           }
-          if (ch === "." && !_isAbbrevDot(cleanText, i)) {
-            sentEnd = i;
-            break;
+          sentStart = backStart;
+          // Expand forwards: include next sentences that share words with answer
+          let fwdEnd = sentEnd;
+          for (let attempts = 0; attempts < 10 && fwdEnd < cleanText.length - 1; attempts++) {
+            let nextStart = fwdEnd + 1;
+            while (nextStart < cleanText.length && (cleanText[nextStart] === " " || cleanText[nextStart] === "\n")) nextStart++;
+            if (nextStart >= cleanText.length) break;
+            const [, nextEnd] = _findSentBounds(nextStart, nextStart);
+            if (nextEnd <= fwdEnd) break;
+            // Stop at paragraph break or heading
+            if (_isParagraphBreakBefore(nextStart)) break;
+            if (!sentenceHasAnswerWord(nextStart, nextEnd)) break;
+            fwdEnd = nextEnd;
           }
-          if (i === cleanText.length - 1) sentEnd = i;
+          sentEnd = fwdEnd;
         }
 
         const rawStart = cleanToRaw[sentStart];
@@ -1179,6 +1280,7 @@ function SourcesPanel({
   uploadProgress,
   isLecturer,
   onMinimize,
+  moduleUuid,
 }: {
   sources: Source[];
   selectedSourceIds: string[];
@@ -1189,6 +1291,7 @@ function SourcesPanel({
   uploadProgress: number | null;
   isLecturer: boolean;
   onMinimize: () => void;
+  moduleUuid: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -1359,6 +1462,32 @@ function SourcesPanel({
                       title="Im Viewer öffnen"
                     >
                       <Eye size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${src.uuid}/text`, { credentials: "include" });
+                          if (!res.ok) return;
+                          const data = await res.json();
+                          const safeName = (src.filename || "quelle").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9äöüÄÖÜß_-]+/g, "_").slice(0, 80);
+                          const blob = new Blob([data.text || ""], { type: "text/plain;charset=utf-8" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${safeName}.txt`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        } catch { /* ignore */ }
+                      }}
+                      className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                      style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                      title="Als Text herunterladen"
+                    >
+                      <DownloadSimple size={13} weight="regular" />
                     </button>
                     {isLecturer && (
                       <button
@@ -2008,11 +2137,12 @@ function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: {
 // ─── Exercise Sets Overview (shared for all 3 tools) ────────────────────────
 
 function ExerciseSetsOverview({
-  title, sets, onBack, onSelect, onCreate, onDelete, sourceCount, stats, breadcrumbs, category,
+  title, sets, onBack, onSelect, onCreate, onDelete, onDownload, sourceCount, stats, breadcrumbs, category,
 }: {
   title: string; sets: ExerciseSet[];
   onBack: () => void; onSelect: (s: ExerciseSet) => void;
   onCreate: () => void; onDelete: (id: number) => void;
+  onDownload?: (s: ExerciseSet) => void;
   sourceCount: number; stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
   category?: "lerntools" | "sprachtraining";
@@ -2106,10 +2236,19 @@ function ExerciseSetsOverview({
                         {!generating && s.mode === "glossar" && " · Glossar"}
                         {!generating && ` · ${new Date(s.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`}
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        {!generating && onDownload && (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); onDownload(s); }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                            title="Als Textdatei herunterladen">
+                            <DownloadSimple size={12} />
+                          </button>
+                        )}
                         {!generating && <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
                           className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+                          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                          title="Löschen">
                           <Trash size={12} />
                         </button>}
                       </div>
@@ -2443,20 +2582,33 @@ function LernkartenLearnView({
                 </button>
               )}
             </div>
-            {/* Source chip + filename */}
-            {cardSource && (
-              <div className="flex flex-col gap-1 w-full mt-4" style={{ maxWidth: 560 }}>
-                <div className="flex items-center gap-1 flex-wrap">
-                  <button type="button"
-                    onClick={() => { if (onSourceClick) onSourceClick(cardSource.source_label, cardSource.page_number ?? 1, cardSource.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
-                    className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
-                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                    <FilePdf size={10} weight="bold" /> {_chunkLabel(cardSource.source_label, cardSource.page_number ?? 1, cardSource.start_time)}
-                  </button>
+            {/* Source chips + filename legend */}
+            {(() => {
+              const srcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
+              if (!srcs.length) return null;
+              const uniqueFiles = [...new Set(srcs.map(s => s.source_label))];
+              const fileIndex = Object.fromEntries(uniqueFiles.map((f, i) => [f, i + 1]));
+              const multiFile = uniqueFiles.length > 1;
+              return (
+                <div className="flex flex-col gap-1 w-full mt-4" style={{ maxWidth: 560 }}>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {srcs.map((s, si) => (
+                      <button key={si} type="button"
+                        onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
+                        className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                        style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                        <FilePdf size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                      </button>
+                    ))}
+                  </div>
+                  {uniqueFiles.map((f, fi) => (
+                    <span key={fi} className="text-[9px]" style={{ color: "var(--muted)" }}>
+                      {multiFile ? `[${fi + 1}] ` : ""}{f}
+                    </span>
+                  ))}
                 </div>
-                <span className="text-[9px]" style={{ color: "var(--muted)" }}>{cardSource.source_label}</span>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </>;
       })() : null}
@@ -2713,7 +2865,7 @@ function MCExerciseView({
                     <div>
                       {card.source_label && (
                         <button type="button"
-                          onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
+                          onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
                           className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
                           style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
                           <FilePdf size={10} weight="bold" /> {card.source_label}, {_chunkLabel(card.source_label, card.page_number ?? 1, card.start_time)}
@@ -3614,7 +3766,7 @@ function MindmapStudio({
             style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
-          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
+          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>Mindmap</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /><span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={handleZoomOut} title="Verkleinern"
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
@@ -4902,7 +5054,7 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
       <StudioTabs
         tabs={[
           { key: "lerntools", label: "Lerntools" },
-          { key: "sprachtraining", label: "Fachsprachentraining" },
+          { key: "sprachtraining", label: "Studio" },
         ]}
         active={category}
         onSelect={(k) => setCategory(k as "lerntools" | "sprachtraining")}
@@ -6316,6 +6468,56 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ }
   }
 
+  async function downloadExerciseSet(s: ExerciseSet) {
+    try {
+      console.log("[DOWNLOAD] fetching set", s.id, s.title);
+      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${s.id}`, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const set = data.set as ExerciseSet;
+      console.log("[DOWNLOAD] loaded", set.id, set.title, "items:", set.items?.length);
+      const items = set.items || [];
+      const lines: string[] = [];
+      lines.push(set.title);
+      lines.push("=".repeat(set.title.length));
+      lines.push("");
+      items.forEach((item, i) => {
+        lines.push(`${i + 1}. ${item.front}`);
+        lines.push("");
+        lines.push(`   ${item.back.replace(/\n/g, "\n   ")}`);
+        if (item.back_en) {
+          lines.push(`   EN: ${item.back_en}`);
+        }
+        // List all sources/chips with their highlighted text
+        const sources = item.sources?.length
+          ? item.sources
+          : (item.source_label ? [{ source_label: item.source_label, page_number: item.page_number, start_time: item.start_time, highlight_text: undefined }] : []);
+        if (sources.length > 0) {
+          lines.push(`   Quellen:`);
+          sources.forEach((s) => {
+            const pageInfo = s.page_number ? `, S. ${s.page_number}` : "";
+            lines.push(`     - ${s.source_label}${pageInfo}`);
+            if (s.highlight_text) {
+              lines.push(`       „${s.highlight_text.replace(/\n/g, " ").trim()}"`);
+            }
+          });
+        }
+        lines.push("");
+      });
+      const text = lines.join("\n");
+      const safeTitle = (set.title || set.tool || "karteikarten").replace(/[^a-zA-Z0-9äöüÄÖÜß_-]+/g, "_").slice(0, 60);
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${safeTitle}_${set.id}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+  }
+
   async function submitSingleAnswer(setId: number, itemId: number, correct: boolean, newRun = false) {
     try {
       await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${setId}/progress`, {
@@ -6383,7 +6585,7 @@ export default function KiTutorModulePage() {
             extracting={glossaryExtracting}
             onGenerate={generateGlossary}
             onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
             sourceCount={selectedSourceIds.length}
             onOpenSource={(page, highlightText) => {
               const src = sources.find((s) => selectedSourceIds.includes(s.uuid));
@@ -6400,7 +6602,7 @@ export default function KiTutorModulePage() {
           <VocabFlashcards
             entries={glossary}
             onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
           />
         );
       case "lueckentext":
@@ -6410,7 +6612,7 @@ export default function KiTutorModulePage() {
             loading={clozeLoading}
             onGenerate={generateCloze}
             onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
           />
         );
       case "vokabeltest":
@@ -6420,7 +6622,7 @@ export default function KiTutorModulePage() {
             loading={vocabLoading}
             onGenerate={generateVocabTest}
             onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
           />
         );
       // ─── Lernkarten Sets Flow ──────────────────────────────
@@ -6433,9 +6635,10 @@ export default function KiTutorModulePage() {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("lk-learn")); }}
             onCreate={() => { setCreateSetTool("lernkarten"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
+            onDownload={downloadExerciseSet}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
             category="sprachtraining"
           />
         );
@@ -6450,7 +6653,7 @@ export default function KiTutorModulePage() {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
             }}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
             showTranslation
           />
         ) : null;
@@ -6462,7 +6665,7 @@ export default function KiTutorModulePage() {
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("lk-learn")}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); loadExerciseSets("lernkarten"); }}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
           />
         ) : null;
       // ─── Lückentext Sets Flow ──────────────────────────────
@@ -6475,9 +6678,10 @@ export default function KiTutorModulePage() {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("cl-learn")); }}
             onCreate={() => { setCreateSetTool("lueckentext"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "lueckentext")}
+            onDownload={downloadExerciseSet}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
             category="sprachtraining"
           />
         );
@@ -6493,7 +6697,7 @@ export default function KiTutorModulePage() {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
             }}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
           />
         ) : null;
       case "cl-complete":
@@ -6504,7 +6708,7 @@ export default function KiTutorModulePage() {
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("cl-learn")}
             onBack={() => { setSprachView("cl-sets"); setActiveSet(null); loadExerciseSets("lueckentext"); }}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
           />
         ) : null;
       // ─── Vokabeltest Sets Flow ─────────────────────────────
@@ -6517,9 +6721,10 @@ export default function KiTutorModulePage() {
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("vt-learn")); }}
             onCreate={() => { setCreateSetTool("vokabeltest"); setShowCreateModal(true); }}
             onDelete={(id) => deleteExerciseSet(id, "vokabeltest")}
+            onDownload={downloadExerciseSet}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => setSprachView("overview") }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
             category="sprachtraining"
           />
         );
@@ -6535,7 +6740,7 @@ export default function KiTutorModulePage() {
               const src = sources.find((s) => s.filename === filename);
               if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
             }}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
           />
         ) : null;
       case "vt-complete":
@@ -6546,7 +6751,7 @@ export default function KiTutorModulePage() {
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("vt-learn")}
             onBack={() => { setSprachView("vt-sets"); setActiveSet(null); loadExerciseSets("vokabeltest"); }}
-            breadcrumbs={[{ label: "Fachsprachentraining", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setSprachView("overview"); } }, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
           />
         ) : null;
       default:
@@ -6907,6 +7112,7 @@ export default function KiTutorModulePage() {
                       uploadProgress={uploadProgress}
                       isLecturer={isLecturer}
                       onMinimize={() => setActiveTab("chat")}
+                      moduleUuid={uuid}
                     />
                   )
                 ) : activeTab === "chat" ? (
@@ -6962,6 +7168,7 @@ export default function KiTutorModulePage() {
                     onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
                     onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
                     onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
+                    onDownload={downloadExerciseSet}
                     sourceCount={selectedSourceIds.length}
                     stats={pageStats}
                   />
@@ -7003,6 +7210,7 @@ export default function KiTutorModulePage() {
                     onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
                     onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
                     onDelete={(id) => deleteExerciseSet(id, "quiz")}
+                    onDownload={downloadExerciseSet}
                     sourceCount={selectedSourceIds.length}
                     stats={pageStats}
                     breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
@@ -7038,6 +7246,7 @@ export default function KiTutorModulePage() {
                     uploadProgress={uploadProgress}
                     isLecturer={isLecturer}
                     onMinimize={() => togglePanel("quellen")}
+                    moduleUuid={uuid}
                   />
                 )}
               </div>
@@ -7142,6 +7351,7 @@ export default function KiTutorModulePage() {
                           onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
                           onCreate={() => { setCreateSetTool("karteikarten"); setShowCreateModal(true); }}
                           onDelete={(id) => deleteExerciseSet(id, "karteikarten")}
+                          onDownload={downloadExerciseSet}
                           sourceCount={selectedSourceIds.length}
                           stats={pageStats}
                           breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
@@ -7184,6 +7394,7 @@ export default function KiTutorModulePage() {
                           onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
                           onCreate={() => { setCreateSetTool("quiz"); setShowCreateModal(true); }}
                           onDelete={(id) => deleteExerciseSet(id, "quiz")}
+                          onDownload={downloadExerciseSet}
                           sourceCount={selectedSourceIds.length}
                           stats={pageStats}
                           breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}

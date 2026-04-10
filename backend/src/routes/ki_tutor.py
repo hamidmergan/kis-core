@@ -1004,6 +1004,43 @@ async def search_pdf(
     return {"matches": matches, "page_width": page_width, "page_height": page_height}
 
 
+@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/text")
+async def get_source_text(
+    module_uuid: str,
+    source_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Return the full extracted text of a source as plain text, grouped by page."""
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    source = db.get_ki_tutor_source(source_uuid)
+    if not source or source["module_id"] != module["id"]:
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+
+    chunks = db.get_chunks_by_source(source["id"])
+    if not chunks:
+        return {"filename": source["filename"], "text": ""}
+
+    pages: dict = {}
+    for ch in chunks:
+        pn = ch.get("page_number", 0)
+        pages.setdefault(pn, []).append(ch.get("content", ""))
+    lines = [source["filename"], "=" * len(source["filename"]), ""]
+    for pn in sorted(pages.keys()):
+        lines.append(f"--- Seite {pn} ---")
+        lines.append("\n".join(pages[pn]))
+        lines.append("")
+    return {"filename": source["filename"], "text": "\n".join(lines)}
+
+
 @router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/markdown")
 async def convert_source_to_markdown(
     module_uuid: str,
