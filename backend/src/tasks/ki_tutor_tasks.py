@@ -1039,6 +1039,57 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
             multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Quellen"
             source_hint = "folgender Quelle" if len(uuids) == 1 else "folgenden Quellen"
 
+            import re as _re_card
+
+            def _normalize_chunk(text: str) -> str:
+                text = _re_card.sub(r"-\s*\n\s*", "", text)
+                text = _re_card.sub(r"\s*\n\s*", " ", text)
+                return text.strip()
+
+            def _find_all_pages(search_term: str) -> list[dict]:
+                """Find all pages where search_term appears in chunk text."""
+                term_lower = search_term.lower()
+                if not term_lower:
+                    return []
+                seen: set[tuple[str, int]] = set()
+                result: list[dict] = []
+                for sname, src in _source_by_name.items():
+                    for ch in db.get_chunks_by_source(src["id"]):
+                        key = (sname, ch["page_number"])
+                        if key in seen:
+                            continue
+                        if term_lower in _normalize_chunk(ch["content"]).lower():
+                            seen.add(key)
+                            result.append({
+                                "source_label": sname,
+                                "page_number": ch["page_number"],
+                                "start_time": _time_map.get(key),
+                            })
+                return result
+
+            def _parse_card(c: dict, include_back_en: bool = False, search_term: str = "", multi_source: bool = False) -> dict:
+                """Parse card. search_term validates/corrects page. multi_source=True stores all pages."""
+                sl = c.get("source_label", first_label)
+                pn = c.get("page_number")
+                item: dict = {
+                    "front": c["front"], "back": c["back"],
+                    "source_label": sl,
+                    "page_number": pn,
+                    "start_time": _time_map.get((sl, pn or 0)),
+                }
+                if include_back_en:
+                    item["back_en"] = c.get("back_en", "")
+                if search_term:
+                    pages = _find_all_pages(search_term)
+                    if pages:
+                        if multi_source:
+                            item["sources"] = pages
+                        # Always correct source to first match (most relevant page)
+                        item["source_label"] = pages[0]["source_label"]
+                        item["page_number"] = pages[0]["page_number"]
+                        item["start_time"] = pages[0].get("start_time")
+                return item
+
             if tool == "lernkarten":
                 prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
@@ -1048,23 +1099,10 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
                 data = _json.loads(answer)
-                def _parse_card(c: dict, include_back_en: bool = False) -> dict:
-                    """Parse card with single source_label/page_number."""
-                    sl = c.get("source_label", first_label)
-                    pn = c.get("page_number")
-                    item: dict = {
-                        "front": c["front"], "back": c["back"],
-                        "source_label": sl,
-                        "page_number": pn,
-                        "start_time": _time_map.get((sl, pn or 0)),
-                    }
-                    if include_back_en:
-                        item["back_en"] = c.get("back_en", "")
-                    return item
 
                 def _format_lernkarte(c: dict) -> dict:
                     """Format lernkarte with word parts, example sentence, etc."""
-                    item = _parse_card(c, include_back_en=True)
+                    item = _parse_card(c, include_back_en=True, search_term=c.get("front", ""), multi_source=True)
                     # Build structured back text from new fields
                     parts = [c.get("back", "").strip()]
                     wp = c.get("word_parts", "").strip()
@@ -1077,34 +1115,6 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     ex = c.get("example_sentence", "").strip()
                     if ex:
                         parts.append(f"\n**Beispiel:**\n*\u201E{ex}\u201C*")
-
-                    # Find ALL pages where the term appears and store as sources
-                    import re as _re2
-                    term_lower = c.get("front", "").lower()
-                    if term_lower:
-                        def _normalize(text: str) -> str:
-                            text = _re2.sub(r"-\s*\n\s*", "", text)
-                            text = _re2.sub(r"\s*\n\s*", " ", text)
-                            return text.strip()
-                        seen_pages: set[tuple[str, int]] = set()
-                        all_sources: list[dict] = []
-                        for sname, src in _source_by_name.items():
-                            for ch in db.get_chunks_by_source(src["id"]):
-                                key = (sname, ch["page_number"])
-                                if key in seen_pages:
-                                    continue
-                                if term_lower in _normalize(ch["content"]).lower():
-                                    seen_pages.add(key)
-                                    all_sources.append({
-                                        "source_label": sname,
-                                        "page_number": ch["page_number"],
-                                        "start_time": _time_map.get(key),
-                                    })
-                        if all_sources:
-                            item["sources"] = all_sources
-                            item["source_label"] = all_sources[0]["source_label"]
-                            item["page_number"] = all_sources[0]["page_number"]
-                            item["start_time"] = all_sources[0].get("start_time")
 
                     item["back"] = "\n".join(parts)
                     return item
@@ -1119,7 +1129,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
                 data = _json.loads(answer)
-                items = [_parse_card(c) for c in data.get("cards", [])]
+                items = [_parse_card(c, search_term=c.get("keyword", "")) for c in data.get("cards", [])]
                 title = data.get("title", multi_label)
             else:
                 tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"

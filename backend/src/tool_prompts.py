@@ -282,6 +282,7 @@ TUTOR_KARTEIKARTEN_PROMPT = (
     "    {\n"
     '      "front": "Verständnisfrage",\n'
     '      "back": "Ausführliche Antwort",\n'
+    '      "keyword": "Hauptfachbegriff",\n'
     '      "source_label": "Dateiname.pdf",\n'
     '      "page_number": 5\n'
     "    }\n"
@@ -292,7 +293,8 @@ TUTOR_KARTEIKARTEN_PROMPT = (
     "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
     "- Vorderseite: Verständnisfrage (z.B. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
     "- Rückseite: Ausführliche Erklärung mit Zusammenhängen (2-4 Sätze)\n"
-    "- source_label und page_number: Die Hauptquelle (Dateiname + Seitenzahl) aus den [Quellenname, S. X] Tags.\n"
+    "- keyword: Der zentrale Fachbegriff der Karte (z.B. 'Microcredentials', 'Hybride Lehre'). Muss exakt so im Quelltext vorkommen.\n"
+    "- source_label und page_number: Die Seite wo der keyword-Begriff erklärt/eingeführt wird. Aus den [Quellenname, S. X] Tags.\n"
     "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
     "- Mischung aus Verständnisfragen, Vergleichsfragen und Anwendungsfragen\n"
     "- KEINE reinen Definitionsfragen — es geht um Verständnis und Zusammenhänge\n"

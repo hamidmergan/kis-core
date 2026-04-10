@@ -2443,15 +2443,18 @@ function LernkartenLearnView({
                 </button>
               )}
             </div>
-            {/* Source chip */}
+            {/* Source chip + filename */}
             {cardSource && (
-              <div className="flex flex-wrap gap-1 w-full" style={{ maxWidth: 560 }}>
-                <button type="button"
-                  onClick={() => { if (onSourceClick) onSourceClick(cardSource.source_label, cardSource.page_number ?? 1, cardSource.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
-                  className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
-                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                  <FilePdf size={10} weight="bold" /> {cardSource.source_label}, {_chunkLabel(cardSource.source_label, cardSource.page_number ?? 1, cardSource.start_time)}
-                </button>
+              <div className="flex flex-col gap-1 w-full mt-4" style={{ maxWidth: 560 }}>
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button type="button"
+                    onClick={() => { if (onSourceClick) onSourceClick(cardSource.source_label, cardSource.page_number ?? 1, cardSource.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "").slice(0, 120)); }}
+                    className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                    <FilePdf size={10} weight="bold" /> {_chunkLabel(cardSource.source_label, cardSource.page_number ?? 1, cardSource.start_time)}
+                  </button>
+                </div>
+                <span className="text-[9px]" style={{ color: "var(--muted)" }}>{cardSource.source_label}</span>
               </div>
             )}
           </div>
