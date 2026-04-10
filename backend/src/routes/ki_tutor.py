@@ -17,6 +17,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
+from src.limits import TUTOR_SOURCE_MAX_PAGES
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_DIRECT_WITH_CONTEXT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS
 
@@ -33,6 +34,24 @@ def _trace_kisski(kisski, name: str) -> None:
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".txt", ".md", ".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"}
 _MEDIA_EXTENSIONS = {".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"}
 _MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB (audio/video can be large)
+
+
+def _count_pages(ext: str, data: bytes) -> int | None:
+    """Return page/slide count for PDF/PPTX, None for formats without a meaningful page count."""
+    try:
+        if ext == ".pdf":
+            import fitz
+            doc = fitz.open(stream=data, filetype="pdf")
+            count = doc.page_count
+            doc.close()
+            return count
+        if ext == ".pptx":
+            import io
+            from pptx import Presentation
+            return len(Presentation(io.BytesIO(data)).slides)
+    except Exception as e:
+        logger.warning("KI Tutor: page count failed for {}: {}", ext, e)
+    return None
 
 
 def _format_timestamp(seconds: float) -> str:
@@ -371,6 +390,13 @@ async def upload_source(
         raise HTTPException(status_code=400, detail="Datei ist leer")
     if len(data) > _MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
+
+    page_count = _count_pages(ext, data)
+    if page_count is not None and page_count > TUTOR_SOURCE_MAX_PAGES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Dokument hat {page_count} Seiten — max. {TUTOR_SOURCE_MAX_PAGES} Seiten erlaubt. Bitte teile das Dokument in kleinere Abschnitte auf.",
+        )
 
     source_uuid = uuid.uuid4().hex
     username = current_user.get("username", "unknown")

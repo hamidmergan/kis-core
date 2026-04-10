@@ -23,6 +23,11 @@ def _get_chunk_params() -> tuple[int, int]:
     return _CHUNK_PARAMS.get(provider, _CHUNK_PARAMS_DEFAULT)
 
 
+def _clean(text: str) -> str:
+    """Strip NUL bytes — Postgres TEXT columns reject them."""
+    return text.replace("\x00", "") if text else text
+
+
 def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     """Split text into overlapping chunks of chunk_size chars, breaking at whitespace."""
     text = text.strip()
@@ -89,7 +94,7 @@ def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
     chunks: list[dict] = []
     doc = fitz.open(file_path)
     for page_num, page in enumerate(doc, start=1):
-        text = page.get_text().strip()
+        text = _clean(page.get_text()).strip()
         for sub in _split_text(text, chunk_size, overlap):
             chunks.append({"page_number": page_num, "content": sub})
     doc.close()
@@ -110,7 +115,7 @@ def _extract_docx(file_path: str, chunk_size: int) -> list[dict]:
     page_number = 1
 
     for para in doc.paragraphs:
-        text = para.text.strip()
+        text = _clean(para.text).strip()
         if not text:
             continue
         if len(current) + len(text) + 1 > chunk_size:
@@ -136,7 +141,7 @@ def _extract_pptx(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
         for shape in slide.shapes:
             if shape.has_text_frame:
                 for para in shape.text_frame.paragraphs:
-                    t = para.text.strip()
+                    t = _clean(para.text).strip()
                     if t:
                         parts.append(t)
         content = " ".join(parts).strip()
@@ -195,7 +200,7 @@ def extract_page_texts(file_path: str) -> list[dict]:
             lines_text = []
             for line in block["lines"]:
                 spans_text = "".join(span["text"] for span in line["spans"])
-                lines_text.append(spans_text.strip())
+                lines_text.append(_clean(spans_text).strip())
             content = " ".join(ln for ln in lines_text if ln).strip()
             if content:
                 page_blocks.append({"content": content, "bbox": block["bbox"]})
@@ -232,7 +237,7 @@ def extract_page_texts(file_path: str) -> list[dict]:
 
 def _extract_text(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
     with open(file_path, encoding="utf-8", errors="replace") as f:
-        text = f.read()
+        text = _clean(f.read())
 
     if not text.strip():
         return [{"page_number": 1, "content": "[Leere Seite]"}]

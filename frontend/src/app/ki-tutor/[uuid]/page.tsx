@@ -1278,6 +1278,8 @@ function SourcesPanel({
   onDeleteSource,
   onUpload,
   uploadProgress,
+  uploadError,
+  onDismissUploadError,
   isLecturer,
   onMinimize,
   moduleUuid,
@@ -1289,6 +1291,8 @@ function SourcesPanel({
   onDeleteSource: (uuid: string) => void;
   onUpload: (file: File) => void;
   uploadProgress: number | null;
+  uploadError: string | null;
+  onDismissUploadError: () => void;
   isLecturer: boolean;
   onMinimize: () => void;
   moduleUuid: string;
@@ -1386,6 +1390,22 @@ function SourcesPanel({
               <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
                 Hochladen… {uploadProgress}%
               </p>
+            </div>
+          )}
+          {uploadError && (
+            <div
+              className="mt-2 px-3 py-2 rounded-lg text-[12px] flex items-start gap-2"
+              style={{ backgroundColor: "rgba(220,38,38,0.08)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.25)" }}
+            >
+              <span className="flex-1">{uploadError}</span>
+              <button
+                type="button"
+                onClick={onDismissUploadError}
+                className="hover:opacity-70 flex-shrink-0"
+                aria-label="Schließen"
+              >
+                ×
+              </button>
             </div>
           )}
         </div>
@@ -5520,6 +5540,7 @@ export default function KiTutorModulePage() {
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [prevSelectedSourceIds, setPrevSelectedSourceIds] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Persist selected sources to sessionStorage
   useEffect(() => {
@@ -5820,6 +5841,7 @@ export default function KiTutorModulePage() {
 
   async function handleUpload(file: File) {
     setUploadProgress(0);
+    setUploadError(null);
     try {
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -5833,14 +5855,23 @@ export default function KiTutorModulePage() {
             const newSrc: Source = JSON.parse(xhr.responseText);
             setSources((prev) => [...prev, newSrc]);
             resolve();
-          } else reject(new Error("Upload fehlgeschlagen"));
+          } else {
+            let detail = "Upload fehlgeschlagen";
+            try {
+              const body = JSON.parse(xhr.responseText);
+              if (body?.detail) detail = body.detail;
+            } catch { /* ignore */ }
+            reject(new Error(detail));
+          }
         };
         xhr.onerror = () => reject(new Error("Netzwerkfehler"));
         const form = new FormData();
         form.append("file", file);
         xhr.send(form);
       });
-    } catch { /* ignore */ } finally {
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload fehlgeschlagen");
+    } finally {
       setUploadProgress(null);
     }
   }
@@ -7111,6 +7142,8 @@ export default function KiTutorModulePage() {
                       onDeleteSource={handleDeleteSource}
                       onUpload={handleUpload}
                       uploadProgress={uploadProgress}
+                      uploadError={uploadError}
+                      onDismissUploadError={() => setUploadError(null)}
                       isLecturer={isLecturer}
                       onMinimize={() => setActiveTab("chat")}
                       moduleUuid={uuid}
@@ -7245,6 +7278,8 @@ export default function KiTutorModulePage() {
                     onDeleteSource={handleDeleteSource}
                     onUpload={handleUpload}
                     uploadProgress={uploadProgress}
+                    uploadError={uploadError}
+                    onDismissUploadError={() => setUploadError(null)}
                     isLecturer={isLecturer}
                     onMinimize={() => togglePanel("quellen")}
                     moduleUuid={uuid}
