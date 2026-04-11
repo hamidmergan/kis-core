@@ -6886,7 +6886,7 @@ export default function KiTutorModulePage() {
               Zurück zur Übersicht
             </Link>
             <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-base font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--text)" }}>
+              <span className="text-base font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)" }}>
                 {moduleDetail?.title ?? ""}
               </span>
             </span>
