@@ -43,7 +43,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Glossar</h2>
+        <h2 className="text-lg font-semibold mb-1">Glossar</h2>
         <p className="text-sm text-gray-500">
           Begriffe, die bei der Übersetzung konsistent verwendet werden sollen.
           Einträge gelten nur solange dieser Tab geöffnet ist.

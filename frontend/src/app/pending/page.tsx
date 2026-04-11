@@ -27,7 +27,7 @@ export default function TestphasePage() {
               </div>
             </div>
 
-            <h1 className="text-xl font-bold text-gray-900 mb-2">
+            <h1 className="text-xl font-bold mb-2">
               Konto noch nicht freigeschaltet
             </h1>
 

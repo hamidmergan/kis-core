@@ -6,10 +6,10 @@ export default function DatenschutzPage() {
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Datenschutzerklärung</h1>
+          <h1 className="text-2xl font-bold mb-6">Datenschutzerklärung</h1>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">1. Verantwortlicher</h2>
+            <h2 className="text-lg font-semibold mb-2">1. Verantwortlicher</h2>
             <p className="text-gray-600">
               Hamid Mergan<br />
               Mönkhofer Weg 239<br />
@@ -20,7 +20,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            <h2 className="text-lg font-semibold mb-2">
               2. Authentifizierung und Nutzerkonto
             </h2>
             <p className="text-gray-600 mb-2">
@@ -40,7 +40,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            <h2 className="text-lg font-semibold mb-2">
               3. Cookies und lokale Speicherung
             </h2>
             <p className="text-gray-600 mb-2">
@@ -64,7 +64,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            <h2 className="text-lg font-semibold mb-2">
               4. Verarbeitung von Nutzer-Uploads und Job-Daten
             </h2>
             <p className="text-gray-600 mb-2">
@@ -85,7 +85,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            <h2 className="text-lg font-semibold mb-2">
               5. Drittanbieter und externe KI-Dienste
             </h2>
             <p className="text-gray-600 mb-2">
@@ -112,7 +112,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            <h2 className="text-lg font-semibold mb-2">
               6. Server-Logfiles
             </h2>
             <p className="text-gray-600 mb-2">
@@ -131,7 +131,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">7. Rechtsgrundlage</h2>
+            <h2 className="text-lg font-semibold mb-2">7. Rechtsgrundlage</h2>
             <p className="text-gray-600">
               Die Verarbeitung erfolgt auf Grundlage von{" "}
               <strong>Art. 6 Abs. 1 lit. f DSGVO</strong> (berechtigtes Interesse) für
@@ -142,7 +142,7 @@ export default function DatenschutzPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">8. Ihre Rechte</h2>
+            <h2 className="text-lg font-semibold mb-2">8. Ihre Rechte</h2>
             <p className="text-gray-600">
               Sie haben das Recht auf Auskunft, Berichtigung und Löschung Ihrer gespeicherten
               Daten. Bei Fragen wenden Sie sich an:{" "}

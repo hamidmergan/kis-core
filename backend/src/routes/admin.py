@@ -105,42 +105,42 @@ _PROMPT_REGISTRY = [
     },
     {
         "key": "prompt_tutor_system_direct",
-        "label": "KI-Tutor: System-Prompt (Popup-Aktionen)",
-        "description": "System-Prompt für Popup-Aktionen (Kürzen, Umformulieren etc.) im KI-Tutor. Wird bei markiertem Text verwendet.",
+        "label": "KI-Assistent: System-Prompt (Popup-Aktionen)",
+        "description": "System-Prompt für Popup-Aktionen (Kürzen, Umformulieren etc.) im KI-Assistent. Wird bei markiertem Text verwendet.",
         "editable": False,
         "default": _PROMPT_TUTOR_SYSTEM_DIRECT,
     },
     {
         "key": "prompt_tutor_system_rag",
-        "label": "KI-Tutor: System-Prompt (Chat / RAG)",
-        "description": "System-Prompt für den KI-Tutor-Chat mit Quellensuche (RAG). Steuert Quellenangaben und Halluzinationsverbot.",
+        "label": "KI-Assistent: System-Prompt (Chat / RAG)",
+        "description": "System-Prompt für den KI-Assistent-Chat mit Quellensuche (RAG). Steuert Quellenangaben und Halluzinationsverbot.",
         "editable": False,
         "default": _PROMPT_TUTOR_SYSTEM_RAG,
     },
     {
         "key": "prompt_tutor_summary_page_system",
-        "label": "KI-Tutor: Seitenzusammenfassung System",
+        "label": "KI-Assistent: Seitenzusammenfassung System",
         "description": "System-Prompt für Seitenzusammenfassungen (alle Modelle). Platzhalter {lang}.",
         "editable": False,
         "default": _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM,
     },
     {
         "key": "prompt_tutor_summary_page_user_small",
-        "label": "KI-Tutor: Seitenzusammenfassung User (kleine Modelle)",
+        "label": "KI-Assistent: Seitenzusammenfassung User (kleine Modelle)",
         "description": "User-Prompt mit Platzhaltern {lang} und {content}. Enthält /no_think für qwen3.",
         "editable": False,
         "default": _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
     },
     {
         "key": "prompt_tutor_summary_page_user_large",
-        "label": "KI-Tutor: Seitenzusammenfassung User (große Modelle)",
+        "label": "KI-Assistent: Seitenzusammenfassung User (große Modelle)",
         "description": "User-Prompt für große Modelle. Platzhalter {content}.",
         "editable": False,
         "default": _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
     },
     {
         "key": "prompt_tutor_summary_page_batch_user",
-        "label": "KI-Tutor: Seitenzusammenfassung User (Batch, große Modelle)",
+        "label": "KI-Assistent: Seitenzusammenfassung User (Batch, große Modelle)",
         "description": "User-Prompt für Batch-Verarbeitung (mehrere Seiten pro Request). Platzhalter {n} und {pages}.",
         "editable": False,
         "default": _PROMPT_TUTOR_SUMMARY_PAGE_BATCH_USER,
@@ -148,8 +148,8 @@ _PROMPT_REGISTRY = [
     *[
         {
             "key": f"prompt_tutor_popup_{action['key']}",
-            "label": f"KI-Tutor Popup: {action['label']}",
-            "description": f"Prompt fuer die Popup-Aktion '{action['label']}' im KI-Tutor PDF-Viewer.",
+            "label": f"KI-Assistent Popup: {action['label']}",
+            "description": f"Prompt fuer die Popup-Aktion '{action['label']}' im KI-Assistent PDF-Viewer.",
             "editable": False,
             "default": action["prompt"],
         }
@@ -741,7 +741,7 @@ async def reset_user_quota(
     return {"ok": True}
 
 
-# ─── KI-Tutor Stats ─────────────────────────────────────────────────────────
+# ─── KI-Assistent Stats ─────────────────────────────────────────────────────────
 
 _TOOL_LABELS_TUTOR = {
     "lernkarten": "Lernkarten",
@@ -751,11 +751,11 @@ _TOOL_LABELS_TUTOR = {
     "vokabeltest": "Vokabeltest",
 }
 
-@router.get("/ki-tutor/stats")
+@router.get("/ki-assistent/stats")
 async def get_ki_tutor_stats(
     days: int = Query(default=30, ge=1, le=365),
     mode: str | None = Query(default=None, regex="^(quelle|glossar)$"),
     _admin=Depends(get_admin_user),
 ):
-    """Aggregated KI-Tutor statistics for the admin dashboard."""
+    """Aggregated KI-Assistent statistics for the admin dashboard."""
     return db.get_ki_tutor_admin_stats(days, mode=mode)

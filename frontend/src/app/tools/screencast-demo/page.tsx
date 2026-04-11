@@ -603,7 +603,7 @@ function ScreencastDemoPageInner() {
         {step === "upload" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold">
                 Screencast erstellen
               </h1>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
@@ -684,7 +684,7 @@ function ScreencastDemoPageInner() {
         {/* ── Step: User Prompt ── */}
         {step === "user-prompt" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Wie sollen die Skripte erstellt werden?</h2>
+            <h2 className="text-lg font-bold mb-1">Wie sollen die Skripte erstellt werden?</h2>
             <div className="mt-3 space-y-2">
               <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}>
                 <input type="radio" name="scriptInputMode" value="generate" checked={scriptInputMode === "generate"}
@@ -767,7 +767,7 @@ function ScreencastDemoPageInner() {
         {/* ── Step: Translation Review ── */}
         {step === "translation-review" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Übersetzung prüfen</h2>
+            <h2 className="text-lg font-bold mb-1">Übersetzung prüfen</h2>
             <p className="text-sm text-gray-500 mb-4">
               Die Präsentation wurde übersetzt. Sie können die übersetzte
               PPTX herunterladen, prüfen und optional eine korrigierte
@@ -849,7 +849,7 @@ function ScreencastDemoPageInner() {
         {/* ── Step: Script Review ── */}
         {step === "script-review" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">Skripte überprüfen und anpassen</h2>
+            <h2 className="text-lg font-bold mb-1">Skripte überprüfen und anpassen</h2>
             <p className="text-sm text-gray-500 mb-4">
               Überprüfen Sie die generierten Skripte für jede Folie.
               Klicken Sie auf den Stift um zu bearbeiten.
@@ -982,7 +982,7 @@ function ScreencastDemoPageInner() {
         {/* ── Step: TTS Settings ── */}
         {step === "tts-settings" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Einstellungen</h2>
+            <h2 className="text-lg font-bold mb-6">Einstellungen</h2>
 
             {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
               <div className="mb-2">
@@ -1149,7 +1149,7 @@ function ScreencastDemoPageInner() {
                 </svg>
               </div>
             </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2 text-center">Fertig! Ihr Screencast ist bereit.</h2>
+            <h2 className="text-lg font-bold mb-2 text-center">Fertig! Ihr Screencast ist bereit.</h2>
 
             {videoUrl && (
               <div className="mb-6 rounded-lg overflow-hidden border border-gray-200">

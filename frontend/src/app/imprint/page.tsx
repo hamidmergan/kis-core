@@ -6,7 +6,7 @@ export default function ImpressumPage() {
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Impressum</h1>
+          <h1 className="text-2xl font-bold mb-6">Impressum</h1>
 
           <p className="font-semibold text-gray-700 mb-2">
             Angaben gemäß § 5 DDG:

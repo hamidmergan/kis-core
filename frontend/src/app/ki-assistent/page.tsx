@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { checkAuthStatus } from "@/lib/auth";
@@ -23,6 +23,8 @@ import {
 import HelpTooltip from "@/components/HelpTooltip";
 import IconButton from "@/components/IconButton";
 import Spinner from "@/components/Spinner";
+
+const MAX_ACCESS_LINKS = 10;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,7 +84,7 @@ function CreateModuleModal({
       form.append("title", title.trim());
       if (description.trim()) form.append("description", description.trim());
       if (expiresAt) form.append("expires_at", new Date(expiresAt).toISOString());
-      const res = await fetch("/api/ki-tutor/modules", {
+      const res = await fetch("/api/ki-assistent/modules", {
         method: "POST",
         credentials: "include",
         body: form,
@@ -122,8 +124,8 @@ function CreateModuleModal({
         className="w-full max-w-md rounded-xl p-6 shadow-xl"
         style={{ backgroundColor: "var(--surface)" }}
       >
-        <h2 className="text-lg font-semibold mb-5" style={{ color: "var(--text)" }}>
-          Neues Modul erstellen
+        <h2 className="text-lg font-semibold mb-5">
+          Neuen Arbeitsraum erstellen
         </h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -215,7 +217,7 @@ function AddLinkModal({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/access-links`, {
+      const res = await fetch(`/api/ki-assistent/modules/${moduleUuid}/access-links`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -245,7 +247,7 @@ function AddLinkModal({
         className="w-full max-w-sm rounded-xl p-6 shadow-xl"
         style={{ backgroundColor: "var(--surface)" }}
       >
-        <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text)" }}>
+        <h2 className="text-lg font-semibold mb-2">
           Neuen Einschreibelink erstellen
         </h2>
         <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
@@ -254,7 +256,7 @@ function AddLinkModal({
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
-              Gültig bis <span style={{ color: "#E11D48" }}>*</span>
+              Gültig bis
             </label>
             <input
               type="date"
@@ -319,7 +321,7 @@ function ExpandableText({ children, className = "", clampClass = "", style }: { 
 
 function LinkRow({ link, onRequestDelete }: { link: AccessLink; onRequestDelete: (link: AccessLink) => void }) {
   const [copied, setCopied] = useState(false);
-  const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/ki-tutor?code=${link.code}`;
+  const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/ki-assistent?code=${link.code}`;
   const expiresDate = link.expires_at
     ? new Date(link.expires_at).toLocaleDateString("de-DE", {
         day: "2-digit",
@@ -397,7 +399,7 @@ function StatsModal({ moduleUuid, moduleTitle, onClose }: { moduleUuid: string; 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/dozent-stats`, { credentials: "include" });
+        const res = await fetch(`/api/ki-assistent/modules/${moduleUuid}/dozent-stats`, { credentials: "include" });
         if (!res.ok) throw new Error("Fehler beim Laden");
         setStats(await res.json());
       } catch {
@@ -413,7 +415,7 @@ function StatsModal({ moduleUuid, moduleTitle, onClose }: { moduleUuid: string; 
       <div className="bg-white rounded-xl shadow-xl w-80" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Statistik</h2>
+          <h2 className="text-sm font-semibold">Statistik</h2>
           <IconButton onClick={onClose}>
             <X size={13} weight="bold" />
           </IconButton>
@@ -458,10 +460,12 @@ function ModuleTableRow({
   onDelete: (uuid: string) => Promise<void>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
+  const router = useRouter();
   const [toggling, setToggling] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showAddLink, setShowAddLink] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
@@ -486,7 +490,7 @@ function ModuleTableRow({
     if (!deleteLinkConfirm) return;
     setDeletingLink(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
+      const res = await fetch(`/api/ki-assistent/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -514,9 +518,9 @@ function ModuleTableRow({
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Modul löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">Arbeitsraum löschen?</h3>
             <p className="text-sm text-gray-600 mb-1"><span className="font-medium">{module.title}</span></p>
-            <p className="text-sm text-red-600 mb-6">Das Modul und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
+            <p className="text-sm text-red-600 mb-6">Der Arbeitsraum und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDeleteConfirm(false)} disabled={deleting} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
               <button onClick={handleDeleteConfirm} disabled={deleting} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
@@ -527,7 +531,7 @@ function ModuleTableRow({
       {deleteLinkConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Einschreibelink löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">Einschreibelink löschen?</h3>
             <p className="text-sm text-gray-600 mb-1">
               <span className="font-medium">...{deleteLinkConfirm.code}</span> – {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
             </p>
@@ -541,73 +545,161 @@ function ModuleTableRow({
       )}
 
       {/* Desktop: table row */}
-      <tr className="hover:bg-gray-50 transition-colors hidden md:table-row">
-        <td className="px-4 py-3 cursor-pointer select-none" onClick={() => setExpanded(!expanded)}>
-          <div className="flex items-center gap-2">
-            <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); setExpanded(!expanded); }}>
+      <tr
+        className="group hidden md:table-row border-t transition-colors"
+        style={{
+          borderColor: "var(--border)",
+          backgroundColor: expanded ? "var(--surface)" : undefined,
+        }}
+      >
+        <td className="py-5 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+          <div className="flex justify-center">
+            <IconButton
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setExpanded(!expanded); }}
+              title={expanded ? "Zuklappen" : "Aufklappen"}
+            >
               <CaretRight size={13} weight="bold" className={`transition-transform ${expanded ? "rotate-90" : ""}`} />
             </IconButton>
-            <div className="min-w-0">
-              <div className="font-medium text-gray-900">{module.title}</div>
-            </div>
           </div>
         </td>
-        <td className="px-4 py-3">
-          <button
-            onClick={() => handleToggle(!module.is_active)}
-            disabled={toggling}
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap disabled:opacity-50 ${
-              module.is_active
-                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${module.is_active ? "bg-emerald-500" : "bg-gray-400"}`} />
-            {module.is_active ? "Aktiv" : "Inaktiv"}
-          </button>
+        <td
+          className="pr-6 py-5 cursor-pointer"
+          onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
+        >
+          <div className="min-w-0">
+            <div className="text-[15px] font-semibold text-gray-900 truncate">{module.title}</div>
+          </div>
         </td>
-        <td className="px-4 py-3 text-gray-600">{module.source_count}</td>
-        <td className="px-4 py-3 text-gray-600">{links.length}</td>
-        <td className="px-4 py-3 text-right">
-          <div className="flex items-center justify-end gap-4">
-            <div className="flex items-center gap-1.5">
-            <IconButton onClick={() => setShowStats(true)} title="Statistik">
-              <ChartBar size={13} />
-            </IconButton>
-            <IconButton onClick={() => setDeleteConfirm(true)} title="Löschen">
-              <Trash size={13} />
-            </IconButton>
-            </div>
-            <Link
-              href={`/ki-tutor/${module.uuid}`}
-              className="group inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-90 border"
-              style={{ backgroundColor: "white", color: "var(--kb)", borderColor: "var(--muted)" }}
+        <td
+          className="px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
+          onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
+        >
+          {module.source_count}
+        </td>
+        <td
+          className="px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
+          onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
+        >
+          {links.length}
+        </td>
+        <td className="px-6 py-5">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={module.is_active}
+              aria-label={module.is_active ? "Arbeitsraum deaktivieren" : "Arbeitsraum aktivieren"}
+              onClick={() => handleToggle(!module.is_active)}
+              disabled={toggling}
+              className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
+              style={{
+                backgroundColor: module.is_active ? "var(--kb)" : "#d1d5db",
+                ...(module.is_active && { boxShadow: "0 0 0 0 var(--kb)" }),
+              }}
             >
-              Öffnen
-              <ArrowRight size={12} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
-            </Link>
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  module.is_active ? "translate-x-[18px]" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+            <span
+              className="text-xs font-medium"
+              style={{ color: module.is_active ? "var(--kb)" : "#6b7280" }}
+            >
+              {module.is_active ? "Aktiv" : "Inaktiv"}
+            </span>
+          </div>
+        </td>
+        <td className="py-5 text-center relative">
+          <div className="flex justify-center">
+            <IconButton onClick={() => setShowMenu(!showMenu)} title="Mehr">
+              <DotsThreeVertical size={13} weight="bold" />
+            </IconButton>
+          </div>
+          {showMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+              <div
+                className="absolute right-2 top-12 z-50 rounded-xl py-1"
+                style={{
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  minWidth: 220,
+                  boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => { setShowMenu(false); setShowStats(true); }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                  style={{ color: "var(--text)" }}
+                >
+                  <ChartBar size={16} />
+                  Statistik
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowMenu(false); setDeleteConfirm(true); }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                  style={{ color: "rgb(185, 28, 28)" }}
+                >
+                  <Trash size={16} />
+                  Löschen
+                </button>
+              </div>
+            </>
+          )}
+        </td>
+        <td
+          className="pr-2 py-5 cursor-pointer"
+          onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
+        >
+          <div className="flex justify-end">
+            <IconButton
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); router.push(`/ki-assistent/${module.uuid}`); }}
+              title="Arbeitsraum öffnen"
+            >
+              <ArrowRight size={13} weight="bold" />
+            </IconButton>
           </div>
         </td>
       </tr>
 
       {/* Desktop: expanded row */}
       {expanded && (
-        <tr className="hidden md:table-row">
-          <td colSpan={5} className="px-4 py-3">
-            <div className="pl-6 flex flex-col gap-2">
+        <tr className="hidden md:table-row" style={{ backgroundColor: "var(--surface)" }}>
+          <td colSpan={7} className="pl-11 pr-6 pb-5" style={{ borderTop: "none" }}>
+            <div className="flex flex-col gap-3 max-w-full break-words">
               {module.description && (
-                <p className="text-xs text-gray-400">{module.description}</p>
+                <p className="text-[13px] leading-relaxed break-words" style={{ color: "var(--muted)" }}>
+                  {module.description}
+                </p>
               )}
               {links.map((link) => (
                 <LinkRow key={link.id} link={link} onRequestDelete={setDeleteLinkConfirm} />
               ))}
-              <button
-                onClick={() => setShowAddLink(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
-              >
-                <Plus size={12} weight="bold" />
-                Neuen Link erstellen
-              </button>
+              {links.length >= MAX_ACCESS_LINKS ? (
+                <p className="text-xs self-start mt-0.5" style={{ color: "var(--muted)" }}>
+                  Maximal {MAX_ACCESS_LINKS} Einschreibelinks erreicht. Lösche einen alten Link, um einen neuen zu erstellen.
+                </p>
+              ) : (
+                <button
+                  onClick={() => setShowAddLink(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
+                >
+                  <Plus size={12} weight="bold" />
+                  Neuen Link erstellen
+                </button>
+              )}
             </div>
           </td>
         </tr>
@@ -629,10 +721,12 @@ function ModuleCard({
   onDelete: (uuid: string) => Promise<void>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
+  const router = useRouter();
   const [toggling, setToggling] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showAddLink, setShowAddLink] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
@@ -657,7 +751,7 @@ function ModuleCard({
     if (!deleteLinkConfirm) return;
     setDeletingLink(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
+      const res = await fetch(`/api/ki-assistent/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -681,9 +775,9 @@ function ModuleCard({
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Modul löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">Arbeitsraum löschen?</h3>
             <p className="text-sm text-gray-600 mb-1"><span className="font-medium">{module.title}</span></p>
-            <p className="text-sm text-red-600 mb-6">Das Modul und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
+            <p className="text-sm text-red-600 mb-6">Der Arbeitsraum und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDeleteConfirm(false)} disabled={deleting} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
               <button onClick={handleDeleteConfirm} disabled={deleting} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
@@ -694,7 +788,7 @@ function ModuleCard({
       {deleteLinkConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Einschreibelink löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">Einschreibelink löschen?</h3>
             <p className="text-sm text-gray-600 mb-1">
               <span className="font-medium">...{deleteLinkConfirm.code}</span> – {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
             </p>
@@ -707,77 +801,135 @@ function ModuleCard({
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        {/* Title + Status + Open */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="font-medium text-gray-900 text-sm truncate">{module.title}</div>
-            <div className="flex items-center gap-2 mt-1.5">
-              <button
-                onClick={() => handleToggle(!module.is_active)}
-                disabled={toggling}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap disabled:opacity-50 ${
-                  module.is_active
-                    ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${module.is_active ? "bg-emerald-500" : "bg-gray-400"}`} />
-                {module.is_active ? "Aktiv" : "Inaktiv"}
-              </button>
-              <span className="text-xs text-gray-400">{module.source_count} Quellen</span>
-              <span className="text-xs text-gray-400">{links.length} Links</span>
-            </div>
-          </div>
-          <Link
-            href={`/ki-tutor/${module.uuid}`}
-            className="group inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-90 border flex-shrink-0"
-            style={{ backgroundColor: "white", color: "var(--kb)", borderColor: "var(--muted)" }}
+      <div
+        className="border-t"
+        style={{
+          borderColor: "var(--border)",
+          backgroundColor: expanded ? "var(--surface)" : undefined,
+        }}
+      >
+        {/* Top row: chevron + title (full width) */}
+        <div className="flex items-center gap-2 pt-4 pb-2 pl-2">
+          <IconButton
+            onClick={() => setExpanded(!expanded)}
+            title={expanded ? "Zuklappen" : "Aufklappen"}
           >
-            Öffnen
-            <ArrowRight size={12} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        </div>
-
-        {/* Actions row */}
-        <div className="flex items-center gap-2 mt-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-          <IconButton onClick={() => setShowStats(true)} title="Statistik">
-            <ChartBar size={13} />
-          </IconButton>
-          <IconButton onClick={() => setDeleteConfirm(true)} title="Löschen">
-            <Trash size={13} />
+            <CaretRight size={13} weight="bold" className={`transition-transform ${expanded ? "rotate-90" : ""}`} />
           </IconButton>
           <button
-            onClick={() => setExpanded(!expanded)}
-            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors ml-auto"
+            type="button"
+            onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
+            className="flex-1 min-w-0 text-left"
           >
-            <CaretRight size={11} weight="bold" className={`transition-transform ${expanded ? "rotate-90" : ""}`} />
-            Links
+            <div className="text-[15px] font-semibold text-gray-900 break-words">{module.title}</div>
           </button>
         </div>
 
-        {/* Expanded: links */}
+        {/* Meta row: status toggle + counts + 3-dots + arrow */}
+        <div className="flex items-center gap-3 pl-[52px] pr-2 pb-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={module.is_active}
+              aria-label={module.is_active ? "Arbeitsraum deaktivieren" : "Arbeitsraum aktivieren"}
+              onClick={() => handleToggle(!module.is_active)}
+              disabled={toggling}
+              className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
+              style={{ backgroundColor: module.is_active ? "var(--kb)" : "#d1d5db" }}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  module.is_active ? "translate-x-[18px]" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+            <span
+              className="text-xs font-medium"
+              style={{ color: module.is_active ? "var(--kb)" : "#6b7280" }}
+            >
+              {module.is_active ? "Aktiv" : "Inaktiv"}
+            </span>
+          </div>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>{module.source_count} Quellen</span>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>{links.length} Links</span>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative">
+              <IconButton onClick={() => setShowMenu(!showMenu)} title="Mehr">
+                <DotsThreeVertical size={13} weight="bold" />
+              </IconButton>
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                  <div
+                    className="absolute right-0 top-9 z-50 rounded-xl py-1"
+                    style={{
+                      backgroundColor: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      minWidth: 220,
+                      boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { setShowMenu(false); setShowStats(true); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                      style={{ color: "var(--text)" }}
+                    >
+                      <ChartBar size={16} />
+                      Statistik
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowMenu(false); setDeleteConfirm(true); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                      style={{ color: "rgb(185, 28, 28)" }}
+                    >
+                      <Trash size={16} />
+                      Löschen
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+            <IconButton onClick={() => router.push(`/ki-assistent/${module.uuid}`)} title="Arbeitsraum öffnen">
+              <ArrowRight size={13} weight="bold" />
+            </IconButton>
+          </div>
+        </div>
+
+        {/* Expanded: description + links */}
         {expanded && (
-          <div className="flex flex-col gap-2 mt-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="flex flex-col gap-3 pl-[52px] pr-2 pb-5">
             {module.description && (
-              <p className="text-xs text-gray-400">{module.description}</p>
+              <p className="text-[13px] leading-relaxed break-words" style={{ color: "var(--muted)" }}>
+                {module.description}
+              </p>
             )}
             {links.map((link) => (
               <LinkRow key={link.id} link={link} onRequestDelete={setDeleteLinkConfirm} />
             ))}
-            <button
-              onClick={() => setShowAddLink(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
-            >
-              <Plus size={12} weight="bold" />
-              Neuen Link erstellen
-            </button>
+            {links.length >= MAX_ACCESS_LINKS ? (
+              <p className="text-xs self-start mt-0.5" style={{ color: "var(--muted)" }}>
+                Maximal {MAX_ACCESS_LINKS} Einschreibelinks erreicht. Lösche einen alten Link, um einen neuen zu erstellen.
+              </p>
+            ) : (
+              <button
+                onClick={() => setShowAddLink(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
+              >
+                <Plus size={12} weight="bold" />
+                Neuen Link erstellen
+              </button>
+            )}
           </div>
         )}
       </div>
     </>
   );
 }
+
+const MODULES_PER_PAGE = 20;
 
 function ModuleTable({
   modules,
@@ -790,22 +942,43 @@ function ModuleTable({
   onDelete: (uuid: string) => Promise<void>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(modules.length / MODULES_PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const startIdx = (safePage - 1) * MODULES_PER_PAGE;
+  const visibleModules = modules.slice(startIdx, startIdx + MODULES_PER_PAGE);
   return (
     <>
       {/* Desktop: table */}
-      <div className="border border-gray-200 rounded-xl overflow-hidden hidden md:block">
-        <table className="w-full text-sm">
+      <div className="hidden md:block w-full">
+        <table className="w-full" style={{ tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: "44px" }} />
+            <col />
+            <col style={{ width: "100px" }} />
+            <col style={{ width: "100px" }} />
+            <col style={{ width: "140px" }} />
+            <col style={{ width: "52px" }} />
+            <col style={{ width: "44px" }} />
+          </colgroup>
           <thead>
-            <tr className="border-b border-gray-200" style={{ backgroundColor: "var(--surface)" }}>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Modul</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Status</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Quellen</th>
-              <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs">Links</th>
-              <th className="text-right px-4 py-2.5 font-medium text-gray-500 text-xs"></th>
+            <tr>
+              <th className="pb-3"></th>
+              <th className="text-left pr-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Arbeitsraum</th>
+              <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Quellen</th>
+              <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Links</th>
+              <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>
+                <span className="inline-flex items-center gap-1.5">
+                  Status
+                  <HelpTooltip text="Aktiv: Studierende können sich über Zugangslinks in den Arbeitsraum einschreiben und die Inhalte nutzen. Inaktiv: Der Arbeitsraum ist für Studierende gesperrt. Bestehende Einschreibungen bleiben erhalten." />
+                </span>
+              </th>
+              <th className="pb-3"></th>
+              <th className="pr-2 pb-3"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
-            {modules.map((m) => (
+          <tbody>
+            {visibleModules.map((m) => (
               <ModuleTableRow
                 key={m.uuid}
                 module={m}
@@ -819,8 +992,8 @@ function ModuleTable({
       </div>
 
       {/* Mobile: cards */}
-      <div className="flex flex-col gap-3 md:hidden">
-        {modules.map((m) => (
+      <div className="md:hidden">
+        {visibleModules.map((m) => (
           <ModuleCard
             key={m.uuid}
             module={m}
@@ -830,6 +1003,49 @@ function ModuleTable({
           />
         ))}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Zeige {startIdx + 1} bis {Math.min(startIdx + MODULES_PER_PAGE, modules.length)} von {modules.length} Arbeitsräumen
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage(safePage - 1)}
+              disabled={safePage === 1}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/5"
+              style={{ color: "var(--text)" }}
+            >
+              Zurück
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPage(p)}
+                className="w-8 h-8 text-sm font-medium rounded-lg transition-colors"
+                style={{
+                  backgroundColor: p === safePage ? "var(--kb)" : "transparent",
+                  color: p === safePage ? "white" : "var(--text)",
+                }}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPage(safePage + 1)}
+              disabled={safePage === totalPages}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/5"
+              style={{ color: "var(--text)" }}
+            >
+              Weiter
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -841,7 +1057,7 @@ function LecturerView() {
 
   const loadModules = useCallback(async () => {
     try {
-      const res = await fetch("/api/ki-tutor/modules", { credentials: "include" });
+      const res = await fetch("/api/ki-assistent/modules", { credentials: "include" });
       if (res.ok) setModules(await res.json());
     } catch { /* ignore */ }
   }, []);
@@ -860,7 +1076,7 @@ function LecturerView() {
 
   async function handleToggleActive(uuid: string, newVal: boolean) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -874,7 +1090,7 @@ function LecturerView() {
 
   async function handleDelete(uuid: string) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -900,15 +1116,15 @@ function LecturerView() {
       )}
 
       <div className="mb-3">
-        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
+        <h1 className="text-3xl font-bold mb-10">Willkommen bei KIS</h1>
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold" style={{ color: "var(--text)" }}>Meine Module</h2>
+          <h2 className="text-xl font-semibold">Meine Arbeitsräume</h2>
           <button
             type="button"
             onClick={() => setShowCreate(true)}
             className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-primary"
           >
-            + Neues Modul erstellen
+            + Neuen Arbeitsraum erstellen
           </button>
         </div>
       </div>
@@ -918,16 +1134,18 @@ function LecturerView() {
       ) : modules.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20" style={{ color: "var(--muted)" }}>
           <Files size={40} weight="duotone" className="mb-3 opacity-40" />
-          <p className="text-base">Noch keine Module vorhanden.</p>
-          <p className="text-sm mt-1">Erstelle dein erstes Modul mit dem Button oben.</p>
+          <p className="text-base">Noch keine Arbeitsräume vorhanden.</p>
+          <p className="text-sm mt-1">Erstelle deinen ersten Arbeitsraum mit dem Button oben.</p>
         </div>
       ) : (
-        <ModuleTable
-          modules={modules}
-          onToggleActive={handleToggleActive}
-          onDelete={handleDelete}
-          onLinksChanged={handleLinksChanged}
-        />
+        <div className="mt-6 md:mt-20">
+          <ModuleTable
+            modules={modules}
+            onToggleActive={handleToggleActive}
+            onDelete={handleDelete}
+            onLinksChanged={handleLinksChanged}
+          />
+        </div>
       )}
     </>
   );
@@ -951,7 +1169,7 @@ function StudentView() {
 
   const loadModules = useCallback(async () => {
     try {
-      const res = await fetch("/api/ki-tutor/my-modules", { credentials: "include" });
+      const res = await fetch("/api/ki-assistent/my-modules", { credentials: "include" });
       if (res.ok) setModules(await res.json());
     } catch { /* ignore */ }
   }, []);
@@ -974,7 +1192,7 @@ function StudentView() {
     setEnrolling(true);
     setEnrollError(null);
     try {
-      const res = await fetch("/api/ki-tutor/enroll", {
+      const res = await fetch("/api/ki-assistent/enroll", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -995,8 +1213,8 @@ function StudentView() {
 
   return (
     <>
-      <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Willkommen bei KIS</h1>
-      <h2 className="text-xl font-semibold mb-8" style={{ color: "var(--text)" }}>Meine Module</h2>
+      <h1 className="text-3xl font-bold mb-10">Willkommen bei KIS</h1>
+      <h2 className="text-xl font-semibold mb-8">Meine Arbeitsräume</h2>
 
       {/* Enroll form */}
       <section
@@ -1037,14 +1255,14 @@ function StudentView() {
         <Spinner size="lg" className="flex items-center justify-center py-20" />
       ) : modules.length === 0 ? (
         <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
-          Du bist noch in keinem Modul eingeschrieben.
+          Du bist noch in keinem Arbeitsraum eingeschrieben.
         </p>
       ) : (
         <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
           {modules.map((m, i) => {
             const href = m.enrollment_id
-              ? `/ki-tutor/${m.uuid}?eid=${m.enrollment_id}`
-              : `/ki-tutor/${m.uuid}`;
+              ? `/ki-assistent/${m.uuid}?eid=${m.enrollment_id}`
+              : `/ki-assistent/${m.uuid}`;
             const untilDate = m.enrolled_until
               ? new Date(m.enrolled_until).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })
               : null;
@@ -1052,7 +1270,7 @@ function StudentView() {
               <li key={`${m.uuid}-${m.enrollment_id ?? i}`} className="px-5 py-4 bg-white hover:bg-gray-50">
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <h3 className="text-sm font-medium text-gray-800 truncate">{m.title}</h3>
+                    <h3 className="text-sm font-medium truncate">{m.title}</h3>
                     <div className="flex items-center gap-2 mt-0.5">
                       {m.description && (
                         <ExpandableText className="text-xs text-gray-400" clampClass="line-clamp-1">{m.description}</ExpandableText>

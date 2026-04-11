@@ -107,7 +107,7 @@ export default function ToolsPage() {
 
       <div className="max-w-5xl mx-auto px-4 pt-10 pb-20 lg:pt-15 lg:pb-30">
 
-        <h1 className="text-3xl font-bold mb-10" style={{ color: "var(--text)" }}>Tools & Workflows</h1>
+        <h1 className="text-3xl font-bold mb-10">Tools & Workflows</h1>
 
         {/* ── Workflows ── */}
         {workflows.length > 0 && (
@@ -153,7 +153,7 @@ export default function ToolsPage() {
                     <div className="flex flex-col justify-center px-8 py-7">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                        <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>{wf.title}</h2>
+                        <h2 className="text-lg font-semibold">{wf.title}</h2>
                       </div>
                       <p className="text-base" style={{ color: "var(--muted)" }}>{wf.description}</p>
                     </div>
@@ -186,7 +186,7 @@ export default function ToolsPage() {
                       <div className="p-3">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                          <h3 className="text-base font-semibold" style={{ color: "var(--muted)" }}>{tool.title}</h3>
+                          <h3 className="text-base font-semibold">{tool.title}</h3>
                           <span
                             className="ml-auto text-xs px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
@@ -213,7 +213,7 @@ export default function ToolsPage() {
                     <div className="px-4 pt-0 pb-4">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                        <h3 className="text-base font-semibold" style={{ color: "var(--text)" }}>{tool.title}</h3>
+                        <h3 className="text-base font-semibold">{tool.title}</h3>
                       </div>
                       <p className="text-base" style={{ color: "var(--muted)" }}>{tool.description}</p>
                     </div>

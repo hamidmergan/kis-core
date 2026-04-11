@@ -13,7 +13,7 @@ export async function POST(
   const body = await req.text();
 
   const upstream = await fetch(
-    `${BACKEND}/ki-tutor/modules/${uuid}/chat`,
+    `${BACKEND}/ki-assistent/modules/${uuid}/chat`,
     {
       method: "POST",
       headers: {

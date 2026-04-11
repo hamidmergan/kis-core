@@ -2929,7 +2929,7 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
                    WHERE s.module_id = %s AND ep.user_id = %s
                      AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date
                      {mode_clause}
-                   GROUP BY s.id ORDER BY MIN(ep.answered_at)""",
+                   GROUP BY s.id ORDER BY MAX(ep.answered_at) DESC""",
                 params,
             )
             sets = []

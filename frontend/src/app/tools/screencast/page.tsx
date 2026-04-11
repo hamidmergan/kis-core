@@ -1523,7 +1523,7 @@ function ScreencastPageInner() {
         {!resumeLoading && step === "upload" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-baseline justify-between mb-1">
-              <h1 className="text-xl font-bold text-gray-900">Screencast erstellen</h1>
+              <h1 className="text-xl font-bold">Screencast erstellen</h1>
               {showDemoLink && (
                 <a href="/tools/screencast-demo" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors">
                   Demo ansehen →
@@ -1809,7 +1809,7 @@ function ScreencastPageInner() {
         {/* ── Step: User Prompt ── */}
         {!resumeLoading && step === "user-prompt" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">
+            <h2 className="text-lg font-bold mb-1">
               Wie sollen die Skripte erstellt werden?
             </h2>
 
@@ -1946,7 +1946,7 @@ function ScreencastPageInner() {
         {/* ── Step: Translation Review ── */}
         {!resumeLoading && step === "translation-review" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">
+            <h2 className="text-lg font-bold mb-1">
               Übersetzung prüfen
             </h2>
             <p className="text-sm text-gray-500 mb-4">
@@ -2073,7 +2073,7 @@ function ScreencastPageInner() {
         {/* ── Step: Script Review ── */}
         {!resumeLoading && step === "script-review" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">
+            <h2 className="text-lg font-bold mb-1">
               Skripte überprüfen und anpassen
             </h2>
             <p className="text-sm text-gray-500 mb-4">
@@ -2277,7 +2277,7 @@ function ScreencastPageInner() {
         {/* ── Step: TTS Settings ── */}
         {!resumeLoading && step === "tts-settings" && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">
+            <h2 className="text-lg font-bold mb-6">
               Einstellungen
             </h2>
 
@@ -2608,7 +2608,7 @@ function ScreencastPageInner() {
                 </svg>
               </div>
             </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2 text-center">
+            <h2 className="text-lg font-bold mb-2 text-center">
               Fertig! Ihr Screencast ist bereit.
             </h2>
 

@@ -110,7 +110,7 @@ export default function UebersetzungPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>
-          <h1 className="text-xl font-bold text-gray-900 mb-1">Translate</h1>
+          <h1 className="text-xl font-bold mb-1">Translate</h1>
           <p className="text-sm text-gray-500 mb-6">
             Übersetzen Sie Dokumente automatisch von Deutsch nach Englisch.
           </p>

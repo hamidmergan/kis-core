@@ -480,7 +480,7 @@ export default function MeineJobsPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Meine Jobs</h2>
+          <h2 className="text-xl font-semibold mb-4">Meine Jobs</h2>
           <div className="flex items-center gap-2">
             {lastUpdated && !loading && (
               <span className="text-xs text-gray-400">
@@ -675,7 +675,7 @@ export default function MeineJobsPage() {
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Job löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">Job löschen?</h3>
             <p className="text-sm text-gray-600 mb-1">
               <span className="font-medium">{deleteConfirm.tool_label}</span> – {deleteConfirm.original_filename}
             </p>

@@ -435,7 +435,7 @@ function MediaPlayer({
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
   const isVideo = [".mp4", ".webm"].includes(ext);
-  const mediaUrl = `/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`;
+  const mediaUrl = `/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/file`;
 
   // Seek to timestamp when source changes
   useEffect(() => {
@@ -582,7 +582,7 @@ function PdfViewer({
     const fetchSummaries = async () => {
       try {
         const res = await fetch(
-          `/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/summaries`,
+          `/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/summaries`,
           { credentials: "include" },
         );
         if (res.ok && !cancelled) {
@@ -1213,7 +1213,7 @@ function PdfViewer({
         <PDFViewer
           ref={viewerRef}
           config={{
-            src: `/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/file`,
+            src: `/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/file`,
             worker: true,
             search: { showAllResults: false },
             annotations: { locked: { type: "all" } },
@@ -1249,7 +1249,7 @@ function PdfViewer({
                     setSummariesStatus("generating");
                     setSummariesLoaded(false);
                     try {
-                      await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
+                      await fetch(`/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
                     } catch { /* ignore */ }
                   }}
                   style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-fg-accent, #60a5fa)", background: "var(--color-bg-accent, #1e3a5f)", color: "#fff", cursor: "pointer", fontWeight: 500 }}
@@ -1483,32 +1483,6 @@ function SourcesPanel({
                     >
                       <Eye size={13} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/sources/${src.uuid}/text`, { credentials: "include" });
-                          if (!res.ok) return;
-                          const data = await res.json();
-                          const safeName = (src.filename || "quelle").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9äöüÄÖÜß_-]+/g, "_").slice(0, 80);
-                          const blob = new Blob([data.text || ""], { type: "text/plain;charset=utf-8" });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = `${safeName}.txt`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                        } catch { /* ignore */ }
-                      }}
-                      className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                      style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
-                      title="Als Text herunterladen"
-                    >
-                      <DownloadSimple size={13} weight="regular" />
-                    </button>
                     {isLecturer && (
                       <button
                         type="button"
@@ -1532,7 +1506,7 @@ function SourcesPanel({
       {deleteSourceId && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Quelle löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">Quelle löschen?</h3>
             <p className="text-sm text-gray-600 mb-1">
               <span className="font-medium">{sources.find((s) => s.uuid === deleteSourceId)?.filename || "Quelle"}</span>
             </p>
@@ -1678,9 +1652,10 @@ function ChatPanel({
                   type="button"
                   onClick={() => { onClear(); setChatMenuOpen(false); }}
                   disabled={messages.length === 0}
-                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-black/5 disabled:opacity-40 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 disabled:opacity-40 transition-colors"
                   style={{ color: "#B91C1C" }}
                 >
+                  <Trash size={16} />
                   Chatprotokoll löschen
                 </button>
               </div>
@@ -1712,7 +1687,7 @@ function ChatPanel({
                 <Chat size={22} style={{ color: "var(--kb)" }} />
               </div>
               <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-                Dein KI-Tutor
+                Dein KI-Assistent
               </p>
               <p className="text-xs text-center max-w-xs" style={{ color: "var(--muted)" }}>
                 Wähle Quellen links aus – stell Fragen, lass dir Inhalte erklären oder gib Anweisungen.
@@ -1852,7 +1827,7 @@ function ChatPanel({
                       KI
                     </div>
                     <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
-                      KI Tutor
+                      KI-Assistent
                     </span>
                   </div>
                 )}
@@ -2236,15 +2211,15 @@ function ExerciseSetsOverview({
                         <span className="shrink-0 text-xs font-bold" style={{ color: "#EF4444" }}>!</span>
                       ) : (() => {
                         const pct = hasRun ? Math.round((lastCorrect / s.card_count) * 100) : 0;
-                        const r = 14; const c = 2 * Math.PI * r; const offset = c - (pct / 100) * c;
+                        const r = 16; const c = 2 * Math.PI * r; const offset = c - (pct / 100) * c;
                         return (
-                          <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0">
-                            <circle cx="19" cy="19" r={r} fill="none" stroke="var(--border)" strokeWidth="3" />
-                            <circle cx="19" cy="19" r={r} fill="none" stroke="var(--kb)" strokeWidth="3"
+                          <svg width="42" height="42" viewBox="0 0 42 42" className="shrink-0">
+                            <circle cx="21" cy="21" r={r} fill="none" stroke="var(--border)" strokeWidth="3" />
+                            <circle cx="21" cy="21" r={r} fill="none" stroke="var(--kb)" strokeWidth="3"
                               strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
-                              transform="rotate(-90 19 19)" />
-                            <text x="19" y="19" textAnchor="middle" dominantBaseline="central"
-                              fontSize="9" fontWeight="700" fill="var(--kb)">{pct}%</text>
+                              transform="rotate(-90 21 21)" />
+                            <text x="21" y="21" textAnchor="middle" dominantBaseline="central"
+                              fontSize="10" fontWeight="700" fill="var(--kb)">{pct}%</text>
                           </svg>
                         );
                       })()}
@@ -2385,7 +2360,7 @@ function LernkartenLearnView({
             style={{ backgroundColor: "#1a8a5c", boxShadow: "0 4px 20px rgba(26,138,92,0.25)" }}>
             <Check size={30} weight="bold" color="white" />
           </div>
-          <h3 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Geschafft!</h3>
+          <h3 className="text-lg font-semibold">Geschafft!</h3>
           {isVocab ? (
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               <strong style={{ color: "#1a8a5c" }}>{total}</strong> {total === 1 ? "Begriff" : "Begriffe"} durchgearbeitet
@@ -2656,7 +2631,7 @@ function ExerciseCompletion({
           style={{ backgroundColor: "#1a8a5c", boxShadow: "0 4px 20px rgba(26,138,92,0.25)" }}>
           <Check size={30} weight="bold" color="white" />
         </div>
-        <h3 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Geschafft!</h3>
+        <h3 className="text-lg font-semibold">Geschafft!</h3>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           <strong style={{ color: "#1a8a5c" }}>{correct} / {total}</strong> gewusst — <strong style={{ color: "#1a8a5c" }}>{pct}%</strong>
         </p>
@@ -2798,7 +2773,7 @@ function MCExerciseView({
             style={{ backgroundColor: "#1a8a5c", boxShadow: "0 4px 20px rgba(26,138,92,0.25)" }}>
             <Check size={30} weight="bold" color="white" />
           </div>
-          <h3 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Quiz abgeschlossen!</h3>
+          <h3 className="text-lg font-semibold">Quiz abgeschlossen!</h3>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             <strong style={{ color: "#1a8a5c" }}>{results.filter(r => r.correct).length} / {total}</strong> richtig — <strong style={{ color: "#1a8a5c" }}>{Math.round((results.filter(r => r.correct).length / total) * 100)}%</strong>
           </p>
@@ -2949,7 +2924,7 @@ function CreateSetModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
       <div className="rounded-2xl p-5 w-[340px]" style={{ backgroundColor: "var(--surface)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)" }}
         onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>Neue {toolLabels[tool] || "Übung"} erstellen</h3>
+        <h3 className="text-sm font-semibold mb-3">Neue {toolLabels[tool] || "Übung"} erstellen</h3>
 
         {/* Mode */}
         <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>Quelle</div>
@@ -4854,7 +4829,7 @@ function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { moduleU
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/ki-tutor/modules/${moduleUuid}/recent-activities`, { credentials: "include" })
+    fetch(`/api/ki-assistent/modules/${moduleUuid}/recent-activities`, { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => setActivities(data))
       .catch(() => { })
@@ -4954,7 +4929,7 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
     setDetailLt(null);
     if (entry && entry.answers > 0) {
       setLoadLt(true);
-      fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${entry.day}&category=lerntools`, { credentials: "include" })
+      fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${entry.day}&category=lerntools`, { credentials: "include" })
         .then(r => r.ok ? r.json() : null)
         .then(d => setDetailLt(d))
         .finally(() => setLoadLt(false));
@@ -4974,7 +4949,7 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
     setDetailSt(null);
     if (entry && entry.answers > 0) {
       setLoadSt(true);
-      fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${entry.day}&category=sprachtraining`, { credentials: "include" })
+      fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${entry.day}&category=sprachtraining`, { credentials: "include" })
         .then(r => r.ok ? r.json() : null)
         .then(d => setDetailSt(d))
         .finally(() => setLoadSt(false));
@@ -4985,6 +4960,11 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
   const selectedDay = category === "lerntools" ? selDayLt : selDaySt;
   const dayDetail = category === "lerntools" ? detailLt : detailSt;
   const dayDetailLoading = category === "lerntools" ? loadLt : loadSt;
+
+  // ── Expand/Collapse für Day-Detail (Limit auf 10 Einträge) ──
+  const DAY_DETAIL_LIMIT = 10;
+  const [showAllSets, setShowAllSets] = useState(false);
+  useEffect(() => { setShowAllSets(false); }, [selDayLt, selDaySt, category]);
 
 
   if (loading) return (
@@ -5061,7 +5041,7 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
     if (d.answers > 0) {
       setLoad(true);
       try {
-        const res = await fetch(`/api/ki-tutor/modules/${moduleUuid}/stats/day?date=${d.day}&category=${category}`, { credentials: "include" });
+        const res = await fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${d.day}&category=${category}`, { credentials: "include" });
         if (res.ok) setDetail(await res.json());
       } catch { /* ignore */ }
       setLoad(false);
@@ -5084,7 +5064,7 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
       {/* ── Period selector + period summary ── */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Aktivität</h3>
+          <h3 className="text-sm font-semibold">Aktivität</h3>
           <div className="flex gap-1">
             {([["30", "30 Tage"], ["180", "6 Monate"]] as [StatsPeriod, string][]).map(([val, label]) => (
               <button
@@ -5227,7 +5207,7 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
           ) : dayDetail ? (
             <div className="space-y-2">
               {/* Per-set breakdown */}
-              {dayDetail.sets.map(s => {
+              {(showAllSets ? dayDetail.sets : dayDetail.sets.slice(0, DAY_DETAIL_LIMIT)).map(s => {
                 const pct = s.answers > 0 ? Math.round(s.correct / s.answers * 100) : 0;
                 // Clean title: remove file extensions for display
                 const displayTitle = s.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
@@ -5258,6 +5238,16 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
                   </div>
                 );
               })}
+              {dayDetail.sets.length > DAY_DETAIL_LIMIT && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllSets(v => !v)}
+                  className="w-full text-[11px] font-medium py-2 rounded-lg transition-opacity hover:opacity-70"
+                  style={{ color: "var(--muted)", backgroundColor: "var(--surface)" }}
+                >
+                  {showAllSets ? "Weniger anzeigen" : `+${dayDetail.sets.length - DAY_DETAIL_LIMIT} weitere anzeigen`}
+                </button>
+              )}
             </div>
           ) : null}
         </div>
@@ -5341,7 +5331,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
 
   const refreshStats = useCallback(() => {
     setStatsLoading(true);
-    fetch(`/api/ki-tutor/modules/${moduleUuid}/stats`, { credentials: "include" })
+    fetch(`/api/ki-assistent/modules/${moduleUuid}/stats`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setStudentStats(data); })
       .catch(() => { })
@@ -5516,7 +5506,7 @@ export default function KiTutorModulePage() {
   const [panels, setPanels] = useState<Record<PanelKey, boolean>>(() => {
     if (typeof window === "undefined") return { quellen: true, chat: true, studio: true };
     try {
-      const stored = localStorage.getItem(`ki-tutor-panels-${uuid}`);
+      const stored = localStorage.getItem(`ki-assistent-panels-${uuid}`);
       if (stored) return JSON.parse(stored);
     } catch { /* ignore */ }
     return { quellen: true, chat: true, studio: true };
@@ -5611,7 +5601,7 @@ export default function KiTutorModulePage() {
   const loadMessages = useCallback(async () => {
     try {
       const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/messages${eidParam}`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/messages${eidParam}`, { credentials: "include" });
       if (res.ok) setMessages(await res.json());
     } catch { /* ignore */ }
   }, [uuid, enrollmentId]);
@@ -5625,9 +5615,9 @@ export default function KiTutorModulePage() {
         if (!authData.authenticated) { router.push("/"); return; }
         setAuth(authData);
 
-        const modRes = await fetch(`/api/ki-tutor/modules/${uuid}`, { credentials: "include" });
+        const modRes = await fetch(`/api/ki-assistent/modules/${uuid}`, { credentials: "include" });
         if (cancelled) return;
-        if (!modRes.ok) { router.push("/ki-tutor"); return; }
+        if (!modRes.ok) { router.push("/ki-assistent"); return; }
         const mod: ModuleDetail = await modRes.json();
         setModuleDetail(mod);
 
@@ -5648,7 +5638,7 @@ export default function KiTutorModulePage() {
 
         await loadMessages();
 
-        const settingsRes = await fetch(`/api/ki-tutor/modules/${uuid}/settings`, { credentials: "include" });
+        const settingsRes = await fetch(`/api/ki-assistent/modules/${uuid}/settings`, { credentials: "include" });
         if (!cancelled && settingsRes.ok) {
           const s = await settingsRes.json();
           setChatLang(s.chat_lang ?? "de");
@@ -5656,18 +5646,18 @@ export default function KiTutorModulePage() {
           setSprachtrainingActive(s.sprachtraining_active ?? false);
         }
 
-        const actionsRes = await fetch("/api/ki-tutor/popup-actions", { credentials: "include" });
+        const actionsRes = await fetch("/api/ki-assistent/popup-actions", { credentials: "include" });
         if (!cancelled && actionsRes.ok) {
           const d = await actionsRes.json();
           setPopupActions(d.actions ?? []);
         }
 
-        const notesRes = await fetch(`/api/ki-tutor/modules/${uuid}/notes`, { credentials: "include" });
+        const notesRes = await fetch(`/api/ki-assistent/modules/${uuid}/notes`, { credentials: "include" });
         if (!cancelled && notesRes.ok) setNotes(await notesRes.json());
 
         if (!cancelled) setInitialized(true);
       } catch {
-        if (!cancelled) router.push("/ki-tutor");
+        if (!cancelled) router.push("/ki-assistent");
       }
     }
     init();
@@ -5676,7 +5666,7 @@ export default function KiTutorModulePage() {
 
   // Fetch stats at page level so sub-views can show mastery bar
   const refreshPageStats = useCallback(() => {
-    fetch(`/api/ki-tutor/modules/${uuid}/stats`, { credentials: "include" })
+    fetch(`/api/ki-assistent/modules/${uuid}/stats`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setPageStats(data); })
       .catch(() => { });
@@ -5693,13 +5683,13 @@ export default function KiTutorModulePage() {
 
   // Persist panel collapse state to localStorage
   useEffect(() => {
-    try { localStorage.setItem(`ki-tutor-panels-${uuid}`, JSON.stringify(panels)); } catch { /* ignore */ }
+    try { localStorage.setItem(`ki-assistent-panels-${uuid}`, JSON.stringify(panels)); } catch { /* ignore */ }
   }, [panels, uuid]);
 
   // Persist settings to DB (only after init to avoid overwriting with defaults)
   useEffect(() => {
     if (!initialized) return;
-    fetch(`/api/ki-tutor/modules/${uuid}/settings`, {
+    fetch(`/api/ki-assistent/modules/${uuid}/settings`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -5711,7 +5701,7 @@ export default function KiTutorModulePage() {
     const pendingIds = sources.filter((s) => s.status === "indexing" || s.status === "pending").map((s) => s.uuid);
     if (pendingIds.length === 0) return;
     const id = setInterval(async () => {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}`, { credentials: "include" });
       if (!res.ok) return;
       const mod: ModuleDetail = await res.json();
       const srcs: Source[] = mod.sources ?? [];
@@ -5831,7 +5821,7 @@ export default function KiTutorModulePage() {
 
   async function handleDeleteSource(srcUuid: string) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/sources/${srcUuid}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/sources/${srcUuid}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         setSources((prev) => prev.filter((s) => s.uuid !== srcUuid));
         setSelectedSourceIds((prev) => prev.filter((id) => id !== srcUuid));
@@ -5845,7 +5835,7 @@ export default function KiTutorModulePage() {
     try {
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", `/api/ki-tutor/modules/${uuid}/sources`);
+        xhr.open("POST", `/api/ki-assistent/modules/${uuid}/sources`);
         xhr.withCredentials = true;
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
@@ -5900,7 +5890,7 @@ export default function KiTutorModulePage() {
       });
 
     try {
-      const res = await fetch(`/api/ki-tutor-stream/${uuid}`, {
+      const res = await fetch(`/api/ki-assistent-stream/${uuid}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -5974,7 +5964,7 @@ export default function KiTutorModulePage() {
         if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
         flushTokens();
       } else if (res.status === 409) {
-        updateLast({ content: "Das Modul wird noch indiziert. Bitte warte einen Moment und versuche es erneut." });
+        updateLast({ content: "Der Arbeitsraum wird noch indiziert. Bitte warte einen Moment und versuche es erneut." });
       } else {
         updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
       }
@@ -6000,7 +5990,7 @@ export default function KiTutorModulePage() {
     setSprachtrainingActive(true);
     setGlossaryExtracting(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary/extract`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary/extract`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, source_uuid: sourceUuid, page_number: page }),
@@ -6071,7 +6061,7 @@ export default function KiTutorModulePage() {
   async function generateLernkarten() {
     setLernkartenLoading(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/lernkarten/generate`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/lernkarten/generate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -6099,7 +6089,7 @@ export default function KiTutorModulePage() {
 
   async function refreshMindmapList() {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmaps`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmaps`, { credentials: "include" });
       if (res.ok) setMindmapList(await res.json());
     } catch { /* ignore */ }
   }
@@ -6109,7 +6099,7 @@ export default function KiTutorModulePage() {
     setMindmapLoading(true);
     mindmapPollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmap/${mindmapId}`, { credentials: "include" });
+        const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmap/${mindmapId}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "success" && data.mindmap) {
@@ -6131,7 +6121,7 @@ export default function KiTutorModulePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmap`, { credentials: "include" });
+        const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmap`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "success" && data.mindmap) {
@@ -6149,7 +6139,7 @@ export default function KiTutorModulePage() {
     if (selectedSourceIds.length === 0) return;
     setMindmapLoading(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmap/generate`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmap/generate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -6170,7 +6160,7 @@ export default function KiTutorModulePage() {
 
   async function selectMindmap(id: number) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/mindmap/${id}`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmap/${id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       if (data.status === "success" && data.mindmap) {
@@ -6181,7 +6171,7 @@ export default function KiTutorModulePage() {
 
   async function deleteMindmap(id: number) {
     try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/mindmap/${id}`, { method: "DELETE", credentials: "include" });
+      await fetch(`/api/ki-assistent/modules/${uuid}/mindmap/${id}`, { method: "DELETE", credentials: "include" });
       setMindmapList((prev) => prev.filter((m) => m.id !== id));
     } catch { /* ignore */ }
   }
@@ -6196,7 +6186,7 @@ export default function KiTutorModulePage() {
 
   async function refreshDatentabelleList() {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabellen`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabellen`, { credentials: "include" });
       if (res.ok) setDatentabelleList(await res.json());
     } catch { /* ignore */ }
   }
@@ -6206,7 +6196,7 @@ export default function KiTutorModulePage() {
     setDatentabelleLoading(true);
     datentabellePollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/${dtId}`, { credentials: "include" });
+        const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle/${dtId}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "success" && data.table_data) {
@@ -6227,7 +6217,7 @@ export default function KiTutorModulePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle`, { credentials: "include" });
+        const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           if (data && data.status === "success" && data.table_data) {
@@ -6247,7 +6237,7 @@ export default function KiTutorModulePage() {
     if (selectedSourceIds.length === 0) return;
     setDatentabelleLoading(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/generate`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle/generate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -6267,7 +6257,7 @@ export default function KiTutorModulePage() {
 
   async function selectDatentabelle(id: number) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/${id}`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle/${id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       if (data.status === "success" && data.table_data) {
@@ -6279,7 +6269,7 @@ export default function KiTutorModulePage() {
 
   async function deleteDatentabelle(id: number) {
     try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/datentabelle/${id}`, { method: "DELETE", credentials: "include" });
+      await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle/${id}`, { method: "DELETE", credentials: "include" });
       setDatentabelleList((prev) => prev.filter((d) => d.id !== id));
     } catch { /* ignore */ }
   }
@@ -6291,7 +6281,7 @@ export default function KiTutorModulePage() {
 
   async function deleteGlossaryEntry(entryId: number) {
     try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/glossary/${entryId}`, {
+      await fetch(`/api/ki-assistent/modules/${uuid}/glossary/${entryId}`, {
         method: "DELETE", credentials: "include",
       });
       setGlossary((prev) => prev.filter((e) => e.id !== entryId));
@@ -6301,7 +6291,7 @@ export default function KiTutorModulePage() {
 
   async function deleteAllGlossaryEntries() {
     try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/glossary`, {
+      await fetch(`/api/ki-assistent/modules/${uuid}/glossary`, {
         method: "DELETE", credentials: "include",
       });
       setGlossary([]);
@@ -6317,7 +6307,7 @@ export default function KiTutorModulePage() {
 
   async function loadGlossary() {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setGlossary(data.entries || []);
@@ -6331,7 +6321,7 @@ export default function KiTutorModulePage() {
     if (sprachActiveIds.length === 0) return;
     setGlossaryLoading(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary/generate`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary/generate`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active_source_ids: sprachActiveIds }),
@@ -6344,7 +6334,7 @@ export default function KiTutorModulePage() {
           const hasNew = await loadGlossary();
           if (hasNew) {
             // Check if entries changed (new ones generated)
-            const res2 = await fetch(`/api/ki-tutor/modules/${uuid}/glossary`, { credentials: "include" });
+            const res2 = await fetch(`/api/ki-assistent/modules/${uuid}/glossary`, { credentials: "include" });
             if (res2.ok) {
               const data2 = await res2.json();
               if ((data2.entries || []).length !== startCount) {
@@ -6370,7 +6360,7 @@ export default function KiTutorModulePage() {
     if (sprachActiveIds.length === 0) return;
     setClozeLoading(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercises/cloze`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercises/cloze`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active_source_ids: sprachActiveIds }),
@@ -6389,7 +6379,7 @@ export default function KiTutorModulePage() {
     if (sprachActiveIds.length === 0) return;
     setVocabLoading(true);
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercises/vocab-test`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercises/vocab-test`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active_source_ids: sprachActiveIds }),
@@ -6444,8 +6434,8 @@ export default function KiTutorModulePage() {
   async function loadExerciseSets(tool?: string) {
     try {
       const url = tool
-        ? `/api/ki-tutor/modules/${uuid}/exercise-sets?tool=${tool}`
-        : `/api/ki-tutor/modules/${uuid}/exercise-sets`;
+        ? `/api/ki-assistent/modules/${uuid}/exercise-sets?tool=${tool}`
+        : `/api/ki-assistent/modules/${uuid}/exercise-sets`;
       const res = await fetch(url, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
@@ -6465,7 +6455,7 @@ export default function KiTutorModulePage() {
 
   async function loadExerciseSet(setId: number) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${setId}`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${setId}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setActiveSet(data.set);
@@ -6475,7 +6465,7 @@ export default function KiTutorModulePage() {
 
   async function createExerciseSet(tool: string, mode: string, count: number, sourceUuid?: string) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool, mode, count, source_uuid: sourceUuid }),
@@ -6492,7 +6482,7 @@ export default function KiTutorModulePage() {
 
   async function deleteExerciseSet(setId: number, tool: string) {
     try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${setId}`, {
+      await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${setId}`, {
         method: "DELETE", credentials: "include",
       });
       loadExerciseSets(tool);
@@ -6502,7 +6492,7 @@ export default function KiTutorModulePage() {
   async function downloadExerciseSet(s: ExerciseSet) {
     try {
       console.log("[DOWNLOAD] fetching set", s.id, s.title);
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${s.id}`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${s.id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       const set = data.set as ExerciseSet;
@@ -6551,7 +6541,7 @@ export default function KiTutorModulePage() {
 
   async function submitSingleAnswer(setId: number, itemId: number, correct: boolean, newRun = false) {
     try {
-      await fetch(`/api/ki-tutor/modules/${uuid}/exercise-sets/${setId}/progress`, {
+      await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${setId}/progress`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ results: [{ item_id: itemId, correct }], new_run: newRun }),
@@ -6567,14 +6557,14 @@ export default function KiTutorModulePage() {
 
   async function loadStreak() {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/streak`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/streak`, { credentials: "include" });
       if (res.ok) setStreakInfo(await res.json());
     } catch { /* ignore */ }
   }
 
   async function loadGlossaryCount() {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/glossary-count`, { credentials: "include" });
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary-count`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setGlossaryCount(data.count);
@@ -6820,7 +6810,7 @@ export default function KiTutorModulePage() {
 
   async function addNote(content: string) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/notes`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/notes`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
@@ -6834,7 +6824,7 @@ export default function KiTutorModulePage() {
 
   async function deleteNote(noteId: number) {
     try {
-      const res = await fetch(`/api/ki-tutor/modules/${uuid}/notes/${noteId}`, {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/notes/${noteId}`, {
         method: "DELETE", credentials: "include",
       });
       if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
@@ -6888,7 +6878,7 @@ export default function KiTutorModulePage() {
             style={{ height: 48 }}
           >
             <Link
-              href="/ki-tutor"
+              href="/ki-assistent"
               className="inline-flex items-center gap-1 text-xs font-medium transition-colors group flex-shrink-0"
               style={{ color: "var(--kb)" }}
             >
@@ -6995,7 +6985,7 @@ export default function KiTutorModulePage() {
           <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
             <div className="flex items-center gap-2 px-3 pt-2 pb-1">
               <Link
-                href="/ki-tutor"
+                href="/ki-assistent"
                 className="inline-flex items-center justify-center w-7 h-7 flex-shrink-0 transition-colors group"
                 style={{ color: "var(--kb)" }}
               >
@@ -7161,7 +7151,7 @@ export default function KiTutorModulePage() {
                     onSendPrompt={(text) => sendChatMessage(text)}
                     onPillClick={handlePillClick}
                     moduleReady={moduleDetail?.status === "ready"}
-                    onClear={() => { const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : ""; fetch(`/api/ki-tutor/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
+                    onClear={() => { const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : ""; fetch(`/api/ki-assistent/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
                     externalTextareaRef={chatTextareaRef}
                     onSaveNote={addNote}
                   />
@@ -7319,7 +7309,7 @@ export default function KiTutorModulePage() {
                     onSendPrompt={(text) => sendChatMessage(text)}
                     onPillClick={handlePillClick}
                     moduleReady={moduleDetail?.status === "ready"}
-                    onClear={() => { const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : ""; fetch(`/api/ki-tutor/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
+                    onClear={() => { const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : ""; fetch(`/api/ki-assistent/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
                     externalTextareaRef={chatTextareaRef}
                     onSaveNote={addNote}
                     onMinimize={() => togglePanel("chat")}

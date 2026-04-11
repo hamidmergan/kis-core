@@ -17,7 +17,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
-from src.limits import TUTOR_SOURCE_MAX_PAGES
+from src.limits import TUTOR_SOURCE_MAX_PAGES, TUTOR_MODULE_MAX_ACCESS_LINKS
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_DIRECT_WITH_CONTEXT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS
 
@@ -62,7 +62,7 @@ def _format_timestamp(seconds: float) -> str:
     return f"{s // 60:02d}:{s % 60:02d}"
 
 
-@router.get("/ki-tutor/popup-actions")
+@router.get("/ki-assistent/popup-actions")
 async def get_popup_actions():
     """Liefert die konfigurierten Popup-Aktionen für den PDF-Viewer."""
     return {
@@ -159,7 +159,7 @@ class NoteBody(BaseModel):
 
 # ─── Dozenten-Endpunkte ───────────────────────────────────────────────────────
 
-@router.post("/ki-tutor/modules")
+@router.post("/ki-assistent/modules")
 async def create_module(
     title: str = Form(..., max_length=100),
     description: Optional[str] = Form(None, max_length=300),
@@ -200,7 +200,7 @@ async def create_module(
     }
 
 
-@router.get("/ki-tutor/modules")
+@router.get("/ki-assistent/modules")
 async def list_modules(current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
     modules = db.get_ki_tutor_modules_by_user(user_id)
@@ -234,7 +234,7 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
     return result
 
 
-@router.get("/ki-tutor/modules/{module_uuid}")
+@router.get("/ki-assistent/modules/{module_uuid}")
 async def get_module(module_uuid: str, current_user: dict = Depends(get_current_user)):
     module = _require_own_module(module_uuid, current_user["user_id"])
     sources = db.get_ki_tutor_sources_by_module(module["id"])
@@ -273,7 +273,7 @@ async def get_module(module_uuid: str, current_user: dict = Depends(get_current_
     }
 
 
-@router.patch("/ki-tutor/modules/{module_uuid}")
+@router.patch("/ki-assistent/modules/{module_uuid}")
 async def patch_module(
     module_uuid: str,
     body: PatchModuleBody,
@@ -287,7 +287,7 @@ async def patch_module(
     return {"uuid": module_uuid, "title": new_title, "is_active": new_active}
 
 
-@router.patch("/ki-tutor/modules/{module_uuid}/renew-code")
+@router.patch("/ki-assistent/modules/{module_uuid}/renew-code")
 async def renew_enroll_code(
     module_uuid: str,
     body: RenewCodeBody,
@@ -308,13 +308,19 @@ async def renew_enroll_code(
 
 # ─── Access Links ────────────────────────────────────────────────────────────
 
-@router.post("/ki-tutor/modules/{module_uuid}/access-links")
+@router.post("/ki-assistent/modules/{module_uuid}/access-links")
 async def create_module_access_link(
     module_uuid: str,
     body: CreateAccessLinkBody,
     current_user: dict = Depends(get_current_user),
 ):
     module = _require_own_module(module_uuid, current_user["user_id"])
+    existing_links = db.get_access_links_by_module(module["id"])
+    if len(existing_links) >= TUTOR_MODULE_MAX_ACCESS_LINKS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximal {TUTOR_MODULE_MAX_ACCESS_LINKS} Einschreibelinks pro Modul erlaubt. Bitte lösche zuerst einen alten Link.",
+        )
     try:
         expires = datetime.fromisoformat(body.expires_at).replace(tzinfo=timezone.utc)
     except ValueError:
@@ -329,7 +335,7 @@ async def create_module_access_link(
     }
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/access-links")
+@router.get("/ki-assistent/modules/{module_uuid}/access-links")
 async def list_access_links(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -347,7 +353,7 @@ async def list_access_links(
     ]
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/access-links/{link_id}")
+@router.delete("/ki-assistent/modules/{module_uuid}/access-links/{link_id}")
 async def delete_access_link(
     module_uuid: str,
     link_id: int,
@@ -359,7 +365,7 @@ async def delete_access_link(
     return {"deleted": link_id}
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}")
+@router.delete("/ki-assistent/modules/{module_uuid}")
 async def delete_module(module_uuid: str, current_user: dict = Depends(get_current_user)):
     module = _require_own_module(module_uuid, current_user["user_id"])
     _delete_source_files_for_module(module)
@@ -368,7 +374,7 @@ async def delete_module(module_uuid: str, current_user: dict = Depends(get_curre
     return {"deleted": module_uuid}
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/sources")
+@router.post("/ki-assistent/modules/{module_uuid}/sources")
 async def upload_source(
     module_uuid: str,
     file: UploadFile = File(...),
@@ -418,7 +424,7 @@ async def upload_source(
     return {"uuid": source_uuid, "filename": file.filename, "status": "pending"}
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}")
+@router.delete("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}")
 async def delete_source(
     module_uuid: str,
     source_uuid: str,
@@ -439,7 +445,7 @@ async def delete_source(
 
 # ─── Studenten-Endpunkte ──────────────────────────────────────────────────────
 
-@router.post("/ki-tutor/enroll")
+@router.post("/ki-assistent/enroll")
 async def enroll(body: EnrollBody, current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
 
@@ -471,7 +477,7 @@ async def enroll(body: EnrollBody, current_user: dict = Depends(get_current_user
     return {"module_uuid": module["uuid"], "title": module["title"]}
 
 
-@router.get("/ki-tutor/my-modules")
+@router.get("/ki-assistent/my-modules")
 async def my_modules(current_user: dict = Depends(get_current_user)):
     modules = db.get_ki_tutor_modules_for_student(current_user["user_id"])
     return [
@@ -488,7 +494,7 @@ async def my_modules(current_user: dict = Depends(get_current_user)):
     ]
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/file")
+@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/file")
 async def stream_source_file(
     module_uuid: str,
     source_uuid: str,
@@ -539,7 +545,7 @@ async def stream_source_file(
     )
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/chat")
+@router.post("/ki-assistent/modules/{module_uuid}/chat")
 @observe(name="ki-tutor-chat")
 async def chat(
     module_uuid: str,
@@ -861,7 +867,7 @@ async def chat(
     )
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/toc")
+@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/toc")
 async def get_pdf_toc(
     module_uuid: str,
     source_uuid: str,
@@ -885,7 +891,7 @@ async def get_pdf_toc(
     return {"toc": source.get("toc") or []}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/summaries")
+@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/summaries")
 async def get_paragraph_summaries(
     module_uuid: str,
     source_uuid: str,
@@ -920,7 +926,7 @@ async def get_paragraph_summaries(
     }
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/summaries/generate")
+@router.post("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/summaries/generate")
 async def trigger_paragraph_summaries(
     module_uuid: str,
     source_uuid: str,
@@ -953,7 +959,7 @@ async def trigger_paragraph_summaries(
     return {"status": "generating"}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/search")
+@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/search")
 async def search_pdf(
     module_uuid: str,
     source_uuid: str,
@@ -1030,44 +1036,7 @@ async def search_pdf(
     return {"matches": matches, "page_width": page_width, "page_height": page_height}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/text")
-async def get_source_text(
-    module_uuid: str,
-    source_uuid: str,
-    current_user: dict = Depends(get_current_user),
-):
-    """Return the full extracted text of a source as plain text, grouped by page."""
-    user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
-    if not module:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
-
-    source = db.get_ki_tutor_source(source_uuid)
-    if not source or source["module_id"] != module["id"]:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
-
-    chunks = db.get_chunks_by_source(source["id"])
-    if not chunks:
-        return {"filename": source["filename"], "text": ""}
-
-    pages: dict = {}
-    for ch in chunks:
-        pn = ch.get("page_number", 0)
-        pages.setdefault(pn, []).append(ch.get("content", ""))
-    lines = [source["filename"], "=" * len(source["filename"]), ""]
-    for pn in sorted(pages.keys()):
-        lines.append(f"--- Seite {pn} ---")
-        lines.append("\n".join(pages[pn]))
-        lines.append("")
-    return {"filename": source["filename"], "text": "\n".join(lines)}
-
-
-@router.get("/ki-tutor/modules/{module_uuid}/sources/{source_uuid}/markdown")
+@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/markdown")
 async def convert_source_to_markdown(
     module_uuid: str,
     source_uuid: str,
@@ -1202,7 +1171,7 @@ def _markdown_fallback(pdf_bytes: bytes) -> dict:
     return {"markdown": "\n\n---\n\n".join(pages) or "_Kein lesbarer Text gefunden._"}
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/messages")
+@router.delete("/ki-assistent/modules/{module_uuid}/messages")
 async def delete_messages(
     module_uuid: str,
     enrollment_id: Optional[int] = None,
@@ -1224,7 +1193,7 @@ async def delete_messages(
     return {"cleared": True}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/messages")
+@router.get("/ki-assistent/modules/{module_uuid}/messages")
 async def get_messages(
     module_uuid: str,
     enrollment_id: Optional[int] = None,
@@ -1254,7 +1223,7 @@ async def get_messages(
     ]
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/settings")
+@router.get("/ki-assistent/modules/{module_uuid}/settings")
 async def get_user_settings(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -1272,7 +1241,7 @@ async def get_user_settings(
     return db.get_ki_tutor_user_settings(module["id"], user_id)
 
 
-@router.patch("/ki-tutor/modules/{module_uuid}/settings")
+@router.patch("/ki-assistent/modules/{module_uuid}/settings")
 async def update_user_settings(
     module_uuid: str,
     body: UserSettingsBody,
@@ -1297,7 +1266,7 @@ async def update_user_settings(
 # ─── Notizen ─────────────────────────────────────────────────────────────────
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/notes")
+@router.get("/ki-assistent/modules/{module_uuid}/notes")
 async def get_notes(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -1323,7 +1292,7 @@ async def get_notes(
     ]
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/notes")
+@router.post("/ki-assistent/modules/{module_uuid}/notes")
 async def create_note(
     module_uuid: str,
     body: NoteBody,
@@ -1347,7 +1316,7 @@ async def create_note(
     }
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/notes/{note_id}")
+@router.delete("/ki-assistent/modules/{module_uuid}/notes/{note_id}")
 async def delete_note(
     module_uuid: str,
     note_id: int,
@@ -1389,7 +1358,7 @@ def _resolve_source_ids(module: dict, source_uuids: list[str], max_count: int = 
     return ids
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/glossary")
+@router.get("/ki-assistent/modules/{module_uuid}/glossary")
 async def get_glossary(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -1408,7 +1377,7 @@ async def get_glossary(
     return {"entries": entries}
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/glossary/generate")
+@router.post("/ki-assistent/modules/{module_uuid}/glossary/generate")
 async def generate_glossary(
     module_uuid: str,
     body: GlossaryGenerateBody,
@@ -1431,7 +1400,7 @@ async def generate_glossary(
     return {"status": "generating"}
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/glossary/{entry_id}")
+@router.delete("/ki-assistent/modules/{module_uuid}/glossary/{entry_id}")
 async def delete_glossary_entry_endpoint(
     module_uuid: str,
     entry_id: int,
@@ -1442,7 +1411,7 @@ async def delete_glossary_entry_endpoint(
     return {"ok": True}
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/glossary")
+@router.delete("/ki-assistent/modules/{module_uuid}/glossary")
 async def delete_all_glossary_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -1489,7 +1458,7 @@ class GlossaryExtractBody(BaseModel):
     page_number: int
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/glossary/extract")
+@router.post("/ki-assistent/modules/{module_uuid}/glossary/extract")
 async def extract_glossary_from_selection(
     module_uuid: str,
     body: GlossaryExtractBody,
@@ -1593,7 +1562,7 @@ class MindmapGenerateBody(BaseModel):
     active_source_ids: list[str]
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/mindmap/generate")
+@router.post("/ki-assistent/modules/{module_uuid}/mindmap/generate")
 async def generate_mindmap(
     module_uuid: str,
     body: MindmapGenerateBody,
@@ -1629,7 +1598,7 @@ async def generate_mindmap(
     return {"mindmap_id": mindmap_id, "status": "pending"}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/mindmap/{mindmap_id}")
+@router.get("/ki-assistent/modules/{module_uuid}/mindmap/{mindmap_id}")
 async def get_mindmap(
     module_uuid: str,
     mindmap_id: int,
@@ -1658,7 +1627,7 @@ async def get_mindmap(
     }
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/mindmap")
+@router.get("/ki-assistent/modules/{module_uuid}/mindmap")
 async def get_latest_mindmap(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -1686,7 +1655,7 @@ async def get_latest_mindmap(
     }
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/mindmaps")
+@router.get("/ki-assistent/modules/{module_uuid}/mindmaps")
 async def list_mindmaps(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -1713,7 +1682,7 @@ async def list_mindmaps(
     ]
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/mindmap/{mindmap_id}")
+@router.delete("/ki-assistent/modules/{module_uuid}/mindmap/{mindmap_id}")
 async def delete_mindmap(
     module_uuid: str,
     mindmap_id: int,
@@ -1743,7 +1712,7 @@ class LernkartenGenerateBody(BaseModel):
     count: int = 10
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/lernkarten/generate")
+@router.post("/ki-assistent/modules/{module_uuid}/lernkarten/generate")
 @observe(name="ki-tutor-lernkarten")
 async def generate_lernkarten(
     module_uuid: str,
@@ -1784,7 +1753,7 @@ class DatentabelleGenerateBody(BaseModel):
     active_source_ids: list[str]
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/datentabelle/generate")
+@router.post("/ki-assistent/modules/{module_uuid}/datentabelle/generate")
 async def generate_datentabelle(
     module_uuid: str,
     body: DatentabelleGenerateBody,
@@ -1818,7 +1787,7 @@ async def generate_datentabelle(
     return {"datentabelle_id": datentabelle_id, "status": "pending"}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/datentabelle/{datentabelle_id}")
+@router.get("/ki-assistent/modules/{module_uuid}/datentabelle/{datentabelle_id}")
 async def get_datentabelle(
     module_uuid: str,
     datentabelle_id: int,
@@ -1837,7 +1806,7 @@ async def get_datentabelle(
     return dt
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/datentabelle")
+@router.get("/ki-assistent/modules/{module_uuid}/datentabelle")
 async def get_latest_datentabelle(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -1852,7 +1821,7 @@ async def get_latest_datentabelle(
     return dt or {}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/datentabellen")
+@router.get("/ki-assistent/modules/{module_uuid}/datentabellen")
 async def get_datentabellen(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -1874,7 +1843,7 @@ async def get_datentabellen(
     ]
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/datentabelle/{datentabelle_id}")
+@router.delete("/ki-assistent/modules/{module_uuid}/datentabelle/{datentabelle_id}")
 async def delete_datentabelle(
     module_uuid: str,
     datentabelle_id: int,
@@ -1891,7 +1860,7 @@ async def delete_datentabelle(
 # ─── Sprachtraining: Übungen generieren (via Celery) ────────────────────────
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/exercises/cloze")
+@router.post("/ki-assistent/modules/{module_uuid}/exercises/cloze")
 async def generate_cloze(
     module_uuid: str,
     body: ExerciseGenerateBody,
@@ -1921,7 +1890,7 @@ async def generate_cloze(
     return {"set_id": placeholder["id"], "status": "generating"}
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/exercises/vocab-test")
+@router.post("/ki-assistent/modules/{module_uuid}/exercises/vocab-test")
 async def generate_vocab_test(
     module_uuid: str,
     body: ExerciseGenerateBody,
@@ -1968,7 +1937,7 @@ class ExerciseProgressBody(BaseModel):
     new_run: bool = False
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/exercise-sets")
+@router.post("/ki-assistent/modules/{module_uuid}/exercise-sets")
 async def create_exercise_set(
     module_uuid: str,
     body: CreateSetBody,
@@ -2001,7 +1970,7 @@ async def create_exercise_set(
     return {"set": placeholder}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/exercise-sets")
+@router.get("/ki-assistent/modules/{module_uuid}/exercise-sets")
 async def list_exercise_sets(
     module_uuid: str,
     tool: Optional[str] = None,
@@ -2018,7 +1987,7 @@ async def list_exercise_sets(
     return {"sets": sets}
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/exercise-sets/{set_id}")
+@router.get("/ki-assistent/modules/{module_uuid}/exercise-sets/{set_id}")
 async def get_exercise_set(
     module_uuid: str,
     set_id: int,
@@ -2032,7 +2001,7 @@ async def get_exercise_set(
     return {"set": ex_set}
 
 
-@router.delete("/ki-tutor/modules/{module_uuid}/exercise-sets/{set_id}")
+@router.delete("/ki-assistent/modules/{module_uuid}/exercise-sets/{set_id}")
 async def delete_exercise_set_endpoint(
     module_uuid: str,
     set_id: int,
@@ -2043,7 +2012,7 @@ async def delete_exercise_set_endpoint(
     return {"ok": True}
 
 
-@router.post("/ki-tutor/modules/{module_uuid}/exercise-sets/{set_id}/progress")
+@router.post("/ki-assistent/modules/{module_uuid}/exercise-sets/{set_id}/progress")
 async def record_set_progress(
     module_uuid: str,
     set_id: int,
@@ -2064,7 +2033,7 @@ async def record_set_progress(
 # ─── Streak ──────────────────────────────────────────────────────────────────
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/streak")
+@router.get("/ki-assistent/modules/{module_uuid}/streak")
 async def get_streak_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -2080,7 +2049,7 @@ async def get_streak_endpoint(
 # ─── Student Stats ─────────────────────────────────────────────────────────
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/stats")
+@router.get("/ki-assistent/modules/{module_uuid}/stats")
 async def get_student_stats_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -2092,7 +2061,7 @@ async def get_student_stats_endpoint(
     return db.get_student_stats(module["id"], user_id)
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/stats/day")
+@router.get("/ki-assistent/modules/{module_uuid}/stats/day")
 async def get_student_day_stats_endpoint(
     module_uuid: str,
     date: str,
@@ -2106,7 +2075,7 @@ async def get_student_day_stats_endpoint(
     return db.get_student_day_stats(module["id"], user_id, date, category)
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/recent-activities")
+@router.get("/ki-assistent/modules/{module_uuid}/recent-activities")
 async def get_recent_activities_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -2121,7 +2090,7 @@ async def get_recent_activities_endpoint(
 # ─── Dozent: Module Statistics ───────────────────────────────────────────────
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/dozent-stats")
+@router.get("/ki-assistent/modules/{module_uuid}/dozent-stats")
 async def get_dozent_module_stats(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -2133,7 +2102,7 @@ async def get_dozent_module_stats(
 # ─── Glossar Count & Limit ───────────────────────────────────────────────────
 
 
-@router.get("/ki-tutor/modules/{module_uuid}/glossary-count")
+@router.get("/ki-assistent/modules/{module_uuid}/glossary-count")
 async def get_glossary_count_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),

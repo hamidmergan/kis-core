@@ -145,8 +145,8 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/screencast-demo/:path*`,
       },
       {
-        source: "/api/ki-tutor/:path*",
-        destination: `${backendUrl}/ki-tutor/:path*`,
+        source: "/api/ki-assistent/:path*",
+        destination: `${backendUrl}/ki-assistent/:path*`,
       },
       {
         source: "/docs",

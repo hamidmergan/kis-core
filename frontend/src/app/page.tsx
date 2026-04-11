@@ -17,7 +17,7 @@ export default function HomePage() {
     checkAuthStatus().then((status) => {
       if (status.authenticated) {
         const role = status.role ?? "lecturer";
-        router.replace("/ki-tutor");
+        router.replace("/ki-assistent");
       } else {
         setChecking(false);
       }
@@ -32,7 +32,7 @@ export default function HomePage() {
     try {
       await login(username.trim(), password);
       const status = await checkAuthStatus();
-      router.push("/ki-tutor");
+      router.push("/ki-assistent");
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {
@@ -50,9 +50,9 @@ export default function HomePage() {
   return (
     <main className="flex items-center justify-center min-h-[80vh] px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900 text-center mb-6">Willkommen bei KIS</h1>
+        <h1 className="text-2xl font-bold text-center mb-6">Willkommen bei KIS</h1>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Anmelden</h2>
+          <h2 className="text-lg font-semibold mb-4">Anmelden</h2>
 
           <form onSubmit={handleSubmit} aria-label="Anmeldeformular" className="space-y-4">
             <div>

@@ -17,9 +17,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         router.replace("/");
       } else {
         const role = status.role ?? "lecturer";
-        const isKiTutor = pathname?.startsWith("/ki-tutor");
+        const isKiTutor = pathname?.startsWith("/ki-assistent");
         if (role === "student" && !isKiTutor) {
-          router.replace("/ki-tutor");
+          router.replace("/ki-assistent");
         } else {
           setAuthenticated(true);
         }

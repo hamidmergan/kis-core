@@ -34,7 +34,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
       <div className="max-w-5xl mx-auto px-4 flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Link
-            href="/ki-tutor"
+            href="/ki-assistent"
             aria-label="Zur Startseite"
             className="text-white hover:opacity-80 transition-opacity"
           >
@@ -50,7 +50,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
         {showLogout && (
           <div className="flex items-center gap-1.5">
             <Link
-              href="/ki-tutor"
+              href="/ki-assistent"
               aria-label="Zur Übersicht"
               className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >

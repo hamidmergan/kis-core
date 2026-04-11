@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Footer from "./Footer";
 
 const GUEST_PATHS = ["/", "/login", "/pending"];
-const NO_FOOTER_PREFIXES = ["/ki-tutor/"];
+const NO_FOOTER_PREFIXES = ["/ki-assistent/"];
 
 export default function FooterWrapper() {
   const pathname = usePathname();

@@ -484,7 +484,7 @@ function StatsTab() {
       {/* Aktivitätslog */}
       {data.activity.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <h3 className="text-sm font-medium text-gray-700 p-4 pb-2">Letzte Aktivität</h3>
+          <h3 className="text-sm font-medium p-4 pb-2">Letzte Aktivität</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -521,7 +521,7 @@ function StatsTab() {
   );
 }
 
-// --- Tab: KI-Tutor ---
+// --- Tab: KI-Assistent ---
 interface KiTutorSummary {
   total_modules: number;
   active_students: number;
@@ -571,7 +571,7 @@ function KiTutorTab() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/admin/ki-tutor/stats?days=${days}&mode=${mode}`, { credentials: "include" })
+    fetch(`/api/admin/ki-assistent/stats?days=${days}&mode=${mode}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setData(d))
       .finally(() => setLoading(false));
@@ -620,7 +620,7 @@ function KiTutorTab() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Module</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Arbeitsräume</p>
           <p className="text-2xl font-bold text-gray-800 mt-1">{data.summary.total_modules}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -629,11 +629,11 @@ function KiTutorTab() {
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Übungen ({days}T)</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: accent }}>{data.summary.total_answers.toLocaleString("de-DE")}</p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{data.summary.total_answers.toLocaleString("de-DE")}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Chat ({days}T)</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "var(--st)" }}>{data.summary.total_chat_messages.toLocaleString("de-DE")}</p>
+          <p className="text-2xl font-bold text-gray-800 mt-1">{data.summary.total_chat_messages.toLocaleString("de-DE")}</p>
         </div>
       </div>
 
@@ -644,7 +644,7 @@ function KiTutorTab() {
             <thead>
               <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
                 <th className="px-4 py-2 w-6"></th>
-                <th className="px-4 py-2">Modul</th>
+                <th className="px-4 py-2">Arbeitsraum</th>
                 <th className="px-4 py-2">Ersteller</th>
                 <th className="px-4 py-2 text-right">Quellen</th>
                 <th className="px-4 py-2 text-right">Teilnehmer</th>
@@ -712,7 +712,7 @@ function KiTutorTab() {
                 );
               })}
               {data.module_stats.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Keine Module vorhanden</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Keine Arbeitsräume vorhanden</td></tr>
               )}
             </tbody>
           </table>
@@ -1046,7 +1046,7 @@ function GeneralSettingsSection() {
       </ProviderSection>
 
       {/* Embeddings */}
-      <ProviderSection title="Embeddings (KI-Tutor)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+      <ProviderSection title="Embeddings (KI-Assistent)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
         <P label="KISSKI (e5-mistral-7b)" settingKey="kisski_embedding_enabled" enabled={s.kisski_embedding_enabled ?? true} configured={s.kisski_embedding_configured ?? false} envHint="KISSKI_API_KEY" />
         <P label="THL myLab (qwen3-embedding-4b)" settingKey="mylab_embedding_enabled" enabled={s.mylab_embedding_enabled ?? false} configured={s.mylab_embedding_configured ?? false} available={s.mylab_embedding_available} envHint="MYLAB_BASE_URL" />
       </ProviderSection>
@@ -1517,14 +1517,14 @@ export default function AdminPage() {
     { key: "users", label: "Alle User" },
     { key: "jobs", label: "Alle Jobs" },
     { key: "stats", label: "Statistiken" },
-    { key: "ki-tutor", label: "KI-Tutor" },
+    { key: "ki-tutor", label: "KI-Assistent" },
   ];
 
   return (
     <>
       <Header showLogout />
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <h2 className="text-lg font-semibold text-gray-800 mb-6">Admin-Bereich</h2>
+        <h2 className="text-lg font-semibold mb-6">Admin-Bereich</h2>
 
         <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto scrollbar-none">
           {tabs.map((t) => (

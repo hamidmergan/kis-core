@@ -76,3 +76,4 @@ TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL  = 5      # ollama: parallele Einzel-Reques
 TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE  = 3      # cloud: parallele Batch-Requests
 TUTOR_SUMMARY_BATCH_SIZE              = 10      # Seiten pro Batch-Request (große Modelle)
 TUTOR_SOURCE_MAX_PAGES                = 300     # max. Seiten pro PDF/DOCX/PPTX-Upload
+TUTOR_MODULE_MAX_ACCESS_LINKS         = 10      # max. Einschreibelinks pro Modul

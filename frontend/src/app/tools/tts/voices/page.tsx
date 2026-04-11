@@ -297,7 +297,7 @@ function StimmenPageInner() {
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
-        <h1 className="text-xl font-bold text-gray-900 mb-1">Verfügbare Stimmen</h1>
+        <h1 className="text-xl font-bold mb-1">Verfügbare Stimmen</h1>
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-gray-200 mb-6">

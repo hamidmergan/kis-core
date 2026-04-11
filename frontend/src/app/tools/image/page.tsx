@@ -284,7 +284,7 @@ export default function ImagePage() {
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
-        <h1 className="text-xl font-bold text-gray-900 mb-1">Image</h1>
+        <h1 className="text-xl font-bold mb-1">Image</h1>
         <p className="text-sm text-gray-500 mb-6">
           Bilder generieren, bearbeiten und analysieren mit KI.
         </p>

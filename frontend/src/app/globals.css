@@ -77,6 +77,11 @@ body {
   font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* ─── Headings (global) ─── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--kb);
+}
+
 /* Old brand-colour links → new brand colour */
 .text-\[\#0066cc\] { color: #004261; }
 
