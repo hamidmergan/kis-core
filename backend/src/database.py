@@ -2600,6 +2600,25 @@ def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> 
             return [dict(r) for r in cur.fetchall()]
 
 
+def get_existing_exercise_fronts(
+    module_id: int, tool: str, limit: int = 150,
+) -> list[str]:
+    """Return the `front` text of recent exercise items for this module+tool.
+    Used to give the LLM awareness of what already exists so it can create variations."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT i.front
+                   FROM ki_tutor_exercise_items i
+                   JOIN ki_tutor_exercise_sets s ON i.set_id = s.id
+                   WHERE s.module_id = %s AND s.tool = %s AND s.status = 'ready'
+                   ORDER BY s.created_at DESC, i.position ASC
+                   LIMIT %s""",
+                (module_id, tool, limit),
+            )
+            return [row[0] for row in cur.fetchall() if row[0]]
+
+
 def get_exercise_set_with_items(set_id: int) -> dict | None:
     """Get a single set with all its items, enriching with chunk start_time where missing."""
     with get_connection() as conn:

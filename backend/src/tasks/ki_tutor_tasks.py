@@ -882,6 +882,25 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
         title = "Wird generiert…"
         client, model, _ = _get_llm_client()
 
+        existing_fronts = db.get_existing_exercise_fronts(module_id, tool)
+
+        def _with_avoid(base_content: str) -> str:
+            """Append an 'avoid duplicates' block so the LLM produces variations
+            instead of repeating items from earlier sets of the same tool."""
+            if not existing_fronts:
+                return base_content
+            preview = "\n".join(f"- {(f or '')[:160]}" for f in existing_fronts)
+            return base_content + (
+                "\n\n---\n"
+                "Bereits existierende Einträge in diesem Arbeitsraum:\n"
+                f"{preview}\n\n"
+                "Regel: Erstelle UNTERSCHIEDLICHE Einträge, die thematisch NICHT "
+                "dasselbe abdecken. Wenn dein Material erschöpft ist und du ein "
+                "Thema wiederverwenden musst, erstelle eine klare VARIATION "
+                "(anderer Blickwinkel, andere Fragestellung, anderer Schwerpunkt), "
+                "keine Wiederholung mit nur umformuliertem Wortlaut."
+            )
+
         if mode == "glossar":
             glossary = db.get_ki_tutor_glossary_by_module(module_id)
             if not glossary:
@@ -1141,7 +1160,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
                     {"role": "system", "content": prompt},
-                    {"role": "user", "content": f"Erstelle Lernkarten aus {source_hint}:\n\n{context}"},
+                    {"role": "user", "content": _with_avoid(f"Erstelle Lernkarten aus {source_hint}:\n\n{context}")},
                 ]
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
@@ -1171,7 +1190,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
                     {"role": "system", "content": prompt},
-                    {"role": "user", "content": f"Erstelle Karteikarten aus {source_hint}:\n\n{context}"},
+                    {"role": "user", "content": _with_avoid(f"Erstelle Karteikarten aus {source_hint}:\n\n{context}")},
                 ]
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
@@ -1457,7 +1476,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     )
                 messages = [
                     {"role": "system", "content": tool_prompt},
-                    {"role": "user", "content": f"Quellen:\n\n{context}"},
+                    {"role": "user", "content": _with_avoid(f"Quellen:\n\n{context}")},
                 ]
                 response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
                 answer = _clean_llm_json(response.choices[0].message.content or "")
