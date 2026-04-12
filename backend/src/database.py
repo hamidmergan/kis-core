@@ -1794,6 +1794,27 @@ def delete_ki_tutor_source(uuid: str) -> None:
         conn.commit()
 
 
+def delete_ki_tutor_chunks_by_source(source_id: int) -> None:
+    """Remove all chunks for a source (used when retrying a failed indexing run)."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ki_tutor_chunks WHERE source_id = %s", (source_id,))
+        conn.commit()
+
+
+def reset_ki_tutor_source_for_retry(uuid: str) -> None:
+    """Reset a failed source to pending state and clear the error message."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE ki_tutor_sources
+                   SET status = 'pending', error_message = NULL, chunk_count = 0
+                   WHERE uuid = %s""",
+                (uuid,),
+            )
+        conn.commit()
+
+
 # --- KI Tutor: Chunks ---
 
 def create_ki_tutor_chunk(

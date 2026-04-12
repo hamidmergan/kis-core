@@ -16,6 +16,18 @@ from langfuse.openai import OpenAI
 
 _CHUNK_MAX_SEC = 540        # 9 min – safely under KISSKI's 600 s limit
 
+
+def _is_transient_error(e: Exception) -> bool:
+    """Match transient upstream failures worth retrying (5xx, timeouts, connection errors)."""
+    status = getattr(e, "status_code", None) or getattr(getattr(e, "response", None), "status_code", None)
+    if isinstance(status, int) and 500 <= status < 600:
+        return True
+    msg = str(e).lower()
+    return any(kw in msg for kw in (
+        "internal server error", "bad gateway", "service unavailable",
+        "gateway timeout", "timeout", "connection", "temporarily",
+    ))
+
 def _seconds_to_srt_timestamp(s: float) -> str:
     h = int(s // 3600)
     m = int((s % 3600) // 60)
@@ -622,25 +634,38 @@ class KisskiClient:
 
     def transcribe_verbose(self, file_path: str) -> list[dict]:
         """Transcribe audio and return segments with timestamps: [{start, end, text}, ...]."""
-        try:
-            with open(file_path, "rb") as f:
-                result = self._client.audio.transcriptions.create(
-                    model="whisper-large-v2",
-                    file=f,
-                    response_format="verbose_json",
-                )
-            # OpenAI client returns TranscriptionVerbose with TranscriptionSegment objects (attributes, not dicts)
-            if hasattr(result, "segments") and result.segments:
-                return [{"start": s.start, "end": s.end, "text": s.text.strip()}
-                        for s in result.segments if getattr(s, "text", "").strip()]
-            # Fallback: parse as JSON string
-            data = json.loads(str(result)) if isinstance(result, str) else result
-            if isinstance(data, dict):
-                return [{"start": s["start"], "end": s["end"], "text": s["text"].strip()}
-                        for s in data.get("segments", []) if s.get("text", "").strip()]
-            return []
-        except Exception as e:
-            raise RuntimeError(f"KISSKI Whisper verbose_json error: {e}") from e
+        backoffs = [5, 15]  # 3 attempts total: immediate, +5s, +15s
+        last_err: Exception | None = None
+        for attempt in range(len(backoffs) + 1):
+            try:
+                with open(file_path, "rb") as f:
+                    result = self._client.audio.transcriptions.create(
+                        model="whisper-large-v2",
+                        file=f,
+                        response_format="verbose_json",
+                    )
+                # OpenAI client returns TranscriptionVerbose with TranscriptionSegment objects (attributes, not dicts)
+                if hasattr(result, "segments") and result.segments:
+                    return [{"start": s.start, "end": s.end, "text": s.text.strip()}
+                            for s in result.segments if getattr(s, "text", "").strip()]
+                # Fallback: parse as JSON string
+                data = json.loads(str(result)) if isinstance(result, str) else result
+                if isinstance(data, dict):
+                    return [{"start": s["start"], "end": s["end"], "text": s["text"].strip()}
+                            for s in data.get("segments", []) if s.get("text", "").strip()]
+                return []
+            except Exception as e:
+                last_err = e
+                if attempt < len(backoffs) and _is_transient_error(e):
+                    wait = backoffs[attempt]
+                    logger.warning(
+                        "KISSKI Whisper verbose_json error (attempt {}/{}): {} – retrying in {}s",
+                        attempt + 1, len(backoffs) + 1, e, wait,
+                    )
+                    time.sleep(wait)
+                    continue
+                break
+        raise RuntimeError(f"KISSKI Whisper verbose_json error: {last_err}") from last_err
 
     def transcribe_chunked_verbose(self, file_path: str) -> tuple[list[dict], float]:
         """Transcribe audio with timestamps, splitting if needed.

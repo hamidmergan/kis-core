@@ -121,6 +121,27 @@ interface ModuleDetail {
 const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"]);
 const _VIDEO_EXTENSIONS = new Set([".mp4", ".webm"]);
 const _AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".m4a"]);
+function _embedQmapIntoCitations(content: string, qmap: { qnum: number; uuid: string }[]): string {
+  if (!qmap.length) return content;
+  return content.replace(/\[Q(\d+)(,)/g, (match, n, comma) => {
+    const entry = qmap.find((q) => q.qnum === parseInt(n, 10));
+    return entry ? `[Q${n}:${entry.uuid}${comma}` : match;
+  });
+}
+
+function _formatApiError(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const detail = (data as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => (d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : JSON.stringify(d)))
+      .join("; ");
+  }
+  if (detail && typeof detail === "object") return JSON.stringify(detail);
+  return null;
+}
+
 function _isMediaFile(filename: string): boolean {
   const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
   return _MEDIA_EXTENSIONS.has(ext);
@@ -1290,6 +1311,7 @@ function SourcesPanel({
   onToggleSource,
   onOpenViewer,
   onDeleteSource,
+  onRetrySource,
   onUpload,
   uploadProgress,
   uploadError,
@@ -1303,6 +1325,7 @@ function SourcesPanel({
   onToggleSource: (uuid: string) => void;
   onOpenViewer: (source: Source) => void;
   onDeleteSource: (uuid: string) => void;
+  onRetrySource: (uuid: string) => void;
   onUpload: (file: File) => void;
   uploadProgress: number | null;
   uploadError: string | null;
@@ -1377,7 +1400,7 @@ function SourcesPanel({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.txt,.docx,.pptx,.md,.mp3,.mp4,.wav,.flac,.m4a,.webm"
+            accept=".pdf,.docx,.pptx,.mp3,.mp4,.wav,.flac,.m4a,.webm"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -1497,6 +1520,17 @@ function SourcesPanel({
                     >
                       <Eye size={13} />
                     </button>
+                    {isLecturer && src.status === "failed" && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onRetrySource(src.uuid); }}
+                        className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                        title="Erneut versuchen"
+                      >
+                        <ArrowCounterClockwise size={13} weight="regular" />
+                      </button>
+                    )}
                     {isLecturer && (
                       <button
                         type="button"
@@ -1946,7 +1980,7 @@ function ChatPanel({
                     <button
                       type="button"
                       onClick={() => {
-                        onSaveNote(msg.content);
+                        onSaveNote(_embedQmapIntoCitations(msg.content, msg.source_qmap ?? []));
                         setSavedNoteIdx(i);
                         setTimeout(() => setSavedNoteIdx(null), 1500);
                       }}
@@ -3973,19 +4007,21 @@ function NotizenStudio({
   }, [draft]);
 
   function parseNoteCitations(text: string): React.ReactNode[] {
-    const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
+    const pattern = /\[(?:Q(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
     const nodes: React.ReactNode[] = [];
     let last = 0;
     let m: RegExpExecArray | null;
     while ((m = pattern.exec(text)) !== null) {
       if (m.index > last) nodes.push(text.slice(last, m.index));
       const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
-      const pageNum = m[2] ? parseInt(m[2]) : 0;
-      const timestamp = m[3] || null;
-      const keyword = m[4]?.trim() || undefined;
+      const embeddedUuid = m[2] || null;
+      const pageNum = m[3] ? parseInt(m[3]) : 0;
+      const timestamp = m[4] || null;
+      const keyword = m[5]?.trim() || undefined;
       const isMedia = !!timestamp;
 
-      const sourceUuid = activeSourceIds?.[qIdx]
+      const sourceUuid = embeddedUuid
+        ?? activeSourceIds?.[qIdx]
         ?? (isMedia
           ? sources?.find(s => _isMediaFile(s.filename))?.uuid
           : sources?.find(s => !_isMediaFile(s.filename))?.uuid)
@@ -5953,6 +5989,15 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ }
   }
 
+  async function handleRetrySource(srcUuid: string) {
+    try {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/sources/${srcUuid}/retry`, { method: "POST", credentials: "include" });
+      if (res.ok) {
+        setSources((prev) => prev.map((s) => s.uuid === srcUuid ? { ...s, status: "pending", error_message: null } : s));
+      }
+    } catch { /* ignore */ }
+  }
+
   async function handleUpload(file: File) {
     setUploadProgress(0);
     setUploadError(null);
@@ -6946,7 +6991,7 @@ export default function KiTutorModulePage() {
         setNotes((prev) => [note, ...prev]);
       } else {
         const data = await res.json().catch(() => null);
-        alert(data?.detail ?? "Notiz konnte nicht gespeichert werden.");
+        alert(_formatApiError(data) ?? "Notiz konnte nicht gespeichert werden.");
       }
     } catch { /* ignore */ }
   }
@@ -7258,6 +7303,7 @@ export default function KiTutorModulePage() {
                       onToggleSource={handleToggleSource}
                       onOpenViewer={(src) => handleOpenViewer(src)}
                       onDeleteSource={handleDeleteSource}
+                      onRetrySource={handleRetrySource}
                       onUpload={handleUpload}
                       uploadProgress={uploadProgress}
                       uploadError={uploadError}
@@ -7394,6 +7440,7 @@ export default function KiTutorModulePage() {
                     onToggleSource={handleToggleSource}
                     onOpenViewer={(src) => handleOpenViewer(src)}
                     onDeleteSource={handleDeleteSource}
+                    onRetrySource={handleRetrySource}
                     onUpload={handleUpload}
                     uploadProgress={uploadProgress}
                     uploadError={uploadError}

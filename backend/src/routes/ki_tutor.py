@@ -31,9 +31,29 @@ def _trace_kisski(kisski, name: str) -> None:
         name=name,
     )
 
-_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".txt", ".md", ".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"}
+_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"}
 _MEDIA_EXTENSIONS = {".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"}
 _MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB (audio/video can be large)
+
+
+def _convert_office_to_pdf(data: bytes, ext: str) -> bytes:
+    """Convert .docx or .pptx to PDF using LibreOffice. Raises HTTPException on failure."""
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        src = tmp / f"input{ext}"
+        src.write_bytes(data)
+        result = subprocess.run(
+            ["libreoffice", "--headless", "--norestore", "--convert-to", "pdf",
+             "--outdir", str(tmp), str(src)],
+            capture_output=True, text=True, timeout=180,
+        )
+        pdf_path = tmp / "input.pdf"
+        if not pdf_path.exists():
+            logger.error("LibreOffice conversion failed (rc={}): {}", result.returncode, result.stderr[:300])
+            raise HTTPException(status_code=500, detail="Konvertierung nach PDF fehlgeschlagen")
+        return pdf_path.read_bytes()
 
 
 def _count_pages(ext: str, data: bytes) -> int | None:
@@ -154,7 +174,7 @@ class UserSettingsBody(BaseModel):
 
 
 class NoteBody(BaseModel):
-    content: str = Field(..., max_length=2000)
+    content: str = Field(..., max_length=50000)
 
 
 # ─── Dozenten-Endpunkte ───────────────────────────────────────────────────────
@@ -404,6 +424,13 @@ async def upload_source(
     if len(data) > _MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
 
+    stored_filename = file.filename
+    if ext in (".docx", ".pptx"):
+        logger.info("KI Tutor: converting {} to PDF ({})", ext, file.filename)
+        data = _convert_office_to_pdf(data, ext)
+        stored_filename = Path(file.filename).stem + ".pdf"
+        ext = ".pdf"
+
     page_count = _count_pages(ext, data)
     if page_count is not None and page_count > TUTOR_SOURCE_MAX_PAGES:
         raise HTTPException(
@@ -419,7 +446,7 @@ async def upload_source(
     db.create_ki_tutor_source(
         module_id=module["id"],
         uuid=source_uuid,
-        filename=file.filename,
+        filename=stored_filename,
         file_path=file_path,
         file_type=file_type,
     )
@@ -427,8 +454,31 @@ async def upload_source(
     from src.tasks.ki_tutor_tasks import run_index_source
     run_index_source.delay(source_uuid)
 
-    logger.info("KI Tutor: source {} ({}) uploaded to module {}", source_uuid, file.filename, module_uuid)
-    return {"uuid": source_uuid, "filename": file.filename, "status": "pending"}
+    logger.info("KI Tutor: source {} ({}) uploaded to module {}", source_uuid, stored_filename, module_uuid)
+    return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}
+
+
+@router.post("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/retry")
+async def retry_source(
+    module_uuid: str,
+    source_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    _require_own_module(module_uuid, current_user["user_id"])
+    source = db.get_ki_tutor_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+    if source["status"] != "failed":
+        raise HTTPException(status_code=409, detail="Nur fehlgeschlagene Quellen können neu indexiert werden")
+
+    db.delete_ki_tutor_chunks_by_source(source["id"])
+    db.reset_ki_tutor_source_for_retry(source_uuid)
+
+    from src.tasks.ki_tutor_tasks import run_index_source
+    run_index_source.delay(source_uuid)
+
+    logger.info("KI Tutor: source {} retry dispatched", source_uuid)
+    return {"uuid": source_uuid, "status": "pending"}
 
 
 @router.delete("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}")
