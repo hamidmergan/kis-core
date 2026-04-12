@@ -16,6 +16,7 @@ import {
   DotsThreeVertical,
   Files,
   Link as LinkIcon,
+  PencilSimple,
   Plus,
   Trash,
   X,
@@ -161,7 +162,7 @@ function CreateModuleModal({
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
-              Einschreibecode gültig bis
+              Einschreibelink gültig bis
             </label>
             <input
               type="date"
@@ -449,15 +450,66 @@ function StatsModal({ moduleUuid, moduleTitle, onClose }: { moduleUuid: string; 
 
 // ─── Lecturer View ────────────────────────────────────────────────────────────
 
+function RenameModuleModal({
+  currentTitle,
+  onClose,
+  onSubmit,
+}: {
+  currentTitle: string;
+  onClose: () => void;
+  onSubmit: (newTitle: string) => Promise<boolean>;
+}) {
+  const [value, setValue] = useState(currentTitle);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    const trimmed = value.trim();
+    if (!trimmed) { setError("Titel darf nicht leer sein"); return; }
+    if (trimmed === currentTitle) { onClose(); return; }
+    setSaving(true);
+    setError(null);
+    const ok = await onSubmit(trimmed);
+    setSaving(false);
+    if (ok) onClose();
+    else setError("Umbenennen fehlgeschlagen");
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+        <h3 className="text-base font-semibold mb-3">Arbeitsraum umbenennen</h3>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !saving) handleSave(); }}
+          maxLength={100}
+          autoFocus
+          className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2"
+          style={{ borderColor: "var(--border)" }}
+        />
+        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+        <div className="flex gap-3 justify-end mt-5">
+          <button onClick={onClose} disabled={saving} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm text-white bg-primary rounded-lg disabled:opacity-50">{saving ? "..." : "Speichern"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModuleTableRow({
   module,
   onToggleActive,
   onDelete,
+  onRename,
   onLinksChanged,
 }: {
   module: KiTutorModule;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
+  onRename: (uuid: string, newTitle: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   const router = useRouter();
@@ -470,6 +522,7 @@ function ModuleTableRow({
   const [deleting, setDeleting] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
   const [deletingLink, setDeletingLink] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
 
   const links = module.access_links ?? [];
 
@@ -511,6 +564,13 @@ function ModuleTableRow({
     <>
       {showStats && (
         <StatsModal moduleUuid={module.uuid} moduleTitle={module.title} onClose={() => setShowStats(false)} />
+      )}
+      {renameOpen && (
+        <RenameModuleModal
+          currentTitle={module.title}
+          onClose={() => setRenameOpen(false)}
+          onSubmit={(t) => onRename(module.uuid, t)}
+        />
       )}
       {showAddLink && (
         <AddLinkModal moduleUuid={module.uuid} onClose={() => setShowAddLink(false)} onCreated={handleLinkCreated} />
@@ -656,6 +716,15 @@ function ModuleTableRow({
                 </button>
                 <button
                   type="button"
+                  onClick={() => { setShowMenu(false); setRenameOpen(true); }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                  style={{ color: "var(--text)" }}
+                >
+                  <PencilSimple size={16} />
+                  Umbenennen
+                </button>
+                <button
+                  type="button"
                   onClick={() => { setShowMenu(false); setDeleteConfirm(true); }}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
                   style={{ color: "rgb(185, 28, 28)" }}
@@ -724,11 +793,13 @@ function ModuleCard({
   module,
   onToggleActive,
   onDelete,
+  onRename,
   onLinksChanged,
 }: {
   module: KiTutorModule;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
+  onRename: (uuid: string, newTitle: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   const router = useRouter();
@@ -741,6 +812,7 @@ function ModuleCard({
   const [deleting, setDeleting] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
   const [deletingLink, setDeletingLink] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
 
   const links = module.access_links ?? [];
 
@@ -778,6 +850,13 @@ function ModuleCard({
     <>
       {showStats && (
         <StatsModal moduleUuid={module.uuid} moduleTitle={module.title} onClose={() => setShowStats(false)} />
+      )}
+      {renameOpen && (
+        <RenameModuleModal
+          currentTitle={module.title}
+          onClose={() => setRenameOpen(false)}
+          onSubmit={(t) => onRename(module.uuid, t)}
+        />
       )}
       {showAddLink && (
         <AddLinkModal moduleUuid={module.uuid} onClose={() => setShowAddLink(false)} onCreated={(newLink) => onLinksChanged(module.uuid, [...links, newLink])} />
@@ -891,6 +970,15 @@ function ModuleCard({
                     </button>
                     <button
                       type="button"
+                      onClick={() => { setShowMenu(false); setRenameOpen(true); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                      style={{ color: "var(--text)" }}
+                    >
+                      <PencilSimple size={16} />
+                      Umbenennen
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => { setShowMenu(false); setDeleteConfirm(true); }}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
                       style={{ color: "rgb(185, 28, 28)" }}
@@ -945,11 +1033,13 @@ function ModuleTable({
   modules,
   onToggleActive,
   onDelete,
+  onRename,
   onLinksChanged,
 }: {
   modules: KiTutorModule[];
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
+  onRename: (uuid: string, newTitle: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   const [page, setPage] = useState(1);
@@ -994,6 +1084,7 @@ function ModuleTable({
                 module={m}
                 onToggleActive={onToggleActive}
                 onDelete={onDelete}
+                onRename={onRename}
                 onLinksChanged={onLinksChanged}
               />
             ))}
@@ -1009,6 +1100,7 @@ function ModuleTable({
             module={m}
             onToggleActive={onToggleActive}
             onDelete={onDelete}
+            onRename={onRename}
             onLinksChanged={onLinksChanged}
           />
         ))}
@@ -1110,6 +1202,22 @@ function LecturerView() {
     } catch { /* ignore */ }
   }
 
+  async function handleRename(uuid: string, newTitle: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      if (res.ok) {
+        setModules((prev) => prev.map((m) => m.uuid === uuid ? { ...m, title: newTitle } : m));
+        return true;
+      }
+    } catch { /* ignore */ }
+    return false;
+  }
+
   function handleLinksChanged(uuid: string, links: AccessLink[]) {
     setModules((prev) =>
       prev.map((m) => m.uuid === uuid ? { ...m, access_links: links } : m)
@@ -1155,6 +1263,7 @@ function LecturerView() {
             modules={modules}
             onToggleActive={handleToggleActive}
             onDelete={handleDelete}
+            onRename={handleRename}
             onLinksChanged={handleLinksChanged}
           />
         </div>
