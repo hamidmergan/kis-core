@@ -1049,6 +1049,33 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
             multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Quellen"
             source_hint = "folgender Quelle" if len(uuids) == 1 else "folgenden Quellen"
 
+            def _title_from_items(items_list: list[dict], fallback: str) -> str:
+                """Generate a distinct title from the actual item fronts so sets from the
+                same source get different titles."""
+                if not items_list:
+                    return fallback
+                preview = "\n".join(
+                    f"- {(it.get('front') or '')[:160]}" for it in items_list[:10]
+                )
+                try:
+                    resp = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": (
+                                "Gib einen kurzen, prägnanten Titel (max. 6 Wörter) für diese Übung, "
+                                "der das konkrete Thema der unten stehenden Einträge widerspiegelt. "
+                                "Antworte NUR mit dem Titel, ohne Anführungszeichen."
+                            )},
+                            {"role": "user", "content": f"Einträge:\n{preview}"},
+                        ],
+                        temperature=0.7,
+                        max_tokens=30,
+                    )
+                    t = (resp.choices[0].message.content or "").strip().strip('"\'')
+                    return t or fallback
+                except Exception:
+                    return fallback
+
             import re as _re_card
 
             def _normalize_chunk(text: str) -> str:
@@ -1139,7 +1166,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     item["back"] = "\n".join(parts)
                     return item
                 items = [_format_lernkarte(c) for c in data.get("cards", [])][:count]
-                title = data.get("title", multi_label)
+                title = _title_from_items(items, multi_label)
             elif tool == "karteikarten":
                 prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
@@ -1381,7 +1408,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                                 item["start_time"] = _time_map.get((sl, first_pn))
                     return item
                 items = [_parse_karteikarte(c) for c in data.get("cards", [])][:count]
-                title = data.get("title", multi_label)
+                title = _title_from_items(items, multi_label)
             else:
                 tool_prompt = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
                 _source_rule = "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Inhalt stammt.\n"
@@ -1457,6 +1484,34 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                             best_label, best_page, best_score = label, page, score
                     return best_label, best_page
 
+                # Lazy per-source page-text lookup for highlight_text
+                _chunks_by_source: dict[str, list] = {}
+                def _page_highlight(sl: str | None, pn: int | None) -> str | None:
+                    if not sl or pn is None:
+                        return None
+                    if sl not in _chunks_by_source:
+                        src = _source_by_name.get(sl)
+                        _chunks_by_source[sl] = db.get_chunks_by_source(src["id"]) if src else []
+                    parts = [
+                        (ch.get("content") or "").strip()
+                        for ch in _chunks_by_source[sl]
+                        if ch.get("page_number") == pn and (ch.get("content") or "").strip()
+                    ]
+                    if not parts:
+                        return None
+                    return _normalize_chunk(" ".join(parts))
+
+                def _build_item_sources(sl: str, pn: int | None, st: float | None) -> list[dict] | None:
+                    highlight = _page_highlight(sl, pn)
+                    if not highlight or pn is None:
+                        return None
+                    return [{
+                        "source_label": sl,
+                        "page_number": pn,
+                        "start_time": st,
+                        "highlight_text": highlight,
+                    }]
+
                 if tool == "lueckentext":
                     items = []
                     for ex in exercises:
@@ -1464,10 +1519,12 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         pn = ex.get("page_number")
                         if not pn:
                             sl, pn = _find_page(ex["sentence"] + " " + ex["answer"])
+                        st = _time_map.get((sl, pn or 0))
                         items.append({"front": ex["sentence"], "back": ex["answer"], "options": ex["options"],
                             "correct_idx": ex["correct_idx"],
                             "source_label": sl, "page_number": pn,
-                            "start_time": _time_map.get((sl, pn or 0))})
+                            "start_time": st,
+                            "sources": _build_item_sources(sl, pn, st)})
                 else:  # quiz + vokabeltest
                     items = []
                     for q in exercises:
@@ -1475,26 +1532,13 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         pn = q.get("page_number")
                         if not pn:
                             sl, pn = _find_page(q["question"] + " " + q["options"][q["correct_idx"]])
+                        st = _time_map.get((sl, pn or 0))
                         items.append({"front": q["question"], "back": q["options"][q["correct_idx"]], "options": q["options"],
                             "correct_idx": q["correct_idx"],
                             "source_label": sl, "page_number": pn,
-                            "start_time": _time_map.get((sl, pn or 0))})
-                # Generate a short descriptive title via LLM
-                try:
-                    title_resp = client.chat.completions.create(
-                        model=model,
-                        messages=[
-                            {"role": "system", "content": "Gib einen kurzen, prägnanten Titel für diese Übung. Antworte NUR mit dem Titel, ohne Anführungszeichen."},
-                            {"role": "user", "content": context[:2000]},
-                        ],
-                        temperature=0.3,
-                        max_tokens=80,
-                    )
-                    title = (title_resp.choices[0].message.content or "").strip().strip('"\'')
-                    if not title:
-                        title = multi_label
-                except Exception:
-                    title = multi_label
+                            "start_time": st,
+                            "sources": _build_item_sources(sl, pn, st)})
+                title = _title_from_items(items, multi_label)
 
         if not items:
             db.fail_exercise_set(set_id)

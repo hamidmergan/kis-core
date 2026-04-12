@@ -588,14 +588,19 @@ function ModuleTableRow({
         >
           {links.length}
         </td>
-        <td className="px-6 py-5">
+        <td
+          className="px-6 py-5 cursor-pointer"
+          onClick={() => !toggling && handleToggle(!module.is_active)}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
+        >
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               role="switch"
               aria-checked={module.is_active}
               aria-label={module.is_active ? "Arbeitsraum deaktivieren" : "Arbeitsraum aktivieren"}
-              onClick={() => handleToggle(!module.is_active)}
+              onClick={(e) => { e.stopPropagation(); handleToggle(!module.is_active); }}
               disabled={toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
               style={{
@@ -617,9 +622,14 @@ function ModuleTableRow({
             </span>
           </div>
         </td>
-        <td className="py-5 text-center relative">
+        <td
+          className="py-5 text-center relative cursor-pointer"
+          onClick={() => setShowMenu(!showMenu)}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
+        >
           <div className="flex justify-center">
-            <IconButton onClick={() => setShowMenu(!showMenu)} title="Mehr">
+            <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(!showMenu); }} title="Mehr">
               <DotsThreeVertical size={13} weight="bold" />
             </IconButton>
           </div>
@@ -1130,7 +1140,9 @@ function LecturerView() {
       </div>
 
       {loading ? (
-        <Spinner size="lg" className="flex items-center justify-center py-20" />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Spinner size="lg" />
+        </div>
       ) : modules.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20" style={{ color: "var(--muted)" }}>
           <Files size={40} weight="duotone" className="mb-3 opacity-40" />
@@ -1252,7 +1264,9 @@ function StudentView() {
 
       {/* Module list */}
       {loading ? (
-        <Spinner size="lg" className="flex items-center justify-center py-20" />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Spinner size="lg" />
+        </div>
       ) : modules.length === 0 ? (
         <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
           Du bist noch in keinem Arbeitsraum eingeschrieben.

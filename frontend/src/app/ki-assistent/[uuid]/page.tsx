@@ -3,6 +3,7 @@
 import "mind-elixir/style.css";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { renderToStaticMarkup } from "react-dom/server";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
@@ -16,6 +17,7 @@ import {
   Chat,
   Check,
   FilePdf,
+  FileDoc,
   PaperPlaneRight,
   Plus,
   SidebarSimple,
@@ -55,7 +57,6 @@ import {
   WarningCircle,
   Info,
   DownloadSimple,
-  Play,
   SpeakerHigh,
   VideoCamera,
   FileVideo,
@@ -118,9 +119,25 @@ interface ModuleDetail {
 }
 
 const _MEDIA_EXTENSIONS = new Set([".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"]);
+const _VIDEO_EXTENSIONS = new Set([".mp4", ".webm"]);
+const _AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".m4a"]);
 function _isMediaFile(filename: string): boolean {
   const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
   return _MEDIA_EXTENSIONS.has(ext);
+}
+function _fileKind(filename: string): "pdf" | "video" | "audio" | "doc" {
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  if (ext === ".pdf") return "pdf";
+  if (_VIDEO_EXTENSIONS.has(ext)) return "video";
+  if (_AUDIO_EXTENSIONS.has(ext)) return "audio";
+  return "doc";
+}
+function _getChipIcon(filename: string) {
+  const kind = _fileKind(filename);
+  if (kind === "video") return FileVideo;
+  if (kind === "audio") return FileAudio;
+  if (kind === "pdf") return FilePdf;
+  return FileDoc;
 }
 
 function _formatTime(seconds: number): string {
@@ -383,13 +400,10 @@ function SourceStatus({ status }: { status: string }) {
 // ─── File Icon ─────────────────────────────────────────────────────────────────
 
 function FileIcon({ filename }: { filename: string }) {
-  const isPdf = filename.toLowerCase().endsWith(".pdf");
-  const isMedia = _isMediaFile(filename);
-  const isVideo = [".mp4", ".webm"].some(e => filename.toLowerCase().endsWith(e));
-  const isAudio = isMedia && !isVideo;
-  const bg = isVideo ? "#E0E7FF" : isAudio ? "#FEF3C7" : isPdf ? "#FEE2E2" : "#DBEAFE";
-  const color = isVideo ? "#4338CA" : isAudio ? "#B45309" : isPdf ? "#B91C1C" : "#1D4ED8";
-  const Icon = isVideo ? FileVideo : isAudio ? FileAudio : FilePdf;
+  const kind = _fileKind(filename);
+  const bg = kind === "video" ? "#E0E7FF" : kind === "audio" ? "#FEF3C7" : kind === "pdf" ? "#FEE2E2" : "#DBEAFE";
+  const color = kind === "video" ? "#4338CA" : kind === "audio" ? "#B45309" : kind === "pdf" ? "#B91C1C" : "#1D4ED8";
+  const Icon = _getChipIcon(filename);
   return (
     <div
       className="flex-shrink-0 w-8 h-8 rounded flex items-center justify-center"
@@ -1769,6 +1783,7 @@ function ChatPanel({
                 // Prefer LLM keywords for highlighting, fall back to first ~80 chars of chunk
                 const highlightText = keywords || (sp?.source_text ? sp.source_text.slice(0, 80).trim() : undefined);
 
+                const ChipIcon = _getChipIcon(filename);
                 if (isMedia && timestamp) {
                   // Parse timestamp to seconds
                   const parts = timestamp.split(":").map(Number);
@@ -1782,7 +1797,7 @@ function ChatPanel({
                       style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                       title={`${filename}, ${timestamp}`}
                     >
-                      <Play size={8} weight="bold" />
+                      <ChipIcon size={8} weight="bold" />
                       {timestamp}
                     </button>
                   );
@@ -1796,7 +1811,7 @@ function ChatPanel({
                       style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                       title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
                     >
-                      <FilePdf size={8} weight="bold" />
+                      <ChipIcon size={8} weight="bold" />
                       {_chunkLabel(filename, pageNum)}
                     </button>
                   );
@@ -2179,10 +2194,10 @@ function ExerciseSetsOverview({
           <>
             <div className="flex justify-center">
               <button type="button" onClick={onCreate}
-                disabled={noSources || atLimit}
+                disabled={noSources || atLimit || isGenerating}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
                 style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-                <Plus size={14} weight="bold" /> Erstellen ({sets.length}/20)
+                <Plus size={14} weight="bold" /> {isGenerating ? "Wird generiert…" : `Erstellen (${sets.length}/20)`}
               </button>
             </div>
             <div className="flex items-center justify-between px-1">
@@ -2291,10 +2306,11 @@ function LernkartenLearnView({
   const items = shuffledItems;
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [results, setResults] = useState<{ item_id: number; correct: boolean }[]>([]);
+  const [results, setResults] = useState<Record<number, boolean>>({});
   const [streak, setStreak] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [showPendingPrompt, setShowPendingPrompt] = useState(false);
 
   const total = items.length;
   const card = items[index];
@@ -2304,14 +2320,17 @@ function LernkartenLearnView({
 
   function answer(correct: boolean) {
     if (!card || animating) return;
-    const isFirst = results.length === 0;
-    setResults(prev => [...prev, { item_id: card.id, correct }]);
+    const isFirst = !(card.id in results);
+    const newResults = { ...results, [card.id]: correct };
+    setResults(newResults);
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
     onAnswer(card.id, correct, isFirst);
 
     if (index >= total - 1) {
-      setShowResults(true);
+      const pending = items.filter(it => !(it.id in newResults));
+      if (pending.length > 0) setShowPendingPrompt(true);
+      else setShowResults(true);
       return;
     }
     setAnimating(true);
@@ -2320,6 +2339,46 @@ function LernkartenLearnView({
       setFlipped(false);
       setAnimating(false);
     }, 280);
+  }
+
+  function goPrev() {
+    if (!card || animating || index === 0) return;
+    setAnimating(true);
+    setTimeout(() => {
+      setIndex((i) => i - 1);
+      setFlipped(false);
+      setAnimating(false);
+    }, 280);
+  }
+
+  function goNext() {
+    if (!card || animating) return;
+    if (index >= total - 1) {
+      const pending = items.filter(it => !(it.id in results));
+      if (pending.length > 0) setShowPendingPrompt(true);
+      else setShowResults(true);
+      return;
+    }
+    setAnimating(true);
+    setTimeout(() => {
+      setIndex((i) => i + 1);
+      setFlipped(false);
+      setAnimating(false);
+    }, 280);
+  }
+
+  function goToFirstPending() {
+    const firstPendingIdx = items.findIndex(it => !(it.id in results));
+    if (firstPendingIdx >= 0) {
+      setIndex(firstPendingIdx);
+      setFlipped(false);
+    }
+    setShowPendingPrompt(false);
+  }
+
+  function finishAnyway() {
+    setShowPendingPrompt(false);
+    setShowResults(true);
   }
 
   if (!card && !showResults) return (
@@ -2365,13 +2424,29 @@ function LernkartenLearnView({
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               <strong style={{ color: "#1a8a5c" }}>{total}</strong> {total === 1 ? "Begriff" : "Begriffe"} durchgearbeitet
             </p>
-          ) : (
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              <strong style={{ color: "#1a8a5c" }}>{results.filter(r => r.correct).length} / {total}</strong> gewusst — <strong style={{ color: "#1a8a5c" }}>{Math.round((results.filter(r => r.correct).length / total) * 100)}%</strong>
-            </p>
-          )}
+          ) : (() => {
+            const correctCount = Object.values(results).filter(Boolean).length;
+            const wrongCount = Object.values(results).filter(v => v === false).length;
+            const pendingCount = total - Object.keys(results).length;
+            const pct = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+            return (
+              <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+                <strong style={{ color: "#1a8a5c" }}>{correctCount} / {total}</strong> gewusst, <strong style={{ color: "#1a8a5c" }}>{pct}%</strong>
+                {(wrongCount > 0 || pendingCount > 0) && (
+                  <>
+                    <br />
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      {wrongCount > 0 && <>{wrongCount} falsch</>}
+                      {wrongCount > 0 && pendingCount > 0 && ", "}
+                      {pendingCount > 0 && <>{pendingCount} offen</>}
+                    </span>
+                  </>
+                )}
+              </p>
+            );
+          })()}
           <div className="flex gap-3 mt-4">
-            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setFlipped(false); setResults([]); shuffledRef.current = false; }}
+            <button type="button" onClick={() => { setShowResults(false); setIndex(0); setFlipped(false); setResults({}); setShowPendingPrompt(false); shuffledRef.current = false; }}
               className="px-5 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
               style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
               Nochmal
@@ -2383,7 +2458,33 @@ function LernkartenLearnView({
             </button>
           </div>
         </div>
-      ) : card ? (() => {
+      ) : showPendingPrompt ? (() => {
+        const pendingCount = total - Object.keys(results).length;
+        return (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 gap-3">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-2"
+              style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)" }}>
+              <Question size={30} weight="bold" style={{ color: "var(--kb)" }} />
+            </div>
+            <h3 className="text-lg font-semibold text-center">Noch nicht ganz fertig</h3>
+            <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+              Du hast noch <strong style={{ color: "var(--kb)" }}>{pendingCount}</strong> {pendingCount === 1 ? "offene Karte" : "offene Karten"}.
+            </p>
+            <div className="flex flex-wrap gap-3 mt-4 justify-center">
+              <button type="button" onClick={goToFirstPending}
+                className="px-5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
+                style={{ backgroundColor: "var(--kb)" }}>
+                Offene ansehen
+              </button>
+              <button type="button" onClick={finishAnyway}
+                className="px-5 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+                style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+                Trotzdem abschließen
+              </button>
+            </div>
+          </div>
+        );
+      })() : card ? (() => {
         const cardSource = card.source_label ? { source_label: card.source_label, page_number: card.page_number, start_time: card.start_time } : null;
 
         // ── Lernkarten: single-page card, no flip ──
@@ -2452,14 +2553,17 @@ function LernkartenLearnView({
                     {srcs.length > 0 && (
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1 flex-wrap">
-                          {srcs.map((s, si) => (
+                          {srcs.map((s, si) => {
+                            const ChipIcon = _getChipIcon(s.source_label);
+                            return (
                             <button key={si} type="button"
                               onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, card.front); }}
                               className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
                               style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                              <FilePdf size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                              <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
                             </button>
-                          ))}
+                            );
+                          })}
                         </div>
                         {uniqueFiles.map((f, fi) => (
                           <span key={fi} className="text-[9px]" style={{ color: "var(--muted)" }}>
@@ -2550,7 +2654,7 @@ function LernkartenLearnView({
               </div>
             </div>
             {/* Actions */}
-            <div className="flex items-center justify-center gap-6 min-h-[48px]">
+            <div className="flex flex-wrap items-center justify-center gap-3 min-h-[48px]">
               {flipped ? (
                 <>
                   <button type="button" onClick={() => answer(false)} title="Nochmal"
@@ -2570,11 +2674,23 @@ function LernkartenLearnView({
                   </button>
                 </>
               ) : (
-                <button type="button" onClick={() => setFlipped(true)}
-                  className="px-6 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-                  style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                  Antwort zeigen
-                </button>
+                <>
+                  <button type="button" onClick={goPrev} disabled={index === 0} title="Zurück"
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:opacity-30"
+                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                    <CaretLeft size={12} weight="bold" /> Zurück
+                  </button>
+                  <button type="button" onClick={() => setFlipped(true)}
+                    className="px-6 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                    Antwort zeigen
+                  </button>
+                  <button type="button" onClick={goNext} title="Weiter"
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+                    style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                    Weiter <CaretRight size={12} weight="bold" />
+                  </button>
+                </>
               )}
             </div>
             {/* Source chips + filename legend */}
@@ -2587,14 +2703,17 @@ function LernkartenLearnView({
               return (
                 <div className="flex flex-col gap-1 w-full mt-4" style={{ maxWidth: 560 }}>
                   <div className="flex items-center gap-1 flex-wrap">
-                    {srcs.map((s, si) => (
+                    {srcs.map((s, si) => {
+                      const ChipIcon = _getChipIcon(s.source_label);
+                      return (
                       <button key={si} type="button"
                         onClick={() => { if (onSourceClick) onSourceClick(s.source_label, s.page_number ?? 1, s.start_time, s.highlight_text || card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
                         className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
                         style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                        <FilePdf size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
+                        <ChipIcon size={10} weight="bold" /> {multiFile ? `[${fileIndex[s.source_label]}] ` : ""}{_chunkLabel(s.source_label, s.page_number ?? 1, s.start_time)}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                   {uniqueFiles.map((f, fi) => (
                     <span key={fi} className="text-[9px]" style={{ color: "var(--muted)" }}>
@@ -2856,16 +2975,24 @@ function MCExerciseView({
                     </div>
                   )}
                   {/* Source chip + Hint */}
-                  <div className="flex items-center justify-between mt-1">
-                    <div>
-                      {card.source_label && (
-                        <button type="button"
-                          onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
-                          className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
-                          style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
-                          <FilePdf size={10} weight="bold" /> {card.source_label}, {_chunkLabel(card.source_label, card.page_number ?? 1, card.start_time)}
-                        </button>
-                      )}
+                  <div className="flex items-center justify-between mt-1 gap-2">
+                    <div className="min-w-0">
+                      {card.source_label && (() => {
+                        const ChipIcon = _getChipIcon(card.source_label);
+                        return (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <button type="button"
+                              onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
+                              className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
+                              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                              <ChipIcon size={10} weight="bold" /> {_chunkLabel(card.source_label, card.page_number ?? 1, card.start_time)}
+                            </button>
+                          </div>
+                          <span className="text-[9px] truncate" style={{ color: "var(--muted)" }}>{card.source_label}</span>
+                        </div>
+                        );
+                      })()}
                     </div>
                     {tool === "quiz" && !answered && (
                       <button type="button" onClick={requestHint}
@@ -3364,7 +3491,7 @@ function DatentabelleStudio({
                                 const rs = s as DatentabelleRowSource;
                                 const src = allSources?.find((a) => a.filename === rs.source_label);
                                 const isMedia = _isMediaFile(rs.source_label);
-                                const SourceIcon = isMedia ? SpeakerHigh : FilePdf;
+                                const SourceIcon = _getChipIcon(rs.source_label);
                                 let pageNum = 0;
                                 let startTime: number | undefined;
                                 const label = isMedia ? String(rs.page) : `S. ${rs.page}`;
@@ -3390,8 +3517,7 @@ function DatentabelleStudio({
                               const legend = sources.find((src) => src.number === num);
                               const fname = legend?.filename || "";
                               const src = legend ? allSources?.find((a) => a.filename === fname) : undefined;
-                              const isMedia = fname ? _isMediaFile(fname) : false;
-                              const LegacyIcon = isMedia ? SpeakerHigh : FilePdf;
+                              const LegacyIcon = fname ? _getChipIcon(fname) : FilePdf;
                               return (
                                 <button key={si} type="button"
                                   onClick={() => src && onPillClick?.(src.uuid, 0, src.filename)}
@@ -3550,10 +3676,14 @@ function MindmapStudio({
               ? node.page_number
               : `S. ${node.page_number}`;
             const esc = node.topic.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            // Phosphor bold icons — same as chat pills (FilePdf / Play)
-            const icon = isMedia
-              ? `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 256 256" fill="currentColor" style="vertical-align:-1px;flex-shrink:0"><path d="M234.49,111.07,90.41,22.94A20,20,0,0,0,60,39.87V216.13a20,20,0,0,0,30.41,16.93l144.08-88.13a19.82,19.82,0,0,0,0-33.86ZM84,208.85V47.15L216.16,128Z"/></svg>`
-              : `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 256 256" fill="currentColor" style="vertical-align:-1px;flex-shrink:0"><path d="M200,164v8h12a12,12,0,0,1,0,24H200v12a12,12,0,0,1-24,0V152a12,12,0,0,1,12-12h32a12,12,0,0,1,0,24ZM92,172a32,32,0,0,1-32,32H56v4a12,12,0,0,1-24,0V152a12,12,0,0,1,12-12H60A32,32,0,0,1,92,172Zm-24,0a8,8,0,0,0-8-8H56v16h4A8,8,0,0,0,68,172Zm100,8a40,40,0,0,1-40,40H112a12,12,0,0,1-12-12V152a12,12,0,0,1,12-12h16A40,40,0,0,1,168,180Zm-24,0a16,16,0,0,0-16-16h-4v32h4A16,16,0,0,0,144,180ZM36,108V40A20,20,0,0,1,56,20h96a12,12,0,0,1,8.49,3.52l56,56A12,12,0,0,1,220,88v20a12,12,0,0,1-24,0v-4H148a12,12,0,0,1-12-12V44H60v64a12,12,0,0,1-24,0ZM160,57V80h23Z"/></svg>`;
+            const IconComp = _getChipIcon(node.source_label);
+            const icon = renderToStaticMarkup(
+              React.createElement(IconComp, {
+                size: 8,
+                weight: "bold",
+                style: { verticalAlign: "-1px", flexShrink: 0 },
+              })
+            );
             result.dangerouslySetInnerHTML =
               `${esc} <span class="mm-src-chip">${icon} [${srcNum}] ${label}</span>`;
           }
@@ -3842,57 +3972,48 @@ function NotizenStudio({
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [draft]);
 
-  const getFilename = (srcUuid: string) =>
-    sources?.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid;
-
   function parseNoteCitations(text: string): React.ReactNode[] {
-    const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))\]/g;
+    const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
     const nodes: React.ReactNode[] = [];
     let last = 0;
     let m: RegExpExecArray | null;
     while ((m = pattern.exec(text)) !== null) {
       if (m.index > last) nodes.push(text.slice(last, m.index));
+      const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
       const pageNum = m[2] ? parseInt(m[2]) : 0;
       const timestamp = m[3] || null;
+      const keyword = m[4]?.trim() || undefined;
       const isMedia = !!timestamp;
 
-      // Best-effort source resolution: first media or first PDF source
-      const sourceUuid = isMedia
-        ? (sources?.find(s => _isMediaFile(s.filename))?.uuid ?? activeSourceIds?.[0] ?? "")
-        : (sources?.find(s => !_isMediaFile(s.filename))?.uuid ?? activeSourceIds?.[0] ?? "");
-      const filename = getFilename(sourceUuid);
+      const sourceUuid = activeSourceIds?.[qIdx]
+        ?? (isMedia
+          ? sources?.find(s => _isMediaFile(s.filename))?.uuid
+          : sources?.find(s => !_isMediaFile(s.filename))?.uuid)
+        ?? activeSourceIds?.[0]
+        ?? "";
+      const filename = sources?.find(s => s.uuid === sourceUuid)?.filename ?? sourceUuid;
 
-      if (isMedia && timestamp) {
+      let startTime: number | undefined;
+      if (timestamp) {
         const parts = timestamp.split(":").map(Number);
-        const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
-        nodes.push(
-          <button
-            key={m.index}
-            type="button"
-            onClick={() => onPillClick?.(sourceUuid, 0, filename, undefined, seconds)}
-            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-            style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-            title={`${filename}, ${timestamp}`}
-          >
-            <Play size={8} weight="bold" />
-            {timestamp}
-          </button>
-        );
-      } else {
-        nodes.push(
-          <button
-            key={m.index}
-            type="button"
-            onClick={() => onPillClick?.(sourceUuid, pageNum, filename)}
-            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-            style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-            title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
-          >
-            <FilePdf size={8} weight="bold" />
-            {_chunkLabel(filename, pageNum)}
-          </button>
-        );
+        startTime = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
       }
+
+      const ChipIcon = _getChipIcon(filename);
+      const label = timestamp ?? _chunkLabel(filename, pageNum);
+      nodes.push(
+        <button
+          key={m.index}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPillClick?.(sourceUuid, pageNum, filename, keyword, startTime); }}
+          className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+          style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+          title={`${filename}, ${label}`}
+        >
+          <ChipIcon size={8} weight="bold" />
+          {label}
+        </button>
+      );
       last = pattern.lastIndex;
     }
     if (last < text.length) nodes.push(text.slice(last));
@@ -4126,13 +4247,16 @@ function GlossarView({
                   <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{entry.term_de}</span>
                   {showTranslation && <span className="text-sm font-medium ml-2" style={{ color: "var(--accent)" }}>{entry.term_en}</span>}
                 </div>
-                {entry.page_number && (
+                {entry.page_number && (() => {
+                  const ChipIcon = entry.filename ? _getChipIcon(entry.filename) : FilePdf;
+                  return (
                   <button type="button" onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 hover:opacity-80 transition-opacity"
                     style={{ backgroundColor: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)" }}>
-                    <FilePdf size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!) : `S. ${entry.page_number}`}
+                    <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!) : `S. ${entry.page_number}`}
                   </button>
-                )}
+                  );
+                })()}
               </div>
               {showTranslation && (entry.example_sentence) && (
                 <div>
@@ -6596,6 +6720,8 @@ export default function KiTutorModulePage() {
     return src ? { uuid: src.uuid, filename: src.filename } : null;
   })();
 
+  const isAdmin = auth?.is_admin ?? false;
+
   const sprachtrainingContent = (<div style={{ "--accent": "#9333EA", "--accent-rgb": "147,51,234" } as React.CSSProperties} className="flex flex-col flex-1 overflow-hidden">{(() => {
     switch (sprachView) {
       case "glossar":
@@ -6818,6 +6944,9 @@ export default function KiTutorModulePage() {
       if (res.ok) {
         const note = await res.json();
         setNotes((prev) => [note, ...prev]);
+      } else {
+        const data = await res.json().catch(() => null);
+        alert(data?.detail ?? "Notiz konnte nicht gespeichert werden.");
       }
     } catch { /* ignore */ }
   }
@@ -6835,7 +6964,6 @@ export default function KiTutorModulePage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const isLecturer = auth?.role === "lecturer";
-  const isAdmin = auth?.is_admin ?? false;
   const activeSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
 
   const p1Style: React.CSSProperties = panels.quellen

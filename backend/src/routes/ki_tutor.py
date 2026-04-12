@@ -17,7 +17,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
-from src.limits import TUTOR_SOURCE_MAX_PAGES, TUTOR_MODULE_MAX_ACCESS_LINKS
+from src.limits import TUTOR_SOURCE_MAX_PAGES, TUTOR_MODULE_MAX_SOURCES, TUTOR_MODULE_MAX_ACCESS_LINKS, TUTOR_NOTES_MAX_PER_USER
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import TUTOR_SYSTEM_DIRECT, TUTOR_SYSTEM_DIRECT_WITH_CONTEXT, TUTOR_SYSTEM_RAG, TUTOR_POPUP_ACTIONS
 
@@ -381,6 +381,13 @@ async def upload_source(
     current_user: dict = Depends(get_current_user),
 ):
     module = _require_own_module(module_uuid, current_user["user_id"])
+
+    existing_sources = db.get_ki_tutor_sources_by_module(module["id"])
+    if len(existing_sources) >= TUTOR_MODULE_MAX_SOURCES:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Maximal {TUTOR_MODULE_MAX_SOURCES} Quellen pro Arbeitsraum erlaubt. Bitte lösche nicht mehr benötigte Quellen.",
+        )
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="Dateiname fehlt")
@@ -1307,6 +1314,12 @@ async def create_note(
     is_enrolled = db.is_student_enrolled(module["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    if db.count_ki_tutor_notes(module["id"], user_id) >= TUTOR_NOTES_MAX_PER_USER:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Maximal {TUTOR_NOTES_MAX_PER_USER} Notizen pro Arbeitsraum erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
+        )
 
     note = db.create_ki_tutor_note(module["id"], user_id, body.content.strip())
     return {

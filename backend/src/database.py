@@ -2098,6 +2098,16 @@ def get_ki_tutor_notes(module_id: int, user_id: int) -> list[dict]:
             return [dict(r) for r in cur.fetchall()]
 
 
+def count_ki_tutor_notes(module_id: int, user_id: int) -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM ki_tutor_notes WHERE module_id = %s AND user_id = %s",
+                (module_id, user_id),
+            )
+            return int(cur.fetchone()[0])
+
+
 def create_ki_tutor_note(module_id: int, user_id: int, content: str) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
