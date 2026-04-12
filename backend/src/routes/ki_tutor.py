@@ -857,6 +857,7 @@ async def chat(
             "filename": body.source_filename or "",
             "page_number": body.source_page,
             "source_text": body.source_text,
+            "is_popup_selection": True,
         })
     else:
         all_sources = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}

@@ -196,6 +196,7 @@ interface SourceRef {
   source_text?: string;
   start_time?: number;
   end_time?: number;
+  is_popup_selection?: boolean;
 }
 
 interface SourceQmap {
@@ -212,6 +213,7 @@ interface ChatMessage {
   source_pages?: SourceRef[];
   source_qmap?: SourceQmap[];
   sourceCount?: number;
+  popup_selection?: { uuid: string; page: number; text: string };
 }
 
 interface LernKarte {
@@ -696,6 +698,11 @@ function PdfViewer({
         // Find keywords on the page — try as phrase first, then individual keywords
         let matchStart = -1;
         let matchEnd = -1;
+        // If the full search text matches verbatim AND is long enough to span multiple
+        // sentences (e.g. a user-selected paragraph), use the match bounds directly instead
+        // of expanding via sentence boundaries — the selection already defines exact bounds.
+        // Short keyword phrases still get sentence expansion as before.
+        let exactFullMatch = false;
 
         // 1. Try full phrase match
         const fullPhrase = inputWords.join(" ");
@@ -703,6 +710,7 @@ function PdfViewer({
         if (fullIdx >= 0) {
           matchStart = fullIdx;
           matchEnd = fullIdx + fullPhrase.length - 1;
+          if (fullPhrase.length >= 120) exactFullMatch = true;
         }
 
         // 2. Try sliding windows (decreasing size)
@@ -810,11 +818,11 @@ function PdfViewer({
           if (count > 0 && count <= 2) veryRareAnswerWords.add(w);
         }
 
-        // Get initial sentence bounds
-        let [sentStart, sentEnd] = _findSentBounds(matchStart, matchEnd);
+        // Get initial sentence bounds — skip expansion when the full search text matched verbatim
+        let [sentStart, sentEnd] = exactFullMatch ? [matchStart, matchEnd] : _findSentBounds(matchStart, matchEnd);
 
         // Smart mode: expand across related sentences
-        if (rareAnswerWords.size >= 3) {
+        if (!exactFullMatch && rareAnswerWords.size >= 3) {
           const sentenceHasAnswerWord = (start: number, end: number): boolean => {
             const sentText = cleanText.slice(start, end + 1).toLowerCase();
             // Count rare words and very rare words in sentence
@@ -1814,8 +1822,19 @@ function ChatPanel({
                 const sp = matchingEntries[usedIdx % Math.max(1, matchingEntries.length)];
                 spUsedCount.set(pageKey, usedIdx + 1);
 
-                // Prefer LLM keywords for highlighting, fall back to first ~80 chars of chunk
-                const highlightText = keywords || (sp?.source_text ? sp.source_text.slice(0, 80).trim() : undefined);
+                // If the chip refers to a source_pages entry that holds the user's full popup
+                // selection (backend sets is_popup_selection), use the complete text as highlight.
+                // Falls back to in-memory popup_selection (same session) or LLM keywords / chunk snippet.
+                const popupEntry = msgSourcePages.find(
+                  s => s.is_popup_selection && s.source_uuid === sourceUuid && s.page_number === pageNum,
+                );
+                const popupSel = msg.popup_selection;
+                const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
+                const highlightText = popupEntry?.source_text
+                  ? popupEntry.source_text
+                  : matchesPopupSel
+                    ? popupSel!.text
+                    : (keywords || (sp?.source_text ? sp.source_text.slice(0, 80).trim() : undefined));
 
                 const ChipIcon = _getChipIcon(filename);
                 if (isMedia && timestamp) {
@@ -6044,11 +6063,14 @@ export default function KiTutorModulePage() {
     if (!content.trim()) return;
     if (!directText && effectiveSourceIds.length === 0) return;
     const msgSourceCount = directText ? 1 : effectiveSourceIds.length;
-    setMessages((prev) => [...prev, { role: "user", content: content.trim(), sourceCount: msgSourceCount }]);
+    const popupSel = sourceInfo?.selectedText
+      ? { uuid: sourceInfo.uuid, page: sourceInfo.page, text: sourceInfo.selectedText }
+      : undefined;
+    setMessages((prev) => [...prev, { role: "user", content: content.trim(), sourceCount: msgSourceCount, popup_selection: popupSel }]);
     setChatInput("");
     setChatLoading(true);
     // Add placeholder assistant message for streaming
-    setMessages((prev) => [...prev, { role: "assistant", content: "", sourceCount: msgSourceCount }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: "", sourceCount: msgSourceCount, popup_selection: popupSel }]);
 
     const updateLast = (patch: Partial<ChatMessage>) =>
       setMessages((prev) => {
