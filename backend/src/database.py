@@ -497,6 +497,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS start_time REAL")
             # Migration: add back_en for bilingual flashcards
             cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
+            # Migration: add extras JSONB for Lernkarten structured fields (word_parts etc.)
+            cur.execute("ALTER TABLE ki_tutor_exercise_items ADD COLUMN IF NOT EXISTS extras JSONB")
             # Migration: last_run_start for tracking exercise run boundaries
             cur.execute("ALTER TABLE ki_tutor_exercise_sets ADD COLUMN IF NOT EXISTS last_run_start TIMESTAMP")
             # Migration: drop legacy mastery columns if they exist
@@ -2501,8 +2503,8 @@ def create_exercise_set(
                 cur.execute(
                     """INSERT INTO ki_tutor_exercise_items
                        (set_id, position, front, back, back_en, options, correct_idx,
-                        source_label, page_number, explanation, start_time, sources)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                        source_label, page_number, explanation, start_time, sources, extras)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                     (
                         ex_set["id"], i,
                         item["front"], item["back"], item.get("back_en"),
@@ -2513,6 +2515,7 @@ def create_exercise_set(
                         item.get("explanation"),
                         item.get("start_time"),
                         json.dumps(item.get("sources")) if item.get("sources") else None,
+                        json.dumps(item.get("extras")) if item.get("extras") else None,
                     ),
                 )
                 created_items.append(dict(cur.fetchone()))
@@ -2547,8 +2550,8 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
                 cur.execute(
                     """INSERT INTO ki_tutor_exercise_items
                        (set_id, position, front, back, back_en, options, correct_idx,
-                        source_label, page_number, explanation, start_time, sources)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        source_label, page_number, explanation, start_time, sources, extras)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         set_id, i,
                         item["front"], item["back"], item.get("back_en"),
@@ -2559,6 +2562,7 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
                         item.get("explanation"),
                         item.get("start_time"),
                         json.dumps(item.get("sources")) if item.get("sources") else None,
+                        json.dumps(item.get("extras")) if item.get("extras") else None,
                     ),
                 )
             cur.execute(

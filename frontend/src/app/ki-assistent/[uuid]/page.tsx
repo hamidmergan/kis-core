@@ -284,7 +284,7 @@ interface VocabTestQuestion {
   explanation?: string;
 }
 
-type SprachtrainingView = "overview" | "glossar" | "karteikarten" | "lueckentext" | "vokabeltest"
+type SprachtrainingView = "overview" | "karteikarten" | "lueckentext" | "vokabeltest"
   | "lk-sets" | "lk-learn" | "lk-complete"
   | "cl-sets" | "cl-learn" | "cl-complete"
   | "vt-sets" | "vt-learn" | "vt-complete"
@@ -295,6 +295,12 @@ interface ExerciseItemSource {
   page_number?: number;
   start_time?: number;
   highlight_text?: string;
+}
+
+interface ExerciseItemExtras {
+  word_parts?: string;
+  word_parts_explained?: string;
+  example_sentence?: string;
 }
 
 interface ExerciseItem {
@@ -311,6 +317,7 @@ interface ExerciseItem {
   start_time?: number;
   explanation?: string;
   sources?: ExerciseItemSource[];
+  extras?: ExerciseItemExtras;
 }
 
 interface ExerciseSet {
@@ -1750,9 +1757,9 @@ function ChatPanel({
               </p>
               <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
                 {[
+                  "Gib mir einen Überblick über den Inhalt.",
                   "Fasse die wichtigsten Punkte zusammen.",
-                  "Erkläre mir das Thema in einfachen Worten.",
-                  "Welche Prüfungsfragen könnten dazu gestellt werden?",
+                  "Erkläre zentrale Begriffe kurz und verständlich.",
                 ].map((prompt) => (
                   <button
                     key={prompt}
@@ -2542,11 +2549,10 @@ function LernkartenLearnView({
 
         // ── Lernkarten: single-page card, no flip ──
         if (isVocab) {
-          const raw = card.back || "";
-          const defMatch = raw.match(/^([\s\S]*?)(?=\n\*\*Wortzerlegung\*\*|\n\*\*Beispiel:\*\*|\n\*\*Im Kontext:\*\*|$)/);
-          const wpMatch = raw.match(/\*\*Wortzerlegung\*\*\n([^\n]+)\n([^\n]+)/);
-          const ctxMatch = raw.match(/\*\*(?:Beispiel|Im Kontext):\*\*\n\*([\s\S]*?)\*/);
-          const definition = defMatch?.[1]?.trim() || raw;
+          const definition = (card.back || "").trim();
+          const wordParts = card.extras?.word_parts?.trim() || "";
+          const wordPartsExplained = card.extras?.word_parts_explained?.trim() || "";
+          const exampleSentence = card.extras?.example_sentence?.trim() || "";
           return <>
             <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
               <div className="mx-auto w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
@@ -2568,32 +2574,34 @@ function LernkartenLearnView({
                       <p className="text-sm leading-relaxed mt-1" style={{ color: "var(--text)" }}>{definition}</p>
                     </div>
                     {/* Word parts */}
-                    {wpMatch && (() => {
-                      const parts = wpMatch[2].split("|").map(p => p.trim()).filter(Boolean);
+                    {wordParts && (() => {
+                      const parts = wordPartsExplained.split("|").map(p => p.trim()).filter(Boolean);
                       return (
                         <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--surface-dim)" }}>
                           <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Wortzerlegung</span>
-                          <p className="text-sm font-semibold mt-1.5" style={{ color: "var(--text)" }}>{wpMatch[1]}</p>
-                          <div className="flex flex-col gap-1 mt-2">
-                            {parts.map((part, pi) => {
-                              const [term, ...rest] = part.split("=");
-                              const explanation = rest.join("=").trim();
-                              return (
-                                <div key={pi} className="flex items-baseline gap-1.5 text-xs">
-                                  <span className="font-semibold shrink-0" style={{ color: "var(--text)" }}>{term.trim()}</span>
-                                  {explanation && <span style={{ color: "var(--muted)" }}>{explanation}</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <p className="text-sm font-semibold mt-1.5" style={{ color: "var(--text)" }}>{wordParts}</p>
+                          {parts.length > 0 && (
+                            <div className="flex flex-col gap-1 mt-2">
+                              {parts.map((part, pi) => {
+                                const [term, ...rest] = part.split("=");
+                                const explanation = rest.join("=").trim();
+                                return (
+                                  <div key={pi} className="flex items-baseline gap-1.5 text-xs">
+                                    <span className="font-semibold shrink-0" style={{ color: "var(--text)" }}>{term.trim()}</span>
+                                    {explanation && <span style={{ color: "var(--muted)" }}>{explanation}</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })()}
                     {/* Context sentence */}
-                    {ctxMatch && (
+                    {exampleSentence && (
                       <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
                         <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Beispiel</span>
-                        <p className="text-xs italic leading-relaxed mt-1" style={{ color: "var(--text)" }}>{ctxMatch[1]?.trim()}</p>
+                        <p className="text-xs italic leading-relaxed mt-1" style={{ color: "var(--text)" }}>{exampleSentence}</p>
                       </div>
                     )}
                     {/* Sources + Chat */}
@@ -4225,7 +4233,7 @@ function GlossarMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
 }
 
 function GlossarView({
-  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete, onDeleteAll, sourceCount = 0, stats, breadcrumbs, showTranslation,
+  entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete, onDeleteAll, sourceCount = 0, stats, breadcrumbs, showTranslation, feedback, onDismissFeedback,
 }: {
   entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
   onGenerate: () => void; onBack?: () => void;
@@ -4236,6 +4244,8 @@ function GlossarView({
   stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
   showTranslation?: boolean;
+  feedback?: { kind: "success" | "info" | "error"; message: string } | null;
+  onDismissFeedback?: () => void;
 }) {
   const noSources = sourceCount === 0;
   return (
@@ -4261,6 +4271,18 @@ function GlossarView({
               style={{ backgroundColor: "rgba(var(--accent-rgb),0.06)", color: "var(--accent)" }}>
               <Spinner size="xs" color="current" />
               Begriffe werden aus Markierung extrahiert…
+            </div>
+          )}
+          {!extracting && feedback && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
+              style={{
+                backgroundColor: feedback.kind === "success" ? "rgba(22,163,74,0.08)" : feedback.kind === "error" ? "rgba(185,28,28,0.08)" : "rgba(100,116,139,0.1)",
+                color: feedback.kind === "success" ? "#166534" : feedback.kind === "error" ? "#B91C1C" : "#334155",
+              }}>
+              <span className="flex-1">{feedback.message}</span>
+              {onDismissFeedback && (
+                <button type="button" onClick={onDismissFeedback} className="opacity-60 hover:opacity-100 text-xs leading-none" aria-label="Schließen">×</button>
+              )}
             </div>
           )}
           <div className="relative flex items-center justify-center gap-1.5 px-1">
@@ -5091,9 +5113,13 @@ interface DayDetail {
   chat_count: number;
 }
 
-function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void }) {
+function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, sprachtrainingActive = true }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; sprachtrainingActive?: boolean }) {
   const [period, setPeriod] = useState<StatsPeriod>("30");
   const [category, setCategory] = useState<"lerntools" | "sprachtraining">("lerntools");
+
+  useEffect(() => {
+    if (!sprachtrainingActive && category === "sprachtraining") setCategory("lerntools");
+  }, [sprachtrainingActive, category]);
 
   // ── Lerntools: eigener State ──
   const [selDayLt, setSelDayLt] = useState<HeatmapDay | null>(null);
@@ -5230,15 +5256,17 @@ function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet }: { sta
   return (
     <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
       {/* ── Category filter ── */}
-      <StudioTabs
-        tabs={[
-          { key: "lerntools", label: "Lerntools" },
-          { key: "sprachtraining", label: "Studio" },
-        ]}
-        active={category}
-        onSelect={(k) => setCategory(k as "lerntools" | "sprachtraining")}
-        accentColor={category === "sprachtraining" ? "#9333EA" : undefined}
-      />
+      {sprachtrainingActive && (
+        <StudioTabs
+          tabs={[
+            { key: "lerntools", label: "Lerntools" },
+            { key: "sprachtraining", label: "Fachsprachentraining" },
+          ]}
+          active={category}
+          onSelect={(k) => setCategory(k as "lerntools" | "sprachtraining")}
+          accentColor={category === "sprachtraining" ? "#9333EA" : undefined}
+        />
+      )}
 
       {/* ── Period selector + period summary ── */}
       <div className="mt-4">
@@ -5495,7 +5523,7 @@ function StudioTabs({ tabs, active, onSelect, accentColor }: {
 
 // ─── Studio Overview ──────────────────────────────────────────────────────────
 
-function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid, statsVersion, onNavigateToSet, onSprachNavigate, activeSourceCount, sprachView }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string; statsVersion: number; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; onSprachNavigate?: (view: SprachtrainingView) => void; activeSourceCount?: number; sprachView?: string }) {
+function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid, statsVersion, onNavigateToSet, onSprachNavigate, activeSourceCount, sprachView, requestedTab }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string; statsVersion: number; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; onSprachNavigate?: (view: SprachtrainingView) => void; activeSourceCount?: number; sprachView?: string; requestedTab?: { tab: "tools" | "glossar" | "notizen" | "statistik"; nonce: number } | null }) {
   const [studioTab, _setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen" | "statistik">(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("kis-studio-tab");
@@ -5542,6 +5570,11 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
       setStudioTab("tools");
     }
   }, [sprachView, studioTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // External request to switch studio tab (e.g. from PDF "Zum Glossar")
+  useEffect(() => {
+    if (requestedTab) setStudioTab(requestedTab.tab);
+  }, [requestedTab?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const effectiveTab = studioTab;
 
@@ -5631,7 +5664,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
 
       {/* Ergebnisse Inhalt */}
       {studioTab === "statistik" && (
-        <StudentStatsView stats={studentStats} loading={statsLoading} moduleUuid={moduleUuid} onNavigateToSet={onNavigateToSet} />
+        <StudentStatsView stats={studentStats} loading={statsLoading} moduleUuid={moduleUuid} onNavigateToSet={onNavigateToSet} sprachtrainingActive={sprachtrainingActive} />
       )}
     </div>
   );
@@ -5756,6 +5789,7 @@ export default function KiTutorModulePage() {
 
   // ─── Sprachtraining State ─────────────────────────────────────────────────
   const [sprachView, setSprachView] = useState<SprachtrainingView>("overview");
+  const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossar" | "notizen" | "statistik"; nonce: number } | null>(null);
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [glossaryLoading, setGlossaryLoading] = useState(false);
   const [clozeExercises, setClozeExercises] = useState<ClozeExercise[]>([]);
@@ -6174,11 +6208,22 @@ export default function KiTutorModulePage() {
 
   // ─── Glossary Extract State ──────────────────────────────────────────────
   const [glossaryExtracting, setGlossaryExtracting] = useState(false);
+  const [glossaryFeedback, setGlossaryFeedback] = useState<{ kind: "success" | "info" | "error"; message: string } | null>(null);
+  const glossaryFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showGlossaryFeedback(kind: "success" | "info" | "error", message: string) {
+    if (glossaryFeedbackTimerRef.current) clearTimeout(glossaryFeedbackTimerRef.current);
+    setGlossaryFeedback({ kind, message });
+    glossaryFeedbackTimerRef.current = setTimeout(() => setGlossaryFeedback(null), 6000);
+  }
 
   async function handleAddToGlossary(text: string, sourceUuid: string, page: number) {
-    // Navigate to Glossar view and show extracting state
-    setSprachView("glossar");
-    setSprachtrainingActive(true);
+    // Open Studio > Glossar tab and show extracting state
+    setSprachView("overview");
+    setStudioTabRequest({ tab: "glossar", nonce: Date.now() });
+    if (isMobile) setActiveTab("studio");
+    else setPanels((prev) => ({ ...prev, studio: true }));
+    setGlossaryFeedback(null);
     setGlossaryExtracting(true);
     try {
       const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary/extract`, {
@@ -6191,9 +6236,16 @@ export default function KiTutorModulePage() {
         if (data.added > 0) {
           loadGlossary();
           loadGlossaryCount();
+          showGlossaryFeedback("success", data.message || `${data.added} Begriff(e) hinzugefügt.`);
+        } else {
+          showGlossaryFeedback("info", data.message || "Keine neuen Begriffe gefunden.");
         }
+      } else {
+        showGlossaryFeedback("error", "Extraktion fehlgeschlagen. Bitte erneut versuchen.");
       }
-    } catch { /* ignore */ } finally {
+    } catch {
+      showGlossaryFeedback("error", "Netzwerkfehler. Bitte erneut versuchen.");
+    } finally {
       setGlossaryExtracting(false);
     }
   }
@@ -6608,15 +6660,11 @@ export default function KiTutorModulePage() {
       return;
     }
     loadExerciseSet(setId).then(() => {
-      if (mode === "glossar") {
-        // Sprachtraining
-        if (tool === "lernkarten" || tool === "karteikarten") setSprachView("lk-learn");
-        else if (tool === "lueckentext") setSprachView("cl-learn");
-        else if (tool === "vokabeltest") setSprachView("vt-learn");
-      } else {
-        // Lerntools (mode=quelle)
-        setStudioView(tool as StudioView);
-      }
+      // Route by tool: Sprachtraining-only tools go to sprachView, Lerntools to studioView
+      if (tool === "lernkarten" || (tool === "karteikarten" && mode === "glossar")) setSprachView("lk-learn");
+      else if (tool === "lueckentext") setSprachView("cl-learn");
+      else if (tool === "vokabeltest") setSprachView("vt-learn");
+      else setStudioView(tool as StudioView);
     });
   }
 
@@ -6699,6 +6747,15 @@ export default function KiTutorModulePage() {
         lines.push(`   ${item.back.replace(/\n/g, "\n   ")}`);
         if (item.back_en) {
           lines.push(`   EN: ${item.back_en}`);
+        }
+        if (item.extras?.word_parts) {
+          lines.push(`   Wortzerlegung: ${item.extras.word_parts}`);
+          if (item.extras.word_parts_explained) {
+            lines.push(`     ${item.extras.word_parts_explained}`);
+          }
+        }
+        if (item.extras?.example_sentence) {
+          lines.push(`   Beispiel: „${item.extras.example_sentence}"`);
         }
         // List all sources/chips with their highlighted text
         const sources = item.sources?.length
@@ -6791,26 +6848,6 @@ export default function KiTutorModulePage() {
 
   const sprachtrainingContent = (<div style={{ "--accent": "#9333EA", "--accent-rgb": "147,51,234" } as React.CSSProperties} className="flex flex-col flex-1 overflow-hidden">{(() => {
     switch (sprachView) {
-      case "glossar":
-        return (
-          <GlossarView
-            entries={glossary}
-            loading={glossaryLoading}
-            extracting={glossaryExtracting}
-            onGenerate={generateGlossary}
-            onBack={() => setSprachView("overview")}
-            breadcrumbs={[{ label: "Studio", onClick: () => setSprachView("overview") }]}
-            sourceCount={selectedSourceIds.length}
-            onOpenSource={(page, highlightText) => {
-              const src = sources.find((s) => selectedSourceIds.includes(s.uuid));
-              if (src) handleOpenViewer(src, page, highlightText);
-            }}
-            onDelete={deleteGlossaryEntry}
-            onDeleteAll={deleteAllGlossaryEntries}
-            stats={pageStats}
-            showTranslation
-          />
-        );
       case "karteikarten":
         return (
           <VocabFlashcards
@@ -6986,7 +7023,10 @@ export default function KiTutorModulePage() {
       }}
       onDelete={deleteGlossaryEntry}
       onDeleteAll={deleteAllGlossaryEntries}
+      stats={pageStats}
       showTranslation={sprachtrainingActive}
+      feedback={glossaryFeedback}
+      onDismissFeedback={() => setGlossaryFeedback(null)}
     />
   );
 
@@ -7354,7 +7394,7 @@ export default function KiTutorModulePage() {
                 ) : sprachView !== "overview" ? (
                   sprachtrainingContent
                 ) : studioView === "overview" ? (
-                  <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} />
+                  <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} requestedTab={studioTabRequest} />
                 ) : activeSet && activeSet.tool === "karteikarten" ? (
                   <LernkartenLearnView
                     exerciseSet={activeSet}
@@ -7540,7 +7580,7 @@ export default function KiTutorModulePage() {
                       ) : sprachView !== "overview" ? (
                         sprachtrainingContent
                       ) : studioView === "overview" ? (
-                        <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} />
+                        <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} requestedTab={studioTabRequest} />
                       ) : activeSet && activeSet.tool === "karteikarten" ? (
                         <LernkartenLearnView
                           exerciseSet={activeSet}

@@ -1489,12 +1489,12 @@ async def delete_all_glossary_endpoint(
 
 # ─── Glossar: Aus Markierung extrahieren ─────────────────────────────────────
 
-_GLOSSARY_EXTRACT_PROMPT = """Du bist ein Fachsprachen-Experte. Analysiere den markierten Text und extrahiere daraus Fachbegriffe für ein Glossar.
+_GLOSSARY_EXTRACT_PROMPT = """Du bist ein Sprachexperte für internationale Studierende auf B1-Niveau. Analysiere den markierten Text und extrahiere daraus Wörter/Phrasen, die ein B1-Lerner für das Studium lernen sollte.
 
 Antworte NUR mit einem JSON-Array:
 [
   {
-    "term_de": "Fachbegriff in der Quellsprache",
+    "term_de": "Begriff in der Quellsprache",
     "term_en": "Übersetzung (siehe Regeln)",
     "definition": "Kurze Erklärung auf Deutsch (B1 Niveau, 1-2 Sätze)",
     "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
@@ -1503,17 +1503,36 @@ Antworte NUR mit einem JSON-Array:
   }
 ]
 
+Zwei Kategorien sind erlaubt (beide für B1-Studierende wichtig):
+1. **Fachbegriffe**: Domänenspezifische Termini (z.B. "Arbeitsmarkt", "Integralrechnung", "Curriculum")
+2. **Wissenschafts-/Bildungssprache**: Akademische Nomen, Verben, Adjektive oder Kollokationen, die über A2/B1-Alltagswortschatz hinausgehen (z.B. "Studium", "Voraussetzung", "erhöhen", "entwickeln", "berücksichtigen", "Erkenntnis")
+
 Regeln:
-- Nur echte Fachbegriffe extrahieren — KEINE allgemeinen Wörter (und, oder, ist, der, die, das, er, sie, es, etc.)
-- Keine Füllwörter, Pronomen, Artikel, Konjunktionen oder Präpositionen
-- KRITISCH für term_de: Der Begriff muss WÖRTLICH als zusammenhängendes Wort oder Phrase im Text vorkommen. Wenn der Text "in den deutschen Arbeitsmarkt zu integrieren" sagt, darfst du NICHT "Arbeitsmarktintegration" daraus machen. Nimm stattdessen "Arbeitsmarkt" oder lass es weg. Erfinde KEINE Komposita oder Nominalisierungen die nicht exakt so im Text stehen.
+- NICHT extrahieren: reine Funktionswörter (und, oder, aber, ist, der, die, das, ein, eine, er, sie, es, im, zu, mit, von, für, auf, etc.), triviale A1/A2-Alltagswörter (Haus, Tag, gehen, machen, gut, schön)
+- KRITISCH für term_de: Der Begriff muss WÖRTLICH als zusammenhängendes Wort oder Phrase im Text vorkommen. Wenn der Text "in den deutschen Arbeitsmarkt zu integrieren" sagt, darfst du NICHT "Arbeitsmarktintegration" daraus machen. Nimm stattdessen "Arbeitsmarkt" oder "integrieren". Erfinde KEINE Komposita oder Nominalisierungen die nicht exakt so im Text stehen.
+- Bei Verben/Adjektiven in Flexion: Grundform als term_de ist erlaubt, wenn die Wortform im Text klar erkennbar ist (z.B. Text "zu erhöhen" → term_de "erhöhen" ist OK).
 - term_en: Wenn der Quelltext NICHT auf Englisch ist, übersetze ins Englische. Wenn der Quelltext auf Englisch ist, übersetze ins Deutsche. Niemals die gleiche Sprache wie term_de!
 - definition: Einfache Erklärung auf Deutsch, verständlich auf B1-Sprachniveau
 - definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
 - example_sentence_en: Englische Übersetzung des Beispielsatzes
-- Maximal 5 Begriffe pro Markierung
-- Wenn der Text KEINE Fachbegriffe enthält, antworte mit einem leeren Array: []
+- Maximal 5 Begriffe pro Markierung, priorisiere die für B1 schwierigsten
+- Wenn der Text wirklich nur Funktionswörter/Trivialwortschatz enthält, antworte mit: []
 - Antworte NUR mit dem JSON-Array"""
+
+
+def _term_appears_in_text(term: str, text_lower: str) -> bool:
+    """Check if term appears literally or as a lemma/stem prefix in the text.
+    Allows LLM to return Grundform (e.g. "erhöhen") when text has inflected
+    form ("erhöht", "zu erhöhen"). Rejects terms that share only a weak prefix.
+    """
+    t = term.lower().strip()
+    if not t:
+        return False
+    if t in text_lower:
+        return True
+    stem_len = max(5, len(t) * 3 // 4)
+    stem = t[:stem_len]
+    return bool(re.search(r"\b" + re.escape(stem), text_lower))
 
 
 class GlossaryExtractBody(BaseModel):
@@ -1575,7 +1594,7 @@ async def extract_glossary_from_selection(
 
         terms = json.loads(answer)
         if not isinstance(terms, list):
-            return {"added": 0, "message": "Keine Fachbegriffe erkannt."}
+            return {"added": 0, "message": "Keine lernenswerten Begriffe in der Markierung gefunden."}
 
         # Filter: must appear in source text, no duplicates
         text_lower = text.lower()
@@ -1585,7 +1604,7 @@ async def extract_glossary_from_selection(
             if not t.get("term_de"):
                 continue
             term = t["term_de"]
-            if term.lower() not in text_lower:
+            if not _term_appears_in_text(term, text_lower):
                 continue
             if term.lower() in existing_terms:
                 continue
@@ -1603,7 +1622,9 @@ async def extract_glossary_from_selection(
                 break
 
         if not new_entries:
-            return {"added": 0, "message": "Keine neuen Fachbegriffe erkannt."}
+            if existing_terms and any(t.get("term_de", "").lower() in existing_terms for t in terms):
+                return {"added": 0, "message": "Die erkannten Begriffe sind bereits im Glossar."}
+            return {"added": 0, "message": "Keine neuen lernenswerten Begriffe in der Markierung gefunden."}
 
         db.bulk_create_glossary_entries(source["id"], new_entries)
         count = len(new_entries)
@@ -1613,7 +1634,7 @@ async def extract_glossary_from_selection(
             "entries": new_entries,
         }
     except (json.JSONDecodeError, ValueError):
-        return {"added": 0, "message": "Keine Fachbegriffe erkannt."}
+        return {"added": 0, "message": "Keine lernenswerten Begriffe in der Markierung gefunden."}
     except Exception as e:
         logger.error("Glossary extract error: {}", e)
         raise HTTPException(status_code=500, detail="Extraktion fehlgeschlagen")

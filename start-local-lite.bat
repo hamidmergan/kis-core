@@ -1,7 +1,7 @@
 @echo off
-rem Lokale Entwicklung (lite) — ohne thorsten, ollama, langfuse, adminer, ldap, ldapadmin
-rem Nur: redis, postgres, backend, celery-worker, frontend + minio (S3) + kokoro-gpu (TTS)
-set PROFILES=--profile minio --profile kokoro-gpu
+rem Lokale Entwicklung (lite) — ohne thorsten, ollama, langfuse, adminer, ldapadmin, kokoro (nutzt KISSKI)
+rem Nur: redis, postgres, backend, celery-worker, frontend + minio (S3) + ldap (Login)
+set PROFILES=--profile minio --profile ldap
 set COMPOSE_FILES=-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.gpu.yml
 
 if "%1"=="down" (

@@ -239,12 +239,12 @@ TUTOR_LERNKARTEN_PROMPT = (
     '  "title": "Kurzer Titel der das Thema zusammenfasst",\n'
     '  "cards": [\n'
     "    {\n"
-    '      "front": "Fachbegriff",\n'
-    '      "back": "Einfache Definition (1-2 kurze Sätze)",\n'
+    '      "begriff": "Fachbegriff",\n'
+    '      "definition": "Einfache Definition (1-2 kurze Sätze)",\n'
     '      "word_parts": "Teil1 + Teil2 + Teil3",\n'
     '      "word_parts_explained": "Teil1 = einfache Erklärung | Teil2 = einfache Erklärung",\n'
     '      "example_sentence": "Ein einfacher Beispielsatz mit dem Begriff, wie man ihn im Studienalltag benutzt.",\n'
-    '      "back_en": "English translation",\n'
+    '      "begriff_en": "English translation",\n'
     '      "source_label": "Dateiname.pdf",\n'
     '      "page_number": 5\n'
     "    }\n"
@@ -253,8 +253,8 @@ TUTOR_LERNKARTEN_PROMPT = (
     "Regeln:\n"
     "- Erstelle genau {count} Lernkarten\n"
     "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
-    "- front: Ein zentraler deutscher Fachbegriff aus dem Text\n"
-    "- back: Einfache Definition auf Deutsch. Schreibe so, dass ein Student mit B1-Deutsch es sofort versteht. "
+    "- begriff: Ein zentraler deutscher Fachbegriff aus dem Text\n"
+    "- definition: Einfache Definition auf Deutsch. Schreibe so, dass ein Student mit B1-Deutsch es sofort versteht. "
     "Keine Fachsprache in der Erklärung — erkläre Fachsprache MIT einfacher Sprache.\n"
     "- word_parts: Zerlegung in SINNVOLLE Wortbestandteile (z.B. 'Studien + Abbruch + Quote'). "
     "NUR bei zusammengesetzten deutschen Wörtern aus 2+ bedeutungstragenden Teilen. "
@@ -266,7 +266,7 @@ TUTOR_LERNKARTEN_PROMPT = (
     "- example_sentence: Ein EINFACHER Beispielsatz der zeigt, wie man den Begriff im Studienalltag benutzt. "
     "Beispiel für 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch — viele Studenten hören auf, bevor sie fertig sind.' "
     "Der Satz soll dem Studenten helfen, den Begriff im Kontext zu verstehen.\n"
-    "- back_en: Englische Übersetzung des Begriffs\n"
+    "- begriff_en: Englische Übersetzung des Begriffs\n"
     "- source_label und page_number: Die Hauptquelle aus den [Quellenname, S. X] Tags\n"
     "- Nur Begriffe aus dem gegebenen Text verwenden\n"
     "- Fokus auf zentrale Fachbegriffe, KEINE Verständnisfragen\n"

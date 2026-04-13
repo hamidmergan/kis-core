@@ -1167,22 +1167,25 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 data = _json.loads(answer)
 
                 def _format_lernkarte(c: dict) -> dict:
-                    """Format lernkarte with word parts, example sentence, etc."""
-                    item = _parse_card(c, include_back_en=True, search_term=c.get("front", ""), multi_source=True)
-                    # Build structured back text from new fields
-                    parts = [c.get("back", "").strip()]
-                    wp = c.get("word_parts", "").strip()
-                    wpe = c.get("word_parts_explained", "").strip()
-                    if wp:
-                        parts.append(f"\n**Wortzerlegung**\n{wp}")
-                        if wpe:
-                            parts.append(wpe)
-                    # Use LLM-generated example sentence (simple B1-level usage example)
-                    ex = c.get("example_sentence", "").strip()
-                    if ex:
-                        parts.append(f"\n**Beispiel:**\n*\u201E{ex}\u201C*")
-
-                    item["back"] = "\n".join(parts)
+                    """Format lernkarte: begriff/definition in front/back columns, rest in extras JSONB."""
+                    begriff = (c.get("begriff") or "").strip()
+                    definition = (c.get("definition") or "").strip()
+                    # Map semantic names to shared DB columns (front/back) so karteikarten logic stays untouched
+                    normalized = {
+                        "front": begriff,
+                        "back": definition,
+                        "back_en": (c.get("begriff_en") or "").strip(),
+                        "source_label": c.get("source_label"),
+                        "page_number": c.get("page_number"),
+                    }
+                    item = _parse_card(normalized, include_back_en=True, search_term=begriff, multi_source=True)
+                    extras = {
+                        k: (c.get(k) or "").strip()
+                        for k in ("word_parts", "word_parts_explained", "example_sentence")
+                        if (c.get(k) or "").strip()
+                    }
+                    if extras:
+                        item["extras"] = extras
                     return item
                 items = [_format_lernkarte(c) for c in data.get("cards", [])][:count]
                 title = _title_from_items(items, multi_label)
