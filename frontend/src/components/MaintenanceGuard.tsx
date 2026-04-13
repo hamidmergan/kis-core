@@ -1,0 +1,32 @@
+"use client";
+
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+
+const BYPASS_PREFIXES = ["/wartung", "/login", "/admin", "/api"];
+
+export default function MaintenanceGuard() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (BYPASS_PREFIXES.some((p) => pathname?.startsWith(p))) return;
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const res = await fetch("/api/health/maintenance", { cache: "no-store" });
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!cancelled && d.enabled) router.replace("/wartung");
+      } catch {
+        /* ignore */
+      }
+    };
+    check();
+    const id = setInterval(check, 30000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [pathname, router]);
+
+  return null;
+}

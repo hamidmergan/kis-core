@@ -987,9 +987,23 @@ function GeneralSettingsSection() {
     }
   };
 
-  const toggle = (key: string, val: boolean) => {
-    setS((prev) => ({ ...prev, [key]: val }));
-    patch({ [key]: val });
+  const EMBEDDING_KEYS = ["kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled"];
+
+  const toggle = async (key: string, val: boolean) => {
+    // Embedding-Provider sind sich gegenseitig ausschließend (unterschiedliche
+    // Vektordimensionen → kein Parallelbetrieb möglich). Backend erzwingt das;
+    // hier spiegeln wir die Änderung sofort, damit die UI nicht kurz mehrere an zeigt.
+    if (EMBEDDING_KEYS.includes(key) && val) {
+      const mutex: Record<string, boolean> = { [key]: true };
+      for (const other of EMBEDDING_KEYS) if (other !== key) mutex[other] = false;
+      setS((prev) => ({ ...prev, ...mutex }));
+    } else {
+      setS((prev) => ({ ...prev, [key]: val }));
+    }
+    await patch({ [key]: val });
+    if (EMBEDDING_KEYS.includes(key)) {
+      window.dispatchEvent(new CustomEvent("embedding-provider-changed"));
+    }
   };
 
   const P = (props: Omit<Parameters<typeof ProviderToggle>[0], "saving" | "onToggle">) => (
@@ -1046,9 +1060,10 @@ function GeneralSettingsSection() {
       </ProviderSection>
 
       {/* Embeddings */}
-      <ProviderSection title="Embeddings (KI-Assistent)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+      <ProviderSection title="Embeddings (KI-Assistent)" hint="Nur ein Anbieter gleichzeitig — Wechsel erfordert Reindex (siehe Wartungsmodus oben).">
         <P label="KISSKI (e5-mistral-7b)" settingKey="kisski_embedding_enabled" enabled={s.kisski_embedding_enabled ?? true} configured={s.kisski_embedding_configured ?? false} envHint="KISSKI_API_KEY" />
         <P label="THL myLab (qwen3-embedding-4b)" settingKey="mylab_embedding_enabled" enabled={s.mylab_embedding_enabled ?? false} configured={s.mylab_embedding_configured ?? false} available={s.mylab_embedding_available} envHint="MYLAB_BASE_URL" />
+        <P label="Ollama (lokal, nomic-embed-text)" settingKey="ollama_embedding_enabled" enabled={s.ollama_embedding_enabled ?? false} configured={s.ollama_embedding_configured ?? false} envHint="OLLAMA_BASE_URL" />
       </ProviderSection>
 
       {/* Bild-Generierung */}
@@ -1076,9 +1091,10 @@ function GeneralSettingsSection() {
       </ProviderSection>
 
       {/* LLM Chat */}
-      <ProviderSection title="LLM Chat" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+      <ProviderSection title="LLM Chat" hint="Priorität: KISSKI → THL myLab → Ollama. Jeder aktive Anbieter dient als Fallback.">
         <P label="KISSKI (Mistral / Qwen)" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" />
         <P label="THL myLab (GPT OSS 120B)" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" />
+        <P label="Ollama (lokal, qwen3)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" />
       </ProviderSection>
     </div>
   );
@@ -1269,8 +1285,181 @@ function PromptsTab() {
 function SettingsTab() {
   return (
     <div className="space-y-6">
+      <MaintenanceSection />
       <GeneralSettingsSection />
       <ToolsSettingsSection />
+    </div>
+  );
+}
+
+
+interface ReindexProgress {
+  total: number;
+  done: number;
+  current: string;
+  failed: number;
+  running: boolean;
+}
+
+function MaintenanceSection() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [progress, setProgress] = useState<ReindexProgress | null>(null);
+  const [staleModules, setStaleModules] = useState<{ uuid: string; title: string; owner: string | null }[]>([]);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/maintenance", { credentials: "include" });
+      const d = await res.json();
+      setEnabled(!!d.enabled);
+      setProgress(d.reindex ?? null);
+      setStaleModules(Array.isArray(d.stale_modules) ? d.stale_modules : []);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!progress?.running) return;
+    const id = setInterval(load, 2000);
+    return () => clearInterval(id);
+  }, [progress?.running, load]);
+
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener("embedding-provider-changed", handler);
+    return () => window.removeEventListener("embedding-provider-changed", handler);
+  }, [load]);
+
+  const toggle = async (value: boolean) => {
+    setWorking(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/maintenance", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: value }),
+      });
+      if (!res.ok) throw new Error("Toggle fehlgeschlagen");
+      setEnabled(value);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const startReindex = async () => {
+    if (!enabled) {
+      setError("Bitte zuerst Wartungsmodus aktivieren.");
+      return;
+    }
+    setWorking(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/reindex-all", { method: "POST", credentials: "include" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail ?? "Reindex konnte nicht gestartet werden");
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  if (enabled === null) return null;
+
+  const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+
+  return (
+    <div className="border border-gray-200 rounded-xl bg-white p-5 space-y-4">
+      {staleModules.length > 0 && !progress?.running && (
+        <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs text-amber-800 space-y-2">
+          <div>
+            <strong>Hinweis:</strong> {staleModules.length} Arbeitsraum{staleModules.length === 1 ? "" : "/Arbeitsräume"} wurde{staleModules.length === 1 ? "" : "n"} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten "Reindex starten" ausführst.
+          </div>
+          <ul className="list-disc pl-5 space-y-0.5">
+            {staleModules.map((m) => (
+              <li key={m.uuid}>
+                <span className="font-medium">{m.title}</span>
+                {m.owner && <span className="text-amber-700"> — {m.owner}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-gray-800">Wartungsmodus</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {enabled
+              ? "Aktiv — alle Nicht-Admin-Anfragen erhalten eine Wartungsseite."
+              : "Deaktiviert — App ist normal nutzbar."}
+          </p>
+        </div>
+        <button
+          onClick={() => toggle(!enabled)}
+          disabled={working || !!progress?.running}
+          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+            enabled ? "bg-red-500" : "bg-gray-300"
+          } disabled:opacity-50`}
+          aria-label="Wartungsmodus umschalten"
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+            enabled ? "translate-x-5" : "translate-x-0"
+          }`} />
+        </button>
+      </div>
+
+      <div className="border-t border-gray-100 pt-4 space-y-3">
+        <div>
+          <p className="text-sm font-medium text-gray-800">Alle Quellen neu indexieren</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notizen und Tools bleiben gültig (gleiche UUIDs).
+            Nötig nach Wechsel des Embedding-Modells.
+          </p>
+        </div>
+        {progress?.running ? (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-gray-600">
+              <span>Läuft: {progress.current}</span>
+              <span>{progress.done}/{progress.total} ({pct}%)</span>
+            </div>
+            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+            </div>
+            {progress.failed > 0 && (
+              <p className="text-xs text-red-600">{progress.failed} Fehler — siehe Backend-Logs.</p>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={startReindex}
+              disabled={working || !enabled}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:opacity-90 rounded-md disabled:opacity-40"
+            >
+              {working ? "…" : "Reindex starten"}
+            </button>
+            {progress && !progress.running && progress.done > 0 && (
+              <p className="text-xs text-gray-500">
+                Letzter Lauf: {progress.done}/{progress.total} fertig{progress.failed > 0 ? `, ${progress.failed} Fehler` : ""}.
+              </p>
+            )}
+            {!enabled && (
+              <p className="text-xs text-gray-400">Wartungsmodus aktivieren, bevor du startest.</p>
+            )}
+          </div>
+        )}
+        {error && <p className="text-xs text-red-600">{error}</p>}
+      </div>
     </div>
   );
 }

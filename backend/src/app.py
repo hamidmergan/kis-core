@@ -4,13 +4,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from loguru import logger
 
+from src import database as db
 from src.database import init_db, reset_stuck_jobs
 from src.dependencies import get_settings
 from src.security.auth import verify_auth
 from src.storage import USE_S3, cleanup_expired_files, init_storage
 from src.routes import admin, auth, health, image, jobs, ki_tutor, screencast, screencast_demo, summary, transcription, translate, tts
+
+# Routes that stay reachable during maintenance so the admin can toggle it off
+# and users see a clean maintenance page instead of 401/500.
+_MAINTENANCE_OPEN_PATHS = {"/health", "/health/maintenance"}
+_MAINTENANCE_OPEN_PREFIXES = ("/admin/", "/auth/")
 
 
 def _configure_logging() -> None:
@@ -77,6 +84,25 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         return response
+
+    @application.middleware("http")
+    async def maintenance_gate(request: Request, call_next) -> Response:
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        path = request.url.path
+        if path in _MAINTENANCE_OPEN_PATHS or any(path.startswith(p) for p in _MAINTENANCE_OPEN_PREFIXES):
+            return await call_next(request)
+        try:
+            enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
+        except Exception:
+            enabled = False
+        if enabled:
+            return JSONResponse(
+                status_code=503,
+                content={"maintenance": True, "detail": "Wartungsarbeiten — bitte später erneut versuchen."},
+                headers={"Retry-After": "60"},
+            )
+        return await call_next(request)
 
     # Allow direct browser requests (bypassing Next.js proxy for large uploads)
     application.add_middleware(

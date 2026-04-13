@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     # myLab Plattform (TH Lübeck) — gemeinsame Base-URL für Whisper, Image, Embeddings, OCR
     mylab_base_url: str = ""
+    mylab_embedding_model: str = "qwen3-embedding-4b"
 
     # Security
     session_secret: str = "change-me-in-production"

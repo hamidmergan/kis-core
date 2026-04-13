@@ -1572,3 +1572,82 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
     except Exception as e:
         logger.error("KI Tutor: exercise set {} generation failed: {}", set_id, e)
         db.fail_exercise_set(set_id)
+
+
+@celery_app.task(bind=True, name="ki_tutor.reindex_all_sources", queue="ki_tutor")
+def run_reindex_all_sources(self):
+    """Re-embed all existing KI-Assistent chunks with the current embedding provider.
+
+    Triggered by admin after an embedding-model change. Preserves source UUIDs,
+    file paths, chunk IDs and page numbers — so chips/notes/tools stay intact.
+    Only the embedding vectors are replaced. Paragraph summaries are untouched
+    (LLM-generated, not embedding-dependent).
+    """
+    import json as _json
+    from src.services.ki_tutor_embeddings import get_embedding_provider, compute_fingerprint
+    from src.config import Settings
+
+    provider = get_embedding_provider()
+    fingerprint = compute_fingerprint(provider)
+    _s = Settings()
+    embedding_model = _s.ollama_embedding_model if _s.tutor_embedding_provider == "ollama" else _s.kisski_embedding_model
+
+    sources = db.get_all_ki_tutor_sources()
+    total = len(sources)
+    done = 0
+
+    def _set_progress(current: str, failed: int = 0):
+        db.set_setting("reindex_progress", _json.dumps({
+            "total": total, "done": done, "current": current, "failed": failed,
+            "running": True,
+        }))
+
+    _set_progress("start")
+    logger.info("KI Tutor reindex: starting over {} sources", total)
+
+    module_ids_seen: set[int] = set()
+    failed = 0
+
+    for source in sources:
+        source_uuid = source["uuid"]
+        filename = source.get("filename") or ""
+        try:
+            _set_progress(filename)
+            chunks = db.get_ki_tutor_chunks_by_source(source["id"])
+            if not chunks:
+                logger.info("KI Tutor reindex: source {} has no chunks, skipping", source_uuid)
+            else:
+                _BATCH = 20
+                for i in range(0, len(chunks), _BATCH):
+                    batch = chunks[i: i + _BATCH]
+                    texts = [c["content"] for c in batch]
+                    vectors = provider.embed(texts)
+                    for c, vec in zip(batch, vectors):
+                        db.update_chunk_embedding(c["id"], vec)
+                logger.info("KI Tutor reindex: source {} re-embedded ({} chunks)", source_uuid, len(chunks))
+
+            db.update_ki_tutor_source_status(source_uuid, "ready", embedding_model=embedding_model)
+            module_ids_seen.add(source["module_id"])
+        except Exception as e:
+            failed += 1
+            logger.error("KI Tutor reindex: source {} failed: {}", source_uuid, e)
+            db.update_ki_tutor_source_status(source_uuid, "failed", error_message=str(e))
+        finally:
+            done += 1
+            _set_progress(filename, failed=failed)
+
+    # Bump fingerprint on every touched module so the new provider is recorded
+    for module_id in module_ids_seen:
+        module = db.get_ki_tutor_module_by_id(module_id)
+        if module:
+            db.update_ki_tutor_module_status(
+                module["uuid"], "ready",
+                embedding_model=embedding_model,
+                embedding_fingerprint=fingerprint,
+            )
+
+    db.set_setting("reindex_progress", _json.dumps({
+        "total": total, "done": done, "current": "done", "failed": failed,
+        "running": False,
+    }))
+    logger.info("KI Tutor reindex: finished ({} ok, {} failed)", done - failed, failed)

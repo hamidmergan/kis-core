@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import FooterWrapper from "@/components/FooterWrapper";
+import MaintenanceGuard from "@/components/MaintenanceGuard";
 import NextTopLoader from "nextjs-toploader";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="de">
       <body className={`${geist.variable} min-h-screen flex flex-col`}>
         <NextTopLoader color="#668DA0" showSpinner={false} height={3} />
+        <MaintenanceGuard />
         <main className="flex-1">{children}</main>
         <FooterWrapper />
       </body>

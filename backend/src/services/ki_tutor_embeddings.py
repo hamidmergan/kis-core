@@ -139,14 +139,63 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         return results
 
 
+class MyLabEmbeddingProvider(EmbeddingProvider):
+    """OpenAI-compatible embedding client pointing at THL myLab /v1/embeddings."""
+
+    _BATCH_SIZE = 100
+
+    def __init__(self) -> None:
+        from langfuse.openai import OpenAI
+        from src.config import Settings
+        s = Settings()
+        base = (s.mylab_base_url or "").rstrip("/")
+        if not base:
+            raise RuntimeError("MYLAB_BASE_URL nicht konfiguriert")
+        # myLab is open/unauthenticated within the TH network — any non-empty key works
+        self._client = OpenAI(api_key="ignored", base_url=f"{base}/v1")
+        self._model = s.mylab_embedding_model
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        results: list[list[float]] = []
+        for i in range(0, len(texts), self._BATCH_SIZE):
+            batch = texts[i: i + self._BATCH_SIZE]
+            for attempt in range(2):
+                try:
+                    response = self._client.embeddings.create(model=self._model, input=batch)
+                    results.extend(item.embedding for item in response.data)
+                    break
+                except Exception as e:
+                    if attempt == 0:
+                        logger.warning("myLab embedding batch {}/{} failed: {} – retry in 3s", i, len(texts), e)
+                        time.sleep(3)
+                    else:
+                        raise RuntimeError(f"myLab embedding request failed: {e}") from e
+        return results
+
+
 def get_embedding_provider() -> EmbeddingProvider:
-    """Return the configured embedding provider."""
+    """Return the currently-active embedding provider.
+
+    Priority:
+    1. Admin toggles in DB (mutually exclusive — enforced by PATCH /admin/settings)
+    2. Fallback to TUTOR_EMBEDDING_PROVIDER env var (kisski | ollama)
+    """
+    from src import database as db
+    if db.get_setting("kisski_embedding_enabled", "").lower() == "true":
+        return KisskiEmbeddingProvider()
+    if db.get_setting("mylab_embedding_enabled", "").lower() == "true":
+        return MyLabEmbeddingProvider()
+    if db.get_setting("ollama_embedding_enabled", "").lower() == "true":
+        return OllamaEmbeddingProvider()
+
     from src.config import Settings
     provider = Settings().tutor_embedding_provider
     if provider == "kisski":
         return KisskiEmbeddingProvider()
     if provider == "ollama":
         return OllamaEmbeddingProvider()
+    if provider == "mylab":
+        return MyLabEmbeddingProvider()
     raise ValueError(f"Unknown tutor_embedding_provider: {provider!r}")
 
 

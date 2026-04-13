@@ -47,6 +47,7 @@ class UpdateSettingsRequest(BaseModel):
     # Embeddings
     kisski_embedding_enabled: bool | None = None
     mylab_embedding_enabled: bool | None = None
+    ollama_embedding_enabled: bool | None = None
     # Bild-Generierung
     kisski_image_gen_enabled: bool | None = None
     mylab_image_gen_enabled: bool | None = None
@@ -62,9 +63,14 @@ class UpdateSettingsRequest(BaseModel):
     # LLM Chat
     kisski_llm_enabled: bool | None = None
     mylab_llm_enabled: bool | None = None
+    ollama_llm_enabled: bool | None = None
 
 
 class ToggleToolRequest(BaseModel):
+    enabled: bool
+
+
+class MaintenanceToggleRequest(BaseModel):
     enabled: bool
 
 
@@ -270,6 +276,8 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_embedding_enabled": _enabled("mylab_embedding_enabled"),
         "mylab_embedding_configured": mylab_base_configured,
         "mylab_embedding_available": mylab_base_available,
+        "ollama_embedding_enabled": _enabled("ollama_embedding_enabled", "false"),
+        "ollama_embedding_configured": ollama_configured,
         # ── Bild-Generierung ──
         "kisski_image_gen_enabled": _enabled("kisski_image_gen_enabled"),
         "kisski_image_gen_configured": kisski_configured,
@@ -300,6 +308,8 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_llm_enabled": _enabled("mylab_llm_enabled", "false"),
         "mylab_llm_configured": mylab_base_configured,
         "mylab_llm_available": mylab_base_available,
+        "ollama_llm_enabled": _enabled("ollama_llm_enabled", "false"),
+        "ollama_llm_configured": ollama_configured,
     }
 
 
@@ -324,11 +334,22 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("kisski_whisper_enabled", "true" if body.kisski_whisper_enabled else "false")
     if body.mylab_whisper_enabled is not None:
         db.set_setting("mylab_whisper_enabled", "true" if body.mylab_whisper_enabled else "false")
-    # Embeddings
-    if body.kisski_embedding_enabled is not None:
-        db.set_setting("kisski_embedding_enabled", "true" if body.kisski_embedding_enabled else "false")
-    if body.mylab_embedding_enabled is not None:
-        db.set_setting("mylab_embedding_enabled", "true" if body.mylab_embedding_enabled else "false")
+    # Embeddings — mutually exclusive: enabling one disables the others.
+    # Different embedding models have different vector dimensions, so parallel
+    # operation or silent fallback would corrupt the index.
+    _EMB_KEYS = ("kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled")
+    for active_key, requested in (
+        ("kisski_embedding_enabled", body.kisski_embedding_enabled),
+        ("mylab_embedding_enabled", body.mylab_embedding_enabled),
+        ("ollama_embedding_enabled", body.ollama_embedding_enabled),
+    ):
+        if requested is None:
+            continue
+        db.set_setting(active_key, "true" if requested else "false")
+        if requested:
+            for other in _EMB_KEYS:
+                if other != active_key:
+                    db.set_setting(other, "false")
     # Bild-Generierung
     if body.kisski_image_gen_enabled is not None:
         db.set_setting("kisski_image_gen_enabled", "true" if body.kisski_image_gen_enabled else "false")
@@ -354,6 +375,65 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("kisski_llm_enabled", "true" if body.kisski_llm_enabled else "false")
     if body.mylab_llm_enabled is not None:
         db.set_setting("mylab_llm_enabled", "true" if body.mylab_llm_enabled else "false")
+    if body.ollama_llm_enabled is not None:
+        db.set_setting("ollama_llm_enabled", "true" if body.ollama_llm_enabled else "false")
+    return {"ok": True}
+
+
+# --- Maintenance / Reindex ---
+
+
+@router.get("/maintenance")
+async def get_maintenance(_admin=Depends(get_admin_user)):
+    enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
+    try:
+        progress = json.loads(db.get_setting("reindex_progress", "") or "null")
+    except Exception:
+        progress = None
+
+    # Detect embedding-model mismatch: compare current provider fingerprint with
+    # what's stored on each module. Any divergence → reindex recommended.
+    stale_modules: list[dict] = []
+    current_fingerprint: str | None = None
+    try:
+        from src.services.ki_tutor_embeddings import get_embedding_provider, compute_fingerprint
+        provider = get_embedding_provider()
+        current_fingerprint = compute_fingerprint(provider)
+        stale_modules = db.list_ki_tutor_modules_with_stale_fingerprint(current_fingerprint)
+    except Exception as e:
+        logger.warning("Maintenance: fingerprint check failed: {}", e)
+
+    return {
+        "enabled": enabled,
+        "reindex": progress,
+        "stale_modules": stale_modules,
+        "fingerprint_check_ok": current_fingerprint is not None,
+    }
+
+
+@router.post("/maintenance")
+async def set_maintenance(body: MaintenanceToggleRequest, _admin=Depends(get_admin_user)):
+    db.set_setting("maintenance_mode", "true" if body.enabled else "false")
+    logger.info("Maintenance mode set to {}", body.enabled)
+    return {"ok": True, "enabled": body.enabled}
+
+
+@router.post("/reindex-all")
+async def reindex_all(_admin=Depends(get_admin_user)):
+    """Queue a Celery job to re-embed every KI-Assistent chunk with the current provider."""
+    progress_raw = db.get_setting("reindex_progress", "") or ""
+    try:
+        progress = json.loads(progress_raw) if progress_raw else None
+    except Exception:
+        progress = None
+    if progress and progress.get("running"):
+        raise HTTPException(status_code=409, detail="Reindex läuft bereits")
+
+    from src.tasks.ki_tutor_tasks import run_reindex_all_sources
+    db.set_setting("reindex_progress", json.dumps({
+        "total": 0, "done": 0, "current": "queued", "failed": 0, "running": True,
+    }))
+    run_reindex_all_sources.delay()
     return {"ok": True}
 
 

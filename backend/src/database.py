@@ -522,8 +522,27 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 _log.info("search_vector backfill done.")
             else:
                 _log.info("search_vector: all chunks already populated.")
-        conn.commit()
 
+            # Embedding-Provider mutex: different models have different vector
+            # dimensions, so only one may be active at a time. KISSKI has priority,
+            # then mylab, then ollama.
+            cur.execute("""
+                SELECT key, value FROM settings
+                WHERE key IN ('kisski_embedding_enabled', 'mylab_embedding_enabled', 'ollama_embedding_enabled')
+            """)
+            emb = {row[0]: row[1].lower() for row in cur.fetchall()}
+            active = [k for k, v in emb.items() if v == "true"]
+            if len(active) > 1:
+                winner = "kisski_embedding_enabled" if "kisski_embedding_enabled" in active \
+                    else ("mylab_embedding_enabled" if "mylab_embedding_enabled" in active else active[0])
+                for k in active:
+                    if k == winner:
+                        continue
+                    cur.execute("""
+                        INSERT INTO settings (key, value) VALUES (%s, 'false')
+                        ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = NOW()
+                    """, (k,))
+                _log.warning("Embedding mutex violated — kept {} active, disabled others.", winner)
         conn.commit()
 
 
@@ -1751,6 +1770,35 @@ def get_ki_tutor_sources_by_module(module_id: int) -> list[dict]:
                 "SELECT * FROM ki_tutor_sources WHERE module_id = %s ORDER BY created_at ASC",
                 (module_id,),
             )
+            rows = cur.fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_ki_tutor_modules_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
+    """Return modules (with owner name) whose stored fingerprint differs from current.
+
+    Modules without a fingerprint (never indexed) are ignored.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """SELECT DISTINCT m.id, m.uuid, m.title, u.display_name AS owner
+                   FROM ki_tutor_modules m
+                   JOIN ki_tutor_sources s ON s.module_id = m.id
+                   LEFT JOIN users u ON u.id = m.user_id
+                   WHERE m.embedding_fingerprint IS NOT NULL
+                     AND m.embedding_fingerprint <> %s
+                   ORDER BY m.title ASC""",
+                (current_fingerprint,),
+            )
+            return [dict(row) for row in cur.fetchall()]
+
+
+def get_all_ki_tutor_sources() -> list[dict]:
+    """Return every KI-Assistent source across all modules — used for global re-indexing."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM ki_tutor_sources ORDER BY id ASC")
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
