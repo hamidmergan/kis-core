@@ -28,9 +28,6 @@ export default function EmbedPdfTestPage() {
             worker: true,
           }}
           style={{ width: "100%", height: "100%" }}
-          onReady={(registry) => {
-            console.log("EmbedPDF ready", registry);
-          }}
         />
       </div>
     </div>

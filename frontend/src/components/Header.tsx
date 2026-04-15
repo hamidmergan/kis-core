@@ -52,7 +52,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
             <Link
               href="/ki-assistent"
               aria-label="Zur Übersicht"
-              className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
               <House size={18} weight="bold" />
             </Link>
@@ -60,7 +60,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
             {role !== "student" && (
               <Link
                 href="/tools"
-                className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
                 aria-label="Tools"
                 title="Tools"
               >
@@ -74,7 +74,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
               <Link
                 href="/admin"
                 aria-label="Admin"
-                className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <UserCircleGear size={18} weight="bold" />
               </Link>
@@ -83,7 +83,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
             <button
               onClick={handleLogout}
               aria-label="Abmelden"
-              className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
               <SignOut size={17} weight="bold" />
             </button>

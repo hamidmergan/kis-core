@@ -757,6 +757,12 @@ function PdfViewer({
         const _abbrPattern = /(?:bzw|z\.B|u\.a|etc|ca|vs|Dr|Nr|Prof|d\.h|o\.ä|ggf|Abs|Abb|vgl|inkl|sog|evtl|S)\s*$/i;
         const _isAbbrevDot = (text: string, dotIdx: number) => {
           if (dotIdx < 1) return false;
+          // Dot directly followed by a letter (no space) is inside an abbreviation
+          // (e.g. "z.B.", "d.h.", "U.S.A."). Digits after a dot are NOT treated as
+          // abbreviation to keep footnote markers ("erprobt.11") as real sentence ends —
+          // decimal numbers like "3.14" are covered by the digit-before-dot rule below.
+          const next = text[dotIdx + 1];
+          if (next && /[A-Za-zÄÖÜäöüß]/.test(next)) return true;
           const before = text.slice(Math.max(0, dotIdx - 6), dotIdx);
           if (_abbrPattern.test(before)) return true;
           // Single uppercase letter + dot (e.g. "S." "A.")
@@ -791,109 +797,142 @@ function PdfViewer({
           return [sStart, sEnd];
         };
 
-        // Smart expansion: if searchText has many words, expand across
-        // sentences that contain words from the answer
-        const _stopwords = new Set([
-          "nicht", "diese", "dieser", "dieses", "einen", "einem", "einer",
-          "werden", "durch", "zwischen", "sowie", "welche", "welcher", "welches",
-          "andere", "anderen", "wurde", "haben", "können", "sollten", "sollen",
-          "müssen", "wird", "eine", "der", "die", "das", "den", "dem", "des",
-          "und", "oder", "aber", "auch", "auf", "für", "mit", "von", "zu",
-          "bei", "nach", "als", "wie", "wenn", "dann", "weil", "dass", "noch",
-          "nur", "schon", "sehr", "mehr", "keine", "kein", "ist", "sind", "hat",
-          "dies", "wird", "werden", "dem", "dass", "aus", "ohne", "über", "unter",
-          "ihre", "ihrer", "seine", "seiner", "um", "im", "am", "in", "an",
-        ]);
-        // Extract words (5+ chars alphanumeric with hyphens) and numbers (3+ digits)
-        const allAnswerWords = new Set<string>([
-          ...(searchText.toLowerCase().match(/[a-zäöüß][\wäöüß-]{4,}/g) || [])
-            .filter(w => !_stopwords.has(w)),
-          ...(searchText.match(/\b\d+\b/g) || []),
-        ]);
-        // Count occurrences of each answer word in the page
-        const wordCounts = new Map<string, number>();
-        for (const w of allAnswerWords) {
-          const regex = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
-          const matches = ptLower.match(regex);
-          wordCounts.set(w, matches?.length ?? 0);
-        }
-        // Rare = max 5 occurrences, Very rare = max 2 occurrences
-        const rareAnswerWords = new Set<string>();
-        const veryRareAnswerWords = new Set<string>();
-        for (const [w, count] of wordCounts) {
-          if (count > 0 && count <= 5) rareAnswerWords.add(w);
-          if (count > 0 && count <= 2) veryRareAnswerWords.add(w);
-        }
-
-        // Get initial sentence bounds — skip expansion when the full search text matched verbatim
-        let [sentStart, sentEnd] = exactFullMatch ? [matchStart, matchEnd] : _findSentBounds(matchStart, matchEnd);
-
-        // Smart mode: expand across related sentences
-        if (!exactFullMatch && rareAnswerWords.size >= 3) {
-          const sentenceHasAnswerWord = (start: number, end: number): boolean => {
-            const sentText = cleanText.slice(start, end + 1).toLowerCase();
-            // Count rare words and very rare words in sentence
-            let rareCount = 0;
-            let veryRareCount = 0;
-            for (const w of rareAnswerWords) {
-              if (sentText.includes(w)) {
-                rareCount++;
-                if (veryRareAnswerWords.has(w)) veryRareCount++;
+        // Paragraph-break detection: double newline in raw text, or a heading pattern
+        // ("Kapitel:", "1.2 Titel") at the start of the next line.
+        const _isHeading = (text: string): boolean => {
+          const t = text.replace(/^\s+/, "");
+          // Colon-terminated heading: "International Coach:", "Fachlandkarte:"
+          if (/^[A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ]?[\wäöüß-]+){0,3}\s*:/.test(t)) return true;
+          // Numbered section heading: "1. Management Summary", "4.4 Transferpotential",
+          // "2.1.3 Skizze der Ausgangslage"
+          if (/^\d+(?:\.\d+)*\.?\s+[A-ZÄÖÜ][\wäöüß-]+/.test(t)) return true;
+          return false;
+        };
+        const _isParagraphBreakBefore = (startInClean: number): boolean => {
+          if (startInClean <= 0) return false;
+          // cleanToRaw points at the FIRST whitespace char of the run — scan forward
+          // through raw to count newlines until a non-whitespace char appears.
+          const rawPos = cleanToRaw[startInClean - 1];
+          if (rawPos == null) return false;
+          let nlCount = 0;
+          for (let i = rawPos; i < rawPageText.length; i++) {
+            const ch = rawPageText[i];
+            if (ch === "\n") nlCount++;
+            else if (ch !== " " && ch !== "\r" && ch !== "\t") break;
+          }
+          if (nlCount >= 2) return true;
+          const preview = cleanText.slice(startInClean, Math.min(cleanText.length, startInClean + 80));
+          if (_isHeading(preview)) return true;
+          // Skip a leading footnote-digit marker ("11 International Coach:") and re-test
+          const skipped = preview.replace(/^\s*\d{1,3}\s+/, "");
+          return skipped !== preview && _isHeading(skipped);
+        };
+        // True only if the WHOLE text is a heading (with optional leading page-num /
+        // footnote digit), not just its prefix — otherwise "4.4. Title Actual paragraph
+        // content..." would falsely match and cause the first paragraph sentence to be
+        // dropped from the highlight.
+        const _isFullHeading = (text: string): boolean => {
+          const t = text.replace(/^\s+|\s+$/g, "");
+          if (/^[A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ]?[\wäöüß-]+){0,4}\s*:$/.test(t)) return true;
+          if (/^\d+(?:\.\d+)*\.?\s+[A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ]?[\wäöüß-]+){0,5}$/.test(t)) return true;
+          return false;
+        };
+        const _isHeadingLike = (text: string): boolean => {
+          if (_isFullHeading(text)) return true;
+          const skipped = text.replace(/^\s*\d{1,3}\s+/, "");
+          return skipped !== text && _isFullHeading(skipped);
+        };
+        // Strip a leading "page-number [+ numbered heading]" prefix from a position.
+        // Needed because _findSentBounds scans backward for a sentence-ending period and
+        // treats "1." / "4.4." as abbreviations, so pStart often lands at position 0 on
+        // pages that begin with a section heading — swallowing page number and heading
+        // into the highlight.
+        // Check whether the whitespace run starting at a given raw index contains a newline.
+        const _wsRunHasNewline = (rawIdx: number): boolean => {
+          for (let i = rawIdx; i < rawPageText.length; i++) {
+            const ch = rawPageText[i];
+            if (ch === "\n") return true;
+            if (ch !== " " && ch !== "\r" && ch !== "\t") return false;
+          }
+          return false;
+        };
+        // Split cleanText (starting at pos) into "lines" using whitespace runs that cross
+        // a newline in raw as line boundaries. Strip leading lines that are page numbers
+        // or numbered section headings; stop at the first content line.
+        const _stripLeadingHeading = (pos: number): number => {
+          let p = pos;
+          const ws = cleanText.slice(p, Math.min(cleanText.length, p + 10)).match(/^\s+/);
+          if (ws) p += ws[0].length;
+          const endScan = Math.min(cleanText.length, p + 200);
+          const lines: Array<[number, number]> = [];
+          let lineStart = p;
+          for (let i = p; i < endScan; i++) {
+            if (cleanText[i] === " ") {
+              const rawIdx = cleanToRaw[i];
+              if (rawIdx != null && _wsRunHasNewline(rawIdx)) {
+                lines.push([lineStart, i]);
+                lineStart = i + 1;
               }
             }
-            // Either 2+ rare words, or 1+ very rare (specific) word
-            return rareCount >= 2 || veryRareCount >= 1;
-          };
-          // Detect paragraph break: looks at raw text around position for double newline
-          // or new paragraph heading (e.g. "Fachlandkarte:" at start of line)
-          const _isHeading = (text: string): boolean => {
-            // Matches: "Wort:" or "Wort Wort:" at start (typical section headings)
-            return /^\s*[A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ]?[\wäöüß-]+){0,3}\s*:/.test(text);
-          };
-          const _isParagraphBreakBefore = (startInRaw: number): boolean => {
-            // Check raw text (has newlines) at the position mapped from cleanText
-            const rawPos = cleanToRaw[Math.max(0, startInRaw - 1)];
-            if (rawPos == null) return false;
-            // Look back for newlines
-            let nlCount = 0;
-            for (let i = rawPos; i >= Math.max(0, rawPos - 10) && i >= 0; i--) {
-              if (rawPageText[i] === "\n") nlCount++;
-              else if (rawPageText[i] !== " " && rawPageText[i] !== "\r") break;
-            }
-            if (nlCount >= 2) return true;
-            // Check if next sentence starts with a heading pattern
-            const preview = cleanText.slice(startInRaw, Math.min(cleanText.length, startInRaw + 40));
-            return _isHeading(preview);
-          };
-          // Expand backwards: include previous sentences that share words with answer
-          let backStart = sentStart;
-          for (let attempts = 0; attempts < 10 && backStart > 0; attempts++) {
-            // Find previous sentence
-            let prevEnd = backStart - 1;
-            while (prevEnd > 0 && (cleanText[prevEnd] === " " || cleanText[prevEnd] === "\n")) prevEnd--;
-            if (prevEnd <= 0) break;
-            const [prevStart] = _findSentBounds(prevEnd, prevEnd);
-            if (prevStart >= backStart) break;
-            // Stop at paragraph break between prev and current
-            if (_isParagraphBreakBefore(backStart)) break;
-            if (!sentenceHasAnswerWord(prevStart, prevEnd)) break;
-            backStart = prevStart;
           }
-          sentStart = backStart;
-          // Expand forwards: include next sentences that share words with answer
-          let fwdEnd = sentEnd;
-          for (let attempts = 0; attempts < 10 && fwdEnd < cleanText.length - 1; attempts++) {
-            let nextStart = fwdEnd + 1;
-            while (nextStart < cleanText.length && (cleanText[nextStart] === " " || cleanText[nextStart] === "\n")) nextStart++;
+          lines.push([lineStart, endScan]);
+          let result = p;
+          // Only strip pure page-number lines; keep heading lines (e.g. "4.4. Transferpotential")
+          // as part of the marked content.
+          for (const [ls, le] of lines) {
+            const lineText = cleanText.slice(ls, le).trim();
+            if (/^\d{1,3}$/.test(lineText)) { result = le + 1; continue; }
+            break;
+          }
+          return Math.min(result, cleanText.length);
+        };
+        // Expand to paragraph bounds: walk sentence-by-sentence backwards/forwards,
+        // stopping at a paragraph break or heading.
+        const _findParaBounds = (startPos: number, endPos: number): [number, number] => {
+          const [sStart0, sEnd0] = _findSentBounds(startPos, endPos);
+          let pStart = _stripLeadingHeading(sStart0);
+          if (pStart >= endPos) pStart = sStart0; // safety: don't strip past the match
+          for (let attempts = 0; attempts < 40 && pStart > 0; attempts++) {
+            if (_isParagraphBreakBefore(pStart)) break;
+            let prevEnd = pStart - 1;
+            while (prevEnd > 0 && cleanText[prevEnd] === " ") prevEnd--;
+            if (prevEnd <= 0) { pStart = 0; break; }
+            const [rawPrevStart] = _findSentBounds(prevEnd, prevEnd);
+            // Skip any leading page-num lines so prevStart lands at real content.
+            const prevStart = _stripLeadingHeading(rawPrevStart);
+            if (prevStart >= pStart) break;
+            const prevText = cleanText.slice(prevStart, prevEnd + 1);
+            if (_isHeadingLike(prevText)) break;
+            pStart = prevStart;
+          }
+          let pEnd = sEnd0;
+          for (let attempts = 0; attempts < 40 && pEnd < cleanText.length - 1; attempts++) {
+            let nextStart = pEnd + 1;
+            while (nextStart < cleanText.length && cleanText[nextStart] === " ") nextStart++;
             if (nextStart >= cleanText.length) break;
-            const [, nextEnd] = _findSentBounds(nextStart, nextStart);
-            if (nextEnd <= fwdEnd) break;
-            // Stop at paragraph break or heading
             if (_isParagraphBreakBefore(nextStart)) break;
-            if (!sentenceHasAnswerWord(nextStart, nextEnd)) break;
-            fwdEnd = nextEnd;
+            const [, nextEnd] = _findSentBounds(nextStart, nextStart);
+            if (nextEnd <= pEnd) break;
+            const nextText = cleanText.slice(nextStart, nextEnd + 1);
+            if (_isHeadingLike(nextText)) break;
+            pEnd = nextEnd;
           }
-          sentEnd = fwdEnd;
+          return [pStart, pEnd];
+        };
+
+        // Default to paragraph expansion. Skip when the full search text matched verbatim
+        // (popup selection — user already defined the bounds). Fall back to sentence
+        // expansion if the paragraph is unreasonably long (wall-of-text PDFs).
+        let sentStart: number, sentEnd: number;
+        if (exactFullMatch) {
+          const stripped = _stripLeadingHeading(matchStart);
+          sentStart = stripped < matchEnd ? stripped : matchStart;
+          sentEnd = matchEnd;
+        } else {
+          [sentStart, sentEnd] = _findParaBounds(matchStart, matchEnd);
+          if (sentEnd - sentStart > 2500) {
+            [sentStart, sentEnd] = _findSentBounds(matchStart, matchEnd);
+          }
         }
 
         const rawStart = cleanToRaw[sentStart];
@@ -989,6 +1028,19 @@ function PdfViewer({
       }
     });
   }
+
+  // When the document changes, the inner PDFViewer remounts (keyed by uuid) but this
+  // outer component does not — so registryRef still points at the previous document's
+  // registry. Reset it so the highlight effect below defers until the new registry is
+  // ready via onLayoutReady, instead of firing search on a stale registry.
+  const loadedUuidRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loadedUuidRef.current !== source.uuid) {
+      loadedUuidRef.current = source.uuid;
+      registryRef.current = null;
+      setRegistryReady(false);
+    }
+  }, [source.uuid]);
 
   useEffect(() => {
     if (source.nonce == null) return;
@@ -1318,6 +1370,55 @@ function PdfViewer({
   );
 }
 
+// ─── Upload Errors Block ───────────────────────────────────────────────────────
+
+function UploadErrorsBlock({
+  errors,
+  onDismiss,
+}: {
+  errors: { filename: string; message: string }[];
+  onDismiss: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div
+      className="mt-2 px-3 py-2 rounded-lg text-[12px]"
+      style={{ backgroundColor: "rgba(220,38,38,0.08)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.25)" }}
+    >
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex-1 text-left hover:opacity-80"
+        >
+          {errors.length === 1
+            ? `1 Datei fehlgeschlagen`
+            : `${errors.length} Dateien fehlgeschlagen`}
+          <span className="ml-1 opacity-70">{expanded ? "▾" : "▸"}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="hover:opacity-70 flex-shrink-0"
+          aria-label="Schließen"
+        >
+          ×
+        </button>
+      </div>
+      {expanded && (
+        <ul className="mt-2 space-y-1 list-none">
+          {errors.map((e, i) => (
+            <li key={i} className="text-[11px] leading-snug">
+              <span className="font-medium break-all">{e.filename}</span>
+              <span className="opacity-80">: {e.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ─── Sources Panel ─────────────────────────────────────────────────────────────
 
 function SourcesPanel({
@@ -1329,8 +1430,8 @@ function SourcesPanel({
   onRetrySource,
   onUpload,
   uploadProgress,
-  uploadError,
-  onDismissUploadError,
+  uploadErrors,
+  onDismissUploadErrors,
   isLecturer,
   onMinimize,
   moduleUuid,
@@ -1341,10 +1442,10 @@ function SourcesPanel({
   onOpenViewer: (source: Source) => void;
   onDeleteSource: (uuid: string) => void;
   onRetrySource: (uuid: string) => void;
-  onUpload: (file: File) => void;
-  uploadProgress: number | null;
-  uploadError: string | null;
-  onDismissUploadError: () => void;
+  onUpload: (files: File[]) => void;
+  uploadProgress: { current: number; total: number; percent: number } | null;
+  uploadErrors: { filename: string; message: string }[];
+  onDismissUploadErrors: () => void;
   isLecturer: boolean;
   onMinimize: () => void;
   moduleUuid: string;
@@ -1364,7 +1465,8 @@ function SourcesPanel({
     return () => ro.disconnect();
   }, []);
 
-  const allSelected = sources.length > 0 && sources.every((s) => selectedSourceIds.includes(s.uuid));
+  const readySources = sources.filter((s) => s.status === "ready");
+  const allSelected = readySources.length > 0 && readySources.every((s) => selectedSourceIds.includes(s.uuid));
 
   function toggleAll() {
     if (allSelected) {
@@ -1408,18 +1510,19 @@ function SourcesPanel({
           onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget as Node)) e.currentTarget.style.backgroundColor = ""; }}
           onDrop={(e) => {
             e.preventDefault(); e.stopPropagation(); e.currentTarget.style.backgroundColor = "";
-            const f = e.dataTransfer.files?.[0];
-            if (f) onUpload(f);
+            const fs = Array.from(e.dataTransfer.files ?? []);
+            if (fs.length > 0) onUpload(fs);
           }}
         >
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept=".pdf,.docx,.pptx,.mp3,.mp4,.wav,.flac,.m4a,.webm"
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) { onUpload(f); e.target.value = ""; }
+              const fs = Array.from(e.target.files ?? []);
+              if (fs.length > 0) { onUpload(fs); e.target.value = ""; }
             }}
           />
           <button
@@ -1436,29 +1539,18 @@ function SourcesPanel({
               <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
                 <div
                   className="h-full rounded-full transition-all duration-200"
-                  style={{ width: `${uploadProgress}%`, backgroundColor: "var(--kb)" }}
+                  style={{ width: `${uploadProgress.percent}%`, backgroundColor: "var(--kb)" }}
                 />
               </div>
               <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
-                Hochladen… {uploadProgress}%
+                {uploadProgress.total > 1
+                  ? `Datei ${uploadProgress.current}/${uploadProgress.total} – ${uploadProgress.percent}%`
+                  : `Hochladen… ${uploadProgress.percent}%`}
               </p>
             </div>
           )}
-          {uploadError && (
-            <div
-              className="mt-2 px-3 py-2 rounded-lg text-[12px] flex items-start gap-2"
-              style={{ backgroundColor: "rgba(220,38,38,0.08)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.25)" }}
-            >
-              <span className="flex-1">{uploadError}</span>
-              <button
-                type="button"
-                onClick={onDismissUploadError}
-                className="hover:opacity-70 flex-shrink-0"
-                aria-label="Schließen"
-              >
-                ×
-              </button>
-            </div>
+          {uploadErrors.length > 0 && (
+            <UploadErrorsBlock errors={uploadErrors} onDismiss={onDismissUploadErrors} />
           )}
         </div>
       )}
@@ -1501,8 +1593,10 @@ function SourcesPanel({
                 type="checkbox"
                 checked={selectedSourceIds.includes(src.uuid)}
                 onChange={() => onToggleSource(src.uuid)}
-                className="flex-shrink-0 w-3.5 h-3.5 accent-primary"
+                disabled={src.status !== "ready"}
+                className="flex-shrink-0 w-3.5 h-3.5 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={(e) => e.stopPropagation()}
+                title={src.status !== "ready" ? "Quelle wird noch verarbeitet" : undefined}
               />
               <FileIcon filename={src.filename} />
               <span
@@ -1690,6 +1784,21 @@ function ChatPanel({
   const getFilename = (srcUuid: string) =>
     sources.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid;
 
+  // Wrap onPillClick so opening the viewer doesn't cause the chat to jump.
+  // Captures scrollTop before the click and restores it across a few frames
+  // while the panel layout settles.
+  function handleChipClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) {
+    const el = scrollContainerRef.current;
+    const savedTop = el?.scrollTop ?? 0;
+    userScrolledUp.current = true;
+    onPillClick(sourceUuid, page, filename, sourceText, startTime);
+    if (el) {
+      const restore = () => { el.scrollTop = savedTop; };
+      requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+      setTimeout(restore, 60);
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -1837,11 +1946,14 @@ function ChatPanel({
                 );
                 const popupSel = msg.popup_selection;
                 const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
+                // Keywords beat chunk text: they are LLM-validated for the cited page,
+                // while sp.source_text may belong to a different page when chunk metadata
+                // and cited page disagree (→ misleading partial matches).
                 const highlightText = popupEntry?.source_text
                   ? popupEntry.source_text
                   : matchesPopupSel
                     ? popupSel!.text
-                    : (keywords || (sp?.source_text ? sp.source_text.slice(0, 80).trim() : undefined));
+                    : (keywords || sp?.source_text?.trim() || undefined);
 
                 const ChipIcon = _getChipIcon(filename);
                 if (isMedia && timestamp) {
@@ -1852,7 +1964,7 @@ function ChatPanel({
                     <button
                       key={m.index}
                       type="button"
-                      onClick={() => onPillClick(sourceUuid, 0, filename, undefined, seconds)}
+                      onClick={() => handleChipClick(sourceUuid, 0, filename, undefined, seconds)}
                       className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
                       style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                       title={`${filename}, ${timestamp}`}
@@ -1866,7 +1978,7 @@ function ChatPanel({
                     <button
                       key={m.index}
                       type="button"
-                      onClick={() => onPillClick(sourceUuid, pageNum, filename, highlightText)}
+                      onClick={() => handleChipClick(sourceUuid, pageNum, filename, highlightText)}
                       className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
                       style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                       title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
@@ -5741,8 +5853,8 @@ export default function KiTutorModulePage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [prevSelectedSourceIds, setPrevSelectedSourceIds] = useState<string[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; percent: number } | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<{ filename: string; message: string }[]>([]);
 
   // Persist selected sources to sessionStorage
   useEffect(() => {
@@ -6051,41 +6163,46 @@ export default function KiTutorModulePage() {
     } catch { /* ignore */ }
   }
 
-  async function handleUpload(file: File) {
-    setUploadProgress(0);
-    setUploadError(null);
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `/api/ki-assistent/modules/${uuid}/sources`);
-        xhr.withCredentials = true;
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            const newSrc: Source = JSON.parse(xhr.responseText);
-            setSources((prev) => [...prev, newSrc]);
-            resolve();
-          } else {
-            let detail = "Upload fehlgeschlagen";
-            try {
-              const body = JSON.parse(xhr.responseText);
-              if (body?.detail) detail = body.detail;
-            } catch { /* ignore */ }
-            reject(new Error(detail));
-          }
-        };
-        xhr.onerror = () => reject(new Error("Netzwerkfehler"));
-        const form = new FormData();
-        form.append("file", file);
-        xhr.send(form);
-      });
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload fehlgeschlagen");
-    } finally {
-      setUploadProgress(null);
+  async function handleUpload(files: File[]) {
+    if (files.length === 0) return;
+    setUploadErrors([]);
+    const errors: { filename: string; message: string }[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadProgress({ current: i + 1, total: files.length, percent: 0 });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", `/api/ki-assistent/modules/${uuid}/sources`);
+          xhr.withCredentials = true;
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) setUploadProgress({ current: i + 1, total: files.length, percent: Math.round((e.loaded / e.total) * 100) });
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const newSrc: Source = JSON.parse(xhr.responseText);
+              setSources((prev) => [newSrc, ...prev]);
+              resolve();
+            } else {
+              let detail = "Upload fehlgeschlagen";
+              try {
+                const body = JSON.parse(xhr.responseText);
+                if (body?.detail) detail = body.detail;
+              } catch { /* ignore */ }
+              reject(new Error(detail));
+            }
+          };
+          xhr.onerror = () => reject(new Error("Netzwerkfehler"));
+          const form = new FormData();
+          form.append("file", file);
+          xhr.send(form);
+        });
+      } catch (err) {
+        errors.push({ filename: file.name, message: err instanceof Error ? err.message : "Upload fehlgeschlagen" });
+      }
     }
+    setUploadProgress(null);
+    if (errors.length > 0) setUploadErrors(errors);
   }
 
   // ─── Chat ──────────────────────────────────────────────────────────────────
@@ -6167,7 +6284,6 @@ export default function KiTutorModulePage() {
               // Apply corrected answer (page numbers fixed) + metadata
               const patch: Record<string, unknown> = { source_pages: evt.source_pages, source_qmap: evt.source_qmap };
               if (evt.answer) patch.content = evt.answer;
-              console.log("[DONE] source_pages:", evt.source_pages?.length, evt.source_pages?.map((s: {page_number: number; source_text?: string}) => `S.${s.page_number}:${(s.source_text || "").slice(0,30)}`));
               updateLast(patch);
             } else if (evt.error) {
               updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
@@ -6730,12 +6846,10 @@ export default function KiTutorModulePage() {
 
   async function downloadExerciseSet(s: ExerciseSet) {
     try {
-      console.log("[DOWNLOAD] fetching set", s.id, s.title);
       const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${s.id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       const set = data.set as ExerciseSet;
-      console.log("[DOWNLOAD] loaded", set.id, set.title, "items:", set.items?.length);
       const items = set.items || [];
       const lines: string[] = [];
       lines.push(set.title);
@@ -7368,8 +7482,8 @@ export default function KiTutorModulePage() {
                       onRetrySource={handleRetrySource}
                       onUpload={handleUpload}
                       uploadProgress={uploadProgress}
-                      uploadError={uploadError}
-                      onDismissUploadError={() => setUploadError(null)}
+                      uploadErrors={uploadErrors}
+                      onDismissUploadErrors={() => setUploadErrors([])}
                       isLecturer={isLecturer}
                       onMinimize={() => setActiveTab("chat")}
                       moduleUuid={uuid}
@@ -7505,8 +7619,8 @@ export default function KiTutorModulePage() {
                     onRetrySource={handleRetrySource}
                     onUpload={handleUpload}
                     uploadProgress={uploadProgress}
-                    uploadError={uploadError}
-                    onDismissUploadError={() => setUploadError(null)}
+                    uploadErrors={uploadErrors}
+                    onDismissUploadErrors={() => setUploadErrors([])}
                     isLecturer={isLecturer}
                     onMinimize={() => togglePanel("quellen")}
                     moduleUuid={uuid}

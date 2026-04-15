@@ -570,7 +570,6 @@ class KisskiClient:
         logger.info("Audio {:.1f}s exceeds limit – splitting into chunks", duration)
         silence_starts = _find_silence_starts(file_path)
         split_points = _compute_split_points(duration, silence_starts)
-        logger.info("Split points: {}", split_points)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             chunks = _split_audio(file_path, split_points, tmpdir)

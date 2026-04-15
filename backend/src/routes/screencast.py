@@ -428,12 +428,6 @@ def _pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[P
     if not images:
         raise RuntimeError("Keine Slide-Bilder erstellt")
 
-    logger.info("Generated {} slide images", len(images))
-    logger.info("Slide image sizes: {}", [(p.name, p.stat().st_size) for p in images[:3]])
-
-    with Image.open(images[0]) as img:
-        logger.info("First slide dimensions: {}x{} px (ratio {:.4f})", img.width, img.height, img.width / img.height)
-
     return images
 
 
@@ -475,8 +469,6 @@ def _create_slide_video(image_path: Path, audio_path: Path | None, output_path: 
         audio_path,
         audio_path.stat().st_size if audio_path and audio_path.exists() else "MISSING/None",
     )
-    with Image.open(image_path) as img:
-        logger.info("Image dimensions: {}x{}", img.width, img.height)
     if audio_path is None:
         cmd = [
             "ffmpeg", "-y",
@@ -565,21 +557,8 @@ def _concatenate_videos(video_paths: list[Path], output_path: Path) -> None:
         raise RuntimeError(f"Video-Zusammenführung fehlgeschlagen: {result.stderr[:200]}")
 
 
-def _probe_streams(file_path: Path) -> str:
-    """Return a short summary of streams in a media file via ffprobe."""
-    cmd = [
-        "ffprobe", "-v", "error",
-        "-show_entries", "stream=index,codec_type,codec_name",
-        "-of", "csv=p=0",
-        str(file_path),
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-    return result.stdout.strip() if result.returncode == 0 else f"(ffprobe error: {result.stderr[:100]})"
-
-
 def _apply_faststart(input_path: Path, output_path: Path) -> bytes:
     """Apply faststart to MP4 for web streaming."""
-    logger.info("faststart input streams: {}", _probe_streams(input_path))
     cmd = [
         "ffmpeg", "-y", "-i", str(input_path),
         "-map", "0",
@@ -590,7 +569,6 @@ def _apply_faststart(input_path: Path, output_path: Path) -> bytes:
     if result.returncode != 0:
         logger.warning("faststart fix failed (rc={}): {}", result.returncode, result.stderr[:300])
         return input_path.read_bytes()
-    logger.info("faststart output streams: {}", _probe_streams(output_path))
     return output_path.read_bytes()
 
 

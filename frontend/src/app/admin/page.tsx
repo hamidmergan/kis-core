@@ -34,6 +34,7 @@ interface AdminJob {
   error: string | null;
   created_at: string;
   completed_at: string | null;
+  duration_seconds: number | null;
   user_display_name: string;
 }
 
@@ -825,6 +826,7 @@ function JobsTab() {
                 <th className="px-4 py-3 text-left">Tool</th>
                 <th className="px-4 py-3 text-left">Datei</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-right">Renderzeit</th>
                 <th className="px-4 py-3 text-left">Erstellt</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -838,6 +840,13 @@ function JobsTab() {
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{j.tool_label}</td>
                     <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">{j.original_filename}</td>
                     <td className="px-4 py-3"><StatusBadge status={j.status} /></td>
+                    <td className="px-4 py-3 text-right text-gray-500 text-xs whitespace-nowrap">
+                      {j.duration_seconds != null
+                        ? j.duration_seconds >= 60
+                          ? `${Math.round(j.duration_seconds / 60)} min`
+                          : `${Math.round(j.duration_seconds)} s`
+                        : "–"}
+                    </td>
                     <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(j.created_at)}</td>
                     <td className="px-4 py-3">
                       {isActive && (

@@ -150,7 +150,7 @@ export default function ToolsPage() {
                       )}
                     </div>
                     {/* Text — unten (mobile) / rechts (desktop) */}
-                    <div className="flex flex-col justify-center px-8 py-7">
+                    <div className="flex flex-col justify-center px-5 py-5 sm:px-8 sm:py-7">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                         <h2 className="text-lg font-semibold">{wf.title}</h2>

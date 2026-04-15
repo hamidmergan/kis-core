@@ -140,7 +140,7 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
 
 /* ─── Mind-elixir: root node text wrapping ─── */
 .map-container me-root me-tpc {
-  max-width: 400px;
+  max-width: min(400px, 90vw);
   word-break: break-word;
   text-align: center;
 }
@@ -189,7 +189,7 @@ me-tpc:hover .mm-src-chip {
   padding: 6px 10px;
   border-radius: 6px;
   white-space: pre-wrap;
-  max-width: 240px;
+  max-width: min(240px, 90vw);
   width: max-content;
   pointer-events: none;
   opacity: 0;

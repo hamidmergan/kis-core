@@ -133,7 +133,6 @@ def _summarize_page(client, model, p, is_small, extra_body, lang):
     )
     _msg = resp.choices[0].message
     summary = _clean_summary(_msg.content or getattr(_msg, "reasoning_content", None) or "")
-    logger.debug("KI Tutor: page {} summary: {!r}", p["page_number"], summary[:300])
     return summary
 
 
@@ -161,8 +160,6 @@ def _summarize_batch(client, model, pages_batch, lang):
     if "<think>" in content:
         content = content[:content.index("<think>")].strip()
     summaries = _parse_numbered_summaries(content, n)
-    for i, (p, s) in enumerate(zip(pages_batch, summaries)):
-        logger.debug("KI Tutor: batch page {} summary: {!r}", p["page_number"], s[:300])
     return summaries
 
 
@@ -1270,7 +1267,6 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                     # but dedupe if two evidences share a long substring (likely the same fact)
                     validated_chips: list[dict] = []
                     seen_norms: list[str] = []
-                    logger.info(f"[KARTEIKARTE] card '{c.get('front', '')[:60]}' has {len(answer_parts)} answer_parts")
 
                     def _is_duplicate_evidence(new_norm: str) -> bool:
                         new_words = new_norm.split()
@@ -1292,13 +1288,10 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                         ev_text = (part.get("evidence") or "").strip()
                         ev_page = part.get("page_number")
                         if not ev_text or ev_page is None:
-                            logger.info(f"  [PART] skipped (no evidence or page)")
                             continue
                         ev_norm = _normalize_for_match(ev_text)
                         if _is_duplicate_evidence(ev_norm):
-                            logger.info(f"  [PART] dedup (overlaps existing)")
                             continue
-                        logger.info(f"  [PART] page={ev_page} ev={ev_text[:80]!r}")
                         target_page: int | None = None
                         if ev_page in page_texts_norm and _evidence_matches_page(ev_norm, page_texts_norm[ev_page]):
                             target_page = ev_page
@@ -1308,9 +1301,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                                     target_page = p
                                     break
                         if target_page is None:
-                            logger.info(f"  [PART] NO MATCH on any page")
                             continue
-                        logger.info(f"  [PART] matched page {target_page}")
                         seen_norms.append(ev_norm)
                         validated_chips.append({
                             "source_label": sl,

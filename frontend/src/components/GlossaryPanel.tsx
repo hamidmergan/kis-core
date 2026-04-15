@@ -126,7 +126,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
                     <button
                       onClick={() => handleRemoveEntry(index)}
                       aria-label={`${entry.source} entfernen`}
-                      className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-100 transition-colors"
+                      className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-100 transition-colors"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

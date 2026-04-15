@@ -36,7 +36,6 @@ def _assert_not_cancelled(job_uuid: str) -> None:
         import redis as _redis
         _r = _redis.from_url("redis://kis-redis:6379/0")
         cancelled = bool(_r.exists(f"job:cancel:{job_uuid}"))
-        logger.debug("Cancel check for {}: cancelled={}", job_uuid[:8], cancelled)
     except Exception as e:
         logger.warning("Cancel check Redis error: {}", e)
     if cancelled:
@@ -162,20 +161,14 @@ def _run_render_pipeline(
         try:
             import redis as _redis
             _r = _redis.from_url("redis://kis-redis:6379/0")
-            logger.debug("Cancel watcher started for {}", job_uuid[:8])
-            check_count = 0
             while not _stop_watcher.wait(0.5):
-                check_count += 1
                 exists = bool(_r.exists(f"job:cancel:{job_uuid}"))
-                if check_count % 10 == 0:  # every 5 seconds
-                    logger.debug("Cancel watcher [{}] check #{}: cancelled={}", job_uuid[:8], check_count, exists)
                 if exists:
                     logger.info("Cancel watcher: killing procs for {}", job_uuid[:8])
                     _cancelled_by_watcher.set()
                     from src.routes.screencast import kill_job_procs
                     kill_job_procs(job_uuid)
                     break
-            logger.debug("Cancel watcher stopped for {} after {} checks", job_uuid[:8], check_count)
         except Exception as e:
             logger.warning("Cancel watcher error: {}", e)
 
@@ -579,12 +572,6 @@ def run_screencast_demo_render(
     dpi: int = 100,
 ):
     """Demo render: FFmpeg pipeline with pre-existing demo audio files."""
-    import time
-    t_start = time.time()
-
-    def _elapsed(since=None):
-        return f"{time.time() - (since or t_start):.2f}s"
-
     try:
         # Save params for crash recovery (retry button)
         save_job_file(job_uuid, "demo_params.json", json.dumps({"dpi": dpi}).encode())
@@ -605,17 +592,13 @@ def run_screencast_demo_render(
             _find_demo_pptx,
         )
 
-        logger.info("TIMING [{}] start", job_uuid[:8])
-
         # Get slide images: prefer pre-rendered or uploaded PPTX from job folder
         import base64
-        t0 = time.time()
         prerendered_dir = IMAGE_TMP_DIR / job_uuid
         prerendered_images = sorted(prerendered_dir.glob("slide-*.png")) if prerendered_dir.exists() else []
 
         if prerendered_images and dpi == 100:
             slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in prerendered_images]
-            logger.info("TIMING [{}] images: pre-rendered 100dpi ({} slides) in {}", job_uuid[:8], len(slide_images_b64), _elapsed(t0))
         else:
             pptx_data_job = None
             try:
@@ -630,13 +613,10 @@ def run_screencast_demo_render(
                     pptx_copy.write_bytes(pptx_data_job)
                     image_paths = _pptx_to_images(pptx_copy, img_dir, dpi)
                     slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in image_paths]
-                logger.info("TIMING [{}] images: re-rendered {}dpi ({} slides) in {}", job_uuid[:8], dpi, len(slide_images_b64), _elapsed(t0))
             else:
                 slide_images_b64 = _get_demo_slide_images_sync()
-                logger.info("TIMING [{}] images: demo ({} slides) in {}", job_uuid[:8], len(slide_images_b64), _elapsed(t0))
 
         # Load demo audio
-        t0 = time.time()
         pptx_path = _find_demo_pptx()
         if pptx_path:
             slide_texts = _extract_text_per_slide(pptx_path.read_bytes())
@@ -644,7 +624,6 @@ def run_screencast_demo_render(
             slide_texts = []
         num_slides_hint = len(slide_texts) or 6
         demo_audio = _load_demo_audio_files(num_slides_hint)
-        logger.info("TIMING [{}] load audio: {} files in {}", job_uuid[:8], len(demo_audio), _elapsed(t0))
 
         if not demo_audio:
             raise RuntimeError("Keine Demo-MP3s gefunden. Lege slide_001.mp3 in backend/demo/slides/ ab.")
@@ -660,7 +639,6 @@ def run_screencast_demo_render(
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
 
-            t0 = time.time()
             slide_image_paths: list[Path] = []
             for i, img_b64 in enumerate(slide_images_b64[:num_slides]):
                 img_path = tmp / f"slide_{i:03d}.png"
@@ -672,16 +650,12 @@ def run_screencast_demo_render(
                 dst = tmp / f"audio_{i:03d}.mp3"
                 dst.write_bytes(src.read_bytes())
                 audio_paths.append(dst)
-            logger.info("TIMING [{}] write tmp files in {}", job_uuid[:8], _elapsed(t0))
 
             db.set_render_started_at(job_uuid)
-            t0 = time.time()
             clip_paths: list[Path] = [tmp / f"clip_{i:03d}.mp4" for i in range(num_slides)]
 
             def _render_clip(i: int) -> None:
-                t_clip = time.time()
                 _create_slide_video(slide_image_paths[i], audio_paths[i], clip_paths[i], pause=slide_pause)
-                logger.info("TIMING [{}] clip {}/{} in {}", job_uuid[:8], i + 1, num_slides, _elapsed(t_clip))
 
             db.update_job_status(job_uuid, "running", progress={"step": "video", "current": 0, "total": num_slides})
             with ThreadPoolExecutor(max_workers=RENDER_MAX_WORKERS) as executor:
@@ -691,25 +665,18 @@ def run_screencast_demo_render(
                     future.result()
                     completed += 1
                     db.update_job_status(job_uuid, "running", progress={"step": "video", "current": completed, "total": num_slides})
-            logger.info("TIMING [{}] all clips in {}", job_uuid[:8], _elapsed(t0))
 
-            t0 = time.time()
             db.update_job_status(job_uuid, "running", progress={"step": "concat"})
             concat_path = tmp / "concat.mp4"
             _concatenate_videos(clip_paths, concat_path)
-            logger.info("TIMING [{}] concat in {}", job_uuid[:8], _elapsed(t0))
 
-            t0 = time.time()
             final_path = tmp / "final.mp4"
             output_bytes = _apply_faststart(concat_path, final_path)
-            logger.info("TIMING [{}] faststart in {}", job_uuid[:8], _elapsed(t0))
 
-            t0 = time.time()
             audio_bytes_list = [ap.read_bytes() for ap in audio_paths[:num_slides]]
             save_audio_cache(job_uuid, audio_bytes_list)
 
             result_path = save_result_file(job_uuid, ".mp4", output_bytes)
-            logger.info("TIMING [{}] save result in {}", job_uuid[:8], _elapsed(t0))
 
             meta = {
                 "audio_id": job_uuid,
@@ -720,7 +687,6 @@ def run_screencast_demo_render(
         save_result_and_evict(job_uuid, result_path, "demo_screencast.mp4")
         db.update_job_status(job_uuid, "success")
 
-        logger.info("TIMING [{}] TOTAL: {}", job_uuid[:8], _elapsed())
         logger.info("Demo render task {} completed", job_uuid)
         _maybe_dispatch_next(job_uuid)
 

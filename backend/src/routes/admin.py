@@ -622,8 +622,16 @@ async def list_all_jobs(
         date_from=date_from.strip(), date_to=date_to.strip(),
         extra_tools=extra_tools,
     )
+    screencast_tools = {"screencast_render", "screencast_auto", "screencast_demo_render", "screencast_translate"}
     result = []
     for j in jobs:
+        # Duration: for screencast tools use render_started_at (ffmpeg CPU time), else started_at.
+        duration_sec = None
+        if j["status"] == "success" and j["completed_at"]:
+            if j["tool"] in screencast_tools and j["render_started_at"]:
+                duration_sec = (j["completed_at"] - j["render_started_at"]).total_seconds()
+            elif j["started_at"]:
+                duration_sec = (j["completed_at"] - j["started_at"]).total_seconds()
         result.append({
             "job_uuid": j["job_uuid"],
             "tool": j["tool"],
@@ -633,6 +641,7 @@ async def list_all_jobs(
             "error": j["error_message"],
             "created_at": j["created_at"],
             "completed_at": j["completed_at"],
+            "duration_seconds": duration_sec,
             "user_display_name": j.get("user_display_name") or j.get("ldap_username") or "Unbekannt",
         })
     return {"jobs": result, "total": total, "limit": limit, "offset": offset}

@@ -1046,7 +1046,6 @@ function ScreencastPageInner() {
 
     // Video comes as raw binary bytes
     const blob = await response.blob();
-    console.log("[Screencast] Video blob size:", blob.size, "bytes");
 
     // Audio download info from headers
     const aId = response.headers.get("X-Audio-Id");

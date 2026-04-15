@@ -1111,11 +1111,27 @@ def get_job_stats(days: int = 30) -> dict:
             ]
 
             # 4. Avg duration per tool (only completed jobs)
+            # Screencast tools: use render_started_at (ffmpeg CPU time only), excluding prep.
             cur.execute("""
                 SELECT tool,
-                       ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - started_at)))::numeric, 1) AS avg_sec
+                       ROUND(AVG(EXTRACT(EPOCH FROM (
+                           completed_at - COALESCE(
+                               CASE WHEN tool IN (
+                                   'screencast_render', 'screencast_auto',
+                                   'screencast_demo_render', 'screencast_translate'
+                               ) THEN render_started_at END,
+                               started_at
+                           )
+                       )))::numeric, 1) AS avg_sec
                 FROM jobs
-                WHERE status = 'success' AND started_at IS NOT NULL AND completed_at IS NOT NULL
+                WHERE status = 'success' AND completed_at IS NOT NULL
+                  AND COALESCE(
+                      CASE WHEN tool IN (
+                          'screencast_render', 'screencast_auto',
+                          'screencast_demo_render', 'screencast_translate'
+                      ) THEN render_started_at END,
+                      started_at
+                  ) IS NOT NULL
                   AND created_at >= NOW() - INTERVAL '%s days'
                 GROUP BY tool ORDER BY tool
             """, (days,))
@@ -1767,7 +1783,7 @@ def get_ki_tutor_sources_by_module(module_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT * FROM ki_tutor_sources WHERE module_id = %s ORDER BY created_at ASC",
+                "SELECT * FROM ki_tutor_sources WHERE module_id = %s ORDER BY created_at DESC",
                 (module_id,),
             )
             rows = cur.fetchall()
@@ -1975,8 +1991,6 @@ def hybrid_search_chunks(
                 [str(query_embedding), module_id] + source_param + [str(query_embedding)],
             )
             vec_rows = cur.fetchall()
-            vec_pages = sorted(set(r["page_number"] for r in vec_rows))
-            logger.info("Hybrid Vector: {} hits, Seiten: {}", len(vec_rows), vec_pages)
 
             # 2) Keyword search (top 40) — OR-Verknüpfung damit einzelne Suchbegriffe matchen
             cur.execute(
@@ -1994,8 +2008,6 @@ def hybrid_search_chunks(
                 [query_text, module_id] + source_param + [query_text],
             )
             kw_rows = cur.fetchall()
-            kw_pages = sorted(set(r["page_number"] for r in kw_rows))
-            logger.info("Hybrid Keyword: {} hits, Seiten: {}", len(kw_rows), kw_pages)
 
             # 2b) Exact substring fallback (catches proper names / non-German terms)
             _stop = {"der","die","das","ein","eine","und","oder","ist","hat","war","wer","was","wie","wo",
@@ -2019,8 +2031,6 @@ def hybrid_search_chunks(
                 )
                 ilike_rows = cur.fetchall()
                 if ilike_rows:
-                    ilike_pages = sorted(set(r["page_number"] for r in ilike_rows))
-                    logger.info("Hybrid ILIKE: {} hits, Seiten: {}", len(ilike_rows), ilike_pages)
                     kw_rows = kw_rows + ilike_rows
 
             # 3) RRF fusion
@@ -2049,9 +2059,6 @@ def hybrid_search_chunks(
                     chunk = chunk_map[cid]
                     chunk["hybrid_score"] = scores[cid]
                     results.append(chunk)
-
-            rrf_pages = sorted(set(c["page_number"] for c in results))
-            logger.info("Hybrid RRF: {} final chunks, Seiten: {}", len(results), rrf_pages)
 
     return results
 

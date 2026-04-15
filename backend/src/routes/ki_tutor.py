@@ -640,9 +640,6 @@ async def chat(
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
 
-    logger.info("Chat debug: active_source_ids={}, resolved source_ids={}, question='{}'",
-                body.active_source_ids, source_ids, body.question[:60])
-
     # Erkennung: generische Zusammenfassungs-Anfrage vs. spezifische Frage
     import re as _re
     _q_lower = body.question.strip().lower()
@@ -678,7 +675,6 @@ async def chat(
         and _has_signal
         and len(_content_words) == 0  # keine Fachbegriffe → generisch
     )
-    logger.info("Generic detection: signal={}, content_words={}, is_generic={}", _has_signal, _content_words, _is_generic)
 
     if _is_generic:
         # ── Generische Zusammenfassung: Summaries + zeitlich verteilte Media-Chunks ──
@@ -809,12 +805,6 @@ async def chat(
         context_parts.append(part)
         context_len += len(part)
     context = "\n\n---\n\n".join(context_parts)
-
-    # Log chunks sent to LLM for debugging page attribution
-    for chunk in chunks:
-        qn = source_id_to_qnum.get(chunk["source_id"], 1)
-        content_preview = (chunk.get("content") or "")[:80].replace("\n", " ")
-        logger.info("CHUNK → LLM: [Q{}, S. {}] '{}'", qn, chunk["page_number"], content_preview)
 
     # Popup-Aktionen: User hat Text selbst markiert
     if body.source_text:
@@ -1165,7 +1155,6 @@ async def convert_source_to_markdown(
         return _markdown_fallback(data)
 
     markdown: str = result.get("markdown", "")
-    logger.info("Docling response: markdown_len={}", len(markdown))
 
     if USE_S3:
         from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
@@ -1200,8 +1189,6 @@ def _strip_image_text_layer(pdf_bytes: bytes) -> bytes:
             for block in page_dict["blocks"]
             if block["type"] == 1
         ]
-        if image_rects:
-            logger.info("_strip_image_text_layer p{}: {} image regions found", page_num, len(image_rects))
         for rect in image_rects:
             page.add_redact_annot(rect)
             redacted = True
@@ -1210,8 +1197,6 @@ def _strip_image_text_layer(pdf_bytes: bytes) -> bytes:
             page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
     result_bytes = doc.tobytes() if redacted else pdf_bytes
     doc.close()
-    if not redacted:
-        logger.info("_strip_image_text_layer: no image regions found in PDF, sending as-is")
     return result_bytes
 
 

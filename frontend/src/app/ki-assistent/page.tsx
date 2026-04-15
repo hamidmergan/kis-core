@@ -122,7 +122,7 @@ function CreateModuleModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="w-full max-w-md rounded-xl p-6 shadow-xl"
+        className="w-full max-w-md rounded-xl p-4 sm:p-6 shadow-xl"
         style={{ backgroundColor: "var(--surface)" }}
       >
         <h2 className="text-lg font-semibold mb-5">
@@ -625,7 +625,8 @@ function ModuleTableRow({
         <td
           className="pr-6 py-5 cursor-pointer"
           onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="min-w-0">
@@ -635,7 +636,8 @@ function ModuleTableRow({
         <td
           className="px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
           onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           {module.source_count}
@@ -643,7 +645,8 @@ function ModuleTableRow({
         <td
           className="px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
           onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           {links.length}
@@ -651,7 +654,7 @@ function ModuleTableRow({
         <td
           className="px-6 py-5 cursor-pointer"
           onClick={() => !toggling && handleToggle(!module.is_active)}
-          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex items-center gap-2.5">
@@ -685,7 +688,7 @@ function ModuleTableRow({
         <td
           className="py-5 text-center relative cursor-pointer"
           onClick={() => setShowMenu(!showMenu)}
-          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex justify-center">
@@ -739,7 +742,8 @@ function ModuleTableRow({
         <td
           className="pr-2 py-5 cursor-pointer"
           onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+          onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex justify-end">
@@ -776,7 +780,7 @@ function ModuleTableRow({
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
                 >
                   <Plus size={12} weight="bold" />
-                  Neuen Link erstellen
+                  Neuer Link
                 </button>
               )}
             </div>
@@ -908,6 +912,7 @@ function ModuleCard({
           <button
             type="button"
             onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
             className="flex-1 min-w-0 text-left"
           >
             <div className="text-[15px] font-semibold text-gray-900 break-words">{module.title}</div>
@@ -1017,7 +1022,7 @@ function ModuleCard({
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-primary transition-colors self-start mt-0.5"
               >
                 <Plus size={12} weight="bold" />
-                Neuen Link erstellen
+                Neuer Link
               </button>
             )}
           </div>
@@ -1242,7 +1247,7 @@ function LecturerView() {
             onClick={() => setShowCreate(true)}
             className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-primary"
           >
-            + Neuen Arbeitsraum erstellen
+            + Neuer Arbeitsraum
           </button>
         </div>
       </div>
@@ -1434,7 +1439,7 @@ export default function KiTutorPage() {
   return (
     <ProtectedRoute>
       <Header showLogout />
-      <div className="max-w-5xl mx-auto px-4 pt-10 pb-20 lg:pt-15 lg:pb-30">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
         {role !== null && (role === "lecturer" ? <LecturerView /> : <Suspense><StudentView /></Suspense>)}
       </div>
     </ProtectedRoute>
