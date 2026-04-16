@@ -3,8 +3,8 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { checkAuthStatus } from "@/lib/auth";
 import {
   ArrowRight,
@@ -21,9 +21,10 @@ import {
   Trash,
   X,
 } from "@phosphor-icons/react";
-import HelpTooltip from "@/components/HelpTooltip";
-import IconButton from "@/components/IconButton";
-import Spinner from "@/components/Spinner";
+import HelpTooltip from "@/components/ui/HelpTooltip";
+import IconButton from "@/components/ui/IconButton";
+import Spinner from "@/components/ui/Spinner";
+import { useTopLoader } from "nextjs-toploader";
 
 const MAX_ACCESS_LINKS = 10;
 
@@ -126,7 +127,7 @@ function CreateModuleModal({
         style={{ backgroundColor: "var(--surface)" }}
       >
         <h2 className="text-lg font-semibold mb-5">
-          Neuen Arbeitsraum erstellen
+          Neuen Workspace erstellen
         </h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -322,7 +323,7 @@ function ExpandableText({ children, className = "", clampClass = "", style }: { 
 
 function LinkRow({ link, onRequestDelete }: { link: AccessLink; onRequestDelete: (link: AccessLink) => void }) {
   const [copied, setCopied] = useState(false);
-  const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/ki-assistent?code=${link.code}`;
+  const enrollLink = `${typeof window !== "undefined" ? window.location.origin : ""}/workspaces?code=${link.code}`;
   const expiresDate = link.expires_at
     ? new Date(link.expires_at).toLocaleDateString("de-DE", {
         day: "2-digit",
@@ -450,45 +451,70 @@ function StatsModal({ moduleUuid, moduleTitle, onClose }: { moduleUuid: string; 
 
 // ─── Lecturer View ────────────────────────────────────────────────────────────
 
-function RenameModuleModal({
+function EditModuleModal({
   currentTitle,
+  currentDescription,
   onClose,
   onSubmit,
 }: {
   currentTitle: string;
+  currentDescription: string;
   onClose: () => void;
-  onSubmit: (newTitle: string) => Promise<boolean>;
+  onSubmit: (newTitle: string, newDescription: string) => Promise<boolean>;
 }) {
-  const [value, setValue] = useState(currentTitle);
+  const [title, setTitle] = useState(currentTitle);
+  const [description, setDescription] = useState(currentDescription);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
-    const trimmed = value.trim();
-    if (!trimmed) { setError("Titel darf nicht leer sein"); return; }
-    if (trimmed === currentTitle) { onClose(); return; }
+    const trimmedTitle = title.trim();
+    const trimmedDesc = description.trim();
+    if (!trimmedTitle) { setError("Titel darf nicht leer sein"); return; }
+    if (trimmedTitle === currentTitle && trimmedDesc === currentDescription) { onClose(); return; }
     setSaving(true);
     setError(null);
-    const ok = await onSubmit(trimmed);
+    const ok = await onSubmit(trimmedTitle, trimmedDesc);
     setSaving(false);
     if (ok) onClose();
-    else setError("Umbenennen fehlgeschlagen");
+    else setError("Speichern fehlgeschlagen");
   }
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-        <h3 className="text-base font-semibold mb-3">Arbeitsraum umbenennen</h3>
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !saving) handleSave(); }}
-          maxLength={100}
-          autoFocus
-          className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2"
-          style={{ borderColor: "var(--border)" }}
-        />
+      <div className="bg-white shadow-xl rounded-xl w-full max-h-[90vh] sm:max-w-xl lg:max-w-3xl p-6 flex flex-col">
+        <h3 className="text-base font-semibold mb-4">Workspace bearbeiten</h3>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
+            Titel <span style={{ color: "#E11D48" }}>*</span>
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value.slice(0, 50))}
+            onKeyDown={(e) => { if (e.key === "Enter" && !saving) handleSave(); }}
+            maxLength={50}
+            autoFocus
+            className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2"
+            style={{ borderColor: "var(--border)" }}
+          />
+          <p className="text-xs text-gray-400 text-right mt-1">{title.length}/50</p>
+        </div>
+        <div className="flex flex-col flex-1 min-h-0">
+          <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
+            Beschreibung
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value.slice(0, 300))}
+            maxLength={300}
+            rows={8}
+            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none flex-1 sm:min-h-[180px] lg:min-h-[260px]"
+            style={{ backgroundColor: "var(--bg)", borderColor: "var(--border)", color: "var(--text)" }}
+            placeholder="z. B. Sommersemester 2026, Grundlagen der Programmierung"
+          />
+          <p className="text-xs text-gray-400 text-right mt-1">{description.length}/300</p>
+        </div>
         {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
         <div className="flex gap-3 justify-end mt-5">
           <button onClick={onClose} disabled={saving} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
@@ -503,13 +529,13 @@ function ModuleTableRow({
   module,
   onToggleActive,
   onDelete,
-  onRename,
+  onEdit,
   onLinksChanged,
 }: {
   module: KiTutorModule;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
-  onRename: (uuid: string, newTitle: string) => Promise<boolean>;
+  onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   const router = useRouter();
@@ -522,9 +548,14 @@ function ModuleTableRow({
   const [deleting, setDeleting] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
   const [deletingLink, setDeletingLink] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
+  const loader = useTopLoader();
   const links = module.access_links ?? [];
+  const moduleHref = `/workspaces/${module.uuid}`;
+
+  const handleOpen = () => { loader.start(); router.push(moduleHref); };
+  const handlePrefetch = () => router.prefetch(moduleHref);
 
   async function handleToggle(newVal: boolean) {
     setToggling(true);
@@ -565,11 +596,12 @@ function ModuleTableRow({
       {showStats && (
         <StatsModal moduleUuid={module.uuid} moduleTitle={module.title} onClose={() => setShowStats(false)} />
       )}
-      {renameOpen && (
-        <RenameModuleModal
+      {editOpen && (
+        <EditModuleModal
           currentTitle={module.title}
-          onClose={() => setRenameOpen(false)}
-          onSubmit={(t) => onRename(module.uuid, t)}
+          currentDescription={module.description ?? ""}
+          onClose={() => setEditOpen(false)}
+          onSubmit={(t, d) => onEdit(module.uuid, t, d)}
         />
       )}
       {showAddLink && (
@@ -578,9 +610,9 @@ function ModuleTableRow({
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold mb-2">Arbeitsraum löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">Workspace löschen?</h3>
             <p className="text-sm text-gray-600 mb-1"><span className="font-medium">{module.title}</span></p>
-            <p className="text-sm text-red-600 mb-6">Der Arbeitsraum und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
+            <p className="text-sm text-red-600 mb-6">Der Workspace und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDeleteConfirm(false)} disabled={deleting} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
               <button onClick={handleDeleteConfirm} disabled={deleting} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
@@ -611,6 +643,7 @@ function ModuleTableRow({
           borderColor: "var(--border)",
           backgroundColor: expanded ? "var(--surface)" : undefined,
         }}
+        onMouseEnter={handlePrefetch}
       >
         <td className="py-5 cursor-pointer" onClick={() => setExpanded(!expanded)}>
           <div className="flex justify-center">
@@ -624,8 +657,8 @@ function ModuleTableRow({
         </td>
         <td
           className="pr-6 py-5 cursor-pointer"
-          onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+          onClick={handleOpen}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
@@ -635,8 +668,8 @@ function ModuleTableRow({
         </td>
         <td
           className="px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
-          onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+          onClick={handleOpen}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
@@ -644,8 +677,8 @@ function ModuleTableRow({
         </td>
         <td
           className="px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
-          onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+          onClick={handleOpen}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
@@ -662,7 +695,7 @@ function ModuleTableRow({
               type="button"
               role="switch"
               aria-checked={module.is_active}
-              aria-label={module.is_active ? "Arbeitsraum deaktivieren" : "Arbeitsraum aktivieren"}
+              aria-label={module.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
               onClick={(e) => { e.stopPropagation(); handleToggle(!module.is_active); }}
               disabled={toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
@@ -719,12 +752,12 @@ function ModuleTableRow({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowMenu(false); setRenameOpen(true); }}
+                  onClick={() => { setShowMenu(false); setEditOpen(true); }}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
                   style={{ color: "var(--text)" }}
                 >
                   <PencilSimple size={16} />
-                  Umbenennen
+                  Bearbeiten
                 </button>
                 <button
                   type="button"
@@ -741,15 +774,15 @@ function ModuleTableRow({
         </td>
         <td
           className="pr-2 py-5 cursor-pointer"
-          onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+          onClick={handleOpen}
+          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
           onMouseLeave={(e) => { if (!expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex justify-end">
             <IconButton
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); router.push(`/ki-assistent/${module.uuid}`); }}
-              title="Arbeitsraum öffnen"
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleOpen(); }}
+              title="Workspace öffnen"
             >
               <ArrowRight size={13} weight="bold" />
             </IconButton>
@@ -797,13 +830,13 @@ function ModuleCard({
   module,
   onToggleActive,
   onDelete,
-  onRename,
+  onEdit,
   onLinksChanged,
 }: {
   module: KiTutorModule;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
-  onRename: (uuid: string, newTitle: string) => Promise<boolean>;
+  onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   const router = useRouter();
@@ -816,9 +849,13 @@ function ModuleCard({
   const [deleting, setDeleting] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
   const [deletingLink, setDeletingLink] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
+  const loader = useTopLoader();
   const links = module.access_links ?? [];
+  const moduleHref = `/workspaces/${module.uuid}`;
+  const handleOpen = () => { loader.start(); router.push(moduleHref); };
+  const handlePrefetch = () => router.prefetch(moduleHref);
 
   async function handleToggle(newVal: boolean) {
     setToggling(true);
@@ -855,11 +892,12 @@ function ModuleCard({
       {showStats && (
         <StatsModal moduleUuid={module.uuid} moduleTitle={module.title} onClose={() => setShowStats(false)} />
       )}
-      {renameOpen && (
-        <RenameModuleModal
+      {editOpen && (
+        <EditModuleModal
           currentTitle={module.title}
-          onClose={() => setRenameOpen(false)}
-          onSubmit={(t) => onRename(module.uuid, t)}
+          currentDescription={module.description ?? ""}
+          onClose={() => setEditOpen(false)}
+          onSubmit={(t, d) => onEdit(module.uuid, t, d)}
         />
       )}
       {showAddLink && (
@@ -868,9 +906,9 @@ function ModuleCard({
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold mb-2">Arbeitsraum löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">Workspace löschen?</h3>
             <p className="text-sm text-gray-600 mb-1"><span className="font-medium">{module.title}</span></p>
-            <p className="text-sm text-red-600 mb-6">Der Arbeitsraum und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
+            <p className="text-sm text-red-600 mb-6">Der Workspace und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDeleteConfirm(false)} disabled={deleting} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
               <button onClick={handleDeleteConfirm} disabled={deleting} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
@@ -900,6 +938,7 @@ function ModuleCard({
           borderColor: "var(--border)",
           backgroundColor: expanded ? "var(--surface)" : undefined,
         }}
+        onTouchStart={handlePrefetch}
       >
         {/* Top row: chevron + title (full width) */}
         <div className="flex items-center gap-2 pt-4 pb-2 pl-2">
@@ -911,8 +950,8 @@ function ModuleCard({
           </IconButton>
           <button
             type="button"
-            onClick={() => router.push(`/ki-assistent/${module.uuid}`)}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(`/ki-assistent/${module.uuid}`, "_blank"); } }}
+            onClick={handleOpen}
+            onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(moduleHref, "_blank"); } }}
             className="flex-1 min-w-0 text-left"
           >
             <div className="text-[15px] font-semibold text-gray-900 break-words">{module.title}</div>
@@ -926,7 +965,7 @@ function ModuleCard({
               type="button"
               role="switch"
               aria-checked={module.is_active}
-              aria-label={module.is_active ? "Arbeitsraum deaktivieren" : "Arbeitsraum aktivieren"}
+              aria-label={module.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
               onClick={() => handleToggle(!module.is_active)}
               disabled={toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
@@ -975,12 +1014,12 @@ function ModuleCard({
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setShowMenu(false); setRenameOpen(true); }}
+                      onClick={() => { setShowMenu(false); setEditOpen(true); }}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
                       style={{ color: "var(--text)" }}
                     >
                       <PencilSimple size={16} />
-                      Umbenennen
+                      Bearbeiten
                     </button>
                     <button
                       type="button"
@@ -995,7 +1034,7 @@ function ModuleCard({
                 </>
               )}
             </div>
-            <IconButton onClick={() => router.push(`/ki-assistent/${module.uuid}`)} title="Arbeitsraum öffnen">
+            <IconButton onClick={handleOpen} title="Workspace öffnen">
               <ArrowRight size={13} weight="bold" />
             </IconButton>
           </div>
@@ -1038,13 +1077,13 @@ function ModuleTable({
   modules,
   onToggleActive,
   onDelete,
-  onRename,
+  onEdit,
   onLinksChanged,
 }: {
   modules: KiTutorModule[];
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
-  onRename: (uuid: string, newTitle: string) => Promise<boolean>;
+  onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }) {
   const [page, setPage] = useState(1);
@@ -1069,13 +1108,13 @@ function ModuleTable({
           <thead>
             <tr>
               <th className="pb-3"></th>
-              <th className="text-left pr-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Arbeitsraum</th>
+              <th className="text-left pr-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Workspace</th>
               <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Quellen</th>
               <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Links</th>
               <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>
                 <span className="inline-flex items-center gap-1.5">
                   Status
-                  <HelpTooltip text="Aktiv: Studierende können sich über Zugangslinks in den Arbeitsraum einschreiben und die Inhalte nutzen. Inaktiv: Der Arbeitsraum ist für Studierende gesperrt. Bestehende Einschreibungen bleiben erhalten." />
+                  <HelpTooltip text="Aktiv: Studierende können sich über Zugangslinks in den Workspace einschreiben und die Inhalte nutzen. Inaktiv: Der Workspace ist für Studierende gesperrt. Bestehende Einschreibungen bleiben erhalten." />
                 </span>
               </th>
               <th className="pb-3"></th>
@@ -1089,7 +1128,7 @@ function ModuleTable({
                 module={m}
                 onToggleActive={onToggleActive}
                 onDelete={onDelete}
-                onRename={onRename}
+                onEdit={onEdit}
                 onLinksChanged={onLinksChanged}
               />
             ))}
@@ -1105,7 +1144,7 @@ function ModuleTable({
             module={m}
             onToggleActive={onToggleActive}
             onDelete={onDelete}
-            onRename={onRename}
+            onEdit={onEdit}
             onLinksChanged={onLinksChanged}
           />
         ))}
@@ -1115,7 +1154,7 @@ function ModuleTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Zeige {startIdx + 1} bis {Math.min(startIdx + MODULES_PER_PAGE, modules.length)} von {modules.length} Arbeitsräumen
+            Zeige {startIdx + 1} bis {Math.min(startIdx + MODULES_PER_PAGE, modules.length)} von {modules.length} Workspaces
           </p>
           <div className="flex items-center gap-1">
             <button
@@ -1207,16 +1246,16 @@ function LecturerView() {
     } catch { /* ignore */ }
   }
 
-  async function handleRename(uuid: string, newTitle: string): Promise<boolean> {
+  async function handleEdit(uuid: string, newTitle: string, newDescription: string): Promise<boolean> {
     try {
       const res = await fetch(`/api/ki-assistent/modules/${uuid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTitle }),
+        body: JSON.stringify({ title: newTitle, description: newDescription }),
       });
       if (res.ok) {
-        setModules((prev) => prev.map((m) => m.uuid === uuid ? { ...m, title: newTitle } : m));
+        setModules((prev) => prev.map((m) => m.uuid === uuid ? { ...m, title: newTitle, description: newDescription || null } : m));
         return true;
       }
     } catch { /* ignore */ }
@@ -1241,13 +1280,13 @@ function LecturerView() {
       <div className="mb-3">
         <h1 className="text-3xl font-bold mb-10">Willkommen bei KIS</h1>
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Meine Arbeitsräume</h2>
+          <h2 className="text-xl font-semibold">Meine Workspaces</h2>
           <button
             type="button"
             onClick={() => setShowCreate(true)}
             className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-primary"
           >
-            + Neuer Arbeitsraum
+            + Neuer Workspace
           </button>
         </div>
       </div>
@@ -1259,8 +1298,8 @@ function LecturerView() {
       ) : modules.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20" style={{ color: "var(--muted)" }}>
           <Files size={40} weight="duotone" className="mb-3 opacity-40" />
-          <p className="text-base">Noch keine Arbeitsräume vorhanden.</p>
-          <p className="text-sm mt-1">Erstelle deinen ersten Arbeitsraum mit dem Button oben.</p>
+          <p className="text-base">Noch keine Workspaces vorhanden.</p>
+          <p className="text-sm mt-1">Erstelle deinen ersten Workspace mit dem Button oben.</p>
         </div>
       ) : (
         <div className="mt-6 md:mt-20">
@@ -1268,7 +1307,7 @@ function LecturerView() {
             modules={modules}
             onToggleActive={handleToggleActive}
             onDelete={handleDelete}
-            onRename={handleRename}
+            onEdit={handleEdit}
             onLinksChanged={handleLinksChanged}
           />
         </div>
@@ -1340,7 +1379,7 @@ function StudentView() {
   return (
     <>
       <h1 className="text-3xl font-bold mb-10">Willkommen bei KIS</h1>
-      <h2 className="text-xl font-semibold mb-8">Meine Arbeitsräume</h2>
+      <h2 className="text-xl font-semibold mb-8">Meine Workspaces</h2>
 
       {/* Enroll form */}
       <section
@@ -1383,14 +1422,14 @@ function StudentView() {
         </div>
       ) : modules.length === 0 ? (
         <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
-          Du bist noch in keinem Arbeitsraum eingeschrieben.
+          Du bist noch in keinem Workspace eingeschrieben.
         </p>
       ) : (
         <ul className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
           {modules.map((m, i) => {
             const href = m.enrollment_id
-              ? `/ki-assistent/${m.uuid}?eid=${m.enrollment_id}`
-              : `/ki-assistent/${m.uuid}`;
+              ? `/workspaces/${m.uuid}?eid=${m.enrollment_id}`
+              : `/workspaces/${m.uuid}`;
             const untilDate = m.enrolled_until
               ? new Date(m.enrolled_until).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })
               : null;

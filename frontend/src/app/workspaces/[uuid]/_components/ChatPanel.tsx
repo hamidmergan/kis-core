@@ -1,0 +1,511 @@
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {
+  Chat,
+  DotsThreeVertical,
+  Trash,
+  SidebarSimple,
+  CaretDown,
+  CaretUp,
+  Copy,
+  Check,
+  NotePencil,
+  PaperPlaneRight,
+} from "@phosphor-icons/react";
+import type { ChatMessage, Source } from "../_types";
+import { _chunkLabel, _embedQmapIntoCitations, _getChipIcon } from "../_utils";
+
+export function ChatPanel({
+  messages,
+  activeSourceIds,
+  sources,
+  loading,
+  input,
+  onInputChange,
+  onSend,
+  onPillClick,
+  moduleReady,
+  onClear,
+  externalTextareaRef,
+  onSaveNote,
+  onMinimize,
+  onSendPrompt,
+}: {
+  messages: ChatMessage[];
+  activeSourceIds: string[];
+  sources: Source[];
+  loading: boolean;
+  input: string;
+  onInputChange: (v: string) => void;
+  onSend: () => void;
+  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
+  moduleReady: boolean;
+  onClear: () => void;
+  externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  onSaveNote?: (content: string) => void;
+  onMinimize?: () => void;
+  onSendPrompt?: (text: string) => void;
+}) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
+  const userScrolledUp = useRef(false);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [savedNoteIdx, setSavedNoteIdx] = useState<number | null>(null);
+  const chatMenuRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Sync internal textarea ref → external ref so parent can focus it
+  const textareaCallbackRef = useCallback((el: HTMLTextAreaElement | null) => {
+    (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+    if (externalTextareaRef) (externalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+  }, [externalTextareaRef]);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+  }, [input]);
+  useEffect(() => {
+    if (!chatMenuOpen) return;
+    function handle(e: MouseEvent) {
+      if (!chatMenuRef.current?.contains(e.target as Node)) setChatMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [chatMenuOpen]);
+
+  // Detect user scrolling up to opt out of auto-scroll
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      userScrolledUp.current = !nearBottom;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Re-engage auto-scroll when a new user message is sent
+  useEffect(() => {
+    if (loading) userScrolledUp.current = false;
+  }, [loading]);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      isFirstRender.current = false;
+      return;
+    }
+    if (userScrolledUp.current) return;
+    bottomRef.current?.scrollIntoView({ behavior: loading ? "instant" : "smooth" });
+  }, [messages, loading]);
+
+  const getFilename = (srcUuid: string) =>
+    sources.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid;
+
+  // Wrap onPillClick so opening the viewer doesn't cause the chat to jump.
+  // Captures scrollTop before the click and restores it across a few frames
+  // while the panel layout settles.
+  function handleChipClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) {
+    const el = scrollContainerRef.current;
+    const savedTop = el?.scrollTop ?? 0;
+    userScrolledUp.current = true;
+    onPillClick(sourceUuid, page, filename, sourceText, startTime);
+    if (el) {
+      const restore = () => { el.scrollTop = savedTop; };
+      requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+      setTimeout(restore, 60);
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
+        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Chat</span>
+        <div className="flex items-center gap-1.5">
+          <div className="relative" ref={chatMenuRef}>
+            <button
+              type="button"
+              onClick={() => setChatMenuOpen((v) => !v)}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+              title="Optionen"
+            >
+              <DotsThreeVertical size={16} weight="bold" />
+            </button>
+            {chatMenuOpen && (
+              <div
+                className="absolute right-0 top-8 z-50 rounded-xl py-1"
+                style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => { onClear(); setChatMenuOpen(false); }}
+                  disabled={messages.length === 0}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 disabled:opacity-40 transition-colors"
+                  style={{ color: "#B91C1C" }}
+                >
+                  <Trash size={16} />
+                  Chatprotokoll löschen
+                </button>
+              </div>
+            )}
+          </div>
+          {onMinimize && (
+            <button
+              type="button"
+              onClick={onMinimize}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+              title="Panel minimieren"
+            >
+              <SidebarSimple size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full px-6 py-6 flex flex-col gap-5" style={{ maxWidth: 720 }}>
+          {messages.length === 0 && !loading && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)" }}
+              >
+                <Chat size={22} style={{ color: "var(--kb)" }} />
+              </div>
+              <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                Dein KI-Assistent
+              </p>
+              <p className="text-xs text-center max-w-xs" style={{ color: "var(--muted)" }}>
+                Wähle Quellen links aus – stell Fragen, lass dir Inhalte erklären oder gib Anweisungen.
+              </p>
+              <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
+                {[
+                  "Gib mir einen Überblick über den Inhalt.",
+                  "Fasse die wichtigsten Punkte zusammen.",
+                  "Erkläre zentrale Begriffe kurz und verständlich.",
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    disabled={activeSourceIds.length === 0}
+                    onClick={() => onSendPrompt?.(prompt)}
+                    className="text-left text-xs px-4 py-2.5 rounded-xl border transition-all"
+                    style={{
+                      borderColor: activeSourceIds.length === 0 ? "var(--border)" : "rgba(var(--kb-rgb),0.25)",
+                      color: activeSourceIds.length === 0 ? "var(--muted)" : "var(--text)",
+                      backgroundColor: activeSourceIds.length === 0 ? "transparent" : "rgba(var(--kb-rgb),0.04)",
+                      cursor: activeSourceIds.length === 0 ? "default" : "pointer",
+                      opacity: activeSourceIds.length === 0 ? 0.5 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activeSourceIds.length > 0) {
+                        e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.10)";
+                        e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.4)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeSourceIds.length > 0) {
+                        e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.04)";
+                        e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.25)";
+                      }
+                    }}
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((msg, i) => {
+            const msgSourcePages = msg.source_pages ?? [];
+
+            // Parse [QN, S. X] and legacy [S. X] tags → inline pill buttons
+            const msgQmap = msg.source_qmap ?? [];
+            // Track which source_pages entry was used per page to cycle through chunks
+            const spUsedCount = new Map<string, number>();
+            function parseCitations(text: string): React.ReactNode[] {
+              // Split multi-page citations: [Q1, S. 9, S. 15] → [Q1, S. 9] [Q1, S. 15]
+              text = text.replace(/\[(Q\d+),\s*((?:S\.\s*\d+(?:\s*\|[^,\]]+)?,?\s*)+)\]/g, (_m, q, body) => {
+                const parts = body.match(/S\.\s*\d+(?:\s*\|[^,\]]*)*/g) || [];
+                return parts.map((p: string) => `[${q}, ${p.trim()}]`).join(" ");
+              });
+              // Matches [Q1, S. 2 | keywords], [S. 2], [Q1, 05:32] (keywords optional)
+              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
+              const nodes: React.ReactNode[] = [];
+              let last = 0;
+              let m: RegExpExecArray | null;
+              while ((m = pattern.exec(text)) !== null) {
+                if (m.index > last) nodes.push(text.slice(last, m.index));
+                const qNum = m[1] ? parseInt(m[1]) : null;
+                const pageNum = m[2] ? parseInt(m[2]) : 0;
+                const timestamp = m[3] || null;
+                const keywords = m[4]?.trim().replace(/^["„"']+|["„"']+$/g, "").trim() || null;
+
+                // Resolve source via qmap (preferred) or fallback to source_pages
+                const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
+                const isMedia = qEntry?.is_media || !!timestamp;
+                const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
+                const filename = qEntry?.filename ?? getFilename(sourceUuid);
+                const pageKey = `${sourceUuid}:${pageNum}`;
+                const usedIdx = spUsedCount.get(pageKey) ?? 0;
+                const matchingEntries = msgSourcePages.filter(s => s.source_uuid === sourceUuid && (timestamp ? s.start_time !== undefined : s.page_number === pageNum));
+                const sp = matchingEntries[usedIdx % Math.max(1, matchingEntries.length)];
+                spUsedCount.set(pageKey, usedIdx + 1);
+
+                // If the chip refers to a source_pages entry that holds the user's full popup
+                // selection (backend sets is_popup_selection), use the complete text as highlight.
+                // Falls back to in-memory popup_selection (same session) or LLM keywords / chunk snippet.
+                const popupEntry = msgSourcePages.find(
+                  s => s.is_popup_selection && s.source_uuid === sourceUuid && s.page_number === pageNum,
+                );
+                const popupSel = msg.popup_selection;
+                const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
+                // Keywords beat chunk text: they are LLM-validated for the cited page,
+                // while sp.source_text may belong to a different page when chunk metadata
+                // and cited page disagree (→ misleading partial matches).
+                const highlightText = popupEntry?.source_text
+                  ? popupEntry.source_text
+                  : matchesPopupSel
+                    ? popupSel!.text
+                    : (keywords || sp?.source_text?.trim() || undefined);
+
+                const ChipIcon = _getChipIcon(filename);
+                if (isMedia && timestamp) {
+                  // Parse timestamp to seconds
+                  const parts = timestamp.split(":").map(Number);
+                  const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+                  nodes.push(
+                    <button
+                      key={m.index}
+                      type="button"
+                      onClick={() => handleChipClick(sourceUuid, 0, filename, undefined, seconds)}
+                      className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+                      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+                      title={`${filename}, ${timestamp}`}
+                    >
+                      <ChipIcon size={8} weight="bold" />
+                      {timestamp}
+                    </button>
+                  );
+                } else {
+                  nodes.push(
+                    <button
+                      key={m.index}
+                      type="button"
+                      onClick={() => handleChipClick(sourceUuid, pageNum, filename, highlightText)}
+                      className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+                      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+                      title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
+                    >
+                      <ChipIcon size={8} weight="bold" />
+                      {_chunkLabel(filename, pageNum)}
+                    </button>
+                  );
+                }
+                last = pattern.lastIndex;
+              }
+              if (last < text.length) nodes.push(text.slice(last));
+              return nodes;
+            }
+
+            function withCitations(children: React.ReactNode): React.ReactNode {
+              return React.Children.map(children, (child) =>
+                typeof child === "string" ? parseCitations(child) : child
+              );
+            }
+
+            return (
+              <div
+                key={msg.id ?? i}
+                className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}
+              >
+                {msg.role === "assistant" && (
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      style={{ backgroundColor: "var(--kb)" }}
+                    >
+                      KI
+                    </div>
+                    <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
+                      KI-Assistent
+                    </span>
+                  </div>
+                )}
+                <div
+                  className="max-w-[96%] px-4 py-3 rounded-2xl text-sm leading-relaxed break-words"
+                  style={
+                    msg.role === "user"
+                      ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
+                      : { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6, overflowWrap: "break-word" }
+                  }
+                >
+                  {msg.role === "assistant" && !msg.content ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex gap-1">
+                        {[0, 1, 2].map((n) => (
+                          <span
+                            key={n}
+                            className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
+                            style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
+                          />
+                        ))}
+                      </span>
+                    </span>
+                  ) : msg.role === "assistant" ? (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0">{withCitations(children)}</p>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+                        li: ({ children }) => <li className="leading-relaxed">{withCitations(children)}</li>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        h1: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
+                        h2: ({ children }) => <p className="font-semibold mb-1">{withCitations(children)}</p>,
+                        h3: ({ children }) => <p className="font-medium mb-1">{withCitations(children)}</p>,
+                        table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                        thead: ({ children }) => <thead className="border-b border-current/20">{children}</thead>,
+                        th: ({ children }) => <th className="text-left px-2 py-1 font-semibold">{children}</th>,
+                        td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{withCitations(children)}</td>,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  ) : (
+                    <>
+                      <div
+                        style={{
+                          maxHeight: expandedMsgs.has(i) ? "none" : "8em",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                      {msg.content.split("\n").length > 5 || msg.content.length > 300 ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedMsgs((prev) => {
+                              const next = new Set(prev);
+                              next.has(i) ? next.delete(i) : next.add(i);
+                              return next;
+                            })
+                          }
+                          className="flex items-center gap-1 mt-1.5 text-[11px] opacity-70 hover:opacity-100 transition-opacity"
+                          style={{ color: "white" }}
+                        >
+                          {expandedMsgs.has(i) ? (
+                            <>
+                              <CaretUp size={12} /> Einklappen
+                            </>
+                          ) : (
+                            <>
+                              <CaretDown size={12} /> Mehr anzeigen
+                            </>
+                          )}
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+                <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                  {msg.sourceCount != null && msg.sourceCount > 0 && (
+                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                      {msg.sourceCount} {msg.sourceCount === 1 ? "Quelle" : "Quellen"}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
+                      setCopiedIdx(i);
+                      setTimeout(() => setCopiedIdx(null), 1500);
+                    }}
+                    className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                    style={{ color: "var(--muted)" }}
+                    title="Kopieren"
+                  >
+                    {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
+                  </button>
+                  {msg.role === "assistant" && onSaveNote && !loading && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSaveNote(_embedQmapIntoCitations(msg.content, msg.source_qmap ?? []));
+                        setSavedNoteIdx(i);
+                        setTimeout(() => setSavedNoteIdx(null), 1500);
+                      }}
+                      className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                      style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
+                      title="Als Notiz speichern"
+                    >
+                      {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Loading indicator removed – streaming messages show inline dots */}
+          <div ref={bottomRef} />
+        </div>
+      </div>
+
+      {/* Input area */}
+      <div
+        className="flex-shrink-0 px-6 pt-4 pb-0"
+        style={{ borderTop: "1px solid var(--border)" }}
+      >
+        <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
+          <div
+            className="flex items-center gap-2 rounded-2xl px-4 py-3"
+            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+          >
+            <textarea
+              ref={textareaCallbackRef}
+              value={input}
+              onChange={(e) => onInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
+              }}
+              placeholder="Text eingeben…"
+              rows={1}
+              disabled={loading}
+              className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
+              style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
+            />
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={loading || !input.trim() || activeSourceIds.length === 0}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
+              style={{ backgroundColor: "var(--kb)" }}
+              title="Senden"
+            >
+              <PaperPlaneRight size={16} weight="bold" />
+            </button>
+          </div>
+          <div className="flex items-center justify-between mt-2 px-1">
+            <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+              {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
+            </span>
+          </div>
+          <p className="text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+            Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
