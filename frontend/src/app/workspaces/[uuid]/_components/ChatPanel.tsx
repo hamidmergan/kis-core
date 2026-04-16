@@ -47,10 +47,8 @@ export function ChatPanel({
   onMinimize?: () => void;
   onSendPrompt?: (text: string) => void;
 }) {
-  const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
-  const userScrolledUp = useRef(false);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -77,32 +75,13 @@ export function ChatPanel({
     return () => document.removeEventListener("mousedown", handle);
   }, [chatMenuOpen]);
 
-  // Detect user scrolling up to opt out of auto-scroll
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-      userScrolledUp.current = !nearBottom;
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Re-engage auto-scroll when a new user message is sent
-  useEffect(() => {
-    if (loading) userScrolledUp.current = false;
-  }, [loading]);
-
   useEffect(() => {
     if (isFirstRender.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      const c = scrollContainerRef.current;
+      if (c) c.scrollTop = 0;
       isFirstRender.current = false;
-      return;
     }
-    if (userScrolledUp.current) return;
-    bottomRef.current?.scrollIntoView({ behavior: loading ? "instant" : "smooth" });
-  }, [messages, loading]);
+  }, []);
 
   const getFilename = (srcUuid: string) =>
     sources.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid;
@@ -113,7 +92,6 @@ export function ChatPanel({
   function handleChipClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) {
     const el = scrollContainerRef.current;
     const savedTop = el?.scrollTop ?? 0;
-    userScrolledUp.current = true;
     onPillClick(sourceUuid, page, filename, sourceText, startTime);
     if (el) {
       const restore = () => { el.scrollTop = savedTop; };
@@ -172,7 +150,7 @@ export function ChatPanel({
 
       {/* Messages */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full px-6 py-6 flex flex-col gap-5" style={{ maxWidth: 720 }}>
+        <div className="mx-auto w-full p-3 flex flex-col gap-5" style={{ maxWidth: 720 }}>
           {messages.length === 0 && !loading && (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
               <div
@@ -426,10 +404,27 @@ export function ChatPanel({
                   )}
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(msg.content.replace(/\[S\.\s*\d+\]/g, "").trim());
-                      setCopiedIdx(i);
-                      setTimeout(() => setCopiedIdx(null), 1500);
+                    onClick={async () => {
+                      const text = msg.content.replace(/\[S\.\s*\d+\]/g, "").trim();
+                      try {
+                        if (navigator.clipboard?.writeText && window.isSecureContext) {
+                          await navigator.clipboard.writeText(text);
+                        } else {
+                          const ta = document.createElement("textarea");
+                          ta.value = text;
+                          ta.setAttribute("readonly", "");
+                          ta.style.position = "fixed";
+                          ta.style.opacity = "0";
+                          document.body.appendChild(ta);
+                          ta.select();
+                          document.execCommand("copy");
+                          document.body.removeChild(ta);
+                        }
+                        setCopiedIdx(i);
+                        setTimeout(() => setCopiedIdx(null), 1500);
+                      } catch (err) {
+                        console.error("Kopieren fehlgeschlagen", err);
+                      }
                     }}
                     className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
                     style={{ color: "var(--muted)" }}
@@ -458,16 +453,20 @@ export function ChatPanel({
           })}
 
           {/* Loading indicator removed – streaming messages show inline dots */}
-          <div ref={bottomRef} />
         </div>
       </div>
 
       {/* Input area */}
       <div
-        className="flex-shrink-0 px-6 pt-4 pb-0"
+        className="flex-shrink-0 px-6 pt-2 pb-0"
         style={{ borderTop: "1px solid var(--border)" }}
       >
         <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
+          <div className="flex justify-end px-1 mb-1">
+            <span className="text-[10px] leading-none" style={{ color: "var(--muted)" }}>
+              {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
+            </span>
+          </div>
           <div
             className="flex items-center gap-2 rounded-2xl px-4 py-3"
             style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
@@ -496,16 +495,17 @@ export function ChatPanel({
               <PaperPlaneRight size={16} weight="bold" />
             </button>
           </div>
-          <div className="flex items-center justify-between mt-2 px-1">
-            <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-              {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
-            </span>
-          </div>
-          <p className="text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
-            Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
-          </p>
         </div>
       </div>
+      <p className="w-full text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+        Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.
+      </p>
+      <p className="w-full text-center mt-1 pb-2 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+        Feedback oder Probleme?{" "}
+        <a href="mailto:hamid.mergan@th-luebeck.de" className="underline hover:opacity-100 transition-opacity">
+          hamid.mergan@th-luebeck.de
+        </a>
+      </p>
     </div>
   );
 }

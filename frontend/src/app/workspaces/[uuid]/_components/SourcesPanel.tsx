@@ -176,26 +176,30 @@ export function SourcesPanel({
           sources.map((src) => (
             <div
               key={src.uuid}
-              className="relative flex items-center gap-3 px-4 py-2.5 transition-colors"
+              className="relative flex items-center transition-colors"
               style={{ borderBottom: "1px solid var(--border)" }}
             >
-              <input
-                type="checkbox"
-                checked={selectedSourceIds.includes(src.uuid)}
-                onChange={() => onToggleSource(src.uuid)}
-                disabled={src.status !== "ready"}
-                className="flex-shrink-0 w-3.5 h-3.5 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
-                onClick={(e) => e.stopPropagation()}
-                title={src.status !== "ready" ? "Quelle wird noch verarbeitet" : undefined}
-              />
-              <FileIcon filename={src.filename} />
-              <span
-                className="flex-1 text-xs leading-snug truncate min-w-0 font-medium"
-                style={{ color: "var(--text)" }}
-                title={src.filename}
+              <label
+                className={`flex-1 flex items-center gap-3 px-4 py-2.5 min-w-0 ${src.status === "ready" ? "cursor-pointer" : "cursor-default"}`}
               >
-                {src.filename}
-              </span>
+                <input
+                  type="checkbox"
+                  checked={selectedSourceIds.includes(src.uuid)}
+                  onChange={() => onToggleSource(src.uuid)}
+                  disabled={src.status !== "ready"}
+                  className="flex-shrink-0 w-3.5 h-3.5 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={src.status !== "ready" ? "Quelle wird noch verarbeitet" : undefined}
+                />
+                <FileIcon filename={src.filename} />
+                <span
+                  className="flex-1 text-xs leading-snug truncate min-w-0 font-medium"
+                  style={{ color: "var(--text)" }}
+                  title={src.filename}
+                >
+                  {src.filename}
+                </span>
+                <SourceStatus status={src.status} />
+              </label>
 
               {src.status === "failed" && src.error_message && (
                 <div
@@ -206,44 +210,46 @@ export function SourcesPanel({
                 </div>
               )}
 
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <SourceStatus status={src.status} />
-                {!compact && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onOpenViewer(src); }}
-                      className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                      style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
-                      title="Im Viewer öffnen"
-                    >
-                      <Eye size={13} />
-                    </button>
-                    {isLecturer && src.status === "failed" && (
+              {!compact && (
+                <>
+                  <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
+                    {isLecturer && src.status === "failed" ? (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onRetrySource(src.uuid); }}
+                        onClick={() => onRetrySource(src.uuid)}
                         className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
                         style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
                         title="Erneut versuchen"
                       >
                         <ArrowCounterClockwise size={13} weight="regular" />
                       </button>
-                    )}
-                    {isLecturer && (
+                    ) : (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setDeleteSourceId(src.uuid); }}
+                        onClick={() => onOpenViewer(src)}
+                        className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                        title="Im Viewer öffnen"
+                      >
+                        <Eye size={13} />
+                      </button>
+                    )}
+                  </div>
+                  {isLecturer && (
+                    <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setDeleteSourceId(src.uuid)}
                         className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
                         style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
                         title="Quelle löschen"
                       >
                         <Trash size={13} weight="regular" />
                       </button>
-                    )}
-                  </>
-                )}
-              </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           ))
         )}

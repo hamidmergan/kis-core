@@ -328,6 +328,13 @@ export default function KiTutorModulePage() {
   const [chatLang, setChatLang] = useState<"de" | "en">("de");
   const [studioEnabled, setStudioEnabled] = useState(true);
   const [sprachtrainingActive, setSprachtrainingActive] = useState(false);
+  const [hideHeader, setHideHeader] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem(`ki-assistent-hide-header-${uuid}`) === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(`ki-assistent-hide-header-${uuid}`, hideHeader ? "1" : "0"); } catch { /* ignore */ }
+  }, [hideHeader, uuid]);
 
   const [popupActions, setPopupActions] = useState<{ key: string; label: string; icon: string; prompt: string; min_words: number }[]>([]);
 
@@ -490,6 +497,7 @@ export default function KiTutorModulePage() {
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
     setIsMobile(mq.matches);
+    if (mq.matches) setActiveTab("quellen");
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
@@ -1649,7 +1657,7 @@ export default function KiTutorModulePage() {
     return (
       <ProtectedRoute>
         <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
-          <Header showLogout />
+          {!hideHeader && <Header showLogout />}
           <div className="flex-1 flex items-center justify-center">
             <Spinner size="lg" />
           </div>
@@ -1661,7 +1669,7 @@ export default function KiTutorModulePage() {
   return (
     <ProtectedRoute>
       <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
-        <Header showLogout />
+        {!hideHeader && <Header showLogout />}
 
         {/* Topbar — Desktop only */}
         {!isMobile && (
@@ -1766,6 +1774,28 @@ export default function KiTutorModulePage() {
                       />
                     </button>
                   </div>
+                  {/* Header ausblenden (nur Ersteller/Lecturer) */}
+                  {isLecturer && (
+                    <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Header ausblenden</p>
+                        <p className="text-xs" style={{ color: "var(--muted)" }}>Nur auf dieser Workspace-Seite</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={hideHeader}
+                        onClick={() => setHideHeader((v) => !v)}
+                        className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+                        style={{ backgroundColor: hideHeader ? "var(--kb)" : "#CBD5E1" }}
+                      >
+                        <span
+                          className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                          style={{ transform: hideHeader ? "translateX(16px)" : "translateX(0)" }}
+                        />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1775,7 +1805,7 @@ export default function KiTutorModulePage() {
         {/* Tab bar — Mobile only */}
         {isMobile && (
           <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
-            <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+            <div className="flex items-center gap-2 px-3 pt-2 pb-1 relative">
               <Link
                 href="/workspaces"
                 className="inline-flex items-center justify-center w-7 h-7 flex-shrink-0 transition-colors group"
@@ -1783,8 +1813,10 @@ export default function KiTutorModulePage() {
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
               </Link>
-              <span className="text-sm font-bold truncate min-w-0" style={{ color: "var(--text)" }}>
-                {moduleDetail?.title ?? ""}
+              <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="text-sm font-bold truncate px-12 pointer-events-auto select-text cursor-text" style={{ color: "var(--text)" }}>
+                  {moduleDetail?.title ?? ""}
+                </span>
               </span>
               <div ref={isMobile ? settingsRef : undefined} className="relative flex-shrink-0 ml-auto">
                 <button
@@ -1866,6 +1898,27 @@ export default function KiTutorModulePage() {
                         />
                       </button>
                     </div>
+                    {isLecturer && (
+                      <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+                        <div>
+                          <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Header ausblenden</p>
+                          <p className="text-xs" style={{ color: "var(--muted)" }}>Nur auf dieser Workspace-Seite</p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={hideHeader}
+                          onClick={() => setHideHeader((v) => !v)}
+                          className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+                          style={{ backgroundColor: hideHeader ? "var(--kb)" : "#CBD5E1" }}
+                        >
+                          <span
+                            className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                            style={{ transform: hideHeader ? "translateX(16px)" : "translateX(0)" }}
+                          />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

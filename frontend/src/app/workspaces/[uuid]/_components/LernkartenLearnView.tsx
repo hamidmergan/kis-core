@@ -49,12 +49,12 @@ export function LernkartenLearnView({
 
   function answer(correct: boolean) {
     if (!card || animating) return;
-    const isFirst = !(card.id in results);
+    const isFirstAnswerOfSession = Object.keys(results).length === 0;
     const newResults = { ...results, [card.id]: correct };
     setResults(newResults);
     if (correct) setStreak((s) => s + 1);
     else setStreak(0);
-    onAnswer(card.id, correct, isFirst);
+    onAnswer(card.id, correct, isFirstAnswerOfSession);
 
     if (index >= total - 1) {
       const pending = items.filter(it => !(it.id in newResults));
