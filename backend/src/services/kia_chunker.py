@@ -19,7 +19,7 @@ _CHUNK_PARAMS_DEFAULT = _CHUNK_PARAMS["ollama"]
 def _get_chunk_params() -> tuple[int, int]:
     """Return (chunk_size, overlap) for the configured embedding provider."""
     import os
-    provider = os.getenv("TUTOR_EMBEDDING_PROVIDER", "ollama")
+    provider = os.getenv("KIA_EMBEDDING_PROVIDER", "ollama")
     return _CHUNK_PARAMS.get(provider, _CHUNK_PARAMS_DEFAULT)
 
 

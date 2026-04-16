@@ -11,28 +11,28 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    TUTOR_SUMMARY_MAX_RETRIES,
-    TUTOR_SUMMARY_TIMEOUT_SMALL,
-    TUTOR_SUMMARY_TIMEOUT_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_SMALL,
-    TUTOR_SUMMARY_MAX_TOKENS_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_BATCH,
-    TUTOR_SUMMARY_CONTENT_MAX_CHARS,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE,
-    TUTOR_SUMMARY_BATCH_SIZE,
+    KIA_SUMMARY_MAX_RETRIES,
+    KIA_SUMMARY_TIMEOUT_SMALL,
+    KIA_SUMMARY_TIMEOUT_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_SMALL,
+    KIA_SUMMARY_MAX_TOKENS_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_BATCH,
+    KIA_SUMMARY_CONTENT_MAX_CHARS,
+    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    KIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    TUTOR_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    TUTOR_MINDMAP_PROMPT,
+    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    KIA_MINDMAP_PROMPT,
 )
 
 from src.features.ki_assistent.tasks._helpers import (
     _format_ts,
-    _save_ki_tutor_output,
+    _save_kia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -43,17 +43,17 @@ from src.features.ki_assistent.tasks._helpers import (
     _clean_llm_json,
 )
 
-@celery_app.task(bind=True, name="ki_tutor.generate_datentabelle", queue="ki_tutor",
+@celery_app.task(bind=True, name="kia.generate_datentabelle", queue="kia",
                  soft_time_limit=120, time_limit=180)
-@observe(name="ki-tutor-datentabelle")
+@observe(name="kia-datentabelle")
 def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
                               source_uuids: list[str], source_map: dict):
     """Generate a data table from source chunks as a background job."""
     import json as _json
-    from src.tool_prompts import TUTOR_DATENTABELLE_PROMPT
+    from src.tool_prompts import KIA_DATENTABELLE_PROMPT
 
     try:
-        db.update_ki_tutor_datentabelle(datentabelle_id, "running")
+        db.update_kia_datentabelle(datentabelle_id, "running")
         logger.info("KI Tutor: generating datentabelle {}", datentabelle_id)
 
         # Build context with source filenames for citations
@@ -79,14 +79,14 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
                 context_len += len(part)
 
         if not context_parts:
-            db.update_ki_tutor_datentabelle(datentabelle_id, "failed", error="Keine Chunks vorhanden")
+            db.update_kia_datentabelle(datentabelle_id, "failed", error="Keine Chunks vorhanden")
             return
 
         context = "\n\n---\n\n".join(context_parts)
 
         client, model, _ = _get_llm_client()
         messages = [
-            {"role": "system", "content": TUTOR_DATENTABELLE_PROMPT},
+            {"role": "system", "content": KIA_DATENTABELLE_PROMPT},
             {"role": "user", "content": (
                 f"Erstelle eine strukturierte Datentabelle aus folgendem Text:\n\n{context}"
             )},
@@ -95,12 +95,12 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
         response = client.chat.completions.create(model=model, messages=messages, temperature=0.2)
         raw = response.choices[0].message.content
         if not raw:
-            db.update_ki_tutor_datentabelle(datentabelle_id, "failed", error="LLM returned empty content")
+            db.update_kia_datentabelle(datentabelle_id, "failed", error="LLM returned empty content")
             return
 
         table_data = _json.loads(_clean_llm_json(raw))
         if not isinstance(table_data, dict) or "columns" not in table_data or "rows" not in table_data:
-            db.update_ki_tutor_datentabelle(datentabelle_id, "failed", error="Invalid table format")
+            db.update_kia_datentabelle(datentabelle_id, "failed", error="Invalid table format")
             return
 
         sources_list = [
@@ -109,13 +109,13 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
         ]
         title = table_data.get("title", "Datentabelle")
 
-        db.update_ki_tutor_datentabelle(datentabelle_id, "success",
+        db.update_kia_datentabelle(datentabelle_id, "success",
                                         title=title, table_data=table_data, sources=sources_list)
         logger.info("KI Tutor: datentabelle {} generated successfully", datentabelle_id)
 
     except Exception as e:
         logger.error("KI Tutor: datentabelle {} generation failed: {}", datentabelle_id, e)
-        db.update_ki_tutor_datentabelle(datentabelle_id, "failed", error=str(e))
+        db.update_kia_datentabelle(datentabelle_id, "failed", error=str(e))
 
 
 # ── Glossary generation ──────────────────────────────────────────────────────

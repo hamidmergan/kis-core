@@ -19,17 +19,18 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    GLOSSARY_LIMIT,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -60,7 +61,7 @@ async def generate_cloze(
 ):
     """Create a cloze exercise set via Celery."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -69,7 +70,7 @@ async def generate_cloze(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    entries = db.get_ki_tutor_glossary_by_module(module["id"])
+    entries = db.get_kia_glossary_by_module(module["id"])
     if not entries:
         raise HTTPException(status_code=400, detail="Kein Glossar vorhanden")
 
@@ -77,7 +78,7 @@ async def generate_cloze(
         module_id=module["id"], user_id=user_id, tool="lueckentext",
         title="Wird generiert…", mode="glossar", source_uuid=None,
     )
-    from src.tasks.ki_tutor_tasks import run_generate_exercise_set
+    from src.tasks.kia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(placeholder["id"], module["id"], "lueckentext", "glossar", 10, None)
     return {"set_id": placeholder["id"], "status": "generating"}
 
@@ -89,7 +90,7 @@ async def generate_vocab_test(
 ):
     """Create a vocab test exercise set via Celery."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -98,7 +99,7 @@ async def generate_vocab_test(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    entries = db.get_ki_tutor_glossary_by_module(module["id"])
+    entries = db.get_kia_glossary_by_module(module["id"])
     if not entries:
         raise HTTPException(status_code=400, detail="Kein Glossar vorhanden")
 
@@ -106,14 +107,12 @@ async def generate_vocab_test(
         module_id=module["id"], user_id=user_id, tool="vokabeltest",
         title="Wird generiert…", mode="glossar", source_uuid=None,
     )
-    from src.tasks.ki_tutor_tasks import run_generate_exercise_set
+    from src.tasks.kia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(placeholder["id"], module["id"], "vokabeltest", "glossar", 10, None)
     return {"set_id": placeholder["id"], "status": "generating"}
 
 
 # ─── Exercise Sets CRUD ──────────────────────────────────────────────────────
-
-GLOSSARY_LIMIT = 150
 
 @router.post("/ki-assistent/modules/{module_uuid}/exercise-sets")
 async def create_exercise_set(
@@ -123,7 +122,7 @@ async def create_exercise_set(
 ):
     """Create a new exercise set — returns immediately, generates via Celery."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -140,7 +139,7 @@ async def create_exercise_set(
         title="Wird generiert…", mode=body.mode, source_uuid=body.source_uuid,
     )
 
-    from src.tasks.ki_tutor_tasks import run_generate_exercise_set
+    from src.tasks.kia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(
         placeholder["id"], module["id"], body.tool, body.mode, body.count, body.source_uuid,
     )
@@ -154,7 +153,7 @@ async def list_exercise_sets(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     sets = db.get_exercise_sets(module["id"], user_id, tool)
@@ -194,7 +193,7 @@ async def record_set_progress(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     if body.new_run:

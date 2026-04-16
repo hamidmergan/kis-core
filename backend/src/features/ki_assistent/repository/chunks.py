@@ -17,7 +17,7 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 
-def create_ki_tutor_chunk(
+def create_kia_chunk(
     source_id: int,
     page_number: int,
     content: str,
@@ -27,7 +27,7 @@ def create_ki_tutor_chunk(
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO ki_tutor_chunks
+                """INSERT INTO kia_chunks
                    (source_id, page_number, content, search_vector, start_time, end_time)
                    VALUES (%s, %s, %s, to_tsvector('german', %s), %s, %s)
                    RETURNING id""",
@@ -37,13 +37,13 @@ def create_ki_tutor_chunk(
         conn.commit()
     return chunk_id
 
-def get_ki_tutor_chunks_by_source(source_id: int) -> list[dict]:
+def get_kia_chunks_by_source(source_id: int) -> list[dict]:
     """Return all chunks for a source (without embeddings), ordered by page/time."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT id, source_id, page_number, content, start_time, end_time
-                   FROM ki_tutor_chunks
+                   FROM kia_chunks
                    WHERE source_id = %s
                    ORDER BY COALESCE(start_time, 0), page_number""",
                 (source_id,),
@@ -54,7 +54,7 @@ def update_chunk_embedding(chunk_id: int, embedding: list[float]) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE ki_tutor_chunks SET embedding = %s::vector WHERE id = %s",
+                "UPDATE kia_chunks SET embedding = %s::vector WHERE id = %s",
                 (str(embedding), chunk_id),
             )
         conn.commit()
@@ -77,8 +77,8 @@ def search_similar_chunks(
                 f"""SELECT c.id, c.source_id, c.page_number, c.content,
                            c.start_time, c.end_time,
                            c.embedding <=> %s::vector AS distance
-                    FROM ki_tutor_chunks c
-                    JOIN ki_tutor_sources s ON s.id = c.source_id
+                    FROM kia_chunks c
+                    JOIN kia_sources s ON s.id = c.source_id
                     WHERE s.module_id = %s {source_filter}
                       AND c.embedding IS NOT NULL
                     ORDER BY distance ASC
@@ -112,8 +112,8 @@ def hybrid_search_chunks(
                 f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
                         ORDER BY c.embedding <=> %s::vector
                     ) AS rank
-                    FROM ki_tutor_chunks c
-                    JOIN ki_tutor_sources s ON s.id = c.source_id
+                    FROM kia_chunks c
+                    JOIN kia_sources s ON s.id = c.source_id
                     WHERE s.module_id = %s {source_filter}
                       AND c.embedding IS NOT NULL
                     ORDER BY c.embedding <=> %s::vector
@@ -129,8 +129,8 @@ def hybrid_search_chunks(
                             (regexp_replace(plainto_tsquery('german', %s)::text, ' & ', ' | ', 'g'))::tsquery
                         ) DESC
                     ) AS rank
-                    FROM ki_tutor_chunks c
-                    JOIN ki_tutor_sources s ON s.id = c.source_id
+                    FROM kia_chunks c
+                    JOIN kia_sources s ON s.id = c.source_id
                     WHERE s.module_id = %s {source_filter}
                       AND c.search_vector IS NOT NULL
                       AND c.search_vector @@ (regexp_replace(plainto_tsquery('german', %s)::text, ' & ', ' | ', 'g'))::tsquery
@@ -152,8 +152,8 @@ def hybrid_search_chunks(
                     f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
                             ORDER BY c.id
                         ) AS rank
-                        FROM ki_tutor_chunks c
-                        JOIN ki_tutor_sources s ON s.id = c.source_id
+                        FROM kia_chunks c
+                        JOIN kia_sources s ON s.id = c.source_id
                         WHERE s.module_id = %s {source_filter}
                           AND {ilike_clauses}
                         LIMIT 20""",
@@ -177,7 +177,7 @@ def hybrid_search_chunks(
             top_ids = sorted(scores, key=lambda i: scores[i], reverse=True)[:limit]
             cur.execute(
                 """SELECT id, source_id, page_number, content, start_time, end_time
-                   FROM ki_tutor_chunks WHERE id = ANY(%s)""",
+                   FROM kia_chunks WHERE id = ANY(%s)""",
                 (top_ids,),
             )
             chunk_map = {r["id"]: dict(r) for r in cur.fetchall()}
@@ -200,7 +200,7 @@ def get_chunks_by_source(source_id: int) -> list[dict]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """SELECT id, page_number, content, start_time, end_time
-                   FROM ki_tutor_chunks
+                   FROM kia_chunks
                    WHERE source_id = %s
                    ORDER BY page_number, id""",
                 (source_id,),

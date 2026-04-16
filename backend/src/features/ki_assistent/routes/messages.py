@@ -19,17 +19,17 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -59,7 +59,7 @@ async def delete_messages(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -69,7 +69,7 @@ async def delete_messages(
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     eid = enrollment_id if not is_owner else None
-    db.delete_ki_tutor_messages(module["id"], user_id, enrollment_id=eid)
+    db.delete_kia_messages(module["id"], user_id, enrollment_id=eid)
     logger.info("KI Tutor: chat cleared for module {} by user {}", module_uuid, user_id)
     return {"cleared": True}
 
@@ -80,7 +80,7 @@ async def get_messages(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -90,7 +90,7 @@ async def get_messages(
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     eid = enrollment_id if not is_owner else None
-    messages = db.get_ki_tutor_messages(module["id"], user_id, enrollment_id=eid)
+    messages = db.get_kia_messages(module["id"], user_id, enrollment_id=eid)
     return [
         {
             "role": m["role"],
@@ -108,7 +108,7 @@ async def get_user_settings(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -117,7 +117,7 @@ async def get_user_settings(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    return db.get_ki_tutor_user_settings(module["id"], user_id)
+    return db.get_kia_user_settings(module["id"], user_id)
 
 @router.patch("/ki-assistent/modules/{module_uuid}/settings")
 async def update_user_settings(
@@ -126,7 +126,7 @@ async def update_user_settings(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -135,7 +135,7 @@ async def update_user_settings(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    db.upsert_ki_tutor_user_settings(
+    db.upsert_kia_user_settings(
         module["id"], user_id, body.chat_lang, body.studio_enabled, body.sprachtraining_active
     )
     return {"ok": True}

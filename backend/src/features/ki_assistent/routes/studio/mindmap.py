@@ -19,17 +19,17 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -60,7 +60,7 @@ async def generate_mindmap(
 ):
     """Queue mindmap generation as a background Celery task."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -74,15 +74,15 @@ async def generate_mindmap(
     # Build uuid→id mapping for the task
     source_uuids = []
     for suuid in body.active_source_ids:
-        s = db.get_ki_tutor_source(suuid)
+        s = db.get_kia_source(suuid)
         if s and s["id"] in source_ids:
             source_uuids.append(suuid)
 
     # Create DB record
-    mindmap_id = db.create_ki_tutor_mindmap(module["id"], user_id, source_ids)
+    mindmap_id = db.create_kia_mindmap(module["id"], user_id, source_ids)
 
     # Queue Celery task
-    from src.tasks.ki_tutor_tasks import run_generate_mindmap
+    from src.tasks.kia_tasks import run_generate_mindmap
     run_generate_mindmap.delay(mindmap_id, source_ids, source_uuids)
 
     return {"mindmap_id": mindmap_id, "status": "pending"}
@@ -95,7 +95,7 @@ async def get_mindmap(
 ):
     """Poll mindmap generation status."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -104,7 +104,7 @@ async def get_mindmap(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    mindmap = db.get_ki_tutor_mindmap(mindmap_id)
+    mindmap = db.get_kia_mindmap(mindmap_id)
     if not mindmap or mindmap["module_id"] != module["id"]:
         raise HTTPException(status_code=404, detail="Mindmap nicht gefunden")
 
@@ -122,7 +122,7 @@ async def get_latest_mindmap(
 ):
     """Get the latest mindmap for this module."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -131,7 +131,7 @@ async def get_latest_mindmap(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    mindmap = db.get_latest_ki_tutor_mindmap(module["id"], user_id)
+    mindmap = db.get_latest_kia_mindmap(module["id"], user_id)
     if not mindmap:
         return {"id": None, "status": None, "mindmap": None, "error": None}
 
@@ -149,7 +149,7 @@ async def list_mindmaps(
 ):
     """List all saved mindmaps for this module."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -158,7 +158,7 @@ async def list_mindmaps(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    rows = db.get_all_ki_tutor_mindmaps(module["id"], user_id)
+    rows = db.get_all_kia_mindmaps(module["id"], user_id)
     return [
         {
             "id": r["id"],
@@ -176,15 +176,15 @@ async def delete_mindmap(
 ):
     """Delete a mindmap."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    mindmap = db.get_ki_tutor_mindmap(mindmap_id)
+    mindmap = db.get_kia_mindmap(mindmap_id)
     if not mindmap or mindmap["module_id"] != module["id"] or mindmap["user_id"] != user_id:
         raise HTTPException(status_code=404, detail="Mindmap nicht gefunden")
 
-    db.delete_ki_tutor_mindmap(mindmap_id)
+    db.delete_kia_mindmap(mindmap_id)
     return {"ok": True}
 
 

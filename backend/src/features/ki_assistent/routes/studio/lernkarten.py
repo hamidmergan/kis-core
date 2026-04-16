@@ -19,17 +19,17 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -53,7 +53,7 @@ from src.features.ki_assistent import schemas
 router = APIRouter(tags=["ki-assistent"])
 
 @router.post("/ki-assistent/modules/{module_uuid}/lernkarten/generate")
-@observe(name="ki-tutor-lernkarten")
+@observe(name="kia-lernkarten")
 async def generate_lernkarten(
     module_uuid: str,
     body: schemas.LernkartenGenerateBody,
@@ -61,7 +61,7 @@ async def generate_lernkarten(
 ):
     """Create a lernkarten exercise set via Celery."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -78,7 +78,7 @@ async def generate_lernkarten(
         title="Wird generiert…", mode="quelle", source_uuid=first_uuid,
     )
 
-    from src.tasks.ki_tutor_tasks import run_generate_exercise_set
+    from src.tasks.kia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(
         placeholder["id"], module["id"], "lernkarten", "quelle", body.count,
         source_uuids=body.active_source_ids[:5],

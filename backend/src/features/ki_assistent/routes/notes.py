@@ -19,17 +19,17 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -58,7 +58,7 @@ async def get_notes(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -67,7 +67,7 @@ async def get_notes(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    notes = db.get_ki_tutor_notes(module["id"], user_id)
+    notes = db.get_kia_notes(module["id"], user_id)
     return [
         {
             "id": n["id"],
@@ -84,7 +84,7 @@ async def create_note(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -93,13 +93,13 @@ async def create_note(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    if db.count_ki_tutor_notes(module["id"], user_id) >= TUTOR_NOTES_MAX_PER_USER:
+    if db.count_kia_notes(module["id"], user_id) >= KIA_NOTES_MAX_PER_USER:
         raise HTTPException(
             status_code=409,
-            detail=f"Maximal {TUTOR_NOTES_MAX_PER_USER} Notizen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
+            detail=f"Maximal {KIA_NOTES_MAX_PER_USER} Notizen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
         )
 
-    note = db.create_ki_tutor_note(module["id"], user_id, body.content.strip())
+    note = db.create_kia_note(module["id"], user_id, body.content.strip())
     return {
         "id": note["id"],
         "content": note["content"],
@@ -113,11 +113,11 @@ async def delete_note(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    deleted = db.delete_ki_tutor_note(note_id, user_id)
+    deleted = db.delete_kia_note(note_id, user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Notiz nicht gefunden")
     return {"ok": True}

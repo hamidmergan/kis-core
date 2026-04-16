@@ -19,17 +19,18 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    GLOSSARY_LIMIT,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -58,7 +59,7 @@ async def get_streak_endpoint(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     streak = db.get_streak(module["id"], user_id)
@@ -73,7 +74,7 @@ async def get_student_stats_endpoint(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     return db.get_student_stats(module["id"], user_id)
@@ -86,7 +87,7 @@ async def get_student_day_stats_endpoint(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     return db.get_student_day_stats(module["id"], user_id, date, category)
@@ -97,7 +98,7 @@ async def get_recent_activities_endpoint(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     return db.get_recent_activities(module["id"], user_id, limit=10)
@@ -111,7 +112,7 @@ async def get_dozent_module_stats(
     current_user: dict = Depends(get_current_user),
 ):
     module = _require_own_module(module_uuid, current_user["user_id"])
-    return db.get_ki_tutor_module_stats(module["id"])
+    return db.get_kia_module_stats(module["id"])
 
 
 # ─── Glossar Count & Limit ───────────────────────────────────────────────────
@@ -121,7 +122,7 @@ async def get_glossary_count_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     count = db.get_glossary_count(module["id"])

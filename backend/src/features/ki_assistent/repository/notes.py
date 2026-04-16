@@ -18,40 +18,40 @@ from src.core.db.pool import get_connection
 from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
-def get_ki_tutor_notes(module_id: int, user_id: int) -> list[dict]:
+def get_kia_notes(module_id: int, user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, content, created_at FROM ki_tutor_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
+                "SELECT id, content, created_at FROM kia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
                 (module_id, user_id),
             )
             return [dict(r) for r in cur.fetchall()]
 
-def count_ki_tutor_notes(module_id: int, user_id: int) -> int:
+def count_kia_notes(module_id: int, user_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT COUNT(*) FROM ki_tutor_notes WHERE module_id = %s AND user_id = %s",
+                "SELECT COUNT(*) FROM kia_notes WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
             return int(cur.fetchone()[0])
 
-def create_ki_tutor_note(module_id: int, user_id: int, content: str) -> dict:
+def create_kia_note(module_id: int, user_id: int, content: str) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO ki_tutor_notes (module_id, user_id, content) VALUES (%s, %s, %s) RETURNING id, content, created_at",
+                "INSERT INTO kia_notes (module_id, user_id, content) VALUES (%s, %s, %s) RETURNING id, content, created_at",
                 (module_id, user_id, content),
             )
             row = dict(cur.fetchone())
         conn.commit()
         return row
 
-def delete_ki_tutor_note(note_id: int, user_id: int) -> bool:
+def delete_kia_note(note_id: int, user_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM ki_tutor_notes WHERE id = %s AND user_id = %s",
+                "DELETE FROM kia_notes WHERE id = %s AND user_id = %s",
                 (note_id, user_id),
             )
             deleted = cur.rowcount > 0

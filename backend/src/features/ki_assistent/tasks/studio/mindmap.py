@@ -11,28 +11,28 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    TUTOR_SUMMARY_MAX_RETRIES,
-    TUTOR_SUMMARY_TIMEOUT_SMALL,
-    TUTOR_SUMMARY_TIMEOUT_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_SMALL,
-    TUTOR_SUMMARY_MAX_TOKENS_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_BATCH,
-    TUTOR_SUMMARY_CONTENT_MAX_CHARS,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE,
-    TUTOR_SUMMARY_BATCH_SIZE,
+    KIA_SUMMARY_MAX_RETRIES,
+    KIA_SUMMARY_TIMEOUT_SMALL,
+    KIA_SUMMARY_TIMEOUT_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_SMALL,
+    KIA_SUMMARY_MAX_TOKENS_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_BATCH,
+    KIA_SUMMARY_CONTENT_MAX_CHARS,
+    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    KIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    TUTOR_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    TUTOR_MINDMAP_PROMPT,
+    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    KIA_MINDMAP_PROMPT,
 )
 
 from src.features.ki_assistent.tasks._helpers import (
     _format_ts,
-    _save_ki_tutor_output,
+    _save_kia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -43,15 +43,15 @@ from src.features.ki_assistent.tasks._helpers import (
     _clean_llm_json,
 )
 
-@celery_app.task(bind=True, name="ki_tutor.generate_mindmap", queue="ki_tutor",
+@celery_app.task(bind=True, name="kia.generate_mindmap", queue="kia",
                  soft_time_limit=300, time_limit=360)
-@observe(name="ki-tutor-mindmap")
+@observe(name="kia-mindmap")
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str]):
     """Generate a mindmap from source summaries as a background job."""
     import json as _json
 
     try:
-        db.update_ki_tutor_mindmap(mindmap_id, "running")
+        db.update_kia_mindmap(mindmap_id, "running")
         logger.info("KI Tutor: generating mindmap {}", mindmap_id)
 
         # 1. Build context from page summaries (with fallback to chunks)
@@ -66,7 +66,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         context_parts: list[str] = []
         for sid, suuid in zip(source_ids, source_uuids):
-            source = db.get_ki_tutor_source(suuid)
+            source = db.get_kia_source(suuid)
             source_label = source["filename"] if source else "Quelle"
             is_media = _Path(source_label).suffix.lower() in _MEDIA_EXTS if source else False
 
@@ -95,7 +95,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                         context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
 
         if not context_parts:
-            db.update_ki_tutor_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
+            db.update_kia_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
             return
 
         # Fair budget split per source (200k total, whole summaries only)
@@ -125,7 +125,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         )
 
         messages = [
-            {"role": "system", "content": TUTOR_MINDMAP_PROMPT},
+            {"role": "system", "content": KIA_MINDMAP_PROMPT},
             {"role": "user", "content": f"/no_think\nErstelle eine Mindmap aus folgenden Quellen:\n\n{context}"},
         ]
 
@@ -138,7 +138,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         msg = response.choices[0].message
         raw = msg.content or getattr(msg, "reasoning_content", None)
         if not raw:
-            db.update_ki_tutor_mindmap(mindmap_id, "failed", error="LLM returned empty content")
+            db.update_kia_mindmap(mindmap_id, "failed", error="LLM returned empty content")
             return
 
         answer = raw.strip()
@@ -153,15 +153,15 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         mindmap = _json.loads(answer)
         if not isinstance(mindmap, dict) or "topic" not in mindmap:
-            db.update_ki_tutor_mindmap(mindmap_id, "failed", error="Invalid mindmap format")
+            db.update_kia_mindmap(mindmap_id, "failed", error="Invalid mindmap format")
             return
 
-        db.update_ki_tutor_mindmap(mindmap_id, "success", mindmap=mindmap)
+        db.update_kia_mindmap(mindmap_id, "success", mindmap=mindmap)
         logger.info("KI Tutor: mindmap {} generated successfully", mindmap_id)
 
     except Exception as e:
         logger.error("KI Tutor: mindmap {} generation failed: {}", mindmap_id, e)
-        db.update_ki_tutor_mindmap(mindmap_id, "failed", error=str(e))
+        db.update_kia_mindmap(mindmap_id, "failed", error=str(e))
 
 
 # ─── Presentation generation (NotebookLM-style + FLUX images) ───────────────

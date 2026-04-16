@@ -18,13 +18,13 @@ from src.core.db.pool import get_connection
 from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
-def create_ki_tutor_datentabelle(module_id: int, user_id: int, source_ids: list[int]) -> int:
+def create_kia_datentabelle(module_id: int, user_id: int, source_ids: list[int]) -> int:
     """Create a pending datentabelle record, return its id."""
     import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO ki_tutor_datentabellen (module_id, user_id, source_ids, status)
+                """INSERT INTO kia_datentabellen (module_id, user_id, source_ids, status)
                    VALUES (%s, %s, %s, 'pending') RETURNING id""",
                 (module_id, user_id, _json.dumps(source_ids)),
             )
@@ -32,7 +32,7 @@ def create_ki_tutor_datentabelle(module_id: int, user_id: int, source_ids: list[
         conn.commit()
     return row[0]
 
-def update_ki_tutor_datentabelle(
+def update_kia_datentabelle(
     datentabelle_id: int,
     status: str,
     title: str | None = None,
@@ -44,7 +44,7 @@ def update_ki_tutor_datentabelle(
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE ki_tutor_datentabellen
+                """UPDATE kia_datentabellen
                    SET status = %s, title = %s, table_data = %s, sources = %s, error = %s, updated_at = NOW()
                    WHERE id = %s""",
                 (status, title,
@@ -54,19 +54,19 @@ def update_ki_tutor_datentabelle(
             )
         conn.commit()
 
-def get_ki_tutor_datentabelle(datentabelle_id: int) -> dict | None:
+def get_kia_datentabelle(datentabelle_id: int) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM ki_tutor_datentabellen WHERE id = %s", (datentabelle_id,))
+            cur.execute("SELECT * FROM kia_datentabellen WHERE id = %s", (datentabelle_id,))
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_latest_ki_tutor_datentabelle(module_id: int, user_id: int) -> dict | None:
+def get_latest_kia_datentabelle(module_id: int, user_id: int) -> dict | None:
     """Get the most recent datentabelle for a module/user."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT * FROM ki_tutor_datentabellen
+                """SELECT * FROM kia_datentabellen
                    WHERE module_id = %s AND user_id = %s
                    ORDER BY created_at DESC LIMIT 1""",
                 (module_id, user_id),
@@ -74,13 +74,13 @@ def get_latest_ki_tutor_datentabelle(module_id: int, user_id: int) -> dict | Non
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_ki_tutor_datentabellen_by_module(module_id: int, user_id: int) -> list[dict]:
+def get_kia_datentabellen_by_module(module_id: int, user_id: int) -> list[dict]:
     """Get all successful datentabellen for a module/user (without table_data for listing)."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT id, status, title, sources, created_at
-                   FROM ki_tutor_datentabellen
+                   FROM kia_datentabellen
                    WHERE module_id = %s AND user_id = %s AND status = 'success'
                    ORDER BY created_at DESC""",
                 (module_id, user_id),
@@ -88,10 +88,10 @@ def get_ki_tutor_datentabellen_by_module(module_id: int, user_id: int) -> list[d
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
-def delete_ki_tutor_datentabelle(datentabelle_id: int) -> None:
+def delete_kia_datentabelle(datentabelle_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM ki_tutor_datentabellen WHERE id = %s", (datentabelle_id,))
+            cur.execute("DELETE FROM kia_datentabellen WHERE id = %s", (datentabelle_id,))
         conn.commit()
 
 

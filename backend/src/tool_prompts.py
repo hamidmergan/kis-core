@@ -94,13 +94,13 @@ IMAGE_ANALYZE_DEFAULT = (
 
 # ── KI-Tutor: System-Prompts ────────────────────────────────────────────────
 
-TUTOR_SYSTEM_DIRECT = (
+KIA_SYSTEM_DIRECT = (
     "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus. "
     "Erfinde NIEMALS Bedeutungen, Definitionen oder Fakten, die nicht im bereitgestellten Text stehen. "
     'Verwende keine Personennamen, schreibe stattdessen „laut Quelle".'
 )
 
-TUTOR_SYSTEM_DIRECT_WITH_CONTEXT = (
+KIA_SYSTEM_DIRECT_WITH_CONTEXT = (
     "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus. "
     "Nutze NUR Informationen aus dem bereitgestellten Text. "
     "Erfinde NIEMALS Bedeutungen, Definitionen oder Fakten, die nicht explizit im Text stehen. "
@@ -108,7 +108,7 @@ TUTOR_SYSTEM_DIRECT_WITH_CONTEXT = (
     'Verwende keine Personennamen, schreibe stattdessen „laut Quelle".'
 )
 
-TUTOR_SYSTEM_RAG = (
+KIA_SYSTEM_RAG = (
     "Du bist ein KI-Tutor. Antworte ausführlich und vollständig auf Basis der gegebenen Quellen. "
     "Nutze ALLE relevanten Informationen aus ALLEN bereitgestellten Quellen-Abschnitten — nicht nur einen. "
     "Ziehe logische Verbindungen zwischen der Frage und den Quellinhalten — auch wenn ein Begriff nicht wörtlich vorkommt, "
@@ -138,7 +138,7 @@ TUTOR_SYSTEM_RAG = (
 # Der markierte Text wird zur Laufzeit vom Frontend angehängt.
 
 # ── KI-Tutor: Seitenzusammenfassungen ──────────────────────────────────────
-TUTOR_SUMMARY_PAGE_SYSTEM = (
+KIA_SUMMARY_PAGE_SYSTEM = (
     "You are a precision summarizer.\n\n"
     "RULES:\n"
     "- Target length: ~25 % of the source text length.\n"
@@ -161,7 +161,7 @@ TUTOR_SUMMARY_PAGE_SYSTEM = (
     "Herausforderungen internationaler Studierender werden beschrieben."
 )
 
-TUTOR_SUMMARY_PAGE_USER_SMALL = (
+KIA_SUMMARY_PAGE_USER_SMALL = (
     "/no_think\n"
     "Fasse diese Seite in 2-3 Sätzen auf {lang} zusammen. "
     "Nur Informationen aus dem Text verwenden, nichts hinzufügen. "
@@ -170,9 +170,9 @@ TUTOR_SUMMARY_PAGE_USER_SMALL = (
     "{content}"
 )
 
-TUTOR_SUMMARY_PAGE_USER_LARGE = "Summarize this page in {lang}:\n\n{content}"
+KIA_SUMMARY_PAGE_USER_LARGE = "Summarize this page in {lang}:\n\n{content}"
 
-TUTOR_SUMMARY_PAGE_BATCH_USER = (
+KIA_SUMMARY_PAGE_BATCH_USER = (
     "Summarize each of the {n} pages below in {lang}.\n"
     "Return ONLY a numbered list — one entry per page, max 400 characters each.\n"
     "Format exactly:\n"
@@ -183,7 +183,7 @@ TUTOR_SUMMARY_PAGE_BATCH_USER = (
 )
 
 
-TUTOR_MINDMAP_PROMPT = (
+KIA_MINDMAP_PROMPT = (
     "Du bist ein Experte für Wissensstrukturierung. Erstelle eine hierarchische Mindmap aus dem gegebenen Text.\n\n"
     "Antworte NUR mit einem JSON-Objekt in genau diesem Format (4 Ebenen):\n"
     "{\n"
@@ -232,7 +232,7 @@ TUTOR_MINDMAP_PROMPT = (
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )
 
-TUTOR_LERNKARTEN_PROMPT = (
+KIA_LERNKARTEN_PROMPT = (
     "Du bist ein Sprachlehrer für internationale Studierende mit Deutschniveau B1. "
     "Erstelle Lernkarten für Fachbegriffe aus dem gegebenen Text.\n\n"
     "WICHTIG: Alle Texte MÜSSEN für B1-Niveau verständlich sein — einfache Wörter, kurze Sätze, keine verschachtelten Nebensätze.\n\n"
@@ -275,7 +275,7 @@ TUTOR_LERNKARTEN_PROMPT = (
     "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
 )
 
-TUTOR_KARTEIKARTEN_PROMPT = (
+KIA_KARTEIKARTEN_PROMPT = (
     "Du bist ein Experte für Lernmaterialien. Erstelle Karteikarten mit Verständnisfragen aus dem gegebenen Text.\n\n"
     "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
     "{\n"
@@ -319,7 +319,7 @@ TUTOR_KARTEIKARTEN_PROMPT = (
 )
 
 
-TUTOR_DATENTABELLE_PROMPT = (
+KIA_DATENTABELLE_PROMPT = (
     "Du bist ein Experte für Datenextraktion und Strukturierung. "
     "Analysiere den gegebenen Text und erstelle eine strukturierte Datentabelle.\n\n"
     "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
@@ -351,7 +351,7 @@ TUTOR_DATENTABELLE_PROMPT = (
 
 
 
-TUTOR_POPUP_ACTIONS: list[dict[str, str | int]] = [
+KIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
     {
         "key": "elaborate",
         "label": "Genauer ausführen",

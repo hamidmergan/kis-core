@@ -11,7 +11,7 @@ celery_app = Celery(
         "src.tasks.general_tasks",
         "src.tasks.screencast_tasks",
         "src.tasks.watchdog_tasks",
-        "src.tasks.ki_tutor_tasks",
+        "src.tasks.kia_tasks",
     ],
 )
 
@@ -38,12 +38,12 @@ celery_app.conf.update(
         "screencast.demo_render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
         # KI-Tutor — dedicated queue for learning tools & Sprachtraining
-        "ki_tutor.index_source": {"queue": "ki_tutor"},
-        "ki_tutor.generate_summaries": {"queue": "ki_tutor"},
-        "ki_tutor.generate_mindmap": {"queue": "ki_tutor"},
-        "ki_tutor.generate_exercise_set": {"queue": "ki_tutor"},
-        "ki_tutor.generate_datentabelle": {"queue": "ki_tutor"},
-        "ki_tutor.generate_glossary": {"queue": "ki_tutor"},
+        "kia.index_source": {"queue": "kia"},
+        "kia.generate_summaries": {"queue": "kia"},
+        "kia.generate_mindmap": {"queue": "kia"},
+        "kia.generate_exercise_set": {"queue": "kia"},
+        "kia.generate_datentabelle": {"queue": "kia"},
+        "kia.generate_glossary": {"queue": "kia"},
     },
     beat_schedule={
         "watchdog-stuck-jobs": {

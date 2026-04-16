@@ -178,7 +178,7 @@ def get_embedding_provider() -> EmbeddingProvider:
 
     Priority:
     1. Admin toggles in DB (mutually exclusive — enforced by PATCH /admin/settings)
-    2. Fallback to TUTOR_EMBEDDING_PROVIDER env var (kisski | ollama)
+    2. Fallback to KIA_EMBEDDING_PROVIDER env var (kisski | ollama)
     """
     from src import database as db
     if db.get_setting("kisski_embedding_enabled", "").lower() == "true":

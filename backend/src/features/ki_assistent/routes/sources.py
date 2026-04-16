@@ -19,17 +19,17 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -60,11 +60,11 @@ async def upload_source(
 ):
     module = _require_own_module(module_uuid, current_user["user_id"])
 
-    existing_sources = db.get_ki_tutor_sources_by_module(module["id"])
-    if len(existing_sources) >= TUTOR_MODULE_MAX_SOURCES:
+    existing_sources = db.get_kia_sources_by_module(module["id"])
+    if len(existing_sources) >= KIA_MODULE_MAX_SOURCES:
         raise HTTPException(
             status_code=409,
-            detail=f"Maximal {TUTOR_MODULE_MAX_SOURCES} Quellen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Quellen.",
+            detail=f"Maximal {KIA_MODULE_MAX_SOURCES} Quellen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Quellen.",
         )
 
     if not file.filename:
@@ -90,10 +90,10 @@ async def upload_source(
         ext = ".pdf"
 
     page_count = _count_pages(ext, data)
-    if page_count is not None and page_count > TUTOR_SOURCE_MAX_PAGES:
+    if page_count is not None and page_count > KIA_SOURCE_MAX_PAGES:
         raise HTTPException(
             status_code=413,
-            detail=f"Dokument hat {page_count} Seiten — max. {TUTOR_SOURCE_MAX_PAGES} Seiten erlaubt. Bitte teile das Dokument in kleinere Abschnitte auf.",
+            detail=f"Dokument hat {page_count} Seiten — max. {KIA_SOURCE_MAX_PAGES} Seiten erlaubt. Bitte teile das Dokument in kleinere Abschnitte auf.",
         )
 
     source_uuid = uuid.uuid4().hex
@@ -101,7 +101,7 @@ async def upload_source(
     file_path = _save_source_file(username, module_uuid, source_uuid, ext, data)
     file_type = ext.lstrip(".")
 
-    db.create_ki_tutor_source(
+    db.create_kia_source(
         module_id=module["id"],
         uuid=source_uuid,
         filename=stored_filename,
@@ -109,7 +109,7 @@ async def upload_source(
         file_type=file_type,
     )
 
-    from src.tasks.ki_tutor_tasks import run_index_source
+    from src.tasks.kia_tasks import run_index_source
     run_index_source.delay(source_uuid)
 
     logger.info("KI Tutor: source {} ({}) uploaded to module {}", source_uuid, stored_filename, module_uuid)
@@ -122,16 +122,16 @@ async def retry_source(
     current_user: dict = Depends(get_current_user),
 ):
     _require_own_module(module_uuid, current_user["user_id"])
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
     if source["status"] != "failed":
         raise HTTPException(status_code=409, detail="Nur fehlgeschlagene Quellen können neu indexiert werden")
 
-    db.delete_ki_tutor_chunks_by_source(source["id"])
-    db.reset_ki_tutor_source_for_retry(source_uuid)
+    db.delete_kia_chunks_by_source(source["id"])
+    db.reset_kia_source_for_retry(source_uuid)
 
-    from src.tasks.ki_tutor_tasks import run_index_source
+    from src.tasks.kia_tasks import run_index_source
     run_index_source.delay(source_uuid)
 
     logger.info("KI Tutor: source {} retry dispatched", source_uuid)
@@ -144,14 +144,14 @@ async def delete_source(
     current_user: dict = Depends(get_current_user),
 ):
     _require_own_module(module_uuid, current_user["user_id"])
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
     try:
         delete_file(source["file_path"])
     except Exception as e:
         logger.warning("KI Tutor: could not delete source file {}: {}", source["file_path"], e)
-    db.delete_ki_tutor_source(source_uuid)
+    db.delete_kia_source(source_uuid)
     logger.info("KI Tutor: source {} deleted", source_uuid)
     return {"deleted": source_uuid}
 
@@ -165,7 +165,7 @@ async def stream_source_file(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -174,7 +174,7 @@ async def stream_source_file(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -217,7 +217,7 @@ async def get_transcript_vtt(
 ):
     """Return a WebVTT transcript for a media source in the requested language."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -226,7 +226,7 @@ async def get_transcript_vtt(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -256,7 +256,7 @@ async def get_pdf_toc(
 ):
     """Liefert das gespeicherte Inhaltsverzeichnis aus der DB."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -265,7 +265,7 @@ async def get_pdf_toc(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -279,7 +279,7 @@ async def get_paragraph_summaries(
 ):
     """Return page-level summaries for the sidebar."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -288,7 +288,7 @@ async def get_paragraph_summaries(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -313,13 +313,13 @@ async def trigger_paragraph_summaries(
 ):
     """Manually trigger paragraph summary generation for a source."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     if module["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
     if source["file_type"] != "pdf":
@@ -331,9 +331,9 @@ async def trigger_paragraph_summaries(
 
     # Delete old summaries so regeneration starts fresh
     db.delete_paragraph_summaries_by_source(source["id"])
-    db.update_ki_tutor_source_summaries_status(source_uuid, "generating")
+    db.update_kia_source_summaries_status(source_uuid, "generating")
 
-    from src.tasks.ki_tutor_tasks import run_generate_summaries
+    from src.tasks.kia_tasks import run_generate_summaries
     run_generate_summaries.delay(source_uuid)
     return {"status": "generating"}
 
@@ -345,7 +345,7 @@ async def search_pdf(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -354,7 +354,7 @@ async def search_pdf(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -432,7 +432,7 @@ async def convert_source_to_markdown(
     from src.config import Settings
 
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -441,7 +441,7 @@ async def convert_source_to_markdown(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_ki_tutor_source(source_uuid)
+    source = db.get_kia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 

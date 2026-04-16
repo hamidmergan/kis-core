@@ -19,17 +19,18 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    GLOSSARY_LIMIT,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -58,7 +59,7 @@ async def get_glossary(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -67,7 +68,7 @@ async def get_glossary(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    entries = db.get_ki_tutor_glossary_by_module(module["id"])
+    entries = db.get_kia_glossary_by_module(module["id"])
     return {"entries": entries}
 
 @router.post("/ki-assistent/modules/{module_uuid}/glossary/generate")
@@ -77,7 +78,7 @@ async def generate_glossary(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -88,7 +89,7 @@ async def generate_glossary(
 
     source_ids = _resolve_source_ids(module, body.active_source_ids)
 
-    from src.tasks.ki_tutor_tasks import run_generate_glossary
+    from src.tasks.kia_tasks import run_generate_glossary
     run_generate_glossary.delay(module["id"], source_ids)
     return {"status": "generating"}
 
@@ -107,7 +108,7 @@ async def delete_all_glossary_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     count = db.delete_all_glossary_entries(module["id"])
@@ -155,7 +156,7 @@ async def extract_glossary_from_selection(
 ):
     """Extract glossary terms from a PDF text selection."""
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -175,12 +176,12 @@ async def extract_glossary_from_selection(
         return {"added": 0, "message": "Kein Text markiert."}
 
     # Find the source
-    source = db.get_ki_tutor_source(body.source_uuid)
+    source = db.get_kia_source(body.source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Quelle nicht gefunden")
 
     # Get existing terms to avoid duplicates
-    existing = db.get_ki_tutor_glossary_by_module(module["id"])
+    existing = db.get_kia_glossary_by_module(module["id"])
     existing_terms = {e["term_de"].lower() for e in existing}
 
     # Ask LLM to extract terms

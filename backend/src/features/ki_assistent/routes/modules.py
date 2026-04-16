@@ -19,17 +19,17 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -60,7 +60,7 @@ async def create_module(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module_uuid = db.create_ki_tutor_module(user_id, title, description)
+    module_uuid = db.create_kia_module(user_id, title, description)
 
     # Create first access link
     from datetime import timedelta
@@ -73,10 +73,10 @@ async def create_module(
     else:
         expires = None
 
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     link = db.create_access_link(module["id"], enroll_code, expires)
     # Also set legacy fields for backward compat
-    db.set_ki_tutor_module_enroll_code(module_uuid, enroll_code, expires)
+    db.set_kia_module_enroll_code(module_uuid, enroll_code, expires)
 
     logger.info("KI Tutor: module {} created by user {}", module_uuid, user_id)
     return {
@@ -95,10 +95,10 @@ async def create_module(
 @router.get("/ki-assistent/modules")
 async def list_modules(current_user: dict = Depends(get_current_user)):
     user_id = current_user["user_id"]
-    modules = db.get_ki_tutor_modules_by_user(user_id)
+    modules = db.get_kia_modules_by_user(user_id)
     result = []
     for m in modules:
-        sources = db.get_ki_tutor_sources_by_module(m["id"])
+        sources = db.get_kia_sources_by_module(m["id"])
         links = db.get_access_links_by_module(m["id"])
         result.append({
             "uuid": m["uuid"],
@@ -128,7 +128,7 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
 @router.get("/ki-assistent/modules/{module_uuid}")
 async def get_module(module_uuid: str, current_user: dict = Depends(get_current_user)):
     module = _require_own_module(module_uuid, current_user["user_id"])
-    sources = db.get_ki_tutor_sources_by_module(module["id"])
+    sources = db.get_kia_sources_by_module(module["id"])
     links = db.get_access_links_by_module(module["id"])
     return {
         "uuid": module["uuid"],
@@ -173,7 +173,7 @@ async def patch_module(
     new_title = body.title if body.title is not None else module["title"]
     new_desc = body.description if body.description is not None else module["description"]
     new_active = body.is_active if body.is_active is not None else module["is_active"]
-    db.update_ki_tutor_module(module_uuid, new_title, new_desc, new_active)
+    db.update_kia_module(module_uuid, new_title, new_desc, new_active)
     return {"uuid": module_uuid, "title": new_title, "is_active": new_active}
 
 @router.patch("/ki-assistent/modules/{module_uuid}/renew-code")
@@ -190,7 +190,7 @@ async def renew_enroll_code(
         raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für expires_at")
     new_code = uuid.uuid4().hex[:8]
     link = db.create_access_link(module["id"], new_code, expires)
-    db.set_ki_tutor_module_enroll_code(module_uuid, new_code, expires)
+    db.set_kia_module_enroll_code(module_uuid, new_code, expires)
     logger.info("KI Tutor: access link created for module {}", module_uuid)
     return {"enroll_code": new_code, "enroll_code_expires": expires.isoformat() + "Z", "link_id": link["id"]}
 
@@ -205,10 +205,10 @@ async def create_module_access_link(
 ):
     module = _require_own_module(module_uuid, current_user["user_id"])
     existing_links = db.get_access_links_by_module(module["id"])
-    if len(existing_links) >= TUTOR_MODULE_MAX_ACCESS_LINKS:
+    if len(existing_links) >= KIA_MODULE_MAX_ACCESS_LINKS:
         raise HTTPException(
             status_code=400,
-            detail=f"Maximal {TUTOR_MODULE_MAX_ACCESS_LINKS} Einschreibelinks pro Modul erlaubt. Bitte lösche zuerst einen alten Link.",
+            detail=f"Maximal {KIA_MODULE_MAX_ACCESS_LINKS} Einschreibelinks pro Modul erlaubt. Bitte lösche zuerst einen alten Link.",
         )
     try:
         expires = datetime.fromisoformat(body.expires_at).replace(tzinfo=timezone.utc)
@@ -255,7 +255,7 @@ async def delete_access_link(
 async def delete_module(module_uuid: str, current_user: dict = Depends(get_current_user)):
     module = _require_own_module(module_uuid, current_user["user_id"])
     _delete_source_files_for_module(module)
-    db.delete_ki_tutor_module(module_uuid)
+    db.delete_kia_module(module_uuid)
     logger.info("KI Tutor: module {} deleted by user {}", module_uuid, current_user["user_id"])
     return {"deleted": module_uuid}
 
@@ -292,7 +292,7 @@ async def enroll(body: schemas.EnrollBody, current_user: dict = Depends(get_curr
 
 @router.get("/ki-assistent/my-modules")
 async def my_modules(current_user: dict = Depends(get_current_user)):
-    modules = db.get_ki_tutor_modules_for_student(current_user["user_id"])
+    modules = db.get_kia_modules_for_student(current_user["user_id"])
     return [
         {
             "uuid": m["uuid"],

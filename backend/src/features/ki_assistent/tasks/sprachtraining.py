@@ -11,28 +11,28 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    TUTOR_SUMMARY_MAX_RETRIES,
-    TUTOR_SUMMARY_TIMEOUT_SMALL,
-    TUTOR_SUMMARY_TIMEOUT_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_SMALL,
-    TUTOR_SUMMARY_MAX_TOKENS_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_BATCH,
-    TUTOR_SUMMARY_CONTENT_MAX_CHARS,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE,
-    TUTOR_SUMMARY_BATCH_SIZE,
+    KIA_SUMMARY_MAX_RETRIES,
+    KIA_SUMMARY_TIMEOUT_SMALL,
+    KIA_SUMMARY_TIMEOUT_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_SMALL,
+    KIA_SUMMARY_MAX_TOKENS_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_BATCH,
+    KIA_SUMMARY_CONTENT_MAX_CHARS,
+    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    KIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    TUTOR_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    TUTOR_MINDMAP_PROMPT,
+    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    KIA_MINDMAP_PROMPT,
 )
 
 from src.features.ki_assistent.tasks._helpers import (
     _format_ts,
-    _save_ki_tutor_output,
+    _save_kia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -43,19 +43,19 @@ from src.features.ki_assistent.tasks._helpers import (
     _clean_llm_json,
 )
 
-@celery_app.task(bind=True, name="ki_tutor.generate_exercise_set", queue="ki_tutor",
+@celery_app.task(bind=True, name="kia.generate_exercise_set", queue="kia",
                  soft_time_limit=120, time_limit=180)
-@observe(name="ki-tutor-exercise-set")
+@observe(name="kia-exercise-set")
 def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                               mode: str, count: int, source_uuid: str | None = None,
                               source_uuids: list[str] | None = None):
     """Generate items for an exercise set (lernkarten/lueckentext/vokabeltest)."""
     import json as _json
     import random
-    from src.tool_prompts import TUTOR_LERNKARTEN_PROMPT, TUTOR_KARTEIKARTEN_PROMPT
+    from src.tool_prompts import KIA_LERNKARTEN_PROMPT, KIA_KARTEIKARTEN_PROMPT
 
     try:
-        module = db.get_ki_tutor_module_by_id(module_id)
+        module = db.get_kia_module_by_id(module_id)
         if not module:
             db.fail_exercise_set(set_id)
             return
@@ -84,7 +84,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
             )
 
         if mode == "glossar":
-            glossary = db.get_ki_tutor_glossary_by_module(module_id)
+            glossary = db.get_kia_glossary_by_module(module_id)
             if not glossary:
                 db.fail_exercise_set(set_id)
                 return
@@ -197,7 +197,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
             # Mapping: filename → list[{start,end,text}] of Whisper segments (media sources)
             _segments_by_label: dict[str, list[dict]] = {}
             for suuid in uuids:
-                source = db.get_ki_tutor_source(suuid)
+                source = db.get_kia_source(suuid)
                 if not source:
                     continue
                 source_label = source["filename"]
@@ -396,7 +396,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 return item
 
             if tool == "lernkarten":
-                prompt = TUTOR_LERNKARTEN_PROMPT.replace("{count}", str(count))
+                prompt = KIA_LERNKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
                     {"role": "system", "content": prompt},
                     {"role": "user", "content": _with_avoid(f"Erstelle Lernkarten aus {source_hint}:\n\n{context}")},
@@ -429,7 +429,7 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                 items = [_format_lernkarte(c) for c in data.get("cards", [])][:count]
                 title = _title_from_items(items, multi_label)
             elif tool == "karteikarten":
-                prompt = TUTOR_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
+                prompt = KIA_KARTEIKARTEN_PROMPT.replace("{count}", str(count))
                 messages = [
                     {"role": "system", "content": prompt},
                     {"role": "user", "content": _with_avoid(f"Erstelle Karteikarten aus {source_hint}:\n\n{context}")},

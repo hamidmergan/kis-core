@@ -12,13 +12,13 @@ from src.tool_prompts import (
     SCRIPT_REFINE_DEFAULT as _PROMPT_SCRIPT_REFINE_DEFAULT,
     SUMMARY_DEFAULT as _PROMPT_SUMMARY_DEFAULT,
     IMAGE_ANALYZE_DEFAULT as _PROMPT_IMAGE_ANALYZE_DEFAULT,
-    TUTOR_SYSTEM_DIRECT as _PROMPT_TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_RAG as _PROMPT_TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS as _TUTOR_POPUP_ACTIONS,
-    TUTOR_SUMMARY_PAGE_SYSTEM as _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM,
-    TUTOR_SUMMARY_PAGE_USER_SMALL as _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_USER_LARGE as _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
-    TUTOR_SUMMARY_PAGE_BATCH_USER as _PROMPT_TUTOR_SUMMARY_PAGE_BATCH_USER,
+    KIA_SYSTEM_DIRECT as _PROMPT_TUTOR_SYSTEM_DIRECT,
+    KIA_SYSTEM_RAG as _PROMPT_TUTOR_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS as _TUTOR_POPUP_ACTIONS,
+    KIA_SUMMARY_PAGE_SYSTEM as _PROMPT_TUTOR_SUMMARY_PAGE_SYSTEM,
+    KIA_SUMMARY_PAGE_USER_SMALL as _PROMPT_TUTOR_SUMMARY_PAGE_USER_SMALL,
+    KIA_SUMMARY_PAGE_USER_LARGE as _PROMPT_TUTOR_SUMMARY_PAGE_USER_LARGE,
+    KIA_SUMMARY_PAGE_BATCH_USER as _PROMPT_TUTOR_SUMMARY_PAGE_BATCH_USER,
 )
 from src.celery_app import celery_app
 from src.dependencies import get_admin_user, get_current_user
@@ -396,10 +396,10 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
     stale_modules: list[dict] = []
     current_fingerprint: str | None = None
     try:
-        from src.services.ki_tutor_embeddings import get_embedding_provider, compute_fingerprint
+        from src.services.kia_embeddings import get_embedding_provider, compute_fingerprint
         provider = get_embedding_provider()
         current_fingerprint = compute_fingerprint(provider)
-        stale_modules = db.list_ki_tutor_modules_with_stale_fingerprint(current_fingerprint)
+        stale_modules = db.list_kia_modules_with_stale_fingerprint(current_fingerprint)
     except Exception as e:
         logger.warning("Maintenance: fingerprint check failed: {}", e)
 
@@ -429,7 +429,7 @@ async def reindex_all(_admin=Depends(get_admin_user)):
     if progress and progress.get("running"):
         raise HTTPException(status_code=409, detail="Reindex läuft bereits")
 
-    from src.tasks.ki_tutor_tasks import run_reindex_all_sources
+    from src.tasks.kia_tasks import run_reindex_all_sources
     db.set_setting("reindex_progress", json.dumps({
         "total": 0, "done": 0, "current": "queued", "failed": 0, "running": True,
     }))
@@ -841,10 +841,10 @@ _TOOL_LABELS_TUTOR = {
 }
 
 @router.get("/ki-assistent/stats")
-async def get_ki_tutor_stats(
+async def get_kia_stats(
     days: int = Query(default=30, ge=1, le=365),
     mode: str | None = Query(default=None, regex="^(quelle|glossar)$"),
     _admin=Depends(get_admin_user),
 ):
     """Aggregated KI-Assistent statistics for the admin dashboard."""
-    return db.get_ki_tutor_admin_stats(days, mode=mode)
+    return db.get_kia_admin_stats(days, mode=mode)

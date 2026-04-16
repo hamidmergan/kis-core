@@ -27,7 +27,7 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             # ── Streak ──
             cur.execute(
                 "SELECT current_streak, max_streak, last_active_date "
-                "FROM ki_tutor_streaks WHERE module_id = %s AND user_id = %s",
+                "FROM kia_streaks WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
             streak_row = cur.fetchone()
@@ -43,11 +43,11 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                           s.source_uuid, s.created_at,
                           COALESCE(m.total_attempts, 0) AS total_attempts,
                           COALESCE(m.total_correct, 0) AS total_correct
-                   FROM ki_tutor_exercise_sets s
+                   FROM kia_exercise_sets s
                    LEFT JOIN LATERAL (
                      SELECT COUNT(*) AS total_attempts,
                             COUNT(*) FILTER (WHERE p.correct) AS total_correct
-                     FROM ki_tutor_exercise_progress p
+                     FROM kia_exercise_progress p
                      WHERE p.set_id = s.id AND p.user_id = s.user_id
                    ) m ON true
                    WHERE s.module_id = %s AND s.user_id = %s AND s.status = 'ready'
@@ -95,8 +95,8 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                               COUNT(ep.id) FILTER (WHERE ep.correct) AS correct,
                               COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
                               COUNT(DISTINCT ep.set_id) AS sets_practiced
-                       FROM ki_tutor_exercise_progress ep
-                       JOIN ki_tutor_exercise_sets s2 ON s2.id = ep.set_id
+                       FROM kia_exercise_progress ep
+                       JOIN kia_exercise_sets s2 ON s2.id = ep.set_id
                        WHERE ep.user_id = %s
                          AND s2.module_id = %s AND s2.user_id = %s
                          {mode_clause}
@@ -135,7 +135,7 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                           COUNT(*) FILTER (
                             WHERE created_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
                           ) AS today
-                   FROM ki_tutor_messages
+                   FROM kia_messages
                    WHERE module_id = %s AND user_id = %s AND role = 'user'""",
                 (module_id, user_id),
             )
@@ -144,8 +144,8 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             # ── First activity date ──
             cur.execute(
                 """SELECT MIN(answered_at) AS first_activity
-                   FROM ki_tutor_exercise_progress ep
-                   JOIN ki_tutor_exercise_sets s ON s.id = ep.set_id
+                   FROM kia_exercise_progress ep
+                   JOIN kia_exercise_sets s ON s.id = ep.set_id
                    WHERE s.module_id = %s AND ep.user_id = %s""",
                 (module_id, user_id),
             )
@@ -186,8 +186,8 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
                           COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
                           MIN(ep.answered_at) AS first_answer,
                           MAX(ep.answered_at) AS last_answer
-                   FROM ki_tutor_exercise_progress ep
-                   JOIN ki_tutor_exercise_sets s ON s.id = ep.set_id
+                   FROM kia_exercise_progress ep
+                   JOIN kia_exercise_sets s ON s.id = ep.set_id
                    WHERE s.module_id = %s AND ep.user_id = %s
                      AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date
                      {mode_clause}
@@ -210,7 +210,7 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
             # Chat messages that day
             cur.execute(
                 """SELECT COUNT(*) AS cnt
-                   FROM ki_tutor_messages
+                   FROM kia_messages
                    WHERE module_id = %s AND user_id = %s AND role = 'user'
                      AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date""",
                 (module_id, user_id, day_str),
@@ -237,8 +237,8 @@ def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[
                             MAX(ep.answered_at) AS last_answer,
                             COUNT(ep.id) AS answers,
                             COUNT(ep.id) FILTER (WHERE ep.correct) AS correct
-                     FROM ki_tutor_exercise_sets s
-                     LEFT JOIN ki_tutor_exercise_progress ep
+                     FROM kia_exercise_sets s
+                     LEFT JOIN kia_exercise_progress ep
                           ON ep.set_id = s.id AND ep.user_id = %s
                      WHERE s.module_id = %s AND s.user_id = %s
                        AND s.status = 'ready'
@@ -249,7 +249,7 @@ def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[
                             m.created_at,
                             m.created_at AS last_answer,
                             0 AS answers, 0 AS correct
-                     FROM ki_tutor_mindmaps m
+                     FROM kia_mindmaps m
                      WHERE m.module_id = %s AND m.user_id = %s AND m.status = 'success'
                    UNION ALL
                      SELECT d.id AS set_id, 'datentabelle' AS tool, 'quelle' AS mode,
@@ -257,7 +257,7 @@ def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[
                             d.created_at,
                             d.created_at AS last_answer,
                             0 AS answers, 0 AS correct
-                     FROM ki_tutor_datentabellen d
+                     FROM kia_datentabellen d
                      WHERE d.module_id = %s AND d.user_id = %s AND d.status = 'success'
                    ) combined
                    ORDER BY COALESCE(last_answer, created_at) DESC
@@ -276,7 +276,7 @@ def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[
 
 # ─── Admin: KI-Tutor Statistics ──────────────────────────────────────────────
 
-def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
+def get_kia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
     """Aggregated KI-Tutor statistics for the admin dashboard.
 
     mode: None = all, "quelle" = Lerntools only, "glossar" = Sprachtraining only.
@@ -285,7 +285,7 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             interval = f"{days} days"
 
-            # Mode filter for exercise queries (requires JOIN with ki_tutor_exercise_sets as s)
+            # Mode filter for exercise queries (requires JOIN with kia_exercise_sets as s)
             mode_filter = ""
             mode_params: tuple = ()
             if mode in ("quelle", "glossar"):
@@ -293,13 +293,13 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                 mode_params = (mode,)
 
             # ── 1. Summary ──
-            cur.execute("SELECT COUNT(*) AS cnt FROM ki_tutor_modules")
+            cur.execute("SELECT COUNT(*) AS cnt FROM kia_modules")
             total_modules = cur.fetchone()["cnt"]
 
             cur.execute(
                 f"""SELECT COUNT(DISTINCT p.user_id) AS cnt
-                    FROM ki_tutor_exercise_progress p
-                    JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                    FROM kia_exercise_progress p
+                    JOIN kia_exercise_sets s ON s.id = p.set_id
                     WHERE p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
                 (interval, *mode_params),
             )
@@ -307,15 +307,15 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 
             cur.execute(
                 f"""SELECT COUNT(*) AS cnt
-                    FROM ki_tutor_exercise_progress p
-                    JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                    FROM kia_exercise_progress p
+                    JOIN kia_exercise_sets s ON s.id = p.set_id
                     WHERE p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
                 (interval, *mode_params),
             )
             total_answers = cur.fetchone()["cnt"]
 
             cur.execute(
-                """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                """SELECT COUNT(*) AS cnt FROM kia_messages
                    WHERE role = 'user' AND created_at >= NOW() - INTERVAL %s""",
                 (interval,),
             )
@@ -325,9 +325,9 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
             cur.execute(
                 """SELECT m.id, m.uuid, m.title, m.is_active, m.user_id AS owner_id,
                           u.display_name AS owner_name, u.ldap_username AS owner_username,
-                          (SELECT COUNT(*) FROM ki_tutor_enrollments e WHERE e.module_id = m.id) AS enrollment_count,
-                          (SELECT COUNT(DISTINCT src.id) FROM ki_tutor_sources src WHERE src.module_id = m.id) AS source_count
-                   FROM ki_tutor_modules m
+                          (SELECT COUNT(*) FROM kia_enrollments e WHERE e.module_id = m.id) AS enrollment_count,
+                          (SELECT COUNT(DISTINCT src.id) FROM kia_sources src WHERE src.module_id = m.id) AS source_count
+                   FROM kia_modules m
                    JOIN users u ON m.user_id = u.id
                    ORDER BY m.created_at DESC""",
             )
@@ -341,7 +341,7 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 
                 # Dozent activity: chat messages sent by owner in this module
                 cur.execute(
-                    """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                    """SELECT COUNT(*) AS cnt FROM kia_messages
                        WHERE module_id = %s AND user_id = %s AND role = 'user'
                          AND created_at >= NOW() - INTERVAL %s""",
                     (mid, owner_id, interval),
@@ -352,8 +352,8 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                 cur.execute(
                     f"""SELECT COUNT(p.id) AS attempts,
                                COUNT(p.id) FILTER (WHERE p.correct) AS correct_cnt
-                        FROM ki_tutor_exercise_progress p
-                        JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                        FROM kia_exercise_progress p
+                        JOIN kia_exercise_sets s ON s.id = p.set_id
                         WHERE s.module_id = %s AND p.user_id = %s
                           AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
                     (mid, owner_id, interval, *mode_params),
@@ -364,8 +364,8 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                 cur.execute(
                     f"""SELECT COUNT(p.id) AS total_answers,
                                COUNT(p.id) FILTER (WHERE p.correct) AS total_correct
-                        FROM ki_tutor_exercise_progress p
-                        JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                        FROM kia_exercise_progress p
+                        JOIN kia_exercise_sets s ON s.id = p.set_id
                         WHERE s.module_id = %s AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
                     (mid, interval, *mode_params),
                 )
@@ -373,7 +373,7 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 
                 # Total chat in module
                 cur.execute(
-                    """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                    """SELECT COUNT(*) AS cnt FROM kia_messages
                        WHERE module_id = %s AND role = 'user'
                          AND created_at >= NOW() - INTERVAL %s""",
                     (mid, interval),
@@ -384,7 +384,7 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                 cur.execute(
                     """SELECT DISTINCT u.id AS user_id,
                               u.display_name, u.ldap_username
-                       FROM ki_tutor_enrollments e
+                       FROM kia_enrollments e
                        JOIN users u ON e.user_id = u.id
                        WHERE e.module_id = %s
                        ORDER BY u.display_name""",
@@ -401,8 +401,8 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                                    COUNT(p.id) FILTER (WHERE p.correct) AS correct_cnt,
                                    COUNT(p.id) FILTER (WHERE s.mode = 'quelle') AS lerntools,
                                    COUNT(p.id) FILTER (WHERE s.mode = 'glossar') AS sprachtraining
-                            FROM ki_tutor_exercise_progress p
-                            JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                            FROM kia_exercise_progress p
+                            JOIN kia_exercise_sets s ON s.id = p.set_id
                             WHERE s.module_id = %s AND p.user_id = %s
                               AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
                         (mid, sid, interval, *mode_params),
@@ -411,7 +411,7 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 
                     # Student chat messages in this module
                     cur.execute(
-                        """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                        """SELECT COUNT(*) AS cnt FROM kia_messages
                            WHERE module_id = %s AND user_id = %s AND role = 'user'
                              AND created_at >= NOW() - INTERVAL %s""",
                         (mid, sid, interval),
@@ -460,19 +460,19 @@ def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 
 # ─── Dozent: Module Statistics ──────────────────────────────────────────────
 
-def get_ki_tutor_module_stats(module_id: int) -> dict:
+def get_kia_module_stats(module_id: int) -> dict:
     """Statistics for a single module – used by the module owner (Dozent)."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT COUNT(DISTINCT user_id) AS cnt FROM ki_tutor_enrollments WHERE module_id = %s",
+                "SELECT COUNT(DISTINCT user_id) AS cnt FROM kia_enrollments WHERE module_id = %s",
                 (module_id,),
             )
             total_enrolled = cur.fetchone()["cnt"]
 
             cur.execute(
                 """SELECT COUNT(DISTINCT user_id) AS cnt
-                   FROM ki_tutor_messages
+                   FROM kia_messages
                    WHERE module_id = %s AND role = 'user'
                      AND created_at >= NOW() - INTERVAL '30 days'""",
                 (module_id,),
@@ -480,13 +480,13 @@ def get_ki_tutor_module_stats(module_id: int) -> dict:
             active_30d = cur.fetchone()["cnt"]
 
             cur.execute(
-                "SELECT COUNT(*) AS cnt FROM ki_tutor_messages WHERE module_id = %s AND role = 'user'",
+                "SELECT COUNT(*) AS cnt FROM kia_messages WHERE module_id = %s AND role = 'user'",
                 (module_id,),
             )
             total_chat = cur.fetchone()["cnt"]
 
             cur.execute(
-                "SELECT COUNT(*) AS cnt FROM ki_tutor_exercise_sets WHERE module_id = %s",
+                "SELECT COUNT(*) AS cnt FROM kia_exercise_sets WHERE module_id = %s",
                 (module_id,),
             )
             total_sets = cur.fetchone()["cnt"]

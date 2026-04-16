@@ -10,22 +10,22 @@ from loguru import logger
 
 from src import database as db
 from src.limits import (
-    TUTOR_SUMMARY_MAX_RETRIES,
-    TUTOR_SUMMARY_TIMEOUT_SMALL,
-    TUTOR_SUMMARY_TIMEOUT_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_SMALL,
-    TUTOR_SUMMARY_MAX_TOKENS_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_BATCH,
-    TUTOR_SUMMARY_CONTENT_MAX_CHARS,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE,
-    TUTOR_SUMMARY_BATCH_SIZE,
+    KIA_SUMMARY_MAX_RETRIES,
+    KIA_SUMMARY_TIMEOUT_SMALL,
+    KIA_SUMMARY_TIMEOUT_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_SMALL,
+    KIA_SUMMARY_MAX_TOKENS_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_BATCH,
+    KIA_SUMMARY_CONTENT_MAX_CHARS,
+    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    KIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    TUTOR_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
 )
 
 def _format_ts(seconds: float) -> str:
@@ -35,16 +35,16 @@ def _format_ts(seconds: float) -> str:
         return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
     return f"{s // 60:02d}:{s % 60:02d}"
 
-def _save_ki_tutor_output(username: str, module_uuid: str, filename: str, data: bytes) -> str:
-    """Save a ki-tutor output file (e.g. presentation) in the structured folder."""
+def _save_kia_output(username: str, module_uuid: str, filename: str, data: bytes) -> str:
+    """Save a KI-Assistent output file (e.g. presentation) in the structured folder."""
     from src.storage import USE_S3
-    key = f"ki-tutor/{username}/{module_uuid}/outputs/{filename}"
+    key = f"kia/{username}/{module_uuid}/outputs/{filename}"
     if USE_S3:
         from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
         return key
     from src.storage import STORAGE_ROOT
-    dest = STORAGE_ROOT / "ki-tutor" / username / module_uuid / "outputs"
+    dest = STORAGE_ROOT / "kia" / username / module_uuid / "outputs"
     dest.mkdir(parents=True, exist_ok=True)
     (dest / filename).write_bytes(data)
     return str(dest / filename)
@@ -84,7 +84,7 @@ def _clean_summary(text: str) -> str:
 def _call_llm_with_retry(client, model, messages, temperature, max_tokens, timeout, extra_body):
     """Make an LLM call with retry on rate limits / timeouts."""
     import time as _time
-    for attempt in range(TUTOR_SUMMARY_MAX_RETRIES):
+    for attempt in range(KIA_SUMMARY_MAX_RETRIES):
         try:
             return client.chat.completions.create(
                 model=model,
@@ -96,11 +96,11 @@ def _call_llm_with_retry(client, model, messages, temperature, max_tokens, timeo
             )
         except Exception as e:
             err_str = str(e)
-            if ("429" in err_str or "timeout" in err_str.lower()) and attempt < TUTOR_SUMMARY_MAX_RETRIES - 1:
+            if ("429" in err_str or "timeout" in err_str.lower()) and attempt < KIA_SUMMARY_MAX_RETRIES - 1:
                 wait = 30 * (attempt + 1)
                 logger.warning(
                     "KI Tutor summaries: rate limit/timeout, retry in {}s ({}/{})",
-                    wait, attempt + 1, TUTOR_SUMMARY_MAX_RETRIES,
+                    wait, attempt + 1, KIA_SUMMARY_MAX_RETRIES,
                 )
                 _time.sleep(wait)
             else:
@@ -110,12 +110,12 @@ def _summarize_page(client, model, p, is_small, extra_body, lang):
     """Summarize a single page. Returns summary string."""
     sys_msg = _SUMMARY_SYSTEM.format(lang=lang)
     if is_small:
-        user_msg = _SUMMARY_USER_SMALL.format(lang=lang, content=p["content"][:TUTOR_SUMMARY_CONTENT_MAX_CHARS])
+        user_msg = _SUMMARY_USER_SMALL.format(lang=lang, content=p["content"][:KIA_SUMMARY_CONTENT_MAX_CHARS])
     else:
-        user_msg = _SUMMARY_USER_LARGE.format(lang=lang, content=p["content"][:TUTOR_SUMMARY_CONTENT_MAX_CHARS])
+        user_msg = _SUMMARY_USER_LARGE.format(lang=lang, content=p["content"][:KIA_SUMMARY_CONTENT_MAX_CHARS])
 
-    timeout = TUTOR_SUMMARY_TIMEOUT_SMALL if is_small else TUTOR_SUMMARY_TIMEOUT_LARGE
-    max_tokens = TUTOR_SUMMARY_MAX_TOKENS_SMALL if is_small else TUTOR_SUMMARY_MAX_TOKENS_LARGE
+    timeout = KIA_SUMMARY_TIMEOUT_SMALL if is_small else KIA_SUMMARY_TIMEOUT_LARGE
+    max_tokens = KIA_SUMMARY_MAX_TOKENS_SMALL if is_small else KIA_SUMMARY_MAX_TOKENS_LARGE
 
     resp = _call_llm_with_retry(
         client, model,
@@ -131,7 +131,7 @@ def _summarize_batch(client, model, pages_batch, lang):
     n = len(pages_batch)
     sys_msg = _SUMMARY_SYSTEM.format(lang=lang)
     pages_text = "\n\n".join(
-        f"---PAGE {i + 1}---\n{p['content'][:TUTOR_SUMMARY_CONTENT_MAX_CHARS]}"
+        f"---PAGE {i + 1}---\n{p['content'][:KIA_SUMMARY_CONTENT_MAX_CHARS]}"
         for i, p in enumerate(pages_batch)
     )
     user_msg = _SUMMARY_BATCH_USER.format(n=n, lang=lang, pages=pages_text)
@@ -139,8 +139,8 @@ def _summarize_batch(client, model, pages_batch, lang):
     resp = _call_llm_with_retry(
         client, model,
         [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}],
-        temperature=0.1, max_tokens=TUTOR_SUMMARY_MAX_TOKENS_BATCH,
-        timeout=TUTOR_SUMMARY_TIMEOUT_LARGE, extra_body={},
+        temperature=0.1, max_tokens=KIA_SUMMARY_MAX_TOKENS_BATCH,
+        timeout=KIA_SUMMARY_TIMEOUT_LARGE, extra_body={},
     )
     _msg = resp.choices[0].message
     content = _msg.content or getattr(_msg, "reasoning_content", None) or ""

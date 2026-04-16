@@ -11,28 +11,28 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    TUTOR_SUMMARY_MAX_RETRIES,
-    TUTOR_SUMMARY_TIMEOUT_SMALL,
-    TUTOR_SUMMARY_TIMEOUT_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_SMALL,
-    TUTOR_SUMMARY_MAX_TOKENS_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_BATCH,
-    TUTOR_SUMMARY_CONTENT_MAX_CHARS,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE,
-    TUTOR_SUMMARY_BATCH_SIZE,
+    KIA_SUMMARY_MAX_RETRIES,
+    KIA_SUMMARY_TIMEOUT_SMALL,
+    KIA_SUMMARY_TIMEOUT_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_SMALL,
+    KIA_SUMMARY_MAX_TOKENS_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_BATCH,
+    KIA_SUMMARY_CONTENT_MAX_CHARS,
+    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    KIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    TUTOR_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    TUTOR_MINDMAP_PROMPT,
+    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    KIA_MINDMAP_PROMPT,
 )
 
 from src.features.ki_assistent.tasks._helpers import (
     _format_ts,
-    _save_ki_tutor_output,
+    _save_kia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -54,11 +54,11 @@ def _save_transcript_artifact(key: str, text: str) -> None:
         from pathlib import Path as _Path
         _Path(key).write_text(text, encoding="utf-8")
 
-@celery_app.task(bind=True, name="ki_tutor.index_source", queue="ki_tutor")
+@celery_app.task(bind=True, name="kia.index_source", queue="kia")
 def run_index_source(self, source_uuid: str):
     try:
         # 1. Load source from DB
-        source = db.get_ki_tutor_source(source_uuid)
+        source = db.get_kia_source(source_uuid)
         if source is None:
             raise RuntimeError(f"Source not found: {source_uuid}")
 
@@ -69,11 +69,11 @@ def run_index_source(self, source_uuid: str):
         filename = source["filename"]
 
         # 2. Status → indexing
-        db.update_ki_tutor_source_status(source_uuid, "indexing")
+        db.update_kia_source_status(source_uuid, "indexing")
         logger.info("KI Tutor: indexing source {} ({})", source_uuid, filename)
 
         # 3. Embedding provider + fingerprint
-        from src.services.ki_tutor_embeddings import get_embedding_provider, compute_fingerprint
+        from src.services.kia_embeddings import get_embedding_provider, compute_fingerprint
         provider = get_embedding_provider()
         fingerprint = compute_fingerprint(provider)
 
@@ -87,10 +87,10 @@ def run_index_source(self, source_uuid: str):
         media_language: str | None = None
         with open_input_file(file_path_stored, suffix=suffix) as local_path:
             # 5. Extract chunks (branch: media vs document)
-            from src.services import ki_tutor_chunker
+            from src.services import kia_chunker
             media_duration: float | None = None
 
-            if ki_tutor_chunker.is_media_file(file_type):
+            if kia_chunker.is_media_file(file_type):
                 # Audio/Video: transcribe with timestamps, then chunk
                 from src.services.kisski_client import KisskiClient
                 from src.services.subtitle_converter import segments_to_vtt
@@ -105,7 +105,7 @@ def run_index_source(self, source_uuid: str):
                 segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(local_path)
                 if not segments:
                     raise RuntimeError("Whisper returned no segments for this audio/video file.")
-                chunks = ki_tutor_chunker.segments_to_chunks(segments)
+                chunks = kia_chunker.segments_to_chunks(segments)
 
                 # Save full transcript as .txt next to the source file
                 transcript_text = "\n".join(
@@ -137,12 +137,12 @@ def run_index_source(self, source_uuid: str):
                             "KI Tutor: EN translation VTT failed for {}: {}", source_uuid, e
                         )
             else:
-                chunks = ki_tutor_chunker.extract_chunks(local_path, file_type)
+                chunks = kia_chunker.extract_chunks(local_path, file_type)
 
             # 6. Save chunks to DB
             chunk_ids: list[int] = []
             for chunk in chunks:
-                chunk_id = db.create_ki_tutor_chunk(
+                chunk_id = db.create_kia_chunk(
                     source_id=source_id,
                     page_number=chunk["page_number"],
                     content=chunk["content"],
@@ -166,7 +166,7 @@ def run_index_source(self, source_uuid: str):
                 )
 
         # 8. Source status → ready
-        db.update_ki_tutor_source_status(
+        db.update_kia_source_status(
             source_uuid,
             "ready",
             chunk_count=len(chunks),
@@ -177,13 +177,13 @@ def run_index_source(self, source_uuid: str):
         logger.info("KI Tutor: source {} indexed ({} chunks)", source_uuid, len(chunks))
 
         # 9. Check if all non-failed sources for this module are ready → set module ready
-        sources = db.get_ki_tutor_sources_by_module(module_id)
+        sources = db.get_kia_sources_by_module(module_id)
         non_failed = [s for s in sources if s["status"] != "failed"]
         all_ready = len(non_failed) > 0 and all(s["status"] == "ready" for s in non_failed)
         if all_ready:
-            module = db.get_ki_tutor_module_by_id(module_id)
+            module = db.get_kia_module_by_id(module_id)
             if module:
-                db.update_ki_tutor_module_status(
+                db.update_kia_module_status(
                     module["uuid"],
                     "ready",
                     embedding_model=embedding_model,
@@ -197,33 +197,33 @@ def run_index_source(self, source_uuid: str):
 
     except Exception as e:
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
-        db.update_ki_tutor_source_status(source_uuid, "failed", error_message=str(e))
+        db.update_kia_source_status(source_uuid, "failed", error_message=str(e))
         raise
 
-@celery_app.task(bind=True, name="ki_tutor.generate_summaries", queue="ki_tutor")
-@observe(name="ki-tutor-summaries")
+@celery_app.task(bind=True, name="kia.generate_summaries", queue="kia")
+@observe(name="kia-summaries")
 def run_generate_summaries(self, source_uuid: str):
     """Generate AI page-level summaries for a PDF source."""
     try:
-        source = db.get_ki_tutor_source(source_uuid)
+        source = db.get_kia_source(source_uuid)
         if source is None:
             raise RuntimeError(f"Source not found: {source_uuid}")
 
         if source["file_type"] != "pdf":
             return
 
-        db.update_ki_tutor_source_summaries_status(source_uuid, "generating")
+        db.update_kia_source_summaries_status(source_uuid, "generating")
         logger.info("KI Tutor: generating page summaries for source {}", source_uuid)
 
         # 1. Extract text per page
         import os
         suffix = os.path.splitext(source["filename"])[1] or ".pdf"
         with open_input_file(source["file_path"], suffix=suffix) as local_path:
-            from src.services.ki_tutor_chunker import extract_page_texts
+            from src.services.kia_chunker import extract_page_texts
             pages = extract_page_texts(local_path)
 
         if not pages:
-            db.update_ki_tutor_source_summaries_status(source_uuid, "ready")
+            db.update_kia_source_summaries_status(source_uuid, "ready")
             logger.info("KI Tutor: no pages with text found for {}", source_uuid)
             return
 
@@ -250,7 +250,7 @@ def run_generate_summaries(self, source_uuid: str):
         remaining_pages = [p for p in pages if p["page_number"] not in existing_pages]
 
         if not remaining_pages:
-            db.update_ki_tutor_source_summaries_status(source_uuid, "ready")
+            db.update_kia_source_summaries_status(source_uuid, "ready")
             logger.info("KI Tutor: all pages already summarized for {}", source_uuid)
             return
 
@@ -261,7 +261,7 @@ def run_generate_summaries(self, source_uuid: str):
 
         # 5. Generate summaries — save each batch/page immediately to DB
         #    Small models (ollama): parallel single-page requests
-        #    Large models (cloud):  parallel batches of TUTOR_SUMMARY_BATCH_SIZE pages
+        #    Large models (cloud):  parallel batches of KIA_SUMMARY_BATCH_SIZE pages
         def _save_page_summaries(page_batch: list[dict], summary_batch: list[str]):
             """Save a batch of summaries to DB immediately."""
             db.bulk_create_paragraph_summaries(
@@ -282,7 +282,7 @@ def run_generate_summaries(self, source_uuid: str):
         failed_batches = 0
 
         if is_small:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=KIA_SUMMARY_PARALLEL_WORKERS_SMALL) as executor:
                 futures = {
                     executor.submit(_summarize_page, client, model, p, True, extra_body, lang): i
                     for i, p in enumerate(remaining_pages)
@@ -300,8 +300,8 @@ def run_generate_summaries(self, source_uuid: str):
                         failed_batches += 1
                         logger.warning("KI Tutor: page {} failed for {}: {}", idx + 1, source_uuid, exc)
         else:
-            batches = [remaining_pages[i:i + TUTOR_SUMMARY_BATCH_SIZE] for i in range(0, len(remaining_pages), TUTOR_SUMMARY_BATCH_SIZE)]
-            with concurrent.futures.ThreadPoolExecutor(max_workers=TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
+            batches = [remaining_pages[i:i + KIA_SUMMARY_BATCH_SIZE] for i in range(0, len(remaining_pages), KIA_SUMMARY_BATCH_SIZE)]
+            with concurrent.futures.ThreadPoolExecutor(max_workers=KIA_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
                 futures = {
                     executor.submit(_summarize_batch, client, model, batch, lang): i
                     for i, batch in enumerate(batches)
@@ -324,13 +324,13 @@ def run_generate_summaries(self, source_uuid: str):
 
         # 6. Set status based on results
         if failed_batches > 0:
-            db.update_ki_tutor_source_summaries_status(source_uuid, "failed")
+            db.update_kia_source_summaries_status(source_uuid, "failed")
             logger.warning(
                 "KI Tutor: {} batch(es) failed for {} — saved partial results, retry will resume",
                 failed_batches, source_uuid,
             )
         else:
-            db.update_ki_tutor_source_summaries_status(source_uuid, "ready")
+            db.update_kia_source_summaries_status(source_uuid, "ready")
             logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
 
     except Exception as e:
@@ -340,5 +340,5 @@ def run_generate_summaries(self, source_uuid: str):
         else:
             status = "failed"
         logger.error("KI Tutor: summary generation {} for {}: {}", status, source_uuid, e)
-        db.update_ki_tutor_source_summaries_status(source_uuid, status)
+        db.update_kia_source_summaries_status(source_uuid, status)
 

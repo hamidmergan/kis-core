@@ -17,25 +17,25 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 
-def get_ki_tutor_glossary(source_id: int) -> list[dict]:
+def get_kia_glossary(source_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """SELECT id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number
-                   FROM ki_tutor_glossary_entries
+                   FROM kia_glossary_entries
                    WHERE source_id = %s ORDER BY term_de""",
                 (source_id,),
             )
             return [dict(r) for r in cur.fetchall()]
 
-def get_ki_tutor_glossary_by_module(module_id: int) -> list[dict]:
+def get_kia_glossary_by_module(module_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """SELECT g.id, g.term_de, g.term_en, g.definition, g.definition_en, g.example_sentence, g.example_sentence_en, g.page_number,
                           s.filename
-                   FROM ki_tutor_glossary_entries g
-                   JOIN ki_tutor_sources s ON s.id = g.source_id
+                   FROM kia_glossary_entries g
+                   JOIN kia_sources s ON s.id = g.source_id
                    WHERE s.module_id = %s
                    ORDER BY g.term_de""",
                 (module_id,),
@@ -62,7 +62,7 @@ def bulk_create_glossary_entries(source_id: int, entries: list[dict]) -> list[di
                     e.get("page_number"),
                 ])
             cur.execute(
-                f"""INSERT INTO ki_tutor_glossary_entries
+                f"""INSERT INTO kia_glossary_entries
                     (source_id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number)
                     VALUES {', '.join(values)}
                     RETURNING id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number""",
@@ -72,18 +72,18 @@ def bulk_create_glossary_entries(source_id: int, entries: list[dict]) -> list[di
         conn.commit()
         return rows
 
-def delete_ki_tutor_glossary(source_id: int) -> None:
+def delete_kia_glossary(source_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM ki_tutor_glossary_entries WHERE source_id = %s", (source_id,))
+            cur.execute("DELETE FROM kia_glossary_entries WHERE source_id = %s", (source_id,))
         conn.commit()
 
 def delete_all_glossary_entries(module_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """DELETE FROM ki_tutor_glossary_entries
-                   WHERE source_id IN (SELECT id FROM ki_tutor_sources WHERE module_id = %s)""",
+                """DELETE FROM kia_glossary_entries
+                   WHERE source_id IN (SELECT id FROM kia_sources WHERE module_id = %s)""",
                 (module_id,),
             )
             count = cur.rowcount
@@ -93,7 +93,7 @@ def delete_all_glossary_entries(module_id: int) -> int:
 def delete_glossary_entry(entry_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM ki_tutor_glossary_entries WHERE id = %s RETURNING id", (entry_id,))
+            cur.execute("DELETE FROM kia_glossary_entries WHERE id = %s RETURNING id", (entry_id,))
             deleted = cur.fetchone() is not None
         conn.commit()
     return deleted

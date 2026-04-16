@@ -19,17 +19,17 @@ from langfuse.decorators import langfuse_context, observe
 from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
-    TUTOR_SOURCE_MAX_PAGES,
-    TUTOR_MODULE_MAX_SOURCES,
-    TUTOR_MODULE_MAX_ACCESS_LINKS,
-    TUTOR_NOTES_MAX_PER_USER,
+    KIA_SOURCE_MAX_PAGES,
+    KIA_MODULE_MAX_SOURCES,
+    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
-    TUTOR_SYSTEM_DIRECT,
-    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
-    TUTOR_SYSTEM_RAG,
-    TUTOR_POPUP_ACTIONS,
+    KIA_SYSTEM_DIRECT,
+    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    KIA_SYSTEM_RAG,
+    KIA_POPUP_ACTIONS,
 )
 
 from src.features.ki_assistent.routes._helpers import (
@@ -55,16 +55,16 @@ from src.features.ki_assistent import schemas
 router = APIRouter(tags=["ki-assistent"])
 
 @router.post("/ki-assistent/modules/{module_uuid}/chat")
-@observe(name="ki-tutor-chat")
+@observe(name="kia-chat")
 async def chat(
     module_uuid: str,
     body: schemas.ChatBody,
     current_user: dict = Depends(get_current_user),
     kisski=Depends(get_kisski_client),
 ):
-    _trace_kisski(kisski, "ki-tutor-chat")
+    _trace_kisski(kisski, "kia-chat")
     user_id = current_user["user_id"]
-    module = db.get_ki_tutor_module(module_uuid)
+    module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -75,19 +75,19 @@ async def chat(
 
     # Sync module status: heal stale 'pending' if all sources are actually ready
     if module["status"] != "ready":
-        sources_check = db.get_ki_tutor_sources_by_module(module["id"])
+        sources_check = db.get_kia_sources_by_module(module["id"])
         ready_sources = [s for s in sources_check if s["status"] == "ready"]
         if not ready_sources:
             raise HTTPException(status_code=409, detail="Keine indizierten Quellen vorhanden")
         if all(s["status"] == "ready" for s in sources_check):
-            db.update_ki_tutor_module_status(module_uuid, "ready")
+            db.update_kia_module_status(module_uuid, "ready")
 
     # Resolve active_source_ids (UUIDs → DB int ids)
     source_ids: list[int] | None = None
     if body.active_source_ids is not None:
         resolved = []
         for suuid in body.active_source_ids:
-            source = db.get_ki_tutor_source(suuid)
+            source = db.get_kia_source(suuid)
             if source and source["module_id"] == module["id"]:
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
@@ -131,7 +131,7 @@ async def chat(
     if _is_generic:
         # ── Generische Zusammenfassung: Summaries + zeitlich verteilte Media-Chunks ──
         logger.info("Generic summary detected for {} sources, skipping hybrid search", len(source_ids))
-        all_sources_map = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
+        all_sources_map = {s["id"]: s for s in db.get_kia_sources_by_module(module["id"])}
         chunks: list[dict] = []
         char_budget_per_source = 200000 // len(source_ids)
 
@@ -143,7 +143,7 @@ async def chat(
 
             if is_media:
                 # Media: alle Chunks zeitlich sortiert laden, bis Budget voll
-                all_media_chunks = db.get_ki_tutor_chunks_by_source(sid)
+                all_media_chunks = db.get_kia_chunks_by_source(sid)
                 all_media_chunks.sort(key=lambda c: c.get("start_time") or 0)
                 taken: list[dict] = []
                 total_chars = 0
@@ -172,7 +172,7 @@ async def chat(
                     logger.info("Generic: source {} (PDF) → {} summaries used", sid, min(len(summaries), len([c for c in chunks if c["source_id"] == sid])))
                 else:
                     # Fallback: Raw-Chunks gleichmäßig über Seiten verteilt
-                    all_pdf_chunks = db.get_ki_tutor_chunks_by_source(sid)
+                    all_pdf_chunks = db.get_kia_chunks_by_source(sid)
                     all_pdf_chunks.sort(key=lambda c: c.get("page_number") or 0)
                     sampled = []
                     total_chars = 0
@@ -190,7 +190,7 @@ async def chat(
         logger.info("Generic summary: {} total context chunks across {} sources", len(chunks), len(source_ids))
     else:
         # ── Normaler Pfad: Hybrid Search ──
-        from src.services.ki_tutor_embeddings import get_embedding_provider
+        from src.services.kia_embeddings import get_embedding_provider
         provider = get_embedding_provider()
 
         embed_text = body.source_text if body.source_text else body.question
@@ -199,7 +199,7 @@ async def chat(
         # Bei Popup-Aktionen nur in der Quell-Datei suchen
         search_source_ids = source_ids
         if body.source_uuid:
-            popup_source = db.get_ki_tutor_source(body.source_uuid)
+            popup_source = db.get_kia_source(body.source_uuid)
             if popup_source:
                 search_source_ids = [popup_source["id"]]
 
@@ -225,7 +225,7 @@ async def chat(
             chunks = diverse_chunks + remaining
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
-    all_sources_list = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
+    all_sources_list = {s["id"]: s for s in db.get_kia_sources_by_module(module["id"])}
     source_id_to_qnum: dict[int, int] = {}
     source_qmap: list[dict] = []  # [{qnum, uuid, filename}, ...]
     qnum_counter = 0
@@ -275,15 +275,15 @@ async def chat(
     if body.source_text:
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
         # "Genauer ausführen" braucht RAG-Kontext, die anderen arbeiten nur mit dem markierten Text
-        elaborate_prompt = TUTOR_POPUP_ACTIONS[0]["prompt"]
+        elaborate_prompt = KIA_POPUP_ACTIONS[0]["prompt"]
         if body.question.startswith(str(elaborate_prompt)):
-            system_prompt = TUTOR_SYSTEM_DIRECT_WITH_CONTEXT
+            system_prompt = KIA_SYSTEM_DIRECT_WITH_CONTEXT
             user_message = f"{body.question}\n\nMarkierter Text (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}\n\nWeiterer Kontext aus dem Dokument:\n{context}"
         else:
-            system_prompt = TUTOR_SYSTEM_DIRECT
+            system_prompt = KIA_SYSTEM_DIRECT
             user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
     else:
-        system_prompt = TUTOR_SYSTEM_RAG
+        system_prompt = KIA_SYSTEM_RAG
         user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"
 
     # Build multi-turn messages: system + history + current question
@@ -295,7 +295,7 @@ async def chat(
     # Include recent chat history for follow-up questions (skip for popup actions)
     # Strip citation tags [Q1, S. 3] from history so the LLM doesn't re-cite old pages
     if not body.source_text:
-        history = db.get_ki_tutor_messages(module["id"], user_id, limit=10, enrollment_id=enrollment_id)
+        history = db.get_kia_messages(module["id"], user_id, limit=10, enrollment_id=enrollment_id)
         citation_re = re.compile(r"\s*\[(?:Q\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)\]")
         for msg in history:
             messages.append({"role": msg["role"], "content": citation_re.sub("", msg["content"])})
@@ -315,7 +315,7 @@ async def chat(
             "is_popup_selection": True,
         })
     else:
-        all_sources = {s["id"]: s for s in db.get_ki_tutor_sources_by_module(module["id"])}
+        all_sources = {s["id"]: s for s in db.get_kia_sources_by_module(module["id"])}
         for chunk in chunks:
             source = all_sources.get(chunk["source_id"])
             if source:
@@ -367,8 +367,8 @@ async def chat(
         # Keywords in citations stay (used by frontend for highlighting)
 
         # Save messages
-        db.save_ki_tutor_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
-        db.save_ki_tutor_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
+        db.save_kia_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
+        db.save_kia_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
 
         # Send final metadata event — also send corrected answer
         yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"

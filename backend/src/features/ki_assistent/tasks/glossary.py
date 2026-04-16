@@ -11,28 +11,28 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    TUTOR_SUMMARY_MAX_RETRIES,
-    TUTOR_SUMMARY_TIMEOUT_SMALL,
-    TUTOR_SUMMARY_TIMEOUT_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_SMALL,
-    TUTOR_SUMMARY_MAX_TOKENS_LARGE,
-    TUTOR_SUMMARY_MAX_TOKENS_BATCH,
-    TUTOR_SUMMARY_CONTENT_MAX_CHARS,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_SMALL,
-    TUTOR_SUMMARY_PARALLEL_WORKERS_LARGE,
-    TUTOR_SUMMARY_BATCH_SIZE,
+    KIA_SUMMARY_MAX_RETRIES,
+    KIA_SUMMARY_TIMEOUT_SMALL,
+    KIA_SUMMARY_TIMEOUT_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_SMALL,
+    KIA_SUMMARY_MAX_TOKENS_LARGE,
+    KIA_SUMMARY_MAX_TOKENS_BATCH,
+    KIA_SUMMARY_CONTENT_MAX_CHARS,
+    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    KIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    TUTOR_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    TUTOR_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    TUTOR_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    TUTOR_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    TUTOR_MINDMAP_PROMPT,
+    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    KIA_MINDMAP_PROMPT,
 )
 
 from src.features.ki_assistent.tasks._helpers import (
     _format_ts,
-    _save_ki_tutor_output,
+    _save_kia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -43,9 +43,9 @@ from src.features.ki_assistent.tasks._helpers import (
     _clean_llm_json,
 )
 
-@celery_app.task(bind=True, name="ki_tutor.generate_glossary", queue="ki_tutor",
+@celery_app.task(bind=True, name="kia.generate_glossary", queue="kia",
                  soft_time_limit=120, time_limit=180)
-@observe(name="ki-tutor-glossary")
+@observe(name="kia-glossary")
 def run_generate_glossary(self, module_id: int, source_ids: list[int]):
     """Generate glossary entries from source chunks as a background job."""
     import json as _json
@@ -85,7 +85,7 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         context = "\n\n---\n\n".join(context_parts)
 
         # Tell LLM which terms already exist so it doesn't repeat them
-        existing = db.get_ki_tutor_glossary_by_module(module_id)
+        existing = db.get_kia_glossary_by_module(module_id)
         existing_terms_list = [e["term_de"] for e in existing]
         exclude_hint = ""
         if existing_terms_list:
@@ -113,7 +113,7 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         entries_raw = [e for e in entries_raw if e.get("term_de", "").strip().lower() in context_lower]
 
         # Deduplicate: skip terms that already exist
-        existing = db.get_ki_tutor_glossary_by_module(module_id)
+        existing = db.get_kia_glossary_by_module(module_id)
         existing_terms = {e["term_de"].strip().lower() for e in existing}
         new_entries = [e for e in entries_raw if e.get("term_de", "").strip().lower() not in existing_terms]
 
