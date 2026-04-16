@@ -10,9 +10,15 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
       <div className="flex flex-col items-center gap-3 text-center">
         {/* KI-Hinweis */}
         {loggedIn && (
-          <p className="text-xs max-w-xl leading-relaxed mb-2">
-            Diese Plattform nutzt KI und kann Fehler machen. Bitte überprüfen Sie alle Ergebnisse.
-          </p>
+          <div className="w-full text-xs leading-relaxed mb-2 flex flex-col gap-1">
+            <p className="w-full">Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.</p>
+            <p className="w-full">
+              Feedback oder Probleme?{" "}
+              <a href="mailto:hamid.mergan@th-luebeck.de" className="underline hover:opacity-100 transition-opacity">
+                hamid.mergan@th-luebeck.de
+              </a>
+            </p>
+          </div>
         )}
         {/* Logos */}
         <div className="flex flex-col sm:flex-row items-center gap-4">

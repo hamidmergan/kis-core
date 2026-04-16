@@ -1,5 +1,8 @@
 # KIS
 
+> Entwickelt von **Hamid Mergan** – Institut für Systemtechnik (ISy), Technische Hochschule Lübeck  
+> 📧 hamid.mergan@th-luebeck.de · hamid.mergan@gmail.com
+
 Webbasierter Übersetzungs- und Medienservice für Dokumente der TH Lübeck. Übersetzt DOCX, PPTX, MD, TEX und PDF automatisch von Deutsch nach Englisch – mit Glossar für konsistente Fachbegriffe. Zusätzlich: Text-to-Speech, Skript-Generierung, Transkription und automatische Screencast-Erstellung aus PPTX-Dateien.
 
 ## Architektur
