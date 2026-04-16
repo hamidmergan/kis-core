@@ -797,7 +797,7 @@ export function PdfViewer({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex flex-col h-full relative" ref={containerRef}>
+    <div className="flex flex-col h-full relative viewer-short" ref={containerRef}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <button type="button" onClick={onClose}

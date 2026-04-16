@@ -240,6 +240,15 @@ me-tpc:hover .mm-src-chip {
     overflow: hidden !important;
     flex: initial !important;
   }
+  /* PDF/Media viewer gets the full dynamic viewport height on landscape
+     phones. The mobile-flow ancestors are content-sized, so we set a
+     concrete height here so embedpdf has a real viewport to render into.
+     Internal embedpdf scroll handles multi-page documents. */
+  .viewer-short {
+    height: 120svh !important;
+    max-height: 120svh !important;
+    flex: initial !important;
+  }
 }
 .show-on-short {
   display: none;

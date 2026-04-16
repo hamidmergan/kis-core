@@ -1984,7 +1984,7 @@ export default function KiTutorModulePage() {
                 {activeTab === "quellen" ? (
                   viewerSource ? (
                     _isMediaFile(viewerSource.filename) ? (
-                      <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} />
+                      <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} canDownload={isLecturer || isAdmin} />
                     ) : (
                       <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => setActiveTab("chat")} />
                     )
@@ -2122,7 +2122,7 @@ export default function KiTutorModulePage() {
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
                   _isMediaFile(viewerSource.filename) ? (
-                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => togglePanel("quellen")} />
+                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => togglePanel("quellen")} canDownload={isLecturer || isAdmin} />
                   ) : (
                     <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => togglePanel("quellen")} />
                   )

@@ -5,12 +5,13 @@ import { FileIcon } from "./FileIcon";
 import { TranscriptPanel } from "./TranscriptPanel";
 
 export function MediaPlayer({
-  source, onClose, moduleUuid, onMinimize,
+  source, onClose, moduleUuid, onMinimize, canDownload = false,
 }: {
   source: ViewerState;
   onClose: () => void;
   moduleUuid: string;
   onMinimize?: () => void;
+  canDownload?: boolean;
 }) {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
@@ -48,7 +49,7 @@ export function MediaPlayer({
   }, [source.startTime, source.nonce]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full viewer-short">
       {/* Header */}
       <div
         className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
@@ -76,6 +77,8 @@ export function MediaPlayer({
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
             src={mediaUrl}
             controls
+            controlsList={canDownload ? undefined : "nodownload"}
+            onContextMenu={canDownload ? undefined : (e) => e.preventDefault()}
             className="w-full max-h-full rounded-lg"
             style={{ backgroundColor: "#000" }}
           >
@@ -102,6 +105,8 @@ export function MediaPlayer({
               ref={mediaRef as React.RefObject<HTMLAudioElement>}
               src={mediaUrl}
               controls
+              controlsList={canDownload ? undefined : "nodownload"}
+              onContextMenu={canDownload ? undefined : (e) => e.preventDefault()}
               className="w-full"
             />
           </div>
