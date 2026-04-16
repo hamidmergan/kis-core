@@ -1,7 +1,7 @@
 "use client";
 
 import type { TranslationState } from "@/types";
-import Spinner from "@/components/Spinner";
+import Spinner from "@/components/ui/Spinner";
 
 interface TranslationStatusProps {
   state: TranslationState;

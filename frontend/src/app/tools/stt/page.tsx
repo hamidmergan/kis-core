@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import TranscriptionFileUpload from "@/components/TranscriptionFileUpload";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
-import BackLink from "@/components/BackLink";
-import Spinner from "@/components/Spinner";
+import BackLink from "@/components/ui/BackLink";
+import Spinner from "@/components/ui/Spinner";
 
 const FORMAT_OPTIONS = [
   { value: "text", label: "Text (.txt)" },

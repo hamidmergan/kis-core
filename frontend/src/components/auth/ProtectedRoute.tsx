@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
-import Spinner from "@/components/Spinner";
+import Spinner from "@/components/ui/Spinner";
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -17,9 +17,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         router.replace("/");
       } else {
         const role = status.role ?? "lecturer";
-        const isKiTutor = pathname?.startsWith("/ki-assistent");
+        const isKiTutor = pathname?.startsWith("/workspaces");
         if (role === "student" && !isKiTutor) {
-          router.replace("/ki-assistent");
+          router.replace("/workspaces");
         } else {
           setAuthenticated(true);
         }

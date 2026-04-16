@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
-import Header from "@/components/Header";
+import Header from "@/components/layout/Header";
 import { getToolConfigByJobTool } from "@/lib/toolConfig";
-import BackLink from "@/components/BackLink";
+import BackLink from "@/components/ui/BackLink";
 import { ArrowsCounterClockwise, DownloadSimple, Trash } from "@phosphor-icons/react";
-import IconButton from "@/components/IconButton";
-import Spinner from "@/components/Spinner";
+import IconButton from "@/components/ui/IconButton";
+import Spinner from "@/components/ui/Spinner";
 
 interface MyJob {
   job_uuid: string;

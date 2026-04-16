@@ -631,45 +631,64 @@ class KisskiClient:
                 return _merge_vtt(ordered)
             return " ".join(text for text, _ in ordered).strip()
 
-    def transcribe_verbose(self, file_path: str) -> list[dict]:
-        """Transcribe audio and return segments with timestamps: [{start, end, text}, ...]."""
+    def _verbose_call(self, file_path: str, translate: bool) -> tuple[list[dict], str]:
+        """Shared helper: call Whisper verbose_json for transcribe or translate.
+
+        Returns ``(segments, language)`` where *language* is the detected source
+        language code (e.g. 'de', 'en'). For the translations endpoint the
+        output text is always English regardless of *language*.
+        """
         backoffs = [5, 15]  # 3 attempts total: immediate, +5s, +15s
         last_err: Exception | None = None
         for attempt in range(len(backoffs) + 1):
             try:
                 with open(file_path, "rb") as f:
-                    result = self._client.audio.transcriptions.create(
+                    endpoint = self._client.audio.translations if translate else self._client.audio.transcriptions
+                    result = endpoint.create(
                         model="whisper-large-v2",
                         file=f,
                         response_format="verbose_json",
                     )
-                # OpenAI client returns TranscriptionVerbose with TranscriptionSegment objects (attributes, not dicts)
                 if hasattr(result, "segments") and result.segments:
-                    return [{"start": s.start, "end": s.end, "text": s.text.strip()}
+                    segs = [{"start": s.start, "end": s.end, "text": s.text.strip()}
                             for s in result.segments if getattr(s, "text", "").strip()]
-                # Fallback: parse as JSON string
+                    lang = getattr(result, "language", "") or ""
+                    return segs, lang
                 data = json.loads(str(result)) if isinstance(result, str) else result
                 if isinstance(data, dict):
-                    return [{"start": s["start"], "end": s["end"], "text": s["text"].strip()}
+                    segs = [{"start": s["start"], "end": s["end"], "text": s["text"].strip()}
                             for s in data.get("segments", []) if s.get("text", "").strip()]
-                return []
+                    return segs, data.get("language", "") or ""
+                return [], ""
             except Exception as e:
                 last_err = e
                 if attempt < len(backoffs) and _is_transient_error(e):
                     wait = backoffs[attempt]
+                    mode = "translate" if translate else "transcribe"
                     logger.warning(
-                        "KISSKI Whisper verbose_json error (attempt {}/{}): {} – retrying in {}s",
-                        attempt + 1, len(backoffs) + 1, e, wait,
+                        "KISSKI Whisper {} verbose_json error (attempt {}/{}): {} – retrying in {}s",
+                        mode, attempt + 1, len(backoffs) + 1, e, wait,
                     )
                     time.sleep(wait)
                     continue
                 break
         raise RuntimeError(f"KISSKI Whisper verbose_json error: {last_err}") from last_err
 
-    def transcribe_chunked_verbose(self, file_path: str) -> tuple[list[dict], float]:
+    def transcribe_verbose(self, file_path: str) -> tuple[list[dict], str]:
+        """Transcribe audio in source language. Returns ``(segments, language)``."""
+        return self._verbose_call(file_path, translate=False)
+
+    def translate_verbose(self, file_path: str) -> list[dict]:
+        """Translate audio to English (Whisper translate task). Returns segments only."""
+        segs, _ = self._verbose_call(file_path, translate=True)
+        return segs
+
+    def transcribe_chunked_verbose(self, file_path: str) -> tuple[list[dict], float, str]:
         """Transcribe audio with timestamps, splitting if needed.
 
-        Returns (segments, duration) where segments = [{start, end, text}, ...].
+        Returns ``(segments, duration, language)`` where segments =
+        ``[{start, end, text}, ...]`` and language is the detected source
+        language (e.g. 'de', 'en').
         """
         duration = _get_audio_duration(file_path)
         if duration > _MAX_AUDIO_SEC:
@@ -677,7 +696,8 @@ class KisskiClient:
                 f"Audio zu lang ({duration / 60:.1f} min). Maximum: {_MAX_AUDIO_SEC // 60} Minuten."
             )
         if duration <= _CHUNK_MAX_SEC:
-            return self.transcribe_verbose(file_path), duration
+            segs, lang = self.transcribe_verbose(file_path)
+            return segs, duration, lang
 
         logger.info("Audio {:.1f}s exceeds limit – splitting for verbose transcription", duration)
         silence_starts = _find_silence_starts(file_path)
@@ -685,7 +705,7 @@ class KisskiClient:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             chunks = _split_audio(file_path, split_points, tmpdir)
-            results: dict[int, tuple[list[dict], float]] = {}
+            results: dict[int, tuple[tuple[list[dict], str], float]] = {}
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {
                     executor.submit(self.transcribe_verbose, path): (i, offset)
@@ -699,7 +719,55 @@ class KisskiClient:
                     except Exception as e:
                         raise RuntimeError(f"Chunk {i + 1} verbose transcription failed: {e}") from e
 
-            # Merge segments with offset timestamps
+            all_segments: list[dict] = []
+            first_lang = ""
+            for i in range(len(chunks)):
+                (segs, lang), offset = results[i]
+                if i == 0:
+                    first_lang = lang
+                for seg in segs:
+                    all_segments.append({
+                        "start": seg["start"] + offset,
+                        "end": seg["end"] + offset,
+                        "text": seg["text"],
+                    })
+
+        return all_segments, duration, first_lang
+
+    def translate_chunked_verbose(self, file_path: str) -> list[dict]:
+        """Translate audio to English with timestamps, splitting if needed.
+
+        Returns segments ``[{start, end, text}, ...]`` in English. Audio
+        duration/limit handling mirrors :meth:`transcribe_chunked_verbose`.
+        """
+        duration = _get_audio_duration(file_path)
+        if duration > _MAX_AUDIO_SEC:
+            raise RuntimeError(
+                f"Audio zu lang ({duration / 60:.1f} min). Maximum: {_MAX_AUDIO_SEC // 60} Minuten."
+            )
+        if duration <= _CHUNK_MAX_SEC:
+            return self.translate_verbose(file_path)
+
+        logger.info("Audio {:.1f}s exceeds limit – splitting for verbose translation", duration)
+        silence_starts = _find_silence_starts(file_path)
+        split_points = _compute_split_points(duration, silence_starts)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            chunks = _split_audio(file_path, split_points, tmpdir)
+            results: dict[int, tuple[list[dict], float]] = {}
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {
+                    executor.submit(self.translate_verbose, path): (i, offset)
+                    for i, (path, offset) in enumerate(chunks)
+                }
+                for future in as_completed(futures):
+                    i, offset = futures[future]
+                    try:
+                        results[i] = (future.result(), offset)
+                        logger.info("Chunk {}/{} translated (verbose)", i + 1, len(chunks))
+                    except Exception as e:
+                        raise RuntimeError(f"Chunk {i + 1} verbose translation failed: {e}") from e
+
             all_segments: list[dict] = []
             for i in range(len(chunks)):
                 segs, offset = results[i]
@@ -710,7 +778,7 @@ class KisskiClient:
                         "text": seg["text"],
                     })
 
-        return all_segments, duration
+        return all_segments
 
     @observe(name="whisper-transcribe")
     def transcribe(self, file_path: str, response_format: str = "text") -> str:

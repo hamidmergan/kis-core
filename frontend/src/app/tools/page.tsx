@@ -13,8 +13,8 @@ import {
   ArticleIcon,
   PresentationChartIcon,
 } from "@phosphor-icons/react";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { TOOL_CONFIG } from "@/lib/toolConfig";
 
 const WORKFLOW_ICONS: Record<string, React.ElementType> = {

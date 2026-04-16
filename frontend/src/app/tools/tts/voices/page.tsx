@@ -2,10 +2,10 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import BackLink from "@/components/BackLink";
-import Spinner from "@/components/Spinner";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import BackLink from "@/components/ui/BackLink";
+import Spinner from "@/components/ui/Spinner";
 
 interface Voice {
   voice_id: string;

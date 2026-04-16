@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import FileUpload from "@/components/FileUpload";
-import GlossarySelector from "@/components/GlossarySelector";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import FileUpload from "@/components/jobs/FileUpload";
+import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
-import BackLink from "@/components/BackLink";
-import Spinner from "@/components/Spinner";
+import BackLink from "@/components/ui/BackLink";
+import Spinner from "@/components/ui/Spinner";
 
 export default function UebersetzungPage() {
   const { mergeToApiJson } = useGlossaries();

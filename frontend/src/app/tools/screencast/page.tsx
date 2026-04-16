@@ -2,15 +2,15 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import ScreencastStatus from "@/components/ScreencastStatus";
-import GlossarySelector from "@/components/GlossarySelector";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ScreencastStatus from "@/components/jobs/ScreencastStatus";
+import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
-import BackLink from "@/components/BackLink";
-import Spinner from "@/components/Spinner";
+import BackLink from "@/components/ui/BackLink";
+import Spinner from "@/components/ui/Spinner";
 import type {
   ScreencastState,
   ScreencastStep,

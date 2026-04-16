@@ -1,7 +1,7 @@
 "use client";
 
 import type { ScreencastState } from "@/types";
-import Spinner from "@/components/Spinner";
+import Spinner from "@/components/ui/Spinner";
 
 interface ScreencastStatusProps {
   state: ScreencastState;

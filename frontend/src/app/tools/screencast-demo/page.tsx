@@ -1,12 +1,12 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { api, parseDetail } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
-import BackLink from "@/components/BackLink";
-import Spinner from "@/components/Spinner";
+import BackLink from "@/components/ui/BackLink";
+import Spinner from "@/components/ui/Spinner";
 import type {
   ScreencastStep,
   SlideData,

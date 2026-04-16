@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/Header";
+import Header from "@/components/layout/Header";
 import { checkAuthStatus } from "@/lib/auth";
-import Spinner from "@/components/Spinner";
+import Spinner from "@/components/ui/Spinner";
 
 type Tab = "pending" | "whitelist" | "users" | "jobs" | "stats" | "ki-tutor" | "settings" | "prompts" | "quota";
 
@@ -621,7 +621,7 @@ function KiTutorTab() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Arbeitsräume</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Workspaces</p>
           <p className="text-2xl font-bold text-gray-800 mt-1">{data.summary.total_modules}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -645,7 +645,7 @@ function KiTutorTab() {
             <thead>
               <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
                 <th className="px-4 py-2 w-6"></th>
-                <th className="px-4 py-2">Arbeitsraum</th>
+                <th className="px-4 py-2">Workspace</th>
                 <th className="px-4 py-2">Ersteller</th>
                 <th className="px-4 py-2 text-right">Quellen</th>
                 <th className="px-4 py-2 text-right">Teilnehmer</th>
@@ -713,7 +713,7 @@ function KiTutorTab() {
                 );
               })}
               {data.module_stats.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Keine Arbeitsräume vorhanden</td></tr>
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400">Keine Workspaces vorhanden</td></tr>
               )}
             </tbody>
           </table>
@@ -1392,7 +1392,7 @@ function MaintenanceSection() {
       {staleModules.length > 0 && !progress?.running && (
         <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs text-amber-800 space-y-2">
           <div>
-            <strong>Hinweis:</strong> {staleModules.length} Arbeitsraum{staleModules.length === 1 ? "" : "/Arbeitsräume"} wurde{staleModules.length === 1 ? "" : "n"} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten "Reindex starten" ausführst.
+            <strong>Hinweis:</strong> {staleModules.length} Workspace{staleModules.length === 1 ? "" : "s"} wurde{staleModules.length === 1 ? "" : "n"} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten "Reindex starten" ausführst.
           </div>
           <ul className="list-disc pl-5 space-y-0.5">
             {staleModules.map((m) => (

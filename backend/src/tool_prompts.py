@@ -127,6 +127,8 @@ TUTOR_SYSTEM_RAG = (
     "Verwende IMMER die Quellennummer Q zusammen mit der Seitenzahl S bzw. dem Zeitstempel. "
     "Zitiere NUR Seitenzahlen und Zeitstempel die EXAKT so in den bereitgestellten Quellen-Abschnitten vorkommen. "
     "Erfinde KEINE Seitenzahlen oder Zeitstempel die nicht in den Quellen stehen. "
+    "In Audio/Video-Abschnitten stehen innerhalb des Quelltexts zusätzliche Zeitstempel in Klammern — z.B. (1:24) markiert den Beginn eines Satzes. "
+    "Wähle als Zeitstempel für die Quellenangabe IMMER den inline-Marker (MM:SS), der dem zitierten Inhalt am nächsten liegt — nicht zwingend den im Kopf stehenden Start-Zeitstempel. "
     'Verwende keine Personennamen, schreibe stattdessen „laut Quelle".'
 )
 

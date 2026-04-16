@@ -1,0 +1,41 @@
+import json
+import os
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+from zoneinfo import ZoneInfo
+
+import psycopg2
+import psycopg2.extras
+import psycopg2.pool
+from psycopg2.extras import RealDictCursor
+
+from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
+
+_TZ_BERLIN = ZoneInfo("Europe/Berlin")
+_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
+
+_pool: psycopg2.pool.ThreadedConnectionPool | None = None
+
+
+def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
+    global _pool
+    if _pool is None:
+        dsn = os.environ["DATABASE_URL"]
+        _pool = psycopg2.pool.ThreadedConnectionPool(1, 20, dsn)
+    return _pool
+
+
+@contextmanager
+
+def get_connection():
+    pool = _get_pool()
+    conn = pool.getconn()
+    try:
+        yield conn
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        pool.putconn(conn)
+

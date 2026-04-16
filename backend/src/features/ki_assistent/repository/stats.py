@@ -1,0 +1,502 @@
+import json
+import os
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+from zoneinfo import ZoneInfo
+
+import psycopg2
+import psycopg2.extras
+import psycopg2.pool
+from psycopg2.extras import RealDictCursor
+
+from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
+
+_TZ_BERLIN = ZoneInfo("Europe/Berlin")
+_REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
+from src.core.db.pool import get_connection
+
+
+def get_student_stats(module_id: int, user_id: int) -> dict:
+    """Aggregate personal learning stats for a student in a module."""
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Europe/Berlin")
+
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # ── Streak ──
+            cur.execute(
+                "SELECT current_streak, max_streak, last_active_date "
+                "FROM ki_tutor_streaks WHERE module_id = %s AND user_id = %s",
+                (module_id, user_id),
+            )
+            streak_row = cur.fetchone()
+            streak = dict(streak_row) if streak_row else {
+                "current_streak": 0, "max_streak": 0, "last_active_date": None,
+            }
+            if streak["last_active_date"]:
+                streak["last_active_date"] = str(streak["last_active_date"])
+
+            # ── All exercise sets ──
+            cur.execute(
+                """SELECT s.id, s.tool, s.mode, s.title, s.card_count,
+                          s.source_uuid, s.created_at,
+                          COALESCE(m.total_attempts, 0) AS total_attempts,
+                          COALESCE(m.total_correct, 0) AS total_correct
+                   FROM ki_tutor_exercise_sets s
+                   LEFT JOIN LATERAL (
+                     SELECT COUNT(*) AS total_attempts,
+                            COUNT(*) FILTER (WHERE p.correct) AS total_correct
+                     FROM ki_tutor_exercise_progress p
+                     WHERE p.set_id = s.id AND p.user_id = s.user_id
+                   ) m ON true
+                   WHERE s.module_id = %s AND s.user_id = %s AND s.status = 'ready'
+                   ORDER BY s.created_at DESC""",
+                (module_id, user_id),
+            )
+            sets = [dict(r) for r in cur.fetchall()]
+
+            # ── Split by category: Lerntools (mode=quelle) vs Sprachtraining (mode=glossar) ──
+            def _summarise(subset: list[dict]) -> dict:
+                total_cards = sum(s["card_count"] for s in subset)
+                total_attempts = sum(s["total_attempts"] for s in subset)
+                total_correct = sum(s["total_correct"] for s in subset)
+                return {
+                    "total_sets": len(subset),
+                    "total_cards": total_cards,
+                    "total_attempts": total_attempts,
+                    "total_correct": total_correct,
+                    "accuracy": round(total_correct / total_attempts * 100) if total_attempts > 0 else 0,
+                }
+
+            lerntools_sets = [s for s in sets if s["tool"] in ("karteikarten", "quiz")]
+            sprach_sets = [s for s in sets if s["tool"] in ("lernkarten", "lueckentext", "vokabeltest")]
+
+            overview_all = _summarise(sets)
+            overview_lerntools = _summarise(lerntools_sets)
+            overview_sprach = _summarise(sprach_sets)
+
+            # (by_tool removed — not displayed anymore)
+
+            # ── Heatmap: activity per day per category (last 6 months, Berlin tz) ──
+            from datetime import date, timedelta, datetime
+            today = datetime.now(tz).date()
+
+            def _build_heatmap(category_filter: str | None) -> list[dict]:
+                mode_clause = ""
+                params: list = [user_id, module_id, user_id]
+                if category_filter == "sprachtraining":
+                    mode_clause = " AND s2.tool IN ('lernkarten', 'lueckentext', 'vokabeltest')"
+                elif category_filter == "lerntools":
+                    mode_clause = " AND s2.tool IN ('karteikarten', 'quiz')"
+                cur.execute(
+                    f"""SELECT (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date AS day,
+                              COUNT(ep.id) AS answers,
+                              COUNT(ep.id) FILTER (WHERE ep.correct) AS correct,
+                              COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
+                              COUNT(DISTINCT ep.set_id) AS sets_practiced
+                       FROM ki_tutor_exercise_progress ep
+                       JOIN ki_tutor_exercise_sets s2 ON s2.id = ep.set_id
+                       WHERE ep.user_id = %s
+                         AND s2.module_id = %s AND s2.user_id = %s
+                         {mode_clause}
+                         AND ep.answered_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date - INTERVAL '179 days'
+                       GROUP BY day ORDER BY day""",
+                    params,
+                )
+                raw = {str(r["day"]): dict(r) for r in cur.fetchall()}
+                result = []
+                for i in range(179, -1, -1):
+                    d = today - timedelta(days=i)
+                    ds = str(d)
+                    if ds in raw:
+                        r = raw[ds]
+                        result.append({
+                            "day": ds,
+                            "answers": r["answers"],
+                            "correct": r["correct"],
+                            "wrong": r["wrong"],
+                            "sets_practiced": r["sets_practiced"],
+                        })
+                    else:
+                        result.append({
+                            "day": ds, "answers": 0, "correct": 0,
+                            "wrong": 0, "sets_practiced": 0,
+                        })
+                return result
+
+            heatmap = _build_heatmap(None)
+            heatmap_lerntools = _build_heatmap("lerntools")
+            heatmap_sprachtraining = _build_heatmap("sprachtraining")
+
+            # ── Chat stats ──
+            cur.execute(
+                """SELECT COUNT(*) AS total,
+                          COUNT(*) FILTER (
+                            WHERE created_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
+                          ) AS today
+                   FROM ki_tutor_messages
+                   WHERE module_id = %s AND user_id = %s AND role = 'user'""",
+                (module_id, user_id),
+            )
+            chat_row = cur.fetchone()
+
+            # ── First activity date ──
+            cur.execute(
+                """SELECT MIN(answered_at) AS first_activity
+                   FROM ki_tutor_exercise_progress ep
+                   JOIN ki_tutor_exercise_sets s ON s.id = ep.set_id
+                   WHERE s.module_id = %s AND ep.user_id = %s""",
+                (module_id, user_id),
+            )
+            first_row = cur.fetchone()
+            first_activity = str(first_row["first_activity"].date()) if first_row and first_row["first_activity"] else None
+
+            # ── Total active days ──
+            active_days = sum(1 for d in heatmap if d["answers"] > 0)
+
+    return {
+        "streak": streak,
+        "overview": overview_all,
+        "lerntools": overview_lerntools,
+        "sprachtraining": overview_sprach,
+        "heatmap": heatmap,
+        "lerntools_heatmap": heatmap_lerntools,
+        "sprachtraining_heatmap": heatmap_sprachtraining,
+        "chat": {"total": chat_row["total"], "today": chat_row["today"]},
+        "first_activity": first_activity,
+        "active_days": active_days,
+        "today": str(today),
+    }
+
+def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: str | None = None) -> dict:
+    """Per-set breakdown for a specific day, optionally filtered by category."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            mode_clause = ""
+            params: list = [module_id, user_id, day_str]
+            if category == "sprachtraining":
+                mode_clause = " AND s.tool IN ('lernkarten', 'lueckentext', 'vokabeltest')"
+            elif category == "lerntools":
+                mode_clause = " AND s.tool IN ('karteikarten', 'quiz')"
+            cur.execute(
+                f"""SELECT s.id AS set_id, s.tool, s.mode, s.title,
+                          COUNT(ep.id) AS answers,
+                          COUNT(ep.id) FILTER (WHERE ep.correct) AS correct,
+                          COUNT(ep.id) FILTER (WHERE NOT ep.correct) AS wrong,
+                          MIN(ep.answered_at) AS first_answer,
+                          MAX(ep.answered_at) AS last_answer
+                   FROM ki_tutor_exercise_progress ep
+                   JOIN ki_tutor_exercise_sets s ON s.id = ep.set_id
+                   WHERE s.module_id = %s AND ep.user_id = %s
+                     AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date
+                     {mode_clause}
+                   GROUP BY s.id ORDER BY MAX(ep.answered_at) DESC""",
+                params,
+            )
+            sets = []
+            total_answers = 0
+            total_correct = 0
+            total_wrong = 0
+            for r in cur.fetchall():
+                row = dict(r)
+                row["first_answer"] = (row["first_answer"].isoformat() + "Z") if row["first_answer"] else None
+                row["last_answer"] = (row["last_answer"].isoformat() + "Z") if row["last_answer"] else None
+                total_answers += row["answers"]
+                total_correct += row["correct"]
+                total_wrong += row["wrong"]
+                sets.append(row)
+
+            # Chat messages that day
+            cur.execute(
+                """SELECT COUNT(*) AS cnt
+                   FROM ki_tutor_messages
+                   WHERE module_id = %s AND user_id = %s AND role = 'user'
+                     AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date""",
+                (module_id, user_id, day_str),
+            )
+            chat_count = cur.fetchone()["cnt"]
+
+    return {
+        "day": day_str,
+        "sets": sets,
+        "total_answers": total_answers,
+        "total_correct": total_correct,
+        "total_wrong": total_wrong,
+        "chat_count": chat_count,
+    }
+
+def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[dict]:
+    """Return the most recently used or created exercise sets + mindmaps for the activity feed."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT * FROM (
+                     SELECT s.id AS set_id, s.tool, s.mode, s.title,
+                            s.created_at,
+                            MAX(ep.answered_at) AS last_answer,
+                            COUNT(ep.id) AS answers,
+                            COUNT(ep.id) FILTER (WHERE ep.correct) AS correct
+                     FROM ki_tutor_exercise_sets s
+                     LEFT JOIN ki_tutor_exercise_progress ep
+                          ON ep.set_id = s.id AND ep.user_id = %s
+                     WHERE s.module_id = %s AND s.user_id = %s
+                       AND s.status = 'ready'
+                     GROUP BY s.id
+                   UNION ALL
+                     SELECT m.id AS set_id, 'mindmap' AS tool, 'quelle' AS mode,
+                            COALESCE(m.mindmap->>'topic', 'Mindmap') AS title,
+                            m.created_at,
+                            m.created_at AS last_answer,
+                            0 AS answers, 0 AS correct
+                     FROM ki_tutor_mindmaps m
+                     WHERE m.module_id = %s AND m.user_id = %s AND m.status = 'success'
+                   UNION ALL
+                     SELECT d.id AS set_id, 'datentabelle' AS tool, 'quelle' AS mode,
+                            COALESCE(d.title, 'Datentabelle') AS title,
+                            d.created_at,
+                            d.created_at AS last_answer,
+                            0 AS answers, 0 AS correct
+                     FROM ki_tutor_datentabellen d
+                     WHERE d.module_id = %s AND d.user_id = %s AND d.status = 'success'
+                   ) combined
+                   ORDER BY COALESCE(last_answer, created_at) DESC
+                   LIMIT %s""",
+                (user_id, module_id, user_id, module_id, user_id, module_id, user_id, limit),
+            )
+            results = []
+            for r in cur.fetchall():
+                row = dict(r)
+                ts = row["last_answer"] or row["created_at"]
+                row["last_answer"] = ts.isoformat() + "Z" if ts else None
+                row.pop("created_at", None)
+                results.append(row)
+            return results
+
+
+# ─── Admin: KI-Tutor Statistics ──────────────────────────────────────────────
+
+def get_ki_tutor_admin_stats(days: int = 30, mode: str | None = None) -> dict:
+    """Aggregated KI-Tutor statistics for the admin dashboard.
+
+    mode: None = all, "quelle" = Lerntools only, "glossar" = Sprachtraining only.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            interval = f"{days} days"
+
+            # Mode filter for exercise queries (requires JOIN with ki_tutor_exercise_sets as s)
+            mode_filter = ""
+            mode_params: tuple = ()
+            if mode in ("quelle", "glossar"):
+                mode_filter = " AND s.mode = %s"
+                mode_params = (mode,)
+
+            # ── 1. Summary ──
+            cur.execute("SELECT COUNT(*) AS cnt FROM ki_tutor_modules")
+            total_modules = cur.fetchone()["cnt"]
+
+            cur.execute(
+                f"""SELECT COUNT(DISTINCT p.user_id) AS cnt
+                    FROM ki_tutor_exercise_progress p
+                    JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                    WHERE p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                (interval, *mode_params),
+            )
+            active_students = cur.fetchone()["cnt"]
+
+            cur.execute(
+                f"""SELECT COUNT(*) AS cnt
+                    FROM ki_tutor_exercise_progress p
+                    JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                    WHERE p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                (interval, *mode_params),
+            )
+            total_answers = cur.fetchone()["cnt"]
+
+            cur.execute(
+                """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                   WHERE role = 'user' AND created_at >= NOW() - INTERVAL %s""",
+                (interval,),
+            )
+            total_chat_messages = cur.fetchone()["cnt"]
+
+            # ── 2. Module list with dozent activity + enrolled students ──
+            cur.execute(
+                """SELECT m.id, m.uuid, m.title, m.is_active, m.user_id AS owner_id,
+                          u.display_name AS owner_name, u.ldap_username AS owner_username,
+                          (SELECT COUNT(*) FROM ki_tutor_enrollments e WHERE e.module_id = m.id) AS enrollment_count,
+                          (SELECT COUNT(DISTINCT src.id) FROM ki_tutor_sources src WHERE src.module_id = m.id) AS source_count
+                   FROM ki_tutor_modules m
+                   JOIN users u ON m.user_id = u.id
+                   ORDER BY m.created_at DESC""",
+            )
+            modules_raw = [dict(r) for r in cur.fetchall()]
+
+            module_stats = []
+            for m in modules_raw:
+                mid = m["id"]
+                owner_id = m["owner_id"]
+                owner = m["owner_name"] or m["owner_username"] or "Unbekannt"
+
+                # Dozent activity: chat messages sent by owner in this module
+                cur.execute(
+                    """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                       WHERE module_id = %s AND user_id = %s AND role = 'user'
+                         AND created_at >= NOW() - INTERVAL %s""",
+                    (mid, owner_id, interval),
+                )
+                dozent_messages = cur.fetchone()["cnt"]
+
+                # Dozent activity: exercises answered by owner
+                cur.execute(
+                    f"""SELECT COUNT(p.id) AS attempts,
+                               COUNT(p.id) FILTER (WHERE p.correct) AS correct_cnt
+                        FROM ki_tutor_exercise_progress p
+                        JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                        WHERE s.module_id = %s AND p.user_id = %s
+                          AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                    (mid, owner_id, interval, *mode_params),
+                )
+                dozent_ex = cur.fetchone()
+
+                # Total module exercise stats
+                cur.execute(
+                    f"""SELECT COUNT(p.id) AS total_answers,
+                               COUNT(p.id) FILTER (WHERE p.correct) AS total_correct
+                        FROM ki_tutor_exercise_progress p
+                        JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                        WHERE s.module_id = %s AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                    (mid, interval, *mode_params),
+                )
+                ex_row = cur.fetchone()
+
+                # Total chat in module
+                cur.execute(
+                    """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                       WHERE module_id = %s AND role = 'user'
+                         AND created_at >= NOW() - INTERVAL %s""",
+                    (mid, interval),
+                )
+                chat_cnt = cur.fetchone()["cnt"]
+
+                # Enrolled students with their individual stats
+                cur.execute(
+                    """SELECT DISTINCT u.id AS user_id,
+                              u.display_name, u.ldap_username
+                       FROM ki_tutor_enrollments e
+                       JOIN users u ON e.user_id = u.id
+                       WHERE e.module_id = %s
+                       ORDER BY u.display_name""",
+                    (mid,),
+                )
+                enrolled = [dict(r) for r in cur.fetchall()]
+
+                students = []
+                for st in enrolled:
+                    sid = st["user_id"]
+                    # Student exercises in this module
+                    cur.execute(
+                        f"""SELECT COUNT(p.id) AS answers,
+                                   COUNT(p.id) FILTER (WHERE p.correct) AS correct_cnt,
+                                   COUNT(p.id) FILTER (WHERE s.mode = 'quelle') AS lerntools,
+                                   COUNT(p.id) FILTER (WHERE s.mode = 'glossar') AS sprachtraining
+                            FROM ki_tutor_exercise_progress p
+                            JOIN ki_tutor_exercise_sets s ON s.id = p.set_id
+                            WHERE s.module_id = %s AND p.user_id = %s
+                              AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                        (mid, sid, interval, *mode_params),
+                    )
+                    st_ex = cur.fetchone()
+
+                    # Student chat messages in this module
+                    cur.execute(
+                        """SELECT COUNT(*) AS cnt FROM ki_tutor_messages
+                           WHERE module_id = %s AND user_id = %s AND role = 'user'
+                             AND created_at >= NOW() - INTERVAL %s""",
+                        (mid, sid, interval),
+                    )
+                    st_chat = cur.fetchone()["cnt"]
+
+                    students.append({
+                        "name": st["display_name"] or st["ldap_username"] or "Unbekannt",
+                        "answers": st_ex["answers"],
+                        "correct": st_ex["correct_cnt"],
+                        "accuracy": round(st_ex["correct_cnt"] / st_ex["answers"] * 100) if st_ex["answers"] > 0 else 0,
+                        "lerntools": st_ex["lerntools"],
+                        "sprachtraining": st_ex["sprachtraining"],
+                        "chat_messages": st_chat,
+                    })
+
+                module_stats.append({
+                    "module_uuid": m["uuid"],
+                    "title": m["title"],
+                    "owner": owner,
+                    "is_active": m["is_active"],
+                    "source_count": m["source_count"],
+                    "enrollment_count": m["enrollment_count"],
+                    "total_answers": ex_row["total_answers"],
+                    "accuracy": round(ex_row["total_correct"] / ex_row["total_answers"] * 100) if ex_row["total_answers"] > 0 else 0,
+                    "chat_messages": chat_cnt,
+                    "dozent": {
+                        "messages": dozent_messages,
+                        "exercises": dozent_ex["attempts"],
+                    },
+                    "students": students,
+                })
+
+    return {
+        "summary": {
+            "total_modules": total_modules,
+            "active_students": active_students,
+            "total_answers": total_answers,
+            "total_chat_messages": total_chat_messages,
+        },
+        "module_stats": module_stats,
+        "days": days,
+        "mode": mode,
+    }
+
+
+# ─── Dozent: Module Statistics ──────────────────────────────────────────────
+
+def get_ki_tutor_module_stats(module_id: int) -> dict:
+    """Statistics for a single module – used by the module owner (Dozent)."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT COUNT(DISTINCT user_id) AS cnt FROM ki_tutor_enrollments WHERE module_id = %s",
+                (module_id,),
+            )
+            total_enrolled = cur.fetchone()["cnt"]
+
+            cur.execute(
+                """SELECT COUNT(DISTINCT user_id) AS cnt
+                   FROM ki_tutor_messages
+                   WHERE module_id = %s AND role = 'user'
+                     AND created_at >= NOW() - INTERVAL '30 days'""",
+                (module_id,),
+            )
+            active_30d = cur.fetchone()["cnt"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM ki_tutor_messages WHERE module_id = %s AND role = 'user'",
+                (module_id,),
+            )
+            total_chat = cur.fetchone()["cnt"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM ki_tutor_exercise_sets WHERE module_id = %s",
+                (module_id,),
+            )
+            total_sets = cur.fetchone()["cnt"]
+
+    return {
+        "overview": {
+            "total_enrolled": total_enrolled,
+            "active_30d": active_30d,
+            "total_chat_messages": total_chat,
+            "total_exercise_sets": total_sets,
+        },
+    }
+

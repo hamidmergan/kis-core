@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
-import FooterWrapper from "@/components/FooterWrapper";
-import MaintenanceGuard from "@/components/MaintenanceGuard";
+import FooterWrapper from "@/components/layout/FooterWrapper";
+import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
 import NextTopLoader from "nextjs-toploader";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });

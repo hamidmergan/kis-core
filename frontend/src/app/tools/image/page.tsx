@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_IMAGE_BYTES } from "@/lib/constants";
-import BackLink from "@/components/BackLink";
-import Spinner from "@/components/Spinner";
+import BackLink from "@/components/ui/BackLink";
+import Spinner from "@/components/ui/Spinner";
 
 type Tab = "generate" | "edit" | "analyze";
 

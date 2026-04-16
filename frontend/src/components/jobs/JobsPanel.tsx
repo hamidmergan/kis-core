@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getToolConfigByJobTool } from "@/lib/toolConfig";
-import Spinner from "@/components/Spinner";
+import Spinner from "@/components/ui/Spinner";
 
 interface MyJob {
   job_uuid: string;

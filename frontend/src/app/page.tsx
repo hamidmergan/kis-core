@@ -17,7 +17,7 @@ export default function HomePage() {
     checkAuthStatus().then((status) => {
       if (status.authenticated) {
         const role = status.role ?? "lecturer";
-        router.replace("/ki-assistent");
+        router.replace("/workspaces");
       } else {
         setChecking(false);
       }
@@ -32,7 +32,7 @@ export default function HomePage() {
     try {
       await login(username.trim(), password);
       const status = await checkAuthStatus();
-      router.push("/ki-assistent");
+      router.push("/workspaces");
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {

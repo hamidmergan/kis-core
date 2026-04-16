@@ -2,10 +2,10 @@
 
 import { useRef, useState } from "react";
 import { BookOpen, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/react";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries, MAX_GLOSSARIES, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
-import BackLink from "@/components/BackLink";
+import BackLink from "@/components/ui/BackLink";
 
 export default function GlossaryPage() {
   const { glossaries, createGlossary, updateGlossary, deleteGlossary } = useGlossaries();

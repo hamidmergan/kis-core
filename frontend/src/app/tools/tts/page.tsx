@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Header from "@/components/Header";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import TtsFileUpload from "@/components/TtsFileUpload";
-import TtsStatus from "@/components/TtsStatus";
+import Header from "@/components/layout/Header";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import TtsFileUpload from "@/components/jobs/TtsFileUpload";
+import TtsStatus from "@/components/jobs/TtsStatus";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import type { TTSState } from "@/types";
-import BackLink from "@/components/BackLink";
+import BackLink from "@/components/ui/BackLink";
 
 interface Voice {
   voice_id: string;

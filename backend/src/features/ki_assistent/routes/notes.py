@@ -1,0 +1,127 @@
+"""KI-Assistent routes — notes."""
+
+import io
+import json
+import re
+import uuid
+from collections.abc import Generator
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response, StreamingResponse
+from loguru import logger
+from pydantic import BaseModel, Field
+
+from langfuse.decorators import langfuse_context, observe
+
+from src import database as db
+from src.dependencies import get_current_user, get_kisski_client
+from src.limits import (
+    TUTOR_SOURCE_MAX_PAGES,
+    TUTOR_MODULE_MAX_SOURCES,
+    TUTOR_MODULE_MAX_ACCESS_LINKS,
+    TUTOR_NOTES_MAX_PER_USER,
+)
+from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
+from src.tool_prompts import (
+    TUTOR_SYSTEM_DIRECT,
+    TUTOR_SYSTEM_DIRECT_WITH_CONTEXT,
+    TUTOR_SYSTEM_RAG,
+    TUTOR_POPUP_ACTIONS,
+)
+
+from src.features.ki_assistent.routes._helpers import (
+    _trace_kisski,
+    _convert_office_to_pdf,
+    _count_pages,
+    _format_timestamp,
+    _require_own_module,
+    _save_source_file,
+    _delete_source_files_for_module,
+    _strip_image_text_layer,
+    _markdown_fallback,
+    _resolve_source_ids,
+    _term_appears_in_text,
+    _ALLOWED_EXTENSIONS,
+    _MEDIA_EXTENSIONS,
+    _MAX_UPLOAD_BYTES,
+)
+from src.features.ki_assistent import schemas
+
+router = APIRouter(tags=["ki-assistent"])
+
+@router.get("/ki-assistent/modules/{module_uuid}/notes")
+async def get_notes(
+    module_uuid: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    notes = db.get_ki_tutor_notes(module["id"], user_id)
+    return [
+        {
+            "id": n["id"],
+            "content": n["content"],
+            "created_at": n["created_at"].isoformat() + "Z" if n["created_at"] else None,
+        }
+        for n in notes
+    ]
+
+@router.post("/ki-assistent/modules/{module_uuid}/notes")
+async def create_note(
+    module_uuid: str,
+    body: schemas.NoteBody,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    is_owner = module["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    if db.count_ki_tutor_notes(module["id"], user_id) >= TUTOR_NOTES_MAX_PER_USER:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Maximal {TUTOR_NOTES_MAX_PER_USER} Notizen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
+        )
+
+    note = db.create_ki_tutor_note(module["id"], user_id, body.content.strip())
+    return {
+        "id": note["id"],
+        "content": note["content"],
+        "created_at": note["created_at"].isoformat() + "Z" if note["created_at"] else None,
+    }
+
+@router.delete("/ki-assistent/modules/{module_uuid}/notes/{note_id}")
+async def delete_note(
+    module_uuid: str,
+    note_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_ki_tutor_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    deleted = db.delete_ki_tutor_note(note_id, user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Notiz nicht gefunden")
+    return {"ok": True}
+
+
+# ─── Sprachtraining: Glossar ─────────────────────────────────────────────────
+
