@@ -8,10 +8,12 @@ export default function FullscreenClass() {
     };
     const update = () => {
       const fs = !!(document.fullscreenElement || d.webkitFullscreenElement);
-      document.body.classList.toggle("has-fullscreen", fs);
+      document.body.classList.toggle("suppress-rotate-hint", fs);
     };
-    const onBegin = () => document.body.classList.add("has-fullscreen");
-    const onEnd = () => document.body.classList.remove("has-fullscreen");
+    const onBegin = () => document.body.classList.add("suppress-rotate-hint");
+    const onEnd = () => document.body.classList.remove("suppress-rotate-hint");
+
+    update();
 
     document.addEventListener("fullscreenchange", update);
     document.addEventListener("webkitfullscreenchange", update);

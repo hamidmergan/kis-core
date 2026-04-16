@@ -494,14 +494,29 @@ export default function KiTutorModulePage() {
 
   // ─── Mobile breakpoint detection ─────────────────────────────────────────
 
+  // Freeze isMobile while a media file is open so orientation changes don't
+  // remount <MediaPlayer> (which would reset video currentTime to 0:00).
+  const mediaOpen = viewerSource !== null && _isMediaFile(viewerSource.filename);
+  const mediaOpenRef = useRef(mediaOpen);
+  mediaOpenRef.current = mediaOpen;
+
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
     setIsMobile(mq.matches);
     if (mq.matches) setActiveTab("quellen");
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    const handler = (e: MediaQueryListEvent) => {
+      if (mediaOpenRef.current) return;
+      setIsMobile(e.matches);
+    };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [MOBILE_BREAKPOINT]);
+
+  useEffect(() => {
+    if (!mediaOpen) {
+      setIsMobile(window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches);
+    }
+  }, [mediaOpen, MOBILE_BREAKPOINT]);
 
   // ─── Panel toggle ──────────────────────────────────────────────────────────
 

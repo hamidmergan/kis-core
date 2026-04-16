@@ -205,13 +205,13 @@ me-tpc:hover .mm-src-chip {
   display: none;
 }
 @media (orientation: landscape) and (max-height: 500px) {
-  body:not(.has-fullscreen) > :not(.rotate-hint) {
+  body:not(.suppress-rotate-hint) > :not(.rotate-hint) {
     display: none !important;
   }
-  body.has-fullscreen .rotate-hint {
+  body.suppress-rotate-hint .rotate-hint {
     display: none !important;
   }
-  body:not(.has-fullscreen) .rotate-hint {
+  body:not(.suppress-rotate-hint) .rotate-hint {
     position: fixed;
     inset: 0;
     z-index: 9999;
