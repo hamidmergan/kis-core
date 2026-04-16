@@ -62,6 +62,18 @@ export function _md(text: string): string {
     .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
 }
 
+/** Deduplication key for source chips. Same PDF page+highlight or same media timestamp
+ * share a key so duplicate chips can be filtered out. */
+export function _sourceChipKey(
+  label: string,
+  page: number | null | undefined,
+  startTime: number | null | undefined,
+  highlight: string | null | undefined,
+): string {
+  if (startTime != null) return `m:${label}:${startTime}`;
+  return `p:${label}:${page ?? 0}:${highlight ?? ""}`;
+}
+
 export function _chunkLabel(filename: string, num: number, startTime?: number | null): string {
   if (_isMediaFile(filename) && startTime != null) return _formatTime(startTime);
   if (_isMediaFile(filename)) return `Teil ${num}`;

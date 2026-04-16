@@ -12,6 +12,7 @@ import {
   Check,
   NotePencil,
   PaperPlaneRight,
+  X,
 } from "@phosphor-icons/react";
 import type { ChatMessage, Source } from "../_types";
 import { _chunkLabel, _embedQmapIntoCitations, _getChipIcon } from "../_utils";
@@ -76,12 +77,12 @@ export function ChatPanel({
   }, [chatMenuOpen]);
 
   useEffect(() => {
-    if (isFirstRender.current) {
+    if (isFirstRender.current && messages.length > 0) {
       const c = scrollContainerRef.current;
-      if (c) c.scrollTop = 0;
+      if (c) c.scrollTop = c.scrollHeight;
       isFirstRender.current = false;
     }
-  }, []);
+  }, [messages.length]);
 
   const getFilename = (srcUuid: string) =>
     sources.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid;
@@ -210,6 +211,9 @@ export function ChatPanel({
             const msgQmap = msg.source_qmap ?? [];
             // Track which source_pages entry was used per page to cycle through chunks
             const spUsedCount = new Map<string, number>();
+            // Deduplicate chips per message: same PDF page+highlight or same media timestamp
+            // should only render once. Reason: users shouldn't see identical chips repeated.
+            const seenChipKeys = new Set<string>();
             function parseCitations(text: string): React.ReactNode[] {
               // Split multi-page citations: [Q1, S. 9, S. 15] → [Q1, S. 9] [Q1, S. 15]
               text = text.replace(/\[(Q\d+),\s*((?:S\.\s*\d+(?:\s*\|[^,\]]+)?,?\s*)+)\]/g, (_m, q, body) => {
@@ -261,6 +265,9 @@ export function ChatPanel({
                   // Parse timestamp to seconds
                   const parts = timestamp.split(":").map(Number);
                   const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+                  const dedupKey = `m:${sourceUuid}:${seconds}`;
+                  if (seenChipKeys.has(dedupKey)) { last = pattern.lastIndex; continue; }
+                  seenChipKeys.add(dedupKey);
                   nodes.push(
                     <button
                       key={m.index}
@@ -275,6 +282,9 @@ export function ChatPanel({
                     </button>
                   );
                 } else {
+                  const dedupKey = `p:${sourceUuid}:${pageNum}:${highlightText ?? ''}`;
+                  if (seenChipKeys.has(dedupKey)) { last = pattern.lastIndex; continue; }
+                  seenChipKeys.add(dedupKey);
                   nodes.push(
                     <button
                       key={m.index}
@@ -484,6 +494,17 @@ export function ChatPanel({
               className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
               style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
             />
+            {input && (
+              <button
+                type="button"
+                onClick={() => { onInputChange(""); textareaRef.current?.focus(); }}
+                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                style={{ color: "var(--muted)" }}
+                title="Eingabe löschen"
+              >
+                <X size={14} weight="bold" />
+              </button>
+            )}
             <button
               type="button"
               onClick={onSend}

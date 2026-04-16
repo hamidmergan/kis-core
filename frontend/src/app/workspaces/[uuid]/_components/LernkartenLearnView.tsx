@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, XIcon } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../_types";
-import { _chunkLabel, _getChipIcon, _md } from "../_utils";
+import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../_utils";
 import { MinimizeContext } from "../_context";
 
 export function LernkartenLearnView({
@@ -275,7 +275,14 @@ export function LernkartenLearnView({
                     )}
                     {/* Sources + Chat */}
                     {(() => {
-                      const srcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
+                      const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
+                      const seenKeys = new Set<string>();
+                      const srcs = rawSrcs.filter((s) => {
+                        const k = _sourceChipKey(s.source_label, s.page_number, s.start_time, s.highlight_text);
+                        if (seenKeys.has(k)) return false;
+                        seenKeys.add(k);
+                        return true;
+                      });
                       const uniqueFiles = [...new Set(srcs.map(s => s.source_label))];
                       const fileIndex = Object.fromEntries(uniqueFiles.map((f, i) => [f, i + 1]));
                       const multiFile = uniqueFiles.length > 1;
@@ -425,7 +432,14 @@ export function LernkartenLearnView({
             </div>
             {/* Source chips + filename legend */}
             {(() => {
-              const srcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
+              const rawSrcs: ExerciseItemSource[] = card.sources?.length ? card.sources as ExerciseItemSource[] : cardSource ? [cardSource] : [];
+              const seenKeys = new Set<string>();
+              const srcs = rawSrcs.filter((s) => {
+                const k = _sourceChipKey(s.source_label, s.page_number, s.start_time, s.highlight_text);
+                if (seenKeys.has(k)) return false;
+                seenKeys.add(k);
+                return true;
+              });
               if (!srcs.length) return null;
               const uniqueFiles = [...new Set(srcs.map(s => s.source_label))];
               const fileIndex = Object.fromEntries(uniqueFiles.map((f, i) => [f, i + 1]));

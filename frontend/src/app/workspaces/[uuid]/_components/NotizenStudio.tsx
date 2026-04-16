@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { NotePencil, Plus, Trash } from "@phosphor-icons/react";
 import type { Source, StudentStats } from "../_types";
-import { _chunkLabel, _getChipIcon, _isMediaFile } from "../_utils";
+import { _chunkLabel, _getChipIcon, _isMediaFile, _sourceChipKey } from "../_utils";
 import { SubviewHeader } from "./SubviewHeader";
 
 export interface Note { id: number; content: string; created_at: string | null }
@@ -28,60 +28,69 @@ export function NotizenStudio({
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [draft]);
 
-  function parseNoteCitations(text: string): React.ReactNode[] {
-    const pattern = /\[(?:Q(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
-    const nodes: React.ReactNode[] = [];
-    let last = 0;
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(text)) !== null) {
-      if (m.index > last) nodes.push(text.slice(last, m.index));
-      const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
-      const embeddedUuid = m[2] || null;
-      const pageNum = m[3] ? parseInt(m[3]) : 0;
-      const timestamp = m[4] || null;
-      const keyword = m[5]?.trim() || undefined;
-      const isMedia = !!timestamp;
+  // Factory returns a renderer with per-note dedup state so duplicate chips
+  // (same PDF page+highlight or same media timestamp) collapse to one.
+  function makeNoteCitationRenderer() {
+    const seenChipKeys = new Set<string>();
+    function parseNoteCitations(text: string): React.ReactNode[] {
+      const pattern = /\[(?:Q(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
+      const nodes: React.ReactNode[] = [];
+      let last = 0;
+      let m: RegExpExecArray | null;
+      while ((m = pattern.exec(text)) !== null) {
+        if (m.index > last) nodes.push(text.slice(last, m.index));
+        const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
+        const embeddedUuid = m[2] || null;
+        const pageNum = m[3] ? parseInt(m[3]) : 0;
+        const timestamp = m[4] || null;
+        const keyword = m[5]?.trim() || undefined;
+        const isMedia = !!timestamp;
 
-      const sourceUuid = embeddedUuid
-        ?? activeSourceIds?.[qIdx]
-        ?? (isMedia
-          ? sources?.find(s => _isMediaFile(s.filename))?.uuid
-          : sources?.find(s => !_isMediaFile(s.filename))?.uuid)
-        ?? activeSourceIds?.[0]
-        ?? "";
-      const filename = sources?.find(s => s.uuid === sourceUuid)?.filename ?? sourceUuid;
+        const sourceUuid = embeddedUuid
+          ?? activeSourceIds?.[qIdx]
+          ?? (isMedia
+            ? sources?.find(s => _isMediaFile(s.filename))?.uuid
+            : sources?.find(s => !_isMediaFile(s.filename))?.uuid)
+          ?? activeSourceIds?.[0]
+          ?? "";
+        const filename = sources?.find(s => s.uuid === sourceUuid)?.filename ?? sourceUuid;
 
-      let startTime: number | undefined;
-      if (timestamp) {
-        const parts = timestamp.split(":").map(Number);
-        startTime = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+        let startTime: number | undefined;
+        if (timestamp) {
+          const parts = timestamp.split(":").map(Number);
+          startTime = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
+        }
+
+        const dedupKey = _sourceChipKey(sourceUuid, pageNum, startTime, keyword);
+        if (seenChipKeys.has(dedupKey)) { last = pattern.lastIndex; continue; }
+        seenChipKeys.add(dedupKey);
+
+        const ChipIcon = _getChipIcon(filename);
+        const label = timestamp ?? _chunkLabel(filename, pageNum);
+        nodes.push(
+          <button
+            key={m.index}
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onPillClick?.(sourceUuid, pageNum, filename, keyword, startTime); }}
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+            style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+            title={`${filename}, ${label}`}
+          >
+            <ChipIcon size={8} weight="bold" />
+            {label}
+          </button>
+        );
+        last = pattern.lastIndex;
       }
-
-      const ChipIcon = _getChipIcon(filename);
-      const label = timestamp ?? _chunkLabel(filename, pageNum);
-      nodes.push(
-        <button
-          key={m.index}
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onPillClick?.(sourceUuid, pageNum, filename, keyword, startTime); }}
-          className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-          style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-          title={`${filename}, ${label}`}
-        >
-          <ChipIcon size={8} weight="bold" />
-          {label}
-        </button>
-      );
-      last = pattern.lastIndex;
+      if (last < text.length) nodes.push(text.slice(last));
+      return nodes;
     }
-    if (last < text.length) nodes.push(text.slice(last));
-    return nodes;
-  }
-
-  function withNoteCitations(children: React.ReactNode): React.ReactNode {
-    return React.Children.map(children, (child) =>
-      typeof child === "string" ? parseNoteCitations(child) : child
-    );
+    function withNoteCitations(children: React.ReactNode): React.ReactNode {
+      return React.Children.map(children, (child) =>
+        typeof child === "string" ? parseNoteCitations(child) : child
+      );
+    }
+    return { withNoteCitations };
   }
 
   return (
@@ -134,6 +143,7 @@ export function NotizenStudio({
           <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
             {notes.map((note) => {
               const isExpanded = expandedId === note.id;
+              const { withNoteCitations } = makeNoteCitationRenderer();
               return (
                 <div
                   key={note.id}

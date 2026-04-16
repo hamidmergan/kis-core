@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { CaretLeft, CaretRight, FilePdf, Files, Plus, Table, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { DatentabelleData, DatentabelleRowSource, DatentabelleSource, Source, StudentStats } from "../_types";
-import { _getChipIcon, _isMediaFile } from "../_utils";
+import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../_utils";
 import { SubviewHeader } from "./SubviewHeader";
 
 export function DatentabelleStudio({
@@ -170,7 +170,32 @@ export function DatentabelleStudio({
                         <td className="px-3 py-2 align-top"
                           style={{ borderBottom: "1px solid var(--border)" }}>
                           <div className="flex flex-wrap gap-1">
-                            {row.sources.map((s, si) => {
+                            {(() => {
+                              const seenKeys = new Set<string>();
+                              return row.sources.filter((s) => {
+                                if (typeof s === "object" && s !== null && "source_label" in s) {
+                                  const rs = s as DatentabelleRowSource;
+                                  const isMedia = _isMediaFile(rs.source_label);
+                                  let startTime: number | undefined;
+                                  let pageNum = 0;
+                                  if (isMedia && typeof rs.page === "string") {
+                                    const parts = rs.page.split(":").map(Number);
+                                    if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                                    else if (parts.length === 2) startTime = parts[0] * 60 + parts[1];
+                                  } else {
+                                    pageNum = typeof rs.page === "number" ? rs.page : parseInt(String(rs.page), 10) || 0;
+                                  }
+                                  const k = _sourceChipKey(rs.source_label, pageNum, startTime, rs.highlight);
+                                  if (seenKeys.has(k)) return false;
+                                  seenKeys.add(k);
+                                  return true;
+                                }
+                                const k = `legacy:${s as number}`;
+                                if (seenKeys.has(k)) return false;
+                                seenKeys.add(k);
+                                return true;
+                              });
+                            })().map((s, si) => {
                               if (typeof s === "object" && s !== null && "source_label" in s) {
                                 const rs = s as DatentabelleRowSource;
                                 const src = allSources?.find((a) => a.filename === rs.source_label);
