@@ -5,6 +5,7 @@ __pycache__/
 output/
 backend/demo/
 *.log
+*.bak
 .DS_Store
 
 .claude/
