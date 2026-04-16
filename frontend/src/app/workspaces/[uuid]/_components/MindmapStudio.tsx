@@ -18,7 +18,7 @@ import {
 import Spinner from "@/components/ui/Spinner";
 import type { Source, StudentStats } from "../_types";
 import { _getChipIcon, _isMediaFile } from "../_utils";
-import { SubviewHeader } from "./SubviewHeader";
+import { SubviewHeader, _getToolBadge } from "./SubviewHeader";
 
 export interface MindmapNodeData {
   topic: string;
@@ -47,10 +47,55 @@ export function MindmapStudio({
   breadcrumbs?: { label: string; onClick: () => void }[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
   const [view, setView] = useState<"viewer" | "list">("list");
   const [allExpanded, setAllExpanded] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+
+  // Enter/exit native browser fullscreen and lock orientation to landscape
+  // on mobile. Falls back to pure CSS fullscreen if the API is unavailable.
+  async function handleFullscreenToggle() {
+    const el = viewerRef.current;
+    if (!fullscreen) {
+      if (el?.requestFullscreen) {
+        try { await el.requestFullscreen(); } catch { /* user gesture or permission denied */ }
+      }
+      const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+      if (orientation?.lock) {
+        try { await orientation.lock("landscape"); } catch { /* desktop or unsupported */ }
+      }
+      setFullscreen(true);
+    } else {
+      if (document.fullscreenElement) {
+        try { await document.exitFullscreen(); } catch { /* ignore */ }
+      }
+      const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
+      orientation?.unlock?.();
+      setFullscreen(false);
+    }
+  }
+
+  // Sync fullscreen state and release orientation lock if user exits via ESC,
+  // system gesture, or unmounts — otherwise device stays locked in landscape.
+  useEffect(() => {
+    function unlockOrientation() {
+      const o = screen.orientation as ScreenOrientation & { unlock?: () => void };
+      o?.unlock?.();
+    }
+    function onChange() {
+      if (!document.fullscreenElement) {
+        setFullscreen(false);
+        unlockOrientation();
+      }
+    }
+    document.addEventListener("fullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      unlockOrientation();
+    };
+  }, []);
+
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
   const onPillClickRef = useRef(onPillClick);
@@ -344,7 +389,7 @@ export function MindmapStudio({
       </div>
 
       {/* ── Mindmap Viewer ── */}
-      <div style={{
+      <div ref={viewerRef} style={{
         display: view === "viewer" ? "flex" : "none",
         ...(fullscreen ? { position: "fixed" as const, inset: 0, zIndex: 9999, backgroundColor: "var(--bg)" } : {}),
       }} className="flex-col h-full">
@@ -354,7 +399,22 @@ export function MindmapStudio({
             style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
-          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>Mindmap</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /><span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
+          {breadcrumbs ? (() => {
+            const badge = _getToolBadge("Mindmap");
+            return (
+              <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
+                {breadcrumbs.map((b, i) => (
+                  <React.Fragment key={i}>
+                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>
+                    <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
+                  </React.Fragment>
+                ))}
+                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={badge ? { backgroundColor: badge.bg, color: badge.color } : { color: "var(--muted)" }}>Mindmap</button>
+                <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
+                <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>
+              </div>
+            );
+          })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={handleZoomOut} title="Verkleinern"
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
@@ -371,7 +431,7 @@ export function MindmapStudio({
               style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
               {allExpanded ? <ArrowsInLineVertical size={13} /> : <ArrowsOutLineVertical size={13} />}
             </button>
-            <button type="button" onClick={() => setFullscreen(!fullscreen)} title={fullscreen ? "Vollbild beenden" : "Vollbild"}
+            <button type="button" onClick={handleFullscreenToggle} title={fullscreen ? "Vollbild beenden" : "Vollbild"}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
               style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
               {fullscreen ? <CornersIn size={13} /> : <CornersOut size={13} />}

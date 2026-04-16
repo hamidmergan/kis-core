@@ -30,7 +30,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
   };
 
   return (
-    <header style={{ backgroundColor: "var(--kb)" }} className="py-3">
+    <header style={{ backgroundColor: "var(--kb)" }} className="py-3 hide-on-short">
       <div className="max-w-5xl mx-auto px-4 flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Link

@@ -200,44 +200,56 @@ me-tpc:hover .mm-src-chip {
   opacity: 1;
 }
 
-/* ─── Smartphone-Querformat blockieren ─── */
-.rotate-hint {
+/* Hide non-critical elements (disclaimers, labels) on phones in landscape
+   so the chat/panel area keeps useful height. Scoped to touch devices so
+   a narrow desktop window is unaffected. */
+@media (max-height: 500px) and (pointer: coarse) {
+  .hide-on-short {
+    display: none !important;
+  }
+  .compact-on-short {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
+  /* Turn fixed-viewport flex shells into natural flow so the whole page
+     scrolls — fixed chat input/header become inline and scroll with content. */
+  .mobile-flow {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    flex: initial !important;
+  }
+  /* On wide landscape phones, center the panel instead of stretching it
+     edge-to-edge across the wider viewport. */
+  .mobile-center {
+    max-width: 560px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
+  }
+  .show-on-short {
+    display: flex !important;
+  }
+  /* Cap the chat panel to 60% of the viewport on landscape phones so the
+     input stays near the top of the scroll and the rest of the page can
+     still flow below. Internal scroll (overflow-y-auto on messages) stays. */
+  .chat-60vh {
+    height: 500px !important;
+    max-height: 500px !important;
+    overflow: hidden !important;
+    flex: initial !important;
+  }
+}
+.show-on-short {
   display: none;
 }
-@media (orientation: landscape) and (max-height: 500px) {
-  body:not(.suppress-rotate-hint) > :not(.rotate-hint) {
+
+/* Hide "Panel minimieren" buttons on smartphones — the tab bar already
+   serves as the switcher, so the extra sidebar icon is redundant there. */
+@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) {
+  [title="Panel minimieren"] {
     display: none !important;
   }
-  body.suppress-rotate-hint .rotate-hint {
-    display: none !important;
-  }
-  body:not(.suppress-rotate-hint) .rotate-hint {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    padding: 24px;
-    background: var(--bg);
-    color: var(--text);
-    text-align: center;
-  }
-  .rotate-hint svg {
-    width: 56px;
-    height: 56px;
-    color: var(--kb);
-    animation: rotate-hint-spin 2s ease-in-out infinite;
-  }
-  .rotate-hint p {
-    font-size: 16px;
-    font-weight: 500;
-    max-width: 320px;
-  }
 }
-@keyframes rotate-hint-spin {
-  0%, 100% { transform: rotate(-90deg); }
-  50% { transform: rotate(0deg); }
-}
+

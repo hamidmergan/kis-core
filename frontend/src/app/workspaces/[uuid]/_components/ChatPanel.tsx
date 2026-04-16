@@ -54,6 +54,32 @@ export function ChatPanel({
   const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [savedNoteIdx, setSavedNoteIdx] = useState<number | null>(null);
+  // Tracks window scroll on landscape mobile (inner scroll is disabled there)
+  // to flip the jump button between "go to top" and "go to bottom".
+  const [pageNearTop, setPageNearTop] = useState(true);
+  const [pageScrollable, setPageScrollable] = useState(false);
+  useEffect(() => {
+    function update() {
+      const doc = document.documentElement;
+      const scrollable = doc.scrollHeight - window.innerHeight > 200;
+      setPageScrollable(scrollable);
+      setPageNearTop(window.scrollY < (doc.scrollHeight - window.innerHeight) / 2);
+    }
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [messages.length]);
+  function jumpPage() {
+    if (pageNearTop) {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Sync internal textarea ref → external ref so parent can focus it
@@ -102,7 +128,18 @@ export function ChatPanel({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full chat-60vh">
+      {pageScrollable && (
+        <button
+          type="button"
+          onClick={jumpPage}
+          aria-label={pageNearTop ? "Nach unten scrollen" : "Nach oben scrollen"}
+          className="show-on-short fixed right-3 bottom-3 z-50 w-10 h-10 items-center justify-center rounded-full shadow-lg"
+          style={{ backgroundColor: "var(--kb)", color: "white" }}
+        >
+          {pageNearTop ? <CaretDown size={18} weight="bold" /> : <CaretUp size={18} weight="bold" />}
+        </button>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
         <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Chat</span>
@@ -518,10 +555,10 @@ export function ChatPanel({
           </div>
         </div>
       </div>
-      <p className="w-full text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+      <p className="hide-on-short w-full text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
         Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.
       </p>
-      <p className="w-full text-center mt-1 pb-2 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+      <p className="hide-on-short w-full text-center mt-1 pb-2 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
         Feedback oder Probleme?{" "}
         <a href="mailto:hamid.mergan@th-luebeck.de" className="underline hover:opacity-100 transition-opacity">
           hamid.mergan@th-luebeck.de

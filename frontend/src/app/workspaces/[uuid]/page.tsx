@@ -500,8 +500,13 @@ export default function KiTutorModulePage() {
   const mediaOpenRef = useRef(mediaOpen);
   mediaOpenRef.current = mediaOpen;
 
+  // Treat a phone in landscape (short height + touch pointer) as "mobile" too,
+  // so the layout stays single-column instead of switching to desktop columns
+  // just because the viewport got wider after rotation.
+  const mobileMediaQuery = `(max-width: ${MOBILE_BREAKPOINT - 1}px), (max-height: 500px) and (pointer: coarse)`;
+
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const mq = window.matchMedia(mobileMediaQuery);
     setIsMobile(mq.matches);
     if (mq.matches) setActiveTab("quellen");
     const handler = (e: MediaQueryListEvent) => {
@@ -510,13 +515,13 @@ export default function KiTutorModulePage() {
     };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, [MOBILE_BREAKPOINT]);
+  }, [mobileMediaQuery]);
 
   useEffect(() => {
     if (!mediaOpen) {
-      setIsMobile(window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches);
+      setIsMobile(window.matchMedia(mobileMediaQuery).matches);
     }
-  }, [mediaOpen, MOBILE_BREAKPOINT]);
+  }, [mediaOpen, mobileMediaQuery]);
 
   // ─── Panel toggle ──────────────────────────────────────────────────────────
 
@@ -1683,7 +1688,7 @@ export default function KiTutorModulePage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex flex-col overflow-hidden" style={{ height: "100vh" }}>
+      <div className="flex flex-col overflow-hidden mobile-flow" style={{ height: "100vh" }}>
         {!hideHeader && <Header showLogout />}
 
         {/* Topbar — Desktop only */}
@@ -1820,7 +1825,7 @@ export default function KiTutorModulePage() {
         {/* Tab bar — Mobile only */}
         {isMobile && (
           <div className="flex-shrink-0" style={{ backgroundColor: "var(--surface)" }}>
-            <div className="flex items-center gap-2 px-3 pt-2 pb-1 relative">
+            <div className="hide-on-short flex items-center gap-2 px-3 pt-2 pb-1 relative">
               <Link
                 href="/workspaces"
                 className="inline-flex items-center justify-center w-7 h-7 flex-shrink-0 transition-colors group"
@@ -1947,7 +1952,7 @@ export default function KiTutorModulePage() {
                   key={key}
                   type="button"
                   onClick={() => setActiveTab(key)}
-                  className="flex-1 py-3 text-sm font-medium transition-colors relative"
+                  className="flex-1 py-3 compact-on-short text-sm font-medium transition-colors relative"
                   style={{ color: activeTab === key ? "var(--kb)" : "var(--muted)", background: "none", border: "none" }}
                 >
                   {key === "quellen" ? "Quellen" : key === "chat" ? "Chat" : "Studio"}
@@ -1966,14 +1971,14 @@ export default function KiTutorModulePage() {
         {/* Panels */}
         <div
           ref={panelContainerRef}
-          className="flex flex-1 overflow-hidden"
+          className="flex flex-1 overflow-hidden mobile-flow"
           style={{ padding: 8, gap: 0, backgroundColor: "var(--bg)" }}
         >
           {isMobile ? (
             /* Mobile: single panel, switched via activeTab */
             <MinimizeContext.Provider value={() => setActiveTab("chat")}>
               <div
-                className="flex flex-col flex-1 overflow-hidden rounded-2xl"
+                className="flex flex-col flex-1 overflow-hidden rounded-2xl mobile-flow mobile-center"
                 style={{ backgroundColor: "var(--surface)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}
               >
                 {activeTab === "quellen" ? (
@@ -2056,6 +2061,7 @@ export default function KiTutorModulePage() {
                     onDownload={isAdmin ? downloadExerciseSet : undefined}
                     sourceCount={selectedSourceIds.length}
                     stats={pageStats}
+                    breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
                   />
                 ) : studioView === "notizen" ? (
                   <NotizenStudio

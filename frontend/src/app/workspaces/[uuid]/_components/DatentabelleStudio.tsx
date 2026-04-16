@@ -3,7 +3,7 @@ import { CaretLeft, CaretRight, FilePdf, Files, Plus, Table, Trash } from "@phos
 import Spinner from "@/components/ui/Spinner";
 import type { DatentabelleData, DatentabelleRowSource, DatentabelleSource, Source, StudentStats } from "../_types";
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../_utils";
-import { SubviewHeader } from "./SubviewHeader";
+import { SubviewHeader, _getToolBadge } from "./SubviewHeader";
 
 export function DatentabelleStudio({
   table, sources, loading, onGenerate, onBack,
@@ -120,7 +120,22 @@ export function DatentabelleStudio({
             style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
             <CaretLeft size={13} />
           </button>
-          {breadcrumbs ? (<div className="flex items-center gap-1 text-sm min-w-0 flex-1">{breadcrumbs.map((b, i) => (<React.Fragment key={i}><button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button><CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>))}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span></div>) : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
+          {breadcrumbs ? (() => {
+            const badge = _getToolBadge("Datentabelle");
+            return (
+              <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
+                {breadcrumbs.map((b, i) => (
+                  <React.Fragment key={i}>
+                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>
+                    <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
+                  </React.Fragment>
+                ))}
+                <button type="button" onClick={() => setView("list")} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={badge ? { backgroundColor: badge.bg, color: badge.color } : { color: "var(--muted)" }}>Datentabelle</button>
+                <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
+                <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>
+              </div>
+            );
+          })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
         </div>
         <div className="flex-1 overflow-y-auto">
           {!table && loading && (

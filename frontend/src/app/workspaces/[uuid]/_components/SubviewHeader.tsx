@@ -24,9 +24,14 @@ const SHARED_BADGE: Record<string, { bg: string; color: string }> = {
   Statistik: { bg: "rgba(241,245,249,0.7)", color: "#475569" },
 };
 
+export function _getToolBadge(title: string, category?: "lerntools" | "sprachtraining"): { bg: string; color: string } | null {
+  const map = category === "sprachtraining" ? SPRACHTRAINING_BADGE[title] : LERNTOOLS_BADGE[title];
+  return map ?? SHARED_BADGE[title] ?? null;
+}
+
 export function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: { title: string; onBack: () => void; breadcrumbs?: { label: string; onClick: () => void }[]; rightContent?: React.ReactNode; category?: "lerntools" | "sprachtraining" }) {
   const minimize = useContext(MinimizeContext);
-  const badge = (category === "sprachtraining" ? SPRACHTRAINING_BADGE[title] : LERNTOOLS_BADGE[title]) ?? SHARED_BADGE[title];
+  const badge = _getToolBadge(title, category);
   const mutedColor = "var(--muted)";
   const btnBg = "var(--surface-dim)";
   return (
@@ -44,12 +49,19 @@ export function SubviewHeader({ title, onBack, breadcrumbs, rightContent, catego
       </button>
       {breadcrumbs && breadcrumbs.length > 0 ? (
         <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
-          {breadcrumbs.map((b, i) => (
-            <React.Fragment key={i}>
-              <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: mutedColor }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = mutedColor}>{b.label}</button>
-              <CaretRight size={10} weight="bold" style={{ color: mutedColor, opacity: 0.5 }} className="shrink-0" />
-            </React.Fragment>
-          ))}
+          {breadcrumbs.map((b, i) => {
+            const bBadge = _getToolBadge(b.label, category);
+            return (
+              <React.Fragment key={i}>
+                {bBadge ? (
+                  <button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>
+                ) : (
+                  <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: mutedColor }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = mutedColor}>{b.label}</button>
+                )}
+                <CaretRight size={10} weight="bold" style={{ color: mutedColor, opacity: 0.5 }} className="shrink-0" />
+              </React.Fragment>
+            );
+          })}
           {badge ? (
             <span className="font-semibold truncate px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{title}</span>
           ) : (
