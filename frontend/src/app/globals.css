@@ -199,3 +199,45 @@ me-tpc:hover .mm-src-chip {
 .kis-tooltip:hover::after {
   opacity: 1;
 }
+
+/* ─── Smartphone-Querformat blockieren ─── */
+.rotate-hint {
+  display: none;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  body:not(.has-fullscreen) > :not(.rotate-hint) {
+    display: none !important;
+  }
+  body.has-fullscreen .rotate-hint {
+    display: none !important;
+  }
+  body:not(.has-fullscreen) .rotate-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 24px;
+    background: var(--bg);
+    color: var(--text);
+    text-align: center;
+  }
+  .rotate-hint svg {
+    width: 56px;
+    height: 56px;
+    color: var(--kb);
+    animation: rotate-hint-spin 2s ease-in-out infinite;
+  }
+  .rotate-hint p {
+    font-size: 16px;
+    font-weight: 500;
+    max-width: 320px;
+  }
+}
+@keyframes rotate-hint-spin {
+  0%, 100% { transform: rotate(-90deg); }
+  50% { transform: rotate(0deg); }
+}
