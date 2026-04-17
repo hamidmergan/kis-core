@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request, Response
+from loguru import logger
 from pydantic import BaseModel
 
 from src import database
@@ -21,9 +22,11 @@ async def login(body: LoginRequest, response: Response):
     try:
         ldap_user = authenticate_user(body.username, body.password)
     except RuntimeError as e:
+        logger.error("LDAP auth error for user '{}': {}", body.username, e)
         raise HTTPException(status_code=500, detail=str(e))
 
     if ldap_user is None:
+        logger.warning("Failed login attempt for user '{}' (invalid credentials)", body.username)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Step 2: Determine active status via email whitelist (if enabled)
@@ -48,6 +51,7 @@ async def login(body: LoginRequest, response: Response):
 
     # Step 4: Check whitelist
     if not active:
+        logger.warning("Login blocked for '{}' (not whitelisted)", ldap_username)
         raise HTTPException(status_code=403, detail="account_not_activated")
 
     # Step 5: Create session

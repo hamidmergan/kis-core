@@ -1,4 +1,5 @@
 from fastapi import HTTPException, Request
+from loguru import logger
 
 from src.dependencies import get_session_store
 
@@ -21,5 +22,8 @@ async def verify_auth(request: Request):
         store = get_session_store()
         if store.validate(session_token):
             return
+        logger.info("Rejected invalid/expired session on {}", path)
+    else:
+        logger.debug("Missing session cookie on {}", path)
 
     raise HTTPException(status_code=401, detail="Nicht authentifiziert")

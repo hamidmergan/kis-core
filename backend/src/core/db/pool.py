@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
+from loguru import logger
 from psycopg2.extras import RealDictCursor
 
 from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
@@ -34,7 +35,10 @@ def get_connection():
     try:
         yield conn
     except Exception:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception as rb_err:
+            logger.error("DB rollback failed: {}", rb_err)
         raise
     finally:
         pool.putconn(conn)

@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
+from loguru import logger
 from psycopg2.extras import RealDictCursor
 
 from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS
@@ -29,8 +30,8 @@ def _notify_job_update(job_uuid: str) -> None:
         if row:
             r.publish(f"jobs:{row[0]}", "update")
         r.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Redis job-update publish failed for {}: {}", job_uuid, e)
 
 _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 

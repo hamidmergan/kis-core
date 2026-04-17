@@ -1,6 +1,7 @@
 from functools import lru_cache
 
 from fastapi import HTTPException, Request
+from loguru import logger
 
 from src.config import Settings
 from src.services.elevenlabs_client import ElevenLabsClient
@@ -179,5 +180,6 @@ def get_deepl_client():
         return None
     try:
         return DeepLClient(settings.deepl_api_key)
-    except Exception:
+    except Exception as e:
+        logger.warning("DeepL client init failed: {}", e)
         return None
