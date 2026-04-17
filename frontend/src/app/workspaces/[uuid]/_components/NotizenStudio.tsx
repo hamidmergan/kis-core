@@ -28,12 +28,11 @@ export function NotizenStudio({
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [draft]);
 
-  // Factory returns a renderer with per-note dedup state so duplicate chips
-  // (same PDF page+highlight or same media timestamp) collapse to one.
   function makeNoteCitationRenderer() {
-    const seenChipKeys = new Set<string>();
+    let chipKey = 0;
     function parseNoteCitations(text: string): React.ReactNode[] {
-      const pattern = /\[(?:Q(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
+      // Matches [1, S. 2 | kw], [Q1:uuid, S. 2 | kw], [S. 2], [1, 05:32 | kw]
+      const pattern = /\[(?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|\u2758]\s*([^\]]+))?\s*\]/g;
       const nodes: React.ReactNode[] = [];
       let last = 0;
       let m: RegExpExecArray | null;
@@ -61,24 +60,23 @@ export function NotizenStudio({
           startTime = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
         }
 
-        const dedupKey = _sourceChipKey(sourceUuid, pageNum, startTime, keyword);
-        if (seenChipKeys.has(dedupKey)) { last = pattern.lastIndex; continue; }
-        seenChipKeys.add(dedupKey);
-
         const ChipIcon = _getChipIcon(filename);
         const label = timestamp ?? _chunkLabel(filename, pageNum);
+        const ck = `n${chipKey++}`;
         nodes.push(
-          <button
-            key={m.index}
-            type="button"
+          <span
+            key={ck}
+            role="button"
+            tabIndex={0}
             onClick={(e) => { e.stopPropagation(); onPillClick?.(sourceUuid, pageNum, filename, keyword, startTime); }}
-            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5 cursor-pointer"
             style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
             title={`${filename}, ${label}`}
           >
             <ChipIcon size={8} weight="bold" />
             {label}
-          </button>
+          </span>
         );
         last = pattern.lastIndex;
       }
@@ -86,8 +84,9 @@ export function NotizenStudio({
       return nodes;
     }
     function withNoteCitations(children: React.ReactNode): React.ReactNode {
-      return React.Children.map(children, (child) =>
-        typeof child === "string" ? parseNoteCitations(child) : child
+      const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
+      return arr.flatMap((child) =>
+        typeof child === "string" ? parseNoteCitations(child) : [child]
       );
     }
     return { withNoteCitations };
@@ -173,11 +172,11 @@ export function NotizenStudio({
                         h3: ({ children }) => <p className="font-medium mb-1">{withNoteCitations(children)}</p>,
                         table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
                         th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
-                        td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{children}</td>,
+                        td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{withNoteCitations(children)}</td>,
                         hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
                       }}
                     >
-                      {note.content}
+                      {note.content.replace(/\[([^\]]*\|[^\]]*)\]/g, (m) => m.replace(/\|/g, "\u2758"))}
                     </ReactMarkdown>
                   </div>
                   <div className="flex items-center justify-between mt-auto pt-1">

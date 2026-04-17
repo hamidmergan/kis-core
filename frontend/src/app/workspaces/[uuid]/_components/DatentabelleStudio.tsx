@@ -228,13 +228,14 @@ export function DatentabelleStudio({
                                 }
                                 const sourceNum = sources.find((sl) => sl.filename === rs.source_label)?.number ?? (si + 1);
                                 return (
-                                  <button key={si} type="button"
+                                  <span key={si} role="button" tabIndex={0}
                                     onClick={() => src && onPillClick?.(src.uuid, pageNum, src.filename, rs.highlight, startTime)}
-                                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap"
+                                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
+                                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap cursor-pointer"
                                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
                                     <SourceIcon size={10} weight="bold" />
                                     [{sourceNum}] {label}
-                                  </button>
+                                  </span>
                                 );
                               }
                               const num = s as number;
@@ -243,13 +244,14 @@ export function DatentabelleStudio({
                               const src = legend ? allSources?.find((a) => a.filename === fname) : undefined;
                               const LegacyIcon = fname ? _getChipIcon(fname) : FilePdf;
                               return (
-                                <button key={si} type="button"
+                                <span key={si} role="button" tabIndex={0}
                                   onClick={() => src && onPillClick?.(src.uuid, 0, src.filename)}
-                                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap"
+                                  onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
+                                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap cursor-pointer"
                                   style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
                                   <LegacyIcon size={10} weight="bold" />
                                   [{num}]
-                                </button>
+                                </span>
                               );
                             })}
                           </div>

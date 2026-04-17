@@ -135,11 +135,12 @@ export function GlossarView({
                 {entry.page_number && (() => {
                   const ChipIcon = entry.filename ? _getChipIcon(entry.filename) : FilePdf;
                   return (
-                  <button type="button" onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
-                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 hover:opacity-80 transition-opacity"
+                  <span role="button" tabIndex={0} onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
+                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
                     style={{ backgroundColor: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)" }}>
                     <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!) : `S. ${entry.page_number}`}
-                  </button>
+                  </span>
                   );
                 })()}
               </div>
