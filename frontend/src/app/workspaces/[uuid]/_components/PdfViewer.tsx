@@ -140,12 +140,12 @@ export function PdfViewer({
         if (res.ok && !cancelled) {
           const data = await res.json();
           setSummariesStatus(data.status);
-          if (data.status === "ready") {
-            const pages: Record<number, string> = {};
+          const pages: Record<number, string> = {};
+          if (data.pages) {
             for (const [k, v] of Object.entries(data.pages)) pages[Number(k)] = v as string;
             setPageSummaries(pages);
-            setSummariesLoaded(true);
-          } else if (data.status === "generating") {
+          }
+          if (data.status === "generating") {
             timer = setTimeout(fetchSummaries, 10000);
           } else {
             setSummariesLoaded(true);
@@ -847,12 +847,16 @@ export function PdfViewer({
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: 12, fontSize: 12, lineHeight: 1.6, color: "var(--color-fg-primary, #1f2937)" }}>
             {summariesStatus === "generating" && !pageSummaries[page] ? (
-              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Wird generiert…</span>
+              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Wird generiert...</span>
             ) : pageSummaries[page] ? (
               <div dangerouslySetInnerHTML={{ __html: pageSummaries[page].replace(/\n/g, "<br/>") }} />
-            ) : summariesStatus === "failed" ? (
+            ) : (summariesStatus === "none" || summariesStatus === "failed" || summariesStatus === "rate_limited") ? (
               <div style={{ textAlign: "center", padding: "16px 12px" }}>
-                <span style={{ color: "#6b7280", display: "block", marginBottom: 10, fontSize: 12 }}>Generierung fehlgeschlagen.</span>
+                <span style={{ color: "#6b7280", display: "block", marginBottom: 10, fontSize: 12 }}>
+                  {summariesStatus === "rate_limited" ? "API-Limit erreicht. Bitte spaeter erneut versuchen."
+                    : summariesStatus === "failed" ? "Generierung fehlgeschlagen."
+                    : "Noch keine Zusammenfassungen vorhanden."}
+                </span>
                 <button
                   onClick={async () => {
                     setSummariesStatus("generating");
@@ -863,11 +867,11 @@ export function PdfViewer({
                   }}
                   style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-fg-accent, #60a5fa)", background: "var(--color-bg-accent, #1e3a5f)", color: "#fff", cursor: "pointer", fontWeight: 500 }}
                 >
-                  Erneut versuchen
+                  Zusammenfassungen generieren
                 </button>
               </div>
             ) : (
-              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Keine Zusammenfassung für diese Seite.</span>
+              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Keine Zusammenfassung fuer diese Seite.</span>
             )}
           </div>
         </div>,

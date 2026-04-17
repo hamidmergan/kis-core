@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .env
 output/
+.local/
 backend/demo/
 *.log
 *.bak

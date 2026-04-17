@@ -11,33 +11,15 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    KIA_SUMMARY_MAX_RETRIES,
-    KIA_SUMMARY_TIMEOUT_SMALL,
-    KIA_SUMMARY_TIMEOUT_LARGE,
-    KIA_SUMMARY_MAX_TOKENS_SMALL,
-    KIA_SUMMARY_MAX_TOKENS_LARGE,
-    KIA_SUMMARY_MAX_TOKENS_BATCH,
-    KIA_SUMMARY_CONTENT_MAX_CHARS,
-    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
     KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
     KIA_SUMMARY_BATCH_SIZE,
 )
-from src.tool_prompts import (
-    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    KIA_MINDMAP_PROMPT,
-)
+from src.tool_prompts import KIA_MINDMAP_PROMPT
 
 from src.features.ki_assistent.tasks._helpers import (
     _format_ts,
     _save_kia_output,
     _detect_language,
-    _parse_numbered_summaries,
-    _clean_summary,
-    _call_llm_with_retry,
-    _summarize_page,
     _summarize_batch,
     _get_llm_client,
     _clean_llm_json,
@@ -191,9 +173,7 @@ def run_index_source(self, source_uuid: str):
                 )
                 logger.info("KI Tutor: module {} is now ready", module["uuid"])
 
-        # 10. Trigger paragraph summary generation (async, non-blocking)
-        if file_type == "pdf":
-            run_generate_summaries.delay(source_uuid)
+        # 10. Summaries are generated on-demand via button in PDF viewer
 
     except Exception as e:
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
@@ -215,17 +195,24 @@ def run_generate_summaries(self, source_uuid: str):
         db.update_kia_source_summaries_status(source_uuid, "generating")
         logger.info("KI Tutor: generating page summaries for source {}", source_uuid)
 
-        # 1. Extract text per page
-        import os
-        suffix = os.path.splitext(source["filename"])[1] or ".pdf"
-        with open_input_file(source["file_path"], suffix=suffix) as local_path:
-            from src.services.kia_chunker import extract_page_texts
-            pages = extract_page_texts(local_path)
-
-        if not pages:
+        # 1. Build page texts from existing chunks in DB (no need to re-read PDF)
+        chunks = db.get_kia_chunks_by_source(source["id"])
+        if not chunks:
             db.update_kia_source_summaries_status(source_uuid, "ready")
-            logger.info("KI Tutor: no pages with text found for {}", source_uuid)
+            logger.info("KI Tutor: no chunks found for {}", source_uuid)
             return
+
+        page_map: dict[int, list[str]] = {}
+        for c in chunks:
+            pn = c["page_number"]
+            if pn not in page_map:
+                page_map[pn] = []
+            page_map[pn].append(c["content"])
+
+        pages = [
+            {"page_number": pn, "content": "\n".join(texts)}
+            for pn, texts in sorted(page_map.items())
+        ]
 
         # 2. Detect language
         sample = " ".join(p["content"][:200] for p in pages[:3])
@@ -237,8 +224,6 @@ def run_generate_summaries(self, source_uuid: str):
         _api_key, _base_url, _model, _provider = _resolve_llm_provider()
         client = OpenAI(api_key=_api_key, base_url=_base_url, max_retries=0, timeout=90)
         model = _model
-        # Always use single-page summaries (batch mode causes LLMs to mix up page content)
-        is_small = True
         extra_body = {}
         langfuse_context.update_current_observation(
             metadata={"provider": _provider, "base_url": _base_url, "model": model},
@@ -259,11 +244,8 @@ def run_generate_summaries(self, source_uuid: str):
             len(remaining_pages), len(pages), source_uuid,
         )
 
-        # 5. Generate summaries — save each batch/page immediately to DB
-        #    Small models (ollama): parallel single-page requests
-        #    Large models (cloud):  parallel batches of KIA_SUMMARY_BATCH_SIZE pages
+        # 5. Generate summaries in batches, save each batch immediately to DB
         def _save_page_summaries(page_batch: list[dict], summary_batch: list[str]):
-            """Save a batch of summaries to DB immediately."""
             db.bulk_create_paragraph_summaries(
                 source_id=source["id"],
                 summaries=[
@@ -279,54 +261,44 @@ def run_generate_summaries(self, source_uuid: str):
                 ],
             )
 
+        batches = [remaining_pages[i:i + KIA_SUMMARY_BATCH_SIZE] for i in range(0, len(remaining_pages), KIA_SUMMARY_BATCH_SIZE)]
         failed_batches = 0
+        rate_limited = False
 
-        if is_small:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=KIA_SUMMARY_PARALLEL_WORKERS_SMALL) as executor:
-                futures = {
-                    executor.submit(_summarize_page, client, model, p, True, extra_body, lang): i
-                    for i, p in enumerate(remaining_pages)
-                }
-                for future in concurrent.futures.as_completed(futures):
-                    idx = futures[future]
-                    try:
-                        summary = future.result()
-                        _save_page_summaries([remaining_pages[idx]], [summary])
-                        logger.info(
-                            "KI Tutor: summarized page {}/{} for source {}",
-                            idx + 1, len(remaining_pages), source_uuid,
-                        )
-                    except Exception as exc:
-                        failed_batches += 1
-                        logger.warning("KI Tutor: page {} failed for {}: {}", idx + 1, source_uuid, exc)
-        else:
-            batches = [remaining_pages[i:i + KIA_SUMMARY_BATCH_SIZE] for i in range(0, len(remaining_pages), KIA_SUMMARY_BATCH_SIZE)]
-            with concurrent.futures.ThreadPoolExecutor(max_workers=KIA_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
-                futures = {
-                    executor.submit(_summarize_batch, client, model, batch, lang): i
-                    for i, batch in enumerate(batches)
-                }
-                for future in concurrent.futures.as_completed(futures):
-                    bidx = futures[future]
-                    batch = batches[bidx]
-                    try:
-                        summaries = future.result()
-                        _save_page_summaries(batch, summaries)
-                        start = batch[0]["page_number"]
-                        end = batch[-1]["page_number"]
-                        logger.info(
-                            "KI Tutor: summarized pages {}-{} for source {} (saved)",
-                            start, end, source_uuid,
-                        )
-                    except Exception as exc:
-                        failed_batches += 1
-                        logger.warning("KI Tutor: batch {} failed for {}: {}", bidx + 1, source_uuid, exc)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=KIA_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
+            futures = {
+                executor.submit(_summarize_batch, client, model, batch, lang): i
+                for i, batch in enumerate(batches)
+            }
+            for future in concurrent.futures.as_completed(futures):
+                bidx = futures[future]
+                batch = batches[bidx]
+                try:
+                    summaries = future.result()
+                    _save_page_summaries(batch, summaries)
+                    start = batch[0]["page_number"]
+                    end = batch[-1]["page_number"]
+                    logger.info(
+                        "KI Tutor: summarized pages {}-{} for source {} (saved)",
+                        start, end, source_uuid,
+                    )
+                except Exception as exc:
+                    if "429" in str(exc):
+                        rate_limited = True
+                        logger.warning("KI Tutor: rate limited for {} - aborting remaining batches", source_uuid)
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
+                    failed_batches += 1
+                    logger.warning("KI Tutor: batch {} failed for {}: {}", bidx + 1, source_uuid, exc)
 
         # 6. Set status based on results
-        if failed_batches > 0:
+        if rate_limited:
+            db.update_kia_source_summaries_status(source_uuid, "rate_limited")
+            logger.warning("KI Tutor: rate limited for {} - saved partial results, user can retry", source_uuid)
+        elif failed_batches > 0:
             db.update_kia_source_summaries_status(source_uuid, "failed")
             logger.warning(
-                "KI Tutor: {} batch(es) failed for {} — saved partial results, retry will resume",
+                "KI Tutor: {} batch(es) failed for {} - saved partial results, retry will resume",
                 failed_batches, source_uuid,
             )
         else:

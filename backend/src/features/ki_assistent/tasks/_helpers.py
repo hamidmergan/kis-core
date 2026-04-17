@@ -82,9 +82,9 @@ def _clean_summary(text: str) -> str:
     return text
 
 def _call_llm_with_retry(client, model, messages, temperature, max_tokens, timeout, extra_body):
-    """Make an LLM call with retry on rate limits / timeouts."""
+    """Make an LLM call with one retry on timeout, immediate abort on rate limit."""
     import time as _time
-    for attempt in range(KIA_SUMMARY_MAX_RETRIES):
+    for attempt in range(2):
         try:
             return client.chat.completions.create(
                 model=model,
@@ -96,13 +96,11 @@ def _call_llm_with_retry(client, model, messages, temperature, max_tokens, timeo
             )
         except Exception as e:
             err_str = str(e)
-            if ("429" in err_str or "timeout" in err_str.lower()) and attempt < KIA_SUMMARY_MAX_RETRIES - 1:
-                wait = 30 * (attempt + 1)
-                logger.warning(
-                    "KI Tutor summaries: rate limit/timeout, retry in {}s ({}/{})",
-                    wait, attempt + 1, KIA_SUMMARY_MAX_RETRIES,
-                )
-                _time.sleep(wait)
+            if "429" in err_str:
+                raise
+            if "timeout" in err_str.lower() and attempt == 0:
+                logger.warning("KI Tutor summaries: timeout, retrying once in 5s")
+                _time.sleep(5)
             else:
                 raise
 
@@ -127,14 +125,13 @@ def _summarize_page(client, model, p, is_small, extra_body, lang):
     return summary
 
 def _summarize_batch(client, model, pages_batch, lang):
-    """Summarize a batch of pages in one request. Returns list[str] (one per page)."""
-    n = len(pages_batch)
+    """Summarize a batch of pages in one request. Returns list[str] (one per page, ordered)."""
     sys_msg = _SUMMARY_SYSTEM.format(lang=lang)
     pages_text = "\n\n".join(
-        f"---PAGE {i + 1}---\n{p['content'][:KIA_SUMMARY_CONTENT_MAX_CHARS]}"
-        for i, p in enumerate(pages_batch)
+        f"---PAGE {p['page_number']}---\n{p['content'][:KIA_SUMMARY_CONTENT_MAX_CHARS]}"
+        for p in pages_batch
     )
-    user_msg = _SUMMARY_BATCH_USER.format(n=n, lang=lang, pages=pages_text)
+    user_msg = _SUMMARY_BATCH_USER.format(n=len(pages_batch), lang=lang, pages=pages_text)
 
     resp = _call_llm_with_retry(
         client, model,
@@ -144,13 +141,46 @@ def _summarize_batch(client, model, pages_batch, lang):
     )
     _msg = resp.choices[0].message
     content = _msg.content or getattr(_msg, "reasoning_content", None) or ""
-    # Strip <think> blocks (some models ignore think=False)
     content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-    # Unclosed <think> — keep only what's before it
     if "<think>" in content:
         content = content[:content.index("<think>")].strip()
-    summaries = _parse_numbered_summaries(content, n)
-    return summaries
+
+    # Parse JSON response: {"5": "summary", "6": "summary"}
+    parsed = None
+    # Try direct JSON parse
+    try:
+        parsed = json.loads(content)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    # Try fixing single quotes -> double quotes
+    if parsed is None:
+        try:
+            parsed = json.loads(content.replace("'", '"'))
+        except (json.JSONDecodeError, ValueError):
+            pass
+    # Try extracting JSON block from response
+    if parsed is None:
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        if match:
+            try:
+                parsed = json.loads(match.group())
+            except (json.JSONDecodeError, ValueError):
+                try:
+                    parsed = json.loads(match.group().replace("'", '"'))
+                except (json.JSONDecodeError, ValueError):
+                    pass
+    # Fallback to numbered list parsing
+    if parsed is None:
+        logger.warning("KI Tutor: batch summary returned invalid JSON, falling back to numbered parse")
+        return _parse_numbered_summaries(content, len(pages_batch))
+
+    # Map back to ordered list by page_number
+    result = []
+    for p in pages_batch:
+        key = str(p["page_number"])
+        summary = parsed.get(key, "")
+        result.append(_clean_summary(summary) if summary else "")
+    return result
 
 def _get_llm_client():
     """Return (client, model, provider) using the configured LLM provider."""

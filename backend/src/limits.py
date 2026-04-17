@@ -67,15 +67,15 @@ SCREENCAST_AUTO_TIME_LIMIT      = 7320   # 2h 2min
 # ─── KI-Tutor Seitenzusammenfassungen ─────────────────────────────────────────
 KIA_SUMMARY_MAX_RETRIES             = 3
 KIA_SUMMARY_TIMEOUT_SMALL           = 120    # ollama, Sekunden pro Request
-KIA_SUMMARY_TIMEOUT_LARGE           = 90     # cloud/kisski, Sekunden pro Request
+KIA_SUMMARY_TIMEOUT_LARGE           = 180    # cloud/kisski, Sekunden pro Request (100 Seiten brauchen laenger)
 KIA_SUMMARY_MAX_TOKENS_SMALL        = 2048   # ollama, Einzel-Seite (inkl. Think-Overhead)
 KIA_SUMMARY_MAX_TOKENS_LARGE        = 2048   # cloud, Einzel-Seite
-KIA_SUMMARY_MAX_TOKENS_BATCH        = 8192   # cloud, Batch: Think-Block (~3k) + N × 400 Zeichen
-KIA_SUMMARY_CONTENT_MAX_CHARS       = 3000   # max. Zeichen pro Seite an LLM
+KIA_SUMMARY_MAX_TOKENS_BATCH        = 16384  # cloud, Batch: bis 100 Seiten x ~400 Zeichen + JSON-Overhead
+KIA_SUMMARY_CONTENT_MAX_CHARS       = 2000   # max. Zeichen pro Seite an LLM (200x2000 + 200x400 Output = 480k < 512k)
 KIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 5      # ollama: parallele Einzel-Requests
-KIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 3      # cloud: parallele Batch-Requests
-KIA_SUMMARY_BATCH_SIZE              = 10      # Seiten pro Batch-Request (große Modelle)
-KIA_SOURCE_MAX_PAGES                = 300     # max. Seiten pro PDF/DOCX/PPTX-Upload
+KIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 1      # cloud: sequentiell, zuverlaessiger
+KIA_SUMMARY_BATCH_SIZE              = 25     # Seiten pro Batch-Request (500 Seiten = 20 Requests)
+KIA_SOURCE_MAX_PAGES                = 500     # max. Seiten pro PDF/DOCX/PPTX-Upload
 KIA_MODULE_MAX_SOURCES              = 30      # max. Quellen pro Workspace
 KIA_MODULE_MAX_ACCESS_LINKS         = 10      # max. Einschreibelinks pro Modul
 KIA_NOTES_MAX_PER_USER              = 100     # max. Notizen pro User pro Workspace

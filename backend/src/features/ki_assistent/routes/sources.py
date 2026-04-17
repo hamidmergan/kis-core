@@ -329,8 +329,7 @@ async def trigger_paragraph_summaries(
     if status == "generating":
         return {"status": "generating"}
 
-    # Delete old summaries so regeneration starts fresh
-    db.delete_paragraph_summaries_by_source(source["id"])
+    # Keep existing summaries — task resumes where it left off
     db.update_kia_source_summaries_status(source_uuid, "generating")
 
     from src.tasks.kia_tasks import run_generate_summaries

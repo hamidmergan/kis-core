@@ -243,22 +243,10 @@ export function ChatPanel({
 
           {messages.map((msg, i) => {
             const msgSourcePages = msg.source_pages ?? [];
-
-            // Parse [QN, S. X] and legacy [S. X] tags → inline pill buttons
             const msgQmap = msg.source_qmap ?? [];
-            // Track which source_pages entry was used per page to cycle through chunks
-            const spUsedCount = new Map<string, number>();
-            // Deduplicate chips per message: same PDF page+highlight or same media timestamp
-            // should only render once. Reason: users shouldn't see identical chips repeated.
-            const seenChipKeys = new Set<string>();
+            let chipKeyCounter = 0;
             function parseCitations(text: string): React.ReactNode[] {
-              // Split multi-page citations: [Q1, S. 9, S. 15] → [Q1, S. 9] [Q1, S. 15]
-              text = text.replace(/\[(Q\d+),\s*((?:S\.\s*\d+(?:\s*\|[^,\]]+)?,?\s*)+)\]/g, (_m, q, body) => {
-                const parts = body.match(/S\.\s*\d+(?:\s*\|[^,\]]*)*/g) || [];
-                return parts.map((p: string) => `[${q}, ${p.trim()}]`).join(" ");
-              });
-              // Matches [Q1, S. 2 | keywords], [S. 2], [Q1, 05:32] (keywords optional)
-              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*\|\s*([^\]]+))?\s*\]/g;
+              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|\u2758]\s*([^\]]+))?\s*\]/g;
               const nodes: React.ReactNode[] = [];
               let last = 0;
               let m: RegExpExecArray | null;
@@ -267,75 +255,32 @@ export function ChatPanel({
                 const qNum = m[1] ? parseInt(m[1]) : null;
                 const pageNum = m[2] ? parseInt(m[2]) : 0;
                 const timestamp = m[3] || null;
-                const keywords = m[4]?.trim().replace(/^["„"']+|["„"']+$/g, "").trim() || null;
-
-                // Resolve source via qmap (preferred) or fallback to source_pages
+                const keywords = m[4]?.trim().replace(/^["']+|["']+$/g, "").trim() || null;
                 const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
-                const isMedia = qEntry?.is_media || !!timestamp;
-                const sourceUuid = qEntry?.uuid ?? msgSourcePages.find(s => s.page_number === pageNum)?.source_uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
+                const sourceUuid = qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
                 const filename = qEntry?.filename ?? getFilename(sourceUuid);
-                const pageKey = `${sourceUuid}:${pageNum}`;
-                const usedIdx = spUsedCount.get(pageKey) ?? 0;
-                const matchingEntries = msgSourcePages.filter(s => s.source_uuid === sourceUuid && (timestamp ? s.start_time !== undefined : s.page_number === pageNum));
-                const sp = matchingEntries[usedIdx % Math.max(1, matchingEntries.length)];
-                spUsedCount.set(pageKey, usedIdx + 1);
-
-                // If the chip refers to a source_pages entry that holds the user's full popup
-                // selection (backend sets is_popup_selection), use the complete text as highlight.
-                // Falls back to in-memory popup_selection (same session) or LLM keywords / chunk snippet.
-                const popupEntry = msgSourcePages.find(
-                  s => s.is_popup_selection && s.source_uuid === sourceUuid && s.page_number === pageNum,
-                );
-                const popupSel = msg.popup_selection;
-                const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
-                // Keywords beat chunk text: they are LLM-validated for the cited page,
-                // while sp.source_text may belong to a different page when chunk metadata
-                // and cited page disagree (→ misleading partial matches).
-                const highlightText = popupEntry?.source_text
-                  ? popupEntry.source_text
-                  : matchesPopupSel
-                    ? popupSel!.text
-                    : (keywords || sp?.source_text?.trim() || undefined);
-
-                const ChipIcon = _getChipIcon(filename);
-                if (isMedia && timestamp) {
-                  // Parse timestamp to seconds
-                  const parts = timestamp.split(":").map(Number);
-                  const seconds = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
-                  const dedupKey = `m:${sourceUuid}:${seconds}`;
-                  if (seenChipKeys.has(dedupKey)) { last = pattern.lastIndex; continue; }
-                  seenChipKeys.add(dedupKey);
-                  nodes.push(
-                    <button
-                      key={m.index}
-                      type="button"
-                      onClick={() => handleChipClick(sourceUuid, 0, filename, undefined, seconds)}
-                      className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-                      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-                      title={`${filename}, ${timestamp}`}
-                    >
-                      <ChipIcon size={8} weight="bold" />
-                      {timestamp}
-                    </button>
-                  );
-                } else {
-                  const dedupKey = `p:${sourceUuid}:${pageNum}:${highlightText ?? ''}`;
-                  if (seenChipKeys.has(dedupKey)) { last = pattern.lastIndex; continue; }
-                  seenChipKeys.add(dedupKey);
-                  nodes.push(
-                    <button
-                      key={m.index}
-                      type="button"
-                      onClick={() => handleChipClick(sourceUuid, pageNum, filename, highlightText)}
-                      className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5"
-                      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-                      title={`${filename}, ${_chunkLabel(filename, pageNum)}`}
-                    >
-                      <ChipIcon size={8} weight="bold" />
-                      {_chunkLabel(filename, pageNum)}
-                    </button>
-                  );
+                const label = timestamp || _chunkLabel(filename, pageNum);
+                const ck = `c${chipKeyCounter++}`;
+                let seconds = 0;
+                if (timestamp) {
+                  const tp = timestamp.split(":").map(Number);
+                  seconds = tp.length === 3 ? tp[0] * 3600 + tp[1] * 60 + tp[2] : tp[0] * 60 + tp[1];
                 }
+                const clickUuid = sourceUuid;
+                const clickPage = pageNum;
+                const clickFile = filename;
+                const clickHighlight = keywords || undefined;
+                const clickSeconds = timestamp ? seconds : undefined;
+                const ChipIcon = _getChipIcon(filename);
+                nodes.push(
+                  <span key={ck} role="button" tabIndex={0}
+                    onClick={() => handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds)}
+                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5 cursor-pointer"
+                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
+                    title={`${filename}, ${label}`}
+                  ><ChipIcon size={8} weight="bold" />{label}</span>
+                );
                 last = pattern.lastIndex;
               }
               if (last < text.length) nodes.push(text.slice(last));
@@ -343,8 +288,9 @@ export function ChatPanel({
             }
 
             function withCitations(children: React.ReactNode): React.ReactNode {
-              return React.Children.map(children, (child) =>
-                typeof child === "string" ? parseCitations(child) : child
+              const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
+              return arr.flatMap((child) =>
+                typeof child === "string" ? parseCitations(child) : [child]
               );
             }
 
@@ -404,7 +350,7 @@ export function ChatPanel({
                         td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{withCitations(children)}</td>,
                       }}
                     >
-                      {msg.content}
+                      {msg.content.replace(/\[([^\]]*\|[^\]]*)\]/g, (m) => m.replace(/\|/g, "\u2758"))}
                     </ReactMarkdown>
                   ) : (
                     <>

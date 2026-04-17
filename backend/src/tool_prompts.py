@@ -173,13 +173,11 @@ KIA_SUMMARY_PAGE_USER_SMALL = (
 KIA_SUMMARY_PAGE_USER_LARGE = "Summarize this page in {lang}:\n\n{content}"
 
 KIA_SUMMARY_PAGE_BATCH_USER = (
-    "Summarize each of the {n} pages below in {lang}.\n"
-    "Return ONLY a numbered list — one entry per page, max 400 characters each.\n"
-    "Format exactly:\n"
-    "1. <summary>\n"
-    "2. <summary>\n"
-    "...\n\n"
-    "{pages}"
+    "Summarize each page separately in {lang}. Max 400 characters per summary.\n"
+    "Return ONLY a JSON object mapping each page number to its summary.\n"
+    "Example for 2 pages:\n"
+    '{{"5": "Summary of page 5", "6": "Summary of page 6"}}\n\n'
+    "Pages:\n{pages}"
 )
 
 
