@@ -7,7 +7,8 @@ export const _AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".flac", ".m4a"]);
 
 export function _embedQmapIntoCitations(content: string, qmap: { qnum: number; uuid: string }[]): string {
   if (!qmap.length) return content;
-  return content.replace(/\[Q(\d+)(,)/g, (match, n, comma) => {
+  // Matches both old [Q1, ...] and new [1, ...] citation formats
+  return content.replace(/\[Q?(\d+)(,)/g, (match, n, comma) => {
     const entry = qmap.find((q) => q.qnum === parseInt(n, 10));
     return entry ? `[Q${n}:${entry.uuid}${comma}` : match;
   });

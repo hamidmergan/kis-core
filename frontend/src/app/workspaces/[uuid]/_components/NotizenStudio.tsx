@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { NotePencil, Plus, Trash } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, NotePencil, Plus, Trash } from "@phosphor-icons/react";
 import type { Source, StudentStats } from "../_types";
 import { _chunkLabel, _getChipIcon, _isMediaFile, _sourceChipKey } from "../_utils";
 import { SubviewHeader } from "./SubviewHeader";
@@ -19,6 +19,25 @@ export function NotizenStudio({
 }) {
   const [draft, setDraft] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [sourcesExpanded, setSourcesExpanded] = useState<Set<number>>(new Set());
+
+  // Extract unique sources from note content (for chip numbering + accordion)
+  function extractNoteSources(content: string): { qnum: number; uuid: string; filename: string }[] {
+    const pattern = /\[(?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*[|\u2758]\s*[^\]]+)?\s*\]/g;
+    const seen = new Map<string, { qnum: number; uuid: string; filename: string }>();
+    let qCounter = 0;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(content)) !== null) {
+      const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
+      const embeddedUuid = m[2] || null;
+      const uuid = embeddedUuid ?? activeSourceIds?.[qIdx] ?? activeSourceIds?.[0] ?? "";
+      if (!uuid || seen.has(uuid)) continue;
+      const filename = sources?.find(s => s.uuid === uuid)?.filename ?? uuid;
+      qCounter++;
+      seen.set(uuid, { qnum: qCounter, uuid, filename });
+    }
+    return Array.from(seen.values());
+  }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -28,7 +47,7 @@ export function NotizenStudio({
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [draft]);
 
-  function makeNoteCitationRenderer() {
+  function makeNoteCitationRenderer(noteSources: { qnum: number; uuid: string }[]) {
     let chipKey = 0;
     function parseNoteCitations(text: string): React.ReactNode[] {
       // Matches [1, S. 2 | kw], [Q1:uuid, S. 2 | kw], [S. 2], [1, 05:32 | kw]
@@ -53,6 +72,7 @@ export function NotizenStudio({
           ?? activeSourceIds?.[0]
           ?? "";
         const filename = sources?.find(s => s.uuid === sourceUuid)?.filename ?? sourceUuid;
+        const displayQNum = noteSources.find(s => s.uuid === sourceUuid)?.qnum ?? null;
 
         let startTime: number | undefined;
         if (timestamp) {
@@ -75,7 +95,7 @@ export function NotizenStudio({
             title={`${filename}, ${label}`}
           >
             <ChipIcon size={8} weight="bold" />
-            {label}
+            {displayQNum ? `[${displayQNum}] ` : ""}{label}
           </span>
         );
         last = pattern.lastIndex;
@@ -142,7 +162,9 @@ export function NotizenStudio({
           <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
             {notes.map((note) => {
               const isExpanded = expandedId === note.id;
-              const { withNoteCitations } = makeNoteCitationRenderer();
+              const noteSources = extractNoteSources(note.content);
+              const { withNoteCitations } = makeNoteCitationRenderer(noteSources);
+              const sourcesOpen = sourcesExpanded.has(note.id);
               return (
                 <div
                   key={note.id}
@@ -179,6 +201,46 @@ export function NotizenStudio({
                       {note.content.replace(/\[([^\]]*\|[^\]]*)\]/g, (m) => m.replace(/\|/g, "\u2758"))}
                     </ReactMarkdown>
                   </div>
+                  {noteSources.length > 0 && (
+                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => setSourcesExpanded((prev) => {
+                          const next = new Set(prev);
+                          next.has(note.id) ? next.delete(note.id) : next.add(note.id);
+                          return next;
+                        })}
+                        className="flex items-center gap-1 text-[10px] hover:opacity-80 transition-opacity"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        {sourcesOpen ? <CaretUp size={10} /> : <CaretDown size={10} />}
+                        {noteSources.length} {noteSources.length === 1 ? "Quelle" : "Quellen"}
+                      </button>
+                      {sourcesOpen && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 ml-3.5">
+                          {noteSources.map((s) => {
+                            const ChipIcon = _getChipIcon(s.filename);
+                            return (
+                              <span
+                                key={s.qnum}
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => { e.stopPropagation(); onPillClick?.(s.uuid, 0, s.filename); }}
+                                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
+                                className="inline-flex items-center gap-1 text-[10px] cursor-pointer hover:opacity-70 transition-opacity"
+                                style={{ color: "var(--muted)" }}
+                                title={s.filename}
+                              >
+                                <ChipIcon size={10} weight="bold" />
+                                <span style={{ color: "var(--kb)" }}>[{s.qnum}]</span>
+                                <span className="max-w-[160px] truncate">{s.filename}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mt-auto pt-1">
                     <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
                       {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}

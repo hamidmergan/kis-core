@@ -38,6 +38,12 @@ registerIcons({
     fill: "primary",
     stroke: "none",
   },
+  "ph-circle-half": {
+    viewBox: "0 0 256 256",
+    path: "M128,24A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a88.11,88.11,0,0,1-88,88V40A88.11,88.11,0,0,1,216,128Z",
+    fill: "primary",
+    stroke: "none",
+  },
 });
 
 // Map Phosphor icon names → EmbedPDF icon names (built-in or custom registered)
@@ -73,6 +79,9 @@ export function PdfViewer({
   const [registryReady, setRegistryReady] = useState(false);
   const viewerRef = useRef<PDFViewerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const themeModeRef = useRef<"light" | "dark">(
+    (typeof window !== "undefined" && window.localStorage?.getItem("kis.pdf-theme") === "dark") ? "dark" : "light",
+  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const registryRef = useRef<any>(null);
   const sourcePageRef = useRef(source.page);
@@ -731,6 +740,21 @@ export function PdfViewer({
       },
     });
 
+    // Register theme toggle command (switches between light/dark mode)
+    commands.registerCommand({
+      id: "kis.toggle-theme",
+      label: "Hell/Dunkel umschalten",
+      description: "Hell/Dunkel umschalten",
+      icon: "ph-circle-half",
+      iconProps: { title: "Hell/Dunkel umschalten" },
+      action: () => {
+        const next = themeModeRef.current === "light" ? "dark" : "light";
+        themeModeRef.current = next;
+        viewerRef.current?.container?.setTheme(next);
+        try { window.localStorage.setItem("kis.pdf-theme", next); } catch { /* ignore */ }
+      },
+    });
+
     // Register summary toggle command (opens EmbedPDF sidebar like comments)
     commands.registerCommand({
       id: "kis.toggle-summaries",
@@ -757,7 +781,7 @@ export function PdfViewer({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newToolbarItems = mainToolbar?.items?.map((item: any) =>
       item.id === "right-group"
-        ? { ...item, items: [...(item.items ?? []), { type: "command-button", id: "summaries-button", commandId: "kis.toggle-summaries", variant: "icon", categories: ["panel", "panel-summaries"] }] }
+        ? { ...item, items: [...(item.items ?? []), { type: "command-button", id: "theme-toggle-button", commandId: "kis.toggle-theme", variant: "icon" }, { type: "command-button", id: "summaries-button", commandId: "kis.toggle-summaries", variant: "icon", categories: ["panel", "panel-summaries"] }] }
         : item,
     );
     ui.mergeSchema?.({
@@ -827,6 +851,7 @@ export function PdfViewer({
             search: { showAllResults: false },
             annotations: { locked: { type: "all" } },
             theme: {
+              preference: themeModeRef.current,
               light: {
                 scrollbar: { track: "transparent", thumb: "#d8d8d8", thumbHover: "#bbb" },
               },

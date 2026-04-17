@@ -260,6 +260,8 @@ export function ChatPanel({
                 const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
                 const sourceUuid = qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
                 const filename = qEntry?.filename ?? getFilename(sourceUuid);
+                // Fallback: qnum aus qmap via sourceUuid (z.B. bei Popup-Aktionen ohne Q-Prefix)
+                const displayQNum = qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null;
                 const label = timestamp || _chunkLabel(filename, pageNum);
                 const ck = `c${chipKeyCounter++}`;
                 let seconds = 0;
@@ -288,7 +290,7 @@ export function ChatPanel({
                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5 cursor-pointer"
                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                     title={`${filename}, ${label}`}
-                  ><ChipIcon size={8} weight="bold" />{label}</span>
+                  ><ChipIcon size={8} weight="bold" />{displayQNum ? `[${displayQNum}] ` : ""}{label}</span>
                 );
                 last = pattern.lastIndex;
               }
@@ -321,8 +323,9 @@ export function ChatPanel({
                     </span>
                   </div>
                 )}
+                <div className="flex flex-col max-w-[96%] w-fit">
                 <div
-                  className="max-w-[96%] px-4 py-3 rounded-2xl text-sm leading-relaxed break-words"
+                  className="px-4 py-3 rounded-2xl text-sm leading-relaxed break-words"
                   style={
                     msg.role === "user"
                       ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
@@ -399,8 +402,8 @@ export function ChatPanel({
                   )}
                 </div>
                 {msg.role === "assistant" && msgQmap.length > 0 ? (
-                  <div className="mt-1">
-                    <div className="flex items-center justify-between">
+                  <div className="mt-1 self-stretch">
+                    <div className="flex items-center justify-between w-full">
                       <button
                         type="button"
                         onClick={() => setExpandedMsgs((prev) => {
@@ -488,7 +491,7 @@ export function ChatPanel({
                     )}
                   </div>
                 ) : (
-                  <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                  <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : "self-end"}`}>
                     <button
                       type="button"
                       onClick={async () => {
@@ -536,6 +539,7 @@ export function ChatPanel({
                     )}
                   </div>
                 )}
+                </div>
               </div>
             );
           })}
