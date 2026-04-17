@@ -93,39 +93,32 @@ async def chat(
         source_ids = resolved if resolved else None
 
     # Erkennung: generische Zusammenfassungs-Anfrage vs. spezifische Frage
+    # Sprachunabhaengig: kurze Anfrage + Signal-Pattern = generisch
     import re as _re
     _q_lower = body.question.strip().lower()
-    # Generisch = Zusammenfassung/Überblick OHNE spezifisches Thema
-    # "fasse zusammen", "fasse die wichtigsten Punkte zusammen" → generisch
-    # "fasse social scoring zusammen" → spezifisch (enthält Fachbegriff)
+    _q_words = len(_q_lower.split())
     _GENERIC_SIGNALS = [
-        r"fass\w*\b.*\bzusammen",                 # "fasse ... zusammen" in jeder Variante
-        r"zusammenfassung",                        # "zusammenfassung", "eine zusammenfassung"
+        r"fass\w*\b.*\bzusammen",
+        r"zusammenfas+ung",
         r"überblick|übersicht",
         r"worum\s+geht\s+es",
         r"wovon\s+handelt",
         r"(kern|haupt)(aussagen|punkte|themen)",
         r"wichtigsten?\s+(punkte|aussagen|themen|inhalte)",
+        r"(jede|alle)\w*\s+(quelle|datei|dokument)",
+        # English
+        r"summar(y|ize|ise)",
+        r"overview",
+        r"what.*(about|cover)",
+        r"(main|key)\s+(points?|topics?|ideas?)",
+        r"(each|every|all)\s+(source|file|document)",
     ]
-    # Stoppwörter die NICHT als spezifisches Thema zählen
-    _FILLER = {"die", "den", "das", "der", "des", "dem", "ein", "eine", "einen", "einem",
-               "einer", "mir", "mal", "bitte", "alle", "alles", "wichtigsten", "wichtigste",
-               "punkte", "inhalte", "themen", "aussagen", "kurz", "knapp", "zusammen",
-               "gib", "erstell", "erstelle", "mach", "mache", "zeig", "zeige",
-               "kannst", "du", "könntest", "bitte", "doch", "noch", "jetzt",
-               "worum", "wovon", "geht", "handelt", "kern", "haupt",
-               "kernaussagen", "hauptaussagen", "hauptpunkte", "kernpunkte",
-               "hauptthemen", "kernthemen"}
     _has_signal = any(_re.search(p, _q_lower) for p in _GENERIC_SIGNALS)
-    # Prüfen ob spezifische Fachbegriffe enthalten sind (= nicht generisch)
-    _words = set(_re.findall(r"[a-zäöüß]{3,}", _q_lower))
-    _content_words = _words - _FILLER - {"fasse", "fasst", "fass", "zusammenfassung",
-                                          "überblick", "übersicht", "zusammen"}
     _is_generic = (
         not body.source_text
         and source_ids
         and _has_signal
-        and len(_content_words) == 0  # keine Fachbegriffe → generisch
+        and _q_words <= 15  # kurze Anfrage = wahrscheinlich generisch
     )
 
     if _is_generic:
@@ -222,6 +215,14 @@ async def chat(
                     diverse_chunks.append(chunk)
                 else:
                     remaining.append(chunk)
+            # Fallback: Quellen ohne Hybrid-Search-Treffer trotzdem einbeziehen
+            for sid in source_ids:
+                if sid not in seen_sources:
+                    fallback = db.get_kia_chunks_by_source(sid)
+                    if fallback:
+                        diverse_chunks.append(fallback[0])
+                        seen_sources.add(sid)
+                        logger.info("Source-Diversity fallback: source {} added with 1 chunk", sid)
             chunks = diverse_chunks + remaining
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
@@ -254,22 +255,26 @@ async def chat(
             if src:
                 transcript_by_source[sid] = _load_transcript_segments(src)
 
-    # Build context (max 200000 chars) — Quellennummer + Seitenzahl/Timestamp pro Chunk
+    # Build context (max 200000 chars) — XML-Tags pro Chunk (Anthropic Best Practice)
     context_parts: list[str] = []
     context_len = 0
     for chunk in chunks:
         qn = source_id_to_qnum.get(chunk["source_id"], 1)
+        src = all_sources_list.get(chunk["source_id"])
+        fname = src["filename"] if src else f"source-{qn}"
         if chunk.get("start_time") is not None:
             segments = transcript_by_source.get(chunk["source_id"], [])
             content = _enrich_media_content(chunk, segments) if segments else chunk["content"]
-            part = f"[Q{qn}, {_format_timestamp(chunk['start_time'])}]\n{content}"
+            loc = _format_timestamp(chunk["start_time"])
         else:
-            part = f"[Q{qn}, S. {chunk['page_number']}]\n{chunk['content']}"
+            content = chunk["content"]
+            loc = f"S. {chunk['page_number']}"
+        part = f'<document index="{qn}">\n<source>{fname} | {loc}</source>\n<content>\n{content}\n</content>\n</document>'
         if context_len + len(part) > 200000:
             break
         context_parts.append(part)
         context_len += len(part)
-    context = "\n\n---\n\n".join(context_parts)
+    context = f"<documents>\n{''.join(context_parts)}\n</documents>"
 
     # Popup-Aktionen: User hat Text selbst markiert
     if body.source_text:
@@ -284,7 +289,7 @@ async def chat(
             user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
     else:
         system_prompt = KIA_SYSTEM_RAG
-        user_message = f"Frage: {body.question}\n\nQuellen:\n{context}"
+        user_message = f"{context}\n\nQuestion: {body.question}"
 
     # Build multi-turn messages: system + history + current question
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
@@ -296,7 +301,7 @@ async def chat(
     # Strip citation tags [Q1, S. 3] from history so the LLM doesn't re-cite old pages
     if not body.source_text:
         history = db.get_kia_messages(module["id"], user_id, limit=10, enrollment_id=enrollment_id)
-        citation_re = re.compile(r"\s*\[(?:Q\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)\]")
+        citation_re = re.compile(r"\s*\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]")
         for msg in history:
             messages.append({"role": msg["role"], "content": citation_re.sub("", msg["content"])})
 

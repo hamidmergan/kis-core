@@ -246,7 +246,8 @@ export function ChatPanel({
             const msgQmap = msg.source_qmap ?? [];
             let chipKeyCounter = 0;
             function parseCitations(text: string): React.ReactNode[] {
-              const pattern = /\[(?:Q(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|\u2758]\s*([^\]]+))?\s*\]/g;
+              // Matches [1, S. 2 | kw], [Q1, S. 2 | kw], [S. 2], [1, 05:32 | kw] (Q prefix optional for backwards compat)
+              const pattern = /\[(?:Q?(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|\u2758]\s*([^\]]+))?\s*\]/g;
               const nodes: React.ReactNode[] = [];
               let last = 0;
               let m: RegExpExecArray | null;
@@ -389,58 +390,144 @@ export function ChatPanel({
                     </>
                   )}
                 </div>
-                <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                  {msg.sourceCount != null && msg.sourceCount > 0 && (
-                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-                      {msg.sourceCount} {msg.sourceCount === 1 ? "Quelle" : "Quellen"}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const text = msg.content.replace(/\[S\.\s*\d+\]/g, "").trim();
-                      try {
-                        if (navigator.clipboard?.writeText && window.isSecureContext) {
-                          await navigator.clipboard.writeText(text);
-                        } else {
-                          const ta = document.createElement("textarea");
-                          ta.value = text;
-                          ta.setAttribute("readonly", "");
-                          ta.style.position = "fixed";
-                          ta.style.opacity = "0";
-                          document.body.appendChild(ta);
-                          ta.select();
-                          document.execCommand("copy");
-                          document.body.removeChild(ta);
-                        }
-                        setCopiedIdx(i);
-                        setTimeout(() => setCopiedIdx(null), 1500);
-                      } catch (err) {
-                        console.error("Kopieren fehlgeschlagen", err);
-                      }
-                    }}
-                    className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
-                    style={{ color: "var(--muted)" }}
-                    title="Kopieren"
-                  >
-                    {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
-                  </button>
-                  {msg.role === "assistant" && onSaveNote && !loading && (
+                {msg.role === "assistant" && msgQmap.length > 0 ? (
+                  <div className="mt-1">
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMsgs((prev) => {
+                          const next = new Set(prev);
+                          const key = i + 10000;
+                          next.has(key) ? next.delete(key) : next.add(key);
+                          return next;
+                        })}
+                        className="flex items-center gap-1 text-[10px] hover:opacity-80 transition-opacity"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        {expandedMsgs.has(i + 10000) ? <CaretUp size={10} /> : <CaretDown size={10} />}
+                        {msgQmap.length} {msgQmap.length === 1 ? "Quelle" : "Quellen"}
+                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const text = msg.content.replace(/\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]/g, "").trim();
+                            try {
+                              if (navigator.clipboard?.writeText && window.isSecureContext) {
+                                await navigator.clipboard.writeText(text);
+                              } else {
+                                const ta = document.createElement("textarea");
+                                ta.value = text;
+                                ta.setAttribute("readonly", "");
+                                ta.style.position = "fixed";
+                                ta.style.opacity = "0";
+                                document.body.appendChild(ta);
+                                ta.select();
+                                document.execCommand("copy");
+                                document.body.removeChild(ta);
+                              }
+                              setCopiedIdx(i);
+                              setTimeout(() => setCopiedIdx(null), 1500);
+                            } catch (err) {
+                              console.error("Kopieren fehlgeschlagen", err);
+                            }
+                          }}
+                          className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                          style={{ color: "var(--muted)" }}
+                          title="Kopieren"
+                        >
+                          {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
+                        </button>
+                        {onSaveNote && !loading && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSaveNote(_embedQmapIntoCitations(msg.content, msg.source_qmap ?? []));
+                              setSavedNoteIdx(i);
+                              setTimeout(() => setSavedNoteIdx(null), 1500);
+                            }}
+                            className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                            style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
+                            title="Als Notiz speichern"
+                          >
+                            {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {expandedMsgs.has(i + 10000) && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 ml-3.5">
+                        {msgQmap.map((q) => {
+                          const ChipIcon = _getChipIcon(q.filename);
+                          return (
+                            <span
+                              key={q.qnum}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => handleChipClick(q.uuid, 0, q.filename)}
+                              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
+                              className="inline-flex items-center gap-1 text-[10px] cursor-pointer hover:opacity-70 transition-opacity"
+                              style={{ color: "var(--muted)" }}
+                              title={q.filename}
+                            >
+                              <ChipIcon size={10} weight="bold" />
+                              <span style={{ color: "var(--kb)" }}>[{q.qnum}]</span>
+                              <span className="max-w-[160px] truncate">{q.filename}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className={`flex items-center gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                     <button
                       type="button"
-                      onClick={() => {
-                        onSaveNote(_embedQmapIntoCitations(msg.content, msg.source_qmap ?? []));
-                        setSavedNoteIdx(i);
-                        setTimeout(() => setSavedNoteIdx(null), 1500);
+                      onClick={async () => {
+                        const text = msg.content.replace(/\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]/g, "").trim();
+                        try {
+                          if (navigator.clipboard?.writeText && window.isSecureContext) {
+                            await navigator.clipboard.writeText(text);
+                          } else {
+                            const ta = document.createElement("textarea");
+                            ta.value = text;
+                            ta.setAttribute("readonly", "");
+                            ta.style.position = "fixed";
+                            ta.style.opacity = "0";
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand("copy");
+                            document.body.removeChild(ta);
+                          }
+                          setCopiedIdx(i);
+                          setTimeout(() => setCopiedIdx(null), 1500);
+                        } catch (err) {
+                          console.error("Kopieren fehlgeschlagen", err);
+                        }
                       }}
                       className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
-                      style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
-                      title="Als Notiz speichern"
+                      style={{ color: "var(--muted)" }}
+                      title="Kopieren"
                     >
-                      {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                      {copiedIdx === i ? <Check size={13} weight="bold" /> : <Copy size={13} />}
                     </button>
-                  )}
-                </div>
+                    {msg.role === "assistant" && onSaveNote && !loading && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSaveNote(_embedQmapIntoCitations(msg.content, msg.source_qmap ?? []));
+                          setSavedNoteIdx(i);
+                          setTimeout(() => setSavedNoteIdx(null), 1500);
+                        }}
+                        className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                        style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
+                        title="Als Notiz speichern"
+                      >
+                        {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
