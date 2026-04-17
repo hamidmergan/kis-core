@@ -270,7 +270,15 @@ export function ChatPanel({
                 const clickUuid = sourceUuid;
                 const clickPage = pageNum;
                 const clickFile = filename;
-                const clickHighlight = keywords || undefined;
+                // Popup-Aktionen: markierter Text als Highlight nutzen
+                const popupEntry = msgSourcePages.find(s => s.is_popup_selection && s.source_uuid === sourceUuid && s.page_number === pageNum);
+                const popupSel = msg.popup_selection;
+                const matchesPopupSel = popupSel && popupSel.uuid === sourceUuid && popupSel.page === pageNum;
+                const clickHighlight = popupEntry?.source_text
+                  ? popupEntry.source_text
+                  : matchesPopupSel
+                    ? popupSel!.text
+                    : (keywords || undefined);
                 const clickSeconds = timestamp ? seconds : undefined;
                 const ChipIcon = _getChipIcon(filename);
                 nodes.push(
