@@ -22,8 +22,6 @@ export function ChatPanel({
   activeSourceIds,
   sources,
   loading,
-  input,
-  onInputChange,
   onSend,
   onPillClick,
   moduleReady,
@@ -32,14 +30,13 @@ export function ChatPanel({
   onSaveNote,
   onMinimize,
   onSendPrompt,
+  registerSetInput,
 }: {
   messages: ChatMessage[];
   activeSourceIds: string[];
   sources: Source[];
   loading: boolean;
-  input: string;
-  onInputChange: (v: string) => void;
-  onSend: () => void;
+  onSend: (value: string) => void;
   onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
   moduleReady: boolean;
   onClear: () => void;
@@ -47,6 +44,7 @@ export function ChatPanel({
   onSaveNote?: (content: string) => void;
   onMinimize?: () => void;
   onSendPrompt?: (text: string) => void;
+  registerSetInput?: (setter: ((v: string) => void) | null) => void;
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -81,18 +79,6 @@ export function ChatPanel({
     }
   }
   const chatMenuRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // Sync internal textarea ref → external ref so parent can focus it
-  const textareaCallbackRef = useCallback((el: HTMLTextAreaElement | null) => {
-    (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
-    if (externalTextareaRef) (externalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
-  }, [externalTextareaRef]);
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
-  }, [input]);
   useEffect(() => {
     if (!chatMenuOpen) return;
     function handle(e: MouseEvent) {
@@ -548,58 +534,13 @@ export function ChatPanel({
         </div>
       </div>
 
-      {/* Input area */}
-      <div
-        className="flex-shrink-0 px-6 pt-2 pb-0"
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
-          <div className="flex justify-end px-1 mb-1">
-            <span className="text-[10px] leading-none" style={{ color: "var(--muted)" }}>
-              {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
-            </span>
-          </div>
-          <div
-            className="flex items-center gap-2 rounded-2xl px-4 py-3"
-            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
-          >
-            <textarea
-              ref={textareaCallbackRef}
-              value={input}
-              onChange={(e) => onInputChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
-              }}
-              placeholder="Text eingeben…"
-              rows={1}
-              disabled={loading}
-              className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
-              style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
-            />
-            {input && (
-              <button
-                type="button"
-                onClick={() => { onInputChange(""); textareaRef.current?.focus(); }}
-                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                style={{ color: "var(--muted)" }}
-                title="Eingabe löschen"
-              >
-                <X size={14} weight="bold" />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onSend}
-              disabled={loading || !input.trim() || activeSourceIds.length === 0}
-              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
-              style={{ backgroundColor: "var(--kb)" }}
-              title="Senden"
-            >
-              <PaperPlaneRight size={16} weight="bold" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <ChatInputBar
+        loading={loading}
+        activeSourceIds={activeSourceIds}
+        onSend={onSend}
+        externalTextareaRef={externalTextareaRef}
+        registerSetInput={registerSetInput}
+      />
       <p className="hide-on-short w-full text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
         Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.
       </p>
@@ -609,6 +550,96 @@ export function ChatPanel({
           hamid.mergan@th-luebeck.de
         </a>
       </p>
+    </div>
+  );
+}
+
+function ChatInputBar({
+  loading,
+  activeSourceIds,
+  onSend,
+  externalTextareaRef,
+  registerSetInput,
+}: {
+  loading: boolean;
+  activeSourceIds: string[];
+  onSend: (value: string) => void;
+  externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  registerSetInput?: (setter: ((v: string) => void) | null) => void;
+}) {
+  const [input, setInput] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaCallbackRef = useCallback((el: HTMLTextAreaElement | null) => {
+    (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+    if (externalTextareaRef) (externalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+  }, [externalTextareaRef]);
+  useEffect(() => {
+    registerSetInput?.(setInput);
+    return () => registerSetInput?.(null);
+  }, [registerSetInput]);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+  }, [input]);
+  const submit = useCallback(() => {
+    const value = input;
+    if (!value.trim()) return;
+    onSend(value);
+    setInput("");
+  }, [input, onSend]);
+  return (
+    <div
+      className="flex-shrink-0 px-6 pt-2 pb-0"
+      style={{ borderTop: "1px solid var(--border)" }}
+    >
+      <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
+        <div className="flex justify-end px-1 mb-1">
+          <span className="text-[10px] leading-none" style={{ color: "var(--muted)" }}>
+            {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
+          </span>
+        </div>
+        <div
+          className="flex items-center gap-2 rounded-2xl px-4 py-3"
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+        >
+          <textarea
+            ref={textareaCallbackRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+            }}
+            placeholder="Text eingeben…"
+            rows={1}
+            disabled={loading}
+            className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
+            style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
+          />
+          {input && (
+            <button
+              type="button"
+              onClick={() => { setInput(""); textareaRef.current?.focus(); }}
+              className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+              style={{ color: "var(--muted)" }}
+              title="Eingabe löschen"
+            >
+              <X size={14} weight="bold" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={submit}
+            disabled={loading || !input.trim() || activeSourceIds.length === 0}
+            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
+            style={{ backgroundColor: "var(--kb)" }}
+            title="Senden"
+          >
+            <PaperPlaneRight size={16} weight="bold" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -29,8 +29,46 @@ from src.tool_prompts import (
     KIA_SYSTEM_DIRECT,
     KIA_SYSTEM_DIRECT_WITH_CONTEXT,
     KIA_SYSTEM_RAG,
+    KIA_QUERY_REWRITE,
     KIA_POPUP_ACTIONS,
 )
+
+_CITATION_RE = re.compile(
+    r"\s*\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]"
+)
+
+
+def _rewrite_query(kisski, history: list[dict], question: str) -> str:
+    """Condense follow-up question to standalone using conversation history.
+
+    Returns original question if rewrite fails, output is empty, or result is
+    suspiciously long (defensive against LLM over-elaboration).
+    """
+    hist_text = "\n".join(
+        f"{m['role']}: {_CITATION_RE.sub('', m['content'])}" for m in history
+    )
+    messages = [
+        {"role": "system", "content": KIA_QUERY_REWRITE},
+        {
+            "role": "user",
+            "content": f"History:\n{hist_text}\n\nLatest: {question}\nOutput:",
+        },
+    ]
+    try:
+        response = kisski._client.chat.completions.create(
+            model=kisski._model,
+            messages=messages,
+            temperature=0.0,
+            max_tokens=300,
+            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        )
+        rewritten = (response.choices[0].message.content or "").strip()
+    except Exception as e:
+        logger.warning("Query rewrite failed, using original: {}", e)
+        return question
+    if not rewritten or len(rewritten) > 1000:
+        return question
+    return rewritten
 
 from src.features.ki_assistent.routes._helpers import (
     _trace_kisski,
@@ -72,6 +110,9 @@ async def chat(
     is_enrolled = db.is_student_enrolled(module["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    # Resolve enrollment_id for per-link chat separation (needed for history fetch)
+    enrollment_id = body.enrollment_id if not is_owner else None
 
     # Sync module status: heal stale 'pending' if all sources are actually ready
     if module["status"] != "ready":
@@ -120,6 +161,10 @@ async def chat(
         and _has_signal
         and _q_words <= 15  # kurze Anfrage = wahrscheinlich generisch
     )
+
+    # Default: Frage wird 1:1 benutzt. Nur im Hybrid-Search-Pfad mit History
+    # wird sie ggf. umgeschrieben (Condense Question).
+    rewritten_question = body.question
 
     if _is_generic:
         # ── Generische Zusammenfassung: Summaries + zeitlich verteilte Media-Chunks ──
@@ -183,10 +228,27 @@ async def chat(
         logger.info("Generic summary: {} total context chunks across {} sources", len(chunks), len(source_ids))
     else:
         # ── Normaler Pfad: Hybrid Search ──
+        # Query rewriting (condense question): bei echter Folgefrage History zur
+        # standalone Frage zusammenfassen, damit der Answer-Call History-frei bleibt.
+        # Skip bei Popup (source_text) und Erstfrage (keine History).
+        if not body.source_text:
+            history_for_rewrite = db.get_kia_messages(
+                module["id"], user_id, limit=4, enrollment_id=enrollment_id
+            )
+            if history_for_rewrite:
+                rewritten_question = _rewrite_query(
+                    kisski, history_for_rewrite, body.question
+                )
+                if rewritten_question != body.question:
+                    logger.info(
+                        "Query rewritten: '{}' -> '{}'",
+                        body.question[:80], rewritten_question[:80],
+                    )
+
         from src.services.kia_embeddings import get_embedding_provider
         provider = get_embedding_provider()
 
-        embed_text = body.source_text if body.source_text else body.question
+        embed_text = body.source_text if body.source_text else rewritten_question
         query_vector = provider.embed_one(embed_text)
 
         # Bei Popup-Aktionen nur in der Quell-Datei suchen
@@ -289,23 +351,15 @@ async def chat(
             user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
     else:
         system_prompt = KIA_SYSTEM_RAG
-        user_message = f"{context}\n\nQuestion: {body.question}"
+        user_message = f"{context}\n\nQuestion: {rewritten_question}"
 
-    # Build multi-turn messages: system + history + current question
-    messages: list[dict] = [{"role": "system", "content": system_prompt}]
-
-    # Resolve enrollment_id for per-link chat separation
-    enrollment_id = body.enrollment_id if not is_owner else None
-
-    # Include recent chat history for follow-up questions (skip for popup actions)
-    # Strip citation tags [Q1, S. 3] from history so the LLM doesn't re-cite old pages
-    if not body.source_text:
-        history = db.get_kia_messages(module["id"], user_id, limit=10, enrollment_id=enrollment_id)
-        citation_re = re.compile(r"\s*\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]")
-        for msg in history:
-            messages.append({"role": msg["role"], "content": citation_re.sub("", msg["content"])})
-
-    messages.append({"role": "user", "content": user_message})
+    # Single-turn: System + user (keine History im Answer-Call, um Leaks aus
+    # vorherigen Turns zu verhindern). History-Kontext wurde ggf. im Query
+    # Rewriter verarbeitet und ist in rewritten_question geflossen.
+    messages: list[dict] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
 
     # Build source_pages before streaming so we can send them at the end
     source_pages: list[dict] = []

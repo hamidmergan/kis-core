@@ -5,13 +5,14 @@ import { FileIcon } from "./FileIcon";
 import { TranscriptPanel } from "./TranscriptPanel";
 
 export function MediaPlayer({
-  source, onClose, moduleUuid, onMinimize, canDownload = false,
+  source, onClose, moduleUuid, onMinimize, canDownload = false, onSaveNote,
 }: {
   source: ViewerState;
   onClose: () => void;
   moduleUuid: string;
   onMinimize?: () => void;
   canDownload?: boolean;
+  onSaveNote?: (content: string) => void;
 }) {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
@@ -116,6 +117,7 @@ export function MediaPlayer({
         mediaRef={mediaRef}
         moduleUuid={moduleUuid}
         sourceUuid={source.uuid}
+        onSaveNote={onSaveNote}
       />
     </div>
   );

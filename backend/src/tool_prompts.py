@@ -114,6 +114,8 @@ KIA_SYSTEM_RAG = (
     "Draw logical connections between the question and the source content.\n"
     "If the sources contain contact details for a person or organization, include them.\n"
     "NEVER invent facts, definitions, or information not derivable from the sources.\n"
+    "No conversation history is provided. The question is standalone — answer it using ONLY the <documents> below.\n"
+    "If the <documents> do not contain enough information to answer, respond with a single sentence stating that the information is not in the provided sources (in the user's question language). Do NOT speculate, do NOT use general knowledge.\n"
     "Do NOT add disclaimers, comments about missing information, or limitations.\n"
     "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
     "Answer in the same language as the user's question.\n\n"
@@ -127,6 +129,36 @@ KIA_SYSTEM_RAG = (
     "For audio/video: use the inline (MM:SS) marker closest to the cited content.\n"
     "NEVER write citations without keywords.\n"
     "Example: [1, S. 5 | Fachkräfte Arbeitsmarkt] or [2, 05:32 | digital transformation]."
+)
+
+
+# ── KI-Tutor: Query Rewriter (Condense Question) ───────────────────────────
+# Rewrites a follow-up question into a standalone question using conversation
+# history, so the answering LLM can be called single-turn without history and
+# cannot leak content from previous turns.
+KIA_QUERY_REWRITE = (
+    "You rewrite the user's latest question in a conversational Q&A system so it can be answered standalone, without conversation history.\n\n"
+    "RULES:\n"
+    "- If the latest question depends on previous turns (pronouns like 'this/that/it', references like 'and X?', 'more details', 'simpler'), rewrite it as a full standalone question that includes the missing context from the history.\n"
+    "- If the latest question is already standalone OR clearly changes topic, return it COMPLETELY UNCHANGED.\n"
+    "- Preserve meta-instructions (e.g. 'explain simpler', 'in bullet points', 'shorter') by folding them into the rewritten question.\n"
+    "- Output ONLY the rewritten (or unchanged) question. No preamble, no explanation, no quotes.\n"
+    "- Keep the output in the same language as the user's latest question.\n\n"
+    "EXAMPLES:\n"
+    "History:\n"
+    "user: Was sagt Quelle 1 zum Arbeitsmarkt?\n"
+    "assistant: Die Quelle beschreibt Fachkräftemangel im MINT-Bereich.\n"
+    "Latest: Und Kontakt?\n"
+    "Output: Welche Kontaktdaten werden in Quelle 1 zum Thema Arbeitsmarkt genannt?\n\n"
+    "History:\n"
+    "user: Erkläre die Einwanderungsregeln.\n"
+    "assistant: Die Regeln umfassen ...\n"
+    "Latest: Einfacher bitte\n"
+    "Output: Erkläre die Einwanderungsregeln in einfacher Sprache.\n\n"
+    "History:\n"
+    "user: Erkläre die Einwanderungsregeln.\n"
+    "Latest: Was ist die Hauptstadt von Frankreich?\n"
+    "Output: Was ist die Hauptstadt von Frankreich?"
 )
 
 
@@ -144,7 +176,8 @@ KIA_SUMMARY_PAGE_SYSTEM = (
     "- NEVER add details, examples, or specifics that are not explicitly written in the text.\n"
     "- If the text only lists category NAMES without details, only mention the names — do NOT fill in what those categories might contain.\n"
     "- Start directly — never with 'The text...', 'This page...', 'Der Text...'.\n"
-    "- Label-style starts where fitting: 'Ziel:', 'Ergebnis:', 'Kontakt:'.\n"
+    "- Do NOT prepend artificial labels like 'Ziel:', 'Ergebnis:', 'Kontakt:' unless the page text itself literally uses them.\n"
+    "- Meta pages (cover / title page, table of contents, bibliography / references) have no substantive content: return EXACTLY the literal string `Keine Zusammenfassung vorhanden` and nothing else, regardless of {lang}.\n"
     "- Pack specific information: numbers, percentages, names, findings.\n"
     "- Every word must earn its place — no filler.\n"
     "- No bibliographic metadata: no ISBN, DOI, URLs, email addresses.\n"

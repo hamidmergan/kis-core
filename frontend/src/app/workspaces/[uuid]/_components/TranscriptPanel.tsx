@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { NavigationArrow } from "@phosphor-icons/react";
+import { Check, NavigationArrow, NotePencil } from "@phosphor-icons/react";
 
 interface Cue {
   start: number;
@@ -56,10 +56,12 @@ export function TranscriptPanel({
   mediaRef,
   moduleUuid,
   sourceUuid,
+  onSaveNote,
 }: {
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   moduleUuid: string;
   sourceUuid: string;
+  onSaveNote?: (content: string) => void;
 }) {
   const [deCues, setDeCues] = useState<Cue[] | null>(null);
   const [enCues, setEnCues] = useState<Cue[] | null>(null);
@@ -67,6 +69,7 @@ export function TranscriptPanel({
   const [mode, setMode] = useState<ViewMode>("both");
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
   const [followCurrent, setFollowCurrent] = useState(true);
+  const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
@@ -167,6 +170,27 @@ export function TranscriptPanel({
     media.play().catch(() => { });
   };
 
+  const onSaveCue = (idx: number) => {
+    if (!onSaveNote) return;
+    const master = masterCues[idx];
+    if (!master) return;
+    const deText = deCues?.[idx]?.text;
+    const enText = enCues?.[idx]?.text;
+    const wantDe = (mode === "de" || mode === "both") && !!deText;
+    const wantEn = (mode === "en" || mode === "both") && !!enText;
+    const parts: string[] = [];
+    if (wantDe) parts.push(deText!);
+    if (wantEn) parts.push(enText!);
+    const body = parts.join("\n");
+    if (!body) return;
+    const primary = wantDe ? deText! : enText!;
+    const keyword = primary.slice(0, 40).replace(/\s+/g, " ").trim();
+    const citation = `[Q1:${sourceUuid}, ${fmtTs(master.start)} | ${keyword}]`;
+    onSaveNote(`${body} ${citation}`);
+    setSavedCueIdx(idx);
+    setTimeout(() => setSavedCueIdx((cur) => (cur === idx ? null : cur)), 1500);
+  };
+
   if (loading) {
     return (
       <div className="px-4 py-3 text-xs" style={{ color: "var(--muted)" }}>
@@ -236,43 +260,60 @@ export function TranscriptPanel({
             <div
               key={idx}
               ref={(el) => { itemRefs.current[idx] = el; }}
-              onClick={() => onCueClick(c)}
-              className="mb-2 px-3 py-2 rounded-md cursor-pointer transition-colors"
-              style={{
-                backgroundColor: isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-                borderLeft: isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
-                opacity: !isCurrent && isPast ? 0.55 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!isCurrent) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
-              }}
-              onMouseLeave={(e) => {
-                if (!isCurrent) e.currentTarget.style.backgroundColor = "transparent";
-              }}
+              className="group mb-2"
+              style={{ opacity: !isCurrent && isPast ? 0.55 : 1 }}
             >
               <div
-                className="text-[10px] font-mono mb-1"
-                style={{ color: "var(--muted)" }}
+                onClick={() => onCueClick(c)}
+                className="px-3 py-2 rounded-md cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: isCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
+                  borderLeft: isCurrent ? "3px solid var(--kb)" : "3px solid transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isCurrent) e.currentTarget.style.backgroundColor = "var(--surface-dim)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isCurrent) e.currentTarget.style.backgroundColor = "transparent";
+                }}
               >
-                {fmtTs(c.start)} – {fmtTs(c.end)}
-              </div>
-              {showDe && deText && (
                 <div
-                  className="text-sm leading-snug"
-                  style={{
-                    color: "var(--text)",
-                    fontWeight: isCurrent ? 600 : 400,
-                  }}
-                >
-                  {deText}
-                </div>
-              )}
-              {showEn && enText && (
-                <div
-                  className="text-sm italic leading-snug mt-0.5"
+                  className="text-[10px] font-mono mb-1"
                   style={{ color: "var(--muted)" }}
                 >
-                  {enText}
+                  {fmtTs(c.start)} – {fmtTs(c.end)}
+                </div>
+                {showDe && deText && (
+                  <div
+                    className="text-sm leading-snug"
+                    style={{
+                      color: "var(--text)",
+                      fontWeight: isCurrent ? 600 : 400,
+                    }}
+                  >
+                    {deText}
+                  </div>
+                )}
+                {showEn && enText && (
+                  <div
+                    className="text-sm italic leading-snug mt-0.5"
+                    style={{ color: "var(--muted)" }}
+                  >
+                    {enText}
+                  </div>
+                )}
+              </div>
+              {onSaveNote && (
+                <div className="flex justify-end pr-1 mt-0.5 h-5">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onSaveCue(idx); }}
+                    title="Als Notiz speichern"
+                    className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                    style={{ color: savedCueIdx === idx ? "#16a34a" : "var(--muted)" }}
+                  >
+                    {savedCueIdx === idx ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                  </button>
                 </div>
               )}
             </div>

@@ -310,9 +310,12 @@ export default function KiTutorModulePage() {
   const [viewerSource, setViewerSource] = useState<ViewerState | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatSetInputRef = useRef<((v: string) => void) | null>(null);
+  const registerChatSetInput = useCallback((setter: ((v: string) => void) | null) => {
+    chatSetInputRef.current = setter;
+  }, []);
 
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -689,7 +692,6 @@ export default function KiTutorModulePage() {
       ? { uuid: sourceInfo.uuid, page: sourceInfo.page, text: sourceInfo.selectedText }
       : undefined;
     setMessages((prev) => [...prev, { role: "user", content: content.trim(), sourceCount: msgSourceCount, popup_selection: popupSel }]);
-    setChatInput("");
     setChatLoading(true);
     // Add placeholder assistant message for streaming
     setMessages((prev) => [...prev, { role: "assistant", content: "", sourceCount: msgSourceCount, popup_selection: popupSel }]);
@@ -840,7 +842,7 @@ export default function KiTutorModulePage() {
   function handleAskChat(text: string, switchTab = false) {
     const chatWasOpen = isMobile ? activeTab === "chat" : panels.chat;
     const value = text + "\n\n";
-    setChatInput(value);
+    chatSetInputRef.current?.(value);
     if (isMobile || switchTab) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
     const delay = chatWasOpen ? 50 : 300;
@@ -858,7 +860,7 @@ export default function KiTutorModulePage() {
     if (isMobile) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
     const value = `"${selectedText}"\n\n`;
-    setChatInput(value);
+    chatSetInputRef.current?.(value);
     // If chat was closed, wait longer for React to render the panel before focusing
     const delay = chatWasOpen ? 50 : 300;
     setTimeout(() => {
@@ -1984,7 +1986,7 @@ export default function KiTutorModulePage() {
                 {activeTab === "quellen" ? (
                   viewerSource ? (
                     _isMediaFile(viewerSource.filename) ? (
-                      <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} canDownload={isLecturer || isAdmin} />
+                      <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} canDownload={isLecturer || isAdmin} onSaveNote={addNote} />
                     ) : (
                       <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => setActiveTab("chat")} />
                     )
@@ -2011,15 +2013,14 @@ export default function KiTutorModulePage() {
                     activeSourceIds={activeSourceIds}
                     sources={sources}
                     loading={chatLoading}
-                    input={chatInput}
-                    onInputChange={setChatInput}
-                    onSend={() => sendChatMessage(chatInput)}
+                    onSend={(v) => sendChatMessage(v)}
                     onSendPrompt={(text) => sendChatMessage(text)}
                     onPillClick={handlePillClick}
                     moduleReady={moduleDetail?.status === "ready"}
                     onClear={() => { const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : ""; fetch(`/api/ki-assistent/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" }); setMessages([]); }}
                     externalTextareaRef={chatTextareaRef}
                     onSaveNote={addNote}
+                    registerSetInput={registerChatSetInput}
                   />
                 ) : sprachView !== "overview" ? (
                   sprachtrainingContent
@@ -2122,7 +2123,7 @@ export default function KiTutorModulePage() {
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
                   _isMediaFile(viewerSource.filename) ? (
-                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => togglePanel("quellen")} canDownload={isLecturer || isAdmin} />
+                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => togglePanel("quellen")} canDownload={isLecturer || isAdmin} onSaveNote={addNote} />
                   ) : (
                     <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => togglePanel("quellen")} />
                   )
@@ -2171,9 +2172,7 @@ export default function KiTutorModulePage() {
                     activeSourceIds={activeSourceIds}
                     sources={sources}
                     loading={chatLoading}
-                    input={chatInput}
-                    onInputChange={setChatInput}
-                    onSend={() => sendChatMessage(chatInput)}
+                    onSend={(v) => sendChatMessage(v)}
                     onSendPrompt={(text) => sendChatMessage(text)}
                     onPillClick={handlePillClick}
                     moduleReady={moduleDetail?.status === "ready"}
@@ -2181,6 +2180,7 @@ export default function KiTutorModulePage() {
                     externalTextareaRef={chatTextareaRef}
                     onSaveNote={addNote}
                     onMinimize={() => togglePanel("chat")}
+                    registerSetInput={registerChatSetInput}
                   />
                 )}
               </div>
