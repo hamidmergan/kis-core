@@ -90,6 +90,7 @@ export interface GlossaryEntry {
   example_sentence?: string;
   example_sentence_en?: string;
   page_number?: number;
+  start_time?: number | null;
   filename?: string;
 }
 

@@ -49,6 +49,10 @@ class NoteBody(BaseModel):
     content: str = Field(..., max_length=50000)
 
 
+class NoteTitleBody(BaseModel):
+    title: Optional[str] = Field(None, max_length=200)
+
+
 # ─── Dozenten-Endpunkte ───────────────────────────────────────────────────────
 
 class GlossaryGenerateBody(BaseModel):

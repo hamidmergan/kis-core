@@ -1605,9 +1605,17 @@ export default function KiTutorModulePage() {
       extracting={glossaryExtracting}
       onGenerate={generateGlossary}
       sourceCount={selectedSourceIds.length}
-      onOpenSource={(page, highlightText) => {
+      onOpenSource={(page, highlightText, startTime) => {
         const src = sources.find((s) => selectedSourceIds.includes(s.uuid));
-        if (src) handleOpenViewer(src, page, highlightText);
+        if (!src) return;
+        if (_isMediaFile(src.filename) && startTime != null) {
+          setPrevSelectedSourceIds(selectedSourceIds);
+          setSelectedSourceIds([src.uuid]);
+          setViewerSource({ uuid: src.uuid, filename: src.filename, page: 0, startTime, nonce: Date.now() });
+          setPanels((prev) => ({ ...prev, quellen: true }));
+        } else {
+          handleOpenViewer(src, page, highlightText);
+        }
       }}
       onDelete={deleteGlossaryEntry}
       onDeleteAll={deleteAllGlossaryEntries}
@@ -1623,6 +1631,7 @@ export default function KiTutorModulePage() {
       notes={notes}
       onAdd={addNote}
       onDelete={deleteNote}
+      onUpdateTitle={updateNoteTitle}
       sources={sources}
       activeSourceIds={selectedSourceIds}
       onPillClick={handlePillClick}
@@ -1653,6 +1662,19 @@ export default function KiTutorModulePage() {
       });
       if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
     } catch { /* ignore */ }
+  }
+
+  async function updateNoteTitle(noteId: number, title: string | null) {
+    const prev = notes;
+    setNotes((cur) => cur.map((n) => n.id === noteId ? { ...n, title } : n));
+    try {
+      const res = await fetch(`/api/ki-assistent/modules/${uuid}/notes/${noteId}/title`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) setNotes(prev);
+    } catch { setNotes(prev); }
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -2069,6 +2091,7 @@ export default function KiTutorModulePage() {
                     notes={notes}
                     onAdd={addNote}
                     onDelete={deleteNote}
+                    onUpdateTitle={updateNoteTitle}
                     onBack={() => setStudioView("overview")}
                     sources={sources}
                     activeSourceIds={selectedSourceIds}
@@ -2255,6 +2278,7 @@ export default function KiTutorModulePage() {
                           notes={notes}
                           onAdd={addNote}
                           onDelete={deleteNote}
+                          onUpdateTitle={updateNoteTitle}
                           onBack={() => setStudioView("overview")}
                           sources={sources}
                           activeSourceIds={selectedSourceIds}

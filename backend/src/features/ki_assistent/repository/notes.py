@@ -22,7 +22,7 @@ def get_kia_notes(module_id: int, user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, content, created_at FROM kia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
+                "SELECT id, title, content, created_at FROM kia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
                 (module_id, user_id),
             )
             return [dict(r) for r in cur.fetchall()]
@@ -40,12 +40,26 @@ def create_kia_note(module_id: int, user_id: int, content: str) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO kia_notes (module_id, user_id, content) VALUES (%s, %s, %s) RETURNING id, content, created_at",
+                "INSERT INTO kia_notes (module_id, user_id, content) VALUES (%s, %s, %s) RETURNING id, title, content, created_at",
                 (module_id, user_id, content),
             )
             row = dict(cur.fetchone())
         conn.commit()
         return row
+
+def update_kia_note_title(note_id: int, user_id: int, title: Optional[str]) -> bool:
+    clean = title.strip() if title else None
+    if clean == "":
+        clean = None
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE kia_notes SET title = %s WHERE id = %s AND user_id = %s",
+                (clean, note_id, user_id),
+            )
+            updated = cur.rowcount > 0
+        conn.commit()
+        return updated
 
 def delete_kia_note(note_id: int, user_id: int) -> bool:
     with get_connection() as conn:

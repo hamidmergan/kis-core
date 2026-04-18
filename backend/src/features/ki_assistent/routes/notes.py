@@ -71,6 +71,7 @@ async def get_notes(
     return [
         {
             "id": n["id"],
+            "title": n.get("title"),
             "content": n["content"],
             "created_at": n["created_at"].isoformat() + "Z" if n["created_at"] else None,
         }
@@ -102,9 +103,27 @@ async def create_note(
     note = db.create_kia_note(module["id"], user_id, body.content.strip())
     return {
         "id": note["id"],
+        "title": note.get("title"),
         "content": note["content"],
         "created_at": note["created_at"].isoformat() + "Z" if note["created_at"] else None,
     }
+
+@router.patch("/ki-assistent/modules/{module_uuid}/notes/{note_id}/title")
+async def update_note_title(
+    module_uuid: str,
+    note_id: int,
+    body: schemas.NoteTitleBody,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    module = db.get_kia_module(module_uuid)
+    if not module:
+        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+
+    updated = db.update_kia_note_title(note_id, user_id, body.title)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Notiz nicht gefunden")
+    return {"ok": True}
 
 @router.delete("/ki-assistent/modules/{module_uuid}/notes/{note_id}")
 async def delete_note(

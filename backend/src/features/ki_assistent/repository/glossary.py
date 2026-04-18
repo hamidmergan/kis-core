@@ -21,9 +21,15 @@ def get_kia_glossary(source_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number
-                   FROM kia_glossary_entries
-                   WHERE source_id = %s ORDER BY term_de""",
+                """SELECT g.id, g.term_de, g.term_en, g.definition, g.definition_en,
+                          g.example_sentence, g.example_sentence_en, g.page_number,
+                          MIN(c.start_time) AS start_time
+                   FROM kia_glossary_entries g
+                   LEFT JOIN kia_chunks c
+                     ON c.source_id = g.source_id AND c.page_number = g.page_number
+                   WHERE g.source_id = %s
+                   GROUP BY g.id
+                   ORDER BY g.term_de""",
                 (source_id,),
             )
             return [dict(r) for r in cur.fetchall()]
@@ -32,11 +38,16 @@ def get_kia_glossary_by_module(module_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT g.id, g.term_de, g.term_en, g.definition, g.definition_en, g.example_sentence, g.example_sentence_en, g.page_number,
-                          s.filename
+                """SELECT g.id, g.term_de, g.term_en, g.definition, g.definition_en,
+                          g.example_sentence, g.example_sentence_en, g.page_number,
+                          s.filename,
+                          MIN(c.start_time) AS start_time
                    FROM kia_glossary_entries g
                    JOIN kia_sources s ON s.id = g.source_id
+                   LEFT JOIN kia_chunks c
+                     ON c.source_id = g.source_id AND c.page_number = g.page_number
                    WHERE s.module_id = %s
+                   GROUP BY g.id, s.filename
                    ORDER BY g.term_de""",
                 (module_id,),
             )

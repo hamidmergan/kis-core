@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Book, DotsThreeVertical, FilePdf, Files, Plus, Trash } from "@phosphor-icons/react";
+import { Book, CaretDown, CaretUp, DotsThreeVertical, FilePdf, Files, Plus, Trash } from "@phosphor-icons/react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import Spinner from "@/components/ui/Spinner";
 import type { GlossaryEntry, StudentStats } from "../_types";
@@ -46,7 +46,7 @@ export function GlossarView({
 }: {
   entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
   onGenerate: () => void; onBack?: () => void;
-  onOpenSource?: (page: number, highlightText?: string) => void;
+  onOpenSource?: (page: number, highlightText?: string, startTime?: number | null) => void;
   onDelete?: (id: number) => void;
   onDeleteAll?: () => void;
   sourceCount?: number;
@@ -57,6 +57,7 @@ export function GlossarView({
   onDismissFeedback?: () => void;
 }) {
   const noSources = sourceCount === 0;
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   return (
     <div className="flex flex-col h-full">
       {onBack && <SubviewHeader title="Glossar" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />}
@@ -74,6 +75,25 @@ export function GlossarView({
                 ? `${sourceCount} Quellen ausgewählt`
                 : `${sourceCount} Quellen vorhanden, es werden maximal 5 berücksichtigt`}
         </div>
+        <div className="relative w-full px-1 flex items-center justify-center gap-1.5">
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={loading || noSources}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
+            style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}
+          >
+            {loading ? <Spinner size="xs" color="current" /> : <Plus size={12} weight="bold" />}
+            {loading ? "Begriffe werden extrahiert…" : `Begriffe extrahieren (${entries.length}/150)`}
+          </button>
+          <HelpTooltip text="Extrahiert Fachbegriffe aus den ausgewählten Quellen." />
+          {entries.length > 0 && (
+            <div className="absolute right-1 flex items-center">
+              <GlossarMenu onDeleteAll={onDeleteAll} />
+            </div>
+          )}
+        </div>
+
         <div className="mx-auto w-full px-1 pb-3 flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {extracting && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
@@ -94,81 +114,94 @@ export function GlossarView({
               )}
             </div>
           )}
-          <div className="relative flex items-center justify-center gap-1.5 px-1">
-            <button
-              type="button"
-              onClick={onGenerate}
-              disabled={loading || noSources}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-              style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}
-            >
-              {loading ? <Spinner size="xs" color="current" /> : <Plus size={12} weight="bold" />}
-              {loading ? "Begriffe werden extrahiert…" : "Begriffe extrahieren"}
-            </button>
-            <HelpTooltip text="Extrahiert 10–20 Fachbegriffe aus den ausgewählten Quellen. Maximal 150 Einträge." />
-            {entries.length > 0 && (
-              <div className="absolute right-0 flex items-center gap-1.5">
-                <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>{entries.length}/150</span>
-                <GlossarMenu onDeleteAll={onDeleteAll} />
-              </div>
-            )}
-          </div>
-
           {entries.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center gap-2 py-8" style={{ color: "var(--muted)" }}>
               <Book size={32} weight="light" />
               <span className="text-xs text-center">Noch kein Glossar generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.</span>
             </div>
           )}
-
-          {entries.map((entry) => (
-            <div
-              key={entry.id}
-              className="rounded-xl p-4 flex flex-col gap-2 relative group select-text"
-              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", userSelect: "text" }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{entry.term_de}</span>
-                  {showTranslation && <span className="text-sm font-medium ml-2" style={{ color: "var(--accent)" }}>{entry.term_en}</span>}
-                </div>
-                {entry.page_number && (() => {
-                  const ChipIcon = entry.filename ? _getChipIcon(entry.filename) : FilePdf;
-                  return (
-                  <span role="button" tabIndex={0} onClick={() => onOpenSource?.(entry.page_number!, entry.term_de)}
-                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
-                    style={{ backgroundColor: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)" }}>
-                    <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!) : `S. ${entry.page_number}`}
-                  </span>
-                  );
-                })()}
-              </div>
-              {showTranslation && (entry.example_sentence) && (
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>Kontext</span>
-                  <p className="text-sm italic leading-relaxed mt-0.5" style={{ color: "var(--muted)" }}>
-                    „{entry.example_sentence}"
-                  </p>
-                </div>
-              )}
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>Erklärung (B1)</span>
-                <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--text)", opacity: 0.8 }}>
-                  {entry.definition}
-                </p>
-              </div>
-              <div className="flex justify-end mt-1">
-                <button type="button" onClick={() => onDelete?.(entry.id)}
-                  className="w-5 h-5 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                  style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
-                  <Trash size={10} />
-                </button>
-              </div>
-            </div>
-          ))}
-
         </div>
+
+        {entries.length > 0 && (
+          <div className="w-full px-1 pb-3">
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{
+                backgroundColor: "var(--background)",
+                boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)",
+              }}
+            >
+              {entries.map((entry, idx) => {
+                const isExpanded = expandedId === entry.id;
+                const isLast = idx === entries.length - 1;
+                const ChipIcon = entry.filename ? _getChipIcon(entry.filename) : FilePdf;
+                return (
+                  <div key={entry.id} style={{ borderBottom: isLast && !isExpanded ? "none" : "1px solid var(--border)" }}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedId(isExpanded ? null : entry.id); } }}
+                      className="flex items-center gap-3 px-3 cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ minHeight: 48, color: "var(--text)" }}
+                    >
+                      <span className="flex-1 text-sm truncate">
+                        <span className="font-bold">{entry.term_de}</span>
+                        {showTranslation && entry.term_en && (
+                          <span className="font-medium ml-2" style={{ color: "var(--accent)" }}>{entry.term_en}</span>
+                        )}
+                      </span>
+                      {entry.page_number && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); onOpenSource?.(entry.page_number!, entry.term_de, entry.start_time); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); e.currentTarget.click(); } }}
+                          className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
+                          style={{ backgroundColor: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)" }}
+                        >
+                          <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time) : `S. ${entry.page_number}`}
+                        </span>
+                      )}
+                      {isExpanded
+                        ? <CaretUp size={14} style={{ color: "var(--muted)" }} />
+                        : <CaretDown size={14} style={{ color: "var(--muted)" }} />}
+                    </div>
+
+                    {isExpanded && (
+                      <div className="px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
+                        {showTranslation && entry.example_sentence && (
+                          <div className="mb-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>Kontext</span>
+                            <p className="text-sm italic leading-relaxed mt-0.5" style={{ color: "var(--muted)" }}>
+                              „{entry.example_sentence}"
+                            </p>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>Erklärung (B1)</span>
+                          <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--text)", opacity: 0.8 }}>
+                            {entry.definition}
+                          </p>
+                        </div>
+                        <div className="flex justify-end mt-3">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onDelete?.(entry.id); }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
+                            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                          >
+                            <Trash size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

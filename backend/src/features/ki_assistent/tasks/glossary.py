@@ -43,6 +43,38 @@ from src.features.ki_assistent.tasks._helpers import (
     _clean_llm_json,
 )
 
+_GLOSSARY_PROMPT = """Du bist ein Fachsprachen-Experte. Extrahiere die wichtigsten Fachbegriffe aus dem folgenden Text.
+
+Die Textausschnitte sind mit Quellenangaben markiert: [Q1, S. 5] = Quelle 1, Seite 5.
+
+Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
+[
+  {
+    "term_de": "Fachbegriff in der Quellsprache",
+    "term_en": "Übersetzung (siehe Regeln)",
+    "definition": "Kurze Erklärung auf Deutsch (B1 Niveau, 1-2 Sätze)",
+    "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
+    "example_sentence": "Ein Satz aus dem Text, der den Begriff verwendet",
+    "example_sentence_en": "English translation of the example sentence",
+    "source_label": "Q1",
+    "page_number": 5
+  }
+]
+
+Regeln:
+- Extrahiere genau 5 Fachbegriffe (die wichtigsten und häufigsten)
+- Nur echte Fachbegriffe, keine allgemeinen Wörter
+- KRITISCH für term_de: Der Begriff muss WÖRTLICH als zusammenhängendes Wort oder Phrase im Text vorkommen. Wenn der Text "in den deutschen Arbeitsmarkt zu integrieren" sagt, darfst du NICHT "Arbeitsmarktintegration" daraus machen. Nimm stattdessen "Arbeitsmarkt" oder lass es weg. Erfinde KEINE Komposita oder Nominalisierungen die nicht exakt so im Text stehen.
+- term_en: Wenn der Quelltext NICHT auf Englisch ist, übersetze den Begriff ins Englische. Wenn der Quelltext auf Englisch ist, übersetze den Begriff ins Deutsche. Niemals die gleiche Sprache wie term_de verwenden!
+- definition: Einfache Erklärung auf Deutsch, verständlich auf B1-Sprachniveau
+- definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
+- example_sentence: Ein Satz aus dem gegebenen Text, der den Begriff verwendet
+- example_sentence_en: Englische Übersetzung dieses Satzes
+- source_label: Die Quellenangabe (Q1, Q2, ...) aus der der Begriff stammt
+- page_number ist die Seitenzahl, auf der der Begriff vorkommt
+- Antworte NUR mit dem JSON-Array, kein anderer Text"""
+
+
 @celery_app.task(bind=True, name="kia.generate_glossary", queue="kia",
                  soft_time_limit=120, time_limit=180)
 @observe(name="kia-glossary")
@@ -117,12 +149,12 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         existing_terms = {e["term_de"].strip().lower() for e in existing}
         new_entries = [e for e in entries_raw if e.get("term_de", "").strip().lower() not in existing_terms]
 
-        # Respect limit of 150
+        # Respect overall limit of 150 and cap at 5 new entries per run
         remaining_slots = 150 - len(existing)
         if remaining_slots <= 0:
             logger.info("KI Tutor: glossary limit reached for module {}, skipping", module_id)
             return
-        new_entries = new_entries[:remaining_slots]
+        new_entries = new_entries[:min(5, remaining_slots)]
 
         if new_entries:
             # Group entries by source_id based on LLM's source_label
