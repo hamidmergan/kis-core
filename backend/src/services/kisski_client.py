@@ -58,7 +58,7 @@ def _verbose_json_to_output(data: dict, response_format: str) -> str:
             parts.append(f"\n{start} --> {end}\n{seg['text'].strip()}")
         return "\n".join(parts)
     return data.get("text", "").strip()
-_MAX_AUDIO_SEC = 6000       # 100 min – hard limit for transcription uploads
+_MAX_AUDIO_SEC = 12000      # 200 min, hard limit for transcription uploads
 _SILENCE_NOISE_DB = -40     # dB threshold for silence detection
 _SILENCE_MIN_DURATION = 0.3  # minimum silence duration to consider (seconds)
 _SPLIT_SEARCH_WINDOW = 60   # seconds to search around each target split point

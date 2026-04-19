@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ from src.limits import (
     KIA_MODULE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
-from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
+from src.storage import USE_S3, delete_file, file_exists, get_file, presigned_get_url, save_file
 from src.tool_prompts import (
     KIA_SYSTEM_DIRECT,
     KIA_SYSTEM_DIRECT_WITH_CONTEXT,
@@ -35,6 +35,7 @@ from src.tool_prompts import (
 from src.features.ki_assistent.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
+    _mp4_faststart,
     _count_pages,
     _format_timestamp,
     _require_own_module,
@@ -88,6 +89,9 @@ async def upload_source(
         data = _convert_office_to_pdf(data, ext)
         stored_filename = Path(file.filename).stem + ".pdf"
         ext = ".pdf"
+    elif ext == ".mp4":
+        logger.info("KI Tutor: applying MP4 faststart ({})", file.filename)
+        data = _mp4_faststart(data)
 
     page_count = _count_pages(ext, data)
     if page_count is not None and page_count > KIA_SOURCE_MAX_PAGES:
@@ -178,7 +182,6 @@ async def stream_source_file(
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
-    data = get_file(source["file_path"])
     ext = Path(source["filename"]).suffix.lower()
     media_type_map = {
         ".pdf": "application/pdf",
@@ -194,18 +197,23 @@ async def stream_source_file(
         ".webm": "video/webm",
     }
     media_type = media_type_map.get(ext, "application/octet-stream")
+    disposition = f'inline; filename="{source["filename"]}"'
 
-    headers = {
-        "Content-Disposition": f'inline; filename="{source["filename"]}"',
-        "Accept-Ranges": "bytes",
-    }
-    if len(data) > 0:
-        headers["Content-Length"] = str(len(data))
+    if USE_S3:
+        url = presigned_get_url(
+            source["file_path"],
+            content_type=media_type,
+            content_disposition=disposition,
+        )
+        # Avoid caching the redirect itself — the presigned URL is short-lived.
+        return RedirectResponse(url, status_code=307, headers={"Cache-Control": "no-store"})
 
-    return Response(
-        content=data,
+    return FileResponse(
+        path=source["file_path"],
         media_type=media_type,
-        headers=headers,
+        filename=source["filename"],
+        content_disposition_type="inline",
+        headers={"Cache-Control": "private, max-age=3600"},
     )
 
 @router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/transcript")

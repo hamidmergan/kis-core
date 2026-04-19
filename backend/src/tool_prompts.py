@@ -162,6 +162,20 @@ KIA_QUERY_REWRITE = (
 )
 
 
+# ── KI-Tutor: Notiz-Titel ───────────────────────────────────────────────────
+# Erzeugt einen kurzen, prägnanten Titel für eine vom Nutzer gespeicherte Notiz.
+KIA_NOTE_TITLE = (
+    "Du erzeugst einen sehr kurzen, prägnanten Titel für eine Notiz.\n\n"
+    "REGELN:\n"
+    "- Maximal 50 Zeichen, besser kürzer.\n"
+    "- Keine Anführungszeichen, kein Punkt am Ende, kein Präfix wie 'Titel:'.\n"
+    "- Kurze Aufzählung mit Kommas ist erlaubt, wenn die Notiz mehrere Themen bündelt.\n"
+    "- Fasse den Kern zusammen; keine ganzen Sätze, keine Einleitung.\n"
+    "- Antworte in der Sprache der Notiz.\n"
+    "- Gib NUR den Titel zurück, nichts sonst."
+)
+
+
 # ── KI-Tutor: Popup-Aktionen ────────────────────────────────────────────────
 # Jede Aktion hat einen Schlüssel (key), ein Label für die UI und den Prompt.
 # Der markierte Text wird zur Laufzeit vom Frontend angehängt.

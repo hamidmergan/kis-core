@@ -30,7 +30,39 @@ from src.tool_prompts import (
     KIA_SYSTEM_DIRECT_WITH_CONTEXT,
     KIA_SYSTEM_RAG,
     KIA_POPUP_ACTIONS,
+    KIA_NOTE_TITLE,
 )
+
+_NOTE_TITLE_MAX_CHARS = 60
+
+
+def _generate_note_title(kisski, content: str) -> Optional[str]:
+    snippet = content.strip()
+    if not snippet:
+        return None
+    if len(snippet) > 4000:
+        snippet = snippet[:4000]
+    try:
+        response = kisski._client.chat.completions.create(
+            model=kisski._model,
+            messages=[
+                {"role": "system", "content": KIA_NOTE_TITLE},
+                {"role": "user", "content": snippet},
+            ],
+            temperature=0.2,
+            max_tokens=60,
+            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        )
+        title = (response.choices[0].message.content or "").strip().strip('"\'').rstrip(".")
+    except Exception as e:
+        logger.warning("Notiz-Titel konnte nicht generiert werden: {}", e)
+        return None
+    if not title:
+        return None
+    title = " ".join(title.split())
+    if len(title) > _NOTE_TITLE_MAX_CHARS:
+        title = title[:_NOTE_TITLE_MAX_CHARS].rstrip() + "…"
+    return title
 
 from src.features.ki_assistent.routes._helpers import (
     _trace_kisski,
@@ -83,6 +115,7 @@ async def create_note(
     module_uuid: str,
     body: schemas.NoteBody,
     current_user: dict = Depends(get_current_user),
+    kisski=Depends(get_kisski_client),
 ):
     user_id = current_user["user_id"]
     module = db.get_kia_module(module_uuid)
@@ -100,7 +133,9 @@ async def create_note(
             detail=f"Maximal {KIA_NOTES_MAX_PER_USER} Notizen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
         )
 
-    note = db.create_kia_note(module["id"], user_id, body.content.strip())
+    content = body.content.strip()
+    title = _generate_note_title(kisski, content)
+    note = db.create_kia_note(module["id"], user_id, content, title)
     return {
         "id": note["id"],
         "title": note.get("title"),

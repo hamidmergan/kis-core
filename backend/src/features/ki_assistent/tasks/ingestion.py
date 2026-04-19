@@ -105,15 +105,31 @@ def run_index_source(self, source_uuid: str):
                 _save_transcript_artifact(source_vtt_key, segments_to_vtt(segments))
                 logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, source_vtt_key)
 
-                # Additionally produce an English VTT via Whisper translate task
+                # Additionally produce an English VTT via DeepL text translation
                 # (skipped if the audio is already English).
                 if lang_code != "en":
                     try:
-                        en_segments = whisper_client.translate_chunked_verbose(local_path)
-                        if en_segments:
+                        from src.dependencies import get_deepl_client
+                        deepl_client = get_deepl_client()
+                        if deepl_client is None:
+                            logger.warning(
+                                "KI Tutor: EN VTT skipped for {} (no DeepL client)", source_uuid
+                            )
+                        else:
+                            texts = [s["text"] for s in segments]
+                            translated = deepl_client.translate_batch(
+                                texts, source_lang=lang_code.upper(), target_lang="EN-US"
+                            )
+                            en_segments = [
+                                {"start": s["start"], "end": s["end"], "text": t}
+                                for s, t in zip(segments, translated)
+                            ]
                             en_vtt_key = f"{base_key}_transcript.en.vtt"
                             _save_transcript_artifact(en_vtt_key, segments_to_vtt(en_segments))
-                            logger.info("KI Tutor: EN VTT saved to {}", en_vtt_key)
+                            logger.info(
+                                "KI Tutor: EN VTT saved to {} ({} segments via DeepL)",
+                                en_vtt_key, len(en_segments),
+                            )
                     except Exception as e:
                         logger.warning(
                             "KI Tutor: EN translation VTT failed for {}: {}", source_uuid, e

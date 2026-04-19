@@ -36,12 +36,15 @@ def count_kia_notes(module_id: int, user_id: int) -> int:
             )
             return int(cur.fetchone()[0])
 
-def create_kia_note(module_id: int, user_id: int, content: str) -> dict:
+def create_kia_note(module_id: int, user_id: int, content: str, title: Optional[str] = None) -> dict:
+    clean_title = title.strip() if title else None
+    if clean_title == "":
+        clean_title = None
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO kia_notes (module_id, user_id, content) VALUES (%s, %s, %s) RETURNING id, title, content, created_at",
-                (module_id, user_id, content),
+                "INSERT INTO kia_notes (module_id, user_id, content, title) VALUES (%s, %s, %s, %s) RETURNING id, title, content, created_at",
+                (module_id, user_id, content, clean_title),
             )
             row = dict(cur.fetchone())
         conn.commit()

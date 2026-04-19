@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     ffmpeg \
     libreoffice-impress \
+    libreoffice-writer \
+    default-jre-headless \
     poppler-utils \
     fonts-crosextra-carlito \
     fonts-crosextra-caladea \

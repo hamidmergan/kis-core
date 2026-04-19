@@ -43,6 +43,33 @@ def _convert_office_to_pdf(data: bytes, ext: str) -> bytes:
             raise HTTPException(status_code=500, detail="Konvertierung nach PDF fehlgeschlagen")
         return pdf_path.read_bytes()
 
+def _mp4_faststart(data: bytes) -> bytes:
+    """Remux MP4 so the moov atom sits at the file start (progressive playback).
+
+    Without this, browsers must download to near end-of-file before playback
+    starts — painful for multi-hour recordings. ffmpeg -c copy avoids re-encoding.
+    Falls back to the original bytes on any failure.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        src = tmp / "input.mp4"
+        dst = tmp / "output.mp4"
+        src.write_bytes(data)
+        try:
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
+                 "-c", "copy", "-movflags", "+faststart", str(dst)],
+                capture_output=True, text=True, timeout=600,
+            )
+        except Exception as e:
+            logger.warning("KI Tutor: faststart remux exception: {}", e)
+            return data
+        if result.returncode != 0 or not dst.exists():
+            logger.warning("KI Tutor: faststart remux failed (rc={}): {}", result.returncode, result.stderr[:200])
+            return data
+        return dst.read_bytes()
+
+
 def _count_pages(ext: str, data: bytes) -> int | None:
     """Return page/slide count for PDF/PPTX, None for formats without a meaningful page count."""
     try:
