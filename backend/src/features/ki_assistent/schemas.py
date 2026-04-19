@@ -47,6 +47,7 @@ class UserSettingsBody(BaseModel):
 
 class NoteBody(BaseModel):
     content: str = Field(..., max_length=50000)
+    source_uuids: Optional[list[str]] = None
 
 
 class NoteTitleBody(BaseModel):

@@ -352,6 +352,7 @@ export default function KiTutorModulePage() {
   const [datentabelleLoading, setDatentabelleLoading] = useState(false);
   const [datentabelleList, setDatentabelleList] = useState<{ id: number; title: string; created_at: string | null }[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [pendingTitleIds, setPendingTitleIds] = useState<Set<number>>(new Set());
 
   // ─── Sprachtraining State ─────────────────────────────────────────────────
   const [sprachView, setSprachView] = useState<SprachtrainingView>("overview");
@@ -639,18 +640,24 @@ export default function KiTutorModulePage() {
 
   async function handleUpload(files: File[]) {
     if (files.length === 0) return;
-    setUploadErrors([]);
-    const errors: { filename: string; message: string }[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setUploadProgress({ current: i + 1, total: files.length, percent: 0 });
+    const MAX_BATCH = 10;
+    const skipped = files.length > MAX_BATCH ? files.slice(MAX_BATCH) : [];
+    const toUpload = files.length > MAX_BATCH ? files.slice(0, MAX_BATCH) : files;
+    const errors: { filename: string; message: string }[] = skipped.map((f) => ({
+      filename: f.name,
+      message: `Übersprungen, maximal ${MAX_BATCH} Dateien gleichzeitig hochladen.`,
+    }));
+    setUploadErrors(errors);
+    for (let i = 0; i < toUpload.length; i++) {
+      const file = toUpload[i];
+      setUploadProgress({ current: i + 1, total: toUpload.length, percent: 0 });
       try {
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open("POST", `/api/ki-assistent/modules/${uuid}/sources`);
           xhr.withCredentials = true;
           xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setUploadProgress({ current: i + 1, total: files.length, percent: Math.round((e.loaded / e.total) * 100) });
+            if (e.lengthComputable) setUploadProgress({ current: i + 1, total: toUpload.length, percent: Math.round((e.loaded / e.total) * 100) });
           };
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
@@ -1635,24 +1642,47 @@ export default function KiTutorModulePage() {
       sources={sources}
       activeSourceIds={selectedSourceIds}
       onPillClick={handlePillClick}
+      pendingTitleIds={pendingTitleIds}
     />
   );
 
-  async function addNote(content: string) {
+  async function addNote(content: string, sourceUuids?: string[]) {
     try {
       const res = await fetch(`/api/ki-assistent/modules/${uuid}/notes`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, source_uuids: sourceUuids ?? null }),
       });
-      if (res.ok) {
-        const note = await res.json();
-        setNotes((prev) => [note, ...prev]);
-      } else {
+      if (!res.ok) {
         const data = await res.json().catch(() => null);
         alert(_formatApiError(data) ?? "Notiz konnte nicht gespeichert werden.");
+        return;
       }
+      const note = await res.json();
+      setNotes((prev) => [note, ...prev]);
+      if (!note.title) _pollForNoteTitle(note.id);
     } catch { /* ignore */ }
+  }
+
+  async function _pollForNoteTitle(noteId: number) {
+    setPendingTitleIds((prev) => { const next = new Set(prev); next.add(noteId); return next; });
+    const clear = () => setPendingTitleIds((prev) => { const next = new Set(prev); next.delete(noteId); return next; });
+    const delays = [3000, 4000, 6000, 8000, 10000]; // ~31s total
+    for (const wait of delays) {
+      await new Promise((r) => setTimeout(r, wait));
+      try {
+        const r = await fetch(`/api/ki-assistent/modules/${uuid}/notes`, { credentials: "include" });
+        if (!r.ok) continue;
+        const fresh = await r.json();
+        const updated = fresh.find((n: { id: number; title?: string | null }) => n.id === noteId);
+        if (updated?.title) {
+          setNotes((cur) => cur.map((n) => n.id === noteId ? { ...n, title: updated.title } : n));
+          clear();
+          return;
+        }
+      } catch { /* keep polling */ }
+    }
+    clear();
   }
 
   async function deleteNote(noteId: number) {
@@ -2098,6 +2128,7 @@ export default function KiTutorModulePage() {
                     onPillClick={handlePillClick}
                     stats={pageStats}
                     breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
+                    pendingTitleIds={pendingTitleIds}
                   />
                 ) : studioView === "datentabelle" ? (
                   <DatentabelleStudio
@@ -2285,6 +2316,7 @@ export default function KiTutorModulePage() {
                           onPillClick={handlePillClick}
                           stats={pageStats}
                           breadcrumbs={[{ label: "Studio", onClick: () => setStudioView("overview") }]}
+                          pendingTitleIds={pendingTitleIds}
                         />
                       ) : studioView === "datentabelle" ? (
                         <DatentabelleStudio

@@ -10,6 +10,7 @@ backend/demo/
 .DS_Store
 
 .claude/
+.superpowers/
 database.db
 local-notes.md
 check-kisski-limits.py

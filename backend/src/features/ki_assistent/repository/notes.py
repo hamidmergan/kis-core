@@ -2,7 +2,7 @@ import json
 import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 import psycopg2
@@ -22,7 +22,7 @@ def get_kia_notes(module_id: int, user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, title, content, created_at FROM kia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
+                "SELECT id, title, content, source_uuids, created_at FROM kia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
                 (module_id, user_id),
             )
             return [dict(r) for r in cur.fetchall()]
@@ -36,15 +36,31 @@ def count_kia_notes(module_id: int, user_id: int) -> int:
             )
             return int(cur.fetchone()[0])
 
-def create_kia_note(module_id: int, user_id: int, content: str, title: Optional[str] = None) -> dict:
+def create_kia_note(
+    module_id: int,
+    user_id: int,
+    content: str,
+    title: Optional[str] = None,
+    source_uuids: Optional[list[str]] = None,
+) -> dict:
     clean_title = title.strip() if title else None
     if clean_title == "":
         clean_title = None
+    clean_uuids: Optional[list[str]] = None
+    if source_uuids:
+        seen: set[str] = set()
+        clean_uuids = []
+        for u in source_uuids:
+            if isinstance(u, str) and u and u not in seen:
+                seen.add(u)
+                clean_uuids.append(u)
+        if not clean_uuids:
+            clean_uuids = None
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO kia_notes (module_id, user_id, content, title) VALUES (%s, %s, %s, %s) RETURNING id, title, content, created_at",
-                (module_id, user_id, content, clean_title),
+                "INSERT INTO kia_notes (module_id, user_id, content, title, source_uuids) VALUES (%s, %s, %s, %s, %s) RETURNING id, title, content, source_uuids, created_at",
+                (module_id, user_id, content, clean_title, json.dumps(clean_uuids) if clean_uuids is not None else None),
             )
             row = dict(cur.fetchone())
         conn.commit()

@@ -16,6 +16,7 @@ import {
 } from "@phosphor-icons/react";
 import type { ChatMessage, Source } from "../_types";
 import { _chunkLabel, _embedQmapIntoCitations, _getChipIcon } from "../_utils";
+import Spinner from "@/components/ui/Spinner";
 
 export function ChatPanel({
   messages,
@@ -41,7 +42,7 @@ export function ChatPanel({
   moduleReady: boolean;
   onClear: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
-  onSaveNote?: (content: string) => void;
+  onSaveNote?: (content: string, sourceUuids?: string[]) => void | Promise<void>;
   onMinimize?: () => void;
   onSendPrompt?: (text: string) => void;
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
@@ -52,6 +53,19 @@ export function ChatPanel({
   const [expandedMsgs, setExpandedMsgs] = useState<Set<number>>(new Set());
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [savedNoteIdx, setSavedNoteIdx] = useState<number | null>(null);
+  const [savingNoteIdx, setSavingNoteIdx] = useState<number | null>(null);
+
+  async function handleSaveNote(idx: number, content: string, sourceUuids?: string[]) {
+    if (!onSaveNote || savingNoteIdx !== null) return;
+    setSavingNoteIdx(idx);
+    try {
+      await onSaveNote(content, sourceUuids);
+      setSavedNoteIdx(idx);
+      setTimeout(() => setSavedNoteIdx(null), 1500);
+    } finally {
+      setSavingNoteIdx(null);
+    }
+  }
   // Tracks window scroll on landscape mobile (inner scroll is disabled there)
   // to flip the jump button between "go to top" and "go to bottom".
   const [pageNearTop, setPageNearTop] = useState(true);
@@ -438,16 +452,15 @@ export function ChatPanel({
                         {onSaveNote && !loading && (
                           <button
                             type="button"
-                            onClick={() => {
-                              onSaveNote(_embedQmapIntoCitations(msg.content, msg.source_qmap ?? []));
-                              setSavedNoteIdx(i);
-                              setTimeout(() => setSavedNoteIdx(null), 1500);
-                            }}
+                            disabled={savingNoteIdx === i}
+                            onClick={() => handleSaveNote(i, _embedQmapIntoCitations(msg.content, msg.source_qmap ?? []), (msg.source_qmap ?? []).map((q) => q.uuid))}
                             className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
                             style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
                             title="Als Notiz speichern"
                           >
-                            {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                            {savingNoteIdx === i
+                              ? <Spinner size="xs" color="current" />
+                              : savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
                           </button>
                         )}
                       </div>
@@ -511,16 +524,15 @@ export function ChatPanel({
                     {msg.role === "assistant" && onSaveNote && !loading && (
                       <button
                         type="button"
-                        onClick={() => {
-                          onSaveNote(_embedQmapIntoCitations(msg.content, msg.source_qmap ?? []));
-                          setSavedNoteIdx(i);
-                          setTimeout(() => setSavedNoteIdx(null), 1500);
-                        }}
+                        disabled={savingNoteIdx === i}
+                        onClick={() => handleSaveNote(i, _embedQmapIntoCitations(msg.content, msg.source_qmap ?? []), (msg.source_qmap ?? []).map((q) => q.uuid))}
                         className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
                         style={{ color: savedNoteIdx === i ? "#16a34a" : "var(--muted)" }}
                         title="Als Notiz speichern"
                       >
-                        {savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                        {savingNoteIdx === i
+                          ? <Spinner size="xs" color="current" />
+                          : savedNoteIdx === i ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
                       </button>
                     )}
                   </div>

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -36,6 +36,18 @@ from src.tool_prompts import (
 _NOTE_TITLE_SAFETY_CAP = 200
 
 
+def _generate_and_store_note_title(kisski, note_id: int, user_id: int, content: str) -> None:
+    title = _generate_note_title(kisski, content)
+    if not title:
+        logger.warning("Notiz-Titel: LLM lieferte keinen Titel (note_id={})", note_id)
+        return
+    try:
+        db.update_kia_note_title(note_id, user_id, title)
+        logger.info("Notiz-Titel gesetzt (note_id={}): {}", note_id, title)
+    except Exception as e:
+        logger.warning("Notiz-Titel konnte nicht gespeichert werden (note_id={}): {}", note_id, e)
+
+
 def _generate_note_title(kisski, content: str) -> Optional[str]:
     snippet = content.strip()
     if not snippet:
@@ -43,7 +55,7 @@ def _generate_note_title(kisski, content: str) -> Optional[str]:
     if len(snippet) > 4000:
         snippet = snippet[:4000]
     try:
-        response = kisski._client.chat.completions.create(
+        response = kisski._client.with_options(timeout=30.0).chat.completions.create(
             model=kisski._model,
             messages=[
                 {"role": "system", "content": KIA_NOTE_TITLE},
@@ -105,6 +117,7 @@ async def get_notes(
             "id": n["id"],
             "title": n.get("title"),
             "content": n["content"],
+            "source_uuids": n.get("source_uuids") or [],
             "created_at": n["created_at"].isoformat() + "Z" if n["created_at"] else None,
         }
         for n in notes
@@ -114,6 +127,7 @@ async def get_notes(
 async def create_note(
     module_uuid: str,
     body: schemas.NoteBody,
+    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
     kisski=Depends(get_kisski_client),
 ):
@@ -134,12 +148,13 @@ async def create_note(
         )
 
     content = body.content.strip()
-    title = _generate_note_title(kisski, content)
-    note = db.create_kia_note(module["id"], user_id, content, title)
+    note = db.create_kia_note(module["id"], user_id, content, None, body.source_uuids)
+    background_tasks.add_task(_generate_and_store_note_title, kisski, note["id"], user_id, content)
     return {
         "id": note["id"],
         "title": note.get("title"),
         "content": note["content"],
+        "source_uuids": note.get("source_uuids") or [],
         "created_at": note["created_at"].isoformat() + "Z" if note["created_at"] else None,
     }
 

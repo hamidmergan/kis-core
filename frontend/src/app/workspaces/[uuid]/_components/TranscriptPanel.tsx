@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, NavigationArrow, NotePencil } from "@phosphor-icons/react";
+import Spinner from "@/components/ui/Spinner";
 
 interface Cue {
   start: number;
@@ -61,7 +62,7 @@ export function TranscriptPanel({
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   moduleUuid: string;
   sourceUuid: string;
-  onSaveNote?: (content: string) => void;
+  onSaveNote?: (content: string, sourceUuids?: string[]) => void | Promise<void>;
 }) {
   const [deCues, setDeCues] = useState<Cue[] | null>(null);
   const [enCues, setEnCues] = useState<Cue[] | null>(null);
@@ -70,6 +71,7 @@ export function TranscriptPanel({
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
   const [followCurrent, setFollowCurrent] = useState(true);
   const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
+  const [savingCueIdx, setSavingCueIdx] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
@@ -170,8 +172,8 @@ export function TranscriptPanel({
     media.play().catch(() => { });
   };
 
-  const onSaveCue = (idx: number) => {
-    if (!onSaveNote) return;
+  const onSaveCue = async (idx: number) => {
+    if (!onSaveNote || savingCueIdx !== null) return;
     const master = masterCues[idx];
     if (!master) return;
     const deText = deCues?.[idx]?.text;
@@ -186,9 +188,14 @@ export function TranscriptPanel({
     const primary = wantDe ? deText! : enText!;
     const keyword = primary.slice(0, 40).replace(/\s+/g, " ").trim();
     const citation = `[Q1:${sourceUuid}, ${fmtTs(master.start)} | ${keyword}]`;
-    onSaveNote(`${body} ${citation}`);
-    setSavedCueIdx(idx);
-    setTimeout(() => setSavedCueIdx((cur) => (cur === idx ? null : cur)), 1500);
+    setSavingCueIdx(idx);
+    try {
+      await onSaveNote(`${body} ${citation}`, [sourceUuid]);
+      setSavedCueIdx(idx);
+      setTimeout(() => setSavedCueIdx((cur) => (cur === idx ? null : cur)), 1500);
+    } finally {
+      setSavingCueIdx(null);
+    }
   };
 
   if (loading) {
@@ -307,12 +314,15 @@ export function TranscriptPanel({
                 <div className="flex justify-end pr-1 mt-0.5 h-5">
                   <button
                     type="button"
+                    disabled={savingCueIdx === idx}
                     onClick={(e) => { e.stopPropagation(); onSaveCue(idx); }}
                     title="Als Notiz speichern"
                     className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
                     style={{ color: savedCueIdx === idx ? "#16a34a" : "var(--muted)" }}
                   >
-                    {savedCueIdx === idx ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
+                    {savingCueIdx === idx
+                      ? <Spinner size="xs" color="current" />
+                      : savedCueIdx === idx ? <Check size={13} weight="bold" /> : <NotePencil size={13} />}
                   </button>
                 </div>
               )}

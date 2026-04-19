@@ -12,7 +12,7 @@ export function MediaPlayer({
   moduleUuid: string;
   onMinimize?: () => void;
   canDownload?: boolean;
-  onSaveNote?: (content: string) => void;
+  onSaveNote?: (content: string, sourceUuids?: string[]) => void | Promise<void>;
 }) {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();

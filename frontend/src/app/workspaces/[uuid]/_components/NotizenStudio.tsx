@@ -5,8 +5,9 @@ import { CaretDown, CaretUp, NotePencil, PencilSimple, Plus, Trash } from "@phos
 import type { Source, StudentStats } from "../_types";
 import { _chunkLabel, _getChipIcon, _isMediaFile, _sourceChipKey } from "../_utils";
 import { SubviewHeader } from "./SubviewHeader";
+import Spinner from "@/components/ui/Spinner";
 
-export interface Note { id: number; title?: string | null; content: string; created_at: string | null }
+export interface Note { id: number; title?: string | null; content: string; source_uuids?: string[] | null; created_at: string | null }
 
 function _notePreview(content: string, max = 60): string {
   const stripped = content
@@ -23,7 +24,7 @@ function _notePreview(content: string, max = 60): string {
 }
 
 export function NotizenStudio({
-  notes, onAdd, onDelete, onUpdateTitle, onBack, sources, activeSourceIds, onPillClick, stats, breadcrumbs,
+  notes, onAdd, onDelete, onUpdateTitle, onBack, sources, activeSourceIds, onPillClick, stats, breadcrumbs, pendingTitleIds,
 }: {
   notes: Note[]; onAdd: (content: string) => void; onDelete: (id: number) => void;
   onUpdateTitle?: (id: number, title: string | null) => void;
@@ -32,6 +33,7 @@ export function NotizenStudio({
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
   stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
+  pendingTitleIds?: Set<number>;
 }) {
   const [draft, setDraft] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -39,20 +41,26 @@ export function NotizenStudio({
   const [titleDraft, setTitleDraft] = useState("");
   const skipTitleCommitRef = useRef(false);
 
-  function extractNoteSources(content: string): { qnum: number; uuid: string; filename: string }[] {
-    const pattern = /\[(?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*[|\u2758]\s*[^\]]+)?\s*\]/g;
+  function extractNoteSources(note: Note): { qnum: number; uuid: string; filename: string }[] {
     const seen = new Map<string, { qnum: number; uuid: string; filename: string }>();
     let qCounter = 0;
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(content)) !== null) {
-      const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
-      const embeddedUuid = m[2] || null;
-      const uuid = embeddedUuid ?? activeSourceIds?.[qIdx] ?? activeSourceIds?.[0] ?? "";
-      if (!uuid || seen.has(uuid)) continue;
+    const addUuid = (uuid: string) => {
+      if (!uuid || seen.has(uuid)) return;
       const filename = sources?.find(s => s.uuid === uuid)?.filename ?? uuid;
       qCounter++;
       seen.set(uuid, { qnum: qCounter, uuid, filename });
+    };
+    // 1) Citations literally present in the note text (preserves original Q-number order).
+    const pattern = /\[(?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*[|\u2758]\s*[^\]]+)?\s*\]/g;
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(note.content)) !== null) {
+      const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
+      const embeddedUuid = m[2] || null;
+      const uuid = embeddedUuid ?? activeSourceIds?.[qIdx] ?? activeSourceIds?.[0] ?? "";
+      addUuid(uuid);
     }
+    // 2) Sources stored alongside the note (selected at save time, may include uncited ones).
+    for (const uuid of note.source_uuids ?? []) addUuid(uuid);
     return Array.from(seen.values());
   }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -187,10 +195,11 @@ export function NotizenStudio({
             >
               {notes.map((note, idx) => {
                 const isExpanded = expandedId === note.id;
-                const noteSources = extractNoteSources(note.content);
+                const noteSources = extractNoteSources(note);
                 const { withNoteCitations } = makeNoteCitationRenderer(noteSources);
                 const isLast = idx === notes.length - 1;
                 const hasCustomTitle = !!(note.title && note.title.trim());
+                const isTitlePending = !hasCustomTitle && !!pendingTitleIds?.has(note.id);
                 const rowLabel = hasCustomTitle ? note.title!.trim() : _notePreview(note.content);
                 const isEditingTitle = editingTitleId === note.id;
 
@@ -219,10 +228,11 @@ export function NotizenStudio({
                       style={{ minHeight: 48, color: "var(--text)" }}
                     >
                       <span
-                        className="flex-1 text-sm truncate"
+                        className="flex-1 text-sm truncate flex items-center gap-2"
                         style={hasCustomTitle ? { fontWeight: 500 } : { color: "var(--muted)", fontStyle: "italic" }}
                       >
-                        {rowLabel}
+                        {isTitlePending && <Spinner size="xs" color="current" />}
+                        <span className="truncate">{rowLabel}</span>
                       </span>
                       <span className="flex-shrink-0 text-[10px]" style={{ color: "var(--muted)" }}>
                         {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }) : ""}
@@ -259,15 +269,18 @@ export function NotizenStudio({
                           ) : (
                             <button
                               type="button"
+                              disabled={isTitlePending}
                               onClick={() => { setTitleDraft(note.title ?? ""); setEditingTitleId(note.id); }}
-                              className="w-full text-left text-sm font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2"
+                              className="w-full text-left text-sm font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2 disabled:cursor-wait"
                               style={hasCustomTitle ? { color: "var(--text)" } : { color: "var(--muted)", fontStyle: "italic", fontWeight: 400 }}
-                              title={hasCustomTitle ? "Titel ändern" : "Titel vergeben"}
+                              title={isTitlePending ? "Titel wird generiert…" : hasCustomTitle ? "Titel ändern" : "Titel vergeben"}
                             >
                               <span className="flex-1 truncate">
-                                {hasCustomTitle ? note.title : "Titel vergeben…"}
+                                {isTitlePending ? "Titel wird generiert…" : hasCustomTitle ? note.title : "Titel vergeben…"}
                               </span>
-                              <PencilSimple size={16} className="flex-shrink-0 opacity-60" />
+                              {isTitlePending
+                                ? <Spinner size="xs" color="current" />
+                                : <PencilSimple size={16} className="flex-shrink-0 opacity-60" />}
                             </button>
                           )
                         )}

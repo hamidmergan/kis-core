@@ -377,6 +377,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS title TEXT")
+            cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS source_uuids JSONB")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS kia_glossary_entries (
                     id               SERIAL PRIMARY KEY,
