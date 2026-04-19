@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CaretDown, CaretUp, NotePencil, Plus, Trash } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, NotePencil, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import type { Source, StudentStats } from "../_types";
 import { _chunkLabel, _getChipIcon, _isMediaFile, _sourceChipKey } from "../_utils";
 import { SubviewHeader } from "./SubviewHeader";
@@ -260,11 +260,14 @@ export function NotizenStudio({
                             <button
                               type="button"
                               onClick={() => { setTitleDraft(note.title ?? ""); setEditingTitleId(note.id); }}
-                              className="w-full text-left text-sm font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors truncate"
+                              className="w-full text-left text-sm font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2"
                               style={hasCustomTitle ? { color: "var(--text)" } : { color: "var(--muted)", fontStyle: "italic", fontWeight: 400 }}
                               title={hasCustomTitle ? "Titel ändern" : "Titel vergeben"}
                             >
-                              {hasCustomTitle ? note.title : "Titel vergeben…"}
+                              <span className="flex-1 truncate">
+                                {hasCustomTitle ? note.title : "Titel vergeben…"}
+                              </span>
+                              <PencilSimple size={16} className="flex-shrink-0 opacity-60" />
                             </button>
                           )
                         )}

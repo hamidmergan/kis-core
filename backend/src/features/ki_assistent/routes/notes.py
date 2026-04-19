@@ -33,7 +33,7 @@ from src.tool_prompts import (
     KIA_NOTE_TITLE,
 )
 
-_NOTE_TITLE_MAX_CHARS = 60
+_NOTE_TITLE_SAFETY_CAP = 200
 
 
 def _generate_note_title(kisski, content: str) -> Optional[str]:
@@ -50,7 +50,7 @@ def _generate_note_title(kisski, content: str) -> Optional[str]:
                 {"role": "user", "content": snippet},
             ],
             temperature=0.2,
-            max_tokens=60,
+            max_tokens=120,
             **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
         )
         title = (response.choices[0].message.content or "").strip().strip('"\'').rstrip(".")
@@ -60,8 +60,8 @@ def _generate_note_title(kisski, content: str) -> Optional[str]:
     if not title:
         return None
     title = " ".join(title.split())
-    if len(title) > _NOTE_TITLE_MAX_CHARS:
-        title = title[:_NOTE_TITLE_MAX_CHARS].rstrip() + "…"
+    if len(title) > _NOTE_TITLE_SAFETY_CAP:
+        title = title[:_NOTE_TITLE_SAFETY_CAP].rstrip()
     return title
 
 from src.features.ki_assistent.routes._helpers import (
