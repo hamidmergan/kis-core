@@ -616,10 +616,10 @@ export default function KiTutorModulePage() {
     );
   }
 
-  function handleOpenViewer(source: Source, page = 1, highlightText?: string) {
+  function handleOpenViewer(source: Source, page = 1, highlightText?: string, exactSelection?: boolean) {
     setPrevSelectedSourceIds(selectedSourceIds);
     setSelectedSourceIds([source.uuid]);
-    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, nonce: Date.now() });
+    setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
   }
 
@@ -888,18 +888,18 @@ export default function KiTutorModulePage() {
     }, delay);
   }
 
-  function handlePillClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) {
+  function handlePillClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) {
     const src = sources.find((s) => s.uuid === sourceUuid);
     const isMedia = _isMediaFile(filename);
     if (isMedia) {
       setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, nonce: Date.now() });
       setPanels((prev) => ({ ...prev, quellen: true }));
     } else if (src) {
-      handleOpenViewer(src, page, sourceText);
+      handleOpenViewer(src, page, sourceText, isExact);
     } else {
       setPrevSelectedSourceIds(selectedSourceIds);
       setSelectedSourceIds([sourceUuid]);
-      setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, nonce: Date.now() });
+      setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, nonce: Date.now() });
       setPanels((prev) => ({ ...prev, quellen: true }));
     }
   }

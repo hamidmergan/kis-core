@@ -167,14 +167,14 @@ export function PdfViewer({
   }, [showAnnotations, summariesLoaded, moduleUuid, source.uuid]);
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
-  const pendingHighlightRef = useRef<{ page: number; text: string } | null>(null);
+  const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean } | null>(null);
   const prevHighlightRef = useRef<{ pageIndex: number; ids: string[] } | null>(null);
 
   // Try to find and highlight text on a specific page. Returns true if found.
   function tryHighlightOnPage(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     r: any, doc: any, engine: any, docMgr: any, scroll: any,
-    targetPageIndex: number, searchText: string,
+    targetPageIndex: number, searchText: string, exactSelection: boolean = false,
   ): Promise<boolean> {
     const pageObj = doc.pages?.[targetPageIndex];
     if (!pageObj) return Promise.resolve(false);
@@ -227,11 +227,11 @@ export function PdfViewer({
 
         let cleanInput = searchText.replace(/\s+/g, " ").trim()
           .replace(/^\d{1,3}\s+/, "").trim();
-        // PPTX-converted slides have very little text per page. If the source
-        // quote is longer than ~150 chars, it almost certainly spans multiple
-        // bullets on a slide — the highlight then covers the whole slide.
-        // Trim to a central window so the match is specific.
-        if (cleanInput.length > 150) {
+        // For LLM-cited sources (exactSelection=false) we trim very long quotes to
+        // a central window so a 900-char quote doesn't match across a whole PPTX
+        // slide. For a verbatim user-popup selection (exactSelection=true) the
+        // user's chosen text IS the intended highlight — don't trim or alter it.
+        if (!exactSelection && cleanInput.length > 150) {
           const mid = Math.floor(cleanInput.length / 2);
           cleanInput = cleanInput.slice(Math.max(0, mid - 60), Math.min(cleanInput.length, mid + 60)).trim();
         }
@@ -486,7 +486,12 @@ export function PdfViewer({
         // (popup selection — user already defined the bounds). Fall back to sentence
         // expansion if the paragraph is unreasonably long (wall-of-text PDFs).
         let sentStart: number, sentEnd: number;
-        if (exactFullMatch) {
+        if (exactSelection) {
+          // Verbatim user-popup selection: highlight EXACTLY what the user marked,
+          // no expansion to sentence/paragraph/line, regardless of length.
+          sentStart = matchStart;
+          sentEnd = matchEnd;
+        } else if (exactFullMatch) {
           const stripped = _stripLeadingHeading(matchStart);
           sentStart = stripped < matchEnd ? stripped : matchStart;
           sentEnd = matchEnd;
@@ -552,7 +557,7 @@ export function PdfViewer({
     }).catch(() => false);
   }
 
-  function doHighlightSearch(reg: unknown, page: number, text: string) {
+  function doHighlightSearch(reg: unknown, page: number, text: string, exactSelection: boolean = false) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = reg as any;
     const scroll = r.getPlugin?.("scroll")?.provides?.();
@@ -581,7 +586,7 @@ export function PdfViewer({
     // a "[1] S. 4" chip could silently highlight something on S. 3 or S. 5 when
     // the target is an OCR/image page whose PDF text layer doesn't contain the
     // cited text. Better: scroll to the right page and highlight nothing.
-    tryHighlightOnPage(r, doc, engine, docMgr, scroll, pageIndex, text);
+    tryHighlightOnPage(r, doc, engine, docMgr, scroll, pageIndex, text, exactSelection);
   }
 
   // When the document changes, the inner PDFViewer remounts (keyed by uuid) but this
@@ -603,20 +608,20 @@ export function PdfViewer({
     if (!reg) {
       // Viewer not ready yet — save for later
       if (source.highlightText) {
-        pendingHighlightRef.current = { page: source.page, text: source.highlightText };
+        pendingHighlightRef.current = { page: source.page, text: source.highlightText, exact: !!source.exactSelection };
       }
       return;
     }
 
     if (source.highlightText) {
-      doHighlightSearch(reg, source.page, source.highlightText);
+      doHighlightSearch(reg, source.page, source.highlightText, !!source.exactSelection);
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scroll = (reg as any).getPlugin?.("scroll")?.provides?.();
       scroll?.scrollToPage?.({ pageNumber: source.page, behavior: "instant", alignY: 50 });
     }
 
-  }, [source.nonce, source.page, source.highlightText]);
+  }, [source.nonce, source.page, source.highlightText, source.exactSelection]);
 
   const handleReady = useCallback((registry: unknown) => {
     registryRef.current = registry;
@@ -660,7 +665,7 @@ export function PdfViewer({
         const pending = pendingHighlightRef.current;
         if (pending) {
           pendingHighlightRef.current = null;
-          doHighlightSearch(registry, pending.page, pending.text);
+          doHighlightSearch(registry, pending.page, pending.text, !!pending.exact);
         }
         unsub?.();
       });

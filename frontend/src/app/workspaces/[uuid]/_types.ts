@@ -57,6 +57,10 @@ export interface ViewerState {
   filename: string;
   page: number;
   highlightText?: string;
+  // True when highlightText is a verbatim user-popup selection (highlight it
+  // exactly, no line/sentence expansion). False/omitted for LLM-suggested
+  // citations (expand to bullet/line for readable context).
+  exactSelection?: boolean;
   nonce?: number;
   startTime?: number;
 }

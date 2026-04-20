@@ -38,7 +38,7 @@ export function ChatPanel({
   sources: Source[];
   loading: boolean;
   onSend: (value: string) => void;
-  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
+  onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
   moduleReady: boolean;
   onClear: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
@@ -116,10 +116,10 @@ export function ChatPanel({
   // Wrap onPillClick so opening the viewer doesn't cause the chat to jump.
   // Captures scrollTop before the click and restores it across a few frames
   // while the panel layout settles.
-  function handleChipClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) {
+  function handleChipClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) {
     const el = scrollContainerRef.current;
     const savedTop = el?.scrollTop ?? 0;
-    onPillClick(sourceUuid, page, filename, sourceText, startTime);
+    onPillClick(sourceUuid, page, filename, sourceText, startTime, isExact);
     if (el) {
       const restore = () => { el.scrollTop = savedTop; };
       requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
@@ -281,11 +281,12 @@ export function ChatPanel({
                   : matchesPopupSel
                     ? popupSel!.text
                     : (keywords || undefined);
+                const isExactSelection = !!(popupEntry?.source_text || matchesPopupSel);
                 const clickSeconds = timestamp ? seconds : undefined;
                 const ChipIcon = _getChipIcon(filename);
                 nodes.push(
                   <span key={ck} role="button" tabIndex={0}
-                    onClick={() => handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds)}
+                    onClick={() => handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds, isExactSelection)}
                     onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5 cursor-pointer"
                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
