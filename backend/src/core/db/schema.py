@@ -485,6 +485,70 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Migration: drop legacy mastery columns if they exist
             for col in ("correct_streak", "total_attempts", "total_correct"):
                 cur.execute(f"ALTER TABLE kia_exercise_items DROP COLUMN IF EXISTS {col}")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS kia_zeitplan_entries (
+                    id           SERIAL PRIMARY KEY,
+                    module_id    INTEGER NOT NULL
+                                   REFERENCES kia_modules(id) ON DELETE CASCADE,
+                    user_id      INTEGER NOT NULL,
+                    type         TEXT NOT NULL CHECK (type IN ('deadline', 'termin')),
+                    title        TEXT NOT NULL,
+                    description  TEXT,
+                    due_date     DATE,
+                    due_time     TIME,
+                    is_optional  BOOLEAN NOT NULL DEFAULT FALSE,
+                    is_checked   BOOLEAN NOT NULL DEFAULT FALSE,
+                    checked_at   TIMESTAMP,
+                    origin       TEXT NOT NULL CHECK (origin IN ('llm', 'manual')),
+                    source_refs  JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("ALTER TABLE kia_zeitplan_entries ADD COLUMN IF NOT EXISTS source_refs JSONB NOT NULL DEFAULT '[]'::jsonb")
+            # Drop legacy columns (were single-position; replaced by source_refs array)
+            cur.execute("ALTER TABLE kia_zeitplan_entries DROP COLUMN IF EXISTS source_ids")
+            cur.execute("ALTER TABLE kia_zeitplan_entries DROP COLUMN IF EXISTS raw_quote")
+            cur.execute("ALTER TABLE kia_zeitplan_entries DROP COLUMN IF EXISTS page_number")
+            cur.execute("ALTER TABLE kia_zeitplan_entries DROP COLUMN IF EXISTS start_time")
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_zeitplan_module_user
+                ON kia_zeitplan_entries(module_id, user_id)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_zeitplan_due_date
+                ON kia_zeitplan_entries(module_id, user_id, due_date)
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS kia_zeitplan_processed_sources (
+                    module_id     INTEGER NOT NULL
+                                    REFERENCES kia_modules(id) ON DELETE CASCADE,
+                    user_id       INTEGER NOT NULL,
+                    source_id     INTEGER NOT NULL
+                                    REFERENCES kia_sources(id) ON DELETE CASCADE,
+                    processed_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (module_id, user_id, source_id)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS kia_zeitplan_jobs (
+                    id            SERIAL PRIMARY KEY,
+                    module_id     INTEGER NOT NULL
+                                    REFERENCES kia_modules(id) ON DELETE CASCADE,
+                    user_id       INTEGER NOT NULL,
+                    source_uuids  JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    status        TEXT NOT NULL DEFAULT 'pending'
+                                    CHECK (status IN ('pending', 'running', 'success', 'failed')),
+                    error         TEXT,
+                    added_count   INTEGER NOT NULL DEFAULT 0,
+                    created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at    TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_zeitplan_jobs_module_user
+                ON kia_zeitplan_jobs(module_id, user_id)
+            """)
         conn.commit()
 
     # Backfill tsvector for existing chunks (separate transaction)

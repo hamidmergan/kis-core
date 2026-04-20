@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus } from "@phosphor-icons/react";
+import { Sparkle } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 
 export function CreateSetModal({
@@ -88,7 +88,7 @@ export function CreateSetModal({
           <button type="button" onClick={() => onCreate(mode, count)} disabled={creating}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: "var(--accent)" }}>
-            {creating ? <Spinner size="xs" color="current" /> : <Plus size={13} weight="bold" />}
+            {creating ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
             {creating ? "Generieren…" : "Erstellen"}
           </button>
         </div>

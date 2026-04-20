@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CaretLeft, CaretRight, FilePdf, Files, Plus, Table, Trash } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, FilePdf, Files, Sparkle, Table, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { DatentabelleData, DatentabelleRowSource, DatentabelleSource, Source, StudentStats } from "../_types";
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../_utils";
@@ -57,7 +57,7 @@ export function DatentabelleStudio({
                 disabled={noSources || loading || atLimit}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
                 style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-                <Plus size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+                <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
               </button>
             </div>
           ) : (
@@ -67,7 +67,7 @@ export function DatentabelleStudio({
                   disabled={noSources || loading || atLimit}
                   className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
                   style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
-                  <Plus size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+                  <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
                 </button>
               </div>
               <div className="flex items-center justify-between px-1">

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Book, CaretDown, CaretUp, DotsThreeVertical, FilePdf, Files, Plus, Trash } from "@phosphor-icons/react";
+import { Book, CaretDown, CaretUp, DotsThreeVertical, FilePdf, Files, Sparkle, Trash } from "@phosphor-icons/react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import Spinner from "@/components/ui/Spinner";
 import type { GlossaryEntry, StudentStats } from "../_types";
@@ -83,7 +83,7 @@ export function GlossarView({
             className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
             style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}
           >
-            {loading ? <Spinner size="xs" color="current" /> : <Plus size={12} weight="bold" />}
+            {loading ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
             {loading ? "Begriffe werden extrahiert…" : `Begriffe extrahieren (${entries.length}/150)`}
           </button>
           <HelpTooltip text="Extrahiert Fachbegriffe aus den ausgewählten Quellen." />

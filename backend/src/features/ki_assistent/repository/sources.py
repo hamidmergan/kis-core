@@ -41,6 +41,13 @@ def get_kia_source(uuid: str) -> dict | None:
             row = cur.fetchone()
     return dict(row) if row else None
 
+def get_kia_source_by_id(source_id: int) -> dict | None:
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM kia_sources WHERE id = %s", (source_id,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
 def get_kia_sources_by_module(module_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:

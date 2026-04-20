@@ -89,3 +89,30 @@ class ExerciseProgressBody(BaseModel):
     results: list[dict]  # [{"item_id": int, "correct": bool}]
     new_run: bool = False
 
+
+# ─── Zeitplan ─────────────────────────────────────────────────────────────────
+
+class ZeitplanGenerateBody(BaseModel):
+    source_ids: list[str]  # max 30 source UUIDs
+
+
+class ZeitplanEntryCreateBody(BaseModel):
+    type: str  # 'deadline' | 'termin'
+    title: str = Field(..., max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    due_date: Optional[str] = None  # ISO date 'YYYY-MM-DD' oder None
+    due_time: Optional[str] = None  # 'HH:MM' oder None
+    is_optional: bool = False
+
+
+class ZeitplanEntryUpdateBody(BaseModel):
+    type: Optional[str] = None
+    title: Optional[str] = Field(None, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    due_date: Optional[str] = None
+    due_time: Optional[str] = None
+    is_optional: Optional[bool] = None
+    is_checked: Optional[bool] = None
+    clear_date: bool = False  # explizit NULL setzen
+    clear_time: bool = False
+

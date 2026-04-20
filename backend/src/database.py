@@ -19,6 +19,7 @@ from src.features.ki_assistent.repository.notes import *  # noqa: F401,F403
 from src.features.ki_assistent.repository.summaries import *  # noqa: F401,F403
 from src.features.ki_assistent.repository.mindmaps import *  # noqa: F401,F403
 from src.features.ki_assistent.repository.datentabellen import *  # noqa: F401,F403
+from src.features.ki_assistent.repository.zeitplan import *  # noqa: F401,F403
 from src.features.ki_assistent.repository.glossary import *  # noqa: F401,F403
 from src.features.ki_assistent.repository.exercises import *  # noqa: F401,F403
 from src.features.ki_assistent.repository.stats import *  # noqa: F401,F403

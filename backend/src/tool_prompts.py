@@ -392,6 +392,135 @@ KIA_DATENTABELLE_PROMPT = (
 )
 
 
+KIA_ZEITPLAN_CLASSIFY_PROMPT = (
+    "You classify date candidates extracted by regex from course documents.\n"
+    "For EACH candidate (identified by `id`) you must decide whether it represents "
+    "a real scheduled event/deadline the student should see on their schedule — "
+    "or whether it is document metadata (slide date, author, footer, version) and "
+    "must be dropped.\n\n"
+    "Respond ONLY with a JSON object of the form:\n"
+    '{ "results": [ { "id": int, "keep": bool, "is_footer": bool, "type": "deadline" | "termin" | null, '
+    '"title": "..." | null, "description": "..." | null, "due_time": "HH:MM" | null, '
+    '"is_optional": bool } ] }\n\n'
+    "Keep ALL fields as concise as possible. No `reason` field — just the decision fields.\n\n"
+    "Per candidate input you receive `date_raw`, `date_iso`, and `context` "
+    "(±250 chars around the date from the source text).\n\n"
+    "DECISION RULES:\n"
+    "1. keep=true only when the context clearly states this date is when something "
+    "happens or is due — a scheduling verb/preposition is required ('am X findet', "
+    "'bis X abgeben', 'deadline on X', 'Abgabe:', 'Klausur am', 'Meeting on', "
+    "'submission by').\n"
+    "2. keep=false / is_footer=true when the date looks like slide/document metadata: "
+    "near author names, 'M.Sc.', 'Prof.', emails, 'Mentor', 'Tutor', 'Kontakt', "
+    "'Folie', 'Seite', 'Slide', or a page number, without any scheduling verb.\n"
+    "3. keep=false for relative time expressions being normalized ('noch 20 Tage', "
+    "'in 3 weeks'), and for recurring-only phrases like 'jeden Dienstag' without a "
+    "concrete single date.\n"
+    "4. keep=false when the year in the ISO date does not appear as a 4-digit number "
+    "in the surrounding context (anti-hallucination).\n"
+    "5. 'Ab <date>' (starting on a date) is ONE entry, not recurring — keep=true.\n\n"
+    "FIELDS (when keep=true):\n"
+    "- type='deadline' for submissions/hand-ins/filings tied to a due date "
+    "(Abgabe, Einreichung, Frist, submission).\n"
+    "- type='termin' for events that take place at a date (exam, meeting, web "
+    "conference, lecture, guest talk, Klausur, Vorlesung, Webkonferenz).\n"
+    "- title: short, in the SOURCE language. For submissions use 'Abgabe <Code>: "
+    "<Topic>' (German sources) or 'Submission <Code>: <Topic>' (English). For events "
+    "use '<Kind>: <Topic>'. Mark optional entries in parentheses at the end: "
+    "'(optional)' or '(freiwillig)'.\n"
+    "- CROSS-CANDIDATE CONSISTENCY: If multiple candidates describe the SAME event on "
+    "the SAME date (e.g. three mentions of the same office-hour opening, or the same "
+    "submission deadline referenced from different PDFs), give them the EXACT same "
+    "title string — downstream deduplication relies on identical titles for merging.\n"
+    "- description: concise extra details from the context, or null.\n"
+    "- due_time: 'HH:MM' only if explicitly in context.\n"
+    "- is_optional: true only if context explicitly says 'freiwillig', 'optional', "
+    "'nach Wahl', 'voluntary'.\n\n"
+    "STRICT JSON RULES:\n"
+    "- Plain double quotes only; no markdown, no German „..\" quotes, no emphasis.\n"
+    "- results array length MUST equal the input candidates length; use same ids.\n"
+    "- Do not invent dates; operate only on the given candidates.\n"
+    "- Output compact JSON (no unnecessary whitespace or indentation).\n"
+)
+
+
+KIA_ZEITPLAN_SUMMARY_PROMPT = (
+    "You read a source (PDF or video transcript) and extract EXHAUSTIVELY every deadline "
+    "and scheduled event that has a concrete date. Do NOT pre-select or filter on your own.\n\n"
+    "The source contains position markers:\n"
+    "- '[S. 3]' before PDF chunks = page number\n"
+    "- '[T 00:05:32]' before media chunks = timestamp (h:mm:ss)\n\n"
+    "TASK: List WITHOUT GAPS every deadline/event that appears in the text with a concrete "
+    "date INCLUDING YEAR. Include past events. Include web conferences, lectures, meetings, "
+    "office hours, in-person sessions — ANYTHING with a date.\n\n"
+    "ESPECIALLY IMPORTANT for tables / schedule tables:\n"
+    "- One table row = ONE entry. Read ALL rows.\n"
+    "- The activity/content and the date/time are often in separate columns. "
+    "Merge them per row.\n"
+    "- Times ('17:30 Uhr', '10:00-14:30 Uhr', '5:30 pm') MUST be included, even when they "
+    "appear in a separate column.\n\n"
+    "Output format per entry: ONE line with:\n"
+    "- Kind (Deadline/Exam/WebConference/Meeting/OfficeHour/OnlineSession/...)\n"
+    "- full date (DD.MM.YYYY or YYYY-MM-DD)\n"
+    "- time if present in the text (HH:MM)\n"
+    "- position [S. X] or [T HH:MM:SS]\n"
+    "- original quote (unchanged; MUST contain the date and any time from the text)\n\n"
+    "YEAR RULE: Only extract entries whose year is EXPLICITLY present in the quote as a "
+    "4-digit number. Never guess or infer a year from context. If the year is missing, "
+    "skip the entry.\n\n"
+    "DO NOT EXTRACT:\n"
+    "- Relative time references ('20 days left', 'in 3 weeks', 'next week')\n"
+    "- Document metadata ('last modified', 'as of', 'version of', copyright years)\n"
+    "- Recurring events without a single concrete date ('every Tuesday')\n"
+    "- Dates that are slide/page footers or document metadata. Signals: the date sits next "
+    "to the slide/document title, author name, page number, contact info, email address, "
+    "or words like 'Folie', 'Seite', 'Slide', 'Mentor', 'Tutor', 'Kontakt' — it is NOT an "
+    "event but the presentation/slide date. A real event entry needs a verb or preposition "
+    "of scheduling ('am X findet', 'bis X abgeben', 'deadline on X', 'submission by X').\n\n"
+    "If NOTHING relevant is found: reply with exactly 'NONE'.\n"
+    "Otherwise: all entries, one entry per line, no intro, no markdown formatting "
+    "(no *, no German-style „..."  " quotes). The source language is preserved inside the "
+    "original quote; the rest of each line can be in English or the source language — "
+    "whichever makes the date/time/kind clearest."
+)
+
+
+KIA_ZEITPLAN_PROMPT = (
+    "You convert an already-extracted list of deadlines/events into structured JSON.\n\n"
+    "Input: free-text lines. Each line is one entry with kind, date, time, position "
+    "([S. X] or [T HH:MM:SS]) and an original quote.\n\n"
+    "Reply ONLY with a JSON array in exactly this format:\n"
+    "[\n"
+    "  {\n"
+    '    "type": "deadline" | "termin",\n'
+    '    "title": "Short title",\n'
+    '    "description": "Additional details or null",\n'
+    '    "due_date": "YYYY-MM-DD",\n'
+    '    "due_time": "HH:MM" or null,\n'
+    '    "is_optional": true or false,\n'
+    '    "raw_quote": "Verbatim original quote from the input",\n'
+    '    "page_number": page number (int) from [S. X], or null,\n'
+    '    "start_time_seconds": seconds (int) parsed from [T HH:MM:SS], or null\n'
+    "  }\n"
+    "]\n\n"
+    "REQUIRED rules:\n"
+    "- Every entry MUST have page_number OR start_time_seconds.\n"
+    "- due_date is REQUIRED and must be concretely named in the quote.\n"
+    "- type='deadline': submission/hand-in/filing-deadline tied to a date.\n"
+    "- type='termin': event that takes place on the date (exam, meeting, guest lecture).\n"
+    "- is_optional=true only when the text explicitly says 'freiwillig', 'optional', "
+    "'voluntary', 'by choice'.\n"
+    "- raw_quote: verbatim from the input.\n"
+    "- Title max 80 chars. For submissions use format 'Abgabe <Code>: <Topic>'. "
+    "For events use format '<Kind>: <Topic>'. Titles should be in the source language "
+    "(German input → German title).\n"
+    "- If input is 'NONE' or empty: reply with []\n"
+    "- NO text before or after the JSON array, no markdown fences.\n"
+    "- JSON strings MUST use plain \" only. NEVER put markdown inside string values "
+    "(no *, no German „...\" quotes, no emphasis). Convert any German quotes from the "
+    "source into plain \"."
+)
+
 
 KIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
     {

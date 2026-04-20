@@ -103,6 +103,7 @@ const MindmapStudio = dynamic(() => import("./_components/MindmapStudio").then((
 const DatentabelleStudio = dynamic(() => import("./_components/DatentabelleStudio").then((m) => ({ default: m.DatentabelleStudio })), { loading: dynamicLoader, ssr: false });
 const NotizenStudio = dynamic(() => import("./_components/NotizenStudio").then((m) => ({ default: m.NotizenStudio })), { loading: dynamicLoader, ssr: false });
 const StudentStatsView = dynamic(() => import("./_components/StudentStatsView").then((m) => ({ default: m.StudentStatsView })), { loading: dynamicLoader, ssr: false });
+const ZeitplanView = dynamic(() => import("./_components/ZeitplanView").then((m) => ({ default: m.ZeitplanView })), { loading: dynamicLoader, ssr: false });
 const LernkartenLearnView = dynamic(() => import("./_components/LernkartenLearnView").then((m) => ({ default: m.LernkartenLearnView })), { loading: dynamicLoader, ssr: false });
 const MCExerciseView = dynamic(() => import("./_components/MCExerciseView").then((m) => ({ default: m.MCExerciseView })), { loading: dynamicLoader, ssr: false });
 const VocabFlashcards = dynamic(() => import("./_components/VocabFlashcards").then((m) => ({ default: m.VocabFlashcards })), { loading: dynamicLoader, ssr: false });
@@ -111,11 +112,11 @@ const VokabeltestView = dynamic(() => import("./_components/VokabeltestView").th
 
 // ─── Studio Overview ──────────────────────────────────────────────────────────
 
-function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid, statsVersion, onNavigateToSet, onSprachNavigate, activeSourceCount, sprachView, requestedTab }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string; statsVersion: number; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; onSprachNavigate?: (view: SprachtrainingView) => void; activeSourceCount?: number; sprachView?: string; requestedTab?: { tab: "tools" | "glossar" | "notizen" | "statistik"; nonce: number } | null }) {
-  const [studioTab, _setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen" | "statistik">(() => {
+function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid, statsVersion, onNavigateToSet, onSprachNavigate, activeSourceCount, sprachView, requestedTab, sources, selectedSourceIds, onPillClick }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string; statsVersion: number; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; onSprachNavigate?: (view: SprachtrainingView) => void; activeSourceCount?: number; sprachView?: string; requestedTab?: { tab: "tools" | "glossar" | "notizen" | "statistik" | "zeitplan"; nonce: number } | null; sources: Source[]; selectedSourceIds: string[]; onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void }) {
+  const [studioTab, _setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen" | "statistik" | "zeitplan">(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("kis-studio-tab");
-      if (saved && ["tools", "glossar", "notizen", "statistik"].includes(saved)) return saved as any;
+      if (saved && ["tools", "glossar", "notizen", "statistik", "zeitplan"].includes(saved)) return saved as any;
     }
     return "tools";
   });
@@ -196,6 +197,7 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
               { key: "glossar" as const, label: "Glossar" },
               { key: "notizen" as const, label: "Notizen" },
               { key: "statistik" as const, label: "Statistik" },
+              { key: "zeitplan" as const, label: "Zeitplan" },
             ]}
             active={effectiveTab === "sprachtraining" ? "tools" : effectiveTab}
             onSelect={(k) => setStudioTab(k as typeof studioTab)}
@@ -253,6 +255,13 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
       {/* Ergebnisse Inhalt */}
       {studioTab === "statistik" && (
         <StudentStatsView stats={studentStats} loading={statsLoading} moduleUuid={moduleUuid} onNavigateToSet={onNavigateToSet} sprachtrainingActive={sprachtrainingActive} />
+      )}
+
+      {/* Zeitplan Inhalt */}
+      {studioTab === "zeitplan" && (
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <ZeitplanView moduleUuid={moduleUuid} sources={sources} selectedSourceIds={selectedSourceIds} onPillClick={onPillClick} />
+        </div>
       )}
     </div>
   );
@@ -356,7 +365,7 @@ export default function KiTutorModulePage() {
 
   // ─── Sprachtraining State ─────────────────────────────────────────────────
   const [sprachView, setSprachView] = useState<SprachtrainingView>("overview");
-  const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossar" | "notizen" | "statistik"; nonce: number } | null>(null);
+  const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossar" | "notizen" | "statistik" | "zeitplan"; nonce: number } | null>(null);
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [glossaryLoading, setGlossaryLoading] = useState(false);
   const [clozeExercises, setClozeExercises] = useState<ClozeExercise[]>([]);
@@ -2077,7 +2086,7 @@ export default function KiTutorModulePage() {
                 ) : sprachView !== "overview" ? (
                   sprachtrainingContent
                 ) : studioView === "overview" ? (
-                  <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} requestedTab={studioTabRequest} />
+                  <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} requestedTab={studioTabRequest} sources={sources} selectedSourceIds={selectedSourceIds} onPillClick={handlePillClick} />
                 ) : activeSet && activeSet.tool === "karteikarten" ? (
                   <LernkartenLearnView
                     exerciseSet={activeSet}
@@ -2265,7 +2274,7 @@ export default function KiTutorModulePage() {
                       ) : sprachView !== "overview" ? (
                         sprachtrainingContent
                       ) : studioView === "overview" ? (
-                        <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} requestedTab={studioTabRequest} />
+                        <StudioOverview onSelect={handleStudioSelect} onMinimize={() => togglePanel("studio")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} requestedTab={studioTabRequest} sources={sources} selectedSourceIds={selectedSourceIds} onPillClick={handlePillClick} />
                       ) : activeSet && activeSet.tool === "karteikarten" ? (
                         <LernkartenLearnView
                           exerciseSet={activeSet}

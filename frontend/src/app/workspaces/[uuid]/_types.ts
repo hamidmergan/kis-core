@@ -198,3 +198,34 @@ export interface StudentStats {
   active_days: number;
   today: string;
 }
+
+export type ZeitplanEntryType = "deadline" | "termin";
+export type ZeitplanEntryOrigin = "llm" | "manual";
+
+export interface ZeitplanSourceRef {
+  source_uuid: string;
+  page_number: number | null;
+  start_time: number | null;
+  raw_quote: string | null;
+}
+
+export interface ZeitplanEntry {
+  id: number;
+  type: ZeitplanEntryType;
+  title: string;
+  description: string | null;
+  due_date: string | null;   // 'YYYY-MM-DD'
+  due_time: string | null;   // 'HH:MM'
+  is_optional: boolean;
+  is_checked: boolean;
+  checked_at: string | null;
+  origin: ZeitplanEntryOrigin;
+  source_refs: ZeitplanSourceRef[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ZeitplanData {
+  entries: ZeitplanEntry[];
+  processed_source_uuids: string[];
+}
