@@ -68,7 +68,7 @@ export function ZeitplanTimeline({
   onToggleChecked: (id: number, checked: boolean) => void;
   onEdit: (entry: ZeitplanEntry) => void;
   onDelete: (id: number) => void;
-  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
+  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
   const dated = sortByDate(entries.filter((e) => !!e.due_date));
   const tbd = entries.filter((e) => !e.due_date);

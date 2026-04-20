@@ -32,6 +32,7 @@ export function ChatPanel({
   onMinimize,
   onSendPrompt,
   registerSetInput,
+  hideHeader,
 }: {
   messages: ChatMessage[];
   activeSourceIds: string[];
@@ -46,6 +47,7 @@ export function ChatPanel({
   onMinimize?: () => void;
   onSendPrompt?: (text: string) => void;
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
+  hideHeader?: boolean;
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -110,6 +112,42 @@ export function ChatPanel({
     }
   }, [messages.length]);
 
+  // Sticky-bottom auto-scroll: follow new content only while user is at the
+  // bottom. If the user scrolls up mid-stream to re-read, stop following;
+  // resume once they scroll back down.
+  const stickBottomRef = useRef(true);
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    function onScroll() {
+      if (!el) return;
+      stickBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Snap to bottom when a new message is added (user just sent something).
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    stickBottomRef.current = true;
+    el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
+
+  // Follow streaming content growth while sticky.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    const inner = el?.firstElementChild as HTMLElement | null;
+    if (!el || !inner) return;
+    const ro = new ResizeObserver(() => {
+      if (stickBottomRef.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, []);
+
   const getFilename = (srcUuid: string) =>
     sources.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid;
 
@@ -141,6 +179,7 @@ export function ChatPanel({
         </button>
       )}
       {/* Header */}
+      {!hideHeader && (
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
         <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Chat</span>
         <div className="flex items-center gap-1.5">
@@ -185,6 +224,7 @@ export function ChatPanel({
           )}
         </div>
       </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
@@ -286,8 +326,11 @@ export function ChatPanel({
                 const ChipIcon = _getChipIcon(filename);
                 nodes.push(
                   <span key={ck} role="button" tabIndex={0}
-                    onClick={() => handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds, isExactSelection)}
-                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
+                    // onMouseDown (statt onClick), damit Chips auch während aktivem Token-Stream
+                    // klickbar bleiben: bei onClick unmountet react-markdown den Chip zwischen
+                    // mousedown und mouseup oft, sodass der native Click auf dem Vorfahren landet.
+                    onMouseDown={(e) => { if (e.button === 0) handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds, isExactSelection); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds, isExactSelection); }}
                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5 cursor-pointer"
                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                     title={`${filename}, ${label}`}

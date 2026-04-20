@@ -25,6 +25,7 @@ export function SourcesPanel({
   isLecturer,
   onMinimize,
   moduleUuid,
+  hideHeader,
 }: {
   sources: Source[];
   selectedSourceIds: string[];
@@ -39,6 +40,7 @@ export function SourcesPanel({
   isLecturer: boolean;
   onMinimize: () => void;
   moduleUuid: string;
+  hideHeader?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -72,23 +74,25 @@ export function SourcesPanel({
   return (
     <div ref={panelRef} className="flex flex-col h-full">
       {/* Panel header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-        style={{ borderBottom: "1px solid var(--border)" }}
-      >
-        <span className="text-sm font-semibold tracking-wide" style={{ color: "var(--text)" }}>
-          Quellen
-        </span>
-        <button
-          type="button"
-          onClick={onMinimize}
-          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
-          title="Panel minimieren"
+      {!hideHeader && (
+        <div
+          className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <SidebarSimple size={13} />
-        </button>
-      </div>
+          <span className="text-sm font-semibold tracking-wide" style={{ color: "var(--text)" }}>
+            Quellen
+          </span>
+          <button
+            type="button"
+            onClick={onMinimize}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+            title="Panel minimieren"
+          >
+            <SidebarSimple size={13} />
+          </button>
+        </div>
+      )}
 
       {/* Upload button + drag-and-drop (lecturer) */}
       {isLecturer && (

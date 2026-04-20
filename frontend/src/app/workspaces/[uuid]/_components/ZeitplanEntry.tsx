@@ -25,7 +25,7 @@ export function ZeitplanEntryCard({
   onToggleChecked: (checked: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
-  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
+  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
   const baseStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
@@ -120,7 +120,10 @@ export function ZeitplanEntryCard({
                     tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onPillClick?.(ref.source_uuid, page, filename, ref.raw_quote ?? undefined, startTime);
+                      // Same path as Chat-LLM chips: non-exact → trim + fuzzy.
+                      // raw_quote is the ±80 char backend window; viewer
+                      // handles normalization.
+                      onPillClick?.(ref.source_uuid, page, filename, ref.raw_quote ?? undefined, startTime, false);
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLElement).click(); }}
                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap cursor-pointer"

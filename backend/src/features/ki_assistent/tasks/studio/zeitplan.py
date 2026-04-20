@@ -292,12 +292,15 @@ def _build_candidates_for_source(src: dict) -> list[dict]:
             ctx_start = max(0, s - 450)
             ctx_end = min(len(content), e + 450)
             ctx = content[ctx_start:ctx_end].replace("\n", " ").strip()
-            # Separate short snippet for the frontend highlight search. The large
-            # classifier context covers whole PPTX slides, which causes the
-            # PDF-viewer to highlight the entire page — keep only ±80 chars here.
-            hl_start = max(0, s - 80)
-            hl_end = min(len(content), e + 80)
-            quote = content[hl_start:hl_end].replace("\n", " ").strip()
+            # Short snippet for the frontend highlight search. Start AT the date
+            # (no chars before) so the PDF-viewer match lands on the date and
+            # doesn't bleed into the preceding bullet. Stop at the next newline
+            # to catch exactly one bullet/line; cap at 200 chars for safety.
+            nl_pos = content.find("\n", e)
+            hl_end = min(len(content), s + 200)
+            if nl_pos != -1 and nl_pos < hl_end:
+                hl_end = nl_pos
+            quote = content[s:hl_end].replace("\n", " ").strip()
             candidates.append({
                 "date_raw": raw_date,
                 "date_iso": date_iso,
@@ -322,9 +325,12 @@ def _build_candidates_for_source(src: dict) -> list[dict]:
                 ctx_start = max(0, m.start() - 300)
                 ctx_end = min(len(content), m.end() + 300)
                 ctx = content[ctx_start:ctx_end].replace("\n", " ").strip()
-                hl_start = max(0, m.start() - 80)
-                hl_end = min(len(content), m.end() + 80)
-                quote = content[hl_start:hl_end].replace("\n", " ").strip()
+                # Start AT the TBD phrase; stop at next newline (bullet end).
+                nl_pos = content.find("\n", m.end())
+                hl_end = min(len(content), m.start() + 200)
+                if nl_pos != -1 and nl_pos < hl_end:
+                    hl_end = nl_pos
+                quote = content[m.start():hl_end].replace("\n", " ").strip()
                 candidates.append({
                     "date_raw": m.group("phrase"),
                     "date_iso": None,

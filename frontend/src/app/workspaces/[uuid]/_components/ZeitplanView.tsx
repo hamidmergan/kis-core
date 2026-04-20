@@ -26,7 +26,7 @@ export function ZeitplanView({
   moduleUuid: string;
   sources: SourceLike[];
   selectedSourceIds: string[];
-  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
+  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
   const [entries, setEntries] = useState<ZeitplanEntry[]>([]);
   const [processedUuids, setProcessedUuids] = useState<string[]>([]);
@@ -221,7 +221,7 @@ export function ZeitplanView({
   else selectionHint = `${selectedPending.length} neu · ${selectedProcessed.length} bereits verarbeitet`;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-y-auto">
       {/* Header: Quellen-Hint links, Edit-Icon rechts */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2 gap-2">
         <div
@@ -308,7 +308,7 @@ export function ZeitplanView({
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-3 py-2">
+      <div className="px-3 py-2">
         {loading && (
           <p className="text-xs py-6 text-center" style={{ color: "var(--muted)" }}>Lade Zeitplan...</p>
         )}

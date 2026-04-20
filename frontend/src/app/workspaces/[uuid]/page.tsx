@@ -112,7 +112,7 @@ const VokabeltestView = dynamic(() => import("./_components/VokabeltestView").th
 
 // ─── Studio Overview ──────────────────────────────────────────────────────────
 
-function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid, statsVersion, onNavigateToSet, onSprachNavigate, activeSourceCount, sprachView, requestedTab, sources, selectedSourceIds, onPillClick }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string; statsVersion: number; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; onSprachNavigate?: (view: SprachtrainingView) => void; activeSourceCount?: number; sprachView?: string; requestedTab?: { tab: "tools" | "glossar" | "notizen" | "statistik" | "zeitplan"; nonce: number } | null; sources: Source[]; selectedSourceIds: string[]; onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void }) {
+function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrainingContent, glossarContent, notizenContent, moduleUuid, statsVersion, onNavigateToSet, onSprachNavigate, activeSourceCount, sprachView, requestedTab, sources, selectedSourceIds, onPillClick, hideHeader }: { onSelect: (v: StudioView) => void; onMinimize: () => void; sprachtrainingActive: boolean; sprachtrainingContent?: React.ReactNode; glossarContent?: React.ReactNode; notizenContent?: React.ReactNode; moduleUuid: string; statsVersion: number; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; onSprachNavigate?: (view: SprachtrainingView) => void; activeSourceCount?: number; sprachView?: string; requestedTab?: { tab: "tools" | "glossar" | "notizen" | "statistik" | "zeitplan"; nonce: number } | null; sources: Source[]; selectedSourceIds: string[]; onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void; hideHeader?: boolean }) {
   const [studioTab, _setStudioTab] = useState<"tools" | "sprachtraining" | "glossar" | "notizen" | "statistik" | "zeitplan">(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("kis-studio-tab");
@@ -174,21 +174,23 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
         <SubviewHeader title="Statistik" onBack={() => setStudioTab("tools")} breadcrumbs={[{ label: "Studio", onClick: () => setStudioTab("tools") }]} />
       ) : (
         <>
-          <div
-            className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-            style={{ borderBottom: "1px solid var(--border)" }}
-          >
-            <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Studio</span>
-            <button
-              type="button"
-              onClick={onMinimize}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
-              title="Panel minimieren"
+          {!hideHeader && (
+            <div
+              className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+              style={{ borderBottom: "1px solid var(--border)" }}
             >
-              <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
-            </button>
-          </div>
+              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Studio</span>
+              <button
+                type="button"
+                onClick={onMinimize}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                title="Panel minimieren"
+              >
+                <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
+              </button>
+            </div>
+          )}
 
           {/* Tabs */}
           <StudioTabs
@@ -2066,6 +2068,7 @@ export default function KiTutorModulePage() {
                       isLecturer={isLecturer}
                       onMinimize={() => setActiveTab("chat")}
                       moduleUuid={uuid}
+                      hideHeader
                     />
                   )
                 ) : activeTab === "chat" ? (
@@ -2082,11 +2085,12 @@ export default function KiTutorModulePage() {
                     externalTextareaRef={chatTextareaRef}
                     onSaveNote={addNote}
                     registerSetInput={registerChatSetInput}
+                    hideHeader
                   />
                 ) : sprachView !== "overview" ? (
                   sprachtrainingContent
                 ) : studioView === "overview" ? (
-                  <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} requestedTab={studioTabRequest} sources={sources} selectedSourceIds={selectedSourceIds} onPillClick={handlePillClick} />
+                  <StudioOverview onSelect={handleStudioSelect} onMinimize={() => setActiveTab("chat")} sprachtrainingActive={sprachtrainingActive} sprachtrainingContent={sprachtrainingContent} glossarContent={glossarContent} notizenContent={notizenContent} moduleUuid={uuid} statsVersion={statsVersion} onNavigateToSet={handleNavigateToSet} onSprachNavigate={handleSprachNavigate} activeSourceCount={selectedSourceIds.length} sprachView={sprachView} requestedTab={studioTabRequest} sources={sources} selectedSourceIds={selectedSourceIds} onPillClick={handlePillClick} hideHeader />
                 ) : activeSet && activeSet.tool === "karteikarten" ? (
                   <LernkartenLearnView
                     exerciseSet={activeSet}

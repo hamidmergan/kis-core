@@ -7,28 +7,26 @@ export function StudioTabs({ tabs, active, onSelect, accentColor }: {
   accentColor?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [layout, setLayout] = useState<"row" | "grid" | "stack">("row");
+  const [fits, setFits] = useState(true);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width;
-      if (w >= tabs.length * 90) setLayout("row");
-      else if (w >= 160) setLayout("grid");
-      else setLayout("stack");
+      setFits(w >= tabs.length * 80);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, [tabs.length]);
 
-  const cols = layout === "row" ? tabs.map(t => t.key === "sprachtraining" ? "1.4fr" : "1fr").join(" ") : layout === "grid" ? "repeat(2, 1fr)" : "1fr";
+  const cols = fits ? tabs.map(t => t.key === "sprachtraining" ? "1.4fr" : "1fr").join(" ") : undefined;
 
   return (
     <div ref={ref} className="flex-shrink-0 px-3 pt-6 pb-2 w-full mx-auto" style={{ maxWidth: 500 }}>
       <div
-        className="grid gap-1 p-1 rounded-xl"
-        style={{ backgroundColor: "rgba(var(--accent-rgb), 0.08)", gridTemplateColumns: cols }}
+        className={fits ? "grid gap-1 p-1 rounded-xl" : "flex gap-1 p-1 rounded-xl overflow-x-auto scrollbar-hide"}
+        style={{ backgroundColor: "rgba(var(--accent-rgb), 0.08)", ...(cols ? { gridTemplateColumns: cols } : {}) }}
       >
         {tabs.map((tab) => {
           const isActive = active === tab.key;
@@ -37,7 +35,7 @@ export function StudioTabs({ tabs, active, onSelect, accentColor }: {
               key={tab.key}
               type="button"
               onClick={() => onSelect(tab.key)}
-              className={`py-1.5 px-3 text-xs font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!isActive ? "hover:bg-black/[0.03] hover:text-[var(--text)]" : ""}`}
+              className={`py-1.5 px-3 text-xs font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!fits ? "flex-shrink-0" : ""} ${!isActive ? "hover:bg-black/[0.03] hover:text-[var(--text)]" : ""}`}
               style={{
                 color: isActive ? (accentColor || "var(--accent)") : "var(--muted)",
                 backgroundColor: isActive ? "var(--bg)" : undefined,

@@ -225,6 +225,29 @@ export function PdfViewer({
           } else { cleanText += ch; cleanToRaw.push(i); inSpace = false; }
         }
 
+        // PPTX-style bullet page detection: many short lines separated by
+        // single newlines. On such pages, a single newline IS a paragraph
+        // boundary (each bullet is its own thought) — otherwise paragraph
+        // expansion walks across the whole slide and grabs neighbor bullets.
+        const _rawNlCount = (rawPageText.match(/\n/g) || []).length;
+        const _avgLineLen = _rawNlCount > 0 ? rawPageText.length / _rawNlCount : rawPageText.length;
+        const _isBulletPage = _rawNlCount >= 4 && _avgLineLen < 80;
+
+        // cleanText collapses all raw whitespace (incl. newlines) to single spaces,
+        // so we need a separate check to test whether a clean-space position
+        // corresponds to a raw newline — essential for bullet-page sentence bounds
+        // and for trimming matches that crossed a bullet boundary.
+        const _isRawNewlineAtClean = (cleanIdx: number): boolean => {
+          if (cleanIdx < 0 || cleanIdx >= cleanText.length) return false;
+          if (cleanText[cleanIdx] !== " ") return false;
+          const rawStart = cleanToRaw[cleanIdx];
+          const rawEnd = cleanIdx + 1 < cleanToRaw.length ? cleanToRaw[cleanIdx + 1] : rawPageText.length;
+          for (let k = rawStart; k < rawEnd; k++) {
+            if (rawPageText[k] === "\n" || rawPageText[k] === "\r") return true;
+          }
+          return false;
+        };
+
         let cleanInput = searchText.replace(/\s+/g, " ").trim()
           .replace(/^\d{1,3}\s+/, "").trim();
         // For LLM-cited sources (exactSelection=false) we trim very long quotes to
@@ -254,6 +277,59 @@ export function PdfViewer({
           matchStart = fullIdx;
           matchEnd = fullIdx + fullPhrase.length - 1;
           if (fullPhrase.length >= 120) exactFullMatch = true;
+        }
+
+        // Bullet-page leading-bullet trim: the backend may have stored a ±80
+        // char context window that includes the previous bullet ("Themenfindung
+        // 01.04.2026 Webkonferenz..."). If the matched range crosses a raw
+        // newline AND contains a date pattern after it, the real target is the
+        // date-bullet — trim matchStart forward to that date.
+        if (matchStart >= 0 && _isBulletPage) {
+          const dateRe = /\b\d{1,2}\.\d{1,2}\.(?:\d{2,4})?\b|\b\d{1,2}\.\s*(?:Jan(?:uar)?|Feb(?:ruar)?|Mär(?:z)?|Apr(?:il)?|Mai|Jun(?:i)?|Jul(?:i)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?)/i;
+          const matchedSlice = cleanText.slice(matchStart, matchEnd + 1);
+          const dm = dateRe.exec(matchedSlice);
+          if (dm && dm.index > 0) {
+            let hasNlBeforeDate = false;
+            for (let i = matchStart; i < matchStart + dm.index; i++) {
+              if (_isRawNewlineAtClean(i)) { hasNlBeforeDate = true; break; }
+            }
+            if (hasNlBeforeDate) {
+              matchStart = matchStart + dm.index;
+              exactFullMatch = false;
+            }
+          }
+          // Trim matchEnd: if a newline after the date is followed by a line
+          // that looks like the NEXT bullet (starts with marker/ellipsis/date),
+          // shrink matchEnd to before that newline. Wrapped continuation lines
+          // (plain text, no marker) are kept so multi-line bullets stay whole.
+          for (let i = matchStart + 1; i <= matchEnd; i++) {
+            if (!_isRawNewlineAtClean(i)) continue;
+            const after = cleanText.slice(i + 1, Math.min(cleanText.length, i + 60)).replace(/^\s+/, "");
+            const startsWithBulletMarker = /^(?:[•·…–—*\-]|\.{2,}|\d+\.\s)/.test(after);
+            const startsWithDateSoon = /^[^\s]{0,3}\s*\d{1,2}\.\d{1,2}\.\d{2,4}|^\d{1,2}\.\d{1,2}\.\d{2,4}|^(?:Ab|Am|Bis|Vom|Bis zum|Ab dem)\s+\d{1,2}\./i.test(after);
+            if (startsWithBulletMarker || startsWithDateSoon) {
+              matchEnd = i - 1;
+              while (matchEnd > matchStart && cleanText[matchEnd] === " ") matchEnd--;
+              exactFullMatch = false;
+              break;
+            }
+          }
+        }
+
+        // exactSelection = true (popup selection / zeitplan chip): the caller
+        // supplied a precise verbatim quote. If it doesn't match the page,
+        // DO NOT fall back to sliding-window or single-keyword search — that
+        // would highlight something unrelated (e.g. a random date in the
+        // footer of a PPTX slide). Just scroll and bail out.
+        if (exactSelection && matchStart < 0) {
+          if (scroll) {
+            scroll.scrollToPage({
+              pageNumber: targetPageIndex + 1,
+              behavior: "instant",
+              alignY: 50,
+            });
+          }
+          return true;
         }
 
         // 2. Try sliding windows (decreasing size)
@@ -312,6 +388,12 @@ export function PdfViewer({
           let sStart = startPos, sEnd = endPos;
           for (let i = startPos - 1; i >= 0; i--) {
             const ch = cleanText[i];
+            // PPTX bullet page: single newline ends the "sentence" (bullet).
+            if (_isBulletPage && _isRawNewlineAtClean(i)) {
+              sStart = i + 1;
+              while (sStart < startPos && cleanText[sStart] === " ") sStart++;
+              break;
+            }
             if (ch === "\n" || ch === "!" || ch === "?") {
               sStart = i + 1;
               while (sStart < startPos && cleanText[sStart] === " ") sStart++;
@@ -326,6 +408,7 @@ export function PdfViewer({
           }
           for (let i = endPos + 1; i < cleanText.length; i++) {
             const ch = cleanText[i];
+            if (_isBulletPage && _isRawNewlineAtClean(i)) { sEnd = i - 1; break; }
             if (ch === "\n" || ch === "!" || ch === "?") { sEnd = i; break; }
             if (ch === "." && !_isAbbrevDot(cleanText, i)) { sEnd = i; break; }
             if (i === cleanText.length - 1) sEnd = i;
@@ -356,6 +439,8 @@ export function PdfViewer({
             if (ch === "\n") nlCount++;
             else if (ch !== " " && ch !== "\r" && ch !== "\t") break;
           }
+          // PPTX bullet page: each line IS its own paragraph.
+          if (_isBulletPage && nlCount >= 1) return true;
           if (nlCount >= 2) return true;
           const preview = cleanText.slice(startInClean, Math.min(cleanText.length, startInClean + 80));
           if (_isHeading(preview)) return true;
@@ -534,6 +619,41 @@ export function PdfViewer({
         if (!selInstance?.applyInstantSelection || !docId2) return false;
 
         return Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) => {
+          // For exact selections (popup actions, zeitplan chips): constrain the
+          // range to runs on the same VISUAL line as the match start. PPTX PDFs
+          // sometimes store chars in an order that doesn't match the visual
+          // layout, so a char-range can span header+body+footer even if the
+          // match itself is short. Trimming by run y-coordinate prevents that.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const runs = (g.runs || []) as any[];
+          if (exactSelection && runs.length) {
+            const runYMid = (rn: { rect?: { y?: number; height?: number } }) => {
+              const y = rn.rect?.y ?? 0;
+              const h = rn.rect?.height ?? 0;
+              return y + h / 2;
+            };
+            const startRun = runs.find(rn => geoStart >= rn.charStart && geoStart < rn.charStart + rn.glyphs.length);
+            if (startRun?.rect) {
+              const refY = runYMid(startRun);
+              const lineH = Math.max(startRun.rect.height ?? 0, 6);
+              const tol = lineH * 0.7;
+              const startIdx = runs.indexOf(startRun);
+              let minStart = startRun.charStart;
+              let maxEnd = startRun.charStart + startRun.glyphs.length - 1;
+              for (let i = startIdx - 1; i >= 0; i--) {
+                const rn = runs[i]; if (!rn.rect) break;
+                if (Math.abs(runYMid(rn) - refY) > tol) break;
+                minStart = rn.charStart;
+              }
+              for (let i = startIdx + 1; i < runs.length; i++) {
+                const rn = runs[i]; if (!rn.rect) break;
+                if (Math.abs(runYMid(rn) - refY) > tol) break;
+                maxEnd = rn.charStart + rn.glyphs.length - 1;
+              }
+              geoStart = Math.max(geoStart, minStart);
+              geoEnd = Math.min(geoEnd, maxEnd);
+            }
+          }
           selInstance.applyInstantSelection(docId2, targetPageIndex, geoStart, geoEnd, "default");
           prevHighlightRef.current = { pageIndex: targetPageIndex, ids: [] };
 
