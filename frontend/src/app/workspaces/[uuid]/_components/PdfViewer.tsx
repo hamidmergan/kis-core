@@ -214,8 +214,16 @@ export function PdfViewer({
           } else { cleanText += ch; cleanToRaw.push(i); inSpace = false; }
         }
 
-        const cleanInput = searchText.replace(/\s+/g, " ").trim()
+        let cleanInput = searchText.replace(/\s+/g, " ").trim()
           .replace(/^\d{1,3}\s+/, "").trim();
+        // PPTX-converted slides have very little text per page. If the source
+        // quote is longer than ~150 chars, it almost certainly spans multiple
+        // bullets on a slide — the highlight then covers the whole slide.
+        // Trim to a central window so the match is specific.
+        if (cleanInput.length > 150) {
+          const mid = Math.floor(cleanInput.length / 2);
+          cleanInput = cleanInput.slice(Math.max(0, mid - 60), Math.min(cleanInput.length, mid + 60)).trim();
+        }
         const ptLower = cleanText.toLowerCase();
         const inputWords = cleanInput.toLowerCase().split(" ").filter(w => w.length > 0);
 
@@ -449,6 +457,20 @@ export function PdfViewer({
           [sentStart, sentEnd] = _findParaBounds(matchStart, matchEnd);
           if (sentEnd - sentStart > 2500) {
             [sentStart, sentEnd] = _findSentBounds(matchStart, matchEnd);
+          }
+          // PPTX-converted PDFs: all bullets live in ONE text box, so the entire
+          // slide is one paragraph AND one run. Expansion (and sometimes even
+          // the raw match) covers the whole slide. Two guards:
+          //   1. If the expansion covers >60% of the slide, fall back to raw match.
+          //   2. Hard-cap the highlight to ~120 characters so one bullet/line is
+          //      marked, not the whole text box.
+          if ((sentEnd - sentStart + 1) > cleanText.length * 0.6) {
+            sentStart = matchStart;
+            sentEnd = matchEnd;
+          }
+          const MAX_HIGHLIGHT_LEN = 120;
+          if (sentEnd - sentStart + 1 > MAX_HIGHLIGHT_LEN) {
+            sentEnd = Math.min(sentEnd, sentStart + MAX_HIGHLIGHT_LEN - 1);
           }
         }
 

@@ -10,6 +10,7 @@ export function ZeitplanEntryCard({
   isPast,
   editMode,
   sources,
+  sourceNumByUuid,
   onToggleChecked,
   onEdit,
   onDelete,
@@ -20,6 +21,7 @@ export function ZeitplanEntryCard({
   isPast: boolean;
   editMode: boolean;
   sources: SourceLike[];
+  sourceNumByUuid: Map<string, number>;
   onToggleChecked: (checked: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -28,21 +30,27 @@ export function ZeitplanEntryCard({
   const baseStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     backgroundColor: entry.is_checked ? "#f0fdf4" : "var(--bg)",
-    opacity: isPast && !isToday ? 0.55 : entry.is_checked ? 0.7 : 1,
+    // Dim whenever the deadline has passed — including today's entries whose
+    // time is already in the past (isPast is computed with due_time in mind).
+    opacity: isPast ? 0.55 : entry.is_checked ? 0.7 : 1,
     boxShadow: "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
     padding: "12px 14px",
     fontSize: 13,
   };
 
-  // One chip per source_ref (same source can appear multiple times at different
-  // positions, e.g. PDF page X and another page Y).
-  const chipRefs = entry.source_refs
-    .map((ref) => {
-      const src = sources.find((s) => s.uuid === ref.source_uuid);
-      return src ? { ref, filename: src.filename } : null;
-    })
-    .filter((r): r is { ref: typeof entry.source_refs[number]; filename: string } => !!r);
+  // Dedup: same (source_uuid, page, start_time) appears only once per entry,
+  // even if multiple raw quotes hit the same position in the same source.
+  const chipRefs: { ref: typeof entry.source_refs[number]; filename: string }[] = [];
+  const seen = new Set<string>();
+  for (const ref of entry.source_refs) {
+    const src = sources.find((s) => s.uuid === ref.source_uuid);
+    if (!src) continue;
+    const key = `${ref.source_uuid}|${ref.page_number ?? ""}|${ref.start_time ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    chipRefs.push({ ref, filename: src.filename });
+  }
 
   return (
     <div style={baseStyle}>
@@ -104,8 +112,9 @@ export function ZeitplanEntryCard({
                     : page > 0
                     ? _chunkLabel(filename, page)
                     : null;
+                const num = sourceNumByUuid.get(ref.source_uuid);
                 return (
-                  <div
+                  <span
                     key={`${ref.source_uuid}-${page}-${startTime ?? 0}-${idx}`}
                     role="button"
                     tabIndex={0}
@@ -114,20 +123,13 @@ export function ZeitplanEntryCard({
                       onPillClick?.(ref.source_uuid, page, filename, ref.raw_quote ?? undefined, startTime);
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLElement).click(); }}
-                    className="inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap cursor-pointer"
+                    style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                     title={label ? `${filename}, ${label}` : filename}
                   >
-                    <span
-                      className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium align-middle"
-                      style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-                    >
-                      <ChipIcon size={8} weight="bold" />
-                      {label ?? ""}
-                    </span>
-                    <span className="text-[10px] max-w-[180px] truncate" style={{ color: "var(--muted)" }}>
-                      {filename}
-                    </span>
-                  </div>
+                    <ChipIcon size={10} weight="bold" />
+                    {num != null ? `[${num}]` : ""}{label ? ` ${label}` : ""}
+                  </span>
                 );
               })}
             </div>

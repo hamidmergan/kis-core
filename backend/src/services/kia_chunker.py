@@ -89,12 +89,75 @@ def get_page_count(file_path: str, file_type: str) -> int:
 
 # ── Format-specific extractors ────────────────────────────────────────────────
 
+_OCR_MIN_CHARS = 100        # fully image-only pages: always OCR
+_OCR_MIXED_MAX_CHARS = 400  # page has images AND text-layer < this → also OCR
+_OCR_IMAGE_AREA_FRAC = 0.15  # image covers >= 15% of page area → treat as "has images"
+
+
+def _page_has_significant_image(page) -> bool:
+    """True if the page contains a raster image covering ≥ _OCR_IMAGE_AREA_FRAC
+    of the page area. Filters out small logos/icons.
+    """
+    try:
+        rect = page.rect
+        page_area = max(rect.width * rect.height, 1.0)
+        for block in page.get_text("dict")["blocks"]:
+            if block.get("type") != 1:  # 1 = image block
+                continue
+            bbox = block.get("bbox") or [0, 0, 0, 0]
+            w = max(bbox[2] - bbox[0], 0)
+            h = max(bbox[3] - bbox[1], 0)
+            if (w * h) / page_area >= _OCR_IMAGE_AREA_FRAC:
+                return True
+    except Exception:
+        return False
+    return False
+
+
 def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
     import fitz  # PyMuPDF
     chunks: list[dict] = []
     doc = fitz.open(file_path)
+
+    # Lazy-init OCR provider once per PDF. None means OCR toggle is off or
+    # the configured provider couldn't be constructed — either way, skip OCR.
+    ocr_provider = None
+    ocr_checked = False
+
     for page_num, page in enumerate(doc, start=1):
         text = _clean(page.get_text()).strip()
+
+        # Trigger OCR on (a) near-empty pages (scanned docs) or (b) mixed pages
+        # where a large image likely carries text the text-layer doesn't have.
+        should_ocr = len(text) < _OCR_MIN_CHARS or (
+            len(text) < _OCR_MIXED_MAX_CHARS and _page_has_significant_image(page)
+        )
+
+        if should_ocr:
+            if not ocr_checked:
+                try:
+                    from src.services.kia_ocr import get_ocr_provider
+                    ocr_provider = get_ocr_provider()
+                except Exception as e:
+                    logger.warning("OCR provider lookup failed: {}", e)
+                    ocr_provider = None
+                ocr_checked = True
+
+            if ocr_provider is not None:
+                try:
+                    pix = page.get_pixmap(dpi=200)
+                    png_bytes = pix.tobytes("png")
+                    ocr_text = _clean(ocr_provider.ocr_image(png_bytes, "image/png")).strip()
+                    if ocr_text:
+                        logger.info(
+                            "PDF page {}: OCR extracted {} chars (text-layer had {})",
+                            page_num, len(ocr_text), len(text),
+                        )
+                        # Merge text-layer remnants + OCR output; OCR wins if empty layer
+                        text = (text + "\n" + ocr_text).strip() if text else ocr_text
+                except Exception as e:
+                    logger.warning("OCR failed on page {}: {}", page_num, e)
+
         for sub in _split_text(text, chunk_size, overlap):
             chunks.append({"page_number": page_num, "content": sub})
     doc.close()

@@ -176,9 +176,9 @@ class MyLabEmbeddingProvider(EmbeddingProvider):
 def get_embedding_provider() -> EmbeddingProvider:
     """Return the currently-active embedding provider.
 
-    Priority:
-    1. Admin toggles in DB (mutually exclusive — enforced by PATCH /admin/settings)
-    2. Fallback to KIA_EMBEDDING_PROVIDER env var (kisski | ollama)
+    Exactly one of the three admin toggles must be enabled. No env-var fallback
+    — the admin explicitly picks a provider and any change requires a reindex,
+    so a silent fallback would corrupt the index.
     """
     from src import database as db
     if db.get_setting("kisski_embedding_enabled", "").lower() == "true":
@@ -187,16 +187,10 @@ def get_embedding_provider() -> EmbeddingProvider:
         return MyLabEmbeddingProvider()
     if db.get_setting("ollama_embedding_enabled", "").lower() == "true":
         return OllamaEmbeddingProvider()
-
-    from src.config import Settings
-    provider = Settings().tutor_embedding_provider
-    if provider == "kisski":
-        return KisskiEmbeddingProvider()
-    if provider == "ollama":
-        return OllamaEmbeddingProvider()
-    if provider == "mylab":
-        return MyLabEmbeddingProvider()
-    raise ValueError(f"Unknown tutor_embedding_provider: {provider!r}")
+    raise RuntimeError(
+        "Kein Embedding-Anbieter aktiv. Bitte im Admin-Bereich unter 'Embeddings (KI-Assistent)' "
+        "genau einen Anbieter aktivieren."
+    )
 
 
 def compute_fingerprint(provider: EmbeddingProvider) -> str:

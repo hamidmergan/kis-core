@@ -113,7 +113,7 @@ class ThorstenClient:
         """Prüft ob der Thorsten TTS Server erreichbar ist."""
         from loguru import logger
         try:
-            with httpx.Client(timeout=5.0) as client:
+            with httpx.Client(timeout=2.0) as client:
                 resp = client.get(f"{self._base_url}/")
             logger.debug("Thorsten is_available: / -> HTTP {}", resp.status_code)
             return resp.status_code < 500

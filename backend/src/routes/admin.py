@@ -1,6 +1,8 @@
 """Admin endpoints — only accessible by the configured ADMIN_EMAIL."""
 
+import asyncio
 import json
+import time as _time_mod
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
@@ -177,44 +179,92 @@ _TOOLS_CONFIG = [
 
 
 
+# Reachability-check cache: non-running containers take seconds to DNS-fail, so
+# we cache each check for 30s. Admin-page reloads within that window are instant.
+_REACH_CACHE: dict[str, tuple[float, bool]] = {}
+_REACH_TTL = 30.0
+
+
+def _cached_check(key: str, fn) -> bool:
+    now = _time_mod.monotonic()
+    hit = _REACH_CACHE.get(key)
+    if hit and hit[0] > now:
+        return hit[1]
+    try:
+        result = bool(fn())
+    except Exception:
+        result = False
+    _REACH_CACHE[key] = (now + _REACH_TTL, result)
+    return result
+
+
+async def _dns_ok(url: str, timeout: float = 1.0) -> bool:
+    """Hard-timeout DNS pre-check. Returns False quickly if host won't resolve
+    (e.g. Docker container is down, causing gethostbyname to block for ~8s).
+    """
+    if not url:
+        return False
+    from urllib.parse import urlparse
+    host = urlparse(url).hostname
+    if not host:
+        return False
+    cache_key = f"dns:{host}"
+    now = _time_mod.monotonic()
+    hit = _REACH_CACHE.get(cache_key)
+    if hit and hit[0] > now:
+        return hit[1]
+    loop = asyncio.get_event_loop()
+    try:
+        await asyncio.wait_for(loop.getaddrinfo(host, None), timeout=timeout)
+        ok = True
+    except Exception:
+        ok = False
+    _REACH_CACHE[cache_key] = (now + _REACH_TTL, ok)
+    return ok
+
+
 def _check_fish_speech_available(settings) -> bool:
     if not settings.fish_speech_base_url:
         return False
-    try:
+
+    def _do():
         from src.services.fish_speech_client import FishSpeechClient
         return FishSpeechClient(settings.fish_speech_base_url).is_available()
-    except Exception:
-        return False
+
+    return _cached_check(f"fish:{settings.fish_speech_base_url}", _do)
 
 
 def _check_kokoro_available(settings) -> bool:
     if not settings.kokoro_base_url:
         return False
-    try:
+
+    def _do():
         from src.services.kokoro_client import KokoroClient
         return KokoroClient(settings.kokoro_base_url).is_available()
-    except Exception:
-        return False
+
+    return _cached_check(f"kokoro:{settings.kokoro_base_url}", _do)
 
 
 def _check_mylab_available(settings) -> bool:
     if not settings.mylab_tts_base_url:
         return False
-    try:
+
+    def _do():
         from src.services.mylab_client import MyLabClient
         return MyLabClient(settings.mylab_tts_base_url).is_available()
-    except Exception:
-        return False
+
+    return _cached_check(f"mylab_tts:{settings.mylab_tts_base_url}", _do)
 
 
 def _check_thorsten_available(settings) -> bool:
     if not settings.thorsten_base_url:
         return False
-    try:
+
+    def _do():
         from src.services.thorsten_client import ThorstenClient
         return ThorstenClient(settings.thorsten_base_url).is_available()
-    except Exception:
-        return False
+
+    return _cached_check(f"thorsten:{settings.thorsten_base_url}", _do)
 
 
 def _check_mylab_base_available(settings) -> bool:
@@ -222,16 +272,50 @@ def _check_mylab_base_available(settings) -> bool:
     url = settings.mylab_base_url or settings.mylab_tts_base_url
     if not url:
         return False
-    try:
+
+    def _do():
         import httpx
-        with httpx.Client(timeout=5.0) as client:
+        with httpx.Client(timeout=2.0) as client:
             resp = client.get(f"{url.rstrip('/')}/v1/models")
         return resp.status_code < 500
-    except Exception:
-        return False
+
+    return _cached_check(f"mylab_base:{url}", _do)
 
 
 # --- Settings ---
+
+@router.get("/settings/ping")
+async def ping_service(service: str, _admin=Depends(get_admin_user)):
+    """On-demand reachability probe. Called from the UI when the user clicks
+    a 'Testen' button, so the main settings load stays instant.
+    """
+    from src.dependencies import get_settings as _get_settings
+    app_settings = _get_settings()
+
+    checks = {
+        "fish_speech": _check_fish_speech_available,
+        "kokoro": _check_kokoro_available,
+        "mylab_tts": _check_mylab_available,
+        "thorsten": _check_thorsten_available,
+        "mylab_base": _check_mylab_base_available,
+    }
+    fn = checks.get(service)
+    if fn is None:
+        raise HTTPException(status_code=400, detail=f"Unknown service: {service}")
+
+    # URL pick for DNS pre-check
+    urls = {
+        "fish_speech": app_settings.fish_speech_base_url,
+        "kokoro": app_settings.kokoro_base_url,
+        "mylab_tts": app_settings.mylab_tts_base_url,
+        "thorsten": app_settings.thorsten_base_url,
+        "mylab_base": app_settings.mylab_base_url or app_settings.mylab_tts_base_url,
+    }
+    if not await _dns_ok(urls[service]):
+        return {"service": service, "available": False, "reason": "dns_unreachable"}
+    available = await asyncio.to_thread(fn, app_settings)
+    return {"service": service, "available": bool(available)}
+
 
 @router.get("/settings")
 async def get_settings(_admin=Depends(get_admin_user)):
@@ -241,7 +325,15 @@ async def get_settings(_admin=Depends(get_admin_user)):
     kisski_configured = bool(app_settings.kisski_api_key)
     ollama_configured = bool(app_settings.ollama_base_url)
     mylab_base_configured = bool(app_settings.mylab_base_url or app_settings.mylab_tts_base_url)
-    mylab_base_available = _check_mylab_base_available(app_settings) if mylab_base_configured else False
+
+    # Reachability is NOT probed here — doing external HTTP calls on every
+    # settings load makes the endpoint slow (8s DNS timeout per offline host).
+    # The UI uses a separate /admin/settings/ping?service=... endpoint on demand.
+    fish_available = None
+    kokoro_available = None
+    mylab_tts_available = None
+    thorsten_available = None
+    mylab_base_available = None
 
     def _enabled(key: str, default: str = "true") -> bool:
         return db.get_setting(key, default).lower() == "true"
@@ -254,16 +346,16 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "elevenlabs_configured": bool(app_settings.elevenlabs_api_key),
         "fish_speech_enabled": _enabled("fish_speech_enabled"),
         "fish_speech_configured": bool(app_settings.fish_speech_base_url),
-        "fish_speech_available": _check_fish_speech_available(app_settings),
+        "fish_speech_available": fish_available,
         "kokoro_enabled": _enabled("kokoro_enabled"),
         "kokoro_configured": bool(app_settings.kokoro_base_url),
-        "kokoro_available": _check_kokoro_available(app_settings),
+        "kokoro_available": kokoro_available,
         "mylab_enabled": _enabled("mylab_enabled"),
         "mylab_configured": bool(app_settings.mylab_tts_base_url),
-        "mylab_available": _check_mylab_available(app_settings),
+        "mylab_available": mylab_tts_available,
         "thorsten_enabled": _enabled("thorsten_enabled"),
         "thorsten_configured": bool(app_settings.thorsten_base_url),
-        "thorsten_available": _check_thorsten_available(app_settings),
+        "thorsten_available": thorsten_available,
         # ── Transkription ──
         "kisski_whisper_enabled": _enabled("kisski_whisper_enabled"),
         "kisski_whisper_configured": kisski_configured,
@@ -334,10 +426,11 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("kisski_whisper_enabled", "true" if body.kisski_whisper_enabled else "false")
     if body.mylab_whisper_enabled is not None:
         db.set_setting("mylab_whisper_enabled", "true" if body.mylab_whisper_enabled else "false")
-    # Embeddings — mutually exclusive: enabling one disables the others.
+    # Embeddings — exactly one must be enabled at any time.
     # Different embedding models have different vector dimensions, so parallel
     # operation or silent fallback would corrupt the index.
     _EMB_KEYS = ("kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled")
+    embedding_changed = False
     for active_key, requested in (
         ("kisski_embedding_enabled", body.kisski_embedding_enabled),
         ("mylab_embedding_enabled", body.mylab_embedding_enabled),
@@ -345,11 +438,26 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
     ):
         if requested is None:
             continue
-        db.set_setting(active_key, "true" if requested else "false")
         if requested:
+            # Enable this one, disable all others
+            db.set_setting(active_key, "true")
             for other in _EMB_KEYS:
                 if other != active_key:
                     db.set_setting(other, "false")
+            embedding_changed = True
+        else:
+            # Refuse to disable the last active provider — exactly one must stay on
+            from fastapi import HTTPException
+            currently_on = [k for k in _EMB_KEYS if db.get_setting(k, "false").lower() == "true"]
+            if currently_on == [active_key]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Mindestens ein Embedding-Anbieter muss aktiv bleiben. Aktiviere zuerst einen anderen.",
+                )
+            db.set_setting(active_key, "false")
+            embedding_changed = True
+    if embedding_changed:
+        _invalidate_fingerprint_cache()
     # Bild-Generierung
     if body.kisski_image_gen_enabled is not None:
         db.set_setting("kisski_image_gen_enabled", "true" if body.kisski_image_gen_enabled else "false")
@@ -383,6 +491,48 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
 # --- Maintenance / Reindex ---
 
 
+def _active_embedding_provider_key() -> str:
+    from src import database as db
+    if db.get_setting("mylab_embedding_enabled", "false").lower() == "true":
+        return "mylab"
+    if db.get_setting("kisski_embedding_enabled", "false").lower() == "true":
+        return "kisski"
+    if db.get_setting("ollama_embedding_enabled", "false").lower() == "true":
+        return "ollama"
+    return "default"
+
+
+def _get_cached_fingerprint() -> str | None:
+    """Fingerprint is the embedding of a fixed sentinel string — deterministic
+    per provider/model. We persist it in the settings table so it survives
+    backend restarts (first cold call to KISSKI takes 15–50s, all subsequent
+    calls should be instant).
+    """
+    from src import database as db
+    key = f"fingerprint_{_active_embedding_provider_key()}"
+    cached = db.get_setting(key, "") or ""
+    if cached:
+        return cached
+    try:
+        from src.services.kia_embeddings import get_embedding_provider, compute_fingerprint
+        fp = compute_fingerprint(get_embedding_provider())
+        db.set_setting(key, fp)
+        return fp
+    except Exception as e:
+        logger.warning("Maintenance: fingerprint compute failed: {}", e)
+        return None
+
+
+def _invalidate_fingerprint_cache():
+    """Called when the embedding-provider toggle changes."""
+    from src import database as db
+    for provider in ("mylab", "kisski", "ollama", "default"):
+        try:
+            db.set_setting(f"fingerprint_{provider}", "")
+        except Exception:
+            pass
+
+
 @router.get("/maintenance")
 async def get_maintenance(_admin=Depends(get_admin_user)):
     enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
@@ -391,23 +541,26 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
     except Exception:
         progress = None
 
-    # Detect embedding-model mismatch: compare current provider fingerprint with
-    # what's stored on each module. Any divergence → reindex recommended.
+    # Read fingerprint from DB only — do NOT compute on demand (compute takes
+    # 15–50s against KISSKI cold). If not cached yet, fire a background task
+    # to prime it; the user's next page refresh will see the stale_modules.
+    key = f"fingerprint_{_active_embedding_provider_key()}"
+    current_fingerprint = db.get_setting(key, "") or None
     stale_modules: list[dict] = []
-    current_fingerprint: str | None = None
-    try:
-        from src.services.kia_embeddings import get_embedding_provider, compute_fingerprint
-        provider = get_embedding_provider()
-        current_fingerprint = compute_fingerprint(provider)
-        stale_modules = db.list_kia_modules_with_stale_fingerprint(current_fingerprint)
-    except Exception as e:
-        logger.warning("Maintenance: fingerprint check failed: {}", e)
+    if current_fingerprint:
+        try:
+            stale_modules = db.list_kia_modules_with_stale_fingerprint(current_fingerprint)
+        except Exception as e:
+            logger.warning("Maintenance: stale-module query failed: {}", e)
+    else:
+        # Prime the cache in the background — endpoint stays fast.
+        asyncio.create_task(asyncio.to_thread(_get_cached_fingerprint))
 
     return {
         "enabled": enabled,
         "reindex": progress,
         "stale_modules": stale_modules,
-        "fingerprint_check_ok": current_fingerprint is not None,
+        "fingerprint_check_ok": bool(current_fingerprint),
     }
 
 

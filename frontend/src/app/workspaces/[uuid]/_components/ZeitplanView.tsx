@@ -61,6 +61,12 @@ export function ZeitplanView({
     }
   }, [moduleUuid]);
 
+  useEffect(() => {
+    if (!generateMsg) return;
+    const t = setTimeout(() => setGenerateMsg(null), 10000);
+    return () => clearTimeout(t);
+  }, [generateMsg]);
+
   const startPolling = useCallback((jobId: number) => {
     stopPolling();
     pollRef.current = setInterval(async () => {
@@ -108,7 +114,23 @@ export function ZeitplanView({
     return () => { cancelled = true; stopPolling(); };
   }, [moduleUuid, load, startPolling, stopPolling]);
 
-  const datedEntries = useMemo(() => entries.filter((e) => !!e.due_date), [entries]);
+  // Number sources by first appearance across all entries so chips like "[1] S. 23"
+  // line up with the legend at the bottom of the timeline.
+  const { sourceLegend, sourceNumByUuid } = useMemo(() => {
+    const byUuid = new Map<string, number>();
+    const legend: { number: number; filename: string; uuid: string }[] = [];
+    for (const entry of entries) {
+      for (const ref of entry.source_refs) {
+        if (byUuid.has(ref.source_uuid)) continue;
+        const src = sources.find((s) => s.uuid === ref.source_uuid);
+        if (!src) continue;
+        const num = legend.length + 1;
+        byUuid.set(ref.source_uuid, num);
+        legend.push({ number: num, filename: src.filename, uuid: src.uuid });
+      }
+    }
+    return { sourceLegend: legend, sourceNumByUuid: byUuid };
+  }, [entries, sources]);
 
   // Sources filtering
   const processedSet = useMemo(() => new Set(processedUuids), [processedUuids]);
@@ -302,15 +324,27 @@ export function ZeitplanView({
           </div>
         )}
         {!loading && entries.length > 0 && (
-          <ZeitplanTimeline
-            entries={datedEntries}
-            editMode={editMode}
-            sources={sources}
-            onToggleChecked={handleToggleChecked}
-            onEdit={setEditing}
-            onDelete={handleDelete}
-            onPillClick={onPillClick}
-          />
+          <>
+            <ZeitplanTimeline
+              entries={entries}
+              editMode={editMode}
+              sources={sources}
+              sourceNumByUuid={sourceNumByUuid}
+              onToggleChecked={handleToggleChecked}
+              onEdit={setEditing}
+              onDelete={handleDelete}
+              onPillClick={onPillClick}
+            />
+            {sourceLegend.length > 0 && (
+              <div className="flex flex-col gap-1 pt-4 mt-4 border-t border-dashed" style={{ borderColor: "var(--border)" }}>
+                {sourceLegend.map((s) => (
+                  <p key={s.number} className="text-[11px] leading-snug" style={{ color: "var(--muted)" }}>
+                    [{s.number}] {s.filename}
+                  </p>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

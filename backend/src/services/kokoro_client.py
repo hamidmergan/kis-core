@@ -246,11 +246,15 @@ class KokoroClient:
         from loguru import logger
         for path in ("/health", "/v1/audio/voices", "/"):
             try:
-                with httpx.Client(timeout=5.0) as client:
+                with httpx.Client(timeout=2.0) as client:
                     resp = client.get(f"{self._base_url}{path}", headers=self._headers())
                 logger.debug("Kokoro is_available: {} -> HTTP {}", path, resp.status_code)
                 if resp.status_code < 500:
                     return True
+            except httpx.ConnectError as e:
+                # Host unreachable / DNS fail — trying other paths won't help.
+                logger.warning("Kokoro is_available: connect failed, aborting: {}", e)
+                return False
             except Exception as e:
                 logger.warning("Kokoro is_available: {} -> {}: {}", path, type(e).__name__, e)
         return False
