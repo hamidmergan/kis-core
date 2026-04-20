@@ -248,6 +248,21 @@ export function PdfViewer({
           return false;
         };
 
+        // On bullet pages, distinguish a newline that starts a NEW bullet
+        // (marker/date/common prepositional opener) from one that's just a
+        // line wrap within the same bullet. Only the former counts as a
+        // sentence/paragraph boundary — otherwise wrapped bullets get cut at
+        // the first wrap.
+        const _looksLikeNewBullet = (startClean: number): boolean => {
+          const after = cleanText.slice(startClean, Math.min(cleanText.length, startClean + 60)).replace(/^\s+/, "");
+          if (!after) return false;
+          if (/^(?:[•·…–—*\-]|\.{2,}|\d+\.\s)/.test(after)) return true;
+          if (/^\d{1,2}\.\d{1,2}\.\d{2,4}/.test(after)) return true;
+          if (/^[^\s]{0,3}\s*\d{1,2}\.\d{1,2}\.\d{2,4}/.test(after)) return true;
+          if (/^(?:Ab|Am|Bis|Vom|Bis\s+zum|Ab\s+dem)\s+\d{1,2}\./i.test(after)) return true;
+          return false;
+        };
+
         let cleanInput = searchText.replace(/\s+/g, " ").trim()
           .replace(/^\d{1,3}\s+/, "").trim();
         // For LLM-cited sources (exactSelection=false) we trim very long quotes to
@@ -299,15 +314,12 @@ export function PdfViewer({
             }
           }
           // Trim matchEnd: if a newline after the date is followed by a line
-          // that looks like the NEXT bullet (starts with marker/ellipsis/date),
-          // shrink matchEnd to before that newline. Wrapped continuation lines
-          // (plain text, no marker) are kept so multi-line bullets stay whole.
+          // that looks like the NEXT bullet, shrink matchEnd to before that
+          // newline. Wrapped continuation lines (plain text, no marker) are
+          // kept so multi-line bullets stay whole.
           for (let i = matchStart + 1; i <= matchEnd; i++) {
             if (!_isRawNewlineAtClean(i)) continue;
-            const after = cleanText.slice(i + 1, Math.min(cleanText.length, i + 60)).replace(/^\s+/, "");
-            const startsWithBulletMarker = /^(?:[•·…–—*\-]|\.{2,}|\d+\.\s)/.test(after);
-            const startsWithDateSoon = /^[^\s]{0,3}\s*\d{1,2}\.\d{1,2}\.\d{2,4}|^\d{1,2}\.\d{1,2}\.\d{2,4}|^(?:Ab|Am|Bis|Vom|Bis zum|Ab dem)\s+\d{1,2}\./i.test(after);
-            if (startsWithBulletMarker || startsWithDateSoon) {
+            if (_looksLikeNewBullet(i + 1)) {
               matchEnd = i - 1;
               while (matchEnd > matchStart && cleanText[matchEnd] === " ") matchEnd--;
               exactFullMatch = false;
@@ -388,8 +400,9 @@ export function PdfViewer({
           let sStart = startPos, sEnd = endPos;
           for (let i = startPos - 1; i >= 0; i--) {
             const ch = cleanText[i];
-            // PPTX bullet page: single newline ends the "sentence" (bullet).
-            if (_isBulletPage && _isRawNewlineAtClean(i)) {
+            // PPTX bullet page: only newlines followed by a NEW bullet marker
+            // count as sentence boundary. Wrap lines continue the sentence.
+            if (_isBulletPage && _isRawNewlineAtClean(i) && _looksLikeNewBullet(i + 1)) {
               sStart = i + 1;
               while (sStart < startPos && cleanText[sStart] === " ") sStart++;
               break;
@@ -408,7 +421,7 @@ export function PdfViewer({
           }
           for (let i = endPos + 1; i < cleanText.length; i++) {
             const ch = cleanText[i];
-            if (_isBulletPage && _isRawNewlineAtClean(i)) { sEnd = i - 1; break; }
+            if (_isBulletPage && _isRawNewlineAtClean(i) && _looksLikeNewBullet(i + 1)) { sEnd = i - 1; break; }
             if (ch === "\n" || ch === "!" || ch === "?") { sEnd = i; break; }
             if (ch === "." && !_isAbbrevDot(cleanText, i)) { sEnd = i; break; }
             if (i === cleanText.length - 1) sEnd = i;
@@ -439,8 +452,9 @@ export function PdfViewer({
             if (ch === "\n") nlCount++;
             else if (ch !== " " && ch !== "\r" && ch !== "\t") break;
           }
-          // PPTX bullet page: each line IS its own paragraph.
-          if (_isBulletPage && nlCount >= 1) return true;
+          // PPTX bullet page: single newline is a paragraph break ONLY if the
+          // next line starts like a new bullet — otherwise it's a wrap.
+          if (_isBulletPage && nlCount >= 1 && _looksLikeNewBullet(startInClean)) return true;
           if (nlCount >= 2) return true;
           const preview = cleanText.slice(startInClean, Math.min(cleanText.length, startInClean + 80));
           if (_isHeading(preview)) return true;
