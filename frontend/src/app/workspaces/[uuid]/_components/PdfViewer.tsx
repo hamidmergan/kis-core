@@ -188,12 +188,23 @@ export function PdfViewer({
     return geoPromise.then((geo: unknown) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const g = geo as any;
-      if (!g?.runs?.length) return false;
-
+      // Image-only (OCR) page: the text is in the DB chunk but the PDF text-layer
+      // is empty. Scroll to the page and treat as "handled" so the caller doesn't
+      // fall back to nearby pages and highlight something unrelated there.
+      const noRuns = !g?.runs?.length;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lastRun = g.runs[g.runs.length - 1] as any;
-      const totalChars = lastRun.charStart + lastRun.glyphs.length;
-      if (totalChars === 0) return false;
+      const lastRun = !noRuns ? (g.runs[g.runs.length - 1] as any) : null;
+      const totalChars = lastRun ? lastRun.charStart + lastRun.glyphs.length : 0;
+      if (noRuns || totalChars < 50) {
+        if (scroll) {
+          scroll.scrollToPage({
+            pageNumber: targetPageIndex + 1,
+            behavior: "instant",
+            alignY: 50,
+          });
+        }
+        return true;
+      }
 
       const sliceTask = engine.getTextSlices?.(doc, [{ pageIndex: targetPageIndex, charIndex: 0, charCount: totalChars }]);
       const slicePromise: Promise<unknown> = sliceTask?.toPromise?.() ?? Promise.resolve(null);
@@ -445,6 +456,32 @@ export function PdfViewer({
           return [pStart, pEnd];
         };
 
+        // PPTX bullet helper: cleanText collapses newlines to spaces, so
+        // _findSentBounds can't see line breaks. Look up the original rawPageText
+        // to find newline boundaries for the current bullet / line.
+        const _hasNewlineAtClean = (cleanIdx: number): boolean => {
+          if (cleanIdx < 0 || cleanIdx >= cleanText.length) return false;
+          if (cleanText[cleanIdx] !== " ") return false;
+          const rawStart = cleanToRaw[cleanIdx];
+          const rawEnd = cleanIdx + 1 < cleanToRaw.length ? cleanToRaw[cleanIdx + 1] : rawPageText.length;
+          for (let k = rawStart; k < rawEnd; k++) {
+            if (rawPageText[k] === "\n" || rawPageText[k] === "\r") return true;
+          }
+          return false;
+        };
+        const _findLineBounds = (startPos: number, endPos: number): [number, number] => {
+          let sStart = 0, sEnd = cleanText.length - 1;
+          for (let i = startPos - 1; i >= 0; i--) {
+            if (_hasNewlineAtClean(i)) { sStart = i + 1; break; }
+          }
+          for (let i = endPos + 1; i < cleanText.length; i++) {
+            if (_hasNewlineAtClean(i)) { sEnd = i - 1; break; }
+          }
+          while (sStart < sEnd && cleanText[sStart] === " ") sStart++;
+          while (sEnd > sStart && cleanText[sEnd] === " ") sEnd--;
+          return [sStart, sEnd];
+        };
+
         // Default to paragraph expansion. Skip when the full search text matched verbatim
         // (popup selection — user already defined the bounds). Fall back to sentence
         // expansion if the paragraph is unreasonably long (wall-of-text PDFs).
@@ -458,19 +495,11 @@ export function PdfViewer({
           if (sentEnd - sentStart > 2500) {
             [sentStart, sentEnd] = _findSentBounds(matchStart, matchEnd);
           }
-          // PPTX-converted PDFs: all bullets live in ONE text box, so the entire
-          // slide is one paragraph AND one run. Expansion (and sometimes even
-          // the raw match) covers the whole slide. Two guards:
-          //   1. If the expansion covers >60% of the slide, fall back to raw match.
-          //   2. Hard-cap the highlight to ~120 characters so one bullet/line is
-          //      marked, not the whole text box.
+          // PPTX-converted PDFs: all bullets live in one text box, so the whole
+          // slide is one paragraph. Back off to the current bullet/line via the
+          // original newline positions in rawPageText.
           if ((sentEnd - sentStart + 1) > cleanText.length * 0.6) {
-            sentStart = matchStart;
-            sentEnd = matchEnd;
-          }
-          const MAX_HIGHLIGHT_LEN = 120;
-          if (sentEnd - sentStart + 1 > MAX_HIGHLIGHT_LEN) {
-            sentEnd = Math.min(sentEnd, sentStart + MAX_HIGHLIGHT_LEN - 1);
+            [sentStart, sentEnd] = _findLineBounds(matchStart, matchEnd);
           }
         }
 
@@ -547,24 +576,12 @@ export function PdfViewer({
     if (!text?.trim()) return;
 
     const pageIndex = page - 1;
-    const totalPages = doc.pages?.length ?? 0;
 
-    // Try cited page first, then nearby pages, then all others
-    tryHighlightOnPage(r, doc, engine, docMgr, scroll, pageIndex, text).then((found) => {
-      if (found) return;
-      // Search nearby pages first (±2), then remaining
-      const nearby = [pageIndex - 1, pageIndex + 1, pageIndex - 2, pageIndex + 2];
-      const remaining: number[] = [];
-      for (let i = 0; i < totalPages; i++) {
-        if (i !== pageIndex && !nearby.includes(i)) remaining.push(i);
-      }
-      const candidates = [...nearby.filter(i => i >= 0 && i < totalPages), ...remaining];
-
-      let chain: Promise<boolean> = Promise.resolve(false);
-      for (const pi of candidates) {
-        chain = chain.then((f) => f ? Promise.resolve(true) : tryHighlightOnPage(r, doc, engine, docMgr, scroll, pi, text));
-      }
-    });
+    // Only try the exact cited page. Falling back to nearby pages would mean
+    // a "[1] S. 4" chip could silently highlight something on S. 3 or S. 5 when
+    // the target is an OCR/image page whose PDF text layer doesn't contain the
+    // cited text. Better: scroll to the right page and highlight nothing.
+    tryHighlightOnPage(r, doc, engine, docMgr, scroll, pageIndex, text);
   }
 
   // When the document changes, the inner PDFViewer remounts (keyed by uuid) but this
