@@ -2,6 +2,7 @@
 
 import json
 import re
+import time as _time
 from datetime import date, time
 from difflib import SequenceMatcher
 from typing import Optional
@@ -16,6 +17,12 @@ from src.tool_prompts import (
     KIA_ZEITPLAN_HARMONIZE_PROMPT,
 )
 from src.features.ki_assistent.tasks._helpers import _get_llm_client, _clean_llm_json
+
+# Classify/harmonize batches can carry up to 30 candidates with ±450 chars of
+# context each → responses up to 10k tokens. 120s (OpenAI default) is too tight
+# for slower providers; 180s + one retry covers transient stalls.
+_CLASSIFY_TIMEOUT_SECS = 180
+_CLASSIFY_RETRY_WAIT_SECS = 5
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -379,16 +386,30 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
         'Return a JSON object with key "results" as an array of the same length (same ids).\n\n'
         "Candidates:\n" + json.dumps(payload, ensure_ascii=False)
     )
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": KIA_ZEITPLAN_CLASSIFY_PROMPT},
-            {"role": "user", "content": user_msg},
-        ],
-        temperature=0.0,
-        max_tokens=10000,
-        response_format={"type": "json_object"},
-    )
+    response = None
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": KIA_ZEITPLAN_CLASSIFY_PROMPT},
+                    {"role": "user", "content": user_msg},
+                ],
+                temperature=0.0,
+                max_tokens=10000,
+                response_format={"type": "json_object"},
+                timeout=_CLASSIFY_TIMEOUT_SECS,
+            )
+            break
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str:
+                raise
+            if "timeout" in err_str.lower() and attempt == 0:
+                logger.warning("Zeitplan classify: timeout, retrying once in {}s", _CLASSIFY_RETRY_WAIT_SECS)
+                _time.sleep(_CLASSIFY_RETRY_WAIT_SECS)
+                continue
+            raise
     raw = (response.choices[0].message.content or "").strip()
     raw = _clean_llm_json(raw)
     try:
@@ -499,6 +520,7 @@ def _harmonize_same_date_titles(
                 temperature=0.0,
                 max_tokens=2000,
                 response_format={"type": "json_object"},
+                timeout=_CLASSIFY_TIMEOUT_SECS,
             )
             raw = _clean_llm_json((response.choices[0].message.content or "").strip())
             parsed = json.loads(raw)
@@ -544,7 +566,7 @@ def _classify_candidates(client, model, candidates: list[dict], today_d: date) -
 # ─── Celery task ───────────────────────────────────────────────────────────
 
 @celery_app.task(bind=True, name="kia.generate_zeitplan", queue="kia",
-                 soft_time_limit=300, time_limit=360)
+                 soft_time_limit=600, time_limit=720)
 @observe(name="kia-zeitplan")
 def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
                           source_uuids: list[str]):

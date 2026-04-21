@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ from src.limits import (
     KIA_MODULE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
-from src.storage import USE_S3, delete_file, file_exists, get_file, presigned_get_url, save_file
+from src.storage import USE_S3, delete_file, file_exists, get_file, save_file, stream_s3_object
 from src.tool_prompts import (
     KIA_SYSTEM_DIRECT,
     KIA_SYSTEM_DIRECT_WITH_CONTEXT,
@@ -166,6 +166,7 @@ async def delete_source(
 async def stream_source_file(
     module_uuid: str,
     source_uuid: str,
+    request: Request,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
@@ -200,13 +201,24 @@ async def stream_source_file(
     disposition = f'inline; filename="{source["filename"]}"'
 
     if USE_S3:
-        url = presigned_get_url(
-            source["file_path"],
-            content_type=media_type,
-            content_disposition=disposition,
+        # Stream durch das Backend statt Redirect zu presigned URL: gleiche
+        # Origin wie die App, funktioniert damit auch vom Smartphone aus.
+        range_header = request.headers.get("range")
+        body_iter, content_length, content_range = stream_s3_object(source["file_path"], range_header)
+        headers = {
+            "Content-Disposition": disposition,
+            "Cache-Control": "private, max-age=3600",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(content_length),
+        }
+        if content_range:
+            headers["Content-Range"] = content_range
+        return StreamingResponse(
+            body_iter,
+            status_code=206 if range_header and content_range else 200,
+            media_type=media_type,
+            headers=headers,
         )
-        # Avoid caching the redirect itself — the presigned URL is short-lived.
-        return RedirectResponse(url, status_code=307, headers={"Cache-Control": "no-store"})
 
     return FileResponse(
         path=source["file_path"],
@@ -215,6 +227,43 @@ async def stream_source_file(
         content_disposition_type="inline",
         headers={"Cache-Control": "private, max-age=3600"},
     )
+
+@router.post("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/regenerate-en-transcript")
+async def regenerate_en_transcript(
+    module_uuid: str,
+    source_uuid: str,
+    provider: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """Dispatch an async Celery task to translate the source-language VTT to English.
+
+    If ``provider`` is omitted, falls back to the admin-configured default
+    (``transcript_translation_provider`` setting; defaults to ``llm``).
+    """
+    _require_own_module(module_uuid, current_user["user_id"])
+    source = db.get_kia_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+
+    effective_provider = provider or db.get_setting("transcript_translation_provider", "llm")
+    if effective_provider not in ("deepl", "llm"):
+        raise HTTPException(status_code=400, detail="Ungültiger Provider")
+
+    base_key = source["file_path"].rsplit(".", 1)[0]
+    if not any(file_exists(f"{base_key}_transcript.{lang}.vtt") for lang in ("de",)):
+        raise HTTPException(
+            status_code=404,
+            detail="Kein Quell-Transkript gefunden. Neu-Übersetzung nicht möglich.",
+        )
+
+    from src.tasks.kia_tasks import run_translate_transcript_en
+    run_translate_transcript_en.delay(source_uuid, effective_provider)
+    logger.info(
+        "KI Tutor: manual EN translation dispatched for {} (provider={})",
+        source_uuid, effective_provider,
+    )
+    return {"uuid": source_uuid, "status": "dispatched", "provider": effective_provider}
+
 
 @router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/transcript")
 async def get_transcript_vtt(

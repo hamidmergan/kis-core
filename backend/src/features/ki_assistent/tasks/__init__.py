@@ -4,6 +4,7 @@ and re-export task functions for backwards-compat imports."""
 from src.features.ki_assistent.tasks.ingestion import (  # noqa: F401
     run_index_source,
     run_generate_summaries,
+    run_translate_transcript_en,
 )
 from src.features.ki_assistent.tasks.glossary import run_generate_glossary  # noqa: F401
 from src.features.ki_assistent.tasks.sprachtraining import run_generate_exercise_set  # noqa: F401

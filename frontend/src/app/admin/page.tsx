@@ -982,7 +982,7 @@ function GeneralSettingsSection() {
       });
   }, []);
 
-  const patch = async (body: Record<string, boolean>) => {
+  const patch = async (body: Record<string, boolean | string>) => {
     setSaving(true);
     try {
       await fetch("/api/admin/settings", {
@@ -1104,6 +1104,31 @@ function GeneralSettingsSection() {
         <P label="KISSKI (Mistral / Qwen)" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" />
         <P label="THL myLab (GPT OSS 120B)" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" />
         <P label="Ollama (lokal, qwen3)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" />
+      </ProviderSection>
+
+      {/* Transkript-Übersetzung */}
+      <ProviderSection title="Transkript-Übersetzung (EN)" hint="Automatische Übersetzung deutscher Video-/Audio-Transkripte ins Englische nach dem Indexieren.">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Anbieter</p>
+            <p className="text-xs text-gray-500 mt-1">
+              DeepL: schnell, aber Kontingent-limitiert. LLM: nutzt den konfigurierten Chat-Provider, keine zusätzliche Quote.
+            </p>
+          </div>
+          <select
+            value={s.transcript_translation_provider ?? "llm"}
+            onChange={(e) => {
+              const v = e.target.value;
+              setS((prev) => ({ ...prev, transcript_translation_provider: v }));
+              patch({ transcript_translation_provider: v });
+            }}
+            disabled={saving}
+            className="shrink-0 border border-gray-300 rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
+          >
+            <option value="deepl">DeepL</option>
+            <option value="llm">LLM (KISSKI)</option>
+          </select>
+        </div>
       </ProviderSection>
     </div>
   );

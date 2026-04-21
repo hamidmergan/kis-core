@@ -62,7 +62,7 @@ export function ZeitplanView({
   }, [moduleUuid]);
 
   useEffect(() => {
-    if (!generateMsg) return;
+    if (!generateMsg || generateMsg.kind === "error") return;
     const t = setTimeout(() => setGenerateMsg(null), 10000);
     return () => clearTimeout(t);
   }, [generateMsg]);

@@ -129,6 +129,45 @@ def segments_to_vtt(segments: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _parse_vtt_time(s: str) -> float:
+    """Parse a WebVTT/SRT timestamp (``HH:MM:SS.mmm`` or ``MM:SS.mmm``) into seconds."""
+    parts = s.replace(",", ".").split(":")
+    if len(parts) == 3:
+        h, m, sec = parts
+        return int(h) * 3600 + int(m) * 60 + float(sec)
+    if len(parts) == 2:
+        m, sec = parts
+        return int(m) * 60 + float(sec)
+    return float(s)
+
+
+def vtt_to_segments(raw: str) -> list[dict]:
+    """Parse a WebVTT string back into ``{start, end, text}`` segments."""
+    segments: list[dict] = []
+    lines = raw.replace("\r", "").split("\n")
+    i = 0
+    while i < len(lines):
+        arrow = lines[i].find("-->")
+        if arrow == -1:
+            i += 1
+            continue
+        try:
+            start = _parse_vtt_time(lines[i][:arrow].strip())
+            end = _parse_vtt_time(lines[i][arrow + 3:].strip().split(" ")[0])
+        except (ValueError, IndexError):
+            i += 1
+            continue
+        i += 1
+        text_lines: list[str] = []
+        while i < len(lines) and lines[i].strip() != "":
+            text_lines.append(lines[i])
+            i += 1
+        if text_lines:
+            segments.append({"start": start, "end": end, "text": " ".join(text_lines).strip()})
+        i += 1
+    return segments
+
+
 def segments_to_txt(segments: list[dict]) -> str:
     """Convert segments to plain-text transcript."""
     return " ".join(seg["text"] for seg in segments)

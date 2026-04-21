@@ -82,6 +82,27 @@ def get_file(file_path: str) -> bytes:
     return Path(file_path).read_bytes()
 
 
+def stream_s3_object(file_path: str, range_header: str | None = None):
+    """Stream an S3 object chunk-by-chunk, honouring an optional HTTP Range header.
+
+    Returns (iterator, content_length, content_range_or_none).
+    """
+    kwargs: dict = {"Bucket": _S3_BUCKET, "Key": file_path}
+    if range_header:
+        kwargs["Range"] = range_header
+    resp = _s3().get_object(**kwargs)
+    body = resp["Body"]
+
+    def iterator():
+        try:
+            for chunk in body.iter_chunks(chunk_size=64 * 1024):
+                yield chunk
+        finally:
+            body.close()
+
+    return iterator(), resp["ContentLength"], resp.get("ContentRange")
+
+
 def presigned_get_url(
     file_path: str,
     content_type: str | None = None,

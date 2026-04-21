@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, NavigationArrow, NotePencil } from "@phosphor-icons/react";
+import { ArrowsClockwise, Check, NavigationArrow, NotePencil } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 
 interface Cue {
@@ -57,11 +57,13 @@ export function TranscriptPanel({
   mediaRef,
   moduleUuid,
   sourceUuid,
+  canManage = false,
   onSaveNote,
 }: {
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   moduleUuid: string;
   sourceUuid: string;
+  canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[]) => void | Promise<void>;
 }) {
   const [deCues, setDeCues] = useState<Cue[] | null>(null);
@@ -72,6 +74,8 @@ export function TranscriptPanel({
   const [followCurrent, setFollowCurrent] = useState(true);
   const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
   const [savingCueIdx, setSavingCueIdx] = useState<number | null>(null);
+  const [regenEn, setRegenEn] = useState<"idle" | "running" | "error">("idle");
+  const [regenError, setRegenError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
@@ -165,6 +169,60 @@ export function TranscriptPanel({
     setFollowCurrent(true);
   };
 
+  // Poll for the EN VTT to appear after a translation task was dispatched.
+  // The Celery task can take ~30 s for short videos up to several minutes for long
+  // ones, so we poll gently and give up after the timeout instead of blocking forever.
+  useEffect(() => {
+    if (regenEn !== "running") return;
+    const started = Date.now();
+    const TIMEOUT_MS = 5 * 60 * 1000;
+    const INTERVAL_MS = 5000;
+    const timer = setInterval(async () => {
+      if (Date.now() - started > TIMEOUT_MS) {
+        clearInterval(timer);
+        setRegenEn("error");
+        setRegenError("Übersetzung dauert zu lange. Später prüfen oder erneut versuchen.");
+        return;
+      }
+      try {
+        const res = await fetch(
+          `/api/ki-assistent/modules/${moduleUuid}/sources/${sourceUuid}/transcript?lang=en`,
+          { credentials: "include" },
+        );
+        if (res.ok) {
+          const cues = parseVtt(await res.text());
+          clearInterval(timer);
+          setEnCues(cues);
+          if (deCues) setMode("both");
+          setRegenEn("idle");
+        }
+      } catch {
+        /* keep polling */
+      }
+    }, INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [regenEn, moduleUuid, sourceUuid, deCues]);
+
+  const regenerateEnTranscript = async () => {
+    if (regenEn === "running") return;
+    setRegenEn("running");
+    setRegenError(null);
+    try {
+      const res = await fetch(
+        `/api/ki-assistent/modules/${moduleUuid}/sources/${sourceUuid}/regenerate-en-transcript`,
+        { method: "POST", credentials: "include" },
+      );
+      if (!res.ok) {
+        const detail = (await res.json().catch(() => null))?.detail;
+        throw new Error(detail || `HTTP ${res.status}`);
+      }
+      // Task was dispatched; polling effect takes over.
+    } catch (e) {
+      setRegenEn("error");
+      setRegenError(e instanceof Error ? e.message : "Unbekannter Fehler");
+    }
+  };
+
   const onCueClick = (cue: Cue) => {
     const media = mediaRef.current;
     if (!media) return;
@@ -250,9 +308,39 @@ export function TranscriptPanel({
             <TabButton active={mode === "both"} onClick={() => setMode("both")}>Beide</TabButton>
           </div>
         ) : (
-          <span className="text-xs" style={{ color: "var(--muted)" }}>
-            {deCues ? "Deutsch" : "English"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              {deCues ? "Deutsch" : "English"}
+            </span>
+            {canManage && deCues && !enCues && (
+              <button
+                type="button"
+                onClick={regenerateEnTranscript}
+                disabled={regenEn === "running"}
+                title={
+                  regenEn === "error"
+                    ? `EN-Übersetzung fehlgeschlagen: ${regenError}. Nochmal versuchen?`
+                    : regenEn === "running"
+                    ? "Übersetzung läuft im Hintergrund..."
+                    : "Englische Untertitel im Hintergrund übersetzen"
+                }
+                className="flex-shrink-0 h-6 px-2 flex items-center gap-1 rounded-full transition-colors disabled:opacity-60 disabled:cursor-wait"
+                style={{
+                  backgroundColor: regenEn === "error" ? "rgba(239, 68, 68, 0.12)" : "var(--surface-dim)",
+                  color: regenEn === "error" ? "rgb(239, 68, 68)" : "var(--muted)",
+                  border: "1px solid var(--border)",
+                  fontSize: "10px",
+                }}
+              >
+                {regenEn === "running" ? (
+                  <Spinner size="xs" color="current" />
+                ) : (
+                  <ArrowsClockwise size={10} weight="bold" />
+                )}
+                <span>{regenEn === "running" ? "läuft..." : "EN übersetzen"}</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 

@@ -253,11 +253,12 @@ export function ChatPanel({
                     key={prompt}
                     disabled={activeSourceIds.length === 0}
                     onClick={() => onSendPrompt?.(prompt)}
-                    className="text-left text-xs px-4 py-2.5 rounded-xl border transition-all"
+                    className="text-left text-xs px-4 rounded-xl border transition-all"
                     style={{
+                      height: 50,
                       borderColor: activeSourceIds.length === 0 ? "var(--border)" : "rgba(var(--kb-rgb),0.25)",
                       color: activeSourceIds.length === 0 ? "var(--muted)" : "var(--text)",
-                      backgroundColor: activeSourceIds.length === 0 ? "transparent" : "rgba(var(--kb-rgb),0.04)",
+                      backgroundColor: "transparent",
                       cursor: activeSourceIds.length === 0 ? "default" : "pointer",
                       opacity: activeSourceIds.length === 0 ? 0.5 : 1,
                     }}
@@ -269,7 +270,7 @@ export function ChatPanel({
                     }}
                     onMouseLeave={(e) => {
                       if (activeSourceIds.length > 0) {
-                        e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.04)";
+                        e.currentTarget.style.backgroundColor = "transparent";
                         e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.25)";
                       }
                     }}
@@ -326,10 +327,11 @@ export function ChatPanel({
                 const ChipIcon = _getChipIcon(filename);
                 nodes.push(
                   <span key={ck} role="button" tabIndex={0}
-                    // onMouseDown (statt onClick), damit Chips auch während aktivem Token-Stream
+                    // onPointerDown (statt onClick), damit Chips auch während aktivem Token-Stream
                     // klickbar bleiben: bei onClick unmountet react-markdown den Chip zwischen
-                    // mousedown und mouseup oft, sodass der native Click auf dem Vorfahren landet.
-                    onMouseDown={(e) => { if (e.button === 0) handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds, isExactSelection); }}
+                    // down und up oft, sodass der native Click auf dem Vorfahren landet.
+                    // Pointer (statt Mouse), damit Touch-Geraete den Handler zuverlaessig triggern.
+                    onPointerDown={(e) => { if (e.button === 0) handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds, isExactSelection); }}
                     onKeyDown={(e) => { if (e.key === "Enter") handleChipClick(clickUuid, clickSeconds ? 0 : clickPage, clickFile, clickSeconds ? undefined : clickHighlight, clickSeconds, isExactSelection); }}
                     className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5 cursor-pointer"
                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}

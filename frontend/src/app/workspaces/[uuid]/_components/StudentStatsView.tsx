@@ -3,7 +3,6 @@ import { ChartBar, ClockCounterClockwise } from "@phosphor-icons/react";
 import type { HeatmapDay, StudentStats } from "../_types";
 import { TOOL_COLORS, TOOL_LABELS } from "../_constants";
 import { RecentActivities } from "./RecentActivities";
-import { StudioTabs } from "./StudioTabs";
 
 type StatsPeriod = "30" | "180";
 
@@ -18,7 +17,6 @@ interface DayDetail {
 
 export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, sprachtrainingActive = true }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; sprachtrainingActive?: boolean }) {
   const [period, setPeriod] = useState<StatsPeriod>("30");
-  const [category, setCategory] = useState<"lerntools" | "sprachtraining">("lerntools");
 
   // Responsive heatmap: Zellen an Containerbreite anpassen
   const observerRef = useRef<ResizeObserver | null>(null);
@@ -36,59 +34,36 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
   };
   useEffect(() => () => { observerRef.current?.disconnect(); }, []);
 
-  useEffect(() => {
-    if (!sprachtrainingActive && category === "sprachtraining") setCategory("lerntools");
-  }, [sprachtrainingActive, category]);
+  // Heatmap-Quelle: sprachtraining aus -> nur Lerntools; sonst kombiniert.
+  // Day-Detail-Endpoint spiegelt diese Wahl via category-Param.
+  const heatmapSource: HeatmapDay[] = stats
+    ? (sprachtrainingActive ? stats.heatmap : stats.lerntools_heatmap)
+    : [];
+  const dayCategoryParam = sprachtrainingActive ? "" : "&category=lerntools";
 
-  // ── Lerntools: eigener State ──
-  const [selDayLt, setSelDayLt] = useState<HeatmapDay | null>(null);
-  const [detailLt, setDetailLt] = useState<DayDetail | null>(null);
-  const [loadLt, setLoadLt] = useState(false);
-
-  useEffect(() => {
-    if (!stats) return;
-    const hasAnyActivity = stats.lerntools_heatmap.some(d => d.answers > 0);
-    const entry = hasAnyActivity ? (stats.lerntools_heatmap.find(d => d.day === stats.today) ?? null) : null;
-    setSelDayLt(entry);
-    setDetailLt(null);
-    if (entry && entry.answers > 0) {
-      setLoadLt(true);
-      fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${entry.day}&category=lerntools`, { credentials: "include" })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => setDetailLt(d))
-        .finally(() => setLoadLt(false));
-    }
-  }, [stats, moduleUuid]);
-
-  // ── Sprachtraining: eigener State ──
-  const [selDaySt, setSelDaySt] = useState<HeatmapDay | null>(null);
-  const [detailSt, setDetailSt] = useState<DayDetail | null>(null);
-  const [loadSt, setLoadSt] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
+  const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
+  const [dayDetailLoading, setDayDetailLoading] = useState(false);
 
   useEffect(() => {
     if (!stats) return;
-    const hasAnyActivity = stats.sprachtraining_heatmap.some(d => d.answers > 0);
-    const entry = hasAnyActivity ? (stats.sprachtraining_heatmap.find(d => d.day === stats.today) ?? null) : null;
-    setSelDaySt(entry);
-    setDetailSt(null);
+    const hasAnyActivity = heatmapSource.some(d => d.answers > 0);
+    const entry = hasAnyActivity ? (heatmapSource.find(d => d.day === stats.today) ?? null) : null;
+    setSelectedDay(entry);
+    setDayDetail(null);
     if (entry && entry.answers > 0) {
-      setLoadSt(true);
-      fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${entry.day}&category=sprachtraining`, { credentials: "include" })
+      setDayDetailLoading(true);
+      fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${entry.day}${dayCategoryParam}`, { credentials: "include" })
         .then(r => r.ok ? r.json() : null)
-        .then(d => setDetailSt(d))
-        .finally(() => setLoadSt(false));
+        .then(d => setDayDetail(d))
+        .finally(() => setDayDetailLoading(false));
     }
-  }, [stats, moduleUuid]);
-
-  // ── Aktive Kategorie ──
-  const selectedDay = category === "lerntools" ? selDayLt : selDaySt;
-  const dayDetail = category === "lerntools" ? detailLt : detailSt;
-  const dayDetailLoading = category === "lerntools" ? loadLt : loadSt;
+  }, [stats, moduleUuid, sprachtrainingActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Expand/Collapse für Day-Detail (Limit auf 10 Einträge) ──
   const DAY_DETAIL_LIMIT = 10;
   const [showAllSets, setShowAllSets] = useState(false);
-  useEffect(() => { setShowAllSets(false); }, [selDayLt, selDaySt, category]);
+  useEffect(() => { setShowAllSets(false); }, [selectedDay]);
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center p-4">
@@ -101,13 +76,11 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
     </div>
   );
 
-  const { lerntools, sprachtraining, lerntools_heatmap, sprachtraining_heatmap, chat, active_days, today } = stats;
-  const currentOverview = category === "lerntools" ? lerntools : sprachtraining;
-  const categoryHeatmap = category === "lerntools" ? lerntools_heatmap : sprachtraining_heatmap;
+  const { today } = stats;
 
   // Filter heatmap by period
   const periodDays = parseInt(period);
-  const filteredHeatmap = categoryHeatmap.slice(-periodDays);
+  const filteredHeatmap = heatmapSource.slice(-periodDays);
   const periodAnswers = filteredHeatmap.reduce((s, d) => s + d.answers, 0);
   const periodCorrect = filteredHeatmap.reduce((s, d) => s + d.correct, 0);
   const periodWrong = filteredHeatmap.reduce((s, d) => s + d.wrong, 0);
@@ -130,9 +103,8 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
 
   const maxAns = Math.max(...filteredHeatmap.map(d => d.answers), 1);
 
-  // Lerntools: brand blue, Sprachtraining: green
-  const accent = category === "lerntools" ? "var(--kb)" : "#9333EA";
-  const heatRgb = category === "lerntools" ? "0,66,97" : "147,51,234";
+  const accent = "var(--kb)";
+  const heatRgb = "0,66,97";
 
   function heatColor(answers: number): string {
     if (answers === 0) return `rgba(${heatRgb},0.07)`;
@@ -155,37 +127,21 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
   }
 
   async function selectDay(d: HeatmapDay) {
-    const setDay = category === "lerntools" ? setSelDayLt : setSelDaySt;
-    const setDetail = category === "lerntools" ? setDetailLt : setDetailSt;
-    const setLoad = category === "lerntools" ? setLoadLt : setLoadSt;
-    if (selectedDay?.day === d.day) { setDay(null); setDetail(null); return; }
-    setDay(d);
-    setDetail(null);
+    if (selectedDay?.day === d.day) { setSelectedDay(null); setDayDetail(null); return; }
+    setSelectedDay(d);
+    setDayDetail(null);
     if (d.answers > 0) {
-      setLoad(true);
+      setDayDetailLoading(true);
       try {
-        const res = await fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${d.day}&category=${category}`, { credentials: "include" });
-        if (res.ok) setDetail(await res.json());
+        const res = await fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${d.day}${dayCategoryParam}`, { credentials: "include" });
+        if (res.ok) setDayDetail(await res.json());
       } catch { /* ignore */ }
-      setLoad(false);
+      setDayDetailLoading(false);
     }
   }
 
   return (
     <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
-      {/* ── Category filter ── */}
-      {sprachtrainingActive && (
-        <StudioTabs
-          tabs={[
-            { key: "lerntools", label: "Lerntools" },
-            { key: "sprachtraining", label: "Fachsprachentraining" },
-          ]}
-          active={category}
-          onSelect={(k) => setCategory(k as "lerntools" | "sprachtraining")}
-          accentColor={category === "sprachtraining" ? "#9333EA" : undefined}
-        />
-      )}
-
       {/* ── Period selector + period summary ── */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
@@ -297,7 +253,7 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
                                     backgroundColor: heatColor(d.answers),
                                     outline: isSelected ? `2px solid ${accent}` : "none",
                                     outlineOffset: 1,
-                                    borderBottom: isToday && !isSelected ? `2.5px solid ${category === "sprachtraining" ? "#C084FC" : "var(--muted)"}` : "none",
+                                    borderBottom: isToday && !isSelected ? "2.5px solid var(--muted)" : "none",
                                   }}
                                   title={`${formatDay(d.day)}: ${d.answers} Antworten`}
                                 >

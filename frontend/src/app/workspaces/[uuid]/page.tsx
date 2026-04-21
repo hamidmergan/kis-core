@@ -81,7 +81,6 @@ import type { Note } from "./_components/NotizenStudio";
 // Lightweight components needed on initial render
 import { SourcesPanel } from "./_components/SourcesPanel";
 import { ChatPanel } from "./_components/ChatPanel";
-import { SubviewHeader } from "./_components/SubviewHeader";
 import { ExerciseSetsOverview } from "./_components/ExerciseSetsOverview";
 import { ExerciseCompletion } from "./_components/ExerciseCompletion";
 import { CreateSetModal } from "./_components/CreateSetModal";
@@ -170,42 +169,36 @@ function StudioOverview({ onSelect, onMinimize, sprachtrainingActive, sprachtrai
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      {effectiveTab === "statistik" ? (
-        <SubviewHeader title="Statistik" onBack={() => setStudioTab("tools")} breadcrumbs={[{ label: "Studio", onClick: () => setStudioTab("tools") }]} />
-      ) : (
-        <>
-          {!hideHeader && (
-            <div
-              className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-              style={{ borderBottom: "1px solid var(--border)" }}
-            >
-              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Studio</span>
-              <button
-                type="button"
-                onClick={onMinimize}
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
-                title="Panel minimieren"
-              >
-                <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
-              </button>
-            </div>
-          )}
-
-          {/* Tabs */}
-          <StudioTabs
-            tabs={[
-              { key: "tools" as const, label: "Tools" },
-              { key: "glossar" as const, label: "Glossar" },
-              { key: "notizen" as const, label: "Notizen" },
-              { key: "statistik" as const, label: "Statistik" },
-              { key: "zeitplan" as const, label: "Zeitplan" },
-            ]}
-            active={effectiveTab === "sprachtraining" ? "tools" : effectiveTab}
-            onSelect={(k) => setStudioTab(k as typeof studioTab)}
-          />
-        </>
+      {!hideHeader && (
+        <div
+          className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Studio</span>
+          <button
+            type="button"
+            onClick={onMinimize}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+            title="Panel minimieren"
+          >
+            <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
+          </button>
+        </div>
       )}
+
+      {/* Tabs */}
+      <StudioTabs
+        tabs={[
+          { key: "tools" as const, label: "Tools" },
+          { key: "glossar" as const, label: "Glossar" },
+          { key: "notizen" as const, label: "Notizen" },
+          { key: "statistik" as const, label: "Statistik" },
+          { key: "zeitplan" as const, label: "Zeitplan" },
+        ]}
+        active={effectiveTab === "sprachtraining" ? "tools" : effectiveTab}
+        onSelect={(k) => setStudioTab(k as typeof studioTab)}
+      />
 
       {/* Tools: Lerntools + Sprachtraining + Activities */}
       {studioTab === "tools" && (
@@ -623,6 +616,7 @@ export default function KiTutorModulePage() {
     setSelectedSourceIds([source.uuid]);
     setViewerSource({ uuid: source.uuid, filename: source.filename, page, highlightText, exactSelection, nonce: Date.now() });
     setPanels((prev) => ({ ...prev, quellen: true }));
+    if (isMobile) setActiveTab("quellen");
   }
 
   function handleCloseViewer() {
@@ -896,6 +890,7 @@ export default function KiTutorModulePage() {
     if (isMedia) {
       setViewerSource({ uuid: sourceUuid, filename, page: 0, startTime, nonce: Date.now() });
       setPanels((prev) => ({ ...prev, quellen: true }));
+      if (isMobile) setActiveTab("quellen");
     } else if (src) {
       handleOpenViewer(src, page, sourceText, isExact);
     } else {
@@ -903,6 +898,7 @@ export default function KiTutorModulePage() {
       setSelectedSourceIds([sourceUuid]);
       setViewerSource({ uuid: sourceUuid, filename, page, highlightText: sourceText, exactSelection: isExact, nonce: Date.now() });
       setPanels((prev) => ({ ...prev, quellen: true }));
+      if (isMobile) setActiveTab("quellen");
     }
   }
 
@@ -2049,7 +2045,7 @@ export default function KiTutorModulePage() {
                 {activeTab === "quellen" ? (
                   viewerSource ? (
                     _isMediaFile(viewerSource.filename) ? (
-                      <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} canDownload={isLecturer || isAdmin} onSaveNote={addNote} />
+                      <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => setActiveTab("chat")} canDownload={isLecturer || isAdmin} canManage={isLecturer || isAdmin} onSaveNote={addNote} />
                     ) : (
                       <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => setActiveTab("chat")} />
                     )
@@ -2190,7 +2186,7 @@ export default function KiTutorModulePage() {
                   <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
                 ) : viewerSource ? (
                   _isMediaFile(viewerSource.filename) ? (
-                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => togglePanel("quellen")} canDownload={isLecturer || isAdmin} onSaveNote={addNote} />
+                    <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={() => togglePanel("quellen")} canDownload={isLecturer || isAdmin} canManage={isLecturer || isAdmin} onSaveNote={addNote} />
                   ) : (
                     <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={() => togglePanel("quellen")} />
                   )

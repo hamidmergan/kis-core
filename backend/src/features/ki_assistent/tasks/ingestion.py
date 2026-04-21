@@ -59,6 +59,8 @@ def run_index_source(self, source_uuid: str):
         provider = get_embedding_provider()
         fingerprint = compute_fingerprint(provider)
 
+        _en_translation_pending = False
+
         from src.config import Settings
         _s = Settings()
         embedding_model = _s.ollama_embedding_model if _s.tutor_embedding_provider == "ollama" else _s.kisski_embedding_model
@@ -105,35 +107,10 @@ def run_index_source(self, source_uuid: str):
                 _save_transcript_artifact(source_vtt_key, segments_to_vtt(segments))
                 logger.info("KI Tutor: VTT ({}) saved to {}", lang_code, source_vtt_key)
 
-                # Additionally produce an English VTT via DeepL text translation
-                # (skipped if the audio is already English).
-                if lang_code != "en":
-                    try:
-                        from src.dependencies import get_deepl_client
-                        deepl_client = get_deepl_client()
-                        if deepl_client is None:
-                            logger.warning(
-                                "KI Tutor: EN VTT skipped for {} (no DeepL client)", source_uuid
-                            )
-                        else:
-                            texts = [s["text"] for s in segments]
-                            translated = deepl_client.translate_batch(
-                                texts, source_lang=lang_code.upper(), target_lang="EN-US"
-                            )
-                            en_segments = [
-                                {"start": s["start"], "end": s["end"], "text": t}
-                                for s, t in zip(segments, translated)
-                            ]
-                            en_vtt_key = f"{base_key}_transcript.en.vtt"
-                            _save_transcript_artifact(en_vtt_key, segments_to_vtt(en_segments))
-                            logger.info(
-                                "KI Tutor: EN VTT saved to {} ({} segments via DeepL)",
-                                en_vtt_key, len(en_segments),
-                            )
-                    except Exception as e:
-                        logger.warning(
-                            "KI Tutor: EN translation VTT failed for {}: {}", source_uuid, e
-                        )
+                # English VTT is produced by a separate Celery task dispatched at the
+                # end of this task (after chunking/embedding) so chat is available
+                # before translation finishes.
+                _en_translation_pending = lang_code not in ("en", "unknown")
             else:
                 chunks = kia_chunker.extract_chunks(local_path, file_type)
 
@@ -189,12 +166,114 @@ def run_index_source(self, source_uuid: str):
                 )
                 logger.info("KI Tutor: module {} is now ready", module["uuid"])
 
-        # 10. Summaries are generated on-demand via button in PDF viewer
+        # 10. Dispatch non-critical follow-ups (EN translation runs relaxed in bg)
+        if _en_translation_pending:
+            translation_provider = db.get_setting(
+                "transcript_translation_provider", "llm"
+            )
+            run_translate_transcript_en.delay(source_uuid, translation_provider)
+            logger.info(
+                "KI Tutor: dispatched EN translation for {} (provider={})",
+                source_uuid, translation_provider,
+            )
+
+        # 11. Summaries are generated on-demand via button in PDF viewer
 
     except Exception as e:
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
         db.update_kia_source_status(source_uuid, "failed", error_message=str(e))
         raise
+
+@celery_app.task(bind=True, name="kia.translate_transcript_en", queue="kia")
+def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl"):
+    """Translate a media source's source-language VTT to English.
+
+    Runs as a follow-up to indexing so chat is available before translation completes.
+    ``provider`` is ``"deepl"`` (fast, quota-limited) or ``"llm"`` (via KISSKI chat,
+    used as manual fallback when DeepL's free-tier quota is exhausted).
+    """
+    from src.services.subtitle_converter import vtt_to_segments, segments_to_vtt
+    from src.storage import file_exists, get_file
+
+    source = db.get_kia_source(source_uuid)
+    if source is None:
+        logger.warning("KI Tutor EN-translate: source {} not found, skipping", source_uuid)
+        return
+
+    base_key = source["file_path"].rsplit(".", 1)[0]
+    en_key = f"{base_key}_transcript.en.vtt"
+    if file_exists(en_key):
+        logger.info("KI Tutor EN-translate: {} already exists, skipping", en_key)
+        return
+
+    # Locate the source-language VTT. Currently only German sources are auto-translated;
+    # the loop leaves room for other ISO codes without restructuring.
+    source_vtt_key: str | None = None
+    source_lang: str | None = None
+    for candidate_lang in ("de",):
+        candidate_key = f"{base_key}_transcript.{candidate_lang}.vtt"
+        if file_exists(candidate_key):
+            source_vtt_key = candidate_key
+            source_lang = candidate_lang
+            break
+    if not source_vtt_key or not source_lang:
+        logger.warning(
+            "KI Tutor EN-translate: no source VTT for {}, skipping", source_uuid
+        )
+        return
+
+    segments = vtt_to_segments(get_file(source_vtt_key).decode("utf-8"))
+    if not segments:
+        logger.warning(
+            "KI Tutor EN-translate: could not parse {}, skipping", source_vtt_key
+        )
+        return
+
+    texts = [s["text"] for s in segments]
+    lang_name_map = {"de": "German"}
+    source_lang_name = lang_name_map.get(source_lang, source_lang)
+
+    if provider == "llm":
+        from src.services.llm_translation_client import LLMTranslationClient
+        from src.dependencies import _resolve_llm_provider
+        api_key, base_url, model, prov = _resolve_llm_provider()
+        if not api_key:
+            raise RuntimeError("Kein LLM-Provider konfiguriert")
+        client = LLMTranslationClient(
+            api_key=api_key, base_url=base_url, model=model, provider=prov,
+        )
+        # Chunk to keep each batch below the client's 4096 output-token cap —
+        # larger batches truncate and trigger slow one-by-one fallback.
+        _LLM_CHUNK = 30
+        translated: list[str] = []
+        for start in range(0, len(texts), _LLM_CHUNK):
+            chunk = texts[start:start + _LLM_CHUNK]
+            translated.extend(client.translate_batch(
+                chunk, source_lang=source_lang_name, target_lang="English",
+            ))
+            logger.info(
+                "KI Tutor EN-translate: LLM progress {}/{} segments",
+                min(start + _LLM_CHUNK, len(texts)), len(texts),
+            )
+    else:  # deepl
+        from src.dependencies import get_deepl_client
+        deepl_client = get_deepl_client()
+        if deepl_client is None:
+            raise RuntimeError("DeepL ist nicht konfiguriert")
+        translated = deepl_client.translate_batch(
+            texts, source_lang=source_lang.upper(), target_lang="EN-US",
+        )
+
+    en_segments = [
+        {"start": s["start"], "end": s["end"], "text": t}
+        for s, t in zip(segments, translated)
+    ]
+    _save_transcript_artifact(en_key, segments_to_vtt(en_segments))
+    logger.info(
+        "KI Tutor EN-translate: saved {} ({} segments via {})",
+        en_key, len(en_segments), provider,
+    )
+
 
 @celery_app.task(bind=True, name="kia.generate_summaries", queue="kia")
 @observe(name="kia-summaries")

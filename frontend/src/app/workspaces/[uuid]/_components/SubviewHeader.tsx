@@ -13,7 +13,6 @@ const LERNTOOLS_BADGE: Record<string, { bg: string; color: string }> = {
 };
 // Sprachtraining: distinct tool colors (each unique)
 const SPRACHTRAINING_BADGE: Record<string, { bg: string; color: string }> = {
-  Karteikarten: { bg: "rgba(207,250,254,0.7)", color: "#0E7490" },
   Lernkarten: { bg: "rgba(245,235,220,0.7)", color: "#78350F" },
   Glossar: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
   "Lückentext": { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },

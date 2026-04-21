@@ -66,6 +66,8 @@ class UpdateSettingsRequest(BaseModel):
     kisski_llm_enabled: bool | None = None
     mylab_llm_enabled: bool | None = None
     ollama_llm_enabled: bool | None = None
+    # Transkript-Übersetzung (EN)
+    transcript_translation_provider: str | None = None
 
 
 class ToggleToolRequest(BaseModel):
@@ -402,6 +404,8 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_llm_available": mylab_base_available,
         "ollama_llm_enabled": _enabled("ollama_llm_enabled", "false"),
         "ollama_llm_configured": ollama_configured,
+        # ── Transkript-Übersetzung (EN) ──
+        "transcript_translation_provider": db.get_setting("transcript_translation_provider", "llm"),
     }
 
 
@@ -485,6 +489,10 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         db.set_setting("mylab_llm_enabled", "true" if body.mylab_llm_enabled else "false")
     if body.ollama_llm_enabled is not None:
         db.set_setting("ollama_llm_enabled", "true" if body.ollama_llm_enabled else "false")
+    if body.transcript_translation_provider is not None:
+        if body.transcript_translation_provider not in ("deepl", "llm"):
+            raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
+        db.set_setting("transcript_translation_provider", body.transcript_translation_provider)
     return {"ok": True}
 
 
