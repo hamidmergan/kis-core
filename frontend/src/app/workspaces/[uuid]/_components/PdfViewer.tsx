@@ -932,21 +932,6 @@ export function PdfViewer({
       },
     });
 
-    // Register theme toggle command (switches between light/dark mode)
-    commands.registerCommand({
-      id: "kis.toggle-theme",
-      label: "Hell/Dunkel umschalten",
-      description: "Hell/Dunkel umschalten",
-      icon: "ph-circle-half",
-      iconProps: { title: "Hell/Dunkel umschalten" },
-      action: () => {
-        const next = themeModeRef.current === "light" ? "dark" : "light";
-        themeModeRef.current = next;
-        viewerRef.current?.container?.setTheme(next);
-        try { window.localStorage.setItem("kis.pdf-theme", next); } catch { /* ignore */ }
-      },
-    });
-
     // Register summary toggle command (opens EmbedPDF sidebar like comments)
     commands.registerCommand({
       id: "kis.toggle-summaries",
@@ -973,7 +958,7 @@ export function PdfViewer({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newToolbarItems = mainToolbar?.items?.map((item: any) =>
       item.id === "right-group"
-        ? { ...item, items: [...(item.items ?? []), { type: "command-button", id: "theme-toggle-button", commandId: "kis.toggle-theme", variant: "icon" }, { type: "command-button", id: "summaries-button", commandId: "kis.toggle-summaries", variant: "icon", categories: ["panel", "panel-summaries"] }] }
+        ? { ...item, items: [...(item.items ?? []), { type: "command-button", id: "summaries-button", commandId: "kis.toggle-summaries", variant: "icon", categories: ["panel", "panel-summaries"] }] }
         : item,
     );
     ui.mergeSchema?.({
@@ -1082,7 +1067,7 @@ export function PdfViewer({
                       await fetch(`/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
                     } catch { /* ignore */ }
                   }}
-                  style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-fg-accent, #60a5fa)", background: "var(--color-bg-accent, #1e3a5f)", color: "#fff", cursor: "pointer", fontWeight: 500 }}
+                  style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-accent, #3b82f6)", background: "var(--color-accent, #3b82f6)", color: "var(--color-accent-fg, #fff)", cursor: "pointer", fontWeight: 500 }}
                 >
                   Zusammenfassungen generieren
                 </button>
