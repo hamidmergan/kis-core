@@ -327,22 +327,35 @@ export function PdfViewer({
         };
 
         // On bullet pages, distinguish a newline that starts a NEW bullet from
-        // one that's a line wrap within the same bullet. Default assumption
-        // is "new bullet" — only return false if the previous line ended with
-        // a strong wrap indicator (mid-sentence conjunction, article, comma,
-        // syllable hyphen). This keeps wraps joined while stopping expansion
-        // at real bullet/title boundaries that lack markers or dates.
+        // one that's a line wrap within the same bullet. Combines two signals:
+        // (1) prev-line end: wrap-indicator (conj./article/prep./comma/hyphen)
+        //     → WRAP. Sentence terminator (. ! ?) → NEW bullet.
+        // (2) next-line start: explicit bullet marker / date / "Am/Ab/..." opener
+        //     → NEW bullet. Lowercase letter → WRAP (German bullets start upper).
+        // Ambiguous case (uppercase continuation, no terminator, no wrap-tail):
+        // default to WRAP — safer to keep multi-line bullets whole than cut them.
         const _wrapTailRe = /(?:^|\s)(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|und|oder|aber|sowie|sondern|doch|denn|auch|bzw\.?|mit|von|vom|zu|zum|zur|bei|beim|am|im|in|an|auf|über|unter|für|durch|nach|vor|ohne|um|aus|gegen)$/i;
         const _looksLikeNewBullet = (startClean: number): boolean => {
           if (startClean <= 0) return true;
-          // Previous-line content immediately before the newline.
+          // Previous-line tail.
           let prevEnd = startClean - 1;
           while (prevEnd > 0 && cleanText[prevEnd] === " ") prevEnd--;
           const beforeSlice = cleanText.slice(Math.max(0, prevEnd - 40), prevEnd + 1);
           if (beforeSlice.endsWith("-")) return false; // syllable break
           if (/[,;]$/.test(beforeSlice)) return false; // mid-list wrap
           if (_wrapTailRe.test(beforeSlice)) return false; // conj./article/prep.
-          return true;
+          // Next-line head.
+          let nextStart = startClean;
+          while (nextStart < cleanText.length && cleanText[nextStart] === " ") nextStart++;
+          const afterSlice = cleanText.slice(nextStart, Math.min(cleanText.length, nextStart + 60));
+          if (!afterSlice) return true;
+          if (/^(?:[•·…–—*\-]|\.{2,}|\d+\.\s)/.test(afterSlice)) return true;
+          if (/^\d{1,2}\.\d{1,2}\.(?:\d{2,4})?/.test(afterSlice)) return true;
+          if (/^[^\s]{0,3}\s*\d{1,2}\.\d{1,2}\.\d{2,4}/.test(afterSlice)) return true;
+          if (/^(?:Ab|Am|Bis|Vom|Bis\s+zum|Ab\s+dem)\s+\d{1,2}\./i.test(afterSlice)) return true;
+          if (/^[a-zäöüß]/.test(afterSlice)) return false; // lowercase continuation
+          if (/[.!?]$/.test(beforeSlice)) return true;    // sentence terminator
+          return false; // ambiguous → prefer keeping the bullet whole
         };
 
         let cleanInput = searchText.replace(/\s+/g, " ").trim()
@@ -652,11 +665,14 @@ export function PdfViewer({
         };
         const _findLineBounds = (startPos: number, endPos: number): [number, number] => {
           let sStart = 0, sEnd = cleanText.length - 1;
+          // Fallback for PPTX slides where paragraph expansion grabbed too much.
+          // Stop only at newlines that look like real bullet boundaries —
+          // otherwise a wrapped multi-line bullet gets cut to its first line.
           for (let i = startPos - 1; i >= 0; i--) {
-            if (_hasNewlineAtClean(i)) { sStart = i + 1; break; }
+            if (_hasNewlineAtClean(i) && _looksLikeNewBullet(i + 1)) { sStart = i + 1; break; }
           }
           for (let i = endPos + 1; i < cleanText.length; i++) {
-            if (_hasNewlineAtClean(i)) { sEnd = i - 1; break; }
+            if (_hasNewlineAtClean(i) && _looksLikeNewBullet(i + 1)) { sEnd = i - 1; break; }
           }
           while (sStart < sEnd && cleanText[sStart] === " ") sStart++;
           while (sEnd > sStart && cleanText[sEnd] === " ") sEnd--;
