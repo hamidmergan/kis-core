@@ -248,19 +248,23 @@ export function PdfViewer({
           return false;
         };
 
-        // On bullet pages, distinguish a newline that starts a NEW bullet
-        // (marker/date/common prepositional opener) from one that's just a
-        // line wrap within the same bullet. Only the former counts as a
-        // sentence/paragraph boundary — otherwise wrapped bullets get cut at
-        // the first wrap.
+        // On bullet pages, distinguish a newline that starts a NEW bullet from
+        // one that's a line wrap within the same bullet. Default assumption
+        // is "new bullet" — only return false if the previous line ended with
+        // a strong wrap indicator (mid-sentence conjunction, article, comma,
+        // syllable hyphen). This keeps wraps joined while stopping expansion
+        // at real bullet/title boundaries that lack markers or dates.
+        const _wrapTailRe = /(?:^|\s)(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|und|oder|aber|sowie|sondern|doch|denn|auch|bzw\.?|mit|von|vom|zu|zum|zur|bei|beim|am|im|in|an|auf|über|unter|für|durch|nach|vor|ohne|um|aus|gegen)$/i;
         const _looksLikeNewBullet = (startClean: number): boolean => {
-          const after = cleanText.slice(startClean, Math.min(cleanText.length, startClean + 60)).replace(/^\s+/, "");
-          if (!after) return false;
-          if (/^(?:[•·…–—*\-]|\.{2,}|\d+\.\s)/.test(after)) return true;
-          if (/^\d{1,2}\.\d{1,2}\.\d{2,4}/.test(after)) return true;
-          if (/^[^\s]{0,3}\s*\d{1,2}\.\d{1,2}\.\d{2,4}/.test(after)) return true;
-          if (/^(?:Ab|Am|Bis|Vom|Bis\s+zum|Ab\s+dem)\s+\d{1,2}\./i.test(after)) return true;
-          return false;
+          if (startClean <= 0) return true;
+          // Previous-line content immediately before the newline.
+          let prevEnd = startClean - 1;
+          while (prevEnd > 0 && cleanText[prevEnd] === " ") prevEnd--;
+          const beforeSlice = cleanText.slice(Math.max(0, prevEnd - 40), prevEnd + 1);
+          if (beforeSlice.endsWith("-")) return false; // syllable break
+          if (/[,;]$/.test(beforeSlice)) return false; // mid-list wrap
+          if (_wrapTailRe.test(beforeSlice)) return false; // conj./article/prep.
+          return true;
         };
 
         let cleanInput = searchText.replace(/\s+/g, " ").trim()
@@ -647,21 +651,31 @@ export function PdfViewer({
               return y + h / 2;
             };
             const startRun = runs.find(rn => geoStart >= rn.charStart && geoStart < rn.charStart + rn.glyphs.length);
+            const endRun = runs.find(rn => geoEnd >= rn.charStart && geoEnd < rn.charStart + rn.glyphs.length) ?? startRun;
             if (startRun?.rect) {
-              const refY = runYMid(startRun);
+              const startY = runYMid(startRun);
+              const endY = endRun?.rect ? runYMid(endRun) : startY;
               const lineH = Math.max(startRun.rect.height ?? 0, 6);
               const tol = lineH * 0.7;
+              // Allow every line the match actually spans, plus tolerance —
+              // multi-line popup selections (wrapped bullets, cross-sentence)
+              // should keep line 2+ instead of being cut to line 1.
+              const yMin = Math.min(startY, endY) - tol;
+              const yMax = Math.max(startY, endY) + tol;
               const startIdx = runs.indexOf(startRun);
+              const endIdx = endRun ? runs.indexOf(endRun) : startIdx;
               let minStart = startRun.charStart;
-              let maxEnd = startRun.charStart + startRun.glyphs.length - 1;
+              let maxEnd = (endRun ?? startRun).charStart + (endRun ?? startRun).glyphs.length - 1;
               for (let i = startIdx - 1; i >= 0; i--) {
                 const rn = runs[i]; if (!rn.rect) break;
-                if (Math.abs(runYMid(rn) - refY) > tol) break;
+                const y = runYMid(rn);
+                if (y < yMin || y > yMax) break;
                 minStart = rn.charStart;
               }
-              for (let i = startIdx + 1; i < runs.length; i++) {
+              for (let i = endIdx + 1; i < runs.length; i++) {
                 const rn = runs[i]; if (!rn.rect) break;
-                if (Math.abs(runYMid(rn) - refY) > tol) break;
+                const y = runYMid(rn);
+                if (y < yMin || y > yMax) break;
                 maxEnd = rn.charStart + rn.glyphs.length - 1;
               }
               geoStart = Math.max(geoStart, minStart);
