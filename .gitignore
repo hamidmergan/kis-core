@@ -14,6 +14,7 @@ backend/demo/
 database.db
 local-notes.md
 check-kisski-limits.py
+local-dev/backups/
 
 # Frontend
 frontend/node_modules/
