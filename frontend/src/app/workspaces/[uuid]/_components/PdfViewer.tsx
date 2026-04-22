@@ -776,24 +776,55 @@ export function PdfViewer({
               geoEnd = Math.min(geoEnd, maxEnd);
             }
           }
-          selInstance.applyInstantSelection(docId2, targetPageIndex, geoStart, geoEnd, "default");
-          prevHighlightRef.current = { pageIndex: targetPageIndex, ids: [] };
-
-          // Scroll to center the highlighted text
-          let targetRun = g.runs[0];
-          for (const run of g.runs) {
-            if (run.charStart > geoStart) break;
-            targetRun = run;
-          }
-          if (targetRun?.rect && scroll) {
-            scroll.scrollToPage({
-              pageNumber: targetPageIndex + 1,
-              pageCoordinates: { x: 0, y: targetRun.rect.y },
-              behavior: "instant",
-              alignY: 50,
-            });
-          }
-          return true;
+          // Two mobile/touch pitfalls the Selection plugin exposes:
+          //
+          // 1. Pan plugin activates "panMode" as default on touch devices,
+          //    but the Selection plugin only ships rect-rendering config
+          //    for "pointerMode". With no config for the active mode, the
+          //    plugin short-circuits the rect callback (shouldShowRects =
+          //    false) and SelectionLayer renders nothing even though the
+          //    selection range is set. Fix: enableForMode("panMode", {
+          //    showSelectionRects: true }) so rects display without
+          //    enabling drag-to-select. Idempotent per doc; retry here in
+          //    case handleReady fired before the doc state was initialized.
+          //
+          // 2. On virtualized layouts the target page's SelectionLayer may
+          //    not have mounted yet — its state.geometry[p] is empty, so
+          //    updateRectsAndSlices emits zero rects and the highlight is
+          //    invisible. Poll the capability's getState() (which lives on
+          //    .provides(), not on the plugin instance) until geometry
+          //    lands, then apply.
+          const selCapability = r.getPlugin?.("selection")?.provides?.();
+          try {
+            selCapability?.enableForMode?.("panMode", { enableSelection: false, showSelectionRects: true }, docId2);
+            selCapability?.enableForMode?.("pointerMode", { enableSelection: true, showSelectionRects: true }, docId2);
+          } catch { /* ignore */ }
+          const applyWhenReady = (attempt = 0): Promise<boolean> => {
+            const selGeo = selCapability?.getState?.(docId2)?.geometry?.[targetPageIndex];
+            if (selGeo || attempt >= 40) {
+              selInstance.applyInstantSelection(docId2, targetPageIndex, geoStart, geoEnd, "default");
+              prevHighlightRef.current = { pageIndex: targetPageIndex, ids: [] };
+              return Promise.resolve(true);
+            }
+            return new Promise((res) => setTimeout(res, 25)).then(() => applyWhenReady(attempt + 1));
+          };
+          return applyWhenReady().then(() => {
+            // Scroll to center the highlighted text
+            let targetRun = g.runs[0];
+            for (const run of g.runs) {
+              if (run.charStart > geoStart) break;
+              targetRun = run;
+            }
+            if (targetRun?.rect && scroll) {
+              scroll.scrollToPage({
+                pageNumber: targetPageIndex + 1,
+                pageCoordinates: { x: 0, y: targetRun.rect.y },
+                behavior: "instant",
+                alignY: 50,
+              });
+            }
+            return true;
+          });
         });
       });
     }).catch(() => false);
@@ -874,6 +905,18 @@ export function PdfViewer({
     // Fix oversized selection highlights on PDFs with inflated font bbox
     // (e.g. LibreOffice-embedded Cambria). See wrapEngineGeometry above.
     wrapEngineGeometry(reg.getEngine?.());
+
+    // On touch devices the Pan plugin activates "panMode" as the default
+    // interaction mode. The Selection plugin only ships rect-rendering
+    // config for "pointerMode", so in panMode SelectionLayer never
+    // receives rects — chip highlights scroll-to-page but stay invisible.
+    // Enable rect rendering for panMode without enabling drag-to-select,
+    // so mobile keeps drag-to-pan while programmatic highlights display.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const selCap = reg.getPlugin?.("selection")?.provides?.() as any;
+    try {
+      selCap?.enableForMode?.("panMode", { enableSelection: false, showSelectionRects: true });
+    } catch { /* ignore */ }
 
     // Match scrollbar width to app (5px instead of default 8px)
     const injectScrollbarStyle = () => {
