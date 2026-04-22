@@ -91,7 +91,7 @@ export function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { 
           const displayTitle = a.title.replace(/\.(pdf|mp4|mp3|webm|wav|m4a|ogg)$/i, "");
           return (
             <button
-              key={a.set_id}
+              key={`${a.set_id}-${a.tool}-${a.mode}`}
               type="button"
               onClick={() => onNavigateToSet?.(a.set_id, a.tool, a.mode)}
               className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-opacity hover:opacity-70"
