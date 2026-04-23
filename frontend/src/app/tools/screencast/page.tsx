@@ -18,6 +18,14 @@ import type {
 } from "@/types";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
 import { stepToIndex } from "@/components/screencast/steps";
+import UploadStep from "./_steps/UploadStep";
+import {
+  TranslatingStep,
+  GeneratingScriptsStep,
+  RenderingStep,
+  DoneStep,
+  ErrorStep,
+} from "./_steps/StatusSteps";
 import { wordCount, estimateDuration } from "@/lib/text";
 import { translateDesc, KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
 
@@ -1304,289 +1312,61 @@ function ScreencastPageInner() {
 
         {/* ── Step: Upload ── */}
         {!resumeLoading && step === "upload" && (
-          <section className="animate-[fadeIn_0.3s_ease-out]">
-            <div className="flex items-baseline justify-between mb-1">
-              <h1 className="text-xl font-bold">Screencast erstellen</h1>
-              {showDemoLink && (
-                <a href="/tools/screencast-demo" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors">
-                  Demo ansehen →
-                </a>
-              )}
-            </div>
-            <p className="text-sm text-gray-500 mb-6">
-              Laden Sie eine PowerPoint-Präsentation hoch. Die Präsentation wird
-              per DeepL übersetzt und als vertontes Video exportiert.
-            </p>
-
-            {/* Banner: active job → hard block */}
-            {hasActiveJob === true && (
-              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-4">
-                <p className="text-sm font-semibold text-red-800">
-                  Sie haben bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich.
-                </p>
-                <p className="mt-1 text-sm text-red-700">
-                  Warten Sie bis ein Job abgeschlossen ist oder löschen Sie einen in der{" "}
-                  <a href="/my-jobs" className="underline hover:text-red-900 font-medium">
-                    Jobliste
-                  </a>{" "}
-                  .
-                </p>
-              </div>
-            )}
-
-            {/* Drag & Drop zone */}
-            <div
-              onDragOver={hasActiveJob ? undefined : handleDragOver}
-              onDragLeave={hasActiveJob ? undefined : handleDragLeave}
-              onDrop={hasActiveJob ? undefined : handleDrop}
-              onClick={hasActiveJob ? undefined : () => fileRef.current?.click()}
-              className={`
-                relative mb-4 flex flex-col items-center justify-center
-                rounded-lg border-2 border-dashed px-6 py-10
-                transition-colors
-                ${hasActiveJob
-                  ? "border-gray-200 bg-gray-50 opacity-40 cursor-not-allowed"
-                  : "cursor-pointer"
-                }
-                ${!hasActiveJob && (
-                  dragOver
-                    ? "border-primary bg-primary/5"
-                    : file
-                      ? "border-green-400 bg-green-50"
-                      : "border-gray-300 hover:border-gray-400"
-                )}
-                ${autoState === "processing" ? "opacity-50 pointer-events-none" : ""}
-              `}
-            >
-              <input
-                ref={fileRef}
-                type="file"
-                accept={ACCEPTED_EXTENSIONS.join(",")}
-                className="hidden"
-                disabled={!!hasActiveJob}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFileSelect(f);
-                }}
-              />
-              {file ? (
-                <>
-                  <svg
-                    className="w-8 h-8 text-green-500 mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  <p className="text-sm font-medium text-gray-900">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Klicken oder ziehen Sie eine andere Datei hierher
-                  </p>
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="w-8 h-8 text-gray-400 mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  <p className="text-sm text-gray-600">
-                    Datei hierher ziehen oder{" "}
-                    <span className="text-primary font-medium">
-                      durchsuchen
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Nur .pptx-Datei
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Skip translation checkbox */}
-            <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={sourceLang === targetLang}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    // mark as "already translated" by setting source == target
-                    setSourceLang(targetLang);
-                  } else {
-                    // restore default source
-                    setSourceLang("DE");
-                  }
-                }}
-                disabled={autoState === "processing"}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Präsentation bereits übersetzt (Übersetzung überspringen)
-              </span>
-            </label>
-
-            {/* Language selection + Glossary — only when translation is needed */}
-            {sourceLang !== targetLang && (
-              <>
-                {languages.length > 0 && (
-                  <div className="flex gap-3 mb-4">
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Quellsprache</label>
-                      <select
-                        value={sourceLang}
-                        onChange={(e) => setSourceLang(e.target.value)}
-                        disabled
-                        className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50"
-                      >
-                        {languages.map((l) => (
-                          <option key={l.id} value={l.id}>{l.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Zielsprache</label>
-                      <select
-                        value={targetLang}
-                        onChange={(e) => setTargetLang(e.target.value)}
-                        disabled
-                        className="w-full rounded-md border border-gray-300 text-sm py-2 px-3 focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-50"
-                      >
-                        {languages.map((l) => (
-                          <option key={l.id} value={l.id}>{l.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                <GlossarySelector
-                  values={glossaryIds}
-                  onChange={setGlossaryIds}
-                />
-              </>
-            )}
-
-            {fileError && (
-              <p className="mb-4 text-sm text-red-600" role="alert">
-                {fileError}
-              </p>
-            )}
-
-            {/* Mode toggle */}
-            <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={mode === "manual"}
-                onChange={(e) =>
-                  setMode(e.target.checked ? "manual" : "auto")
-                }
-                disabled={autoState === "processing"}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-              <div>
-                <span className="text-sm font-medium text-gray-700">
-                  Zwischenschritte anzeigen und bearbeiten
-                </span>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Empfohlen für beste Ergebnisse
-                </p>
-              </div>
-            </label>
-
-            {/* Fast mode — only relevant in manual mode and for admins */}
-            {mode === "manual" && isAdmin && (
-              <label className="flex items-center gap-2 cursor-pointer select-none mt-4 mb-6">
-                <input
-                  type="checkbox"
-                  checked={fastMode}
-                  onChange={(e) => setFastMode(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <div>
-                  <span className="text-sm font-medium text-gray-700">Schnellmodus</span>
-                  <p className="text-xs text-gray-400 mt-0.5">Folienvorschau wird übersprungen, schnellere Verarbeitung.</p>
-                </div>
-              </label>
-            )}
-
-
-
-            {/* Submit */}
-            <div className="flex gap-3">
-              <button
-                onClick={handleUploadNext}
-                disabled={!file || autoState === "processing" || !!hasActiveJob}
-                className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {mode === "auto" ? "Screencast erstellen" : "Weiter"}
-              </button>
-            </div>
-
-            {/* Auto mode status */}
-            {isAutoMode && (
-              <ScreencastStatus
-                state={autoState}
-                fileName={autoDownloadName}
-                errorMessage={autoError}
-                progressLabel={autoState === "processing" ? renderProgressLabel : undefined}
-                onDownload={handleAutoDownload}
-                onReset={resetAll}
-                onRetry={failedRenderJobUuid ? handleRetryRender : undefined}
-                hasZip={!!audioId}
-                onZipDownload={handleAutoZipDownload}
-              />
-            )}
-          </section>
+          <UploadStep
+            showDemoLink={showDemoLink}
+            hasActiveJob={hasActiveJob}
+            file={file}
+            fileError={fileError}
+            dragOver={dragOver}
+            autoState={autoState}
+            mode={mode}
+            isAdmin={isAdmin}
+            fastMode={fastMode}
+            sourceLang={sourceLang}
+            targetLang={targetLang}
+            languages={languages}
+            glossaryIds={glossaryIds}
+            isAutoMode={isAutoMode}
+            autoDownloadName={autoDownloadName}
+            autoError={autoError}
+            renderProgressLabel={renderProgressLabel}
+            failedRenderJobUuid={failedRenderJobUuid}
+            audioId={audioId}
+            fileRef={fileRef}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onFileSelect={handleFileSelect}
+            onSourceLangChange={setSourceLang}
+            onTargetLangChange={setTargetLang}
+            onGlossaryIdsChange={setGlossaryIds}
+            onModeChange={setMode}
+            onFastModeChange={setFastMode}
+            onUploadNext={handleUploadNext}
+            onAutoDownload={handleAutoDownload}
+            onReset={resetAll}
+            onRetryRender={failedRenderJobUuid ? handleRetryRender : undefined}
+            onZipDownload={handleAutoZipDownload}
+          />
         )}
 
         {/* ── Step: Translating (loading) ── */}
         {!resumeLoading && step === "translating" && (
-          <section
-            className="animate-[fadeIn_0.3s_ease-out] text-center py-16"
-            role="status"
-            aria-live="polite"
-          >
-            <Spinner size="lg" className="justify-center mb-4" />
-            <p className="text-sm text-gray-700 animate-pulse">
-              {sourceLang === targetLang
-                ? "Präsentation wird vorbereitet..."
-                : "Präsentation wird übersetzt..."}
-            </p>
-            <p className="text-xs text-gray-400 mt-2">
-              Das kann je nach Dateigröße einige Sekunden dauern.
-            </p>
-            <button
-              onClick={() => {
-                const uuid = currentJobUuidRef.current;
-                currentJobUuidRef.current = null;
-                abortControllerRef.current?.abort();
-                if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
-                setStep("upload"); setLoading(false);
-              }}
-              className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Abbrechen
-            </button>
-          </section>
+          <TranslatingStep
+            sourceLang={sourceLang}
+            targetLang={targetLang}
+            onCancel={() => {
+              const uuid = currentJobUuidRef.current;
+              currentJobUuidRef.current = null;
+              abortControllerRef.current?.abort();
+              if (uuid) {
+                fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {});
+                window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+              }
+              setStep("upload");
+              setLoading(false);
+            }}
+          />
         )}
 
         {/* ── Step: User Prompt ── */}
@@ -1823,34 +1603,20 @@ function ScreencastPageInner() {
 
         {/* ── Step: Generating Scripts (loading) ── */}
         {!resumeLoading && step === "generating-scripts" && (
-          <section
-            className="animate-[fadeIn_0.3s_ease-out] text-center py-16"
-            role="status"
-            aria-live="polite"
-          >
-            <Spinner size="lg" className="justify-center mb-4" />
-            <p className="text-sm text-gray-700 animate-pulse">
-              Sprechskripte werden generiert...
-            </p>
-            <p className="text-xs text-gray-400 mt-2">
-              Die KI erstellt Skripte für {slides.length} Folien.
-            </p>
-            <button
-              onClick={() => {
-                const uuid = currentJobUuidRef.current;
-                currentJobUuidRef.current = null;
-                abortControllerRef.current?.abort();
-                if (uuid) { fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
-                setStep("translation-review"); setLoading(false);
-              }}
-              className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Abbrechen
-            </button>
-          </section>
+          <GeneratingScriptsStep
+            slideCount={slides.length}
+            onCancel={() => {
+              const uuid = currentJobUuidRef.current;
+              currentJobUuidRef.current = null;
+              abortControllerRef.current?.abort();
+              if (uuid) {
+                fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
+                window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+              }
+              setStep("translation-review");
+              setLoading(false);
+            }}
+          />
         )}
 
         {/* ── Step: Script Review ── */}
@@ -2332,176 +2098,42 @@ function ScreencastPageInner() {
 
         {/* ── Step: Rendering (loading) ── */}
         {!resumeLoading && step === "rendering" && (
-          <section
-            className="animate-[fadeIn_0.3s_ease-out] text-center py-16"
-            role="status"
-            aria-live="polite"
-          >
-            <Spinner size="lg" className="justify-center mb-4" />
-            <p className="text-sm text-gray-700">
-              {renderProgressLabel || "Video wird erstellt..."}
-            </p>
-            {!renderProgressLabel && (
-              <p className="text-xs text-gray-400 mt-2">
-                Vertonung und Videoproduktion, das kann ein paar Minuten dauern.
-              </p>
-            )}
-            <button
-              onClick={async () => {
-                const uuid = currentJobUuidRef.current;
-                currentJobUuidRef.current = null;
-                abortControllerRef.current?.abort();
-                if (uuid) {
-                  await fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
-                  window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-                }
-                setRenderProgressLabel("");
-                setAutoState("idle");
-                setStep(mode === "auto" ? "upload" : "tts-settings");
-                setLoading(false);
-              }}
-              className="mt-6 px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Abbrechen
-            </button>
-          </section>
+          <RenderingStep
+            renderProgressLabel={renderProgressLabel}
+            onCancel={async () => {
+              const uuid = currentJobUuidRef.current;
+              currentJobUuidRef.current = null;
+              abortControllerRef.current?.abort();
+              if (uuid) {
+                await fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
+                window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+              }
+              setRenderProgressLabel("");
+              setAutoState("idle");
+              setStep(mode === "auto" ? "upload" : "tts-settings");
+              setLoading(false);
+            }}
+          />
         )}
 
         {/* ── Step: Done ── */}
         {!resumeLoading && step === "done" && (
-          <section className="animate-[fadeIn_0.3s_ease-out] py-8">
-            <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-green-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-            </div>
-            <h2 className="text-lg font-bold mb-2 text-center">
-              Fertig! Ihr Screencast ist bereit.
-            </h2>
-
-            {/* Video player */}
-            {videoUrl && (
-              <div className="mb-6 rounded-lg overflow-hidden border border-gray-200">
-                <video
-                  key={videoUrl}
-                  controls
-                  className="w-full"
-                >
-                  <source src={videoUrl} type="video/mp4" />
-                  Ihr Browser unterstützt kein HTML5-Video.
-                </video>
-              </div>
-            )}
-
-            {/* Downloads: MP4 + Alles als ZIP */}
-            <div className="flex justify-center gap-3 mb-4">
-              <button
-                onClick={handleDownload}
-                aria-label="MP4"
-                className="px-6 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors flex items-center gap-2"
-              >
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                MP4
-              </button>
-              {audioId && (
-                <a
-                  href={`/api/jobs/${audioId}/bundle`}
-                  download
-                  aria-label="Alles herunterladen (ZIP)"
-                  className="px-6 py-2 bg-white text-primary border border-primary text-sm font-medium rounded-md hover:bg-primary/5 transition-colors flex items-center gap-2"
-                >
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Alles herunterladen (ZIP)
-                </a>
-              )}
-            </div>
-
-            {/* Row 3: Reset */}
-            <div className="flex justify-center">
-              <button
-                onClick={() => resetAll(false)}
-                aria-label="Neue Präsentation hochladen"
-                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
-              >
-                Neue Präsentation
-              </button>
-            </div>
-          </section>
+          <DoneStep
+            videoUrl={videoUrl}
+            audioId={audioId}
+            onDownloadMp4={handleDownload}
+            onReset={() => resetAll(false)}
+          />
         )}
 
         {/* ── Error state ── */}
         {!resumeLoading && step === "error" && (
-          <section className="animate-[fadeIn_0.3s_ease-out] text-center py-12">
-            <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-red-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </div>
-            </div>
-            <h2 className="text-lg font-bold text-red-700 mb-2">
-              Fehler bei der Screencast-Erstellung
-            </h2>
-            {errorMessage && (
-              <p className="text-sm text-red-600 mb-3">
-                {errorMessage}
-              </p>
-            )}
-            {failedRenderJobUuid && (
-              <p className="text-xs text-gray-500 mb-5">
-                Klicke auf <strong>Wiederholen</strong> — bereits fertige Clips und Audio werden nicht wiederholt.
-              </p>
-            )}
-            <div className="flex gap-3 justify-center">
-              {failedRenderJobUuid && (
-                <button
-                  onClick={handleRetryRender}
-                  aria-label="Job wiederholen"
-                  className="px-6 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
-                >
-                  Wiederholen
-                </button>
-              )}
-              <button
-                onClick={() => resetAll()}
-                aria-label="Neue Präsentation hochladen"
-                className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
-              >
-                Neue Präsentation
-              </button>
-            </div>
-          </section>
+          <ErrorStep
+            errorMessage={errorMessage}
+            failedRenderJobUuid={failedRenderJobUuid}
+            onRetry={handleRetryRender}
+            onReset={() => resetAll()}
+          />
         )}
         {/* ── Lightbox modal (shared across steps) ── */}
         {!fastMode && lightboxIndex !== null && slides[lightboxIndex]?.imageBase64 && (
