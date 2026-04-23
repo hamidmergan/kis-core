@@ -1,0 +1,72 @@
+"""Maintenance-Mode, Stale-Fingerprint-Check und Reindex-Trigger."""
+
+import asyncio
+import json
+
+from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
+
+from src import database as db
+from src.dependencies import get_admin_user
+
+from src.routes.admin._embedding import active_embedding_provider_key, get_cached_fingerprint
+from src.routes.admin._models import MaintenanceToggleRequest
+
+router = APIRouter(tags=["admin"])
+
+
+@router.get("/maintenance")
+async def get_maintenance(_admin=Depends(get_admin_user)):
+    enabled = db.get_setting("maintenance_mode", "false").lower() == "true"
+    try:
+        progress = json.loads(db.get_setting("reindex_progress", "") or "null")
+    except Exception:
+        progress = None
+
+    # Read fingerprint from DB only — do NOT compute on demand (compute takes
+    # 15-50s against KISSKI cold). If not cached yet, fire a background task
+    # to prime it; the user's next page refresh will see the stale_modules.
+    key = f"fingerprint_{active_embedding_provider_key()}"
+    current_fingerprint = db.get_setting(key, "") or None
+    stale_modules: list[dict] = []
+    if current_fingerprint:
+        try:
+            stale_modules = db.list_kia_modules_with_stale_fingerprint(current_fingerprint)
+        except Exception as e:
+            logger.warning("Maintenance: stale-module query failed: {}", e)
+    else:
+        # Prime the cache in the background — endpoint stays fast.
+        asyncio.create_task(asyncio.to_thread(get_cached_fingerprint))
+
+    return {
+        "enabled": enabled,
+        "reindex": progress,
+        "stale_modules": stale_modules,
+        "fingerprint_check_ok": bool(current_fingerprint),
+    }
+
+
+@router.post("/maintenance")
+async def set_maintenance(body: MaintenanceToggleRequest, _admin=Depends(get_admin_user)):
+    db.set_setting("maintenance_mode", "true" if body.enabled else "false")
+    logger.info("Maintenance mode set to {}", body.enabled)
+    return {"ok": True, "enabled": body.enabled}
+
+
+@router.post("/reindex-all")
+async def reindex_all(_admin=Depends(get_admin_user)):
+    """Queue a Celery job to re-embed every KI-Assistent chunk with the current provider."""
+    progress_raw = db.get_setting("reindex_progress", "") or ""
+    try:
+        progress = json.loads(progress_raw) if progress_raw else None
+    except Exception:
+        progress = None
+    if progress and progress.get("running"):
+        raise HTTPException(status_code=409, detail="Reindex läuft bereits")
+
+    from src.tasks.kia_tasks import run_reindex_all_sources
+    db.set_setting("reindex_progress", json.dumps({
+        "total": 0, "done": 0, "current": "queued", "failed": 0, "running": True,
+    }))
+    run_reindex_all_sources.delay()
+    return {"ok": True}
