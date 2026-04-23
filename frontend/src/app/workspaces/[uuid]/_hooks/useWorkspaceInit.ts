@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
 import type { AuthStatus } from "@/types";
 import type { ModuleDetail, Source } from "../_types";
-import type { Note } from "../_components/NotizenStudio";
+import type { Note } from "../_components/studio/NotizenStudio";
 
 interface WorkspaceSettings {
   chat_lang: "de" | "en";

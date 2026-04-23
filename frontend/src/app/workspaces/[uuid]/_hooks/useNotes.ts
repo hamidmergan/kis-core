@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { _formatApiError } from "../_utils";
-import type { Note } from "../_components/NotizenStudio";
+import type { Note } from "../_components/studio/NotizenStudio";
 
 interface UseNotesOptions {
   uuid: string;

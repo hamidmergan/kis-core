@@ -28,21 +28,21 @@ import { useWorkspaceInit } from "./_hooks/useWorkspaceInit";
 import { useStudioNavigation } from "./_hooks/useStudioNavigation";
 
 // Lightweight components needed on initial render
-import { SourcesPanel } from "./_components/SourcesPanel";
-import { ChatPanel } from "./_components/ChatPanel";
-import { CreateSetModal } from "./_components/CreateSetModal";
-import { GlossarView } from "./_components/GlossarView";
-import { WorkspaceTopbar } from "./_components/WorkspaceTopbar";
-import { WorkspacePanelsLayout } from "./_components/WorkspacePanelsLayout";
-import { StudioPanelContent } from "./_components/StudioPanelContent";
-import { SprachtrainingContent } from "./_components/SprachtrainingContent";
+import { SourcesPanel } from "./_components/sources/SourcesPanel";
+import { ChatPanel } from "./_components/chat/ChatPanel";
+import { CreateSetModal } from "./_components/sprachtraining/CreateSetModal";
+import { GlossarView } from "./_components/sprachtraining/GlossarView";
+import { WorkspaceTopbar } from "./_components/layout/WorkspaceTopbar";
+import { WorkspacePanelsLayout } from "./_components/layout/WorkspacePanelsLayout";
+import { StudioPanelContent } from "./_components/studio/StudioPanelContent";
+import { SprachtrainingContent } from "./_components/sprachtraining/SprachtrainingContent";
 
 // Heavy / conditionally-rendered components: loaded on demand to keep initial bundle small
 const dynamicLoader = () => <div className="flex-1 flex items-center justify-center p-6"><Spinner size="md" /></div>;
 
-const PdfViewer = dynamic(() => import("./_components/PdfViewer").then((m) => ({ default: m.PdfViewer })), { loading: dynamicLoader, ssr: false });
-const MediaPlayer = dynamic(() => import("./_components/MediaPlayer").then((m) => ({ default: m.MediaPlayer })), { loading: dynamicLoader, ssr: false });
-const NotizenStudio = dynamic(() => import("./_components/NotizenStudio").then((m) => ({ default: m.NotizenStudio })), { loading: dynamicLoader, ssr: false });
+const PdfViewer = dynamic(() => import("./_components/viewer/PdfViewer").then((m) => ({ default: m.PdfViewer })), { loading: dynamicLoader, ssr: false });
+const MediaPlayer = dynamic(() => import("./_components/viewer/MediaPlayer").then((m) => ({ default: m.MediaPlayer })), { loading: dynamicLoader, ssr: false });
+const NotizenStudio = dynamic(() => import("./_components/studio/NotizenStudio").then((m) => ({ default: m.NotizenStudio })), { loading: dynamicLoader, ssr: false });
 
 
 // ─── Page ──────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MindmapNodeData } from "../_components/MindmapStudio";
+import type { MindmapNodeData } from "../_components/studio/MindmapStudio";
 
 interface UseMindmapOptions {
   uuid: string;
