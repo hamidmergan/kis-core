@@ -1,0 +1,106 @@
+"""Resume-Endpoints: Rekonstruktion des Wizard-Schrittes + Existenz-Check für Job-Folder."""
+
+import json
+import re
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from src import database as db
+from src.dependencies import get_current_user
+from src.storage import get_job_file, load_result_json
+
+router = APIRouter(tags=["screencast"])
+
+# Reihenfolge definiert die Step-Erkennung beim Resume
+_SCRIPT_FILES = (
+    ("accepted_scripts.json", "tts-settings"),
+    ("user_scripts.json", "script-review"),
+    ("suggested_scripts.json", "script-review"),
+)
+
+
+def _load_scripts_from_job(translate_job_uuid: str) -> tuple[list[str], str | None]:
+    """Liefert (scripts, step) aus dem ersten vorhandenen Script-File."""
+    for filename, resolved_step in _SCRIPT_FILES:
+        try:
+            scripts = json.loads(get_job_file(translate_job_uuid, filename))
+            return scripts, resolved_step
+        except Exception:
+            continue
+    return [], None
+
+
+def _load_slide_images(result_path: str | None) -> list[str]:
+    if not result_path:
+        return []
+    try:
+        result_data = load_result_json(result_path)
+        return result_data.get("slide_images", [])
+    except Exception:
+        return []
+
+
+@router.get("/screencast/resume/{translate_job_uuid}")
+async def get_resume_data(translate_job_uuid: str, current_user: dict = Depends(get_current_user)):
+    """Reconstruct workflow state from job folder for resuming an awaiting_user screencast job."""
+    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+        raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
+    job = db.get_job(translate_job_uuid)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    if job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+    if job["status"] != "awaiting_user":
+        raise HTTPException(status_code=409, detail="Job ist nicht im Eingabe-Status")
+
+    tool = job["tool"]
+    slide_texts: list[str] = []
+
+    try:
+        user_prompt = get_job_file(translate_job_uuid, "prompt.txt").decode()
+    except Exception:
+        user_prompt = ""
+
+    if tool == "screencast_translate":
+        try:
+            slide_texts = json.loads(get_job_file(translate_job_uuid, "scripts.txt"))
+        except Exception:
+            raise HTTPException(status_code=404, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
+    elif tool == "screencast_demo_render":
+        try:
+            slide_texts = json.loads(get_job_file(translate_job_uuid, "scripts.txt"))
+        except Exception:
+            pass
+
+    slide_images = _load_slide_images(job.get("result_path"))
+    scripts, resolved_step = _load_scripts_from_job(translate_job_uuid)
+
+    if scripts:
+        step = resolved_step
+    else:
+        step = "user-prompt" if user_prompt else "translation-review"
+
+    return {
+        "tool": tool,
+        "step": step,
+        "slide_texts": slide_texts,
+        "scripts": scripts,
+        "slide_images": slide_images,
+        "original_filename": job["original_filename"] or "",
+        "user_prompt": user_prompt,
+    }
+
+
+@router.get("/screencast/folder-exists/{translate_job_uuid}")
+async def check_folder_exists(translate_job_uuid: str, current_user: dict = Depends(get_current_user)):
+    """Check if the job folder (scripts.txt) still exists in storage. Lightweight pre-flight check."""
+    if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
+        raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
+    job = db.get_job(translate_job_uuid)
+    if not job or job["user_id"] != current_user.get("user_id", 0):
+        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+    try:
+        get_job_file(translate_job_uuid, "scripts.txt")
+        return {"exists": True}
+    except Exception:
+        return {"exists": False}

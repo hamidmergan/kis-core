@@ -420,7 +420,7 @@ async def cancel_job(
     # Clean up pre-rendered slide image cache (screencast jobs only, ignored for others)
     try:
         import shutil as _shutil
-        from src.routes.screencast import IMAGE_TMP_DIR
+        from src.services.screencast import IMAGE_TMP_DIR
         _shutil.rmtree(IMAGE_TMP_DIR / job_uuid, ignore_errors=True)
     except Exception:
         pass

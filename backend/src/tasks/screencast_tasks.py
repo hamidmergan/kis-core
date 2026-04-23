@@ -41,7 +41,7 @@ def _assert_not_cancelled(job_uuid: str) -> None:
     if cancelled:
         logger.info("Job {} cancelled — killing active procs", job_uuid[:8])
         try:
-            from src.routes.screencast import kill_job_procs
+            from src.services.screencast import kill_job_procs
             kill_job_procs(job_uuid)
         except Exception as e:
             logger.warning("kill_job_procs error: {}", e)
@@ -50,21 +50,21 @@ def _assert_not_cancelled(job_uuid: str) -> None:
 
 def _get_screencast_helpers():
     """Import screencast helpers lazily to avoid circular imports."""
-    from src.routes.screencast import (
+    from src.services.screencast import (
         IMAGE_TMP_DIR,
-        _pptx_to_images,
-        _generate_all_tts,
-        _convert_slides_to_images_async,
-        _create_slide_video,
-        _concatenate_videos,
-        _apply_faststart,
-        _extract_text_per_slide,
+        apply_faststart,
+        concatenate_videos,
+        convert_slides_to_images_async,
+        create_slide_video,
+        extract_text_per_slide,
+        generate_all_tts,
+        pptx_to_images,
     )
     return (
         IMAGE_TMP_DIR,
-        _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
-        _create_slide_video, _concatenate_videos, _apply_faststart,
-        _extract_text_per_slide,
+        pptx_to_images, generate_all_tts, convert_slides_to_images_async,
+        create_slide_video, concatenate_videos, apply_faststart,
+        extract_text_per_slide,
     )
 
 
@@ -166,7 +166,7 @@ def _run_render_pipeline(
                 if exists:
                     logger.info("Cancel watcher: killing procs for {}", job_uuid[:8])
                     _cancelled_by_watcher.set()
-                    from src.routes.screencast import kill_job_procs
+                    from src.services.screencast import kill_job_procs
                     kill_job_procs(job_uuid)
                     break
         except Exception as e:
@@ -578,13 +578,13 @@ def run_screencast_demo_render(
 
         db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
-        from src.routes.screencast import (
+        from src.services.screencast import (
             IMAGE_TMP_DIR,
-            _pptx_to_images,
-            _extract_text_per_slide,
-            _create_slide_video,
-            _concatenate_videos,
-            _apply_faststart,
+            pptx_to_images as _pptx_to_images,
+            extract_text_per_slide as _extract_text_per_slide,
+            create_slide_video as _create_slide_video,
+            concatenate_videos as _concatenate_videos,
+            apply_faststart as _apply_faststart,
         )
         from src.routes.screencast_demo import (
             _get_demo_slide_images_sync,
