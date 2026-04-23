@@ -4,8 +4,6 @@ import { Suspense, useCallback, useEffect, useRef, useState, type DragEvent } fr
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import ScreencastStatus from "@/components/jobs/ScreencastStatus";
-import GlossarySelector from "@/components/glossary/GlossarySelector";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
@@ -26,8 +24,13 @@ import {
   DoneStep,
   ErrorStep,
 } from "./_steps/StatusSteps";
+import UserPromptStep from "./_steps/UserPromptStep";
+import TranslationReviewStep from "./_steps/TranslationReviewStep";
+import ScriptReviewStep from "./_steps/ScriptReviewStep";
+import TtsSettingsStep from "./_steps/TtsSettingsStep";
+import Lightbox from "./_components/Lightbox";
 import { wordCount, estimateDuration } from "@/lib/text";
-import { translateDesc, KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
+import { KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
 
 interface Voice {
   voice_id: string;
@@ -44,15 +47,6 @@ interface TranslateResponse {
   slide_images: string[];
   translate_job_uuid?: string;
   user_prompt?: string;
-}
-
-interface PrepareResponse {
-  slide_images: string[];
-}
-
-interface ExtractTextsResponse {
-  slide_count: number;
-  slide_texts: string[];
 }
 
 interface GenerateScriptsResponse {
@@ -1371,234 +1365,53 @@ function ScreencastPageInner() {
 
         {/* ── Step: User Prompt ── */}
         {!resumeLoading && step === "user-prompt" && (
-          <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold mb-1">
-              Wie sollen die Skripte erstellt werden?
-            </h2>
-
-            {/* ── Script input mode selection ── */}
-            <div className="mt-3 space-y-2">
-              {/* Option: generate (default) */}
-              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "generate" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}>
-                <input
-                  type="radio"
-                  name="scriptInputMode"
-                  value="generate"
-                  checked={scriptInputMode === "generate"}
-                  onChange={() => { setScriptInputMode("generate"); setImportedScripts(null); setImportError(null); }}
-                  className="mt-0.5 accent-primary"
-                />
-                <div>
-                  <span className="text-sm font-medium text-gray-900">KI-Generierung</span>
-                  <p className="text-xs text-gray-500 mt-0.5">KI erstellt Skripte automatisch basierend auf den Folieninhalten.</p>
-                </div>
-              </label>
-
-              {/* Option: manual */}
-              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "manual" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}>
-                <input
-                  type="radio"
-                  name="scriptInputMode"
-                  value="manual"
-                  checked={scriptInputMode === "manual"}
-                  onChange={() => { setScriptInputMode("manual"); setImportedScripts(null); setImportError(null); }}
-                  className="mt-0.5 accent-primary"
-                />
-                <div>
-                  <span className="text-sm font-medium text-gray-900">Manuell eingeben</span>
-                  <p className="text-xs text-gray-500 mt-0.5">Alle Textfelder bleiben leer – Sie tippen die Skripte selbst ein.</p>
-                </div>
-              </label>
-
-              {/* Option: import JSON */}
-              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"}`}>
-                <input
-                  type="radio"
-                  name="scriptInputMode"
-                  value="import"
-                  checked={scriptInputMode === "import"}
-                  onChange={() => setScriptInputMode("import")}
-                  className="mt-0.5 accent-primary"
-                />
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-gray-900">Skript importieren</span>
-                  <p className="text-xs text-gray-500 mt-0.5">JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.</p>
-                  {scriptInputMode === "import" && (
-                    <div className="mt-2">
-                      <div
-                        onDragOver={(e) => { e.preventDefault(); setJsonDragOver(true); }}
-                        onDragLeave={() => setJsonDragOver(false)}
-                        onDrop={(e) => { e.preventDefault(); setJsonDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handleJsonImport(f); }}
-                        onClick={() => jsonFileRef.current?.click()}
-                        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 cursor-pointer transition-colors
-                          ${importedScripts
-                            ? "border-green-400 bg-green-50"
-                            : jsonDragOver
-                              ? "border-primary bg-primary/5"
-                              : "border-gray-300 hover:border-gray-400"
-                          }`}
-                      >
-                        <input
-                          ref={jsonFileRef}
-                          type="file"
-                          accept=".json"
-                          className="hidden"
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleJsonImport(f); e.target.value = ""; }}
-                        />
-                        {importedScripts ? (
-                          <>
-                            <svg className="w-6 h-6 text-green-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <p className="text-xs font-medium text-green-700">{importedScripts.length} Skript{importedScripts.length !== 1 ? "e" : ""} geladen</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Klicken oder ziehen zum Ersetzen</p>
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                            <p className="text-xs text-gray-600">JSON-Datei hierher ziehen oder <span className="text-primary font-medium">auswählen</span></p>
-                          </>
-                        )}
-                      </div>
-                      {importError && (
-                        <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
-                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {importError}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </label>
-            </div>
-
-            {/* Einstellungen — nur bei KI-Generierung */}
-            {scriptInputMode === "generate" && (
-              <div className="mt-5 space-y-4">
-                {/* Skriptstil */}
-              </div>
-            )}
-
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => {
-                  if (scriptInputMode === "manual") {
-                    setSlides((prev) => prev.map((s) => ({ ...s, script: "" })));
-                    setStep("script-review");
-                  } else if (scriptInputMode === "import") {
-                    if (!importedScripts) { setImportError("Bitte zuerst eine JSON-Datei auswählen."); return; }
-                    setSlides((prev) => prev.map((s, i) => ({ ...s, script: importedScripts[i] ?? "" })));
-                    setStep("script-review");
-                  } else {
-                    handleAcceptTranslation();
-                  }
-                }}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Weiter
-              </button>
-            </div>
-          </section>
+          <UserPromptStep
+            scriptInputMode={scriptInputMode}
+            importedScripts={importedScripts}
+            importError={importError}
+            jsonDragOver={jsonDragOver}
+            jsonFileRef={jsonFileRef}
+            loading={loading}
+            onScriptInputModeChange={setScriptInputMode}
+            onResetImport={() => {
+              setImportedScripts(null);
+              setImportError(null);
+            }}
+            onJsonDragOverChange={setJsonDragOver}
+            onJsonImport={handleJsonImport}
+            onNext={() => {
+              if (scriptInputMode === "manual") {
+                setSlides((prev) => prev.map((s) => ({ ...s, script: "" })));
+                setStep("script-review");
+              } else if (scriptInputMode === "import") {
+                if (!importedScripts) {
+                  setImportError("Bitte zuerst eine JSON-Datei auswählen.");
+                  return;
+                }
+                setSlides((prev) => prev.map((s, i) => ({ ...s, script: importedScripts[i] ?? "" })));
+                setStep("script-review");
+              } else {
+                handleAcceptTranslation();
+              }
+            }}
+          />
         )}
 
         {/* ── Step: Translation Review ── */}
         {!resumeLoading && step === "translation-review" && (
-          <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold mb-1">
-              Übersetzung prüfen
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Die Präsentation wurde übersetzt. Sie können die übersetzte
-              PPTX herunterladen, prüfen und optional eine korrigierte
-              Version hochladen.
-            </p>
-
-            {/* Thumbnail grid — hidden in fast mode */}
-            {!fastMode && (
-              <div className="flex flex-wrap justify-center gap-2 mb-6">
-                {slides.map((slide, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setLightboxIndex(i)}
-                    style={{ width: "100px" }}
-                    className="relative rounded-lg overflow-hidden border border-gray-200 hover:border-primary transition-colors focus-visible:outline-2 focus-visible:outline-primary group flex-shrink-0"
-                    aria-label={`Folie ${i + 1} vergrößern`}
-                  >
-                    {slide.imageBase64 ? (
-                      <img
-                        src={`data:image/png;base64,${slide.imageBase64}`}
-                        alt={`Folie ${i + 1}`}
-                        className="w-full object-cover"
-                      />
-                    ) : (
-                      <div className="aspect-video bg-gray-100 flex items-center justify-center text-xs text-gray-400">
-                        Wird geladen...
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-gray-700 px-2 py-1 rounded transition-opacity">
-                        Folie {i + 1}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex flex-col gap-3 mb-4">
-              <button
-                onClick={handleDownloadTranslatedPptx}
-                className="w-full px-4 py-2 text-sm text-primary border border-primary rounded-md hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
-              >
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                PPTX
-              </button>
-
-              <div className="relative">
-                <label className="block w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-center cursor-pointer">
-                  {loading
-                    ? "Wird verarbeitet..."
-                    : "Korrigierte PPTX hochladen (optional)"}
-                  <input
-                    type="file"
-                    accept=".pptx"
-                    className="hidden"
-                    disabled={loading}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUploadCorrectedPptx(f);
-                    }}
-                  />
-                </label>
-                {correctedFileName && (
-                  <p className="mt-2 text-sm text-green-600 flex items-center gap-2">
-                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    {correctedFileName} wurde hochgeladen
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setMaxReachedIdx((v) => Math.max(v, 3)); setStep("user-prompt"); }}
-                disabled={loading}
-                className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Übersetzung übernehmen und weiter
-              </button>
-            </div>
-          </section>
+          <TranslationReviewStep
+            slides={slides}
+            fastMode={fastMode}
+            loading={loading}
+            correctedFileName={correctedFileName}
+            onLightboxOpen={setLightboxIndex}
+            onDownloadTranslatedPptx={handleDownloadTranslatedPptx}
+            onUploadCorrectedPptx={handleUploadCorrectedPptx}
+            onAcceptAndNext={() => {
+              setMaxReachedIdx((v) => Math.max(v, 3));
+              setStep("user-prompt");
+            }}
+          />
         )}
 
         {/* ── Step: Generating Scripts (loading) ── */}
@@ -1621,479 +1434,64 @@ function ScreencastPageInner() {
 
         {/* ── Step: Script Review ── */}
         {!resumeLoading && step === "script-review" && (
-          <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold mb-1">
-              Skripte überprüfen und anpassen
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Überprüfen Sie die generierten Skripte für jede Folie.
-              Klicken Sie auf den Stift um zu bearbeiten.
-            </p>
-
-            <div className="space-y-2 mb-6">
-              {slides.map((slide, i) => {
-                const isOpen = openAccordion === i;
-                const isEditing = editingSlide === i;
-                const wc = wordCount(
-                  isEditing ? editBuffer : slide.script,
-                );
-                const dur = estimateDuration(wc);
-                const preview =
-                  slide.script.slice(0, 60) +
-                  (slide.script.length > 60 ? "..." : "");
-
-                return (
-                  <div
-                    key={i}
-                    className="border border-gray-200 rounded-lg overflow-hidden"
-                  >
-                    {/* Accordion header */}
-                    <button
-                      onClick={() => {
-                        if (editingSlide !== null) {
-                          cancelEdit();
-                        }
-                        setOpenAccordion(isOpen ? -1 : i);
-                      }}
-                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      aria-expanded={isOpen}
-                      aria-controls={`slide-panel-${i}`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-900">
-                          Folie {i + 1}
-                        </span>
-                        {!isOpen && (
-                          <span className="ml-2 text-xs text-gray-400 truncate">
-                            {preview}
-                          </span>
-                        )}
-                      </div>
-                      <svg
-                        className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
-
-                    {/* Accordion body */}
-                    {isOpen && (
-                      <div
-                        id={`slide-panel-${i}`}
-                        className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]"
-                      >
-                        <div className="flex flex-col gap-4">
-                          {/* Slide image — hidden in fast mode */}
-                          {!fastMode && (
-                            <div className="flex-shrink-0" style={{ width: "100px" }}>
-                              {slide.imageBase64 ? (
-                                <button
-                                  onClick={() => { setLightboxIndex(i); }}
-                                  className="w-full rounded border border-gray-200 hover:border-primary transition-colors overflow-hidden cursor-zoom-in focus-visible:outline-2 focus-visible:outline-primary"
-                                  aria-label={`Folie ${i + 1} vergrößern`}
-                                >
-                                  <img
-                                    src={`data:image/png;base64,${slide.imageBase64}`}
-                                    alt={`Folie ${i + 1}`}
-                                    className="w-full"
-                                  />
-                                </button>
-                              ) : (
-                                <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center">
-                                  <Spinner size="sm" />
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Script */}
-                          <div className="w-full flex flex-col">
-                            {isEditing ? (
-                              <>
-                                <textarea
-                                  value={editBuffer}
-                                  onChange={(e) =>
-                                    setEditBuffer(e.target.value)
-                                  }
-                                  rows={8}
-                                  className="w-full rounded-md border border-primary px-3 py-2 text-sm font-mono text-gray-900 focus:ring-1 focus:ring-primary focus:outline-none"
-                                  aria-label={`Skript für Folie ${i + 1} bearbeiten`}
-                                />
-                                <div className="flex items-center justify-between mt-2">
-                                  <span className="text-xs text-gray-400">
-                                    ca. {wc} Wörter
-                                  </span>
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={cancelEdit}
-                                      className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                                    >
-                                      Abbrechen
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        saveEdit(i)
-                                      }
-                                      className="px-3 py-1 text-xs bg-primary text-white rounded hover:bg-primary-hover transition-colors"
-                                    >
-                                      Speichern
-                                    </button>
-                                  </div>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex items-start justify-between mb-2">
-                                  <span className="text-xs text-gray-400">
-                                    ca. {wc} Wörter
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    {/* KI-Regenerierung */}
-                                    <button
-                                      onClick={() => openRegen(i)}
-                                      className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:text-primary hover:bg-gray-100 ${regenAnchorSlide === i && regenAnchorText ? "text-primary" : "text-gray-400"}`}
-                                      aria-label={`Skript für Folie ${i + 1} per KI neu generieren`}
-                                      title="Mit KI neu generieren"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                                      </svg>
-                                    </button>
-                                    {/* Manuell bearbeiten */}
-                                    <button
-                                      onClick={() => startEdit(i)}
-                                      className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-100 transition-colors"
-                                      aria-label={`Skript für Folie ${i + 1} bearbeiten`}
-                                    >
-                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                </div>
-                                <p
-                                  className="text-sm font-mono text-gray-700 whitespace-pre-wrap leading-relaxed"
-                                  onMouseUp={() => {
-                                    const text = window.getSelection()?.toString().trim();
-                                    setRegenAnchorText(text || "");
-                                    setRegenAnchorSlide(text ? i : null);
-                                  }}
-                                >
-                                  {slide.script || (
-                                    <span className="text-gray-400 italic">
-                                      Kein Skript (leere Folie)
-                                    </span>
-                                  )}
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {slides.filter((s) => !s.script.trim()).length > 0 && (
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
-                {slides.filter((s) => !s.script.trim()).length} Folie(n) haben kein Skript. Bitte füllen Sie diese aus, bevor Sie fortfahren.
-              </p>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleAcceptScripts}
-                disabled={editingSlide !== null}
-                className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Alle Skripte übernehmen
-              </button>
-            </div>
-          </section>
+          <ScriptReviewStep
+            slides={slides}
+            openAccordion={openAccordion}
+            editingSlide={editingSlide}
+            editBuffer={editBuffer}
+            fastMode={fastMode}
+            regenAnchorSlide={regenAnchorSlide}
+            regenAnchorText={regenAnchorText}
+            onEditBufferChange={setEditBuffer}
+            onLightboxOpen={setLightboxIndex}
+            onAccordionToggle={(i) => {
+              if (editingSlide !== null) cancelEdit();
+              setOpenAccordion(openAccordion === i ? -1 : i);
+            }}
+            onRegenAnchor={(slide, text) => {
+              setRegenAnchorSlide(slide);
+              setRegenAnchorText(text);
+            }}
+            onOpenRegen={openRegen}
+            onStartEdit={startEdit}
+            onCancelEdit={cancelEdit}
+            onSaveEdit={saveEdit}
+            onAcceptScripts={handleAcceptScripts}
+          />
         )}
 
         {/* ── Step: TTS Settings ── */}
         {!resumeLoading && step === "tts-settings" && (
-          <section className="animate-[fadeIn_0.3s_ease-out]">
-            <h2 className="text-lg font-bold mb-6">
-              Einstellungen
-            </h2>
-
-            {/* TTS-Anbieter */}
-            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled || thorstenEnabled) && (
-            <div className="mb-2">
-              <label htmlFor="sc-provider-select" className="block text-sm font-medium text-gray-700 mb-2">
-                TTS-Anbieter
-              </label>
-              <select
-                id="sc-provider-select"
-                value={ttsProvider}
-                onChange={(e) => {
-                  const p = e.target.value as "elevenlabs" | "fish_speech" | "kokoro" | "mylab" | "thorsten";
-                  setTtsProvider(p);
-                  if (p === "fish_speech") setVoiceId("default");
-                  else if (p === "kokoro" && kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
-                  else if (p === "mylab" && mylabVoices.length > 0) setVoiceId(mylabVoices[0].voice_id);
-                  else if (p === "thorsten" && thorstenVoices.length > 0) setVoiceId(thorstenVoices[0].voice_id);
-                  else if (p === "elevenlabs" && voices.length > 0) setVoiceId(voices[0].voice_id);
-                }}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
-              >
-                {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
-                {mylabEnabled && <option value="mylab">THL myLab (XTTS-v2)</option>}
-                {thorstenEnabled && <option value="thorsten">Thorsten (deutsch, lokal)</option>}
-                {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
-                {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
-              </select>
-            </div>
-            )}
-
-            {/* Stimme */}
-            {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled || thorstenEnabled) && (
-            <div className="mb-6 mt-4 space-y-3">
-              <div>
-                <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">
-                  Stimme
-                </label>
-                <select
-                  id="sc-voice-select"
-                  value={voiceId}
-                  onChange={(e) => setVoiceId(e.target.value)}
-                  disabled={ttsProvider === "fish_speech" || ttsProvider === "thorsten"}
-                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {ttsProvider === "fish_speech" ? (
-                    <option value="default">Standard</option>
-                  ) : ttsProvider === "kokoro" ? (
-                    kokoroVoices.map((v) => {
-                      const flag = v.accent === "American" ? "🇺🇸" : v.accent === "British" ? "🇬🇧" : "";
-                      return (
-                        <option key={v.voice_id} value={v.voice_id}>
-                          {flag} {v.name}
-                        </option>
-                      );
-                    })
-                  ) : ttsProvider === "mylab" ? (
-                    mylabVoices.map((v) => (
-                      <option key={v.voice_id} value={v.voice_id}>
-                        {v.name} – {v.description}
-                      </option>
-                    ))
-                  ) : ttsProvider === "thorsten" ? (
-                    thorstenVoices.map((v) => (
-                      <option key={v.voice_id} value={v.voice_id}>
-                        {v.name}
-                      </option>
-                    ))
-                  ) : (
-                    voices.map((v) => {
-                      const desc = translateDesc(v.description);
-                      return (
-                        <option key={v.voice_id} value={v.voice_id}>
-                          {desc ? `${v.label} – ${desc}` : v.label}
-                        </option>
-                      );
-                    })
-                  )}
-                </select>
-              </div>
-              {ttsProvider === "elevenlabs" && (
-                <a
-                  href="/tools/tts/voices"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Stimmen anhören →
-                </a>
-              )}
-              {ttsProvider === "kokoro" && (
-                <a
-                  href="/tools/tts/voices?tab=kokoro"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Stimmen anhören →
-                </a>
-              )}
-              {ttsProvider === "mylab" && (
-                <a
-                  href="/tools/tts/voices?tab=mylab"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Stimmen anhören →
-                </a>
-              )}
-            </div>
-            )}
-
-            <div className="mb-6">
-              <label
-                htmlFor="speed-slider"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Geschwindigkeit: {speed.toFixed(1)}x
-              </label>
-              <input
-                id="speed-slider"
-                type="range"
-                min="0.7"
-                max="1.2"
-                step="0.1"
-                value={speed}
-                onChange={(e) =>
-                  setSpeed(parseFloat(e.target.value))
-                }
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>Langsam (0.7x)</span>
-                <span>Schnell (1.2x)</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Langsamere Geschwindigkeit empfohlen für
-                Lehrvideos
-              </p>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Pause zwischen Folien: {slidePause.toFixed(1)}s
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={3}
-                step={0.1}
-                value={slidePause}
-                onChange={(e) =>
-                  setSlidePause(parseFloat(e.target.value))
-                }
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>0s</span>
-                <span>3s</span>
-              </div>
-            </div>
-
-
-            {/* DPI / Bildqualität */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Bildqualität</p>
-              <div className="flex flex-col gap-2">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dpi"
-                    value={96}
-                    checked={dpi === 96}
-                    onChange={() => setDpi(96)}
-                    className="mt-0.5 h-4 w-4 text-primary focus:ring-primary"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">Geringe Qualität</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Schnellere Verarbeitung, geringere Bildschärfe</p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dpi"
-                    value={144}
-                    checked={dpi === 144}
-                    onChange={() => setDpi(144)}
-                    className="mt-0.5 h-4 w-4 text-primary focus:ring-primary"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">Standard</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Empfohlen, gute Bildqualität</p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dpi"
-                    value={300}
-                    checked={dpi === 300}
-                    onChange={() => setDpi(300)}
-                    className="mt-0.5 h-4 w-4 text-primary focus:ring-primary"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">Maximale Qualität</span>
-                    <p className="text-xs text-gray-400 mt-0.5">Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div className="mb-4 rounded-lg bg-gray-50 px-4 py-3">
-              <p className="text-sm text-gray-700">
-                <span className="font-medium">{slides.length}</span>{" "}
-                Folien · ca.{" "}
-                <span className="font-medium">{totalWords}</span>{" "}
-                Wörter ·{" "}
-                <span className={`font-medium ${scriptOverLimit ? "text-red-600" : ""}`}>
-                  {totalChars.toLocaleString("de-DE")}
-                </span>{" "}
-                / {SCREENCAST_MAX_CHARS.toLocaleString("de-DE")} Zeichen
-              </p>
-            </div>
-
-            {scriptOverLimit && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
-                <span className="text-red-500 mt-0.5">⚠</span>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-red-700">Skript zu lang</p>
-                  <p className="text-sm text-red-600 mt-0.5">
-                    Das Skript hat {totalChars.toLocaleString("de-DE")} Zeichen (max. {SCREENCAST_MAX_CHARS.toLocaleString("de-DE")}). Bitte kürzen Sie die Folien-Texte.
-                  </p>
-                  <button
-                    onClick={handleBackToScripts}
-                    className="mt-2 px-3 py-1.5 text-sm font-medium text-red-700 border border-red-300 rounded-md hover:bg-red-100 transition-colors"
-                  >
-                    Zurück zum Skript bearbeiten
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {ttsSettingsError && (
-              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
-                {ttsSettingsError}
-              </p>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={handleBackToScripts}
-                className="px-4 py-3 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Zurück
-              </button>
-              <button
-                onClick={handleStartRender}
-                disabled={scriptOverLimit}
-                className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Screencast erstellen
-              </button>
-            </div>
-          </section>
+          <TtsSettingsStep
+            providersLoaded={providersLoaded}
+            elevenlabsEnabled={elevenlabsEnabled}
+            fishSpeechEnabled={fishSpeechEnabled}
+            kokoroEnabled={kokoroEnabled}
+            mylabEnabled={mylabEnabled}
+            thorstenEnabled={thorstenEnabled}
+            ttsProvider={ttsProvider}
+            voices={voices}
+            kokoroVoices={kokoroVoices}
+            mylabVoices={mylabVoices}
+            thorstenVoices={thorstenVoices}
+            voiceId={voiceId}
+            speed={speed}
+            slidePause={slidePause}
+            dpi={dpi}
+            slides={slides}
+            totalWords={totalWords}
+            totalChars={totalChars}
+            scriptOverLimit={scriptOverLimit}
+            maxChars={SCREENCAST_MAX_CHARS}
+            ttsSettingsError={ttsSettingsError}
+            onTtsProviderChange={setTtsProvider}
+            onVoiceIdChange={setVoiceId}
+            onSpeedChange={setSpeed}
+            onSlidePauseChange={setSlidePause}
+            onDpiChange={setDpi}
+            onBackToScripts={handleBackToScripts}
+            onStartRender={handleStartRender}
+          />
         )}
 
         {/* ── Step: Rendering (loading) ── */}
@@ -2135,54 +1533,13 @@ function ScreencastPageInner() {
             onReset={() => resetAll()}
           />
         )}
-        {/* ── Lightbox modal (shared across steps) ── */}
-        {!fastMode && lightboxIndex !== null && slides[lightboxIndex]?.imageBase64 && (
-          <div
-            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-            onClick={() => { setLightboxIndex(null); }}
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Folie ${lightboxIndex + 1}`}
-          >
-            <div
-              className="relative max-w-4xl w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => { setLightboxIndex(null); }}
-                className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
-                aria-label="Schließen"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <p className="text-white text-sm text-center mb-2">
-                Folie {lightboxIndex + 1} von {slides.length}
-              </p>
-              <img
-                src={`data:image/png;base64,${slides[lightboxIndex].imageBase64}`}
-                alt={`Folie ${lightboxIndex + 1}`}
-                className="w-full rounded-lg shadow-2xl"
-              />
-              <div className="flex justify-center gap-4 mt-4">
-                <button
-                  onClick={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))}
-                  disabled={lightboxIndex === 0}
-                  className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30"
-                >
-                  ← Zurück
-                </button>
-                <button
-                  onClick={() => setLightboxIndex(Math.min(slides.length - 1, lightboxIndex + 1))}
-                  disabled={lightboxIndex === slides.length - 1}
-                  className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30"
-                >
-                  Weiter →
-                </button>
-              </div>
-            </div>
-          </div>
+        {!fastMode && lightboxIndex !== null && (
+          <Lightbox
+            index={lightboxIndex}
+            slides={slides}
+            onClose={() => setLightboxIndex(null)}
+            onIndexChange={setLightboxIndex}
+          />
         )}
 
 
