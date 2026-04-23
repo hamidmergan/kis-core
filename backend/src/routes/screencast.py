@@ -650,29 +650,50 @@ async def _generate_all_tts(
                     pass  # Not saved yet — synthesize normally
 
             async with sem:
-                try:
-                    result = await asyncio.to_thread(
-                        tts_client.synthesize_with_timestamps,
-                        script_text, "EN", voice_id=voice_id, speed=speed,
-                    )
-                    audio_bytes = result["audio_bytes"]
-                    alignment = result["alignment"]
-                    audio_paths[i].write_bytes(audio_bytes)
-                    alignments[i] = alignment
+                # Retry transient server errors (5xx) with exponential backoff.
+                # myLab/ElevenLabs occasionally return 500s that recover within seconds.
+                retry_delays = (2.0, 5.0, 10.0)
+                last_error: Exception | None = None
+                for attempt in range(len(retry_delays) + 1):
+                    try:
+                        result = await asyncio.to_thread(
+                            tts_client.synthesize_with_timestamps,
+                            script_text, "EN", voice_id=voice_id, speed=speed,
+                        )
+                        audio_bytes = result["audio_bytes"]
+                        alignment = result["alignment"]
+                        audio_paths[i].write_bytes(audio_bytes)
+                        alignments[i] = alignment
 
-                    # Save immediately to persistent storage for crash recovery
-                    if job_uuid:
-                        save_job_file(job_uuid, f"tts_audio/slide_{i:03d}.mp3", audio_bytes)
-                        if alignment:
-                            save_job_file(job_uuid, f"tts_audio/slide_{i:03d}_align.json",
-                                          json.dumps(alignment).encode())
+                        # Save immediately to persistent storage for crash recovery
+                        if job_uuid:
+                            save_job_file(job_uuid, f"tts_audio/slide_{i:03d}.mp3", audio_bytes)
+                            if alignment:
+                                save_job_file(job_uuid, f"tts_audio/slide_{i:03d}_align.json",
+                                              json.dumps(alignment).encode())
 
-                    logger.info("TTS for slide {}/{} done", i + 1, total)
-                except Exception as e:
-                    logger.error("TTS failed for slide {}: {}", i + 1, e)
+                        logger.info("TTS for slide {}/{} done (attempt {})", i + 1, total, attempt + 1)
+                        last_error = None
+                        break
+                    except Exception as e:
+                        last_error = e
+                        err_str = str(e)
+                        is_transient = any(f"({code})" in err_str for code in ("500", "502", "503", "504", "429"))
+                        if attempt < len(retry_delays) and is_transient:
+                            delay = retry_delays[attempt]
+                            logger.warning(
+                                "TTS failed for slide {} (attempt {}/{}): {} — retrying in {}s",
+                                i + 1, attempt + 1, len(retry_delays) + 1, e, delay,
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+                        break
+
+                if last_error is not None:
+                    logger.error("TTS failed for slide {} (gave up): {}", i + 1, last_error)
                     raise HTTPException(
                         status_code=502,
-                        detail=f"TTS-Fehler bei Folie {i + 1}: {e}",
+                        detail=f"TTS-Fehler bei Folie {i + 1}: {last_error}",
                     )
         async with lock:
             counter += 1
