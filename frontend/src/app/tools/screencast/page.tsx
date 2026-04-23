@@ -1,12 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
-import { checkAuthStatus } from "@/lib/auth";
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
 import type {
@@ -30,11 +28,22 @@ import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import Lightbox from "./_components/Lightbox";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
+import { parseScriptJsonFile, renderProgressLabel as renderProgressLabelFn, computeVoiceLabel, triggerBlobDownload, triggerUrlDownload, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
+import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
+import { notifyJobsChanged } from "@/lib/jobs-events";
 import { wordCount, estimateDuration } from "@/lib/text";
-import { KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
 import { useFileDropzone } from "@/hooks/useFileDropzone";
 import { useVoices } from "@/hooks/useVoices";
 import { useScriptEditing, useScriptAutosave } from "@/hooks/useScriptEditing";
+import { useScreencastResume, useSlideImageBackfill, useActiveJobCheck } from "@/hooks/useScreencastResume";
+import { useLanguageConfig } from "@/hooks/useLanguageConfig";
+import { useEnabledTools } from "@/hooks/useEnabledTools";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useRenderResult } from "@/hooks/useRenderResult";
+import { useFailedRender } from "@/hooks/useFailedRender";
+import { useAutoModeFlow } from "@/hooks/useAutoModeFlow";
+import { useScriptInputMode } from "@/hooks/useScriptInputMode";
+import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
@@ -58,17 +67,24 @@ function ScreencastPageInner() {
   const { mergeToApiJson } = useGlossaries();
 
   // ── Auto mode state ──
-  const [autoState, setAutoState] = useState<ScreencastState>("idle");
-  const [autoDownloadBlob, setAutoDownloadBlob] = useState<Blob | null>(null);
-  const [autoDownloadName, setAutoDownloadName] = useState("");
-  const [autoError, setAutoError] = useState("");
+  const auto = useAutoModeFlow();
+  const {
+    state: autoState,
+    setState: setAutoState,
+    downloadBlob: autoDownloadBlob,
+    downloadName: autoDownloadName,
+    error: autoError,
+    setError: setAutoError,
+  } = auto;
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
-  const [failedRenderJobUuid, setFailedRenderJobUuid] = useState<string | null>(null);
-  const [failedRenderIsAuto, setFailedRenderIsAuto] = useState(false);
+  const failedRender = useFailedRender();
+  const { jobUuid: failedRenderJobUuid, isAuto: failedRenderIsAuto } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
 
-  // ── Step-by-step state ──
-  const [step, setStep] = useState<ScreencastStep>("upload");
+  // ── Job-Flow-State via Reducer ──
+  const [flow, dispatch] = useReducer(flowReducer, INITIAL_FLOW_STATE);
+  const { step, loading, errorMessage, slides, translateJobUuid, maxReachedIdx, correctedFileName, lightboxIndex, isResumedJob } = flow;
+
   const [mode, setMode] = useState<"auto" | "manual">("manual");
   const {
     file,
@@ -83,33 +99,13 @@ function ScreencastPageInner() {
   const [speed, setSpeed] = useState(1.0);
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [dpi, setDpi] = useState(144);
-  // Per-slide AI regeneration state (modal-intern state lebt in RegenChatModal)
-  const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
-  const [regenAnchorText, setRegenAnchorText] = useState("");
-  const [regenAnchorSlide, setRegenAnchorSlide] = useState<number | null>(null);
-
-  useEffect(() => {
-    const handler = () => {
-      if (regeneratingSlide !== null) return;
-      if (!window.getSelection()?.toString().trim()) {
-        setRegenAnchorText("");
-        setRegenAnchorSlide(null);
-      }
-    };
-    document.addEventListener("selectionchange", handler);
-    return () => document.removeEventListener("selectionchange", handler);
-  }, [regeneratingSlide]);
+  const regen = useRegenAnchor();
+  const { regeneratingSlide, anchorText: regenAnchorText, anchorSlide: regenAnchorSlide } = regen;
 
 
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
-  const [slides, setSlides] = useState<SlideData[]>([]);
-  const [translateJobUuid, setTranslateJobUuid] = useState("");
-  const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const renderResult = useRenderResult();
+  const { downloadBlob, videoUrl, audioId, audioCount, apply: applyRenderResult, clear: clearRenderResult } = renderResult;
 
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
   const {
@@ -124,8 +120,8 @@ function ScreencastPageInner() {
     reset: resetScriptEditing,
   } = useScriptEditing({
     onSave: (index, newScript) => {
+      dispatch({ type: "UPDATE_SLIDE_SCRIPT", index, script: newScript });
       const updated = slides.map((s, i) => (i === index ? { ...s, script: newScript } : s));
-      setSlides(updated);
       autosaveScripts(updated.map((s) => s.script));
     },
   });
@@ -155,41 +151,27 @@ function ScreencastPageInner() {
   useEffect(() => {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
-  const [audioId, setAudioId] = useState<string>("");
-  const [audioCount, setAudioCount] = useState(0);
-  const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
-  const [sourceLang, setSourceLang] = useState<string>("DE");
-  const [targetLang, setTargetLang] = useState<string>("EN-US");
+  const { languages, sourceLang, setSourceLang, targetLang, setTargetLang } = useLanguageConfig();
   const [fastMode, setFastMode] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isAdminLoaded, setIsAdminLoaded] = useState(false);
-  const [showDemoLink, setShowDemoLink] = useState(false);
+  const { isAdmin } = useIsAdmin();
+  const { isToolEnabled } = useEnabledTools();
+  const showDemoLink = isToolEnabled("screencast-demo");
 
-  const [maxReachedIdx, setMaxReachedIdx] = useState(0);
-  const [hasActiveJob, setHasActiveJob] = useState<boolean | null>(null);
-  const [isResumedJob, setIsResumedJob] = useState(false);
-  const [resumeLoading, setResumeLoading] = useState(false);
+  const [hasActiveJob, setHasActiveJob] = useActiveJobCheck("screencast");
 
-  useEffect(() => {
-    checkAuthStatus().then((status) => {
-      setIsAdmin(!!status.is_admin);
-      setIsAdminLoaded(true);
-    });
-    fetch("/api/admin/tools", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => {
-        const tool = (d.tools ?? []).find((t: { key: string; enabled: boolean }) => t.key === "screencast-demo");
-        setShowDemoLink(!tool || tool.enabled);
-      })
-      .catch(() => {});
-  }, []);
-
-  // ── Script input mode (user-prompt step) ──
-  const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
-  const [importedScripts, setImportedScripts] = useState<string[] | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [jsonDragOver, setJsonDragOver] = useState(false);
-  const jsonFileRef = useRef<HTMLInputElement>(null);
+  const scriptInput = useScriptInputMode();
+  const {
+    mode: scriptInputMode,
+    setMode: setScriptInputMode,
+    importedScripts,
+    setImportedScripts,
+    importError,
+    setImportError,
+    jsonDragOver,
+    setJsonDragOver,
+    jsonFileRef,
+    resetImport,
+  } = scriptInput;
 
   const fileRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -201,132 +183,23 @@ function ScreencastPageInner() {
     return () => { abortControllerRef.current?.abort(); };
   }, []);
 
-  // ── Fetch language config ──
-  useEffect(() => {
-    // Provide a sensible default so dropdowns are always visible
-    setLanguages([
-      { id: "DE", label: "Deutsch" },
-      { id: "EN-US", label: "Englisch" },
-      { id: "EN-GB", label: "Englisch (UK)" },
-      { id: "FR", label: "Französisch" },
-      { id: "ES", label: "Spanisch" },
-      { id: "IT", label: "Italienisch" },
-    ]);
-    api
-      .getJson<{ languages: { id: string; label: string }[]; default_source: string; default_target: string }>(
-        "/api/translate/config",
-      )
-      .then((data) => {
-        if (data.languages?.length) setLanguages(data.languages);
-        if (data.default_source) setSourceLang(data.default_source);
-        if (data.default_target) setTargetLang(data.default_target);
-      })
-      .catch(() => {});
-  }, []);
 
-  const searchParams = useSearchParams();
+  const { resumeLoading } = useScreencastResume((payload) => {
+    dispatch({ type: "RESUME", jobUuid: payload.jobUuid, slides: payload.slides, step: payload.step, stepIdx: payload.stepIdx });
+  });
 
-  // ── Resume awaiting_user job from ?resume=<uuid> URL param ──
-  useEffect(() => {
-    const resumeUuid = searchParams.get("resume");
-    if (!resumeUuid) return;
-    setResumeLoading(true);
-    fetch(`/api/screencast/resume/${resumeUuid}`, { credentials: "include" })
-      .then((r) => {
-        if (!r.ok) throw new Error("Job nicht gefunden oder nicht im Eingabe-Status");
-        return r.json();
-      })
-      .then((data: { tool: string; step: string; slide_texts: string[]; scripts: string[]; slide_images: string[]; original_filename: string; user_prompt: string }) => {
-        setTranslateJobUuid(resumeUuid);
-        setIsResumedJob(true);
+  useSlideImageBackfill(translateJobUuid, slides, (images) => {
+    dispatch({ type: "BACKFILL_IMAGES", images });
+  });
 
-        const imgs = data.slide_images ?? [];
-        const texts = data.slide_texts ?? [];
-        const scripts = data.scripts ?? [];
-
-        const slideCount = Math.max(texts.length, scripts.length, imgs.length);
-        if (slideCount > 0) {
-          setSlides(Array.from({ length: slideCount }, (_, i) => ({
-            index: i,
-            imageBase64: imgs[i] ?? "",
-            extractedText: texts[i] ?? scripts[i] ?? "",
-            script: scripts[i] ?? texts[i] ?? "",
-          })));
-        }
-
-        const targetStep = (
-          data.step === "tts-settings" ? "tts-settings" :
-          data.step === "translation-review" ? "translation-review" :
-          data.step === "user-prompt" ? "user-prompt" :
-          "script-review"
-        ) as import("@/types").ScreencastStep;
-
-        const stepIdx = targetStep === "tts-settings" ? 5 : targetStep === "translation-review" ? 2 : targetStep === "user-prompt" ? 3 : 4;
-        setMaxReachedIdx(stepIdx);
-        setStep(targetStep);
-      })
-      .catch(() => {
-        // Resume failed (job expired/cancelled) — stay on upload
-      })
-      .finally(() => setResumeLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Lazy-load slide images if missing after resume ──
-  useEffect(() => {
-    if (!translateJobUuid || !slides.length) return;
-    if (slides.some((s) => s.imageBase64)) return; // already have images
-    fetch(`/api/screencast/${translateJobUuid}/images`, { credentials: "include" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (!data?.slide_images?.length) return;
-        setSlides((prev) => prev.map((s, i) => ({
-          ...s,
-          imageBase64: data.slide_images[i] ?? s.imageBase64,
-        })));
-      })
-      .catch(() => {});
-  }, [translateJobUuid, slides.length]);
-
-  // ── Check for active job on mount (blocks upload if already running) ──
-  useEffect(() => {
-    fetch("/api/jobs/check/screencast", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        setHasActiveJob(!!data.has_active_job);
-      })
-      .catch(() => setHasActiveJob(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Submit guard: check active jobs + storage limit ──
   const checkBeforeSubmit = useCallback(async (): Promise<boolean> => {
-    try {
-      const res = await fetch("/api/jobs/check/screencast", { credentials: "include" });
-      const data = await res.json();
-      setHasActiveJob(!!data.has_active_job);
-      if (data.has_active_job) {
-        return false;
-      }
-    } catch {
-      // Ignore network errors, let backend handle it
-    }
-    return true;
-  }, []);
+    const result = await checkHasActiveJob("screencast");
+    if (!result.ok) return true;
+    setHasActiveJob(result.hasActive);
+    return !result.hasActive;
+  }, [setHasActiveJob]);
 
-  // ── Guard: check that a specific resumed job is still in a submittable state ──
-  const checkJobStillValid = useCallback(async (jobUuid: string): Promise<"ok" | "running" | "deleted"> => {
-    try {
-      const res = await fetch(`/api/jobs/${jobUuid}`, { credentials: "include" });
-      if (!res.ok) return "deleted";
-      const job = await res.json();
-      if (job.status === "awaiting_user" || job.status === "success" || job.status === "failed") return "ok";
-      if (job.status === "pending" || job.status === "running") return "running";
-      return "deleted";
-    } catch {
-      return "ok"; // Network error — let backend decide
-    }
-  }, []);
+  const checkJobStillValid = useCallback(checkJobValidity, []);
 
   // ── Helpers ──
 
@@ -337,44 +210,27 @@ function ScreencastPageInner() {
       const uuidToDelete = translateJobUuid || currentJobUuidRef.current;
       if (uuidToDelete) {
         fetch(`/api/jobs/${uuidToDelete}`, { method: "DELETE", credentials: "include" }).catch(() => {});
-        window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+        notifyJobsChanged();
       }
     }
     currentJobUuidRef.current = null;
 
-    setStep("upload");
+    dispatch({ type: "RESET" });
     resetFile();
     setSpeed(0.9);
     setSlidePause(0.5);
     setGlossaryIds(["", "", ""]);
-    setSlides([]);
-    setTranslateJobUuid("");
-    setDownloadBlob(null);
-    if (videoUrl) URL.revokeObjectURL(videoUrl);
-    setVideoUrl(null);
-    setErrorMessage("");
-    setLoading(false);
+    clearRenderResult();
     resetScriptEditing();
-    setCorrectedFileName(null);
-    setLightboxIndex(null);
-    setAudioId("");
-    setAudioCount(0);
-    setAutoState("idle");
-    setAutoDownloadBlob(null);
-    setAutoDownloadName("");
-    setAutoError("");
-    setFailedRenderJobUuid(null);
-    setFailedRenderIsAuto(false);
+    auto.reset();
+    failedRender.clear();
     sessionStorage.removeItem(RENDER_SESSION_KEY);
-    setMaxReachedIdx(0);
     setSourceLang("DE");
     setTargetLang("EN-US");
-    setScriptInputMode("generate");
-    setImportedScripts(null);
-    setImportError(null);
+    scriptInput.reset();
     setTtsProvider(kokoroEnabled ? "kokoro" : fishSpeechEnabled ? "fish_speech" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
     if (fileRef.current) fileRef.current.value = "";
-  }, [videoUrl, translateJobUuid]);
+  }, [translateJobUuid]);
 
   const handleStepClick = useCallback((index: number) => {
     if (step === "rendering" || step === "generating-scripts") return;
@@ -391,7 +247,7 @@ function ScreencastPageInner() {
     };
     const target = targets[index];
     if (!target) return;
-    setStep(target);
+    dispatch({ type: "SET_STEP", step: target });
   }, [maxReachedIdx, step]);
 
   const newSignal = () => {
@@ -401,44 +257,21 @@ function ScreencastPageInner() {
   };
 
   const goError = useCallback((msg: string) => {
-    setErrorMessage(msg);
-    setStep("error");
-    setLoading(false);
+    dispatch({ type: "GO_ERROR", message: msg });
   }, []);
 
   const checkJobFolder = useCallback(async (): Promise<boolean> => {
     if (!translateJobUuid) return true;
-    try {
-      const res = await fetch(`/api/screencast/folder-exists/${translateJobUuid}`, { credentials: "include" });
-      const data = await res.json();
-      if (!data.exists) {
-        goError("Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten");
-        return false;
-      }
-    } catch {
-      // Ignore network errors, let backend handle it
+    const exists = await checkJobFolderExists(translateJobUuid);
+    if (!exists) {
+      goError("Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten");
+      return false;
     }
     return true;
   }, [translateJobUuid, goError]);
 
-  const onRenderProgress = useCallback((status: import("@/lib/api").JobStatus) => {
-    const p = status.progress as { step?: string; current?: number; total?: number } | null;
-    if (!p?.step) { setRenderProgressLabel("In der Warteschlange…"); return; }
-    if (p.step === "translate") setRenderProgressLabel("Präsentation wird übersetzt…");
-    else if (p.step === "extract") setRenderProgressLabel("Folien werden analysiert…");
-    else if (p.step === "scripts" && p.total != null)
-      setRenderProgressLabel(`Skripte werden generiert… (${p.total} Folien)`);
-    else if (p.step === "scripts") setRenderProgressLabel("Skripte werden generiert…");
-    else if (p.step === "images") setRenderProgressLabel("Folienbilder werden vorbereitet…");
-    else if (p.step === "tts" && p.current != null && p.total != null)
-      setRenderProgressLabel(`Sprachsynthese: Folie ${p.current} von ${p.total}…`);
-    else if (p.step === "tts") setRenderProgressLabel("Sprachsynthese läuft…");
-    else if (p.step === "video" && p.current != null && p.total != null)
-      setRenderProgressLabel(`Video-Clip ${p.current} von ${p.total} wird gerendert…`);
-    else if (p.step === "video") setRenderProgressLabel("Video-Clips werden gerendert…");
-    else if (p.step === "concat") setRenderProgressLabel("Videos werden zusammengefügt…");
-    else if (p.step === "subtitles") setRenderProgressLabel("Untertitel werden eingebettet…");
-    else setRenderProgressLabel("Video wird erstellt…");
+  const onRenderProgress = useCallback((status: JobStatus) => {
+    setRenderProgressLabel(renderProgressLabelFn(status));
   }, []);
 
   // ── Auto mode submit ──
@@ -447,19 +280,14 @@ function ScreencastPageInner() {
     const ok = await checkBeforeSubmit();
     if (!ok) return;
     const signal = newSignal();
-    setAutoDownloadBlob(null);
-    setAutoDownloadName("");
-    setAutoError("");
-    setAutoState("processing");
-    setStep("rendering");
-    setLoading(true);
+    auto.start();
+    dispatch({ type: "SET_STEP", step: "rendering" });
+    dispatch({ type: "SET_LOADING", loading: true });
 
     try {
       const glossaryJson = mergeToApiJson(glossaryIds);
       const formData = new FormData();
-      const voiceLabel = ttsProvider === "kokoro"
-        ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
-        : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
+      const voiceLabel = computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices);
 
       formData.append("file", file);
       formData.append("speed", String(speed));
@@ -479,28 +307,22 @@ function ScreencastPageInner() {
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
       sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: true }));
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      notifyJobsChanged();
 
       const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
       currentJobUuidRef.current = null;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
       const meta = jobResult.meta ?? {};
-      const aId = meta.audio_id as string | undefined;
-      const aCount = meta.audio_count as number | undefined;
-      if (aId) setAudioId(aId);
-      if (aCount !== undefined) setAudioCount(aCount);
+      applyRenderResult(blob, { audioId: meta.audio_id as string | undefined, audioCount: meta.audio_count as number | undefined });
       const stem = file?.name?.replace(/\.pptx$/i, "") || "screencast";
-      setAutoDownloadBlob(blob);
-      setAutoDownloadName(`${stem}_screencast.mp4`);
-      setLoading(false);
-      setAutoState("done");
-      setStep("upload");
+      auto.succeed(blob, `${stem}_screencast.mp4`);
+      dispatch({ type: "SET_LOADING", loading: false });
+      dispatch({ type: "SET_STEP", step: "upload" });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setFailedRenderJobUuid(currentJobUuidRef.current);
-      setFailedRenderIsAuto(true);
+      failedRender.mark(currentJobUuidRef.current, true);
       setAutoState("error");
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
@@ -509,25 +331,12 @@ function ScreencastPageInner() {
 
   const handleAutoDownload = () => {
     if (!autoDownloadBlob) return;
-    const url = URL.createObjectURL(autoDownloadBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = autoDownloadName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(autoDownloadBlob, autoDownloadName);
   };
 
   const handleAutoZipDownload = useCallback(() => {
     if (!audioId) return;
-    // Direct navigation — browser handles the download natively (instant start)
-    const a = document.createElement("a");
-    a.href = `/api/jobs/${audioId}/bundle`;
-    a.download = "";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    triggerUrlDownload(`/api/jobs/${audioId}/bundle`);
   }, [audioId]);
 
   // ── Step: Upload → Translating (or auto) ──
@@ -541,8 +350,8 @@ function ScreencastPageInner() {
     const ok = await checkBeforeSubmit();
     if (!ok) return;
 
-    setStep("translating");
-    setLoading(true);
+    dispatch({ type: "SET_STEP", step: "translating" });
+    dispatch({ type: "SET_LOADING", loading: true });
     const signal = newSignal();
 
     // ── Same-language path: skip DeepL, upload as-is, go directly to user-prompt ──
@@ -567,21 +376,22 @@ function ScreencastPageInner() {
           await response.json();
 
         if (data.translate_job_uuid) {
-          setTranslateJobUuid(data.translate_job_uuid);
-          window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+          dispatch({ type: "SET_JOB_UUID", uuid: data.translate_job_uuid });
+          notifyJobsChanged();
         }
 
-        setSlides(
-          data.slide_texts.map((text, i) => ({
+        dispatch({
+          type: "SET_SLIDES",
+          slides: data.slide_texts.map((text, i) => ({
             index: i,
             imageBase64: data.slide_images[i] || "",
             extractedText: text,
             script: "",
           })),
-        );
+        });
 
-        setLoading(false);
-        setStep("user-prompt");
+        dispatch({ type: "SET_LOADING", loading: false });
+        dispatch({ type: "SET_STEP", step: "user-prompt" });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         goError(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -613,8 +423,8 @@ function ScreencastPageInner() {
 
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
-      setTranslateJobUuid(job_uuid);
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      dispatch({ type: "SET_JOB_UUID", uuid: job_uuid });
+      notifyJobsChanged();
 
       // Poll until translation job completes (stops at awaiting_user)
       const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
@@ -623,17 +433,18 @@ function ScreencastPageInner() {
       // Result comes inline from the jobs endpoint for JSON-result jobs
       const data = (jobResult.result ?? {}) as unknown as TranslateResponse;
 
-      setSlides(
-        (data.slide_texts || []).map((text, i) => ({
+      dispatch({
+        type: "SET_SLIDES",
+        slides: (data.slide_texts || []).map((text, i) => ({
           index: i,
           imageBase64: (data.slide_images || [])[i] || "",
           extractedText: text,
           script: "",
         })),
-      );
+      });
 
-      setLoading(false);
-      setStep("translation-review");
+      dispatch({ type: "SET_LOADING", loading: false });
+      dispatch({ type: "SET_STEP", step: "translation-review" });
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -664,7 +475,7 @@ function ScreencastPageInner() {
   // ── Upload corrected PPTX ──
   const handleUploadCorrectedPptx = useCallback(
     async (correctedFile: File) => {
-      setLoading(true);
+      dispatch({ type: "SET_LOADING", loading: true });
       const signal = newSignal();
 
       try {
@@ -687,17 +498,18 @@ function ScreencastPageInner() {
         const data: { slide_texts: string[]; slide_images: string[] } =
           await response.json();
 
-        setSlides(
-          data.slide_texts.map((text, i) => ({
+        dispatch({
+          type: "SET_SLIDES",
+          slides: data.slide_texts.map((text, i) => ({
             index: i,
             imageBase64: data.slide_images[i] || "",
             extractedText: text,
             script: "",
           })),
-        );
+        });
 
-        setCorrectedFileName(correctedFile.name);
-        setLoading(false);
+        dispatch({ type: "SET_CORRECTED_FILENAME", name: correctedFile.name });
+        dispatch({ type: "SET_LOADING", loading: false });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         goError(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -706,27 +518,11 @@ function ScreencastPageInner() {
     [goError, translateJobUuid],
   );
 
-  // ── JSON script import handler ──
-  const handleJsonImport = useCallback((file: File) => {
+  const handleJsonImport = useCallback(async (file: File) => {
     setImportError(null);
-    if (!file.name.toLowerCase().endsWith(".json")) {
-      setImportError("Bitte eine gültige JSON-Datei auswählen (.json).");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const parsed = JSON.parse(e.target?.result as string);
-        if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === "string")) {
-          setImportError("Die JSON-Datei muss ein Array von Strings sein, z.B. [\"Skript 1\", \"Skript 2\"].");
-          return;
-        }
-        setImportedScripts(parsed);
-      } catch {
-        setImportError("Ungültige JSON-Datei – Parsing fehlgeschlagen.");
-      }
-    };
-    reader.readAsText(file);
+    const result = await parseScriptJsonFile(file);
+    if ("error" in result && result.error) setImportError(result.error);
+    else if (result.scripts) setImportedScripts(result.scripts);
   }, []);
 
   // ── Translation review → Generate scripts ──
@@ -751,9 +547,9 @@ function ScreencastPageInner() {
     if (!await checkJobFolder()) return;
     isGeneratingScriptsRef.current = true;
     if (translateJobUuid) currentJobUuidRef.current = translateJobUuid;
-    setStep("generating-scripts");
-    setLoading(true);
-    window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+    dispatch({ type: "SET_STEP", step: "generating-scripts" });
+    dispatch({ type: "SET_LOADING", loading: true });
+    notifyJobsChanged();
     const signal = newSignal();
 
     try {
@@ -777,16 +573,16 @@ function ScreencastPageInner() {
         ...s,
         script: scriptsData.scripts[i] || "",
       }));
-      setSlides(updatedSlides);
+      dispatch({ type: "SET_SLIDES", slides: updatedSlides });
 
       currentJobUuidRef.current = null;
-      setLoading(false);
-      setStep("script-review");
+      dispatch({ type: "SET_LOADING", loading: false });
+      dispatch({ type: "SET_STEP", step: "script-review" });
       isGeneratingScriptsRef.current = false;
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      notifyJobsChanged();
     } catch (err) {
       isGeneratingScriptsRef.current = false;
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      notifyJobsChanged();
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
@@ -796,7 +592,7 @@ function ScreencastPageInner() {
   // ── Accept scripts → TTS settings + fire-and-forget prerender + save ──
   const handleAcceptScripts = useCallback(() => {
     autosaveScripts(slides.map((s) => s.script), true); // save accepted_scripts.json
-    setStep("tts-settings");
+    dispatch({ type: "SET_STEP", step: "tts-settings" });
     if (translateJobUuid) {
       fetch("/api/screencast/prerender-images", {
         method: "POST",
@@ -814,39 +610,22 @@ function ScreencastPageInner() {
       throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
     }
 
-    // Video comes as raw binary bytes
     const blob = await response.blob();
+    const aId = response.headers.get("X-Audio-Id") ?? undefined;
+    const aCountRaw = response.headers.get("X-Audio-Count");
+    applyRenderResult(blob, { audioId: aId, audioCount: aCountRaw ? (parseInt(aCountRaw, 10) || 0) : undefined });
+    dispatch({ type: "SET_LOADING", loading: false });
+    dispatch({ type: "SET_STEP", step: "done" });
+  }, [applyRenderResult]);
 
-    // Audio download info from headers
-    const aId = response.headers.get("X-Audio-Id");
-    const aCount = response.headers.get("X-Audio-Count");
-    if (aId) setAudioId(aId);
-    if (aCount) setAudioCount(parseInt(aCount, 10) || 0);
-
-    setDownloadBlob(blob);
-    const url = URL.createObjectURL(blob);
-    setVideoUrl(url);
-    setLoading(false);
-    setStep("done");
-  }, []);
-
-  // ── Parse job result for render jobs (meta: audio_id, audio_count) ──
   const processRenderResultFromJob = useCallback(async (jobResult: JobStatus) => {
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
-
     const meta = jobResult.meta ?? {};
-    const aId = meta.audio_id as string | undefined;
-    const aCount = meta.audio_count as number | undefined;
-
-    if (aId) setAudioId(aId);
-    if (aCount !== undefined) setAudioCount(aCount);
-    setDownloadBlob(blob);
-    const url = URL.createObjectURL(blob);
-    setVideoUrl(url);
-    setLoading(false);
-    setStep("done");
-  }, []);
+    applyRenderResult(blob, { audioId: meta.audio_id as string | undefined, audioCount: meta.audio_count as number | undefined });
+    dispatch({ type: "SET_LOADING", loading: false });
+    dispatch({ type: "SET_STEP", step: "done" });
+  }, [applyRenderResult]);
 
   // ── Start rendering ──
   const handleStartRender = useCallback(async () => {
@@ -855,8 +634,8 @@ function ScreencastPageInner() {
       const ok = await checkBeforeSubmit();
       if (!ok) return;
     }
-    setStep("rendering");
-    setLoading(true);
+    dispatch({ type: "SET_STEP", step: "rendering" });
+    dispatch({ type: "SET_LOADING", loading: true });
     const signal = newSignal();
     try {
       // No signal on the POST — ensures we always get job_uuid before checking abort.
@@ -869,9 +648,7 @@ function ScreencastPageInner() {
           scripts: slides.map((s) => s.script),
           translate_job_uuid: translateJobUuid,
           voice_id: voiceId,
-          voice_label: ttsProvider === "kokoro"
-            ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
-            : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId),
+          voice_label: computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices),
           speed,
           slide_pause: slidePause,
           dpi,
@@ -883,8 +660,8 @@ function ScreencastPageInner() {
         const err = await uploadRes.json().catch(() => ({ detail: "Render-Fehler" }));
         // 409 = previous render still stopping — stay on settings, show inline message
         if (uploadRes.status === 409) {
-          setStep("tts-settings");
-          setLoading(false);
+          dispatch({ type: "SET_STEP", step: "tts-settings" });
+          dispatch({ type: "SET_LOADING", loading: false });
           setTtsSettingsError("Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen.");
           return;
         }
@@ -893,7 +670,7 @@ function ScreencastPageInner() {
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
       sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      notifyJobsChanged();
 
       // If user clicked cancel while POST was in flight, cancel the job now
       if (signal.aborted) {
@@ -908,8 +685,7 @@ function ScreencastPageInner() {
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setFailedRenderJobUuid(currentJobUuidRef.current);
-      setFailedRenderIsAuto(false);
+      failedRender.mark(currentJobUuidRef.current, false);
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [slides, translateJobUuid, voiceId, speed, slidePause, dpi, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
@@ -931,7 +707,7 @@ function ScreencastPageInner() {
           throw new Error(parseDetail(err.detail, "Zu viele laufende Jobs. Bitte warten bis ein Job abgeschlossen ist."));
         }
         if (jobData.status === "success") {
-          setFailedRenderJobUuid(null);
+          failedRender.clear();
           if (failedRenderIsAuto) setAutoState("done");
           await processRenderResultFromJob(jobData);
           return;
@@ -945,10 +721,10 @@ function ScreencastPageInner() {
       setRenderProgressLabel("In der Warteschlange…");
       currentJobUuidRef.current = uuid;
       sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid, isAuto: failedRenderIsAuto }));
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      setStep("rendering");
-      setErrorMessage("");
-      setLoading(true);
+      notifyJobsChanged();
+      dispatch({ type: "SET_STEP", step: "rendering" });
+      dispatch({ type: "SET_ERROR_MESSAGE", message: "" });
+      dispatch({ type: "SET_LOADING", loading: true });
       if (failedRenderIsAuto) { setAutoState("processing"); setAutoError(""); }
       const signal = newSignal();
       const jobResult = await pollJob(
@@ -957,15 +733,15 @@ function ScreencastPageInner() {
       );
       currentJobUuidRef.current = null;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
-      setFailedRenderJobUuid(null);
-      window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+      failedRender.clear();
+      notifyJobsChanged();
       if (failedRenderIsAuto) setAutoState("done");
       await processRenderResultFromJob(jobResult);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       const msg = err instanceof Error ? err.message : "Retry fehlgeschlagen";
-      setFailedRenderJobUuid(uuid);
+      failedRender.mark(uuid, failedRenderIsAuto);
       if (failedRenderIsAuto) { setAutoState("error"); setAutoError(msg); }
       goError(msg);
     }
@@ -988,18 +764,17 @@ function ScreencastPageInner() {
         }
         if (job.status === "failed") {
           sessionStorage.removeItem(RENDER_SESSION_KEY);
-          setFailedRenderJobUuid(uuid);
-          setFailedRenderIsAuto(isAuto);
+          failedRender.mark(uuid, isAuto);
           if (isAuto) { setAutoError(job.error || "Job fehlgeschlagen"); setAutoState("error"); }
           else { goError(job.error || "Job fehlgeschlagen"); }
           return;
         }
         // Still running/pending — resume polling
         currentJobUuidRef.current = uuid;
-        setFailedRenderIsAuto(isAuto);
+        failedRender.setIsAuto(isAuto);
         setRenderProgressLabel("Verbindung wiederhergestellt…");
-        setStep("rendering");
-        setLoading(true);
+        dispatch({ type: "SET_STEP", step: "rendering" });
+        dispatch({ type: "SET_LOADING", loading: true });
         if (isAuto) setAutoState("processing");
         const ctrl = new AbortController();
         abortControllerRef.current = ctrl;
@@ -1008,15 +783,15 @@ function ScreencastPageInner() {
           .then(jobResult => {
             sessionStorage.removeItem(RENDER_SESSION_KEY);
             currentJobUuidRef.current = null;
-            setFailedRenderJobUuid(null);
-            window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+            failedRender.clear();
+            notifyJobsChanged();
             if (isAuto) setAutoState("done");
             processRenderResultFromJob(jobResult);
           })
           .catch(err => {
             if (err instanceof Error && err.name === "AbortError") return;
             sessionStorage.removeItem(RENDER_SESSION_KEY);
-            setFailedRenderJobUuid(uuid);
+            failedRender.mark(uuid, isAuto);
             if (isAuto) { setAutoState("error"); }
             goError(err.message);
           });
@@ -1025,27 +800,14 @@ function ScreencastPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Download MP4 ──
   const handleDownload = () => {
     if (!downloadBlob) return;
-    const url = URL.createObjectURL(downloadBlob);
-    const a = document.createElement("a");
-    a.href = url;
     const stem = file?.name?.replace(/\.pptx$/i, "") || "screencast";
-    a.download = `${stem}_screencast_EN.mp4`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(downloadBlob, `${stem}_screencast_EN.mp4`);
   };
 
-  const openRegen = (index: number) => setRegeneratingSlide(index);
-
-  const closeRegen = () => {
-    setRegeneratingSlide(null);
-    setRegenAnchorText("");
-    setRegenAnchorSlide(null);
-  };
+  const openRegen = regen.open;
+  const closeRegen = regen.close;
 
   const applyRegen = (index: number, mode: RegenApplyMode, content: string) => {
     const current = slides[index].script || "";
@@ -1059,8 +821,8 @@ function ScreencastPageInner() {
     } else if (mode === "insert-after") {
       newScript = current.replace(regenAnchorText, regenAnchorText + " " + content);
     }
+    dispatch({ type: "UPDATE_SLIDE_SCRIPT", index, script: newScript });
     const updated = slides.map((s, i) => i === index ? { ...s, script: newScript } : s);
-    setSlides(updated);
     autosaveScripts(updated.map((s) => s.script));
     closeRegen();
   };
@@ -1068,13 +830,12 @@ function ScreencastPageInner() {
   // ── Back to script review (from tts-settings) ──
   const handleBackToScripts = () => {
     if (step === "rendering") return;
-    setStep("script-review");
+    dispatch({ type: "SET_STEP", step: "script-review" });
   };
 
   // ── Track max reached step ──
   useEffect(() => {
-    const idx = stepToIndex(step);
-    setMaxReachedIdx((prev) => Math.max(prev, idx));
+    dispatch({ type: "ADVANCE_REACHED", idx: stepToIndex(step) });
   }, [step]);
 
   const isAutoMode =
@@ -1186,10 +947,10 @@ function ScreencastPageInner() {
               abortControllerRef.current?.abort();
               if (uuid) {
                 fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {});
-                window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+                notifyJobsChanged();
               }
-              setStep("upload");
-              setLoading(false);
+              dispatch({ type: "SET_STEP", step: "upload" });
+              dispatch({ type: "SET_LOADING", loading: false });
             }}
           />
         )}
@@ -1204,23 +965,20 @@ function ScreencastPageInner() {
             jsonFileRef={jsonFileRef}
             loading={loading}
             onScriptInputModeChange={setScriptInputMode}
-            onResetImport={() => {
-              setImportedScripts(null);
-              setImportError(null);
-            }}
+            onResetImport={resetImport}
             onJsonDragOverChange={setJsonDragOver}
             onJsonImport={handleJsonImport}
             onNext={() => {
               if (scriptInputMode === "manual") {
-                setSlides((prev) => prev.map((s) => ({ ...s, script: "" })));
-                setStep("script-review");
+                dispatch({ type: "CLEAR_SCRIPTS" });
+                dispatch({ type: "SET_STEP", step: "script-review" });
               } else if (scriptInputMode === "import") {
                 if (!importedScripts) {
                   setImportError("Bitte zuerst eine JSON-Datei auswählen.");
                   return;
                 }
-                setSlides((prev) => prev.map((s, i) => ({ ...s, script: importedScripts[i] ?? "" })));
-                setStep("script-review");
+                dispatch({ type: "IMPORT_SCRIPTS", scripts: importedScripts });
+                dispatch({ type: "SET_STEP", step: "script-review" });
               } else {
                 handleAcceptTranslation();
               }
@@ -1235,12 +993,12 @@ function ScreencastPageInner() {
             fastMode={fastMode}
             loading={loading}
             correctedFileName={correctedFileName}
-            onLightboxOpen={setLightboxIndex}
+            onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onDownloadTranslatedPptx={handleDownloadTranslatedPptx}
             onUploadCorrectedPptx={handleUploadCorrectedPptx}
             onAcceptAndNext={() => {
-              setMaxReachedIdx((v) => Math.max(v, 3));
-              setStep("user-prompt");
+              dispatch({ type: "ADVANCE_REACHED", idx: 3 });
+              dispatch({ type: "SET_STEP", step: "user-prompt" });
             }}
           />
         )}
@@ -1255,10 +1013,10 @@ function ScreencastPageInner() {
               abortControllerRef.current?.abort();
               if (uuid) {
                 fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
-                window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+                notifyJobsChanged();
               }
-              setStep("translation-review");
-              setLoading(false);
+              dispatch({ type: "SET_STEP", step: "translation-review" });
+              dispatch({ type: "SET_LOADING", loading: false });
             }}
           />
         )}
@@ -1274,12 +1032,9 @@ function ScreencastPageInner() {
             regenAnchorSlide={regenAnchorSlide}
             regenAnchorText={regenAnchorText}
             onEditBufferChange={setEditBuffer}
-            onLightboxOpen={setLightboxIndex}
+            onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
             onAccordionToggle={toggleAccordion}
-            onRegenAnchor={(slide, text) => {
-              setRegenAnchorSlide(slide);
-              setRegenAnchorText(text);
-            }}
+            onRegenAnchor={regen.setAnchor}
             onOpenRegen={openRegen}
             onStartEdit={startEdit}
             onCancelEdit={cancelEdit}
@@ -1332,12 +1087,12 @@ function ScreencastPageInner() {
               abortControllerRef.current?.abort();
               if (uuid) {
                 await fetch(`/api/jobs/${uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
-                window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
+                notifyJobsChanged();
               }
               setRenderProgressLabel("");
               setAutoState("idle");
-              setStep(mode === "auto" ? "upload" : "tts-settings");
-              setLoading(false);
+              dispatch({ type: "SET_STEP", step: mode === "auto" ? "upload" : "tts-settings" });
+              dispatch({ type: "SET_LOADING", loading: false });
             }}
           />
         )}
@@ -1365,8 +1120,8 @@ function ScreencastPageInner() {
           <Lightbox
             index={lightboxIndex}
             slides={slides}
-            onClose={() => setLightboxIndex(null)}
-            onIndexChange={setLightboxIndex}
+            onClose={() => dispatch({ type: "SET_LIGHTBOX", index: null })}
+            onIndexChange={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
           />
         )}
 
