@@ -7,6 +7,10 @@ import { api, parseDetail } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
+import { wordCount, estimateDuration } from "@/lib/text";
+import { translateDesc, KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
+import ScreencastStepper from "@/components/screencast/ScreencastStepper";
+import { stepToIndex } from "@/components/screencast/steps";
 import type {
   ScreencastStep,
   SlideData,
@@ -19,48 +23,6 @@ interface Voice {
   use_case?: string | null;
 }
 
-const DESCRIPTION_DE: Record<string, string> = {
-  "Laid-Back": "Entspannt",
-  "Casual": "Locker",
-  "Formal": "Förmlich",
-  "Friendly": "Freundlich",
-  "Warm": "Warm",
-  "Authoritative": "Autoritär",
-  "Confident": "Selbstsicher",
-  "Calm": "Ruhig",
-  "Energetic": "Energetisch",
-  "Upbeat": "Lebhaft",
-  "Serious": "Sachlich",
-  "Raspy": "Rau",
-  "Smooth": "Weich",
-  "Deep": "Tief",
-  "Resonant": "Resonant",
-  "Crisp": "Klar",
-  "Soft": "Sanft",
-  "Husky": "Heiser",
-  "Clear": "Deutlich",
-  "Conversational": "Gesprächig",
-  "Narrative": "Erzählend",
-  "Expressive": "Ausdrucksstark",
-  "Melodic": "Melodisch",
-  "Mature": "Reif",
-  "Powerful": "Kraftvoll",
-  "Bright": "Hell",
-  "Grounded": "Geerdet",
-  "Soothing": "Beruhigend",
-  "Professional": "Professionell",
-};
-
-function translateDesc(description?: string | null): string | null {
-  if (!description) return null;
-  return description.split(",").map(d => {
-    const key = d.trim();
-    return DESCRIPTION_DE[key] ?? key;
-  }).join(" · ");
-}
-
-const KOKORO_ACCENT_LABEL: Record<string, string> = { "American": "🇺🇸", "British": "🇬🇧" };
-
 interface TranslateResponse {
   slide_count: number;
   slide_texts: string[];
@@ -71,40 +33,6 @@ interface TranslateResponse {
 
 interface GenerateScriptsResponse {
   scripts: string[];
-}
-
-function wordCount(text: string): number {
-  return text.split(/\s+/).filter(Boolean).length;
-}
-
-function estimateDuration(words: number): number {
-  return Math.round((words / 150) * 60);
-}
-
-const STEP_LABELS = [
-  "Upload",
-  "Übersetzen",
-  "Prüfen",
-  "Anweisungen",
-  "Skripte",
-  "Einstellungen",
-  "Rendern",
-  "Fertig",
-] as const;
-
-function stepToIndex(step: ScreencastStep): number {
-  switch (step) {
-    case "upload": return 0;
-    case "translating": return 1;
-    case "translation-review": return 2;
-    case "user-prompt": return 3;
-    case "generating-scripts":
-    case "script-review": return 4;
-    case "tts-settings": return 5;
-    case "rendering": return 6;
-    case "done": return 7;
-    default: return 0;
-  }
 }
 
 const RENDER_SESSION_KEY = "kis_screencast_demo_active_render";
@@ -151,12 +79,7 @@ function ScreencastDemoPageInner() {
   const [importedScripts, setImportedScripts] = useState<string[] | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const stepperRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const isDraggingRef = useRef(false);
-  const hasDraggedRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragScrollLeftRef = useRef(0);
 
   useEffect(() => {
     checkAuthStatus().then((status) => { setIsAdmin(!!status.is_admin); });
@@ -197,33 +120,6 @@ function ScreencastDemoPageInner() {
 
   useEffect(() => { return () => { abortControllerRef.current?.abort(); }; }, []);
 
-  const handleStepperMouseDown = useCallback((e: React.MouseEvent) => {
-    const el = stepperRef.current;
-    if (!el) return;
-    isDraggingRef.current = true;
-    hasDraggedRef.current = false;
-    dragStartXRef.current = e.pageX - el.offsetLeft;
-    dragScrollLeftRef.current = el.scrollLeft;
-    el.style.cursor = "grabbing";
-    el.style.userSelect = "none";
-  }, []);
-
-  const handleStepperMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDraggingRef.current) return;
-    e.preventDefault();
-    const el = stepperRef.current;
-    if (!el) return;
-    const x = e.pageX - el.offsetLeft;
-    if (Math.abs(x - dragStartXRef.current) > 5) hasDraggedRef.current = true;
-    el.scrollLeft = dragScrollLeftRef.current - (x - dragStartXRef.current) * 1.5;
-  }, []);
-
-  const handleStepperMouseUp = useCallback(() => {
-    isDraggingRef.current = false;
-    const el = stepperRef.current;
-    if (el) { el.style.cursor = ""; el.style.userSelect = ""; }
-  }, []);
-
   const resetAll = useCallback(() => {
     abortControllerRef.current?.abort();
     sessionStorage.removeItem(RENDER_SESSION_KEY);
@@ -252,7 +148,6 @@ function ScreencastDemoPageInner() {
   }, [videoUrl, kokoroEnabled, fishSpeechEnabled, elevenlabsEnabled]);
 
   const handleStepClick = useCallback((index: number) => {
-    if (hasDraggedRef.current) return;
     if (step === "rendering" || step === "generating-scripts") return;
     if (index > maxReachedIdx) return;
     const targets: Record<number, ScreencastStep | null> = {
@@ -504,14 +399,6 @@ function ScreencastDemoPageInner() {
   useEffect(() => {
     const idx = stepToIndex(step);
     setMaxReachedIdx((prev) => Math.max(prev, idx));
-    const container = stepperRef.current;
-    if (!container) return;
-    const activeEl = container.querySelector<HTMLElement>('[data-active="true"]');
-    if (!activeEl) return;
-    const containerRect = container.getBoundingClientRect();
-    const activeRect = activeEl.getBoundingClientRect();
-    const offset = activeRect.left - containerRect.left - containerRect.width / 2 + activeRect.width / 2;
-    container.scrollBy({ left: offset, behavior: "smooth" });
   }, [step]);
 
   const showStepIndicator = step !== "upload" && step !== "error";
@@ -526,56 +413,12 @@ function ScreencastDemoPageInner() {
         <BackLink />
         {showStepIndicator && (
           <>
-            <nav
-              ref={stepperRef}
-              aria-label="Fortschritt"
-              className="mb-6 overflow-x-auto scrollbar-hide cursor-grab touch-pan-x"
-              onMouseDown={handleStepperMouseDown}
-              onMouseMove={handleStepperMouseMove}
-              onMouseUp={handleStepperMouseUp}
-              onMouseLeave={handleStepperMouseUp}
-            >
-              <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
-                {STEP_LABELS.map((label, i) => {
-                  const currentIdx = stepToIndex(step);
-                  const isDone = i < currentIdx;
-                  const isActive = i === currentIdx;
-                  const isReached = i <= maxReachedIdx;
-                  const isClickable = isReached && !isActive && i !== 0 && i !== 1 && i !== 6 && step !== "rendering";
-                  return (
-                    <li key={label} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleStepClick(i)}
-                        aria-disabled={!isClickable}
-                        className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none ${isClickable ? "cursor-pointer hover:bg-gray-100" : "cursor-default"}`}
-                      >
-                        <span
-                          className={`inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
-                            ${isActive ? "bg-primary text-white" : ""}
-                            ${isDone ? "bg-primary/20 text-primary" : ""}
-                            ${!isActive && !isDone ? "bg-gray-100 text-gray-400" : ""}
-                          `}
-                          aria-current={isActive ? "step" : undefined}
-                        >
-                          {isDone ? (
-                            <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (i + 1)}
-                        </span>
-                        <span className={`text-[10px] sm:text-xs whitespace-nowrap ${isActive ? "text-gray-900 font-medium" : isClickable ? "text-gray-600" : "text-gray-400"}`}>
-                          {label}
-                        </span>
-                      </button>
-                      {i < STEP_LABELS.length - 1 && (
-                        <span className={`w-3 sm:w-8 h-px flex-shrink-0 ${i < currentIdx ? "bg-primary" : "bg-gray-200"}`} aria-hidden="true" />
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </nav>
+            <ScreencastStepper
+              step={step}
+              maxReachedIdx={maxReachedIdx}
+              sourceLang="DE"
+              onStepClick={handleStepClick}
+            />
             <div className="flex justify-between mb-6">
               <button
                 onClick={() => resetAll()}
@@ -815,6 +658,30 @@ function ScreencastDemoPageInner() {
                 </div>
               </div>
             )}
+
+            {/* Actions (Demo: decorative only) */}
+            <div className="flex flex-col gap-3 mb-4">
+              <button
+                type="button"
+                disabled
+                title="Nicht in der Demo verfügbar"
+                className="w-full px-4 py-2 text-sm text-primary border border-primary rounded-md hover:bg-primary/5 transition-colors flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
+              >
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                PPTX
+              </button>
+
+              <div className="relative">
+                <div
+                  title="Nicht in der Demo verfügbar"
+                  className="block w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md text-center cursor-not-allowed opacity-60"
+                >
+                  Korrigierte PPTX hochladen (optional)
+                </div>
+              </div>
+            </div>
 
             <div className="flex gap-3">
               <button

@@ -16,6 +16,10 @@ import type {
   ScreencastStep,
   SlideData,
 } from "@/types";
+import ScreencastStepper from "@/components/screencast/ScreencastStepper";
+import { stepToIndex } from "@/components/screencast/steps";
+import { wordCount, estimateDuration } from "@/lib/text";
+import { translateDesc, KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
 
 interface Voice {
   voice_id: string;
@@ -24,49 +28,7 @@ interface Voice {
   use_case?: string | null;
 }
 
-const DESCRIPTION_DE: Record<string, string> = {
-  "Laid-Back": "Entspannt",
-  "Casual": "Locker",
-  "Formal": "Förmlich",
-  "Friendly": "Freundlich",
-  "Warm": "Warm",
-  "Authoritative": "Autoritär",
-  "Confident": "Selbstsicher",
-  "Calm": "Ruhig",
-  "Energetic": "Energetisch",
-  "Upbeat": "Lebhaft",
-  "Serious": "Sachlich",
-  "Raspy": "Rau",
-  "Smooth": "Weich",
-  "Deep": "Tief",
-  "Resonant": "Resonant",
-  "Crisp": "Klar",
-  "Soft": "Sanft",
-  "Husky": "Heiser",
-  "Clear": "Deutlich",
-  "Conversational": "Gesprächig",
-  "Narrative": "Erzählend",
-  "Expressive": "Ausdrucksstark",
-  "Melodic": "Melodisch",
-  "Mature": "Reif",
-  "Powerful": "Kraftvoll",
-  "Bright": "Hell",
-  "Grounded": "Geerdet",
-  "Soothing": "Beruhigend",
-  "Professional": "Professionell",
-};
-
-function translateDesc(description?: string | null): string | null {
-  if (!description) return null;
-  return description.split(",").map(d => {
-    const key = d.trim();
-    return DESCRIPTION_DE[key] ?? key;
-  }).join(" · ");
-}
-
 const ACCEPTED_EXTENSIONS = [".pptx"];
-
-const KOKORO_ACCENT_LABEL: Record<string, string> = { "American": "🇺🇸", "British": "🇬🇧" };
 
 interface TranslateResponse {
   slide_count: number;
@@ -92,7 +54,7 @@ interface GenerateScriptsResponse {
 
 const MAX_REGEN_TEXTAREA_HEIGHT = 480; // ~20 lines at text-sm leading-relaxed
 
-function RegenTextarea({ value, onChange, className }: { value: string; onChange: (v: string) => void; className: string }) {
+function RegenTextarea({ value, onChange, className, style }: { value: string; onChange: (v: string) => void; className: string; style?: React.CSSProperties }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -107,51 +69,9 @@ function RegenTextarea({ value, onChange, className }: { value: string; onChange
       onChange={(e) => onChange(e.target.value)}
       rows={1}
       className={className}
+      style={style}
     />
   );
-}
-
-function wordCount(text: string): number {
-  return text.split(/\s+/).filter(Boolean).length;
-}
-
-function estimateDuration(words: number): number {
-  return Math.round((words / 150) * 60);
-}
-
-const STEP_LABELS = [
-  "Upload",
-  "Übersetzen",
-  "Prüfen",
-  "Anweisungen",
-  "Skripte",
-  "Einstellungen",
-  "Rendern",
-  "Fertig",
-] as const;
-
-function stepToIndex(step: ScreencastStep): number {
-  switch (step) {
-    case "upload":
-      return 0;
-    case "translating":
-      return 1;
-    case "translation-review":
-      return 2;
-    case "user-prompt":
-      return 3;
-    case "generating-scripts":
-    case "script-review":
-      return 4;
-    case "tts-settings":
-      return 5;
-    case "rendering":
-      return 6;
-    case "done":
-      return 7;
-    default:
-      return 0;
-  }
 }
 
 const RENDER_SESSION_KEY = "kis_screencast_active_render";
@@ -269,50 +189,10 @@ function ScreencastPageInner() {
   const jsonFileRef = useRef<HTMLInputElement>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
-  const stepperRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
-  const isDraggingRef = useRef(false);
-  const hasDraggedRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragScrollLeftRef = useRef(0);
   const scriptAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isGeneratingScriptsRef = useRef(false);
-
-  // ── Stepper drag-to-scroll ──
-
-  const handleStepperMouseDown = useCallback((e: React.MouseEvent) => {
-    const el = stepperRef.current;
-    if (!el) return;
-    isDraggingRef.current = true;
-    hasDraggedRef.current = false;
-    dragStartXRef.current = e.pageX - el.offsetLeft;
-    dragScrollLeftRef.current = el.scrollLeft;
-    el.style.cursor = "grabbing";
-    el.style.userSelect = "none";
-  }, []);
-
-  const handleStepperMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDraggingRef.current) return;
-    e.preventDefault();
-    const el = stepperRef.current;
-    if (!el) return;
-    const x = e.pageX - el.offsetLeft;
-    if (Math.abs(x - dragStartXRef.current) > 5) {
-      hasDraggedRef.current = true;
-    }
-    const walk = (x - dragStartXRef.current) * 1.5;
-    el.scrollLeft = dragScrollLeftRef.current - walk;
-  }, []);
-
-  const handleStepperMouseUp = useCallback(() => {
-    isDraggingRef.current = false;
-    const el = stepperRef.current;
-    if (el) {
-      el.style.cursor = "";
-      el.style.userSelect = "";
-    }
-  }, []);
 
   // ── Abort on unmount ──
   useEffect(() => {
@@ -553,7 +433,6 @@ function ScreencastPageInner() {
   }, [videoUrl, translateJobUuid]);
 
   const handleStepClick = useCallback((index: number) => {
-    if (hasDraggedRef.current) return;
     if (step === "rendering" || step === "generating-scripts") return;
     if (index > maxReachedIdx) return;
     const targets: Record<number, ScreencastStep | null> = {
@@ -1359,23 +1238,10 @@ function ScreencastPageInner() {
     setStep("script-review");
   };
 
-  // ── Track max reached step + auto-scroll active step to center ──
+  // ── Track max reached step ──
   useEffect(() => {
     const idx = stepToIndex(step);
     setMaxReachedIdx((prev) => Math.max(prev, idx));
-
-    const container = stepperRef.current;
-    if (!container) return;
-    const activeEl = container.querySelector<HTMLElement>('[data-active="true"]');
-    if (!activeEl) return;
-    const containerRect = container.getBoundingClientRect();
-    const activeRect = activeEl.getBoundingClientRect();
-    const offset =
-      activeRect.left -
-      containerRect.left -
-      containerRect.width / 2 +
-      activeRect.width / 2;
-    container.scrollBy({ left: offset, behavior: "smooth" });
   }, [step]);
 
   const isAutoMode =
@@ -1399,94 +1265,12 @@ function ScreencastPageInner() {
         {/* Step indicator */}
         {showStepIndicator && (
           <>
-            <nav
-              ref={stepperRef}
-              aria-label="Fortschritt"
-              className="mb-6 overflow-x-auto scrollbar-hide cursor-grab touch-pan-x"
-              onMouseDown={handleStepperMouseDown}
-              onMouseMove={handleStepperMouseMove}
-              onMouseUp={handleStepperMouseUp}
-              onMouseLeave={handleStepperMouseUp}
-            >
-              <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
-                {STEP_LABELS.map((label, i) => {
-                  const currentIdx = stepToIndex(step);
-                  const isSkipped = sourceLang === "EN" && (i === 1 || i === 2);
-                  const isDone = !isSkipped && i < currentIdx;
-                  const isActive = i === currentIdx;
-                  const isReached = i <= maxReachedIdx;
-                  const isClickable = !isSkipped && isReached && !isActive && i !== 0 && i !== 1 && i !== 6 && step !== "rendering";
-                  return (
-                    <li key={label} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleStepClick(i)}
-                        aria-disabled={!isClickable}
-                        className={`
-                          inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
-                          ${isClickable ? "cursor-pointer hover:bg-gray-100" : "cursor-default"}
-                        `}
-                      >
-                        <span
-                          className={`
-                            inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
-                            ${isActive ? "bg-primary text-white" : ""}
-                            ${isDone ? "bg-primary/20 text-primary" : ""}
-                            ${isSkipped ? "bg-gray-100 text-gray-300" : ""}
-                            ${!isActive && !isDone && !isSkipped ? "bg-gray-100 text-gray-400" : ""}
-                          `}
-                          aria-current={isActive ? "step" : undefined}
-                        >
-                          {isSkipped ? (
-                            <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12h12" />
-                            </svg>
-                          ) : isDone ? (
-                            <svg
-                              className="w-3 h-3 sm:w-4 sm:h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              aria-hidden="true"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          ) : (
-                            i + 1
-                          )}
-                        </span>
-                        <span
-                          className={`text-[10px] sm:text-xs whitespace-nowrap ${
-                            isSkipped
-                              ? "text-gray-300 line-through"
-                              : isActive
-                                ? "text-gray-900 font-medium"
-                                : isClickable
-                                  ? "text-gray-600"
-                                  : "text-gray-400"
-                          }`}
-                        >
-                          {label}
-                        </span>
-                      </button>
-                      {i < STEP_LABELS.length - 1 && (
-                        <span
-                          className={`w-3 sm:w-8 h-px flex-shrink-0 ${
-                            i < currentIdx && !isSkipped ? "bg-primary" : "bg-gray-200"
-                          }`}
-                          aria-hidden="true"
-                        />
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </nav>
+            <ScreencastStepper
+              step={step}
+              maxReachedIdx={maxReachedIdx}
+              sourceLang={sourceLang}
+              onStepClick={handleStepClick}
+            />
             <div className="flex justify-between mb-6">
               <button
                 onClick={() => resetAll(step !== "done")}
