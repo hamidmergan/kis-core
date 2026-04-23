@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -29,15 +29,12 @@ import TranslationReviewStep from "./_steps/TranslationReviewStep";
 import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import Lightbox from "./_components/Lightbox";
+import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
 import { wordCount, estimateDuration } from "@/lib/text";
 import { KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
-
-interface Voice {
-  voice_id: string;
-  label: string;
-  description?: string | null;
-  use_case?: string | null;
-}
+import { useFileDropzone } from "@/hooks/useFileDropzone";
+import { useVoices } from "@/hooks/useVoices";
+import { useScriptEditing, useScriptAutosave } from "@/hooks/useScriptEditing";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
@@ -53,28 +50,6 @@ interface GenerateScriptsResponse {
   scripts: string[];
 }
 
-
-const MAX_REGEN_TEXTAREA_HEIGHT = 480; // ~20 lines at text-sm leading-relaxed
-
-function RegenTextarea({ value, onChange, className, style }: { value: string; onChange: (v: string) => void; className: string; style?: React.CSSProperties }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, MAX_REGEN_TEXTAREA_HEIGHT) + "px";
-  }, [value]);
-  return (
-    <textarea
-      ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      rows={1}
-      className={className}
-      style={style}
-    />
-  );
-}
 
 const RENDER_SESSION_KEY = "kis_screencast_active_render";
 const SCREENCAST_MAX_CHARS = 100_000;
@@ -95,26 +70,27 @@ function ScreencastPageInner() {
   // ── Step-by-step state ──
   const [step, setStep] = useState<ScreencastStep>("upload");
   const [mode, setMode] = useState<"auto" | "manual">("manual");
-  const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
+  const {
+    file,
+    fileError,
+    dragOver,
+    selectFile: handleFileSelect,
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: handleDrop,
+    reset: resetFile,
+  } = useFileDropzone({ acceptedExtensions: ACCEPTED_EXTENSIONS });
   const [speed, setSpeed] = useState(1.0);
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [dpi, setDpi] = useState(144);
-  // Per-slide AI regeneration state
+  // Per-slide AI regeneration state (modal-intern state lebt in RegenChatModal)
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
-  const [regenPrompt, setRegenPrompt] = useState("");
-  const [regenMessages, setRegenMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const [regenLoading, setRegenLoading] = useState(false);
   const [regenAnchorText, setRegenAnchorText] = useState("");
   const [regenAnchorSlide, setRegenAnchorSlide] = useState<number | null>(null);
-  const regeneratingSlideRef = useRef<number | null>(null);
-  const regenChatBottomRef = useRef<HTMLDivElement>(null);
-  const regenChatAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = () => {
-      if (regeneratingSlideRef.current !== null) return;
+      if (regeneratingSlide !== null) return;
       if (!window.getSelection()?.toString().trim()) {
         setRegenAnchorText("");
         setRegenAnchorSlide(null);
@@ -122,11 +98,7 @@ function ScreencastPageInner() {
     };
     document.addEventListener("selectionchange", handler);
     return () => document.removeEventListener("selectionchange", handler);
-  }, []);
-
-  useEffect(() => {
-    regenChatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [regenMessages, regenLoading]);
+  }, [regeneratingSlide]);
 
 
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
@@ -136,24 +108,53 @@ function ScreencastPageInner() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [openAccordion, setOpenAccordion] = useState<number>(0);
-  const [editingSlide, setEditingSlide] = useState<number | null>(null);
-  const [editBuffer, setEditBuffer] = useState("");
   const [correctedFileName, setCorrectedFileName] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
+  const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
+  const {
+    openAccordion,
+    editingSlide,
+    editBuffer,
+    setEditBuffer,
+    startEdit: startEditHook,
+    cancelEdit,
+    saveEdit,
+    toggleAccordion,
+    reset: resetScriptEditing,
+  } = useScriptEditing({
+    onSave: (index, newScript) => {
+      const updated = slides.map((s, i) => (i === index ? { ...s, script: newScript } : s));
+      setSlides(updated);
+      autosaveScripts(updated.map((s) => s.script));
+    },
+  });
+  const startEdit = (index: number) => startEditHook(index, slides[index]?.script ?? "");
+
+  const voicesResult = useVoices();
+  const {
+    loaded: providersLoaded,
+    providers,
+    defaultProvider,
+    defaultVoiceId,
+    elevenlabs: voices,
+    kokoro: kokoroVoices,
+    mylab: mylabVoices,
+    thorsten: thorstenVoices,
+  } = voicesResult;
+  const elevenlabsEnabled = providers.elevenlabs;
+  const fishSpeechEnabled = providers.fish_speech;
+  const kokoroEnabled = providers.kokoro;
+  const mylabEnabled = providers.mylab;
+  const thorstenEnabled = providers.thorsten;
   const [voiceId, setVoiceId] = useState("");
   const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro" | "mylab" | "thorsten">("kokoro");
-  const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
-  const [fishSpeechEnabled, setFishSpeechEnabled] = useState(false);
-  const [kokoroEnabled, setKokoroEnabled] = useState(false);
-  const [mylabEnabled, setMylabEnabled] = useState(false);
-  const [thorstenEnabled, setThorstenEnabled] = useState(false);
-  const [mylabVoices, setMylabVoices] = useState<Array<{ voice_id: string; name: string; description: string }>>([]);
-  const [thorstenVoices, setThorstenVoices] = useState<Array<{ voice_id: string; name: string; language: string }>>([]);
-  const [providersLoaded, setProvidersLoaded] = useState(false);
+  useEffect(() => {
+    if (defaultProvider) setTtsProvider(defaultProvider);
+  }, [defaultProvider]);
+  useEffect(() => {
+    if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
+  }, [defaultVoiceId, voiceId]);
   const [audioId, setAudioId] = useState<string>("");
   const [audioCount, setAudioCount] = useState(0);
   const [languages, setLanguages] = useState<{ id: string; label: string }[]>([]);
@@ -193,7 +194,6 @@ function ScreencastPageInner() {
   const fileRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentJobUuidRef = useRef<string | null>(null);
-  const scriptAutosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isGeneratingScriptsRef = useRef(false);
 
   // ── Abort on unmount ──
@@ -222,60 +222,6 @@ function ScreencastPageInner() {
         if (data.default_target) setTargetLang(data.default_target);
       })
       .catch(() => {});
-  }, []);
-
-  // ── Fetch available voices + providers ──
-  useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean; thorsten_enabled: boolean }>("/api/tts/providers").then((data) => {
-      setElevenlabsEnabled(data.elevenlabs_enabled);
-      setFishSpeechEnabled(data.fish_speech_enabled);
-      setKokoroEnabled(data.kokoro_enabled ?? false);
-      setMylabEnabled(data.mylab_enabled ?? false);
-      setThorstenEnabled(data.thorsten_enabled ?? false);
-      // Default priority: kokoro > mylab > thorsten > fish_speech > elevenlabs
-      if (data.kokoro_enabled) setTtsProvider("kokoro");
-      else if (data.mylab_enabled) setTtsProvider("mylab");
-      else if (data.thorsten_enabled) setTtsProvider("thorsten");
-      else if (data.fish_speech_enabled) setTtsProvider("fish_speech");
-      else if (data.elevenlabs_enabled) setTtsProvider("elevenlabs");
-      if (data.elevenlabs_enabled) {
-        api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
-          setVoices(vData.voices);
-          if (vData.voices.length > 0) setVoiceId(vData.voices[0].voice_id);
-        }).catch(() => {});
-      }
-      if (data.kokoro_enabled) {
-        api.getJson<{ voices: Array<{ voice_id: string; name: string; accent: string; gender: string }> }>("/api/kokoro/voices")
-          .then((kData) => {
-            setKokoroVoices(kData.voices ?? []);
-            if (kData.voices?.length > 0) {
-              setVoiceId(kData.voices[0].voice_id);
-            }
-          }).catch(() => {});
-      }
-      if (data.mylab_enabled) {
-        api.getJson<{ voices: Array<{ voice_id: string; name: string; description: string }> }>("/api/mylab/voices")
-          .then((mData) => {
-            setMylabVoices(mData.voices ?? []);
-            if (mData.voices?.length > 0 && !data.kokoro_enabled) {
-              setVoiceId(mData.voices[0].voice_id);
-            }
-          }).catch(() => {});
-      }
-      if (data.thorsten_enabled) {
-        api.getJson<{ voices: Array<{ voice_id: string; name: string; language: string }> }>("/api/thorsten/voices")
-          .then((tData) => {
-            setThorstenVoices(tData.voices ?? []);
-            if (tData.voices?.length > 0 && !data.kokoro_enabled && !data.mylab_enabled) {
-              setVoiceId(tData.voices[0].voice_id);
-            }
-          }).catch(() => {});
-      }
-    }).catch(() => {
-      setElevenlabsEnabled(true);
-    }).finally(() => {
-      setProvidersLoaded(true);
-    });
   }, []);
 
   const searchParams = useSearchParams();
@@ -397,9 +343,7 @@ function ScreencastPageInner() {
     currentJobUuidRef.current = null;
 
     setStep("upload");
-    setFile(null);
-    setFileError(null);
-    setDragOver(false);
+    resetFile();
     setSpeed(0.9);
     setSlidePause(0.5);
     setGlossaryIds(["", "", ""]);
@@ -410,9 +354,7 @@ function ScreencastPageInner() {
     setVideoUrl(null);
     setErrorMessage("");
     setLoading(false);
-    setOpenAccordion(0);
-    setEditingSlide(null);
-    setEditBuffer("");
+    resetScriptEditing();
     setCorrectedFileName(null);
     setLightboxIndex(null);
     setAudioId("");
@@ -498,37 +440,6 @@ function ScreencastPageInner() {
     else if (p.step === "subtitles") setRenderProgressLabel("Untertitel werden eingebettet…");
     else setRenderProgressLabel("Video wird erstellt…");
   }, []);
-
-  const handleFileSelect = useCallback((f: File) => {
-    setFileError(null);
-    const ext = "." + f.name.split(".").pop()?.toLowerCase();
-    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      setFileError("Nur .pptx-Dateien erlaubt");
-      return;
-    }
-    setFile(f);
-  }, []);
-
-  // ── Drag & Drop ──
-  const handleDragOver = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    setDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback(
-    (e: DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      const f = e.dataTransfer.files?.[0];
-      if (f) handleFileSelect(f);
-    },
-    [handleFileSelect],
-  );
 
   // ── Auto mode submit ──
   const handleAutoSubmit = useCallback(async () => {
@@ -881,28 +792,6 @@ function ScreencastPageInner() {
     }
   }, [slides, glossaryIds, mergeToApiJson, goError, checkJobFolder, checkBeforeSubmit, checkJobStillValid, translateJobUuid]);
 
-  // ── Script autosave to bucket (debounced) ──
-  const autosaveScripts = useCallback((updatedScripts: string[], accepted = false) => {
-    if (!translateJobUuid) return;
-    if (!accepted) {
-      if (scriptAutosaveTimerRef.current) clearTimeout(scriptAutosaveTimerRef.current);
-      scriptAutosaveTimerRef.current = setTimeout(() => {
-        fetch(`/api/screencast/scripts/${translateJobUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scripts: updatedScripts, accepted: false }),
-          credentials: "include",
-        }).catch(() => {});
-      }, 1500);
-    } else {
-      fetch(`/api/screencast/scripts/${translateJobUuid}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scripts: updatedScripts, accepted: true }),
-        credentials: "include",
-      }).catch(() => {});
-    }
-  }, [translateJobUuid]);
 
   // ── Accept scripts → TTS settings + fire-and-forget prerender + save ──
   const handleAcceptScripts = useCallback(() => {
@@ -1150,73 +1039,15 @@ function ScreencastPageInner() {
     URL.revokeObjectURL(url);
   };
 
-  // ── Edit helpers ──
-  const startEdit = (index: number) => {
-    setOpenAccordion(index);
-    setEditingSlide(index);
-    setEditBuffer(slides[index].script);
-  };
-
-  const saveEdit = (index: number) => {
-    const updated = slides.map((s, i) => i === index ? { ...s, script: editBuffer } : s);
-    setSlides(updated);
-    setEditingSlide(null);
-    setEditBuffer("");
-    autosaveScripts(updated.map((s) => s.script));
-  };
-
-  const cancelEdit = () => {
-    setEditingSlide(null);
-    setEditBuffer("");
-  };
-
-  // ── Per-slide AI regeneration ──
-  const openRegen = (index: number) => {
-    regeneratingSlideRef.current = index;
-    setRegeneratingSlide(index);
-    setRegenPrompt("");
-    setRegenMessages([]);
-  };
+  const openRegen = (index: number) => setRegeneratingSlide(index);
 
   const closeRegen = () => {
-    regeneratingSlideRef.current = null;
     setRegeneratingSlide(null);
-    setRegenPrompt("");
-    setRegenMessages([]);
     setRegenAnchorText("");
     setRegenAnchorSlide(null);
   };
 
-  const runRegen = async (index: number) => {
-    const userText = regenPrompt.trim();
-    if (!userText) return;
-    const newMessages: { role: "user" | "assistant"; content: string }[] = [
-      ...regenMessages,
-      { role: "user", content: userText },
-    ];
-    setRegenMessages(newMessages);
-    setRegenPrompt("");
-    setRegenLoading(true);
-    try {
-      const result = await api.postJson<{ script: string }>(
-        "/api/screencast/regenerate-slide-script",
-        {
-          slide_text: slides[index].extractedText,
-          current_script: slides[index].script || "",
-          messages: newMessages,
-          selected_text: regenAnchorText || null,
-          target_lang: targetLang,
-        },
-      );
-      setRegenMessages([...newMessages, { role: "assistant", content: result.script }]);
-    } catch {
-      setRegenMessages([...newMessages, { role: "assistant", content: "Fehler beim Generieren." }]);
-    } finally {
-      setRegenLoading(false);
-    }
-  };
-
-  const applyRegen = (index: number, mode: "replace-selection" | "insert-before" | "insert-after" | "replace-all", content: string) => {
+  const applyRegen = (index: number, mode: RegenApplyMode, content: string) => {
     const current = slides[index].script || "";
     let newScript = current;
     if (mode === "replace-all" || !regenAnchorText) {
@@ -1444,10 +1275,7 @@ function ScreencastPageInner() {
             regenAnchorText={regenAnchorText}
             onEditBufferChange={setEditBuffer}
             onLightboxOpen={setLightboxIndex}
-            onAccordionToggle={(i) => {
-              if (editingSlide !== null) cancelEdit();
-              setOpenAccordion(openAccordion === i ? -1 : i);
-            }}
+            onAccordionToggle={toggleAccordion}
             onRegenAnchor={(slide, text) => {
               setRegenAnchorSlide(slide);
               setRegenAnchorText(text);
@@ -1543,157 +1371,16 @@ function ScreencastPageInner() {
         )}
 
 
-        {/* ── KI-Regenerierung Modal ── */}
-        {regeneratingSlide !== null && (
-          <>
-            {/* Backdrop — subtle */}
-            <div className="fixed inset-0 z-40" />
-
-            {/* Panel — Bottom Sheet mobile, right-anchored sidebar on desktop */}
-            <div className={`fixed z-50 shadow-2xl flex flex-col overflow-hidden sm:inset-auto sm:top-16 sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl ${regenMessages.length > 0 ? "inset-0 rounded-none" : "inset-x-0 bottom-0 rounded-t-2xl max-h-[60vh]"}`} style={{ backgroundColor: "var(--bg)" }}>
-
-              {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                    style={{ backgroundColor: "var(--kb)" }}
-                  >
-                    KI
-                  </div>
-                  <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>KI-Assistent · Folie {regeneratingSlide + 1}</span>
-                </div>
-                <button onClick={closeRegen} className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity" style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
-
-              {/* Chat area */}
-              <div ref={regenChatAreaRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0">
-
-                {/* Markierung als Kontext-Chip oben */}
-                {regenAnchorText && (
-                  <div className="flex justify-center">
-                    <div className="w-full rounded-xl px-3 py-1.5 text-xs italic" style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--text)", border: "1px solid var(--border)" }}>
-                      <span style={{ color: "var(--kb)" }}>✦</span> „{regenAnchorText}"
-                    </div>
-                  </div>
-                )}
-
-                {/* Chatverlauf */}
-                {regenMessages.map((msg, idx) => {
-                  const isUser = msg.role === "user";
-                  const isLastAssistant = !isUser && idx === regenMessages.length - 1;
-                  return (
-                    <div key={idx} className={`flex flex-col gap-1.5 ${isUser ? "items-end" : "items-start"}`}>
-                      {!isUser && (
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <div
-                            className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                            style={{ backgroundColor: "var(--kb)" }}
-                          >
-                            KI
-                          </div>
-                          <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
-                            KI-Assistent
-                          </span>
-                        </div>
-                      )}
-                      <div className={`${isUser ? "max-w-[85%]" : "max-w-[96%]"} space-y-2 ${isUser ? "items-end" : "items-start"} flex flex-col`}>
-                        {isUser ? (
-                          <div className="text-sm px-4 py-3 rounded-2xl leading-relaxed" style={{ backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap" }}>
-                            {msg.content}
-                          </div>
-                        ) : (
-                          <>
-                            <RegenTextarea
-                              value={msg.content}
-                              onChange={(v) => setRegenMessages(regenMessages.map((m, i) => i === idx ? { ...m, content: v } : m))}
-                              className="text-sm rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none leading-relaxed w-full overflow-y-auto"
-                              style={{ backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", borderTopLeftRadius: 6 }}
-                            />
-                            {isLastAssistant && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {regenAnchorText ? (
-                                  <>
-                                    <button onClick={() => applyRegen(regeneratingSlide, "replace-selection", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>Markierung ersetzen</button>
-                                    <button onClick={() => applyRegen(regeneratingSlide, "insert-before", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>Davor</button>
-                                    <button onClick={() => applyRegen(regeneratingSlide, "insert-after", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>Danach</button>
-                                    <button onClick={() => applyRegen(regeneratingSlide, "replace-all", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(var(--kb-rgb),0.05)", color: "var(--muted)" }}>Ganzes Skript</button>
-                                  </>
-                                ) : (
-                                  <button onClick={() => applyRegen(regeneratingSlide, "replace-all", msg.content)} className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}>Ersetzen</button>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Typing indicator */}
-                {regenLoading && (
-                  <div className="flex items-start gap-2">
-                    <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: "var(--kb)" }}
-                    >
-                      KI
-                    </div>
-                    <div className="px-4 py-3 rounded-2xl text-sm" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderTopLeftRadius: 6 }}>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="inline-flex gap-1">
-                          {[0, 1, 2].map((n) => (
-                            <span
-                              key={n}
-                              className="inline-block w-1.5 h-1.5 rounded-full animate-bounce"
-                              style={{ backgroundColor: "var(--muted)", animationDelay: `${n * 0.15}s` }}
-                            />
-                          ))}
-                        </span>
-                        <span className="text-xs" style={{ color: "var(--muted)" }}>Denkt nach…</span>
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div ref={regenChatBottomRef} />
-              </div>
-
-              {/* Input area */}
-              <div className="px-4 pt-4 pb-3" style={{ borderTop: "1px solid var(--border)" }}>
-                <div
-                  className="flex items-center gap-2 rounded-2xl px-4 py-3"
-                  style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
-                >
-                  <textarea
-                    value={regenPrompt}
-                    onChange={(e) => setRegenPrompt(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!regenLoading) runRegen(regeneratingSlide); }}}
-                    rows={1}
-                    placeholder="Text eingeben…"
-                    autoFocus
-                    className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
-                    style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
-                  />
-                  <button
-                    onClick={() => runRegen(regeneratingSlide)}
-                    disabled={regenLoading}
-                    className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
-                    style={{ backgroundColor: "var(--kb)" }}
-                  >
-                    {regenLoading ? (
-                      <Spinner size="sm" color="current" />
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
+        {regeneratingSlide !== null && slides[regeneratingSlide] && (
+          <RegenChatModal
+            slideIndex={regeneratingSlide}
+            slideExtractedText={slides[regeneratingSlide].extractedText}
+            currentScript={slides[regeneratingSlide].script || ""}
+            anchorText={regenAnchorText}
+            targetLang={targetLang}
+            onApply={(mode, content) => applyRegen(regeneratingSlide, mode, content)}
+            onClose={closeRegen}
+          />
         )}
       </div>
     </ProtectedRoute>
