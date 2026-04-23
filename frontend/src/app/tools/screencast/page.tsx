@@ -4,7 +4,8 @@ import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "
 import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries } from "@/hooks/useGlossaries";
-import { api, pollJob, downloadJobAsBlob, parseDetail, type JobStatus } from "@/lib/api";
+
+
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
 import type {
@@ -28,8 +29,10 @@ import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import Lightbox from "./_components/Lightbox";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
-import { parseScriptJsonFile, renderProgressLabel as renderProgressLabelFn, computeVoiceLabel, triggerBlobDownload, triggerUrlDownload, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
+import { parseScriptJsonFile, triggerBlobDownload, triggerUrlDownload, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
+import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
+import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import { wordCount, estimateDuration } from "@/lib/text";
 import { useFileDropzone } from "@/hooks/useFileDropzone";
@@ -250,12 +253,6 @@ function ScreencastPageInner() {
     dispatch({ type: "SET_STEP", step: target });
   }, [maxReachedIdx, step]);
 
-  const newSignal = () => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
-    return abortControllerRef.current.signal;
-  };
-
   const goError = useCallback((msg: string) => {
     dispatch({ type: "GO_ERROR", message: msg });
   }, []);
@@ -270,64 +267,38 @@ function ScreencastPageInner() {
     return true;
   }, [translateJobUuid, goError]);
 
-  const onRenderProgress = useCallback((status: JobStatus) => {
-    setRenderProgressLabel(renderProgressLabelFn(status));
-  }, []);
-
-  // ── Auto mode submit ──
-  const handleAutoSubmit = useCallback(async () => {
-    if (!file) return;
-    const ok = await checkBeforeSubmit();
-    if (!ok) return;
-    const signal = newSignal();
-    auto.start();
-    dispatch({ type: "SET_STEP", step: "rendering" });
-    dispatch({ type: "SET_LOADING", loading: true });
-
-    try {
-      const glossaryJson = mergeToApiJson(glossaryIds);
-      const formData = new FormData();
-      const voiceLabel = computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices);
-
-      formData.append("file", file);
-      formData.append("speed", String(speed));
-      formData.append("dpi", String(dpi));
-      formData.append("voice_id", voiceId);
-      formData.append("voice_label", voiceLabel);
-      formData.append("provider", ttsProvider);
-      formData.append("source_lang", sourceLang);
-      formData.append("target_lang", targetLang);
-      if (glossaryJson) formData.append("glossary_json", glossaryJson);
-
-      const uploadRes = await fetch("/api/screencast", { method: "POST", body: formData, credentials: "include", signal });
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${uploadRes.status}`));
-      }
-      const { job_uuid } = await uploadRes.json();
-      currentJobUuidRef.current = job_uuid;
-      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: true }));
-      notifyJobsChanged();
-
-      const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
-      currentJobUuidRef.current = null;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
-      const meta = jobResult.meta ?? {};
-      applyRenderResult(blob, { audioId: meta.audio_id as string | undefined, audioCount: meta.audio_count as number | undefined });
-      const stem = file?.name?.replace(/\.pptx$/i, "") || "screencast";
-      auto.succeed(blob, `${stem}_screencast.mp4`);
-      dispatch({ type: "SET_LOADING", loading: false });
-      dispatch({ type: "SET_STEP", step: "upload" });
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      failedRender.mark(currentJobUuidRef.current, true);
-      setAutoState("error");
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file, speed, dpi, voiceId, sourceLang, targetLang, glossaryIds, mergeToApiJson, checkBeforeSubmit, onRenderProgress, goError]);
+  const {
+    onRenderProgress,
+    handleAutoSubmit,
+    handleStartRender,
+    handleRetryRender,
+    newSignal,
+  } = useScreencastRenderFlow({
+    translateJobUuid,
+    slides,
+    dispatch,
+    file,
+    speed,
+    slidePause,
+    dpi,
+    voiceId,
+    ttsProvider,
+    kokoroVoices,
+    voices,
+    sourceLang,
+    targetLang,
+    glossaryIds,
+    mergeToApiJson,
+    auto,
+    failedRender,
+    renderResult,
+    checkBeforeSubmit,
+    goError,
+    setTtsSettingsError,
+    setRenderProgressLabel,
+    abortControllerRef,
+    currentJobUuidRef,
+  });
 
   const handleAutoDownload = () => {
     if (!autoDownloadBlob) return;
@@ -339,254 +310,38 @@ function ScreencastPageInner() {
     triggerUrlDownload(`/api/jobs/${audioId}/bundle`);
   }, [audioId]);
 
-  // ── Step: Upload → Translating (or auto) ──
-  const handleUploadNext = useCallback(async () => {
-    if (!file) return;
-    if (mode === "auto") {
-      handleAutoSubmit();
-      return;
-    }
-
-    const ok = await checkBeforeSubmit();
-    if (!ok) return;
-
-    dispatch({ type: "SET_STEP", step: "translating" });
-    dispatch({ type: "SET_LOADING", loading: true });
-    const signal = newSignal();
-
-    // ── Same-language path: skip DeepL, upload as-is, go directly to user-prompt ──
-    if (sourceLang === targetLang) {
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const response = await fetch("/api/screencast/upload-corrected", {
-          method: "POST",
-          body: formData,
-          credentials: "include",
-          signal,
-        });
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-          throw new Error(parseDetail(error.detail, `Fehler: ${response.status}`));
-        }
-
-        const data: { translate_job_uuid: string; slide_texts: string[]; slide_images: string[] } =
-          await response.json();
-
-        if (data.translate_job_uuid) {
-          dispatch({ type: "SET_JOB_UUID", uuid: data.translate_job_uuid });
-          notifyJobsChanged();
-        }
-
-        dispatch({
-          type: "SET_SLIDES",
-          slides: data.slide_texts.map((text, i) => ({
-            index: i,
-            imageBase64: data.slide_images[i] || "",
-            extractedText: text,
-            script: "",
-          })),
-        });
-
-        dispatch({ type: "SET_LOADING", loading: false });
-        dispatch({ type: "SET_STEP", step: "user-prompt" });
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-      }
-      return;
-    }
-
-    // ── DE path: translate via DeepL → queue job, poll, then show review ──
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const glossaryJson = mergeToApiJson(glossaryIds);
-      if (glossaryJson) formData.append("glossary_json", glossaryJson);
-      formData.append("fast_mode", String(fastMode));
-      formData.append("source_lang", sourceLang);
-      formData.append("target_lang", targetLang);
-
-      const uploadRes = await fetch("/api/screencast/translate", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-        signal,
-      });
-
-      if (!uploadRes.ok) {
-        const error = await uploadRes.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(parseDetail(error.detail, `Fehler: ${uploadRes.status}`));
-      }
-
-      const { job_uuid } = await uploadRes.json();
-      currentJobUuidRef.current = job_uuid;
-      dispatch({ type: "SET_JOB_UUID", uuid: job_uuid });
-      notifyJobsChanged();
-
-      // Poll until translation job completes (stops at awaiting_user)
-      const jobResult = await pollJob(job_uuid, undefined, 3000, signal);
-      currentJobUuidRef.current = null;
-
-      // Result comes inline from the jobs endpoint for JSON-result jobs
-      const data = (jobResult.result ?? {}) as unknown as TranslateResponse;
-
-      dispatch({
-        type: "SET_SLIDES",
-        slides: (data.slide_texts || []).map((text, i) => ({
-          index: i,
-          imageBase64: (data.slide_images || [])[i] || "",
-          extractedText: text,
-          script: "",
-        })),
-      });
-
-      dispatch({ type: "SET_LOADING", loading: false });
-      dispatch({ type: "SET_STEP", step: "translation-review" });
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-    }
-  }, [file, mode, sourceLang, targetLang, fastMode, handleAutoSubmit, checkBeforeSubmit, goError, glossaryIds, mergeToApiJson]);
-
-  // ── Download translated PPTX ──
-  const handleDownloadTranslatedPptx = useCallback(async () => {
-    if (!translateJobUuid) return;
-    try {
-      const res = await fetch(`/api/screencast/pptx/${translateJobUuid}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Download fehlgeschlagen");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const stem = file?.name?.replace(/\.pptx$/i, "") || "presentation";
-      a.download = `${stem}.pptx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("PPTX download failed:", err);
-    }
-  }, [translateJobUuid, file]);
-
-  // ── Upload corrected PPTX ──
-  const handleUploadCorrectedPptx = useCallback(
-    async (correctedFile: File) => {
-      dispatch({ type: "SET_LOADING", loading: true });
-      const signal = newSignal();
-
-      try {
-        const formData = new FormData();
-        formData.append("file", correctedFile);
-        if (translateJobUuid) formData.append("translate_job_uuid", translateJobUuid);
-
-        const response = await fetch("/api/screencast/upload-corrected", {
-          method: "POST",
-          body: formData,
-          credentials: "include",
-          signal,
-        });
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({ detail: "Fehler beim Hochladen" }));
-          throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
-        }
-
-        const data: { slide_texts: string[]; slide_images: string[] } =
-          await response.json();
-
-        dispatch({
-          type: "SET_SLIDES",
-          slides: data.slide_texts.map((text, i) => ({
-            index: i,
-            imageBase64: data.slide_images[i] || "",
-            extractedText: text,
-            script: "",
-          })),
-        });
-
-        dispatch({ type: "SET_CORRECTED_FILENAME", name: correctedFile.name });
-        dispatch({ type: "SET_LOADING", loading: false });
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-      }
-    },
-    [goError, translateJobUuid],
-  );
+  const {
+    handleUploadNext,
+    handleDownloadTranslatedPptx,
+    handleUploadCorrectedPptx,
+    handleAcceptTranslation,
+  } = useScreencastTranslateFlow({
+    translateJobUuid,
+    slides,
+    dispatch,
+    file,
+    mode,
+    sourceLang,
+    targetLang,
+    fastMode,
+    glossaryIds,
+    mergeToApiJson,
+    handleAutoSubmit,
+    checkBeforeSubmit,
+    checkJobStillValid,
+    checkJobFolder,
+    goError,
+    newSignal,
+    currentJobUuidRef,
+    isGeneratingScriptsRef,
+  });
 
   const handleJsonImport = useCallback(async (file: File) => {
     setImportError(null);
     const result = await parseScriptJsonFile(file);
     if ("error" in result && result.error) setImportError(result.error);
     else if (result.scripts) setImportedScripts(result.scripts);
-  }, []);
-
-  // ── Translation review → Generate scripts ──
-  const handleAcceptTranslation = useCallback(async () => {
-    if (isGeneratingScriptsRef.current) return;
-    // If we have a specific job to continue, check its current status directly.
-    // checkBeforeSubmit would block here because awaiting_user now counts as active.
-    if (translateJobUuid) {
-      const validity = await checkJobStillValid(translateJobUuid);
-      if (validity === "running") {
-        goError("Dieser Job wird bereits in einem anderen Tab verarbeitet. Bitte wechseln Sie zur Jobliste.");
-        return;
-      }
-      if (validity === "deleted") {
-        goError("Der Job wurde gelöscht oder abgebrochen. Bitte starten Sie einen neuen Screencast.");
-        return;
-      }
-    } else {
-      const ok = await checkBeforeSubmit();
-      if (!ok) { window.location.href = "/my-jobs"; return; }
-    }
-    if (!await checkJobFolder()) return;
-    isGeneratingScriptsRef.current = true;
-    if (translateJobUuid) currentJobUuidRef.current = translateJobUuid;
-    dispatch({ type: "SET_STEP", step: "generating-scripts" });
-    dispatch({ type: "SET_LOADING", loading: true });
-    notifyJobsChanged();
-    const signal = newSignal();
-
-    try {
-      const scriptsData = await api.postJson<GenerateScriptsResponse>(
-        "/api/screencast/generate-scripts",
-        {
-          slide_texts: slides.map((s) => s.extractedText),
-          glossary_json: mergeToApiJson(glossaryIds),
-          translate_job_uuid: translateJobUuid || null,
-          add_greeting: true,
-          add_closing: true,
-          min_chars: 1500,
-          max_chars: 2000,
-          source_lang: sourceLang,
-          target_lang: targetLang,
-        },
-        signal,
-      );
-
-      const updatedSlides = slides.map((s, i) => ({
-        ...s,
-        script: scriptsData.scripts[i] || "",
-      }));
-      dispatch({ type: "SET_SLIDES", slides: updatedSlides });
-
-      currentJobUuidRef.current = null;
-      dispatch({ type: "SET_LOADING", loading: false });
-      dispatch({ type: "SET_STEP", step: "script-review" });
-      isGeneratingScriptsRef.current = false;
-      notifyJobsChanged();
-    } catch (err) {
-      isGeneratingScriptsRef.current = false;
-      notifyJobsChanged();
-      if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-    }
-  }, [slides, glossaryIds, mergeToApiJson, goError, checkJobFolder, checkBeforeSubmit, checkJobStillValid, translateJobUuid]);
+  }, [setImportError, setImportedScripts]);
 
 
   // ── Accept scripts → TTS settings + fire-and-forget prerender + save ──
@@ -602,203 +357,6 @@ function ScreencastPageInner() {
       }).catch(() => {}); // fire and forget
     }
   }, [translateJobUuid, slides, autosaveScripts]);
-
-  // ── Shared: process render response (binary video + subtitles in header) ──
-  const processRenderResponse = useCallback(async (response: Response) => {
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ detail: "Render-Fehler" }));
-      throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
-    }
-
-    const blob = await response.blob();
-    const aId = response.headers.get("X-Audio-Id") ?? undefined;
-    const aCountRaw = response.headers.get("X-Audio-Count");
-    applyRenderResult(blob, { audioId: aId, audioCount: aCountRaw ? (parseInt(aCountRaw, 10) || 0) : undefined });
-    dispatch({ type: "SET_LOADING", loading: false });
-    dispatch({ type: "SET_STEP", step: "done" });
-  }, [applyRenderResult]);
-
-  const processRenderResultFromJob = useCallback(async (jobResult: JobStatus) => {
-    sessionStorage.removeItem(RENDER_SESSION_KEY);
-    const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
-    const meta = jobResult.meta ?? {};
-    applyRenderResult(blob, { audioId: meta.audio_id as string | undefined, audioCount: meta.audio_count as number | undefined });
-    dispatch({ type: "SET_LOADING", loading: false });
-    dispatch({ type: "SET_STEP", step: "done" });
-  }, [applyRenderResult]);
-
-  // ── Start rendering ──
-  const handleStartRender = useCallback(async () => {
-    setTtsSettingsError("");
-    if (!translateJobUuid) {
-      const ok = await checkBeforeSubmit();
-      if (!ok) return;
-    }
-    dispatch({ type: "SET_STEP", step: "rendering" });
-    dispatch({ type: "SET_LOADING", loading: true });
-    const signal = newSignal();
-    try {
-      // No signal on the POST — ensures we always get job_uuid before checking abort.
-      // If signal fires during the POST, the job still starts on the backend.
-      // We catch that case below and cancel immediately.
-      const uploadRes = await fetch("/api/screencast/render", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scripts: slides.map((s) => s.script),
-          translate_job_uuid: translateJobUuid,
-          voice_id: voiceId,
-          voice_label: computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices),
-          speed,
-          slide_pause: slidePause,
-          dpi,
-          provider: ttsProvider,
-        }),
-        credentials: "include",
-      });
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json().catch(() => ({ detail: "Render-Fehler" }));
-        // 409 = previous render still stopping — stay on settings, show inline message
-        if (uploadRes.status === 409) {
-          dispatch({ type: "SET_STEP", step: "tts-settings" });
-          dispatch({ type: "SET_LOADING", loading: false });
-          setTtsSettingsError("Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen.");
-          return;
-        }
-        throw new Error(parseDetail(err.detail, `Fehler: ${uploadRes.status}`));
-      }
-      const { job_uuid } = await uploadRes.json();
-      currentJobUuidRef.current = job_uuid;
-      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
-      notifyJobsChanged();
-
-      // If user clicked cancel while POST was in flight, cancel the job now
-      if (signal.aborted) {
-        await fetch(`/api/jobs/${job_uuid}/cancel`, { method: "POST", credentials: "include" }).catch(() => {});
-        currentJobUuidRef.current = null;
-        return;
-      }
-
-      const jobResult = await pollJob(job_uuid, onRenderProgress, 5000, signal, () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000);
-      currentJobUuidRef.current = null;
-      await processRenderResultFromJob(jobResult);
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      failedRender.mark(currentJobUuidRef.current, false);
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-    }
-  }, [slides, translateJobUuid, voiceId, speed, slidePause, dpi, goError, processRenderResultFromJob, checkBeforeSubmit, onRenderProgress]);
-
-  // ── Retry failed render job ──
-  const handleRetryRender = useCallback(async () => {
-    const uuid = failedRenderJobUuid;
-    if (!uuid) return;
-    try {
-      const res = await fetch(`/api/jobs/${uuid}/retry`, { method: "POST", credentials: "include" });
-
-      if (res.status === 409) {
-        // Job already running or succeeded — check actual status and continue accordingly
-        const jobRes = await fetch(`/api/jobs/${uuid}`, { credentials: "include" });
-        const jobData = await jobRes.json();
-        if (jobData.status === "failed") {
-          // Still failed → blocked by concurrent job limit
-          const err = await res.json().catch(() => ({}));
-          throw new Error(parseDetail(err.detail, "Zu viele laufende Jobs. Bitte warten bis ein Job abgeschlossen ist."));
-        }
-        if (jobData.status === "success") {
-          failedRender.clear();
-          if (failedRenderIsAuto) setAutoState("done");
-          await processRenderResultFromJob(jobData);
-          return;
-        }
-        // Job is running — fall through to polling below
-      } else if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Retry fehlgeschlagen" }));
-        throw new Error(parseDetail(err.detail, "Retry fehlgeschlagen"));
-      }
-
-      setRenderProgressLabel("In der Warteschlange…");
-      currentJobUuidRef.current = uuid;
-      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid, isAuto: failedRenderIsAuto }));
-      notifyJobsChanged();
-      dispatch({ type: "SET_STEP", step: "rendering" });
-      dispatch({ type: "SET_ERROR_MESSAGE", message: "" });
-      dispatch({ type: "SET_LOADING", loading: true });
-      if (failedRenderIsAuto) { setAutoState("processing"); setAutoError(""); }
-      const signal = newSignal();
-      const jobResult = await pollJob(
-        uuid, onRenderProgress, 3000, signal,
-        () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000,
-      );
-      currentJobUuidRef.current = null;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      failedRender.clear();
-      notifyJobsChanged();
-      if (failedRenderIsAuto) setAutoState("done");
-      await processRenderResultFromJob(jobResult);
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      const msg = err instanceof Error ? err.message : "Retry fehlgeschlagen";
-      failedRender.mark(uuid, failedRenderIsAuto);
-      if (failedRenderIsAuto) { setAutoState("error"); setAutoError(msg); }
-      goError(msg);
-    }
-  }, [failedRenderJobUuid, failedRenderIsAuto, file, onRenderProgress, processRenderResultFromJob, newSignal, goError]);
-
-  // ── Resume active render job after page refresh ──
-  useEffect(() => {
-    const saved = sessionStorage.getItem(RENDER_SESSION_KEY);
-    if (!saved) return;
-    let parsed: { uuid: string; isAuto: boolean };
-    try { parsed = JSON.parse(saved); } catch { sessionStorage.removeItem(RENDER_SESSION_KEY); return; }
-    const { uuid, isAuto } = parsed;
-
-    fetch(`/api/jobs/${uuid}`, { credentials: "include" })
-      .then(r => r.json())
-      .then(job => {
-        if (job.status === "success") {
-          sessionStorage.removeItem(RENDER_SESSION_KEY);
-          return; // job already done, show upload form — result in Jobs Panel
-        }
-        if (job.status === "failed") {
-          sessionStorage.removeItem(RENDER_SESSION_KEY);
-          failedRender.mark(uuid, isAuto);
-          if (isAuto) { setAutoError(job.error || "Job fehlgeschlagen"); setAutoState("error"); }
-          else { goError(job.error || "Job fehlgeschlagen"); }
-          return;
-        }
-        // Still running/pending — resume polling
-        currentJobUuidRef.current = uuid;
-        failedRender.setIsAuto(isAuto);
-        setRenderProgressLabel("Verbindung wiederhergestellt…");
-        dispatch({ type: "SET_STEP", step: "rendering" });
-        dispatch({ type: "SET_LOADING", loading: true });
-        if (isAuto) setAutoState("processing");
-        const ctrl = new AbortController();
-        abortControllerRef.current = ctrl;
-        pollJob(uuid, onRenderProgress, 3000, ctrl.signal,
-          () => setRenderProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"), 60_000)
-          .then(jobResult => {
-            sessionStorage.removeItem(RENDER_SESSION_KEY);
-            currentJobUuidRef.current = null;
-            failedRender.clear();
-            notifyJobsChanged();
-            if (isAuto) setAutoState("done");
-            processRenderResultFromJob(jobResult);
-          })
-          .catch(err => {
-            if (err instanceof Error && err.name === "AbortError") return;
-            sessionStorage.removeItem(RENDER_SESSION_KEY);
-            failedRender.mark(uuid, isAuto);
-            if (isAuto) { setAutoState("error"); }
-            goError(err.message);
-          });
-      })
-      .catch(() => sessionStorage.removeItem(RENDER_SESSION_KEY));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleDownload = () => {
     if (!downloadBlob) return;
