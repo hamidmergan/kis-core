@@ -39,7 +39,7 @@ PROMPT_REGISTRY = [
     {
         "key": "prompt_image_analyze",
         "label": "Bild-Analyse",
-        "description": "Anweisung für das Bild-Analyse-Tool (qwen3-vl Modell).",
+        "description": "Anweisung für das Bild-Analyse-Tool (qwen3-omni Modell).",
         "editable": False,
         "default": _PROMPT_IMAGE_ANALYZE_DEFAULT,
     },

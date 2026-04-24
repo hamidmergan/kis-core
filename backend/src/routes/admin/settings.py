@@ -78,7 +78,6 @@ async def get_settings(_admin=Depends(get_admin_user)):
 
     return {
         "whitelist_enabled": _enabled("whitelist_enabled"),
-        "demo_data": _enabled("demo_data", "false"),
         # ── TTS ──
         "elevenlabs_enabled": _enabled("elevenlabs_enabled"),
         "elevenlabs_configured": bool(app_settings.elevenlabs_api_key),
@@ -114,12 +113,9 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_image_gen_enabled": _enabled("mylab_image_gen_enabled"),
         "mylab_image_gen_configured": mylab_base_configured,
         "mylab_image_gen_available": mylab_base_available,
-        # ── Bild-Analyse ──
+        # ── Bild-Analyse ── (KISSKI only, keine myLab-Alternative verfuegbar)
         "kisski_image_analyze_enabled": _enabled("kisski_image_analyze_enabled"),
         "kisski_image_analyze_configured": kisski_configured,
-        "mylab_image_analyze_enabled": _enabled("mylab_image_analyze_enabled"),
-        "mylab_image_analyze_configured": mylab_base_configured,
-        "mylab_image_analyze_available": mylab_base_available,
         # ── Bild-Bearbeitung ──
         "kisski_image_edit_enabled": _enabled("kisski_image_edit_enabled"),
         "kisski_image_edit_configured": kisski_configured,
@@ -147,11 +143,11 @@ async def get_settings(_admin=Depends(get_admin_user)):
 
 # Simple bool-Setting-Keys: werden alle nach dem gleichen Schema gesetzt
 _SIMPLE_BOOL_FIELDS = (
-    "whitelist_enabled", "demo_data",
+    "whitelist_enabled",
     "elevenlabs_enabled", "fish_speech_enabled", "kokoro_enabled", "mylab_enabled", "thorsten_enabled",
     "kisski_whisper_enabled", "mylab_whisper_enabled",
     "kisski_image_gen_enabled", "mylab_image_gen_enabled",
-    "kisski_image_analyze_enabled", "mylab_image_analyze_enabled",
+    "kisski_image_analyze_enabled",
     "kisski_image_edit_enabled", "mylab_image_edit_enabled",
     "kisski_ocr_enabled", "mylab_ocr_enabled",
     "kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled",

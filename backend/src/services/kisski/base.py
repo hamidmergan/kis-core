@@ -45,11 +45,19 @@ class _KisskiBase:
     Mixins (`_ScriptsMixin`, `_SummaryMixin`, `_WhisperMixin`, `_WhisperChunkedMixin`)
     erwarten diese Instanz-Variablen. Die konkrete Client-Klasse setzt sie hier."""
 
-    def __init__(self, api_key: str, base_url: str, model: str, provider: str = "kisski"):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str,
+        model: str,
+        provider: str = "kisski",
+        whisper_model: str = "whisper-large-v2",
+    ):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
         self._provider = provider
         self._base_url = base_url
+        self._whisper_model = whisper_model
         self._extra_body: dict = {}
         # Batch-Settings (werden in _ScriptsMixin.generate_scripts_batch verwendet).
         # Defaults sind provider-unabhängig gleich; Platzhalter für künftige Provider-Profile.

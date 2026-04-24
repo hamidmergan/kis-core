@@ -9,7 +9,6 @@ class AddWhitelistRequest(BaseModel):
 
 class UpdateSettingsRequest(BaseModel):
     whitelist_enabled: bool | None = None
-    demo_data: bool | None = None
     # TTS
     elevenlabs_enabled: bool | None = None
     fish_speech_enabled: bool | None = None
@@ -26,9 +25,8 @@ class UpdateSettingsRequest(BaseModel):
     # Bild-Generierung
     kisski_image_gen_enabled: bool | None = None
     mylab_image_gen_enabled: bool | None = None
-    # Bild-Analyse
+    # Bild-Analyse (KISSKI only)
     kisski_image_analyze_enabled: bool | None = None
-    mylab_image_analyze_enabled: bool | None = None
     # Bild-Bearbeitung
     kisski_image_edit_enabled: bool | None = None
     mylab_image_edit_enabled: bool | None = None

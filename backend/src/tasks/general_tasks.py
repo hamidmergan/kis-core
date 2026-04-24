@@ -37,6 +37,27 @@ def _kisski_http_client(extra_headers: dict | None = None, timeout: float = 120.
     return base_url, httpx.Client(headers=headers, timeout=timeout)
 
 
+def _mylab_http_client(timeout: float = 120.0):
+    import httpx
+    from src.config import Settings
+    s = Settings()
+    base_url = (s.mylab_base_url or "").rstrip("/")
+    if not base_url:
+        raise RuntimeError("THL myLab Base-URL nicht konfiguriert")
+    return base_url, httpx.Client(timeout=timeout)
+
+
+def _image_provider(task: str) -> str:
+    """Choose provider for image tasks via admin settings.
+
+    task: "gen" | "edit". If ``mylab_image_<task>_enabled`` is true, use myLab,
+    otherwise fall back to KISSKI (the default primary).
+    """
+    if db.get_setting(f"mylab_image_{task}_enabled", "false") == "true":
+        return "mylab"
+    return "kisski"
+
+
 # ── Translation ───────────────────────────────────────────────────────────────
 
 @celery_app.task(bind=True, name="general.translate", queue="general")
@@ -151,7 +172,8 @@ def run_transcribe(
     try:
         db.update_job_status(job_uuid, "running")
 
-        client = _get_kisski_client()
+        from src.dependencies import resolve_whisper_client
+        client = resolve_whisper_client()
         ext_suffix = Path(filename).suffix.lower()
 
         with job_heartbeat(job_uuid), open_input_file(input_path, suffix=ext_suffix) as local_path:
@@ -192,15 +214,19 @@ def run_image_generate(
     try:
         db.update_job_status(job_uuid, "running")
 
-        base_url, client = _kisski_http_client(timeout=120.0)
+        provider = _image_provider("gen")
+        if provider == "mylab":
+            base_url, client = _mylab_http_client(timeout=120.0)
+            body: dict = {"prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
+        else:
+            base_url, client = _kisski_http_client(timeout=120.0)
+            body = {"model": "flux", "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
+
         with job_heartbeat(job_uuid), client:
-            response = client.post(
-                f"{base_url}/images/generations",
-                json={"model": "flux", "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"},
-            )
+            response = client.post(f"{base_url}/images/generations", json=body)
 
         if response.status_code != 200:
-            raise RuntimeError(f"Fehler bei der Bildgenerierung: {response.text[:200]}")
+            raise RuntimeError(f"Fehler bei der Bildgenerierung ({provider}): {response.text[:200]}")
 
         data = response.json()
         images = data.get("data", [])
@@ -247,10 +273,15 @@ def run_image_edit(
         ext = Path(filename).suffix.lower()
         mime = "image/png" if ext == ".png" else "image/jpeg"
 
-        base_url, client = _kisski_http_client(
-            extra_headers={"inference-service": "image-edit-2511"},
-            timeout=120.0,
-        )
+        provider = _image_provider("edit")
+        if provider == "mylab":
+            base_url, client = _mylab_http_client(timeout=120.0)
+        else:
+            base_url, client = _kisski_http_client(
+                extra_headers={"inference-service": "image-edit-2511"},
+                timeout=120.0,
+            )
+
         with job_heartbeat(job_uuid), client:
             response = client.post(
                 f"{base_url}/images/edits/",
@@ -259,7 +290,7 @@ def run_image_edit(
             )
 
         if response.status_code != 200:
-            raise RuntimeError(f"Fehler bei der Bildbearbeitung (Status {response.status_code})")
+            raise RuntimeError(f"Fehler bei der Bildbearbeitung ({provider}, Status {response.status_code})")
 
         content_type = response.headers.get("content-type", "")
         if content_type.startswith("image/"):
@@ -317,7 +348,7 @@ def run_image_analyze(
 
         user_text = prompt.strip() if prompt and prompt.strip() else "Analyze this image."
 
-        # qwen3-vl does not support a separate system role with vision content;
+        # qwen3-omni does not support a separate system role with vision content;
         # embed the system instructions as the first text block in the user message.
         system_prompt = db.get_setting("prompt_image_analyze", _IMAGE_ANALYZE_SYSTEM_PROMPT)
         user_content = f"{system_prompt}\n\n{user_text}"
@@ -327,7 +358,7 @@ def run_image_analyze(
             response = client.post(
                 f"{base_url}/chat/completions",
                 json={
-                    "model": "qwen3-vl-30b-a3b-instruct",
+                    "model": "qwen3-omni-30b-a3b-instruct",
                     "messages": [
                         {
                             "role": "user",

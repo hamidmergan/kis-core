@@ -86,6 +86,32 @@ def _resolve_llm_provider() -> tuple[str, str, str, str]:
     return settings.effective_llm_api_key, settings.effective_llm_base_url, settings.effective_llm_model, settings.llm_provider
 
 
+def resolve_whisper_client() -> KisskiClient:
+    """Resolve a Whisper client based on admin toggles.
+
+    Uses KISSKI (whisper-large-v2) by default, switches to THL myLab
+    (whisper-3-large) when ``mylab_whisper_enabled`` is true.
+    """
+    from src import database as db
+    settings = get_settings()
+
+    if db.get_setting("mylab_whisper_enabled", "false").lower() == "true":
+        mylab_url = settings.mylab_base_url or settings.mylab_tts_base_url
+        if not mylab_url:
+            raise RuntimeError("THL myLab Base-URL nicht konfiguriert")
+        return KisskiClient(
+            api_key="not-needed",
+            base_url=f"{mylab_url.rstrip('/')}/v1",
+            model=settings.mylab_llm_model,
+            provider="mylab",
+            whisper_model="whisper-3-large",
+        )
+    api_key, base_url, model, provider = _resolve_llm_provider()
+    if not api_key:
+        raise RuntimeError("Kein LLM-Provider konfiguriert (für Whisper-Transkription)")
+    return KisskiClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
+
+
 def get_kisski_client() -> KisskiClient:
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:

@@ -76,15 +76,9 @@ def run_index_source(self, source_uuid: str):
 
             if kia_chunker.is_media_file(file_type):
                 # Audio/Video: transcribe with timestamps, then chunk
-                from src.services.kisski_client import KisskiClient
                 from src.services.subtitle_converter import segments_to_vtt
-                from src.dependencies import _resolve_llm_provider
-                _api_key, _base_url, _model, _provider = _resolve_llm_provider()
-                if not _api_key:
-                    raise RuntimeError("Kein LLM-Provider konfiguriert (für Whisper-Transkription)")
-                whisper_client = KisskiClient(
-                    api_key=_api_key, base_url=_base_url, model=_model, provider=_provider,
-                )
+                from src.dependencies import resolve_whisper_client
+                whisper_client = resolve_whisper_client()
                 logger.info("KI Tutor: transcribing media source {} ({})", source_uuid, filename)
                 segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(local_path)
                 if not segments:

@@ -188,17 +188,16 @@ function GeneralSettingsSection() {
         <P label="Ollama (lokal, nomic-embed-text)" settingKey="ollama_embedding_enabled" enabled={s.ollama_embedding_enabled ?? false} configured={s.ollama_embedding_configured ?? false} envHint="OLLAMA_BASE_URL" />
       </ProviderSection>
 
-      <ProviderSection title="Bild-Generierung" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+      <ProviderSection title="Bild-Generierung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
         <P label="KISSKI (Flux)" settingKey="kisski_image_gen_enabled" enabled={s.kisski_image_gen_enabled ?? true} configured={s.kisski_image_gen_configured ?? false} envHint="KISSKI_API_KEY" />
         <P label="THL myLab (Flux.1-dev)" settingKey="mylab_image_gen_enabled" enabled={s.mylab_image_gen_enabled ?? false} configured={s.mylab_image_gen_configured ?? false} available={s.mylab_image_gen_available} envHint="MYLAB_BASE_URL" />
       </ProviderSection>
 
-      <ProviderSection title="Bild-Analyse" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
-        <P label="KISSKI (qwen3-vl)" settingKey="kisski_image_analyze_enabled" enabled={s.kisski_image_analyze_enabled ?? true} configured={s.kisski_image_analyze_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab (qwen3-vl-8b)" settingKey="mylab_image_analyze_enabled" enabled={s.mylab_image_analyze_enabled ?? false} configured={s.mylab_image_analyze_configured ?? false} available={s.mylab_image_analyze_available} envHint="MYLAB_BASE_URL" />
+      <ProviderSection title="Bild-Analyse" hint="Nur KISSKI verfuegbar (THL myLab hat kein Vision-Modell).">
+        <P label="KISSKI (qwen3-omni)" settingKey="kisski_image_analyze_enabled" enabled={s.kisski_image_analyze_enabled ?? true} configured={s.kisski_image_analyze_configured ?? false} envHint="KISSKI_API_KEY" />
       </ProviderSection>
 
-      <ProviderSection title="Bild-Bearbeitung" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+      <ProviderSection title="Bild-Bearbeitung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
         <P label="KISSKI (Flux)" settingKey="kisski_image_edit_enabled" enabled={s.kisski_image_edit_enabled ?? true} configured={s.kisski_image_edit_configured ?? false} envHint="KISSKI_API_KEY" />
         <P label="THL myLab (Flux.1-Kontext)" settingKey="mylab_image_edit_enabled" enabled={s.mylab_image_edit_enabled ?? false} configured={s.mylab_image_edit_configured ?? false} available={s.mylab_image_edit_available} envHint="MYLAB_BASE_URL" />
       </ProviderSection>

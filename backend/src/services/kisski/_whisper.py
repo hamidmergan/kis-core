@@ -16,12 +16,12 @@ class _WhisperMixin:
     def transcribe(self, file_path: str, response_format: str = "text") -> str:
         """Transcribe audio in its original language using KISSKI Whisper."""
         langfuse_context.update_current_observation(
-            metadata={"provider": self._provider, "base_url": self._base_url, "model": "whisper-large-v2"},
+            metadata={"provider": self._provider, "base_url": self._base_url, "model": self._whisper_model},
         )
         try:
             with open(file_path, "rb") as f:
                 result = str(self._client.audio.transcriptions.create(
-                    model="whisper-large-v2",
+                    model=self._whisper_model,
                     file=f,
                     response_format=response_format,
                 ))
@@ -37,12 +37,12 @@ class _WhisperMixin:
     def transcribe_and_translate(self, file_path: str, response_format: str = "text") -> str:
         """Transcribe audio and translate to English using KISSKI Whisper."""
         langfuse_context.update_current_observation(
-            metadata={"provider": self._provider, "base_url": self._base_url, "model": "whisper-large-v2"},
+            metadata={"provider": self._provider, "base_url": self._base_url, "model": self._whisper_model},
         )
         try:
             with open(file_path, "rb") as f:
                 response = self._client.audio.translations.create(
-                    model="whisper-large-v2",
+                    model=self._whisper_model,
                     file=f,
                     response_format=response_format,
                 )
@@ -68,7 +68,7 @@ class _WhisperMixin:
                 with open(file_path, "rb") as f:
                     endpoint = self._client.audio.translations if translate else self._client.audio.transcriptions
                     result = endpoint.create(
-                        model="whisper-large-v2",
+                        model=self._whisper_model,
                         file=f,
                         response_format="verbose_json",
                     )
