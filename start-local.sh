@@ -1,6 +1,6 @@
 #!/bin/bash
 # Lokale Entwicklung — alle optionalen Services aktiv
-PROFILES="--profile minio --profile adminer --profile ldap --profile ldapadmin --profile kokoro --profile ollama --profile langfuse --profile thorsten"
+PROFILES="--profile minio --profile adminer --profile ldap --profile ldapadmin --profile kokoro --profile ollama --profile langfuse --profile thorsten --profile dozzle"
 
 # Auf macOS: kein NVIDIA, auf Linux/Windows: NVIDIA aktivieren
 if [ "$(uname)" = "Darwin" ]; then
