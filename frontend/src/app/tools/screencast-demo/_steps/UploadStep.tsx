@@ -16,7 +16,10 @@ export function UploadStep({
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <div className="flex items-center gap-3 mb-1">
         <h1 className="text-xl font-bold">Screencast erstellen</h1>
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+        <span
+          className="text-xs font-semibold px-3.5 py-1.5 rounded"
+          style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
+        >
           Demo
         </span>
       </div>

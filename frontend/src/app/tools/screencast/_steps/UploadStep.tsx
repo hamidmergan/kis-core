@@ -89,7 +89,8 @@ export default function UploadStep(props: UploadStepProps) {
         {showDemoLink && (
           <a
             href="/tools/screencast-demo"
-            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors"
+            className="text-xs font-semibold px-3.5 py-1.5 rounded transition-opacity hover:opacity-80"
+            style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
           >
             Demo ansehen →
           </a>

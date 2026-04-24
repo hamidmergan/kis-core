@@ -380,7 +380,7 @@ function ScreencastDemoPageInner() {
     <ProtectedRoute>
       <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BackLink />
+        <BackLink href="/tools/screencast" label="Zurück" />
         {showStepIndicator && (
           <>
             <ScreencastStepper

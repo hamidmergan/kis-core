@@ -5,6 +5,7 @@ import { Files } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import CreateModuleModal from "./CreateModuleModal";
 import ModuleTable from "./ModuleTable";
+import ToolsStrip from "./ToolsStrip";
 import type { AccessLink, KiTutorModule } from "../_shared";
 
 export default function LecturerView() {
@@ -88,7 +89,8 @@ export default function LecturerView() {
       )}
 
       <div className="mb-3">
-        <h1 className="text-3xl font-bold mb-10">Willkommen bei KIS</h1>
+        <h1 className="text-3xl font-bold mb-16">KI-Internationalisierung von Studiengängen</h1>
+        <ToolsStrip />
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Meine Workspaces</h2>
           <button
@@ -112,7 +114,7 @@ export default function LecturerView() {
           <p className="text-sm mt-1">Erstelle deinen ersten Workspace mit dem Button oben.</p>
         </div>
       ) : (
-        <div className="mt-6 md:mt-20">
+        <div className="mt-3 md:mt-10">
           <ModuleTable
             modules={modules}
             onToggleActive={handleToggleActive}

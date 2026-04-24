@@ -1,9 +1,14 @@
 import Link from "next/link";
 
-export default function BackLink() {
+type BackLinkProps = {
+  href?: string;
+  label?: string;
+};
+
+export default function BackLink({ href = "/workspaces", label = "Zur Übersicht" }: BackLinkProps) {
   return (
     <Link
-      href="/tools"
+      href={href}
       className="inline-flex items-center gap-1.5 text-sm font-medium mb-6 transition-colors group"
       style={{ color: "var(--kb)" }}
     >
@@ -22,7 +27,7 @@ export default function BackLink() {
       >
         <path d="M19 12H5M12 5l-7 7 7 7" />
       </svg>
-      Zur Übersicht
+      {label}
     </Link>
   );
 }
