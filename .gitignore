@@ -12,9 +12,9 @@ backend/demo/
 .claude/
 .superpowers/
 database.db
-local-notes.md
 check-kisski-limits.py
 local-dev/backups/
+local-dev/private/
 
 # Frontend
 frontend/node_modules/

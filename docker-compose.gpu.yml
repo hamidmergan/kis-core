@@ -1,5 +1,5 @@
-# GPU-Override für Linux/Windows — aktiviert NVIDIA GPU-Anforderungen
-# Wird automatisch von start-local.sh auf Nicht-Mac-Systemen geladen
+# GPU-Tweaks fuer lokale Entwicklung mit NVIDIA GPU
+# Wird in start-local.bat explizit per -f geladen
 
 services:
   thorsten:
@@ -21,6 +21,17 @@ services:
               capabilities: [gpu]
 
   celery-worker-general:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Swappt CPU-Image gegen GPU-Image und reserviert GPU
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
     deploy:
       resources:
         reservations:

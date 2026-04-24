@@ -1,21 +1,19 @@
 #!/bin/bash
-# Lokale Entwicklung — alle optionalen Services aktiv
-PROFILES="--profile minio --profile adminer --profile ldap --profile ldapadmin --profile kokoro --profile ollama --profile langfuse --profile thorsten --profile dozzle"
+# Lokale Entwicklung — auf macOS ohne GPU, auf Linux/Windows mit NVIDIA GPU
 
-# Auf macOS: kein NVIDIA, auf Linux/Windows: NVIDIA aktivieren
 if [ "$(uname)" = "Darwin" ]; then
-    COMPOSE_FILES=""
+    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.override.yml"
 else
     COMPOSE_FILES="-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.gpu.yml"
 fi
 
 if [ "$1" = "down" ]; then
-    docker compose $COMPOSE_FILES $PROFILES down
+    docker compose $COMPOSE_FILES down
 elif [ "$1" = "restart" ]; then
-    docker compose $COMPOSE_FILES $PROFILES down
-    docker compose $COMPOSE_FILES $PROFILES up -d --build
+    docker compose $COMPOSE_FILES down
+    docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
 else
-    docker compose $COMPOSE_FILES $PROFILES up -d --build
+    docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
 fi

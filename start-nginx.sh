@@ -1,15 +1,15 @@
 #!/bin/bash
-# Hetzner Server — Nginx + LDAP
-PROFILES="-f docker-compose.yml --profile nginx --profile ldap"
+# Hetzner Server — Basis + Production-Nginx
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
 CMD=${1:-up}
 
 if [ "$CMD" = "down" ]; then
-    docker compose $PROFILES down
+    docker compose $COMPOSE_FILES down
 elif [ "$CMD" = "restart" ]; then
-    docker compose $PROFILES down
-    PRODUCTION=true docker compose $PROFILES up -d --build
+    docker compose $COMPOSE_FILES down
+    PRODUCTION=true docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
 else
-    PRODUCTION=true docker compose $PROFILES up -d --build
+    PRODUCTION=true docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
 fi
