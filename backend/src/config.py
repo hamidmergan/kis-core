@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     mylab_base_url: str = ""
     mylab_embedding_model: str = "qwen3-embedding-4b"
     mylab_ocr_model: str = "chandra-ocr-2"
+    mylab_image_gen_model: str = "flux.1-dev"
+    mylab_image_edit_model: str = "flux.1-kontext"
 
     # KISSKI OCR — Vision-LLM über /v1/chat/completions mit image_url input
     kisski_ocr_model: str = "internvl3.5-30b-a3b"

@@ -117,8 +117,8 @@ async def download_job_pptx(
         logger.error("PPTX download failed for job {}: {}", job_uuid, e)
         raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
 
-    from src.services.translation import translate_output_filename
-    pptx_filename = translate_output_filename(job["original_filename"] or "screencast.pptx", output_ext=".pptx")
+    original = job["original_filename"] or "screencast.pptx"
+    pptx_filename = f"{Path(original).stem}.pptx"
 
     return StreamingResponse(
         iter([data]),

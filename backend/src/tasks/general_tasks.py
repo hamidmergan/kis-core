@@ -44,7 +44,7 @@ def _mylab_http_client(timeout: float = 120.0):
     base_url = (s.mylab_base_url or "").rstrip("/")
     if not base_url:
         raise RuntimeError("THL myLab Base-URL nicht konfiguriert")
-    return base_url, httpx.Client(timeout=timeout)
+    return f"{base_url}/v1", httpx.Client(timeout=timeout)
 
 
 def _image_provider(task: str) -> str:
@@ -216,8 +216,9 @@ def run_image_generate(
 
         provider = _image_provider("gen")
         if provider == "mylab":
+            from src.config import Settings
             base_url, client = _mylab_http_client(timeout=120.0)
-            body: dict = {"prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
+            body: dict = {"model": Settings().mylab_image_gen_model, "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
         else:
             base_url, client = _kisski_http_client(timeout=120.0)
             body = {"model": "flux", "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
@@ -275,22 +276,34 @@ def run_image_edit(
 
         provider = _image_provider("edit")
         if provider == "mylab":
+            from src.config import Settings
             base_url, client = _mylab_http_client(timeout=120.0)
+            # myLab "standard" quality bug: quality param isn't applied; send guidance_scale/num_inference_steps explicitly.
+            form_data = {
+                "prompt": prompt,
+                "model": Settings().mylab_image_edit_model,
+                "response_format": "b64_json",
+                "guidance_scale": "2.5",
+                "num_inference_steps": "25",
+            }
+            edits_url = f"{base_url}/images/edits"
         else:
             base_url, client = _kisski_http_client(
                 extra_headers={"inference-service": "image-edit-2511"},
                 timeout=120.0,
             )
+            form_data = {"prompt": prompt}
+            edits_url = f"{base_url}/images/edits/"
 
         with job_heartbeat(job_uuid), client:
             response = client.post(
-                f"{base_url}/images/edits/",
+                edits_url,
                 files={"image": (filename, content, mime)},
-                data={"prompt": prompt},
+                data=form_data,
             )
 
         if response.status_code != 200:
-            raise RuntimeError(f"Fehler bei der Bildbearbeitung ({provider}, Status {response.status_code})")
+            raise RuntimeError(f"Fehler bei der Bildbearbeitung ({provider}, Status {response.status_code}): {response.text[:300]}")
 
         content_type = response.headers.get("content-type", "")
         if content_type.startswith("image/"):
@@ -299,7 +312,7 @@ def run_image_edit(
             try:
                 resp_data = response.json()
             except Exception:
-                raise RuntimeError("Unerwartetes Antwortformat vom Bildservice")
+                raise RuntimeError(f"Unerwartetes Antwortformat ({provider}, Content-Type: {content_type}): {response.text[:300]}")
             b64 = (
                 (resp_data.get("data") or [{}])[0].get("b64_json")
                 or (resp_data.get("data") or [{}])[0].get("b64")
@@ -307,11 +320,11 @@ def run_image_edit(
                 or resp_data.get("b64")
             )
             if not b64:
-                raise RuntimeError("Unerwartetes Antwortformat vom Bildservice")
+                keys = list(resp_data.keys()) if isinstance(resp_data, dict) else type(resp_data).__name__
+                raise RuntimeError(f"Unerwartetes Antwortformat ({provider}, keys: {keys}): {str(resp_data)[:300]}")
             img_bytes = base64.b64decode(b64)
 
-        from src.services.translation import translate_output_filename
-        result_filename = translate_output_filename(filename, output_ext=".png")
+        result_filename = f"{Path(filename).stem}.png"
         result_path = save_result_file(job_uuid, ".png", img_bytes)
         save_result_and_evict(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
@@ -377,8 +390,7 @@ def run_image_analyze(
         resp_data = response.json()
         text: str = resp_data["choices"][0]["message"]["content"]
 
-        from src.services.translation import translate_output_filename
-        result_filename = translate_output_filename(filename, output_ext=".txt")
+        result_filename = f"{Path(filename).stem}.txt"
         result_path = save_result_file(job_uuid, ".txt", text.encode("utf-8"))
         save_result_and_evict(job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
@@ -440,8 +452,7 @@ def run_summary(
             )
 
         out_ext = _SUMMARY_OUTPUT_EXT[output_format]
-        from src.services.translation import translate_output_filename
-        output_name = translate_output_filename(filename, output_ext=out_ext)
+        output_name = f"{Path(filename).stem}{out_ext}"
         result_path = save_result_file(job_uuid, out_ext, summary.encode("utf-8"))
         save_result_and_evict(job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
