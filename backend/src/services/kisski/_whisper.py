@@ -31,7 +31,7 @@ class _WhisperMixin:
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
-            raise RuntimeError(f"KISSKI Whisper API error: {e}") from e
+            raise RuntimeError(f"Whisper API error ({self._provider}): {e}") from e
 
     @observe(name="whisper-translate")
     def transcribe_and_translate(self, file_path: str, response_format: str = "text") -> str:
@@ -52,7 +52,7 @@ class _WhisperMixin:
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
-            raise RuntimeError(f"KISSKI Whisper API error: {e}") from e
+            raise RuntimeError(f"Whisper API error ({self._provider}): {e}") from e
 
     def _verbose_call(self, file_path: str, translate: bool) -> tuple[list[dict], str]:
         """Shared helper: call Whisper verbose_json for transcribe or translate.
