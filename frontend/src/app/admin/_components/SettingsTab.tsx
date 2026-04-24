@@ -213,7 +213,7 @@ function GeneralSettingsSection() {
         <P label="Ollama (lokal, qwen3)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" />
       </ProviderSection>
 
-      <ProviderSection title="Transkript-Übersetzung (EN)" hint="Automatische Übersetzung deutscher Video-/Audio-Transkripte ins Englische nach dem Indexieren.">
+      <ProviderSection title="Transkript-Übersetzung (EN)" hint="Automatische Übersetzung deutscher Video-/Audio-Transkripte ins Englische nach dem Indexieren. Betrifft aktuell nur den KI-Assistenten.">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-gray-800">Anbieter</p>
@@ -232,7 +232,7 @@ function GeneralSettingsSection() {
             className="shrink-0 border border-gray-300 rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
           >
             <option value="deepl">DeepL</option>
-            <option value="llm">LLM (KISSKI)</option>
+            <option value="llm">LLM</option>
           </select>
         </div>
       </ProviderSection>
