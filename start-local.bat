@@ -8,7 +8,7 @@ rem   start-local.bat build      Start mit --build (nach Dockerfile/requirements
 rem   start-local.bat restart    Holzhammer: down + Rebuild + Prune
 rem   start-local.bat down       Stack stoppen + Orphans entfernen
 
-set COMPOSE_FILES=-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.gpu.yml
+set COMPOSE_FILES=-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.gpu.yml
 
 if "%1"=="down" (
     docker compose %COMPOSE_FILES% down --remove-orphans

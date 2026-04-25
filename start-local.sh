@@ -8,9 +8,9 @@
 #   ./start-local.sh down       Stack stoppen + Orphans entfernen
 
 if [ "$(uname)" = "Darwin" ]; then
-    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.override.yml"
+    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
 else
-    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.gpu.yml"
+    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.gpu.yml"
 fi
 
 frontend_hint() {

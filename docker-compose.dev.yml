@@ -1,5 +1,5 @@
-# Lokale Entwicklung — wird automatisch von Docker Compose geladen
-# Auf dem Server NICHT vorhanden bzw. via explizitem -f docker-compose.yml umgangen
+# Lokale Entwicklung. Explizit via -f in start-local.bat/sh geladen.
+# Auf dem Server nicht genutzt.
 
 services:
   # ── Hot-Reload-Tweaks ──────────────────────────────────────────────────
