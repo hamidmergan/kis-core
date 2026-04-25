@@ -568,27 +568,52 @@ def init_db(admin_email: Optional[str] = None) -> None:
             else:
                 _log.info("search_vector: all chunks already populated.")
 
-            # Embedding-Provider mutex: different models have different vector
-            # dimensions, so only one may be active at a time. KISSKI has priority,
-            # then mylab, then ollama.
-            cur.execute("""
-                SELECT key, value FROM settings
-                WHERE key IN ('kisski_embedding_enabled', 'mylab_embedding_enabled', 'ollama_embedding_enabled')
-            """)
-            emb = {row[0]: row[1].lower() for row in cur.fetchall()}
-            active = [k for k, v in emb.items() if v == "true"]
-            if len(active) > 1:
-                winner = "kisski_embedding_enabled" if "kisski_embedding_enabled" in active \
-                    else ("mylab_embedding_enabled" if "mylab_embedding_enabled" in active else active[0])
-                for k in active:
-                    if k == winner:
-                        continue
-                    cur.execute("""
-                        INSERT INTO settings (key, value) VALUES (%s, 'false')
-                        ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = NOW()
-                    """, (k,))
-                _log.warning("Embedding mutex violated — kept {} active, disabled others.", winner)
+            # Provider-Radio-Groups: genau ein Provider pro Gruppe darf aktiv sein.
+            # - Embedding: unterschiedliche Modelle haben unterschiedliche Vektor-Dimensionen.
+            # - LLM: System-weite Auswahl, Provider-Selection seit 2026-04-25 ueber DB statt Env.
+            _enforce_radio_group(
+                cur, _log,
+                keys=("kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled"),
+                default="kisski_embedding_enabled",
+                label="Embedding",
+            )
+            _enforce_radio_group(
+                cur, _log,
+                keys=("kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled"),
+                default="kisski_llm_enabled",
+                label="LLM",
+            )
         conn.commit()
+
+
+def _enforce_radio_group(cur, _log, *, keys: tuple[str, ...], default: str, label: str) -> None:
+    """Ensure exactly one key in the group is "true"; seed default if none set."""
+    placeholders = ",".join(["%s"] * len(keys))
+    cur.execute(f"SELECT key, value FROM settings WHERE key IN ({placeholders})", keys)
+    state = {row[0]: row[1].lower() for row in cur.fetchall()}
+    active = [k for k in keys if state.get(k) == "true"]
+
+    if len(active) == 1:
+        return
+
+    if len(active) == 0:
+        cur.execute("""
+            INSERT INTO settings (key, value) VALUES (%s, 'true')
+            ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = NOW()
+        """, (default,))
+        _log.info("{} radio group: no provider active — seeded default {}", label, default)
+        return
+
+    # Mehrere aktiv: behalte den hoechstpriorisierten (Reihenfolge in keys)
+    winner = next(k for k in keys if k in active)
+    for k in active:
+        if k == winner:
+            continue
+        cur.execute("""
+            INSERT INTO settings (key, value) VALUES (%s, 'false')
+            ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = NOW()
+        """, (k,))
+    _log.warning("{} radio group violated — kept {} active, disabled others.", label, winner)
 
 
 # --- Users ---

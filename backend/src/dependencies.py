@@ -59,31 +59,32 @@ def get_session_store():
 def _resolve_llm_provider() -> tuple[str, str, str, str]:
     """Resolve LLM provider based on admin toggles → (api_key, base_url, model, provider_name).
 
-    Priority: KISSKI (if enabled) → THL myLab (if enabled) → Ollama (if enabled) → env-based fallback.
-    Fallback behaviour is fine for LLM (stateless calls, no vector-dimension concerns).
+    Genau ein Provider darf gleichzeitig aktiv sein (Radio-Logik in routes/admin/settings.py).
+    Wenn keiner aktiv ist, wirft RuntimeError mit klarer Anweisung.
     """
     from src import database as db
     settings = get_settings()
 
-    kisski_enabled = db.get_setting("kisski_llm_enabled", "true").lower() == "true"
-    mylab_enabled = db.get_setting("mylab_llm_enabled", "false").lower() == "true"
-    ollama_enabled = db.get_setting("ollama_llm_enabled", "false").lower() == "true"
-
-    # KISSKI — primary
-    if kisski_enabled and settings.kisski_api_key:
+    if db.get_setting("kisski_llm_enabled", "false").lower() == "true":
+        if not settings.kisski_api_key:
+            raise RuntimeError("KISSKI LLM aktiv, aber KISSKI_API_KEY nicht gesetzt.")
         return settings.kisski_api_key, settings.kisski_base_url, settings.kisski_model, "kisski"
 
-    # THL myLab — fallback
-    mylab_url = settings.mylab_base_url or settings.mylab_tts_base_url
-    if mylab_enabled and mylab_url:
+    if db.get_setting("mylab_llm_enabled", "false").lower() == "true":
+        mylab_url = settings.mylab_base_url or settings.mylab_tts_base_url
+        if not mylab_url:
+            raise RuntimeError("THL myLab LLM aktiv, aber MYLAB_BASE_URL nicht gesetzt.")
         return "ignored", f"{mylab_url.rstrip('/')}/v1", settings.mylab_llm_model, "thl"
 
-    # Ollama — local fallback
-    if ollama_enabled and settings.ollama_base_url:
+    if db.get_setting("ollama_llm_enabled", "false").lower() == "true":
+        if not settings.ollama_base_url:
+            raise RuntimeError("Ollama LLM aktiv, aber OLLAMA_BASE_URL nicht gesetzt.")
         return "ignored", settings.ollama_base_url, settings.ollama_model, "ollama"
 
-    # env-based fallback (ollama / kisski)
-    return settings.effective_llm_api_key, settings.effective_llm_base_url, settings.effective_llm_model, settings.llm_provider
+    raise RuntimeError(
+        "Kein LLM-Provider aktiv. Bitte im Admin-Bereich unter 'LLM Chat' "
+        "genau einen Anbieter aktivieren."
+    )
 
 
 def resolve_whisper_client() -> KisskiClient:

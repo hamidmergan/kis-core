@@ -16,6 +16,11 @@ class EmbeddingProvider(ABC):
     def embed_one(self, text: str) -> list[float]:
         return self.embed([text])[0]
 
+    @property
+    def model_name(self) -> str:
+        """Configured model name — used for fingerprint metadata and logs."""
+        return getattr(self, "_model", "")
+
 
 class KisskiEmbeddingProvider(EmbeddingProvider):
     """OpenAI-compatible embedding client pointing at KISSKI /v1/embeddings."""

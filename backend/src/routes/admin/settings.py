@@ -150,10 +150,41 @@ _SIMPLE_BOOL_FIELDS = (
     "kisski_image_analyze_enabled",
     "kisski_image_edit_enabled", "mylab_image_edit_enabled",
     "kisski_ocr_enabled", "mylab_ocr_enabled",
-    "kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled",
 )
 
+# Radio-Felder: genau ein Provider darf gleichzeitig aktiv sein.
+# - Embedding: Vektor-Dimension waere bei parallelem Betrieb inkonsistent.
+# - LLM: System-weite Auswahl, kein Fallback (siehe _resolve_llm_provider).
 _EMBEDDING_KEYS = ("kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled")
+_LLM_KEYS = ("kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled")
+
+
+def _apply_radio_group(body_dict: dict, keys: tuple[str, ...], group_label: str) -> bool:
+    """Enforce 'exactly one active' for a group of mutually-exclusive provider toggles.
+
+    Returns True when any key in the group was changed.
+    """
+    changed = False
+    for active_key in keys:
+        requested = body_dict.get(active_key)
+        if requested is None:
+            continue
+        if requested:
+            db.set_setting(active_key, "true")
+            for other in keys:
+                if other != active_key:
+                    db.set_setting(other, "false")
+            changed = True
+        else:
+            currently_on = [k for k in keys if db.get_setting(k, "false").lower() == "true"]
+            if currently_on == [active_key]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Mindestens ein {group_label}-Anbieter muss aktiv bleiben. Aktiviere zuerst einen anderen.",
+                )
+            db.set_setting(active_key, "false")
+            changed = True
+    return changed
 
 
 @router.patch("/settings")
@@ -169,31 +200,12 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
     # Embeddings — exactly one must be enabled at any time.
     # Different embedding models have different vector dimensions, so parallel
     # operation or silent fallback would corrupt the index.
-    embedding_changed = False
-    for active_key in _EMBEDDING_KEYS:
-        requested = body_dict.get(active_key)
-        if requested is None:
-            continue
-        if requested:
-            # Enable this one, disable all others
-            db.set_setting(active_key, "true")
-            for other in _EMBEDDING_KEYS:
-                if other != active_key:
-                    db.set_setting(other, "false")
-            embedding_changed = True
-        else:
-            # Refuse to disable the last active provider — exactly one must stay on
-            currently_on = [k for k in _EMBEDDING_KEYS if db.get_setting(k, "false").lower() == "true"]
-            if currently_on == [active_key]:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Mindestens ein Embedding-Anbieter muss aktiv bleiben. Aktiviere zuerst einen anderen.",
-                )
-            db.set_setting(active_key, "false")
-            embedding_changed = True
-
-    if embedding_changed:
+    if _apply_radio_group(body_dict, _EMBEDDING_KEYS, "Embedding"):
         invalidate_fingerprint_cache()
+
+    # LLM Chat — exactly one must be enabled at any time.
+    # Provider-Auswahl wird nicht mehr ueber Env-Vars gesteuert (siehe _resolve_llm_provider).
+    _apply_radio_group(body_dict, _LLM_KEYS, "LLM")
 
     # Transkript-Übersetzung: only "deepl" oder "llm"
     if body.transcript_translation_provider is not None:

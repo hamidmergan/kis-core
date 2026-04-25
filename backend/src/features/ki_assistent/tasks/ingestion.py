@@ -61,9 +61,7 @@ def run_index_source(self, source_uuid: str):
 
         _en_translation_pending = False
 
-        from src.config import Settings
-        _s = Settings()
-        embedding_model = _s.ollama_embedding_model if _s.tutor_embedding_provider == "ollama" else _s.kisski_embedding_model
+        embedding_model = provider.model_name
 
         # 4. Fetch file from storage
         import os

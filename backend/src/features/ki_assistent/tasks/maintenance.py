@@ -54,12 +54,10 @@ def run_reindex_all_sources(self):
     """
     import json as _json
     from src.services.kia_embeddings import get_embedding_provider, compute_fingerprint
-    from src.config import Settings
 
     provider = get_embedding_provider()
     fingerprint = compute_fingerprint(provider)
-    _s = Settings()
-    embedding_model = _s.ollama_embedding_model if _s.tutor_embedding_provider == "ollama" else _s.kisski_embedding_model
+    embedding_model = provider.model_name
 
     sources = db.get_all_kia_sources()
     total = len(sources)

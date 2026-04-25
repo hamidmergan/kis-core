@@ -111,11 +111,17 @@ function GeneralSettingsSection() {
   };
 
   const EMBEDDING_KEYS = ["kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled"];
+  const LLM_KEYS = ["kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled"];
+  const RADIO_GROUPS: Record<string, string[]> = {
+    embedding: EMBEDDING_KEYS,
+    llm: LLM_KEYS,
+  };
 
   const toggle = async (key: string, val: boolean) => {
-    if (EMBEDDING_KEYS.includes(key) && val) {
+    const group = Object.values(RADIO_GROUPS).find((keys) => keys.includes(key));
+    if (group && val) {
       const mutex: Record<string, boolean> = { [key]: true };
-      for (const other of EMBEDDING_KEYS) if (other !== key) mutex[other] = false;
+      for (const other of group) if (other !== key) mutex[other] = false;
       setS((prev) => ({ ...prev, ...mutex }));
     } else {
       setS((prev) => ({ ...prev, [key]: val }));
@@ -207,7 +213,7 @@ function GeneralSettingsSection() {
         <P label="THL myLab (Nanonets OCR2 3B)" settingKey="mylab_ocr_enabled" enabled={s.mylab_ocr_enabled ?? false} configured={s.mylab_ocr_configured ?? false} available={s.mylab_ocr_available} envHint="MYLAB_BASE_URL" />
       </ProviderSection>
 
-      <ProviderSection title="LLM Chat" hint="Priorität: KISSKI → THL myLab → Ollama. Jeder aktive Anbieter dient als Fallback.">
+      <ProviderSection title="LLM Chat" hint="Nur ein Anbieter gleichzeitig. Wechsel wirkt sofort fuer alle LLM-Calls (Chat, Mindmap, Summary, Skript).">
         <P label="KISSKI (Mistral / Qwen)" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" />
         <P label="THL myLab (GPT OSS 120B)" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" />
         <P label="Ollama (lokal, qwen3)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" />

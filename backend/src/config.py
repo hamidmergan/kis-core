@@ -12,11 +12,10 @@ class Settings(BaseSettings):
     kisski_base_url: str = "https://chat-ai.academiccloud.de/v1"
     kisski_model: str = "qwen3-30b-a3b-instruct-2507"
     kisski_embedding_model: str = "e5-mistral-7b-instruct"
-    tutor_embedding_provider: str = "kisski"
     ollama_embedding_model: str = "nomic-embed-text"
 
-    # LLM Provider: "kisski", "thl" oder "ollama"
-    llm_provider: str = "kisski"
+    # Provider-Auswahl (LLM + Embedding) erfolgt ueber Admin-Panel via DB-Toggles,
+    # nicht ueber Env-Vars. Siehe routes/admin/settings.py und _resolve_llm_provider().
     ollama_base_url: str = "http://ollama:11434/v1"
     ollama_model: str = "qwen3:30b-a3b"
 
@@ -71,22 +70,3 @@ class Settings(BaseSettings):
     ldap_use_ssl: bool = False
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
-
-    @property
-    def effective_llm_api_key(self) -> str:
-        if self.llm_provider == "ollama":
-            return "ollama"
-        return self.kisski_api_key
-
-    @property
-    def effective_llm_base_url(self) -> str:
-        if self.llm_provider == "ollama":
-            return self.ollama_base_url
-        return self.kisski_base_url
-
-    @property
-    def effective_llm_model(self) -> str:
-        if self.llm_provider == "ollama":
-            return self.ollama_model
-        return self.kisski_model
-
