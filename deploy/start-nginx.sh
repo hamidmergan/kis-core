@@ -1,5 +1,8 @@
 #!/bin/bash
 # Hetzner Server — Basis + Production-Nginx
+# Aufruf vom Repo-Root: bash deploy/start-nginx.sh [up|down|restart]
+cd "$(dirname "$0")/.." || exit 1
+
 COMPOSE_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
 CMD=${1:-up}
 

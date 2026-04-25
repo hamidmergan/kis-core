@@ -1,5 +1,5 @@
 @echo off
-rem Restore von Postgres + MinIO S3-Bucket aus local-dev\backups\
+rem Restore von Postgres + MinIO S3-Bucket aus scripts\backups\
 rem Container muessen laufen (start-local.bat).
 rem ACHTUNG: ueberschreibt existierende Daten.
 rem Nur fuer lokale Entwicklung; wird vor Open-Source-Release entfernt.
@@ -16,11 +16,11 @@ for /f "usebackq tokens=1,2 delims==" %%A in ("%~dp0..\.env") do (
 
 set BACKUP_DIR=%~dp0backups
 if not exist "%BACKUP_DIR%\postgres.dump" (
-    echo local-dev\backups\postgres.dump nicht gefunden.
+    echo scripts\backups\postgres.dump nicht gefunden.
     exit /b 1
 )
 if not exist "%BACKUP_DIR%\minio" (
-    echo local-dev\backups\minio\ nicht gefunden.
+    echo scripts\backups\minio\ nicht gefunden.
     exit /b 1
 )
 
@@ -31,7 +31,7 @@ if /i not "%CONFIRM%"=="y" (
     exit /b 0
 )
 
-echo [1/2] Postgres-Restore aus local-dev\backups\postgres.dump ...
+echo [1/2] Postgres-Restore aus scripts\backups\postgres.dump ...
 docker cp "%BACKUP_DIR%\postgres.dump" kis-postgres:/tmp/postgres.dump
 if errorlevel 1 goto :error
 docker exec kis-postgres sh -c "dropdb -U %POSTGRES_USER% --if-exists %POSTGRES_DB% && createdb -U %POSTGRES_USER% %POSTGRES_DB%"
@@ -40,7 +40,7 @@ docker exec kis-postgres pg_restore -U %POSTGRES_USER% -d %POSTGRES_DB% --no-own
 if errorlevel 1 goto :error
 docker exec kis-postgres rm -f /tmp/postgres.dump
 
-echo [2/2] MinIO-Bucket %S3_BUCKET% aus local-dev\backups\minio\ ...
+echo [2/2] MinIO-Bucket %S3_BUCKET% aus scripts\backups\minio\ ...
 docker run --rm --network container:kis-minio -v "%BACKUP_DIR%\minio:/data" --entrypoint sh minio/mc -c "mc alias set local http://127.0.0.1:9000 %S3_ACCESS_KEY% %S3_SECRET_KEY% >/dev/null && mc mb --ignore-existing local/%S3_BUCKET% >/dev/null && mc mirror --overwrite --remove --quiet /data local/%S3_BUCKET%"
 if errorlevel 1 goto :error
 

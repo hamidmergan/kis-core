@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restore von Postgres + MinIO S3-Bucket aus local-dev/backups/
+# Restore von Postgres + MinIO S3-Bucket aus scripts/backups/
 # Container muessen laufen (start-local.sh).
 # ACHTUNG: ueberschreibt existierende Daten.
 # Nur fuer lokale Entwicklung; wird vor Open-Source-Release entfernt.
@@ -18,11 +18,11 @@ fi
 set -a; . "$ENV_FILE"; set +a
 
 if [ ! -f "$BACKUP_DIR/postgres.dump" ]; then
-    echo "local-dev/backups/postgres.dump nicht gefunden." >&2
+    echo "scripts/backups/postgres.dump nicht gefunden." >&2
     exit 1
 fi
 if [ ! -d "$BACKUP_DIR/minio" ]; then
-    echo "local-dev/backups/minio/ nicht gefunden." >&2
+    echo "scripts/backups/minio/ nicht gefunden." >&2
     exit 1
 fi
 
@@ -33,13 +33,13 @@ case "$CONFIRM" in
     *) echo "Abgebrochen."; exit 0 ;;
 esac
 
-echo "[1/2] Postgres-Restore aus local-dev/backups/postgres.dump ..."
+echo "[1/2] Postgres-Restore aus scripts/backups/postgres.dump ..."
 docker cp "$BACKUP_DIR/postgres.dump" kis-postgres:/tmp/postgres.dump
 docker exec kis-postgres sh -c "dropdb -U $POSTGRES_USER --if-exists $POSTGRES_DB && createdb -U $POSTGRES_USER $POSTGRES_DB"
 docker exec kis-postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-privileges /tmp/postgres.dump
 docker exec kis-postgres rm -f /tmp/postgres.dump
 
-echo "[2/2] MinIO-Bucket $S3_BUCKET aus local-dev/backups/minio/ ..."
+echo "[2/2] MinIO-Bucket $S3_BUCKET aus scripts/backups/minio/ ..."
 docker run --rm --network container:kis-minio \
     -v "$BACKUP_DIR/minio:/data" \
     --entrypoint sh minio/mc \

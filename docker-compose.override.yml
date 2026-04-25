@@ -89,7 +89,7 @@ services:
         max-file: "7"
 
   thorsten:
-    build: ./thorsten
+    build: ./docker/thorsten
     container_name: kis-thorsten
     ports:
       - "5002:5002"

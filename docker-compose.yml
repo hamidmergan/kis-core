@@ -152,7 +152,7 @@ services:
     ports:
       - "389:389"
     volumes:
-      - ./ldap/seed.ldif:/assets/slapd/bootstrap/ldif/seed.ldif
+      - ./docker/ldap/seed.ldif:/assets/slapd/bootstrap/ldif/seed.ldif
       - kis-openldap-data:/var/lib/ldap
       - kis-openldap-config:/etc/ldap/slapd.d
     healthcheck:
@@ -171,7 +171,7 @@ services:
         ldapadd -x -H ldap://openldap -D 'cn=admin,dc=th-luebeck,dc=de' -w admin -f /seed/seed.ldif 2>&1 || true
       "
     volumes:
-      - ./ldap/seed.ldif:/seed/seed.ldif:ro
+      - ./docker/ldap/seed.ldif:/seed/seed.ldif:ro
     depends_on:
       openldap:
         condition: service_healthy

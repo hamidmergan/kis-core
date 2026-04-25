@@ -11,10 +11,8 @@ backend/demo/
 
 .claude/
 .superpowers/
-database.db
-check-kisski-limits.py
-local-dev/backups/
-local-dev/private/
+scripts/backups/
+private/
 
 # Frontend
 frontend/node_modules/

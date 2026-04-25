@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Backup von Postgres + MinIO S3-Bucket nach local-dev/backups/
+# Backup von Postgres + MinIO S3-Bucket nach scripts/backups/
 # Container muessen laufen (start-local.sh).
 # Nur fuer lokale Entwicklung; wird vor Open-Source-Release entfernt.
 
@@ -18,12 +18,12 @@ set -a; . "$ENV_FILE"; set +a
 
 mkdir -p "$BACKUP_DIR/minio"
 
-echo "[1/2] Postgres-Dump nach local-dev/backups/postgres.dump ..."
+echo "[1/2] Postgres-Dump nach scripts/backups/postgres.dump ..."
 docker exec kis-postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/postgres.dump
 docker cp kis-postgres:/tmp/postgres.dump "$BACKUP_DIR/postgres.dump"
 docker exec kis-postgres rm -f /tmp/postgres.dump
 
-echo "[2/2] MinIO-Bucket $S3_BUCKET nach local-dev/backups/minio/ ..."
+echo "[2/2] MinIO-Bucket $S3_BUCKET nach scripts/backups/minio/ ..."
 docker run --rm --network container:kis-minio \
     -v "$BACKUP_DIR/minio:/data" \
     --entrypoint sh minio/mc \
