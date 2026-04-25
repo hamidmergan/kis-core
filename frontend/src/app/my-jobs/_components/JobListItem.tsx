@@ -1,6 +1,5 @@
 import { Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
-import { getToolConfigByJobTool } from "@/lib/toolConfig";
 import { isActive, isExpired, type MyJob } from "../_types";
 import { StatusBadge } from "./StatusBadge";
 import { TimingInfo } from "./TimingInfo";
@@ -39,13 +38,7 @@ export function JobListItem({
     <li className={`px-5 py-4 ${expired ? "opacity-50" : ""}`}>
       <div className="flex items-stretch justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ backgroundColor: getToolConfigByJobTool(job.tool).color }}
-            />
-            <p className="text-sm font-medium text-gray-800">{job.tool_label}</p>
-          </div>
+          <p className="text-sm font-medium text-gray-800 mb-0.5">{job.tool_label}</p>
           <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
           {job.tts_params?.voice_label || job.tts_params?.provider ? (
             <p className="text-xs text-gray-400 mt-0.5">

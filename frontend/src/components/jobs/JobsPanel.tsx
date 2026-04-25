@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getToolConfigByJobTool } from "@/lib/toolConfig";
 import Spinner from "@/components/ui/Spinner";
 
 interface MyJob {
@@ -345,13 +344,7 @@ export default function JobsPanel() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <span
-                              className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: getToolConfigByJobTool(job.tool).color }}
-                            />
-                            <p className="text-xs font-medium text-gray-800 truncate">{job.tool_label}</p>
-                          </div>
+                          <p className="text-xs font-medium text-gray-800 truncate mb-0.5">{job.tool_label}</p>
                           <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
                           {job.tts_params?.voice_label || job.tts_params?.provider ? (
                             <p className="text-xs text-gray-400 truncate mt-0.5">

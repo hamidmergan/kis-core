@@ -41,7 +41,6 @@ export default function ToolsStrip() {
       >
         {tools.map((tool) => {
           const cfg = TOOL_CONFIG[tool.key];
-          const color = cfg?.color ?? "var(--kb)";
           const image = cfg?.image;
           return (
             <Link
@@ -67,18 +66,12 @@ export default function ToolsStrip() {
                 )}
               </div>
               <div className="px-2 pb-2 pt-0 text-center">
-                <div className="flex items-center justify-center gap-1.5">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span
-                    className="text-[11.5px] font-semibold truncate"
-                    style={{ color: "var(--foreground)" }}
-                  >
-                    {tool.title}
-                  </span>
-                </div>
+                <span
+                  className="text-[11.5px] font-semibold truncate block"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  {tool.title}
+                </span>
               </div>
             </Link>
           );

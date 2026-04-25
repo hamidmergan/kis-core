@@ -15,9 +15,8 @@ export type CitationChipClickHandler = (
 
 // Renders a single citation chip that links back to the source viewer.
 function CitationChip({
-  chipKey, filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection, onChipClick,
+  filename, displayQNum, label, clickUuid, clickPage, clickSeconds, clickHighlight, isExactSelection, onChipClick,
 }: {
-  chipKey: string;
   filename: string;
   displayQNum: number | null;
   label: string;
@@ -41,7 +40,7 @@ function CitationChip({
     isExactSelection,
   );
   return (
-    <span key={chipKey} role="button" tabIndex={0}
+    <span role="button" tabIndex={0}
       onPointerDown={(e) => { if (e.button === 0) activate(); }}
       onKeyDown={(e) => { if (e.key === "Enter") activate(); }}
       className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5 cursor-pointer"
@@ -60,6 +59,7 @@ export function parseCitations(
   activeSourceIds: string[],
   getFilename: (uuid: string) => string,
   onChipClick: CitationChipClickHandler,
+  keyPrefix: string = "c",
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
@@ -81,7 +81,7 @@ export function parseCitations(
     // Fallback: qnum from qmap via sourceUuid (e.g. popup actions without Q-prefix)
     const displayQNum = qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null;
     const label = timestamp || _chunkLabel(filename, pageNum);
-    const ck = `c${chipKeyCounter++}`;
+    const ck = `${keyPrefix}${chipKeyCounter++}`;
     let seconds = 0;
     if (timestamp) {
       const tp = timestamp.split(":").map(Number);
@@ -100,7 +100,7 @@ export function parseCitations(
     const clickSeconds = timestamp ? seconds : undefined;
     nodes.push(
       <CitationChip
-        chipKey={ck}
+        key={ck}
         filename={filename}
         displayQNum={displayQNum}
         label={label}
@@ -127,9 +127,9 @@ export function withCitations(
   onChipClick: CitationChipClickHandler,
 ): React.ReactNode {
   const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
-  return arr.flatMap((child) =>
+  return arr.flatMap((child, idx) =>
     typeof child === "string"
-      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick)
+      ? parseCitations(child, msg, activeSourceIds, getFilename, onChipClick, `c${idx}-`)
       : [child],
   );
 }
