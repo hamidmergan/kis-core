@@ -57,12 +57,15 @@ export default function ModuleTableRow({
       >
         <td className="py-5 cursor-pointer" onClick={() => a.setExpanded(!a.expanded)}>
           <div className="flex justify-center">
-            <IconButton
+            <button
+              type="button"
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setExpanded(!a.expanded); }}
               title={a.expanded ? "Zuklappen" : "Aufklappen"}
+              className="w-7 h-7 flex items-center justify-center hover:opacity-60 transition-opacity flex-shrink-0"
+              style={{ color: "var(--muted)" }}
             >
               <CaretRight size={13} weight="bold" className={`transition-transform ${a.expanded ? "rotate-90" : ""}`} />
-            </IconButton>
+            </button>
           </div>
         </td>
         <td

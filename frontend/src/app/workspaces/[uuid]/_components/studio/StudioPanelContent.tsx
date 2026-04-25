@@ -38,7 +38,7 @@ interface ExerciseBundle {
 
 interface NotesBundle {
   notes: Note[];
-  addNote: (content: string, sourceUuids?: string[]) => void;
+  addNote: (content: string, sourceUuids?: string[], options?: { autoTitle?: boolean }) => void;
   deleteNote: (id: number) => void;
   updateNoteTitle: (id: number, title: string | null) => void;
   pendingTitleIds: Set<number>;
@@ -175,7 +175,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     return (
       <NotizenStudio
         notes={nt.notes}
-        onAdd={nt.addNote}
+        onAdd={(content) => nt.addNote(content, undefined, { autoTitle: false })}
         onDelete={nt.deleteNote}
         onUpdateTitle={nt.updateNoteTitle}
         onBack={() => setStudioView("overview")}

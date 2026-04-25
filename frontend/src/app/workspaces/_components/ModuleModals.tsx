@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import StatsModal from "./StatsModal";
 import EditModuleModal from "./EditModuleModal";
 import AddLinkModal from "./AddLinkModal";
@@ -35,7 +37,11 @@ export default function ModuleModals(props: ModuleModalsProps) {
     deleteLinkConfirm, onCancelDeleteLink, onConfirmDeleteLink, deletingLink,
   } = props;
 
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       {showStats && (
         <StatsModal moduleUuid={module.uuid} moduleTitle={module.title} onClose={onCloseStats} />
@@ -79,6 +85,7 @@ export default function ModuleModals(props: ModuleModalsProps) {
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }

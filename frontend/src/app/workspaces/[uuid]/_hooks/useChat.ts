@@ -118,6 +118,10 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource }:
               if (rafId == null) {
                 rafId = requestAnimationFrame(() => { flushTokens(); rafId = null; });
               }
+            } else if (evt.qmap) {
+              // Pre-stream metadata: lets citation chips resolve to the right
+              // source while tokens are still arriving.
+              updateLast({ source_qmap: evt.qmap, source_pages: evt.source_pages });
             } else if (evt.done) {
               if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
               flushTokens();

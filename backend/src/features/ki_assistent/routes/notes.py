@@ -118,6 +118,8 @@ async def get_notes(
             "title": n.get("title"),
             "content": n["content"],
             "source_uuids": n.get("source_uuids") or [],
+            "source_pages": n.get("source_pages") or [],
+            "popup_selection": n.get("popup_selection"),
             "created_at": n["created_at"].isoformat() + "Z" if n["created_at"] else None,
         }
         for n in notes
@@ -148,13 +150,19 @@ async def create_note(
         )
 
     content = body.content.strip()
-    note = db.create_kia_note(module["id"], user_id, content, None, body.source_uuids)
-    background_tasks.add_task(_generate_and_store_note_title, kisski, note["id"], user_id, content)
+    note = db.create_kia_note(
+        module["id"], user_id, content, None,
+        body.source_uuids, body.source_pages, body.popup_selection,
+    )
+    if body.auto_title:
+        background_tasks.add_task(_generate_and_store_note_title, kisski, note["id"], user_id, content)
     return {
         "id": note["id"],
         "title": note.get("title"),
         "content": note["content"],
         "source_uuids": note.get("source_uuids") or [],
+        "source_pages": note.get("source_pages") or [],
+        "popup_selection": note.get("popup_selection"),
         "created_at": note["created_at"].isoformat() + "Z" if note["created_at"] else None,
     }
 

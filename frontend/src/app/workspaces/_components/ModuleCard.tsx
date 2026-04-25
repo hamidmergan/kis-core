@@ -56,9 +56,15 @@ export default function ModuleCard({
       >
         {/* Top row: chevron + title */}
         <div className="flex items-center gap-2 pt-4 pb-2 pl-2">
-          <IconButton onClick={() => a.setExpanded(!a.expanded)} title={a.expanded ? "Zuklappen" : "Aufklappen"}>
+          <button
+            type="button"
+            onClick={() => a.setExpanded(!a.expanded)}
+            title={a.expanded ? "Zuklappen" : "Aufklappen"}
+            className="w-7 h-7 flex items-center justify-center hover:opacity-60 transition-opacity flex-shrink-0"
+            style={{ color: "var(--muted)" }}
+          >
             <CaretRight size={13} weight="bold" className={`transition-transform ${a.expanded ? "rotate-90" : ""}`} />
-          </IconButton>
+          </button>
           <button
             type="button"
             onClick={a.handleOpen}

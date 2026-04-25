@@ -296,7 +296,7 @@ export default function KiTutorModulePage() {
   const notizenContent = (
     <NotizenStudio
       notes={notes}
-      onAdd={addNote}
+      onAdd={(content) => addNote(content, undefined, { autoTitle: false })}
       onDelete={deleteNote}
       onUpdateTitle={updateNoteTitle}
       sources={sources}

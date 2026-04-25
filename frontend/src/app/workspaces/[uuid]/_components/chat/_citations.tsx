@@ -63,8 +63,10 @@ export function parseCitations(
 ): React.ReactNode[] {
   const msgSourcePages = msg.source_pages ?? [];
   const msgQmap = msg.source_qmap ?? [];
-  // Matches [1, S. 2 | kw], [Q1, S. 2 | kw], [S. 2], [1, 05:32 | kw] (Q prefix optional for backwards compat)
-  const pattern = /\[(?:Q?(\d+),\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|❘]\s*([^\]]+))?\s*\]/g;
+  // Matches [1, S. 2 | kw], [Q1, S. 2 | kw], [S. 2], [1, 05:32 | kw] (Q prefix optional for backwards compat).
+  // Optional :uuid suffix on Q-prefix lets notes embed source UUIDs verbatim, so they survive even when
+  // the active source selection changes after the note was saved.
+  const pattern = /\[(?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|❘]\s*([^\]]+))?\s*\]/g;
   const nodes: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -72,11 +74,12 @@ export function parseCitations(
   while ((m = pattern.exec(text)) !== null) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
     const qNum = m[1] ? parseInt(m[1]) : null;
-    const pageNum = m[2] ? parseInt(m[2]) : 0;
-    const timestamp = m[3] || null;
-    const keywords = m[4]?.trim().replace(/^["']+|["']+$/g, "").trim() || null;
+    const embeddedUuid = m[2] || null;
+    const pageNum = m[3] ? parseInt(m[3]) : 0;
+    const timestamp = m[4] || null;
+    const keywords = m[5]?.trim().replace(/^["']+|["']+$/g, "").trim() || null;
     const qEntry = qNum ? msgQmap.find(q => q.qnum === qNum) : null;
-    const sourceUuid = qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
+    const sourceUuid = embeddedUuid ?? qEntry?.uuid ?? msgSourcePages[0]?.source_uuid ?? activeSourceIds[0] ?? "";
     const filename = qEntry?.filename ?? getFilename(sourceUuid);
     // Fallback: qnum from qmap via sourceUuid (e.g. popup actions without Q-prefix)
     const displayQNum = qNum ?? msgQmap.find(q => q.uuid === sourceUuid)?.qnum ?? null;
@@ -138,7 +141,7 @@ export function withCitations(
 // Strips citation markers and copies the cleaned text to the clipboard.
 // Falls back to a hidden textarea for non-secure contexts.
 export async function copyMessageText(content: string): Promise<void> {
-  const text = content.replace(/\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]/g, "").trim();
+  const text = content.replace(/\[(?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]/g, "").trim();
   if (navigator.clipboard?.writeText && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
     return;

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowsClockwise, Check, NavigationArrow, NotePencil } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import type { AddNoteExtras } from "../../_hooks/useNotes";
 
 interface Cue {
   start: number;
@@ -64,7 +65,7 @@ export function TranscriptPanel({
   moduleUuid: string;
   sourceUuid: string;
   canManage?: boolean;
-  onSaveNote?: (content: string, sourceUuids?: string[]) => void | Promise<void>;
+  onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
 }) {
   const [deCues, setDeCues] = useState<Cue[] | null>(null);
   const [enCues, setEnCues] = useState<Cue[] | null>(null);

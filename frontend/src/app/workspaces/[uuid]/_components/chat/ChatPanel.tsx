@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import type { ChatMessage as ChatMessageType, Source } from "../../_types";
+import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { ChatHeader } from "./ChatHeader";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ChatMessage } from "./ChatMessage";
@@ -31,7 +32,7 @@ export function ChatPanel({
   moduleReady: boolean;
   onClear: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
-  onSaveNote?: (content: string, sourceUuids?: string[]) => void | Promise<void>;
+  onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   onMinimize?: () => void;
   onSendPrompt?: (text: string) => void;
   registerSetInput?: (setter: ((v: string) => void) | null) => void;

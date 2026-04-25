@@ -398,6 +398,9 @@ async def chat(
         source_pages.sort(key=lambda x: x["page_number"])
 
     def _stream() -> Generator[str, None, None]:
+        # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
+        # during streaming instead of falling back to activeSourceIds[0].
+        yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
         answer_parts: list[str] = []
         try:
             stream = kisski._client.chat.completions.create(

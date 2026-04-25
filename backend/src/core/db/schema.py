@@ -147,9 +147,15 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     embedding_model      TEXT NOT NULL DEFAULT '',
                     embedding_fingerprint TEXT,
                     created_at           TIMESTAMP NOT NULL DEFAULT NOW(),
-                    updated_at           TIMESTAMP NOT NULL DEFAULT NOW()
+                    updated_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+                    last_visited_at      TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Migration: add last_visited_at; backfill existing rows from updated_at so initial sort is meaningful
+            cur.execute("ALTER TABLE kia_modules ADD COLUMN IF NOT EXISTS last_visited_at TIMESTAMP")
+            cur.execute("UPDATE kia_modules SET last_visited_at = COALESCE(updated_at, created_at, NOW()) WHERE last_visited_at IS NULL")
+            cur.execute("ALTER TABLE kia_modules ALTER COLUMN last_visited_at SET NOT NULL")
+            cur.execute("ALTER TABLE kia_modules ALTER COLUMN last_visited_at SET DEFAULT NOW()")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS kia_access_links (
                     id         SERIAL PRIMARY KEY,
@@ -378,6 +384,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS title TEXT")
             cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS source_uuids JSONB")
+            cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS source_pages JSONB")
+            cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS popup_selection JSONB")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS kia_glossary_entries (
                     id               SERIAL PRIMARY KEY,

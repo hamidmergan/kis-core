@@ -3,9 +3,16 @@
 import { useCallback, useState } from "react";
 import { _formatApiError } from "../_utils";
 import type { Note } from "../_components/studio/NotizenStudio";
+import type { SourceRef } from "../_types";
 
 interface UseNotesOptions {
   uuid: string;
+}
+
+export interface AddNoteExtras {
+  sourcePages?: SourceRef[];
+  popupSelection?: { uuid: string; page: number; text: string } | null;
+  autoTitle?: boolean;
 }
 
 export function useNotes({ uuid }: UseNotesOptions) {
@@ -33,12 +40,19 @@ export function useNotes({ uuid }: UseNotesOptions) {
     clear();
   }, [uuid]);
 
-  const addNote = useCallback(async (content: string, sourceUuids?: string[]) => {
+  const addNote = useCallback(async (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => {
+    const autoTitle = extras?.autoTitle ?? true;
     try {
       const res = await fetch(`/api/ki-assistent/modules/${uuid}/notes`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, source_uuids: sourceUuids ?? null }),
+        body: JSON.stringify({
+          content,
+          source_uuids: sourceUuids ?? null,
+          source_pages: extras?.sourcePages ?? null,
+          popup_selection: extras?.popupSelection ?? null,
+          auto_title: autoTitle,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -47,7 +61,7 @@ export function useNotes({ uuid }: UseNotesOptions) {
       }
       const note = await res.json();
       setNotes((prev) => [note, ...prev]);
-      if (!note.title) pollForTitle(note.id);
+      if (autoTitle && !note.title) pollForTitle(note.id);
     } catch { /* ignore */ }
   }, [uuid, pollForTitle]);
 

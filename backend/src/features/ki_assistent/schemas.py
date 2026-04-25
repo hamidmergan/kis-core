@@ -48,6 +48,11 @@ class UserSettingsBody(BaseModel):
 class NoteBody(BaseModel):
     content: str = Field(..., max_length=50000)
     source_uuids: Optional[list[str]] = None
+    # Carry chat metadata so the chat citation renderer can resolve exact-highlight
+    # state (popup-action selections) when the note is later opened.
+    source_pages: Optional[list[dict]] = None
+    popup_selection: Optional[dict] = None
+    auto_title: bool = True
 
 
 class NoteTitleBody(BaseModel):

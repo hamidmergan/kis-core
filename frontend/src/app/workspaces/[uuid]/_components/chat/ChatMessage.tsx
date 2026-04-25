@@ -5,6 +5,7 @@ import { CaretDown, CaretUp, Check, Copy, NotePencil } from "@phosphor-icons/rea
 import Spinner from "@/components/ui/Spinner";
 import { _embedQmapIntoCitations, _getChipIcon } from "../../_utils";
 import type { ChatMessage as ChatMessageType } from "../../_types";
+import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { copyMessageText, withCitations, type CitationChipClickHandler } from "./_citations";
 
 
@@ -13,7 +14,7 @@ interface ChatMessageProps {
   activeSourceIds: string[];
   getFilename: (uuid: string) => string;
   onChipClick: CitationChipClickHandler;
-  onSaveNote?: (content: string, sourceUuids?: string[]) => void | Promise<void>;
+  onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   loading: boolean;
 }
 
@@ -49,6 +50,7 @@ export function ChatMessage({
       await onSaveNote(
         _embedQmapIntoCitations(msg.content, msgQmap),
         msgQmap.map((q) => q.uuid),
+        { sourcePages: msg.source_pages, popupSelection: msg.popup_selection ?? null },
       );
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);

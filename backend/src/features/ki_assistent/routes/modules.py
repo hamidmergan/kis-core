@@ -128,6 +128,7 @@ async def list_modules(current_user: dict = Depends(get_current_user)):
 @router.get("/ki-assistent/modules/{module_uuid}")
 async def get_module(module_uuid: str, current_user: dict = Depends(get_current_user)):
     module = _require_own_module(module_uuid, current_user["user_id"])
+    db.touch_kia_module_visited(module_uuid)
     sources = db.get_kia_sources_by_module(module["id"])
     links = db.get_access_links_by_module(module["id"])
     return {

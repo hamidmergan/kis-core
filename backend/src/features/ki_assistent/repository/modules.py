@@ -48,11 +48,21 @@ def get_kia_modules_by_user(user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT * FROM kia_modules WHERE user_id = %s ORDER BY created_at DESC",
+                "SELECT * FROM kia_modules WHERE user_id = %s ORDER BY last_visited_at DESC",
                 (user_id,),
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
+
+
+def touch_kia_module_visited(uuid: str) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE kia_modules SET last_visited_at = NOW() WHERE uuid = %s",
+                (uuid,),
+            )
+        conn.commit()
 
 def get_kia_modules_for_student(user_id: int) -> list[dict]:
     """Return modules with enrollment info. Same module can appear multiple times (different links)."""

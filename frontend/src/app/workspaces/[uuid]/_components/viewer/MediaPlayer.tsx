@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CaretLeft, SidebarSimple, SpeakerHigh } from "@phosphor-icons/react";
 import type { ViewerState } from "../../_types";
+import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel } from "./TranscriptPanel";
 
@@ -13,7 +14,7 @@ export function MediaPlayer({
   onMinimize?: () => void;
   canDownload?: boolean;
   canManage?: boolean;
-  onSaveNote?: (content: string, sourceUuids?: string[]) => void | Promise<void>;
+  onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
 }) {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();

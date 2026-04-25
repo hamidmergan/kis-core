@@ -22,7 +22,8 @@ def get_kia_notes(module_id: int, user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, title, content, source_uuids, created_at FROM kia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
+                "SELECT id, title, content, source_uuids, source_pages, popup_selection, created_at "
+                "FROM kia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
                 (module_id, user_id),
             )
             return [dict(r) for r in cur.fetchall()]
@@ -42,6 +43,8 @@ def create_kia_note(
     content: str,
     title: Optional[str] = None,
     source_uuids: Optional[list[str]] = None,
+    source_pages: Optional[list[dict]] = None,
+    popup_selection: Optional[dict] = None,
 ) -> dict:
     clean_title = title.strip() if title else None
     if clean_title == "":
@@ -56,11 +59,17 @@ def create_kia_note(
                 clean_uuids.append(u)
         if not clean_uuids:
             clean_uuids = None
+    pages_json = json.dumps(source_pages) if source_pages else None
+    popup_json = json.dumps(popup_selection) if popup_selection else None
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO kia_notes (module_id, user_id, content, title, source_uuids) VALUES (%s, %s, %s, %s, %s) RETURNING id, title, content, source_uuids, created_at",
-                (module_id, user_id, content, clean_title, json.dumps(clean_uuids) if clean_uuids is not None else None),
+                "INSERT INTO kia_notes (module_id, user_id, content, title, source_uuids, source_pages, popup_selection) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                "RETURNING id, title, content, source_uuids, source_pages, popup_selection, created_at",
+                (module_id, user_id, content, clean_title,
+                 json.dumps(clean_uuids) if clean_uuids is not None else None,
+                 pages_json, popup_json),
             )
             row = dict(cur.fetchone())
         conn.commit()

@@ -2,12 +2,21 @@ import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CaretDown, CaretUp, NotePencil, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
-import type { Source, StudentStats } from "../../_types";
-import { _chunkLabel, _getChipIcon, _isMediaFile, _sourceChipKey } from "../../_utils";
+import type { ChatMessage, Source, SourceQmap, SourceRef, StudentStats } from "../../_types";
+import { _getChipIcon } from "../../_utils";
+import { withCitations, type CitationChipClickHandler } from "../chat/_citations";
 import { SubviewHeader } from "../layout/SubviewHeader";
 import Spinner from "@/components/ui/Spinner";
 
-export interface Note { id: number; title?: string | null; content: string; source_uuids?: string[] | null; created_at: string | null }
+export interface Note {
+  id: number;
+  title?: string | null;
+  content: string;
+  source_uuids?: string[] | null;
+  source_pages?: SourceRef[] | null;
+  popup_selection?: { uuid: string; page: number; text: string } | null;
+  created_at: string | null;
+}
 
 function _notePreview(content: string, max = 60): string {
   const stripped = content
@@ -30,7 +39,7 @@ export function NotizenStudio({
   onUpdateTitle?: (id: number, title: string | null) => void;
   onBack?: () => void;
   sources?: Source[]; activeSourceIds?: string[];
-  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
+  onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
   stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
   pendingTitleIds?: Set<number>;
@@ -40,30 +49,29 @@ export function NotizenStudio({
   const [editingTitleId, setEditingTitleId] = useState<number | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const skipTitleCommitRef = useRef(false);
-
-  function extractNoteSources(note: Note): { qnum: number; uuid: string; filename: string }[] {
-    const seen = new Map<string, { qnum: number; uuid: string; filename: string }>();
-    let qCounter = 0;
-    const addUuid = (uuid: string) => {
-      if (!uuid || seen.has(uuid)) return;
-      const filename = sources?.find(s => s.uuid === uuid)?.filename ?? uuid;
-      qCounter++;
-      seen.set(uuid, { qnum: qCounter, uuid, filename });
-    };
-    // 1) Citations literally present in the note text (preserves original Q-number order).
-    const pattern = /\[(?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*[|\u2758]\s*[^\]]+)?\s*\]/g;
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(note.content)) !== null) {
-      const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
-      const embeddedUuid = m[2] || null;
-      const uuid = embeddedUuid ?? activeSourceIds?.[qIdx] ?? activeSourceIds?.[0] ?? "";
-      addUuid(uuid);
-    }
-    // 2) Sources stored alongside the note (selected at save time, may include uncited ones).
-    for (const uuid of note.source_uuids ?? []) addUuid(uuid);
-    return Array.from(seen.values());
-  }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const getFilename = (uuid: string) => sources?.find(s => s.uuid === uuid)?.filename ?? uuid;
+  const onChipClick: CitationChipClickHandler = (uuid, page, filename, sourceText, startTime, isExact) =>
+    onPillClick?.(uuid, page, filename, sourceText, startTime, isExact);
+
+  // Builds a chat-message-shaped object so the chat citation renderer can be reused 1:1.
+  // qmap entries also feed the source list at the bottom of each expanded note.
+  function noteAsMessage(note: Note): { msg: ChatMessage; qmap: SourceQmap[] } {
+    const qmap: SourceQmap[] = (note.source_uuids ?? []).map((uuid, i) => ({
+      qnum: i + 1,
+      uuid,
+      filename: getFilename(uuid),
+    }));
+    const msg: ChatMessage = {
+      role: "assistant",
+      content: note.content,
+      source_qmap: qmap,
+      source_pages: note.source_pages ?? undefined,
+      popup_selection: note.popup_selection ?? undefined,
+    };
+    return { msg, qmap };
+  }
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -71,70 +79,6 @@ export function NotizenStudio({
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [draft]);
-
-  function makeNoteCitationRenderer(noteSources: { qnum: number; uuid: string }[]) {
-    let chipKey = 0;
-    function parseNoteCitations(text: string): React.ReactNode[] {
-      const pattern = /\[(?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|\u2758]\s*([^\]]+))?\s*\]/g;
-      const nodes: React.ReactNode[] = [];
-      let last = 0;
-      let m: RegExpExecArray | null;
-      while ((m = pattern.exec(text)) !== null) {
-        if (m.index > last) nodes.push(text.slice(last, m.index));
-        const qIdx = m[1] ? parseInt(m[1]) - 1 : 0;
-        const embeddedUuid = m[2] || null;
-        const pageNum = m[3] ? parseInt(m[3]) : 0;
-        const timestamp = m[4] || null;
-        const keyword = m[5]?.trim() || undefined;
-        const isMedia = !!timestamp;
-
-        const sourceUuid = embeddedUuid
-          ?? activeSourceIds?.[qIdx]
-          ?? (isMedia
-            ? sources?.find(s => _isMediaFile(s.filename))?.uuid
-            : sources?.find(s => !_isMediaFile(s.filename))?.uuid)
-          ?? activeSourceIds?.[0]
-          ?? "";
-        const filename = sources?.find(s => s.uuid === sourceUuid)?.filename ?? sourceUuid;
-        const displayQNum = noteSources.find(s => s.uuid === sourceUuid)?.qnum ?? null;
-
-        let startTime: number | undefined;
-        if (timestamp) {
-          const parts = timestamp.split(":").map(Number);
-          startTime = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
-        }
-
-        const ChipIcon = _getChipIcon(filename);
-        const label = timestamp ?? _chunkLabel(filename, pageNum);
-        const ck = `n${chipKey++}`;
-        nodes.push(
-          <span
-            key={ck}
-            role="button"
-            tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); onPillClick?.(sourceUuid, pageNum, filename, keyword, startTime); }}
-            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity align-middle mx-0.5 cursor-pointer"
-            style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
-            title={`${filename}, ${label}`}
-          >
-            <ChipIcon size={8} weight="bold" />
-            {displayQNum ? `[${displayQNum}] ` : ""}{label}
-          </span>
-        );
-        last = pattern.lastIndex;
-      }
-      if (last < text.length) nodes.push(text.slice(last));
-      return nodes;
-    }
-    function withNoteCitations(children: React.ReactNode): React.ReactNode {
-      const arr: React.ReactNode[] = Array.isArray(children) ? children : [children];
-      return arr.flatMap((child) =>
-        typeof child === "string" ? parseNoteCitations(child) : [child]
-      );
-    }
-    return { withNoteCitations };
-  }
 
   return (
     <div className="flex flex-col h-full">
@@ -195,8 +139,9 @@ export function NotizenStudio({
             >
               {notes.map((note, idx) => {
                 const isExpanded = expandedId === note.id;
-                const noteSources = extractNoteSources(note);
-                const { withNoteCitations } = makeNoteCitationRenderer(noteSources);
+                const { msg, qmap } = noteAsMessage(note);
+                const wrapCitations = (children: React.ReactNode) =>
+                  withCitations(children, msg, activeSourceIds ?? [], getFilename, onChipClick);
                 const isLast = idx === notes.length - 1;
                 const hasCustomTitle = !!(note.title && note.title.trim());
                 const isTitlePending = !hasCustomTitle && !!pendingTitleIds?.has(note.id);
@@ -289,17 +234,17 @@ export function NotizenStudio({
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              p: ({ children }) => <p className="mb-2 last:mb-0">{withNoteCitations(children)}</p>,
+                              p: ({ children }) => <p className="mb-2 last:mb-0">{wrapCitations(children)}</p>,
                               ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
                               ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                              li: ({ children }) => <li className="leading-relaxed">{withNoteCitations(children)}</li>,
+                              li: ({ children }) => <li className="leading-relaxed">{wrapCitations(children)}</li>,
                               strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                              h1: ({ children }) => <p className="font-semibold mb-1">{withNoteCitations(children)}</p>,
-                              h2: ({ children }) => <p className="font-semibold mb-1">{withNoteCitations(children)}</p>,
-                              h3: ({ children }) => <p className="font-medium mb-1">{withNoteCitations(children)}</p>,
+                              h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
+                              h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
+                              h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,
                               table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
                               th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
-                              td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{withNoteCitations(children)}</td>,
+                              td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitations(children)}</td>,
                               hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
                             }}
                           >
@@ -307,16 +252,16 @@ export function NotizenStudio({
                           </ReactMarkdown>
                         </div>
 
-                        {noteSources.length > 0 && (
+                        {qmap.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
-                            {noteSources.map((s) => {
+                            {qmap.map((s) => {
                               const ChipIcon = _getChipIcon(s.filename);
                               return (
                                 <span
                                   key={s.qnum}
                                   role="button"
                                   tabIndex={0}
-                                  onClick={(e) => { e.stopPropagation(); onPillClick?.(s.uuid, 0, s.filename); }}
+                                  onClick={(e) => { e.stopPropagation(); onChipClick(s.uuid, 0, s.filename); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
                                   className="inline-flex items-center gap-1 text-[10px] cursor-pointer hover:opacity-70 transition-opacity"
                                   style={{ color: "var(--muted)" }}
