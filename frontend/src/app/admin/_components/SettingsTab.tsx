@@ -12,6 +12,9 @@ function ProviderToggle({
   saving,
   settingKey,
   onToggle,
+  modelKey,
+  modelValue,
+  onModelChange,
 }: {
   label: string;
   enabled: boolean;
@@ -21,6 +24,9 @@ function ProviderToggle({
   saving: boolean;
   settingKey: string;
   onToggle: (key: string, val: boolean) => void;
+  modelKey?: string;
+  modelValue?: string;
+  onModelChange?: (key: string, value: string) => void;
 }) {
   const statusText = !configured
     ? "Nicht konfiguriert."
@@ -29,15 +35,41 @@ function ProviderToggle({
       : available === false
         ? "Aktiviert — Server nicht erreichbar."
         : "Aktiv — als Anbieter wählbar.";
+  const [draft, setDraft] = React.useState(modelValue ?? "");
+  React.useEffect(() => { setDraft(modelValue ?? ""); }, [modelValue]);
+  const commit = () => {
+    if (!modelKey || !onModelChange) return;
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === (modelValue ?? "")) {
+      setDraft(modelValue ?? "");
+      return;
+    }
+    onModelChange(modelKey, trimmed);
+  };
   return (
     <div className="flex items-start justify-between gap-4">
-      <div>
+      <div className="flex-1 min-w-0">
         <p className="text-sm text-gray-700">{label}</p>
         <p className="text-xs text-gray-500 mt-0.5">{statusText}</p>
         {!configured && envHint && (
           <p className="mt-1 text-xs text-gray-400">
             <code className="font-mono">{envHint}</code> nicht gesetzt
           </p>
+        )}
+        {modelKey && onModelChange && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-xs text-gray-500 shrink-0">Modell:</span>
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commit}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+              disabled={saving || !configured}
+              spellCheck={false}
+              className="font-mono text-xs px-2 py-1 border border-gray-200 rounded w-full max-w-md disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
         )}
       </div>
       <button
@@ -96,7 +128,7 @@ function GeneralSettingsSection() {
       });
   }, []);
 
-  const patch = async (body: Record<string, boolean | string>) => {
+  const patch = async (body: Record<string, unknown>) => {
     setSaving(true);
     try {
       await fetch("/api/admin/settings", {
@@ -132,8 +164,24 @@ function GeneralSettingsSection() {
     }
   };
 
-  const P = (props: Omit<Parameters<typeof ProviderToggle>[0], "saving" | "onToggle">) => (
-    <ProviderToggle {...props} saving={saving} onToggle={toggle} />
+  const setModel = async (key: string, value: string) => {
+    setS((prev) => ({ ...prev, models: { ...(prev.models ?? {}), [key]: value } }));
+    await patch({ models: { [key]: value } } as Record<string, unknown>);
+    if (key.includes("embedding")) {
+      window.dispatchEvent(new CustomEvent("embedding-provider-changed"));
+    }
+  };
+
+  const models: Record<string, string> = (s.models as Record<string, string>) ?? {};
+
+  const P = (props: Omit<Parameters<typeof ProviderToggle>[0], "saving" | "onToggle" | "onModelChange" | "modelValue"> & { modelKey?: string }) => (
+    <ProviderToggle
+      {...props}
+      saving={saving}
+      onToggle={toggle}
+      modelValue={props.modelKey ? models[props.modelKey] : undefined}
+      onModelChange={props.modelKey ? setModel : undefined}
+    />
   );
 
   if (whitelistEnabled === null) return <Spinner className="flex justify-center py-12" />;
@@ -179,7 +227,7 @@ function GeneralSettingsSection() {
       <ProviderSection title="Text in Sprache">
         <P label="ElevenLabs" settingKey="elevenlabs_enabled" enabled={s.elevenlabs_enabled ?? false} configured={s.elevenlabs_configured ?? false} envHint="ELEVENLABS_API_KEY" />
         <P label="Kokoro TTS" settingKey="kokoro_enabled" enabled={s.kokoro_enabled ?? false} configured={s.kokoro_configured ?? false} available={s.kokoro_available} envHint="KOKORO_BASE_URL" />
-        <P label="THL myLab (XTTS-v2)" settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" />
+        <P label="THL myLab (XTTS-v2)" settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" modelKey="mylab_tts_model" />
         <P label="Thorsten (deutsch, lokal)" settingKey="thorsten_enabled" enabled={s.thorsten_enabled ?? false} configured={s.thorsten_configured ?? false} available={s.thorsten_available} envHint="THORSTEN_BASE_URL" />
       </ProviderSection>
 
@@ -189,14 +237,14 @@ function GeneralSettingsSection() {
       </ProviderSection>
 
       <ProviderSection title="Embeddings (KI-Assistent)" hint="Nur ein Anbieter gleichzeitig — Wechsel erfordert Reindex (siehe Wartungsmodus oben).">
-        <P label="KISSKI (e5-mistral-7b)" settingKey="kisski_embedding_enabled" enabled={s.kisski_embedding_enabled ?? true} configured={s.kisski_embedding_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab (qwen3-embedding-4b)" settingKey="mylab_embedding_enabled" enabled={s.mylab_embedding_enabled ?? false} configured={s.mylab_embedding_configured ?? false} available={s.mylab_embedding_available} envHint="MYLAB_BASE_URL" />
-        <P label="Ollama (lokal, nomic-embed-text)" settingKey="ollama_embedding_enabled" enabled={s.ollama_embedding_enabled ?? false} configured={s.ollama_embedding_configured ?? false} envHint="OLLAMA_BASE_URL" />
+        <P label="KISSKI" settingKey="kisski_embedding_enabled" enabled={s.kisski_embedding_enabled ?? true} configured={s.kisski_embedding_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_embedding_model" />
+        <P label="THL myLab" settingKey="mylab_embedding_enabled" enabled={s.mylab_embedding_enabled ?? false} configured={s.mylab_embedding_configured ?? false} available={s.mylab_embedding_available} envHint="MYLAB_BASE_URL" modelKey="mylab_embedding_model" />
+        <P label="Ollama (lokal)" settingKey="ollama_embedding_enabled" enabled={s.ollama_embedding_enabled ?? false} configured={s.ollama_embedding_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_embedding_model" />
       </ProviderSection>
 
       <ProviderSection title="Bild-Generierung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
         <P label="KISSKI (Flux)" settingKey="kisski_image_gen_enabled" enabled={s.kisski_image_gen_enabled ?? true} configured={s.kisski_image_gen_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab (Flux.1-dev)" settingKey="mylab_image_gen_enabled" enabled={s.mylab_image_gen_enabled ?? false} configured={s.mylab_image_gen_configured ?? false} available={s.mylab_image_gen_available} envHint="MYLAB_BASE_URL" />
+        <P label="THL myLab" settingKey="mylab_image_gen_enabled" enabled={s.mylab_image_gen_enabled ?? false} configured={s.mylab_image_gen_configured ?? false} available={s.mylab_image_gen_available} envHint="MYLAB_BASE_URL" modelKey="mylab_image_gen_model" />
       </ProviderSection>
 
       <ProviderSection title="Bild-Analyse" hint="Nur KISSKI verfuegbar (THL myLab hat kein Vision-Modell).">
@@ -205,18 +253,18 @@ function GeneralSettingsSection() {
 
       <ProviderSection title="Bild-Bearbeitung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
         <P label="KISSKI (Flux)" settingKey="kisski_image_edit_enabled" enabled={s.kisski_image_edit_enabled ?? true} configured={s.kisski_image_edit_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab (Flux.1-Kontext)" settingKey="mylab_image_edit_enabled" enabled={s.mylab_image_edit_enabled ?? false} configured={s.mylab_image_edit_configured ?? false} available={s.mylab_image_edit_available} envHint="MYLAB_BASE_URL" />
+        <P label="THL myLab" settingKey="mylab_image_edit_enabled" enabled={s.mylab_image_edit_enabled ?? false} configured={s.mylab_image_edit_configured ?? false} available={s.mylab_image_edit_available} envHint="MYLAB_BASE_URL" modelKey="mylab_image_edit_model" />
       </ProviderSection>
 
       <ProviderSection title="OCR (Texterkennung)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
-        <P label="KISSKI (Docling)" settingKey="kisski_ocr_enabled" enabled={s.kisski_ocr_enabled ?? true} configured={s.kisski_ocr_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab (Nanonets OCR2 3B)" settingKey="mylab_ocr_enabled" enabled={s.mylab_ocr_enabled ?? false} configured={s.mylab_ocr_configured ?? false} available={s.mylab_ocr_available} envHint="MYLAB_BASE_URL" />
+        <P label="KISSKI" settingKey="kisski_ocr_enabled" enabled={s.kisski_ocr_enabled ?? true} configured={s.kisski_ocr_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_ocr_model" />
+        <P label="THL myLab" settingKey="mylab_ocr_enabled" enabled={s.mylab_ocr_enabled ?? false} configured={s.mylab_ocr_configured ?? false} available={s.mylab_ocr_available} envHint="MYLAB_BASE_URL" modelKey="mylab_ocr_model" />
       </ProviderSection>
 
       <ProviderSection title="LLM Chat" hint="Nur ein Anbieter gleichzeitig. Wechsel wirkt sofort fuer alle LLM-Calls (Chat, Mindmap, Summary, Skript).">
-        <P label="KISSKI (Mistral / Qwen)" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab (GPT OSS 120B)" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" />
-        <P label="Ollama (lokal, qwen3)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" />
+        <P label="KISSKI" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_llm_model" />
+        <P label="THL myLab" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" modelKey="mylab_llm_model" />
+        <P label="Ollama (lokal)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_llm_model" />
       </ProviderSection>
 
       <ProviderSection title="Transkript-Übersetzung (EN)" hint="Automatische Übersetzung deutscher Video-/Audio-Transkripte ins Englische nach dem Indexieren. Betrifft aktuell nur den KI-Assistenten.">

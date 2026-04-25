@@ -138,7 +138,15 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "ollama_llm_configured": ollama_configured,
         # ── Transkript-Übersetzung (EN) ──
         "transcript_translation_provider": db.get_setting("transcript_translation_provider", "llm"),
+        # ── Provider-Modellnamen (im Admin-Panel editierbar) ──
+        "models": _current_models(),
     }
+
+
+def _current_models() -> dict[str, str]:
+    """Aktuelle Modellnamen pro Provider/Feature aus DB lesen."""
+    from src.services.runtime_models import get_model, MODEL_KEYS
+    return {key: get_model(key) for key in MODEL_KEYS}
 
 
 # Simple bool-Setting-Keys: werden alle nach dem gleichen Schema gesetzt
@@ -212,5 +220,20 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         if body.transcript_translation_provider not in ("deepl", "llm"):
             raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
         db.set_setting("transcript_translation_provider", body.transcript_translation_provider)
+
+    # Provider-Modellnamen
+    if body.models:
+        from src.services.runtime_models import MODEL_KEYS
+        unknown = [k for k in body.models if k not in MODEL_KEYS]
+        if unknown:
+            raise HTTPException(status_code=400, detail=f"Unbekannte Model-Keys: {unknown}")
+        for key, value in body.models.items():
+            stripped = (value or "").strip()
+            if not stripped:
+                raise HTTPException(status_code=400, detail=f"Modellname fuer {key} darf nicht leer sein")
+            db.set_setting(key, stripped)
+        # Modell-Wechsel beim Embedding kann Reindex erfordern
+        if any(k in MODEL_KEYS and "embedding" in k for k in body.models):
+            invalidate_fingerprint_cache()
 
     return {"ok": True}

@@ -216,9 +216,9 @@ def run_image_generate(
 
         provider = _image_provider("gen")
         if provider == "mylab":
-            from src.config import Settings
+            from src.services.runtime_models import get_model
             base_url, client = _mylab_http_client(timeout=120.0)
-            body: dict = {"model": Settings().mylab_image_gen_model, "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
+            body: dict = {"model": get_model("mylab_image_gen_model"), "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
         else:
             base_url, client = _kisski_http_client(timeout=120.0)
             body = {"model": "flux", "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
@@ -276,12 +276,12 @@ def run_image_edit(
 
         provider = _image_provider("edit")
         if provider == "mylab":
-            from src.config import Settings
+            from src.services.runtime_models import get_model
             base_url, client = _mylab_http_client(timeout=120.0)
             # myLab "standard" quality bug: quality param isn't applied; send guidance_scale/num_inference_steps explicitly.
             form_data = {
                 "prompt": prompt,
-                "model": Settings().mylab_image_edit_model,
+                "model": get_model("mylab_image_edit_model"),
                 "response_format": "b64_json",
                 "guidance_scale": "2.5",
                 "num_inference_steps": "25",

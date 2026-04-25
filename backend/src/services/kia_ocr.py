@@ -61,9 +61,10 @@ class KisskiOcrProvider(OcrProvider):
     def __init__(self) -> None:
         from langfuse.openai import OpenAI
         from src.config import Settings
+        from src.services.runtime_models import get_model
         s = Settings()
         self._client = OpenAI(api_key=s.kisski_api_key, base_url=s.kisski_base_url)
-        self._model = s.kisski_ocr_model
+        self._model = get_model("kisski_ocr_model")
 
     def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
         return _call_vlm(self._client, self._model, image_bytes, mime_type)
@@ -75,12 +76,13 @@ class MyLabOcrProvider(OcrProvider):
     def __init__(self) -> None:
         from langfuse.openai import OpenAI
         from src.config import Settings
+        from src.services.runtime_models import get_model
         s = Settings()
         base = (s.mylab_base_url or "").rstrip("/")
         if not base:
             raise RuntimeError("MYLAB_BASE_URL nicht konfiguriert")
         self._client = OpenAI(api_key="ignored", base_url=f"{base}/v1")
-        self._model = s.mylab_ocr_model
+        self._model = get_model("mylab_ocr_model")
 
     def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
         return _call_vlm(self._client, self._model, image_bytes, mime_type)

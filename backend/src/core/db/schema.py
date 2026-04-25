@@ -583,6 +583,15 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 default="kisski_llm_enabled",
                 label="LLM",
             )
+
+            # Runtime-tunable Modellnamen: beim ersten Start mit Defaults seeden.
+            # Bestehende Werte werden NIE ueberschrieben — Admin-Edits bleiben erhalten.
+            from src.services.runtime_models import MODEL_DEFAULTS
+            for key, default in MODEL_DEFAULTS.items():
+                cur.execute("""
+                    INSERT INTO settings (key, value) VALUES (%s, %s)
+                    ON CONFLICT (key) DO NOTHING
+                """, (key, default))
         conn.commit()
 
 

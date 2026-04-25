@@ -30,9 +30,10 @@ class KisskiEmbeddingProvider(EmbeddingProvider):
     def __init__(self) -> None:
         from langfuse.openai import OpenAI
         from src.config import Settings
+        from src.services.runtime_models import get_model
         s = Settings()
         self._client = OpenAI(api_key=s.kisski_api_key, base_url=s.kisski_base_url)
-        self._model = s.kisski_embedding_model
+        self._model = get_model("kisski_embedding_model")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         results: list[list[float]] = []
@@ -70,13 +71,14 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
 
     def __init__(self) -> None:
         from src.config import Settings
+        from src.services.runtime_models import get_model
         from langfuse import Langfuse
         s = Settings()
         base = s.ollama_base_url.rstrip("/")
         if base.endswith("/v1"):
             base = base[:-3]
         self._embed_url = base + "/api/embed"
-        self._model = s.ollama_embedding_model
+        self._model = get_model("ollama_embedding_model")
         self._langfuse = Langfuse()
 
     # Safety net only — chunker now produces ≤600 char chunks, this should never trigger
@@ -152,13 +154,14 @@ class MyLabEmbeddingProvider(EmbeddingProvider):
     def __init__(self) -> None:
         from langfuse.openai import OpenAI
         from src.config import Settings
+        from src.services.runtime_models import get_model
         s = Settings()
         base = (s.mylab_base_url or "").rstrip("/")
         if not base:
             raise RuntimeError("MYLAB_BASE_URL nicht konfiguriert")
         # myLab is open/unauthenticated within the TH network — any non-empty key works
         self._client = OpenAI(api_key="ignored", base_url=f"{base}/v1")
-        self._model = s.mylab_embedding_model
+        self._model = get_model("mylab_embedding_model")
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         results: list[list[float]] = []

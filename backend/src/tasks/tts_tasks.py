@@ -91,7 +91,8 @@ def run_tts(
             chunks = _split_text(text)
         elif requested_provider == "mylab" and bool(settings.mylab_tts_base_url):
             from src.services.mylab_client import MyLabClient, _split_text
-            client = MyLabClient(settings.mylab_tts_base_url, model=settings.mylab_tts_model)
+            from src.services.runtime_models import get_model
+            client = MyLabClient(settings.mylab_tts_base_url, model=get_model("mylab_tts_model"))
             chunks = _split_text(text)
         elif requested_provider == "thorsten" and bool(settings.thorsten_base_url):
             from src.services.thorsten_client import ThorstenClient, _split_text

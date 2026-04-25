@@ -65,21 +65,23 @@ def _resolve_llm_provider() -> tuple[str, str, str, str]:
     from src import database as db
     settings = get_settings()
 
+    from src.services.runtime_models import get_model
+
     if db.get_setting("kisski_llm_enabled", "false").lower() == "true":
         if not settings.kisski_api_key:
             raise RuntimeError("KISSKI LLM aktiv, aber KISSKI_API_KEY nicht gesetzt.")
-        return settings.kisski_api_key, settings.kisski_base_url, settings.kisski_model, "kisski"
+        return settings.kisski_api_key, settings.kisski_base_url, get_model("kisski_llm_model"), "kisski"
 
     if db.get_setting("mylab_llm_enabled", "false").lower() == "true":
         mylab_url = settings.mylab_base_url or settings.mylab_tts_base_url
         if not mylab_url:
             raise RuntimeError("THL myLab LLM aktiv, aber MYLAB_BASE_URL nicht gesetzt.")
-        return "ignored", f"{mylab_url.rstrip('/')}/v1", settings.mylab_llm_model, "thl"
+        return "ignored", f"{mylab_url.rstrip('/')}/v1", get_model("mylab_llm_model"), "thl"
 
     if db.get_setting("ollama_llm_enabled", "false").lower() == "true":
         if not settings.ollama_base_url:
             raise RuntimeError("Ollama LLM aktiv, aber OLLAMA_BASE_URL nicht gesetzt.")
-        return "ignored", settings.ollama_base_url, settings.ollama_model, "ollama"
+        return "ignored", settings.ollama_base_url, get_model("ollama_llm_model"), "ollama"
 
     raise RuntimeError(
         "Kein LLM-Provider aktiv. Bitte im Admin-Bereich unter 'LLM Chat' "
@@ -100,10 +102,11 @@ def resolve_whisper_client() -> KisskiClient:
         mylab_url = settings.mylab_base_url or settings.mylab_tts_base_url
         if not mylab_url:
             raise RuntimeError("THL myLab Base-URL nicht konfiguriert")
+        from src.services.runtime_models import get_model
         return KisskiClient(
             api_key="not-needed",
             base_url=f"{mylab_url.rstrip('/')}/v1",
-            model=settings.mylab_llm_model,
+            model=get_model("mylab_llm_model"),
             provider="mylab",
             whisper_model="whisper-3-large",
         )
@@ -185,10 +188,11 @@ def is_thorsten_enabled() -> bool:
 
 def get_mylab_client():
     from src.services.mylab_client import MyLabClient
+    from src.services.runtime_models import get_model
     settings = get_settings()
     if not settings.mylab_tts_base_url:
         return None
-    return MyLabClient(settings.mylab_tts_base_url, model=settings.mylab_tts_model)
+    return MyLabClient(settings.mylab_tts_base_url, model=get_model("mylab_tts_model"))
 
 
 def is_mylab_enabled() -> bool:

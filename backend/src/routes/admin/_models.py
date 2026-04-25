@@ -39,6 +39,8 @@ class UpdateSettingsRequest(BaseModel):
     ollama_llm_enabled: bool | None = None
     # Transkript-Übersetzung (EN)
     transcript_translation_provider: str | None = None
+    # Provider-Modellnamen (DB-Setting). Erlaubte Keys: siehe runtime_models.MODEL_KEYS.
+    models: dict[str, str] | None = None
 
 
 class ToggleToolRequest(BaseModel):

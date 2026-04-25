@@ -5,22 +5,18 @@ class Settings(BaseSettings):
     # Translation
     translation_languages: str = "DE,EN-US,FR,ES,IT"
 
-    # API Keys (stored in .env)
+    # Hinweis: Provider-Auswahl + Modellnamen werden ueber das Admin-Panel verwaltet
+    # (DB-Settings, siehe routes/admin/settings.py und services/runtime_models.py).
+    # Hier liegen nur Credentials/URLs und reines Deployment-Stuff.
+
+    # API Keys + Endpoints
     deepl_api_key: str = ""
     elevenlabs_api_key: str = ""
     kisski_api_key: str = ""
     kisski_base_url: str = "https://chat-ai.academiccloud.de/v1"
-    kisski_model: str = "qwen3-30b-a3b-instruct-2507"
-    kisski_embedding_model: str = "e5-mistral-7b-instruct"
-    ollama_embedding_model: str = "nomic-embed-text"
 
-    # Provider-Auswahl (LLM + Embedding) erfolgt ueber Admin-Panel via DB-Toggles,
-    # nicht ueber Env-Vars. Siehe routes/admin/settings.py und _resolve_llm_provider().
+    # Ollama (lokal)
     ollama_base_url: str = "http://ollama:11434/v1"
-    ollama_model: str = "qwen3:30b-a3b"
-
-    # THL myLab LLM — nutzt mylab_base_url + /v1
-    mylab_llm_model: str = "chat-default"
 
     # Fish Speech TTS (lokaler TTS-Server) — leer = deaktiviert
     fish_speech_base_url: str = ""
@@ -31,20 +27,12 @@ class Settings(BaseSettings):
 
     # myLab TTS (TH Lübeck, Coqui XTTS-v2) — leer = deaktiviert
     mylab_tts_base_url: str = ""
-    mylab_tts_model: str = "tts-1-hd"
 
     # Thorsten TTS (lokaler Docker, Coqui VITS) — leer = deaktiviert
     thorsten_base_url: str = ""
 
-    # myLab Plattform (TH Lübeck) — gemeinsame Base-URL für Whisper, Image, Embeddings, OCR
+    # myLab Plattform (TH Lübeck) — gemeinsame Base-URL fuer Whisper, Image, Embeddings, OCR
     mylab_base_url: str = ""
-    mylab_embedding_model: str = "qwen3-embedding-4b"
-    mylab_ocr_model: str = "chandra-ocr-2"
-    mylab_image_gen_model: str = "flux.1-dev"
-    mylab_image_edit_model: str = "flux.1-kontext"
-
-    # KISSKI OCR — Vision-LLM über /v1/chat/completions mit image_url input
-    kisski_ocr_model: str = "internvl3.5-30b-a3b"
 
     # Security
     session_secret: str = "change-me-in-production"
