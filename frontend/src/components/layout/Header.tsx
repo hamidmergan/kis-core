@@ -39,7 +39,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
             KIS
           </Link>
           {process.env.NODE_ENV === "development" && (
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#f59e0b", color: "#000" }}>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#532bdd", color: "#fff" }}>
               DEV
             </span>
           )}
