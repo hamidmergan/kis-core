@@ -1,4 +1,4 @@
-"""KI-Assistent Celery tasks — zeitplan extraction (Regex + Batch-Classify pipeline).
+"""KI-Assistent Celery tasks — schedule extraction (Regex + Batch-Classify pipeline).
 
 Pipeline:
   1) Regex findet 100% der Datumskandidaten pro Source (_candidates)
@@ -17,25 +17,25 @@ from src import database as db
 from src.celery_app import celery_app
 from src.features.ki_assistent.tasks._helpers import _get_llm_client
 
-from src.features.ki_assistent.tasks.studio.zeitplan._candidates import (
+from src.features.ki_assistent.tasks.studio.schedule._candidates import (
     _build_candidates_for_source,
 )
-from src.features.ki_assistent.tasks.studio.zeitplan._classify import _classify_candidates
-from src.features.ki_assistent.tasks.studio.zeitplan._harmonize import (
+from src.features.ki_assistent.tasks.studio.schedule._classify import _classify_candidates
+from src.features.ki_assistent.tasks.studio.schedule._harmonize import (
     _harmonize_same_date_titles,
 )
-from src.features.ki_assistent.tasks.studio.zeitplan._parse import (
+from src.features.ki_assistent.tasks.studio.schedule._parse import (
     _parse_date,
     _parse_time,
     _resolve_current_year,
 )
-from src.features.ki_assistent.tasks.studio.zeitplan._titles import _fuzzy_same
+from src.features.ki_assistent.tasks.studio.schedule._titles import _fuzzy_same
 
 
-@celery_app.task(bind=True, name="kia.generate_zeitplan", queue="kia",
+@celery_app.task(bind=True, name="kia.generate_schedule", queue="kia",
                  soft_time_limit=600, time_limit=720)
-@observe(name="kia-zeitplan")
-def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
+@observe(name="kia-schedule")
+def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
                           source_uuids: list[str]):
     """Regex-first pipeline:
       1) find all date candidates per source via regex (100% recall)
@@ -43,8 +43,8 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
       3) merge into existing entries (fuzzy-title + same date → append source_ref)
     """
     try:
-        db.update_zeitplan_job(job_id, "running")
-        logger.info("Zeitplan job {} started", job_id)
+        db.update_schedule_job(job_id, "running")
+        logger.info("Schedule job {} started", job_id)
 
         sources: list[dict] = []
         for suuid in source_uuids:
@@ -56,23 +56,23 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
         pending = [s for s in sources if s["id"] not in already_processed]
 
         if not pending:
-            db.update_zeitplan_job(job_id, "success", added_count=0)
-            logger.info("Zeitplan job {}: no pending sources", job_id)
+            db.update_schedule_job(job_id, "success", added_count=0)
+            logger.info("Schedule job {}: no pending sources", job_id)
             return
 
         # STAGE 1: Regex-based candidate collection (across all pending sources)
         all_candidates: list[dict] = []
         for src in pending:
             cands = _build_candidates_for_source(src)
-            logger.info("Zeitplan job {}: source '{}' → {} date candidates",
+            logger.info("Schedule job {}: source '{}' → {} date candidates",
                         job_id, src.get("filename", src["id"]), len(cands))
             all_candidates.extend(cands)
 
         if not all_candidates:
             for src in pending:
                 db.mark_source_processed(module_id, user_id, src["id"])
-            db.update_zeitplan_job(job_id, "success", added_count=0)
-            logger.info("Zeitplan job {}: no candidates found", job_id)
+            db.update_schedule_job(job_id, "success", added_count=0)
+            logger.info("Schedule job {}: no candidates found", job_id)
             return
 
         # STAGE 2: ONE batch LLM call classifies everything
@@ -81,8 +81,8 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
         try:
             classifications = _classify_candidates(client, model, all_candidates, today_d)
         except Exception as e:
-            logger.error("Zeitplan job {}: classify failed: {}", job_id, e)
-            db.update_zeitplan_job(job_id, "failed", error=f"Klassifikation fehlgeschlagen: {e}")
+            logger.error("Schedule job {}: classify failed: {}", job_id, e)
+            db.update_schedule_job(job_id, "failed", error=f"Klassifikation fehlgeschlagen: {e}")
             return
 
         # STAGE 2b: Deterministic slide-footer override.
@@ -103,7 +103,7 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
         for (suuid, date_key), indices in grp.items():
             if len(indices) >= _SLIDE_FOOTER_THRESHOLD:
                 logger.info(
-                    "Zeitplan job {}: slide-footer override — date {} repeats {}x in source {}, dropping all",
+                    "Schedule job {}: slide-footer override — date {} repeats {}x in source {}, dropping all",
                     job_id, date_key, len(indices), suuid,
                 )
                 for idx in indices:
@@ -112,7 +112,7 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
 
         # Load existing entries now so the harmonize pass can align new
         # candidate titles with DB entries already present on the same date.
-        existing_entries: list[dict] = list(db.get_zeitplan_entries(module_id, user_id))
+        existing_entries: list[dict] = list(db.get_schedule_entries(module_id, user_id))
 
         # STAGE 2c: Cross-candidate title harmonization for events on the same date.
         # Aligns new candidates with each other AND with existing DB entries so
@@ -122,7 +122,7 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
                 client, model, all_candidates, classifications, today_d, existing_entries,
             )
         except Exception as e:
-            logger.warning("Zeitplan job {}: harmonize pass failed (non-fatal): {}", job_id, e)
+            logger.warning("Schedule job {}: harmonize pass failed (non-fatal): {}", job_id, e)
 
         # STAGE 3: Merge into entries (dedup with existing via fuzzy-title + date)
         added = 0
@@ -130,7 +130,7 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
         for cand, cls in zip(all_candidates, classifications):
             if not cls["keep"] or cls["is_footer"] or cls.get("is_historical"):
                 logger.info(
-                    "Zeitplan job {}: drop candidate date={} (footer={}, historical={}, keep={})",
+                    "Schedule job {}: drop candidate date={} (footer={}, historical={}, keep={})",
                     job_id, cand.get("date_iso") or cand.get("partial_date"),
                     cls["is_footer"], cls.get("is_historical"), cls["keep"],
                 )
@@ -174,12 +174,12 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
                 db.append_source_ref_to_entry(merge_target["id"], ref)
                 # Update local view too, so subsequent candidates see the merge
                 merge_target.setdefault("source_refs", []).append(ref)
-                logger.info("Zeitplan job {}: merged '{}' into entry #{}",
+                logger.info("Schedule job {}: merged '{}' into entry #{}",
                             job_id, cls["title"], merge_target["id"])
                 continue
 
             type_ = cls["type"] if cls["type"] in ("deadline", "termin") else "termin"
-            new_row = db.create_zeitplan_entry(
+            new_row = db.create_schedule_entry(
                 module_id,
                 user_id,
                 type=type_,
@@ -198,12 +198,12 @@ def run_generate_zeitplan(self, job_id: int, module_id: int, user_id: int,
         for src in pending:
             db.mark_source_processed(module_id, user_id, src["id"])
 
-        db.update_zeitplan_job(job_id, "success", added_count=added)
-        logger.info("Zeitplan job {}: added {} new entries", job_id, added)
+        db.update_schedule_job(job_id, "success", added_count=added)
+        logger.info("Schedule job {}: added {} new entries", job_id, added)
 
     except Exception as e:
-        logger.error("Zeitplan job {} failed: {}", job_id, e)
-        db.update_zeitplan_job(job_id, "failed", error=str(e))
+        logger.error("Schedule job {} failed: {}", job_id, e)
+        db.update_schedule_job(job_id, "failed", error=str(e))
 
 
-__all__ = ["run_generate_zeitplan"]
+__all__ = ["run_generate_schedule"]

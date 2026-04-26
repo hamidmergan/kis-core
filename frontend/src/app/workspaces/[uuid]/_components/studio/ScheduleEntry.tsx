@@ -1,10 +1,10 @@
 import { Check, Clock, PencilSimple, Trash } from "@phosphor-icons/react";
-import type { ZeitplanEntry } from "../../_types";
+import type { ScheduleEntry } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
 
 interface SourceLike { uuid: string; filename: string; }
 
-export function ZeitplanEntryCard({
+export function ScheduleEntryCard({
   entry,
   isToday,
   isPast,
@@ -16,7 +16,7 @@ export function ZeitplanEntryCard({
   onDelete,
   onPillClick,
 }: {
-  entry: ZeitplanEntry;
+  entry: ScheduleEntry;
   isToday: boolean;
   isPast: boolean;
   editMode: boolean;

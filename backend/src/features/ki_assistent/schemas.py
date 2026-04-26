@@ -95,13 +95,13 @@ class ExerciseProgressBody(BaseModel):
     new_run: bool = False
 
 
-# ─── Zeitplan ─────────────────────────────────────────────────────────────────
+# ─── Schedule ─────────────────────────────────────────────────────────────────
 
-class ZeitplanGenerateBody(BaseModel):
+class ScheduleGenerateBody(BaseModel):
     source_ids: list[str]  # max 30 source UUIDs
 
 
-class ZeitplanEntryCreateBody(BaseModel):
+class ScheduleEntryCreateBody(BaseModel):
     type: str  # 'deadline' | 'termin'
     title: str = Field(..., max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
@@ -110,7 +110,7 @@ class ZeitplanEntryCreateBody(BaseModel):
     is_optional: bool = False
 
 
-class ZeitplanEntryUpdateBody(BaseModel):
+class ScheduleEntryUpdateBody(BaseModel):
     type: Optional[str] = None
     title: Optional[str] = Field(None, max_length=200)
     description: Optional[str] = Field(None, max_length=2000)

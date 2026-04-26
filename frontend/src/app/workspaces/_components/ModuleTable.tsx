@@ -3,7 +3,6 @@
 import { useState } from "react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import ModuleTableRow from "./ModuleTableRow";
-import ModuleCard from "./ModuleCard";
 import type { AccessLink, KiTutorModule } from "../_shared";
 
 const MODULES_PER_PAGE = 20;
@@ -31,9 +30,8 @@ export default function ModuleTable({
 
   return (
     <>
-      {/* Desktop: table */}
-      <div className="hidden md:block w-full">
-        <table className="w-full" style={{ tableLayout: "fixed" }}>
+      <div className="w-full overflow-x-auto">
+        <table className="w-full" style={{ tableLayout: "fixed", minWidth: "760px" }}>
           <colgroup>
             <col style={{ width: "44px" }} />
             <col />
@@ -72,20 +70,6 @@ export default function ModuleTable({
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* Mobile: cards */}
-      <div className="md:hidden">
-        {visibleModules.map((m) => (
-          <ModuleCard
-            key={m.uuid}
-            module={m}
-            onToggleActive={onToggleActive}
-            onDelete={onDelete}
-            onEdit={onEdit}
-            onLinksChanged={onLinksChanged}
-          />
-        ))}
       </div>
 
       {/* Pagination */}

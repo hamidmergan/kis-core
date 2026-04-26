@@ -7,10 +7,10 @@ from datetime import date
 from loguru import logger
 
 from src.features.ki_assistent.tasks._helpers import _clean_llm_json
-from src.tool_prompts import KIA_ZEITPLAN_HARMONIZE_PROMPT
+from src.tool_prompts import KIA_SCHEDULE_HARMONIZE_PROMPT
 
-from src.features.ki_assistent.tasks.studio.zeitplan._classify import _CLASSIFY_TIMEOUT_SECS
-from src.features.ki_assistent.tasks.studio.zeitplan._parse import (
+from src.features.ki_assistent.tasks.studio.schedule._classify import _CLASSIFY_TIMEOUT_SECS
+from src.features.ki_assistent.tasks.studio.schedule._parse import (
     _parse_date,
     _resolve_current_year,
 )
@@ -84,7 +84,7 @@ def _harmonize_same_date_titles(
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": KIA_ZEITPLAN_HARMONIZE_PROMPT},
+                    {"role": "system", "content": KIA_SCHEDULE_HARMONIZE_PROMPT},
                     {"role": "user", "content": user_msg},
                 ],
                 temperature=0.0,
@@ -108,8 +108,8 @@ def _harmonize_same_date_titles(
                     if 0 <= i < len(classifications):
                         classifications[i]["title"] = canonical
                 logger.info(
-                    "Zeitplan harmonize: date {} — candidates {} aligned to '{}'",
+                    "Schedule harmonize: date {} — candidates {} aligned to '{}'",
                     d.isoformat(), cand_ids, canonical,
                 )
         except Exception as e:
-            logger.warning("Zeitplan harmonize failed for {}: {}", d.isoformat(), e)
+            logger.warning("Schedule harmonize failed for {}: {}", d.isoformat(), e)

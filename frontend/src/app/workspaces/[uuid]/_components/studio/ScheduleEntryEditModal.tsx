@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { X } from "@phosphor-icons/react";
-import type { ZeitplanEntry, ZeitplanEntryType } from "../../_types";
+import type { ScheduleEntry, ScheduleEntryType } from "../../_types";
 
 export interface EditInput {
-  type: ZeitplanEntryType;
+  type: ScheduleEntryType;
   title: string;
   description: string;
   due_date: string;      // '' == leer
@@ -11,14 +11,14 @@ export interface EditInput {
   is_optional: boolean;
 }
 
-export function ZeitplanEntryEditModal({
+export function ScheduleEntryEditModal({
   initial,
   title,
   submitLabel,
   onCancel,
   onSubmit,
 }: {
-  initial?: ZeitplanEntry;
+  initial?: ScheduleEntry;
   title: string;
   submitLabel: string;
   onCancel: () => void;

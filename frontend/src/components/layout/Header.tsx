@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SignOut, UserCircleGear, House } from "@phosphor-icons/react";
+import { SignOut, UserCircleGear, House, CalendarBlank } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/jobs/JobsPanel";
 
@@ -53,6 +53,15 @@ export default function Header({ showLogout = false }: HeaderProps) {
               className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
               <House size={18} weight="bold" />
+            </Link>
+
+            <Link
+              href="/schedule"
+              aria-label="Zeitplan"
+              title="Zeitplan"
+              className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <CalendarBlank size={18} weight="bold" />
             </Link>
 
             <JobsPanel />

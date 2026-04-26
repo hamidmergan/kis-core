@@ -183,7 +183,7 @@ export function tryHighlightOnPage(
         }
       }
 
-      // exactSelection = true (popup selection / zeitplan chip): the caller
+      // exactSelection = true (popup selection / schedule chip): the caller
       // supplied a precise verbatim quote. If it doesn't match the page,
       // DO NOT fall back to sliding-window or single-keyword search — that
       // would highlight something unrelated (e.g. a random date in the
@@ -491,7 +491,7 @@ export function tryHighlightOnPage(
       if (!selInstance?.applyInstantSelection || !docId2) return false;
 
       return Promise.all([findGeo(rawStart), findGeo(rawEnd)]).then(([geoStart, geoEnd]) => {
-        // For exact selections (popup actions, zeitplan chips): constrain the
+        // For exact selections (popup actions, schedule chips): constrain the
         // range to runs on the same VISUAL line as the match start. PPTX PDFs
         // sometimes store chars in an order that doesn't match the visual
         // layout, so a char-range can span header+body+footer even if the

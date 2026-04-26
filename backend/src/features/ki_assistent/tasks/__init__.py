@@ -11,4 +11,4 @@ from src.features.ki_assistent.tasks.sprachtraining import run_generate_exercise
 from src.features.ki_assistent.tasks.maintenance import run_reindex_all_sources  # noqa: F401
 from src.features.ki_assistent.tasks.studio.mindmap import run_generate_mindmap  # noqa: F401
 from src.features.ki_assistent.tasks.studio.datentabelle import run_generate_datentabelle  # noqa: F401
-from src.features.ki_assistent.tasks.studio.zeitplan import run_generate_zeitplan  # noqa: F401
+from src.features.ki_assistent.tasks.studio.schedule import run_generate_schedule  # noqa: F401

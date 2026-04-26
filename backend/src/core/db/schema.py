@@ -40,6 +40,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("ki_tutor_exercise_items", "kia_exercise_items"),
                 ("ki_tutor_exercise_progress", "kia_exercise_progress"),
                 ("ki_tutor_streaks", "kia_streaks"),
+                # Rename German "zeitplan" tables to English "schedule" (no-op on fresh DBs).
+                ("kia_zeitplan_entries", "kia_schedule_entries"),
+                ("kia_zeitplan_jobs", "kia_schedule_jobs"),
+                ("kia_zeitplan_processed_sources", "kia_schedule_processed_sources"),
             ]:
                 cur.execute(
                     "SELECT to_regclass(%s) IS NOT NULL AND to_regclass(%s) IS NULL",
@@ -47,6 +51,19 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
                 if cur.fetchone()[0]:
                     cur.execute(f"ALTER TABLE {old} RENAME TO {new}")
+
+            # Rename legacy zeitplan indices to schedule (idempotent).
+            for old_idx, new_idx in [
+                ("idx_zeitplan_module_user", "idx_schedule_module_user"),
+                ("idx_zeitplan_due_date", "idx_schedule_due_date"),
+                ("idx_zeitplan_jobs_module_user", "idx_schedule_jobs_module_user"),
+            ]:
+                cur.execute(
+                    "SELECT to_regclass(%s) IS NOT NULL AND to_regclass(%s) IS NULL",
+                    (f"public.{old_idx}", f"public.{new_idx}"),
+                )
+                if cur.fetchone()[0]:
+                    cur.execute(f"ALTER INDEX {old_idx} RENAME TO {new_idx}")
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
@@ -494,7 +511,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
             for col in ("correct_streak", "total_attempts", "total_correct"):
                 cur.execute(f"ALTER TABLE kia_exercise_items DROP COLUMN IF EXISTS {col}")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_zeitplan_entries (
+                CREATE TABLE IF NOT EXISTS kia_schedule_entries (
                     id           SERIAL PRIMARY KEY,
                     module_id    INTEGER NOT NULL
                                    REFERENCES kia_modules(id) ON DELETE CASCADE,
@@ -513,22 +530,22 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            cur.execute("ALTER TABLE kia_zeitplan_entries ADD COLUMN IF NOT EXISTS source_refs JSONB NOT NULL DEFAULT '[]'::jsonb")
+            cur.execute("ALTER TABLE kia_schedule_entries ADD COLUMN IF NOT EXISTS source_refs JSONB NOT NULL DEFAULT '[]'::jsonb")
             # Drop legacy columns (were single-position; replaced by source_refs array)
-            cur.execute("ALTER TABLE kia_zeitplan_entries DROP COLUMN IF EXISTS source_ids")
-            cur.execute("ALTER TABLE kia_zeitplan_entries DROP COLUMN IF EXISTS raw_quote")
-            cur.execute("ALTER TABLE kia_zeitplan_entries DROP COLUMN IF EXISTS page_number")
-            cur.execute("ALTER TABLE kia_zeitplan_entries DROP COLUMN IF EXISTS start_time")
+            cur.execute("ALTER TABLE kia_schedule_entries DROP COLUMN IF EXISTS source_ids")
+            cur.execute("ALTER TABLE kia_schedule_entries DROP COLUMN IF EXISTS raw_quote")
+            cur.execute("ALTER TABLE kia_schedule_entries DROP COLUMN IF EXISTS page_number")
+            cur.execute("ALTER TABLE kia_schedule_entries DROP COLUMN IF EXISTS start_time")
             cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_zeitplan_module_user
-                ON kia_zeitplan_entries(module_id, user_id)
+                CREATE INDEX IF NOT EXISTS idx_schedule_module_user
+                ON kia_schedule_entries(module_id, user_id)
             """)
             cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_zeitplan_due_date
-                ON kia_zeitplan_entries(module_id, user_id, due_date)
+                CREATE INDEX IF NOT EXISTS idx_schedule_due_date
+                ON kia_schedule_entries(module_id, user_id, due_date)
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_zeitplan_processed_sources (
+                CREATE TABLE IF NOT EXISTS kia_schedule_processed_sources (
                     module_id     INTEGER NOT NULL
                                     REFERENCES kia_modules(id) ON DELETE CASCADE,
                     user_id       INTEGER NOT NULL,
@@ -539,7 +556,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_zeitplan_jobs (
+                CREATE TABLE IF NOT EXISTS kia_schedule_jobs (
                     id            SERIAL PRIMARY KEY,
                     module_id     INTEGER NOT NULL
                                     REFERENCES kia_modules(id) ON DELETE CASCADE,
@@ -554,8 +571,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_zeitplan_jobs_module_user
-                ON kia_zeitplan_jobs(module_id, user_id)
+                CREATE INDEX IF NOT EXISTS idx_schedule_jobs_module_user
+                ON kia_schedule_jobs(module_id, user_id)
             """)
         conn.commit()
 

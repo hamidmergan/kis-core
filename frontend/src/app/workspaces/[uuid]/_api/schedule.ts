@@ -1,14 +1,14 @@
-import type { ZeitplanData, ZeitplanEntry, ZeitplanEntryType } from "../_types";
+import type { ScheduleData, ScheduleEntry, ScheduleEntryType } from "../_types";
 
-const base = (moduleUuid: string) => `/api/ki-assistent/modules/${moduleUuid}/zeitplan`;
+const base = (moduleUuid: string) => `/api/ki-assistent/modules/${moduleUuid}/schedule`;
 
-export async function fetchZeitplan(moduleUuid: string): Promise<ZeitplanData> {
+export async function fetchSchedule(moduleUuid: string): Promise<ScheduleData> {
   const r = await fetch(base(moduleUuid), { credentials: "include" });
   if (!r.ok) throw new Error(`Zeitplan laden fehlgeschlagen: ${r.status}`);
   return r.json();
 }
 
-export async function generateZeitplan(
+export async function generateSchedule(
   moduleUuid: string,
   sourceIds: string[]
 ): Promise<{ job_id: number; status: string }> {
@@ -22,7 +22,7 @@ export async function generateZeitplan(
   return r.json();
 }
 
-export interface ZeitplanJob {
+export interface ScheduleJob {
   id: number;
   status: "pending" | "running" | "success" | "failed";
   error: string | null;
@@ -32,36 +32,36 @@ export interface ZeitplanJob {
   updated_at: string | null;
 }
 
-export async function fetchZeitplanJob(
+export async function fetchScheduleJob(
   moduleUuid: string,
   jobId: number
-): Promise<ZeitplanJob> {
+): Promise<ScheduleJob> {
   const r = await fetch(`${base(moduleUuid)}/jobs/${jobId}`, { credentials: "include" });
   if (!r.ok) throw new Error(`Job-Status laden fehlgeschlagen: ${r.status}`);
   return r.json();
 }
 
-export interface ActiveZeitplanJob {
+export interface ActiveScheduleJob {
   active: boolean;
   id?: number;
   status?: "pending" | "running";
   created_at?: string | null;
 }
 
-export async function fetchActiveZeitplanJob(moduleUuid: string): Promise<ActiveZeitplanJob> {
+export async function fetchActiveScheduleJob(moduleUuid: string): Promise<ActiveScheduleJob> {
   const r = await fetch(`${base(moduleUuid)}/jobs/active`, { credentials: "include" });
   if (!r.ok) throw new Error(`Active-Job-Status laden fehlgeschlagen: ${r.status}`);
   return r.json();
 }
 
 export async function createEntry(moduleUuid: string, input: {
-  type: ZeitplanEntryType;
+  type: ScheduleEntryType;
   title: string;
   description?: string | null;
   due_date?: string | null;
   due_time?: string | null;
   is_optional?: boolean;
-}): Promise<ZeitplanEntry> {
+}): Promise<ScheduleEntry> {
   const r = await fetch(`${base(moduleUuid)}/entries`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -72,7 +72,7 @@ export async function createEntry(moduleUuid: string, input: {
   return r.json();
 }
 
-export async function updateEntry(moduleUuid: string, entryId: number, patch: Partial<Omit<ZeitplanEntry, "id" | "origin" | "source_ids" | "raw_quote" | "created_at" | "updated_at" | "checked_at">> & { clear_date?: boolean; clear_time?: boolean }): Promise<ZeitplanEntry> {
+export async function updateEntry(moduleUuid: string, entryId: number, patch: Partial<Omit<ScheduleEntry, "id" | "origin" | "source_ids" | "raw_quote" | "created_at" | "updated_at" | "checked_at">> & { clear_date?: boolean; clear_time?: boolean }): Promise<ScheduleEntry> {
   const r = await fetch(`${base(moduleUuid)}/entries/${entryId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

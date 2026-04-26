@@ -1,23 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarBlank, CheckCircle, Files, PencilSimple, Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import type { ZeitplanEntry, ZeitplanData } from "../../_types";
+import type { ScheduleEntry, ScheduleData } from "../../_types";
 import {
-  fetchZeitplan,
-  fetchZeitplanJob,
-  fetchActiveZeitplanJob,
-  generateZeitplan,
+  fetchSchedule,
+  fetchScheduleJob,
+  fetchActiveScheduleJob,
+  generateSchedule,
   createEntry as apiCreateEntry,
   updateEntry as apiUpdateEntry,
   deleteEntry as apiDeleteEntry,
   deleteAllEntries as apiDeleteAll,
-} from "../../_api/zeitplan";
-import { ZeitplanTimeline } from "./ZeitplanTimeline";
-import { ZeitplanEntryEditModal, type EditInput } from "./ZeitplanEntryEditModal";
+} from "../../_api/schedule";
+import { ScheduleTimeline } from "./ScheduleTimeline";
+import { ScheduleEntryEditModal, type EditInput } from "./ScheduleEntryEditModal";
 
 interface SourceLike { uuid: string; filename: string; }
 
-export function ZeitplanView({
+export function ScheduleView({
   moduleUuid,
   sources,
   selectedSourceIds,
@@ -28,14 +28,14 @@ export function ZeitplanView({
   selectedSourceIds: string[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
-  const [entries, setEntries] = useState<ZeitplanEntry[]>([]);
+  const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [processedUuids, setProcessedUuids] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateMsg, setGenerateMsg] = useState<{ kind: "success" | "error" | "info"; text: string } | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [editing, setEditing] = useState<ZeitplanEntry | null>(null);
+  const [editing, setEditing] = useState<ScheduleEntry | null>(null);
   const [creatingManual, setCreatingManual] = useState(false);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -51,7 +51,7 @@ export function ZeitplanView({
     setLoading(true);
     setError(null);
     try {
-      const data: ZeitplanData = await fetchZeitplan(moduleUuid);
+      const data: ScheduleData = await fetchSchedule(moduleUuid);
       setEntries(data.entries);
       setProcessedUuids(data.processed_source_uuids);
     } catch (e: any) {
@@ -71,7 +71,7 @@ export function ZeitplanView({
     stopPolling();
     pollRef.current = setInterval(async () => {
       try {
-        const job = await fetchZeitplanJob(moduleUuid, jobId);
+        const job = await fetchScheduleJob(moduleUuid, jobId);
         if (job.status === "success") {
           stopPolling();
           setGenerating(false);
@@ -103,7 +103,7 @@ export function ZeitplanView({
       await load();
       if (cancelled) return;
       try {
-        const active = await fetchActiveZeitplanJob(moduleUuid);
+        const active = await fetchActiveScheduleJob(moduleUuid);
         if (cancelled || !active.active || !active.id) return;
         setGenerating(true);
         startPolling(active.id);
@@ -193,7 +193,7 @@ export function ZeitplanView({
     setGenerating(true);
     setGenerateMsg(null);
     try {
-      const { job_id } = await generateZeitplan(moduleUuid, selectedPending);
+      const { job_id } = await generateSchedule(moduleUuid, selectedPending);
       startPolling(job_id);
     } catch (e: any) {
       setGenerating(false);
@@ -325,7 +325,7 @@ export function ZeitplanView({
         )}
         {!loading && entries.length > 0 && (
           <>
-            <ZeitplanTimeline
+            <ScheduleTimeline
               entries={entries}
               editMode={editMode}
               sources={sources}
@@ -350,7 +350,7 @@ export function ZeitplanView({
 
       {/* Modals */}
       {creatingManual && (
-        <ZeitplanEntryEditModal
+        <ScheduleEntryEditModal
           title="Neuer Eintrag"
           submitLabel="Anlegen"
           onCancel={() => setCreatingManual(false)}
@@ -358,7 +358,7 @@ export function ZeitplanView({
         />
       )}
       {editing && (
-        <ZeitplanEntryEditModal
+        <ScheduleEntryEditModal
           title="Eintrag bearbeiten"
           submitLabel="Speichern"
           initial={editing}

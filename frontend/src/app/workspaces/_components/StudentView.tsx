@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { CalendarBlank } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import ExpandableText from "@/components/ui/ExpandableText";
+import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
 import type { StudentModule } from "../_shared";
 
 export default function StudentView() {
@@ -67,8 +68,14 @@ export default function StudentView() {
   }
 
   return (
-    <>
+    <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
+      <div className="max-w-5xl mx-auto">
       <h1 className="text-3xl font-bold mb-10">Willkommen bei KIS</h1>
+
+      <div className="mb-8">
+        <UpcomingDeadlinesWidget />
+      </div>
+
       <h2 className="text-xl font-semibold mb-8">Meine Workspaces</h2>
 
       <section
@@ -160,6 +167,7 @@ export default function StudentView() {
           })}
         </ul>
       )}
-    </>
+      </div>
+    </div>
   );
 }

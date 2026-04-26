@@ -15,7 +15,7 @@ from src.features.ki_assistent.routes.studio import (
     mindmap,
     lernkarten,
     datentabelle,
-    zeitplan,
+    schedule,
 )
 from src.features.ki_assistent.routes.sprachtraining import (
     exercises,
@@ -26,6 +26,6 @@ router = APIRouter(tags=["ki-assistent"])
 
 for m in [
     popup, modules, sources, chat, messages, notes, glossary,
-    mindmap, lernkarten, datentabelle, zeitplan, exercises, stats,
+    mindmap, lernkarten, datentabelle, schedule, exercises, stats,
 ]:
     router.include_router(m.router)

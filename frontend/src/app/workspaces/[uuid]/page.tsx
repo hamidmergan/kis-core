@@ -124,7 +124,7 @@ export default function KiTutorModulePage() {
   const { notes, setNotes, pendingTitleIds, addNote, deleteNote, updateNoteTitle } = useNotes({ uuid });
 
   // ─── Sprachtraining State ─────────────────────────────────────────────────
-  const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossar" | "notizen" | "statistik" | "zeitplan"; nonce: number } | null>(null);
+  const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossar" | "notizen" | "statistik" | "schedule"; nonce: number } | null>(null);
   // Sprachtraining state — siehe useSprachtraining (init nach selectedSourceIds)
 
   // ─── Exercise Sets State ─────────────────────────────────────────────────

@@ -7,7 +7,7 @@ from datetime import date
 from loguru import logger
 
 from src.features.ki_assistent.tasks._helpers import _clean_llm_json
-from src.tool_prompts import KIA_ZEITPLAN_CLASSIFY_PROMPT
+from src.tool_prompts import KIA_SCHEDULE_CLASSIFY_PROMPT
 
 
 # Classify/harmonize batches can carry up to 30 candidates with ±450 chars of
@@ -51,7 +51,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": KIA_ZEITPLAN_CLASSIFY_PROMPT},
+                    {"role": "system", "content": KIA_SCHEDULE_CLASSIFY_PROMPT},
                     {"role": "user", "content": user_msg},
                 ],
                 temperature=0.0,
@@ -65,7 +65,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
             if "429" in err_str:
                 raise
             if "timeout" in err_str.lower() and attempt == 0:
-                logger.warning("Zeitplan classify: timeout, retrying once in {}s", _CLASSIFY_RETRY_WAIT_SECS)
+                logger.warning("Schedule classify: timeout, retrying once in {}s", _CLASSIFY_RETRY_WAIT_SECS)
                 _time.sleep(_CLASSIFY_RETRY_WAIT_SECS)
                 continue
             raise
@@ -74,7 +74,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as e:
-        logger.warning("Zeitplan-Classify JSON decode failed. Raw tail:\n{}", raw[-2000:])
+        logger.warning("Schedule-Classify JSON decode failed. Raw tail:\n{}", raw[-2000:])
         raise e
 
     results = parsed.get("results") if isinstance(parsed, dict) else None
@@ -114,7 +114,7 @@ def _classify_candidates(client, model, candidates: list[dict], today_d: date) -
     n = len(candidates)
     for start in range(0, n, _CLASSIFY_BATCH_SIZE):
         batch = candidates[start:start + _CLASSIFY_BATCH_SIZE]
-        logger.info("Zeitplan classify batch {}/{} ({} candidates)",
+        logger.info("Schedule classify batch {}/{} ({} candidates)",
                     start // _CLASSIFY_BATCH_SIZE + 1,
                     (n + _CLASSIFY_BATCH_SIZE - 1) // _CLASSIFY_BATCH_SIZE,
                     len(batch))

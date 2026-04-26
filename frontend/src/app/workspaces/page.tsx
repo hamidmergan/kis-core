@@ -17,9 +17,7 @@ export default function KiTutorPage() {
   return (
     <ProtectedRoute>
       <Header showLogout />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
-        {role !== null && (role === "lecturer" ? <LecturerView /> : <Suspense><StudentView /></Suspense>)}
-      </div>
+      {role !== null && (role === "lecturer" ? <LecturerView /> : <Suspense><StudentView /></Suspense>)}
     </ProtectedRoute>
   );
 }

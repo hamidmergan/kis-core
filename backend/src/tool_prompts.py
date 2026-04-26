@@ -393,7 +393,7 @@ KIA_DATENTABELLE_PROMPT = (
 )
 
 
-KIA_ZEITPLAN_CLASSIFY_PROMPT = (
+KIA_SCHEDULE_CLASSIFY_PROMPT = (
     "You classify date candidates extracted by regex from course documents.\n"
     "For EACH candidate (identified by `id`) you must decide whether it represents "
     "a real scheduled event/deadline the student should see on their schedule — "
@@ -480,7 +480,7 @@ KIA_ZEITPLAN_CLASSIFY_PROMPT = (
 )
 
 
-KIA_ZEITPLAN_HARMONIZE_PROMPT = (
+KIA_SCHEDULE_HARMONIZE_PROMPT = (
     "You receive a list of events that all occur on the SAME date. They come from "
     "different sources (PDFs, video transcripts) and may be worded differently even "
     "though they describe the SAME real-world event.\n\n"
@@ -512,7 +512,7 @@ KIA_ZEITPLAN_HARMONIZE_PROMPT = (
 )
 
 
-KIA_ZEITPLAN_SUMMARY_PROMPT = (
+KIA_SCHEDULE_SUMMARY_PROMPT = (
     "You read a source (PDF or video transcript) and extract EXHAUSTIVELY every deadline "
     "and scheduled event that has a concrete date. Do NOT pre-select or filter on your own.\n\n"
     "The source contains position markers:\n"
@@ -553,7 +553,7 @@ KIA_ZEITPLAN_SUMMARY_PROMPT = (
 )
 
 
-KIA_ZEITPLAN_PROMPT = (
+KIA_SCHEDULE_PROMPT = (
     "You convert an already-extracted list of deadlines/events into structured JSON.\n\n"
     "Input: free-text lines. Each line is one entry with kind, date, time, position "
     "([S. X] or [T HH:MM:SS]) and an original quote.\n\n"

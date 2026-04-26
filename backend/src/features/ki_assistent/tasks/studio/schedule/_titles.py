@@ -1,4 +1,4 @@
-"""Titel-Normalisierung + Fuzzy-Matching für Zeitplan-Deduplication."""
+"""Titel-Normalisierung + Fuzzy-Matching für Schedule-Deduplication."""
 
 from difflib import SequenceMatcher
 

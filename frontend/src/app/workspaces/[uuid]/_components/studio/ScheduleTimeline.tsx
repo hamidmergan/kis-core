@@ -1,12 +1,12 @@
-import type { ZeitplanEntry } from "../../_types";
-import { ZeitplanEntryCard } from "./ZeitplanEntry";
+import type { ScheduleEntry } from "../../_types";
+import { ScheduleEntryCard } from "./ScheduleEntry";
 
 function parseYMD(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-function sortByDate(entries: ZeitplanEntry[]): ZeitplanEntry[] {
+function sortByDate(entries: ScheduleEntry[]): ScheduleEntry[] {
   return [...entries].sort((a, b) => {
     const da = a.due_date ? parseYMD(a.due_date).getTime() : 0;
     const db = b.due_date ? parseYMD(b.due_date).getTime() : 0;
@@ -51,7 +51,7 @@ function isPast(dateStr: string, dueTime: string | null, now: Date): boolean {
 
 interface SourceLike { uuid: string; filename: string; }
 
-export function ZeitplanTimeline({
+export function ScheduleTimeline({
   entries,
   editMode,
   sources,
@@ -61,12 +61,12 @@ export function ZeitplanTimeline({
   onDelete,
   onPillClick,
 }: {
-  entries: ZeitplanEntry[];
+  entries: ScheduleEntry[];
   editMode: boolean;
   sources: SourceLike[];
   sourceNumByUuid: Map<string, number>;
   onToggleChecked: (id: number, checked: boolean) => void;
-  onEdit: (entry: ZeitplanEntry) => void;
+  onEdit: (entry: ScheduleEntry) => void;
   onDelete: (id: number) => void;
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
@@ -145,7 +145,7 @@ export function ZeitplanTimeline({
               </div>
 
               {/* Card */}
-              <ZeitplanEntryCard
+              <ScheduleEntryCard
                 entry={entry}
                 isToday={today_}
                 isPast={past_}
@@ -196,7 +196,7 @@ export function ZeitplanTimeline({
                     offen
                   </div>
                 </div>
-                <ZeitplanEntryCard
+                <ScheduleEntryCard
                   entry={entry}
                   isToday={false}
                   isPast={false}

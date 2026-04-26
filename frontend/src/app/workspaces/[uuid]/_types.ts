@@ -203,19 +203,19 @@ export interface StudentStats {
   today: string;
 }
 
-export type ZeitplanEntryType = "deadline" | "termin";
-export type ZeitplanEntryOrigin = "llm" | "manual";
+export type ScheduleEntryType = "deadline" | "termin";
+export type ScheduleEntryOrigin = "llm" | "manual";
 
-export interface ZeitplanSourceRef {
+export interface ScheduleSourceRef {
   source_uuid: string;
   page_number: number | null;
   start_time: number | null;
   raw_quote: string | null;
 }
 
-export interface ZeitplanEntry {
+export interface ScheduleEntry {
   id: number;
-  type: ZeitplanEntryType;
+  type: ScheduleEntryType;
   title: string;
   description: string | null;
   due_date: string | null;   // 'YYYY-MM-DD'
@@ -223,13 +223,13 @@ export interface ZeitplanEntry {
   is_optional: boolean;
   is_checked: boolean;
   checked_at: string | null;
-  origin: ZeitplanEntryOrigin;
-  source_refs: ZeitplanSourceRef[];
+  origin: ScheduleEntryOrigin;
+  source_refs: ScheduleSourceRef[];
   created_at: string | null;
   updated_at: string | null;
 }
 
-export interface ZeitplanData {
-  entries: ZeitplanEntry[];
+export interface ScheduleData {
+  entries: ScheduleEntry[];
   processed_source_uuids: string[];
 }

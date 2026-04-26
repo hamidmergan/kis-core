@@ -46,9 +46,8 @@ export default function ModuleTableRow({
         onConfirmDeleteLink={a.handleDeleteLinkConfirm} deletingLink={a.deletingLink}
       />
 
-      {/* Desktop: table row */}
       <tr
-        className="group hidden md:table-row border-t transition-colors"
+        className="group border-t transition-colors"
         style={{
           borderColor: "var(--border)",
           backgroundColor: a.expanded ? "var(--surface)" : undefined,
@@ -205,7 +204,7 @@ export default function ModuleTableRow({
 
       {/* Expanded row */}
       {a.expanded && (
-        <tr className="hidden md:table-row" style={{ backgroundColor: "var(--surface)" }}>
+        <tr style={{ backgroundColor: "var(--surface)" }}>
           <td colSpan={7} className="pl-11 pr-6 pb-5" style={{ borderTop: "none" }}>
             <div className="flex flex-col gap-3 max-w-full break-words">
               {module.description && (

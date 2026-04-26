@@ -53,7 +53,7 @@ interface StudioPanelContentProps {
   setStudioView: (v: StudioView) => void;
   sprachView: SprachtrainingView;
   sprachtrainingActive: boolean;
-  studioTabRequest: { tab: "tools" | "glossar" | "notizen" | "statistik" | "zeitplan"; nonce: number } | null;
+  studioTabRequest: { tab: "tools" | "glossar" | "notizen" | "statistik" | "schedule"; nonce: number } | null;
   // Content-Slots
   sprachtrainingContent: React.ReactNode;
   glossarContent: React.ReactNode;

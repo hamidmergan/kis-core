@@ -29,8 +29,8 @@ const StudentStatsView = dynamic(
   { loading: dynamicLoader, ssr: false },
 );
 
-const ZeitplanView = dynamic(
-  () => import("./ZeitplanView").then((m) => ({ default: m.ZeitplanView })),
+const ScheduleView = dynamic(
+  () => import("./ScheduleView").then((m) => ({ default: m.ScheduleView })),
   { loading: dynamicLoader, ssr: false },
 );
 
@@ -47,14 +47,14 @@ interface StudioOverviewProps {
   onSprachNavigate?: (view: SprachtrainingView) => void;
   activeSourceCount?: number;
   sprachView?: string;
-  requestedTab?: { tab: "tools" | "glossar" | "notizen" | "statistik" | "zeitplan"; nonce: number } | null;
+  requestedTab?: { tab: "tools" | "glossar" | "notizen" | "statistik" | "schedule"; nonce: number } | null;
   sources: Source[];
   selectedSourceIds: string[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
   hideHeader?: boolean;
 }
 
-type StudioTab = "tools" | "sprachtraining" | "glossar" | "notizen" | "statistik" | "zeitplan";
+type StudioTab = "tools" | "sprachtraining" | "glossar" | "notizen" | "statistik" | "schedule";
 
 export function StudioOverview({
   onSelect,
@@ -78,7 +78,7 @@ export function StudioOverview({
   const [studioTab, _setStudioTab] = useState<StudioTab>(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("kis-studio-tab");
-      if (saved && ["tools", "glossar", "notizen", "statistik", "zeitplan"].includes(saved))
+      if (saved && ["tools", "glossar", "notizen", "statistik", "schedule"].includes(saved))
         return saved as StudioTab;
     }
     return "tools";
@@ -163,7 +163,7 @@ export function StudioOverview({
           { key: "glossar" as const, label: "Glossar" },
           { key: "notizen" as const, label: "Notizen" },
           { key: "statistik" as const, label: "Statistik" },
-          { key: "zeitplan" as const, label: "Zeitplan" },
+          { key: "schedule" as const, label: "Zeitplan" },
         ]}
         active={effectiveTab === "sprachtraining" ? "tools" : effectiveTab}
         onSelect={(k) => setStudioTab(k as StudioTab)}
@@ -223,9 +223,9 @@ export function StudioOverview({
         />
       )}
 
-      {studioTab === "zeitplan" && (
+      {studioTab === "schedule" && (
         <div className="flex-1 overflow-hidden flex flex-col">
-          <ZeitplanView
+          <ScheduleView
             moduleUuid={moduleUuid}
             sources={sources}
             selectedSourceIds={selectedSourceIds}

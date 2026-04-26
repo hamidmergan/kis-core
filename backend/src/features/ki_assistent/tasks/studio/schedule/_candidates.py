@@ -2,11 +2,11 @@
 
 from src import database as db
 
-from src.features.ki_assistent.tasks.studio.zeitplan._regex import (
+from src.features.ki_assistent.tasks.studio.schedule._regex import (
     _TBD_PATTERNS,
     _date_candidates_in_text,
 )
-from src.features.ki_assistent.tasks.studio.zeitplan._parse import (
+from src.features.ki_assistent.tasks.studio.schedule._parse import (
     _normalize_date,
     _normalize_partial_date,
 )
