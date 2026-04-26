@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CaretLeft, CaretRight, FilePdf, Files, Sparkle, Table, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { DatentabelleData, DatentabelleRowSource, DatentabelleSource, Source, StudentStats } from "../../_types";
@@ -9,6 +9,7 @@ export function DatentabelleStudio({
   table, sources, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, sourceCount,
   allSources, onPillClick, stats, breadcrumbs,
+  openInViewer, onViewerOpened,
 }: {
   table: DatentabelleData | null;
   sources: DatentabelleSource[];
@@ -23,8 +24,17 @@ export function DatentabelleStudio({
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
   stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
+  openInViewer?: boolean;
+  onViewerOpened?: () => void;
 }) {
-  const [view, setView] = useState<"viewer" | "list">("list");
+  const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
+
+  useEffect(() => {
+    if (openInViewer) {
+      setView("viewer");
+      onViewerOpened?.();
+    }
+  }, [openInViewer, onViewerOpened]);
   const noSources = sourceCount === 0;
   const atLimit = savedList.length >= 20;
   const activeTitle = table?.title || "Datentabelle";

@@ -32,6 +32,7 @@ export function MindmapStudio({
   mindmap, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, sourceCount,
   sources, onPillClick, stats, breadcrumbs,
+  openInViewer, onViewerOpened,
 }: {
   mindmap: MindmapNodeData | null;
   loading: boolean;
@@ -45,13 +46,22 @@ export function MindmapStudio({
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
   stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
+  openInViewer?: boolean;
+  onViewerOpened?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
-  const [view, setView] = useState<"viewer" | "list">("list");
+  const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
   const [allExpanded, setAllExpanded] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (openInViewer) {
+      setView("viewer");
+      onViewerOpened?.();
+    }
+  }, [openInViewer, onViewerOpened]);
 
   // Enter/exit native browser fullscreen and lock orientation to landscape
   // on mobile. Falls back to pure CSS fullscreen if the API is unavailable.

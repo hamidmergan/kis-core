@@ -77,6 +77,11 @@ interface StudioPanelContentProps {
   onAskChat: (text: string, switchTab?: boolean) => void;
   onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
   refreshProgress: () => void;
+  // Schnellzugriff: direkt in Viewer-Modus springen statt Liste
+  openMindmapInViewer: boolean;
+  consumeMindmapViewerOpen: () => void;
+  openDatentabelleInViewer: boolean;
+  consumeDatentabelleViewerOpen: () => void;
   // Panel-Kontext
   onMinimize: () => void;
   hideHeader: boolean;
@@ -90,6 +95,8 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     moduleUuid, statsVersion, sources, selectedSourceIds, isAdmin, pageStats,
     onStudioSelect, onNavigateToSet, onSprachNavigate, onAskChat, onPillClick,
     refreshProgress, onMinimize, hideHeader,
+    openMindmapInViewer, consumeMindmapViewerOpen,
+    openDatentabelleInViewer, consumeDatentabelleViewerOpen,
   } = props;
 
   if (sprachView !== "overview") return <>{sprachtrainingContent}</>;
@@ -205,6 +212,8 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onPillClick={onPillClick}
         stats={pageStats}
         breadcrumbs={setsCrumb}
+        openInViewer={openDatentabelleInViewer}
+        onViewerOpened={consumeDatentabelleViewerOpen}
       />
     );
   }
@@ -224,6 +233,8 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onPillClick={onPillClick}
         stats={pageStats}
         breadcrumbs={setsCrumb}
+        openInViewer={openMindmapInViewer}
+        onViewerOpened={consumeMindmapViewerOpen}
       />
     );
   }

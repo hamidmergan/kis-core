@@ -217,7 +217,11 @@ export default function KiTutorModulePage() {
   } = spr;
 
   // Studio-Navigation (siehe useStudioNavigation)
-  const { handleStudioSelect, handleNavigateToSet, handleSprachNavigate, refreshProgress } = useStudioNavigation({
+  const {
+    handleStudioSelect, handleNavigateToSet, handleSprachNavigate, refreshProgress,
+    openMindmapInViewer, consumeMindmapViewerOpen,
+    openDatentabelleInViewer, consumeDatentabelleViewerOpen,
+  } = useStudioNavigation({
     studioView, setStudioView, setSprachView,
     loadExerciseSets, loadExerciseSet,
     selectMindmap, selectDatentabelle,
@@ -353,6 +357,10 @@ export default function KiTutorModulePage() {
       onAskChat={handleAskChat}
       onPillClick={handlePillClick}
       refreshProgress={refreshProgress}
+      openMindmapInViewer={openMindmapInViewer}
+      consumeMindmapViewerOpen={consumeMindmapViewerOpen}
+      openDatentabelleInViewer={openDatentabelleInViewer}
+      consumeDatentabelleViewerOpen={consumeDatentabelleViewerOpen}
       onMinimize={onMinimize}
       hideHeader={hideHeader}
     />

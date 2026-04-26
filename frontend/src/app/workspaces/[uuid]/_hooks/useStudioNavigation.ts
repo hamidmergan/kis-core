@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { SprachtrainingView, StudioView } from "../_types";
 
 interface UseStudioNavigationOptions {
@@ -22,6 +22,9 @@ export function useStudioNavigation(opts: UseStudioNavigationOptions) {
     loadStreak, bumpStats,
   } = opts;
 
+  const [openMindmapInViewer, setOpenMindmapInViewer] = useState(false);
+  const [openDatentabelleInViewer, setOpenDatentabelleInViewer] = useState(false);
+
   // Load exercise sets when switching to quiz studio view
   useEffect(() => {
     if (studioView === "quiz") loadExerciseSets("quiz");
@@ -36,11 +39,13 @@ export function useStudioNavigation(opts: UseStudioNavigationOptions) {
   const handleNavigateToSet = useCallback((setId: number, tool: string, mode: string) => {
     if (tool === "mindmap") {
       selectMindmap(setId);
+      setOpenMindmapInViewer(true);
       setStudioView("mindmap");
       return;
     }
     if (tool === "datentabelle") {
       selectDatentabelle(setId);
+      setOpenDatentabelleInViewer(true);
       setStudioView("datentabelle");
       return;
     }
@@ -65,5 +70,12 @@ export function useStudioNavigation(opts: UseStudioNavigationOptions) {
     bumpStats();
   }, [loadStreak, loadExerciseSets, bumpStats]);
 
-  return { handleStudioSelect, handleNavigateToSet, handleSprachNavigate, refreshProgress };
+  const consumeMindmapViewerOpen = useCallback(() => setOpenMindmapInViewer(false), []);
+  const consumeDatentabelleViewerOpen = useCallback(() => setOpenDatentabelleInViewer(false), []);
+
+  return {
+    handleStudioSelect, handleNavigateToSet, handleSprachNavigate, refreshProgress,
+    openMindmapInViewer, consumeMindmapViewerOpen,
+    openDatentabelleInViewer, consumeDatentabelleViewerOpen,
+  };
 }
