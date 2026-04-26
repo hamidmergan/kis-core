@@ -228,7 +228,6 @@ function GeneralSettingsSection() {
         <P label="ElevenLabs" settingKey="elevenlabs_enabled" enabled={s.elevenlabs_enabled ?? false} configured={s.elevenlabs_configured ?? false} envHint="ELEVENLABS_API_KEY" />
         <P label="Kokoro TTS" settingKey="kokoro_enabled" enabled={s.kokoro_enabled ?? false} configured={s.kokoro_configured ?? false} available={s.kokoro_available} envHint="KOKORO_BASE_URL" />
         <P label="THL myLab (XTTS-v2)" settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" modelKey="mylab_tts_model" />
-        <P label="Thorsten (deutsch, lokal)" settingKey="thorsten_enabled" enabled={s.thorsten_enabled ?? false} configured={s.thorsten_configured ?? false} available={s.thorsten_available} envHint="THORSTEN_BASE_URL" />
       </ProviderSection>
 
       <ProviderSection title="Transkription (Sprache in Text)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">

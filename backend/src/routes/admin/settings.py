@@ -12,7 +12,6 @@ from src.services.admin.health import (
     check_kokoro_available,
     check_mylab_available,
     check_mylab_base_available,
-    check_thorsten_available,
     dns_ok,
 )
 
@@ -34,7 +33,6 @@ async def ping_service(service: str, _admin=Depends(get_admin_user)):
         "fish_speech": check_fish_speech_available,
         "kokoro": check_kokoro_available,
         "mylab_tts": check_mylab_available,
-        "thorsten": check_thorsten_available,
         "mylab_base": check_mylab_base_available,
     }
     fn = checks.get(service)
@@ -46,7 +44,6 @@ async def ping_service(service: str, _admin=Depends(get_admin_user)):
         "fish_speech": app_settings.fish_speech_base_url,
         "kokoro": app_settings.kokoro_base_url,
         "mylab_tts": app_settings.mylab_tts_base_url,
-        "thorsten": app_settings.thorsten_base_url,
         "mylab_base": app_settings.mylab_base_url or app_settings.mylab_tts_base_url,
     }
     if not await dns_ok(urls[service]):
@@ -70,7 +67,6 @@ async def get_settings(_admin=Depends(get_admin_user)):
     fish_available = None
     kokoro_available = None
     mylab_tts_available = None
-    thorsten_available = None
     mylab_base_available = None
 
     def _enabled(key: str, default: str = "true") -> bool:
@@ -90,9 +86,6 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_enabled": _enabled("mylab_enabled"),
         "mylab_configured": bool(app_settings.mylab_tts_base_url),
         "mylab_available": mylab_tts_available,
-        "thorsten_enabled": _enabled("thorsten_enabled"),
-        "thorsten_configured": bool(app_settings.thorsten_base_url),
-        "thorsten_available": thorsten_available,
         # ── Transkription ──
         "kisski_whisper_enabled": _enabled("kisski_whisper_enabled"),
         "kisski_whisper_configured": kisski_configured,
@@ -152,7 +145,7 @@ def _current_models() -> dict[str, str]:
 # Simple bool-Setting-Keys: werden alle nach dem gleichen Schema gesetzt
 _SIMPLE_BOOL_FIELDS = (
     "whitelist_enabled",
-    "elevenlabs_enabled", "fish_speech_enabled", "kokoro_enabled", "mylab_enabled", "thorsten_enabled",
+    "elevenlabs_enabled", "fish_speech_enabled", "kokoro_enabled", "mylab_enabled",
     "kisski_whisper_enabled", "mylab_whisper_enabled",
     "kisski_image_gen_enabled", "mylab_image_gen_enabled",
     "kisski_image_analyze_enabled",

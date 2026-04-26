@@ -83,17 +83,6 @@ def check_mylab_available(settings) -> bool:
     return _cached_check(f"mylab_tts:{settings.mylab_tts_base_url}", _do)
 
 
-def check_thorsten_available(settings) -> bool:
-    if not settings.thorsten_base_url:
-        return False
-
-    def _do():
-        from src.services.thorsten_client import ThorstenClient
-        return ThorstenClient(settings.thorsten_base_url).is_available()
-
-    return _cached_check(f"thorsten:{settings.thorsten_base_url}", _do)
-
-
 def check_mylab_base_available(settings) -> bool:
     """Prüft ob die myLab-Plattform erreichbar ist (für Whisper, Image, Embeddings, OCR)."""
     url = settings.mylab_base_url or settings.mylab_tts_base_url

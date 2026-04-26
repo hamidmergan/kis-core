@@ -20,13 +20,8 @@ interface MylabVoice {
   name: string;
   description: string;
 }
-interface ThorstenVoice {
-  voice_id: string;
-  name: string;
-  language: string;
-}
 
-type TtsProvider = "elevenlabs" | "fish_speech" | "kokoro" | "mylab" | "thorsten";
+type TtsProvider = "elevenlabs" | "fish_speech" | "kokoro" | "mylab";
 
 interface TtsSettingsStepProps {
   providersLoaded: boolean;
@@ -34,12 +29,10 @@ interface TtsSettingsStepProps {
   fishSpeechEnabled: boolean;
   kokoroEnabled: boolean;
   mylabEnabled: boolean;
-  thorstenEnabled: boolean;
   ttsProvider: TtsProvider;
   voices: ElevenLabsVoice[];
   kokoroVoices: KokoroVoice[];
   mylabVoices: MylabVoice[];
-  thorstenVoices: ThorstenVoice[];
   voiceId: string;
   speed: number;
   slidePause: number;
@@ -66,12 +59,10 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     fishSpeechEnabled,
     kokoroEnabled,
     mylabEnabled,
-    thorstenEnabled,
     ttsProvider,
     voices,
     kokoroVoices,
     mylabVoices,
-    thorstenVoices,
     voiceId,
     speed,
     slidePause,
@@ -91,7 +82,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
     onStartRender,
   } = props;
 
-  const anyProvider = elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled || thorstenEnabled;
+  const anyProvider = elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled;
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -111,14 +102,12 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
               if (p === "fish_speech") onVoiceIdChange("default");
               else if (p === "kokoro" && kokoroVoices.length > 0) onVoiceIdChange(kokoroVoices[0].voice_id);
               else if (p === "mylab" && mylabVoices.length > 0) onVoiceIdChange(mylabVoices[0].voice_id);
-              else if (p === "thorsten" && thorstenVoices.length > 0) onVoiceIdChange(thorstenVoices[0].voice_id);
               else if (p === "elevenlabs" && voices.length > 0) onVoiceIdChange(voices[0].voice_id);
             }}
             className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
           >
             {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
             {mylabEnabled && <option value="mylab">THL myLab (XTTS-v2)</option>}
-            {thorstenEnabled && <option value="thorsten">Thorsten (deutsch, lokal)</option>}
             {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
             {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
           </select>
@@ -135,7 +124,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
               id="sc-voice-select"
               value={voiceId}
               onChange={(e) => onVoiceIdChange(e.target.value)}
-              disabled={ttsProvider === "fish_speech" || ttsProvider === "thorsten"}
+              disabled={ttsProvider === "fish_speech"}
               className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {ttsProvider === "fish_speech" ? (
@@ -153,12 +142,6 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
                 mylabVoices.map((v) => (
                   <option key={v.voice_id} value={v.voice_id}>
                     {v.name} – {v.description}
-                  </option>
-                ))
-              ) : ttsProvider === "thorsten" ? (
-                thorstenVoices.map((v) => (
-                  <option key={v.voice_id} value={v.voice_id}>
-                    {v.name}
                   </option>
                 ))
               ) : (

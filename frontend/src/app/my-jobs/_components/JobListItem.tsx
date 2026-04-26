@@ -20,7 +20,6 @@ interface JobListItemProps {
 function providerLabel(provider: string | undefined): string {
   if (provider === "kokoro") return "Kokoro TTS";
   if (provider === "mylab") return "THL myLab";
-  if (provider === "thorsten") return "Thorsten";
   if (provider === "elevenlabs") return "ElevenLabs";
   return provider ?? "";
 }

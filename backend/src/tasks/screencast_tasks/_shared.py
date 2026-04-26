@@ -67,14 +67,6 @@ def _get_tts_client(provider: str = "elevenlabs"):
         if not client or not client.is_available():
             raise RuntimeError("myLab TTS Server nicht erreichbar")
         return client
-    elif provider == "thorsten":
-        from src.dependencies import is_thorsten_enabled, get_thorsten_client
-        if not is_thorsten_enabled():
-            raise RuntimeError("Thorsten TTS ist nicht aktiviert")
-        client = get_thorsten_client()
-        if not client or not client.is_available():
-            raise RuntimeError("Thorsten TTS Server nicht erreichbar")
-        return client
     else:
         from src.services.elevenlabs_client import ElevenLabsClient
         from src.config import Settings

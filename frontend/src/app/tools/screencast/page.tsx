@@ -139,15 +139,13 @@ function ScreencastPageInner() {
     elevenlabs: voices,
     kokoro: kokoroVoices,
     mylab: mylabVoices,
-    thorsten: thorstenVoices,
   } = voicesResult;
   const elevenlabsEnabled = providers.elevenlabs;
   const fishSpeechEnabled = providers.fish_speech;
   const kokoroEnabled = providers.kokoro;
   const mylabEnabled = providers.mylab;
-  const thorstenEnabled = providers.thorsten;
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro" | "mylab" | "thorsten">("kokoro");
+  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro" | "mylab">("kokoro");
   useEffect(() => {
     if (defaultProvider) setTtsProvider(defaultProvider);
   }, [defaultProvider]);
@@ -609,12 +607,10 @@ function ScreencastPageInner() {
             fishSpeechEnabled={fishSpeechEnabled}
             kokoroEnabled={kokoroEnabled}
             mylabEnabled={mylabEnabled}
-            thorstenEnabled={thorstenEnabled}
             ttsProvider={ttsProvider}
             voices={voices}
             kokoroVoices={kokoroVoices}
             mylabVoices={mylabVoices}
-            thorstenVoices={thorstenVoices}
             voiceId={voiceId}
             speed={speed}
             slidePause={slidePause}

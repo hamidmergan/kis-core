@@ -169,23 +169,6 @@ def is_kokoro_enabled() -> bool:
     return db.get_setting("kokoro_enabled", "true").lower() == "true"
 
 
-def get_thorsten_client():
-    from src.services.thorsten_client import ThorstenClient
-    settings = get_settings()
-    if not settings.thorsten_base_url:
-        return None
-    return ThorstenClient(settings.thorsten_base_url)
-
-
-def is_thorsten_enabled() -> bool:
-    """Gibt True zurück wenn Thorsten TTS konfiguriert UND vom Admin freigeschaltet."""
-    from src import database as db
-    settings = get_settings()
-    if not settings.thorsten_base_url:
-        return False
-    return db.get_setting("thorsten_enabled", "true").lower() == "true"
-
-
 def get_mylab_client():
     from src.services.mylab_client import MyLabClient
     from src.services.runtime_models import get_model

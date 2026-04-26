@@ -46,7 +46,7 @@ _NON_ENGLISH = {
 @router.get("/tts/providers")
 async def get_tts_providers():
     """Return which TTS providers are currently enabled and reachable (public endpoint)."""
-    from src.dependencies import is_elevenlabs_enabled, is_kokoro_enabled, get_kokoro_client, is_mylab_enabled, get_mylab_client, is_thorsten_enabled, get_thorsten_client
+    from src.dependencies import is_elevenlabs_enabled, is_kokoro_enabled, get_kokoro_client, is_mylab_enabled, get_mylab_client
     kokoro_enabled = is_kokoro_enabled()
     if kokoro_enabled:
         client = get_kokoro_client()
@@ -55,16 +55,11 @@ async def get_tts_providers():
     if mylab_enabled:
         client = get_mylab_client()
         mylab_enabled = bool(client and client.is_available())
-    thorsten_enabled = is_thorsten_enabled()
-    if thorsten_enabled:
-        client = get_thorsten_client()
-        thorsten_enabled = bool(client and client.is_available())
     return {
         "elevenlabs_enabled": is_elevenlabs_enabled(),
         "fish_speech_enabled": False,
         "kokoro_enabled": kokoro_enabled,
         "mylab_enabled": mylab_enabled,
-        "thorsten_enabled": thorsten_enabled,
     }
 
 
@@ -130,34 +125,6 @@ async def list_mylab_voices():
     if not is_mylab_enabled():
         return {"voices": []}
     client = get_mylab_client()
-    if not client or not client.is_available():
-        return {"voices": []}
-    return {"voices": client.get_voices()}
-
-
-@router.post("/thorsten/preview")
-async def thorsten_preview(body: dict, _user=Depends(get_current_user)):
-    """Synthesize a short preview sample for Thorsten voice."""
-    from fastapi.responses import Response as FastAPIResponse
-    from src.dependencies import is_thorsten_enabled, get_thorsten_client
-    if not is_thorsten_enabled():
-        raise HTTPException(status_code=400, detail="Thorsten TTS nicht aktiv")
-    client = get_thorsten_client()
-    if not client or not client.is_available():
-        raise HTTPException(status_code=503, detail="Thorsten TTS Server nicht erreichbar")
-    audio = client.synthesize_chunk(
-        "Hallo! Dies ist eine Vorschau der Thorsten-Stimme. Ich hoffe, sie gefällt Ihnen.",
-    )
-    return FastAPIResponse(content=audio, media_type="audio/wav")
-
-
-@router.get("/thorsten/voices")
-async def list_thorsten_voices():
-    """Return available Thorsten voices."""
-    from src.dependencies import is_thorsten_enabled, get_thorsten_client
-    if not is_thorsten_enabled():
-        return {"voices": []}
-    client = get_thorsten_client()
     if not client or not client.is_available():
         return {"voices": []}
     return {"voices": client.get_voices()}
@@ -280,13 +247,6 @@ async def text_to_speech(
         mylab_client = get_mylab_client()
         if not mylab_client or not mylab_client.is_available():
             raise HTTPException(status_code=503, detail="myLab TTS Server nicht erreichbar")
-    elif provider == "thorsten":
-        from src.dependencies import is_thorsten_enabled, get_thorsten_client
-        if not is_thorsten_enabled():
-            raise HTTPException(status_code=400, detail="Thorsten TTS ist nicht aktiviert")
-        thorsten_client = get_thorsten_client()
-        if not thorsten_client or not thorsten_client.is_available():
-            raise HTTPException(status_code=503, detail="Thorsten TTS Server nicht erreichbar")
     else:
         from src.dependencies import is_elevenlabs_enabled
         if not is_elevenlabs_enabled():

@@ -2,15 +2,6 @@
 # Wird in start-local.bat explizit per -f geladen
 
 services:
-  thorsten:
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
   ollama:
     deploy:
       resources:

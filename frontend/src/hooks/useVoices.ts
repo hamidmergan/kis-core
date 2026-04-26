@@ -23,20 +23,13 @@ export interface MylabVoice {
   description: string;
 }
 
-export interface ThorstenVoice {
-  voice_id: string;
-  name: string;
-  language: string;
-}
-
-export type TtsProvider = "elevenlabs" | "fish_speech" | "kokoro" | "mylab" | "thorsten";
+export type TtsProvider = "elevenlabs" | "fish_speech" | "kokoro" | "mylab";
 
 export interface ProviderFlags {
   elevenlabs: boolean;
   fish_speech: boolean;
   kokoro: boolean;
   mylab: boolean;
-  thorsten: boolean;
 }
 
 export interface UseVoicesResult {
@@ -47,7 +40,6 @@ export interface UseVoicesResult {
   elevenlabs: ElevenLabsVoice[];
   kokoro: KokoroVoice[];
   mylab: MylabVoice[];
-  thorsten: ThorstenVoice[];
 }
 
 const EMPTY_FLAGS: ProviderFlags = {
@@ -55,10 +47,9 @@ const EMPTY_FLAGS: ProviderFlags = {
   fish_speech: false,
   kokoro: false,
   mylab: false,
-  thorsten: false,
 };
 
-const PRIORITY: TtsProvider[] = ["kokoro", "mylab", "thorsten", "fish_speech", "elevenlabs"];
+const PRIORITY: TtsProvider[] = ["kokoro", "mylab", "fish_speech", "elevenlabs"];
 
 function pickDefaultProvider(flags: ProviderFlags): TtsProvider | null {
   for (const p of PRIORITY) {
@@ -67,13 +58,7 @@ function pickDefaultProvider(flags: ProviderFlags): TtsProvider | null {
   return null;
 }
 
-export interface UseVoicesOptions {
-  includeThorsten?: boolean;
-}
-
-export function useVoices(options: UseVoicesOptions = {}): UseVoicesResult {
-  const { includeThorsten = true } = options;
-
+export function useVoices(): UseVoicesResult {
   const [loaded, setLoaded] = useState(false);
   const [providers, setProviders] = useState<ProviderFlags>(EMPTY_FLAGS);
   const [defaultProvider, setDefaultProvider] = useState<TtsProvider | null>(null);
@@ -81,7 +66,6 @@ export function useVoices(options: UseVoicesOptions = {}): UseVoicesResult {
   const [elevenlabs, setElevenlabs] = useState<ElevenLabsVoice[]>([]);
   const [kokoro, setKokoro] = useState<KokoroVoice[]>([]);
   const [mylab, setMylab] = useState<MylabVoice[]>([]);
-  const [thorsten, setThorsten] = useState<ThorstenVoice[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +76,6 @@ export function useVoices(options: UseVoicesOptions = {}): UseVoicesResult {
         fish_speech_enabled: boolean;
         kokoro_enabled: boolean;
         mylab_enabled: boolean;
-        thorsten_enabled: boolean;
       }>("/api/tts/providers")
       .then(async (data) => {
         if (cancelled) return;
@@ -102,7 +85,6 @@ export function useVoices(options: UseVoicesOptions = {}): UseVoicesResult {
           fish_speech: data.fish_speech_enabled,
           kokoro: data.kokoro_enabled ?? false,
           mylab: data.mylab_enabled ?? false,
-          thorsten: includeThorsten ? (data.thorsten_enabled ?? false) : false,
         };
 
         setProviders(flags);
@@ -143,17 +125,6 @@ export function useVoices(options: UseVoicesOptions = {}): UseVoicesResult {
               .catch(() => {}),
           );
         }
-        if (flags.thorsten) {
-          tasks.push(
-            api
-              .getJson<{ voices: ThorstenVoice[] }>("/api/thorsten/voices")
-              .then((v) => {
-                if (cancelled) return;
-                setThorsten(v.voices ?? []);
-              })
-              .catch(() => {}),
-          );
-        }
 
         await Promise.allSettled(tasks);
       })
@@ -170,7 +141,7 @@ export function useVoices(options: UseVoicesOptions = {}): UseVoicesResult {
     return () => {
       cancelled = true;
     };
-  }, [includeThorsten]);
+  }, []);
 
   useEffect(() => {
     if (!loaded || defaultVoiceId) return;
@@ -178,12 +149,10 @@ export function useVoices(options: UseVoicesOptions = {}): UseVoicesResult {
       setDefaultVoiceId(kokoro[0].voice_id);
     } else if (defaultProvider === "mylab" && mylab.length > 0) {
       setDefaultVoiceId(mylab[0].voice_id);
-    } else if (defaultProvider === "thorsten" && thorsten.length > 0) {
-      setDefaultVoiceId(thorsten[0].voice_id);
     } else if (defaultProvider === "elevenlabs" && elevenlabs.length > 0) {
       setDefaultVoiceId(elevenlabs[0].voice_id);
     }
-  }, [loaded, defaultProvider, defaultVoiceId, kokoro, mylab, thorsten, elevenlabs]);
+  }, [loaded, defaultProvider, defaultVoiceId, kokoro, mylab, elevenlabs]);
 
   return {
     loaded,
@@ -193,6 +162,5 @@ export function useVoices(options: UseVoicesOptions = {}): UseVoicesResult {
     elevenlabs,
     kokoro,
     mylab,
-    thorsten,
   };
 }

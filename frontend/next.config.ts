@@ -69,14 +69,6 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/mylab/preview`,
       },
       {
-        source: "/api/thorsten/voices",
-        destination: `${backendUrl}/thorsten/voices`,
-      },
-      {
-        source: "/api/thorsten/preview",
-        destination: `${backendUrl}/thorsten/preview`,
-      },
-      {
         source: "/api/voices",
         destination: `${backendUrl}/voices`,
       },

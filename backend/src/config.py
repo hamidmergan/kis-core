@@ -28,9 +28,6 @@ class Settings(BaseSettings):
     # myLab TTS (TH Lübeck, Coqui XTTS-v2) — leer = deaktiviert
     mylab_tts_base_url: str = ""
 
-    # Thorsten TTS (lokaler Docker, Coqui VITS) — leer = deaktiviert
-    thorsten_base_url: str = ""
-
     # myLab Plattform (TH Lübeck) — gemeinsame Base-URL fuer Whisper, Image, Embeddings, OCR
     mylab_base_url: str = ""
 

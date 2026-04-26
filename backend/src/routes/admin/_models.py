@@ -14,7 +14,6 @@ class UpdateSettingsRequest(BaseModel):
     fish_speech_enabled: bool | None = None
     kokoro_enabled: bool | None = None
     mylab_enabled: bool | None = None
-    thorsten_enabled: bool | None = None
     # Transkription
     kisski_whisper_enabled: bool | None = None
     mylab_whisper_enabled: bool | None = None
