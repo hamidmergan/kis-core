@@ -33,6 +33,7 @@ export default function ToolsSidebar() {
   const { loaded, isToolEnabled } = useEnabledTools();
   const [userPref, setUserPref] = useState<boolean | null>(null);
   const [isLarge, setIsLarge] = useState(false);
+  const [isSmartphone, setIsSmartphone] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -42,13 +43,27 @@ export default function ToolsSidebar() {
       else if (stored === "0") setUserPref(false);
     } catch { /* ignore */ }
 
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const update = () => setIsLarge(mq.matches);
-    update();
-    mq.addEventListener("change", update);
+    const mqLarge = window.matchMedia("(min-width: 1024px)");
+    const mqPhone = window.matchMedia("(max-width: 767px)");
+    const updateLarge = () => setIsLarge(mqLarge.matches);
+    const updatePhone = () => setIsSmartphone(mqPhone.matches);
+    updateLarge();
+    updatePhone();
+    mqLarge.addEventListener("change", updateLarge);
+    mqPhone.addEventListener("change", updatePhone);
+
+    const openHandler = () => {
+      setUserPref(false);
+      try { localStorage.setItem(STORAGE_KEY, "0"); } catch { /* ignore */ }
+    };
+    window.addEventListener("tools-sidebar:open", openHandler);
 
     setHydrated(true);
-    return () => mq.removeEventListener("change", update);
+    return () => {
+      mqLarge.removeEventListener("change", updateLarge);
+      mqPhone.removeEventListener("change", updatePhone);
+      window.removeEventListener("tools-sidebar:open", openHandler);
+    };
   }, []);
 
   if (!loaded || !hydrated) return null;
@@ -57,6 +72,8 @@ export default function ToolsSidebar() {
   if (tools.length === 0) return null;
 
   const effectiveCollapsed = userPref !== null ? userPref : !isLarge;
+
+  if (isSmartphone && effectiveCollapsed) return null;
 
   function toggle() {
     const next = !effectiveCollapsed;

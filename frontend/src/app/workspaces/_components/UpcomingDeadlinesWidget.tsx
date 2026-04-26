@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarBlank } from "@phosphor-icons/react";
 import { ScheduleListItem, type ScheduleListEntry } from "@/components/schedule/ScheduleListItem";
 
-const WIDGET_LIMIT = 5;
+const WIDGET_LIMIT = 3;
 
 export default function UpcomingDeadlinesWidget() {
   const router = useRouter();
