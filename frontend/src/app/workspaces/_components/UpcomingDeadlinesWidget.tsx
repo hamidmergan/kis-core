@@ -1,12 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarBlank, CaretDown } from "@phosphor-icons/react";
 import { ScheduleTimeline } from "@/components/schedule/ScheduleTimeline";
 import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/schedule/ScheduleEntryCardGlobal";
 
 const WIDGET_LIMIT = 3;
+
+async function toggleChecked(moduleUuid: string, entryId: number, checked: boolean): Promise<boolean> {
+  try {
+    const r = await fetch(
+      `/api/ki-assistent/modules/${moduleUuid}/schedule/entries/${entryId}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ is_checked: checked }),
+      },
+    );
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchUpcoming(): Promise<ScheduleListEntry[] | null> {
+  try {
+    const r = await fetch(
+      `/api/ki-assistent/schedule/upcoming?limit=${WIDGET_LIMIT}&include_checked=false`,
+      { credentials: "include" },
+    );
+    if (!r.ok) return null;
+    const data = await r.json();
+    return data.entries || [];
+  } catch {
+    return null;
+  }
+}
 
 export default function UpcomingDeadlinesWidget() {
   const [entries, setEntries] = useState<ScheduleListEntry[] | null>(null);
@@ -15,13 +46,22 @@ export default function UpcomingDeadlinesWidget() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/ki-assistent/schedule/upcoming?limit=${WIDGET_LIMIT}`, {
-      credentials: "include",
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((data) => { if (!cancelled) setEntries(data.entries || []); })
-      .catch(() => { if (!cancelled) setError(true); });
+    fetchUpcoming().then((items) => {
+      if (cancelled) return;
+      if (items === null) setError(true);
+      else setEntries(items);
+    });
     return () => { cancelled = true; };
+  }, []);
+
+  const handleToggleChecked = useCallback(async (entry: ScheduleListEntry, checked: boolean) => {
+    setEntries((prev) => prev?.filter((e) => e.id !== entry.id) ?? prev);
+    const ok = await toggleChecked(entry.module_uuid, entry.id, checked);
+    const items = await fetchUpcoming();
+    if (items !== null) setEntries(items);
+    else if (!ok) {
+      setEntries((prev) => prev ? [...prev, { ...entry, is_checked: !checked }] : prev);
+    }
   }, []);
 
   if (error) return null;
@@ -87,6 +127,7 @@ export default function UpcomingDeadlinesWidget() {
                 isPast={ctx.isPast}
                 urgency={ctx.urgency}
                 href={`/workspaces/${entry.module_uuid}?tab=schedule`}
+                onToggleChecked={(checked) => handleToggleChecked(entry, checked)}
               />
             )}
           />

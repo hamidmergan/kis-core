@@ -22,6 +22,7 @@ interface ScheduleEntryCardGlobalProps {
   isPast: boolean;
   urgency: string | null;
   href: string;
+  onToggleChecked?: (checked: boolean) => void;
 }
 
 export function ScheduleEntryCardGlobal({
@@ -29,9 +30,9 @@ export function ScheduleEntryCardGlobal({
   isPast,
   urgency,
   href,
+  onToggleChecked,
 }: ScheduleEntryCardGlobalProps) {
-  const baseStyle: React.CSSProperties = {
-    display: "block",
+  const containerStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     backgroundColor: entry.is_checked ? "#f0fdf4" : "var(--bg)",
     opacity: isPast ? 0.55 : entry.is_checked ? 0.7 : 1,
@@ -39,8 +40,9 @@ export function ScheduleEntryCardGlobal({
     borderRadius: 12,
     padding: "12px 14px",
     fontSize: 13,
-    color: "inherit",
-    textDecoration: "none",
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 10,
   };
 
   const isOwned = entry.module_relation === "owned";
@@ -48,76 +50,90 @@ export function ScheduleEntryCardGlobal({
   const description = cleanScheduleDescription(entry.description, entry.due_time);
 
   return (
-    <Link
-      href={href}
-      style={baseStyle}
-      className="hover:opacity-80 transition-opacity"
-    >
-      <div className="flex items-start gap-2.5">
+    <div style={containerStyle}>
+      <button
+        type="button"
+        aria-label={
+          isPast
+            ? "Vergangene Termine können nicht geändert werden"
+            : entry.is_checked
+            ? "Erledigt aufheben"
+            : "Als erledigt markieren"
+        }
+        title={isPast ? "Vergangene Termine sind gesperrt" : undefined}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isPast) return;
+          onToggleChecked?.(!entry.is_checked);
+        }}
+        disabled={isPast || !onToggleChecked}
+        className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5"
+        style={{
+          border: entry.is_checked ? "2px solid #10b981" : "2px solid var(--border)",
+          backgroundColor: entry.is_checked ? "#10b981" : "#fff",
+          color: "#fff",
+          cursor: isPast || !onToggleChecked ? "not-allowed" : "pointer",
+        }}
+      >
+        {entry.is_checked && <Check size={11} weight="bold" />}
+      </button>
+
+      <Link
+        href={href}
+        className="flex-1 min-w-0 hover:opacity-80 transition-opacity"
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
         <div
-          aria-hidden="true"
-          className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center mt-0.5"
+          className="font-semibold leading-tight break-words"
           style={{
-            border: entry.is_checked ? "2px solid #10b981" : "2px solid var(--border)",
-            backgroundColor: entry.is_checked ? "#10b981" : "#fff",
-            color: "#fff",
+            color: entry.is_checked ? "#166534" : "var(--text)",
+            textDecoration: entry.is_checked ? "line-through" : "none",
+            fontSize: 14,
           }}
         >
-          {entry.is_checked && <Check size={11} weight="bold" />}
+          {entry.title}
         </div>
 
-        <div className="flex-1 min-w-0">
+        {(entry.due_time || description) && (
           <div
-            className="font-semibold leading-tight break-words"
-            style={{
-              color: entry.is_checked ? "#166534" : "var(--text)",
-              textDecoration: entry.is_checked ? "line-through" : "none",
-              fontSize: 14,
-            }}
+            className="mt-1 text-[11.5px] flex items-center gap-1.5 flex-wrap"
+            style={{ color: "var(--muted)" }}
           >
-            {entry.title}
-          </div>
-
-          {(entry.due_time || description) && (
-            <div
-              className="mt-1 text-[11.5px] flex items-center gap-1.5 flex-wrap"
-              style={{ color: "var(--muted)" }}
-            >
-              {entry.due_time && (
-                <span
-                  className="inline-flex items-center gap-1"
-                  style={urgency ? { color: urgency } : undefined}
-                >
-                  <Clock size={10} weight="bold" />
-                  {entry.due_time}
-                </span>
-              )}
-              {entry.due_time && description && <span>·</span>}
-              {description && <span className="break-words">{description}</span>}
-            </div>
-          )}
-
-          <div
-            className="mt-2 pt-2"
-            style={{ borderTop: "1px dashed var(--border)" }}
-          >
-            <span
-              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
-              style={{
-                backgroundColor: isOwned ? "rgba(var(--kb-rgb),0.12)" : "transparent",
-                border: isOwned ? "none" : "1px solid var(--border)",
-                color: isOwned ? "var(--kb)" : "var(--muted)",
-              }}
-              title={isOwned ? "Eigener Arbeitsraum" : "Geteilter Arbeitsraum"}
-            >
-              <RelIcon size={10} weight="bold" />
-              <span className="truncate" style={{ maxWidth: 240 }}>
-                {entry.module_title}
+            {entry.due_time && (
+              <span
+                className="inline-flex items-center gap-1"
+                style={urgency ? { color: urgency } : undefined}
+              >
+                <Clock size={10} weight="bold" />
+                {entry.due_time}
               </span>
-            </span>
+            )}
+            {entry.due_time && description && <span>·</span>}
+            {description && <span className="break-words">{description}</span>}
           </div>
+        )}
+
+        <div
+          className="mt-2 pt-2"
+          style={{ borderTop: "1px dashed var(--border)" }}
+        >
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: isOwned ? "rgba(var(--kb-rgb),0.12)" : "transparent",
+              border: isOwned ? "none" : "1px solid var(--border)",
+              color: isOwned ? "var(--kb)" : "var(--muted)",
+            }}
+            title={isOwned ? "Eigener Arbeitsraum" : "Geteilter Arbeitsraum"}
+          >
+            <RelIcon size={10} weight="bold" />
+            <span className="truncate" style={{ maxWidth: 240 }}>
+              {entry.module_title}
+            </span>
+          </span>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

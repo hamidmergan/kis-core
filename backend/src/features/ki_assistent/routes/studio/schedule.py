@@ -86,11 +86,17 @@ async def get_upcoming_schedule(
     limit: Optional[int] = None,
     offset: int = 0,
     include_checked: bool = False,
+    only_checked: bool = False,
+    include_past_open: bool = False,
     current_user: dict = Depends(get_current_user),
 ):
     """Top-N upcoming schedule entries across all the user's modules
     (owned + enrolled). Used by the home widget (limit=5) and the global
     overview page (paginated with limit + offset).
+
+    only_checked=True returns the completed-history view (any date).
+    include_past_open=True returns all unchecked entries regardless of date,
+      so missed deadlines are visible alongside upcoming ones.
     """
     if limit is not None and (limit < 1 or limit > 500):
         raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
@@ -98,9 +104,19 @@ async def get_upcoming_schedule(
         raise HTTPException(status_code=400, detail="offset must be >= 0")
     user_id = current_user["user_id"]
     rows = db.get_schedule_entries_for_user(
-        user_id, limit=limit, offset=offset, include_checked=include_checked,
+        user_id, limit=limit, offset=offset,
+        include_checked=include_checked, only_checked=only_checked,
+        include_past_open=include_past_open,
     )
     return {"entries": [_serialize_global_entry(r) for r in rows]}
+
+
+@router.delete("/ki-assistent/schedule/checked")
+async def delete_all_checked(current_user: dict = Depends(get_current_user)):
+    """Bulk-delete all completed schedule entries owned by the user."""
+    user_id = current_user["user_id"]
+    count = db.delete_checked_entries_for_user(user_id)
+    return {"deleted": count}
 
 
 # ─── GET ────────────────────────────────────────────────────────────────────

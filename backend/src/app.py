@@ -37,7 +37,10 @@ def _configure_logging() -> None:
 
 
 async def _periodic_cleanup() -> None:
-    """Delete expired job files every hour."""
+    """Delete expired job files hourly. Prune past schedule entries once per
+    day: anything with due_date older than 1 month is removed (checked or not)."""
+    DAY_SECS = 24 * 3600
+    seconds_since_prune = 0
     while True:
         await asyncio.sleep(3600)
         try:
@@ -46,6 +49,15 @@ async def _periodic_cleanup() -> None:
                 logger.info("Cleanup: {} expired job(s) deleted", deleted)
         except Exception as e:
             logger.warning("Cleanup error: {}", e)
+        seconds_since_prune += 3600
+        if seconds_since_prune >= DAY_SECS:
+            seconds_since_prune = 0
+            try:
+                pruned = await asyncio.to_thread(db.prune_old_entries, 1)
+                if pruned:
+                    logger.info("Schedule cleanup: {} past entries pruned (>1mo)", pruned)
+            except Exception as e:
+                logger.warning("Schedule cleanup error: {}", e)
 
 
 @asynccontextmanager

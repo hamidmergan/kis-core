@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { CalendarBlank, List, Sidebar, SignOut, Stack, UserCircleGear, X } from "@phosphor-icons/react";
+import { List, Sidebar, SignOut, Stack, UserCircleGear, X } from "@phosphor-icons/react";
 
 interface HeaderMobileMenuProps {
   isAdmin: boolean;
@@ -57,15 +57,6 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
               <span>Tools</span>
             </button>
           )}
-          <Link
-            href="/schedule"
-            onClick={() => setOpen(false)}
-            className={rowClass}
-            style={{ color: "var(--text)" }}
-          >
-            <CalendarBlank size={20} weight="bold" />
-            <span>Zeitplan</span>
-          </Link>
           <Link
             href="/my-jobs"
             onClick={() => setOpen(false)}

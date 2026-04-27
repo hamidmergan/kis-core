@@ -1,18 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarBlank } from "@phosphor-icons/react";
+import { CalendarBlank, Trash } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import { ScheduleTimeline } from "@/components/schedule/ScheduleTimeline";
 import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/schedule/ScheduleEntryCardGlobal";
 
 const PAGE_SIZE = 20;
 
-async function fetchPage(offset: number, hide: boolean): Promise<{ items: ScheduleListEntry[]; done: boolean } | null> {
+async function fetchPage(offset: number, showAll: boolean): Promise<{ items: ScheduleListEntry[]; done: boolean } | null> {
+  const params = new URLSearchParams({
+    limit: String(PAGE_SIZE),
+    offset: String(offset),
+    include_past_open: showAll ? "true" : "false",
+    include_checked: showAll ? "true" : "false",
+  });
   try {
     const r = await fetch(
-      `/api/ki-assistent/schedule/upcoming?limit=${PAGE_SIZE}&offset=${offset}&include_checked=${!hide}`,
+      `/api/ki-assistent/schedule/upcoming?${params.toString()}`,
       { credentials: "include" },
     );
     if (!r.ok) return null;
@@ -24,21 +31,52 @@ async function fetchPage(offset: number, hide: boolean): Promise<{ items: Schedu
   }
 }
 
+async function toggleChecked(moduleUuid: string, entryId: number, checked: boolean): Promise<boolean> {
+  try {
+    const r = await fetch(
+      `/api/ki-assistent/modules/${moduleUuid}/schedule/entries/${entryId}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ is_checked: checked }),
+      },
+    );
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function deleteAllChecked(): Promise<boolean> {
+  try {
+    const r = await fetch("/api/ki-assistent/schedule/checked", {
+      method: "DELETE",
+      credentials: "include",
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function SchedulePage() {
   const [entries, setEntries] = useState<ScheduleListEntry[]>([]);
-  const [hideChecked, setHideChecked] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   // Refs mirror state so the IntersectionObserver callback never reads stale closures.
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const offsetRef = useRef(0);
-  const hideCheckedRef = useRef(hideChecked);
-  hideCheckedRef.current = hideChecked;
+  const showAllRef = useRef(showAll);
+  showAllRef.current = showAll;
 
   // Reset + initial load whenever the toggle flips.
   useEffect(() => {
@@ -51,7 +89,7 @@ export default function SchedulePage() {
     hasMoreRef.current = true;
     loadingRef.current = true;
 
-    fetchPage(0, hideChecked).then((res) => {
+    fetchPage(0, showAll).then((res) => {
       if (cancelled) return;
       loadingRef.current = false;
       setInitialLoading(false);
@@ -66,13 +104,13 @@ export default function SchedulePage() {
     });
 
     return () => { cancelled = true; };
-  }, [hideChecked]);
+  }, [showAll]);
 
   const triggerLoadMore = useCallback(async () => {
     if (loadingRef.current || !hasMoreRef.current) return;
     loadingRef.current = true;
     setLoadingMore(true);
-    const res = await fetchPage(offsetRef.current, hideCheckedRef.current);
+    const res = await fetchPage(offsetRef.current, showAllRef.current);
     loadingRef.current = false;
     setLoadingMore(false);
     if (!res) return;
@@ -95,22 +133,58 @@ export default function SchedulePage() {
     return () => observer.disconnect();
   }, [triggerLoadMore, entries.length]);
 
+  const handleConfirmDelete = useCallback(async () => {
+    setDeleting(true);
+    const ok = await deleteAllChecked();
+    setDeleting(false);
+    if (ok) {
+      setEntries((prev) => prev.filter((e) => !e.is_checked));
+    }
+    setConfirmDelete(false);
+  }, []);
+
+  const handleToggleChecked = useCallback(async (entry: ScheduleListEntry, checked: boolean) => {
+    setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_checked: checked } : e));
+    const ok = await toggleChecked(entry.module_uuid, entry.id, checked);
+    if (!ok) {
+      setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_checked: !checked } : e));
+      return;
+    }
+    // Standard-Modus: gerade gecheckter Eintrag fliegt aus der Liste.
+    if (!showAllRef.current && checked) {
+      setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    }
+  }, []);
+
   return (
     <ProtectedRoute>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
           <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--text)" }}>
             <CalendarBlank size={20} weight="bold" style={{ color: "var(--kb)" }} />
             Mein Zeitplan
           </h1>
-          <label className="inline-flex items-center gap-2 cursor-pointer text-xs">
-            <input
-              type="checkbox"
-              checked={hideChecked}
-              onChange={(e) => setHideChecked(e.target.checked)}
-              className="w-3.5 h-3.5 flex-shrink-0 accent-primary"
-            />
-            <span style={{ color: "var(--text)" }}>Erledigte ausblenden</span>
+          <label className="inline-flex items-center gap-2 text-xs cursor-pointer select-none">
+            <span style={{ color: "var(--text)" }}>Alle anzeigen</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showAll}
+              onClick={() => setShowAll((v) => !v)}
+              className="relative inline-block w-9 h-5 rounded-full transition-colors flex-shrink-0"
+              style={{ backgroundColor: showAll ? "var(--kb)" : "var(--border)" }}
+            >
+              <span
+                aria-hidden="true"
+                className="absolute top-0.5 w-4 h-4 rounded-full transition-transform"
+                style={{
+                  left: 2,
+                  backgroundColor: "#fff",
+                  transform: showAll ? "translateX(16px)" : "translateX(0)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,.2)",
+                }}
+              />
+            </button>
           </label>
         </div>
 
@@ -133,6 +207,21 @@ export default function SchedulePage() {
 
         {entries.length > 0 && (
           <>
+            {showAll && entries.some((e) => e.is_checked) && (
+              <div className="flex justify-end mb-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium hover:opacity-80 transition-opacity"
+                  style={{ border: "1px solid var(--border)", color: "var(--muted)" }}
+                  title="Alle abgehakten Termine löschen"
+                >
+                  <Trash size={12} weight="bold" />
+                  Alle abgehakten löschen
+                </button>
+              </div>
+            )}
+
             <ScheduleTimeline
               entries={entries}
               renderCard={(entry, ctx) => (
@@ -142,6 +231,7 @@ export default function SchedulePage() {
                   isPast={ctx.isPast}
                   urgency={ctx.urgency}
                   href={`/workspaces/${entry.module_uuid}?tab=schedule`}
+                  onToggleChecked={(checked) => handleToggleChecked(entry, checked)}
                 />
               )}
             />
@@ -162,6 +252,40 @@ export default function SchedulePage() {
           </>
         )}
       </div>
+
+      <Modal
+        open={confirmDelete}
+        onClose={() => { if (!deleting) setConfirmDelete(false); }}
+        title="Abgehakte löschen?"
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleting}
+              className="px-3 py-1.5 text-sm rounded-lg hover:opacity-80 transition-opacity"
+              style={{ border: "1px solid var(--border)", color: "var(--text)" }}
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="px-3 py-1.5 text-sm rounded-lg font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
+              style={{ backgroundColor: "#B91C1C", color: "#fff" }}
+            >
+              {deleting && <Spinner size="sm" />}
+              Löschen
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm" style={{ color: "var(--text)" }}>
+          Alle abgehakten Termine werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+        </p>
+      </Modal>
     </ProtectedRoute>
   );
 }

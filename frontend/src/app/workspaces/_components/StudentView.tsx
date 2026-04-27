@@ -72,7 +72,7 @@ export default function StudentView() {
       <div className="max-w-5xl mx-auto">
       <h1 className="text-3xl font-bold mb-10">Willkommen bei KIS</h1>
 
-      <div className="mb-8">
+      <div className="mb-12">
         <UpcomingDeadlinesWidget />
       </div>
 

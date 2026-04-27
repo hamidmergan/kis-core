@@ -92,7 +92,7 @@ export default function LecturerView() {
         <div className="max-w-5xl mx-auto">
           <h1 className="text-3xl font-bold mb-10 lg:mb-16">KI-Internationalisierung von Studiengängen</h1>
 
-          <div className="mb-8">
+          <div className="mb-12">
             <UpcomingDeadlinesWidget />
           </div>
 

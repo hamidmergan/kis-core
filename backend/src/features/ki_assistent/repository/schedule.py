@@ -24,6 +24,8 @@ def get_schedule_entries_for_user(
     limit: Optional[int] = None,
     offset: int = 0,
     include_checked: bool = False,
+    only_checked: bool = False,
+    include_past_open: bool = False,
 ) -> list[dict]:
     """Aggregate schedule entries across all modules the user has any relation to.
 
@@ -33,9 +35,24 @@ def get_schedule_entries_for_user(
     A user who is both owner and enrolled sees the module once (UNION dedupes).
 
     Returns rows enriched with module_uuid, module_title, module_relation
-    (owned | enrolled). Filtered to entries with a concrete due_date >= today;
-    checked entries are excluded unless include_checked=True.
+    (owned | enrolled).
+
+    Filter modes (priority: only_checked > include_past_open > default):
+      - default: future unchecked (due_date >= today AND is_checked=FALSE)
+      - include_checked=True: also include checked entries
+      - include_past_open=True: drop the date filter (missed deadlines visible)
+      - only_checked=True: completed entries only, no date filter (history view)
+    include_past_open + include_checked together → no filter at all (full view).
     """
+    if only_checked:
+        status_filter = "AND s.is_checked = TRUE"
+    elif include_past_open:
+        status_filter = "" if include_checked else "AND s.is_checked = FALSE"
+    else:
+        date_filter = "AND s.due_date >= (NOW() AT TIME ZONE 'Europe/Berlin')::date"
+        checked_filter = "" if include_checked else "AND s.is_checked = FALSE"
+        status_filter = f"{date_filter} {checked_filter}"
+
     sql = f"""
         SELECT s.id, s.type, s.title, s.description,
                s.due_date, s.due_time,
@@ -58,11 +75,10 @@ def get_schedule_entries_for_user(
                     AND (e.enrolled_until IS NULL OR e.enrolled_until > NOW())
                )
            AND s.due_date IS NOT NULL
-           AND s.due_date >= (NOW() AT TIME ZONE 'Europe/Berlin')::date
-           AND (%(include_checked)s OR s.is_checked = FALSE)
+           {status_filter}
          ORDER BY s.due_date ASC, s.due_time NULLS LAST, s.id
     """
-    params: dict[str, Any] = {"uid": user_id, "include_checked": include_checked}
+    params: dict[str, Any] = {"uid": user_id}
     if limit is not None:
         sql += " LIMIT %(limit)s"
         params["limit"] = int(limit)
@@ -257,6 +273,39 @@ def delete_all_schedule_entries(module_id: int, user_id: int) -> int:
                 "DELETE FROM kia_schedule_processed_sources WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
+        conn.commit()
+        return count
+
+
+def delete_checked_entries_for_user(user_id: int) -> int:
+    """Delete all completed schedule entries owned by this user, across all modules."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM kia_schedule_entries "
+                "WHERE user_id = %s AND is_checked = TRUE",
+                (user_id,),
+            )
+            count = cur.rowcount
+        conn.commit()
+        return count
+
+
+def prune_old_entries(months: int = 1) -> int:
+    """System-wide cleanup: delete schedule entries (checked or not) whose
+    due_date is older than N months. Future entries are never touched, even
+    if they are already checked. Idempotent — safe to call repeatedly.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM kia_schedule_entries "
+                "WHERE due_date IS NOT NULL "
+                "  AND due_date < (NOW() AT TIME ZONE 'Europe/Berlin')::date "
+                "                 - (%s || ' months')::interval",
+                (str(months),),
+            )
+            count = cur.rowcount
         conn.commit()
         return count
 

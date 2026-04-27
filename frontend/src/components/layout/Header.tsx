@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarBlank, SignOut, UserCircleGear } from "@phosphor-icons/react";
+import { SignOut, UserCircleGear } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
@@ -50,16 +50,6 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
         {showLogout && (
           <>
             <div className="hidden sm:flex items-center gap-1.5">
-              <Link
-                href="/schedule"
-                aria-label="Zeitplan"
-                title="Zeitplan"
-                className="flex items-center justify-center h-9 px-3 gap-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <CalendarBlank size={17} weight="bold" />
-                <span className="text-sm font-medium">Zeitplan</span>
-              </Link>
-
               <JobsPanel />
 
               {isAdmin && (

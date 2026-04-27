@@ -61,13 +61,22 @@ export function ScheduleEntryCard({
         {/* Checkbox */}
         <button
           type="button"
-          aria-label={entry.is_checked ? "Erledigt aufheben" : "Als erledigt markieren"}
-          onClick={() => onToggleChecked(!entry.is_checked)}
+          aria-label={
+            isPast
+              ? "Vergangene Termine können nicht geändert werden"
+              : entry.is_checked
+              ? "Erledigt aufheben"
+              : "Als erledigt markieren"
+          }
+          title={isPast ? "Vergangene Termine sind gesperrt" : undefined}
+          onClick={() => { if (!isPast) onToggleChecked(!entry.is_checked); }}
+          disabled={isPast}
           className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5"
           style={{
             border: entry.is_checked ? "2px solid #10b981" : "2px solid var(--border)",
             backgroundColor: entry.is_checked ? "#10b981" : "#fff",
             color: "#fff",
+            cursor: isPast ? "not-allowed" : "pointer",
           }}
         >
           {entry.is_checked && <Check size={11} weight="bold" />}

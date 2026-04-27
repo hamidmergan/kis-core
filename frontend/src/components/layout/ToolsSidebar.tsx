@@ -134,11 +134,11 @@ export default function ToolsSidebar() {
                         className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
                       >
                         <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
-                          <ToolIcon size={22} weight="bold" />
+                          <ToolIcon size={18} weight="bold" />
                         </span>
                         {!effectiveCollapsed && (
                           <span
-                            className="text-[15px] font-medium truncate"
+                            className="text-[15px] truncate"
                             style={{ color: "var(--text)" }}
                           >
                             {tool.title}
