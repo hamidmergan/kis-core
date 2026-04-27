@@ -277,20 +277,6 @@ def delete_all_schedule_entries(module_id: int, user_id: int) -> int:
         return count
 
 
-def delete_checked_entries_for_user(user_id: int) -> int:
-    """Delete all completed schedule entries owned by this user, across all modules."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM kia_schedule_entries "
-                "WHERE user_id = %s AND is_checked = TRUE",
-                (user_id,),
-            )
-            count = cur.rowcount
-        conn.commit()
-        return count
-
-
 def prune_old_entries(months: int = 1) -> int:
     """System-wide cleanup: delete schedule entries (checked or not) whose
     due_date is older than N months. Future entries are never touched, even

@@ -55,13 +55,15 @@ export default function UpcomingDeadlinesWidget() {
   }, []);
 
   const handleToggleChecked = useCallback(async (entry: ScheduleListEntry, checked: boolean) => {
-    setEntries((prev) => prev?.filter((e) => e.id !== entry.id) ?? prev);
+    setEntries((prev) => prev?.map((e) => e.id === entry.id ? { ...e, is_checked: checked } : e) ?? prev);
     const ok = await toggleChecked(entry.module_uuid, entry.id, checked);
+    if (!ok) {
+      setEntries((prev) => prev?.map((e) => e.id === entry.id ? { ...e, is_checked: !checked } : e) ?? prev);
+      return;
+    }
+    await new Promise((res) => setTimeout(res, 600));
     const items = await fetchUpcoming();
     if (items !== null) setEntries(items);
-    else if (!ok) {
-      setEntries((prev) => prev ? [...prev, { ...entry, is_checked: !checked }] : prev);
-    }
   }, []);
 
   if (error) return null;

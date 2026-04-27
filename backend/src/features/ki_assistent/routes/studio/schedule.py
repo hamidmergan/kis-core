@@ -111,14 +111,6 @@ async def get_upcoming_schedule(
     return {"entries": [_serialize_global_entry(r) for r in rows]}
 
 
-@router.delete("/ki-assistent/schedule/checked")
-async def delete_all_checked(current_user: dict = Depends(get_current_user)):
-    """Bulk-delete all completed schedule entries owned by the user."""
-    user_id = current_user["user_id"]
-    count = db.delete_checked_entries_for_user(user_id)
-    return {"deleted": count}
-
-
 # ─── GET ────────────────────────────────────────────────────────────────────
 
 @router.get("/ki-assistent/modules/{module_uuid}/schedule")

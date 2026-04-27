@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarBlank, Trash } from "@phosphor-icons/react";
+import { CalendarBlank } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import Modal from "@/components/ui/Modal";
 import Spinner from "@/components/ui/Spinner";
 import { ScheduleTimeline } from "@/components/schedule/ScheduleTimeline";
 import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/schedule/ScheduleEntryCardGlobal";
@@ -48,18 +47,6 @@ async function toggleChecked(moduleUuid: string, entryId: number, checked: boole
   }
 }
 
-async function deleteAllChecked(): Promise<boolean> {
-  try {
-    const r = await fetch("/api/ki-assistent/schedule/checked", {
-      method: "DELETE",
-      credentials: "include",
-    });
-    return r.ok;
-  } catch {
-    return false;
-  }
-}
-
 export default function SchedulePage() {
   const [entries, setEntries] = useState<ScheduleListEntry[]>([]);
   const [showAll, setShowAll] = useState(false);
@@ -67,8 +54,6 @@ export default function SchedulePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   // Refs mirror state so the IntersectionObserver callback never reads stale closures.
@@ -133,16 +118,6 @@ export default function SchedulePage() {
     return () => observer.disconnect();
   }, [triggerLoadMore, entries.length]);
 
-  const handleConfirmDelete = useCallback(async () => {
-    setDeleting(true);
-    const ok = await deleteAllChecked();
-    setDeleting(false);
-    if (ok) {
-      setEntries((prev) => prev.filter((e) => !e.is_checked));
-    }
-    setConfirmDelete(false);
-  }, []);
-
   const handleToggleChecked = useCallback(async (entry: ScheduleListEntry, checked: boolean) => {
     setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_checked: checked } : e));
     const ok = await toggleChecked(entry.module_uuid, entry.id, checked);
@@ -150,8 +125,8 @@ export default function SchedulePage() {
       setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_checked: !checked } : e));
       return;
     }
-    // Standard-Modus: gerade gecheckter Eintrag fliegt aus der Liste.
     if (!showAllRef.current && checked) {
+      await new Promise((res) => setTimeout(res, 600));
       setEntries((prev) => prev.filter((e) => e.id !== entry.id));
     }
   }, []);
@@ -207,21 +182,6 @@ export default function SchedulePage() {
 
         {entries.length > 0 && (
           <>
-            {showAll && entries.some((e) => e.is_checked) && (
-              <div className="flex justify-end mb-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(true)}
-                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium hover:opacity-80 transition-opacity"
-                  style={{ border: "1px solid var(--border)", color: "var(--muted)" }}
-                  title="Alle abgehakten Termine löschen"
-                >
-                  <Trash size={12} weight="bold" />
-                  Alle abgehakten löschen
-                </button>
-              </div>
-            )}
-
             <ScheduleTimeline
               entries={entries}
               renderCard={(entry, ctx) => (
@@ -252,40 +212,6 @@ export default function SchedulePage() {
           </>
         )}
       </div>
-
-      <Modal
-        open={confirmDelete}
-        onClose={() => { if (!deleting) setConfirmDelete(false); }}
-        title="Abgehakte löschen?"
-        size="sm"
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(false)}
-              disabled={deleting}
-              className="px-3 py-1.5 text-sm rounded-lg hover:opacity-80 transition-opacity"
-              style={{ border: "1px solid var(--border)", color: "var(--text)" }}
-            >
-              Abbrechen
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirmDelete}
-              disabled={deleting}
-              className="px-3 py-1.5 text-sm rounded-lg font-medium hover:opacity-80 transition-opacity inline-flex items-center gap-1.5"
-              style={{ backgroundColor: "#B91C1C", color: "#fff" }}
-            >
-              {deleting && <Spinner size="sm" />}
-              Löschen
-            </button>
-          </>
-        }
-      >
-        <p className="text-sm" style={{ color: "var(--text)" }}>
-          Alle abgehakten Termine werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
-        </p>
-      </Modal>
     </ProtectedRoute>
   );
 }
