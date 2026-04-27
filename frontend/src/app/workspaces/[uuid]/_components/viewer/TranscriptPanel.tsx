@@ -406,7 +406,7 @@ export function TranscriptPanel({
                     disabled={savingCueIdx === idx}
                     onClick={(e) => { e.stopPropagation(); onSaveCue(idx); }}
                     title="Als Notiz speichern"
-                    className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+                    className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
                     style={{ color: savedCueIdx === idx ? "#16a34a" : "var(--muted)" }}
                   >
                     {savingCueIdx === idx

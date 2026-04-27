@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SignOut, UserCircleGear, House, CalendarBlank } from "@phosphor-icons/react";
+import { CalendarBlank, SignOut, UserCircleGear } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/jobs/JobsPanel";
+import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
 
 interface HeaderProps {
   showLogout?: boolean;
+  showToolsToggle?: boolean;
 }
 
-export default function Header({ showLogout = false }: HeaderProps) {
+export default function Header({ showLogout = false, showToolsToggle = false }: HeaderProps) {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -29,7 +31,7 @@ export default function Header({ showLogout = false }: HeaderProps) {
 
   return (
     <header style={{ backgroundColor: "var(--kb)" }} className="py-3 hide-on-short">
-      <div className="max-w-5xl mx-auto px-4 flex items-center justify-between">
+      <div className="px-4 sm:px-6 flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Link
             href="/workspaces"
@@ -46,44 +48,45 @@ export default function Header({ showLogout = false }: HeaderProps) {
         </h1>
 
         {showLogout && (
-          <div className="flex items-center gap-1.5">
-            <Link
-              href="/workspaces"
-              aria-label="Zur Übersicht"
-              className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <House size={18} weight="bold" />
-            </Link>
-
-            <Link
-              href="/schedule"
-              aria-label="Zeitplan"
-              title="Zeitplan"
-              className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <CalendarBlank size={18} weight="bold" />
-            </Link>
-
-            <JobsPanel />
-
-            {isAdmin && (
+          <>
+            <div className="hidden sm:flex items-center gap-1.5">
               <Link
-                href="/admin"
-                aria-label="Admin"
-                className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                href="/schedule"
+                aria-label="Zeitplan"
+                title="Zeitplan"
+                className="flex items-center justify-center h-9 px-3 gap-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
               >
-                <UserCircleGear size={18} weight="bold" />
+                <CalendarBlank size={17} weight="bold" />
+                <span className="text-sm font-medium">Zeitplan</span>
               </Link>
-            )}
 
-            <button
-              onClick={handleLogout}
-              aria-label="Abmelden"
-              className="flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <SignOut size={17} weight="bold" />
-            </button>
-          </div>
+              <JobsPanel />
+
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  aria-label="Admin"
+                  title="Admin"
+                  className="flex items-center justify-center h-9 px-3 gap-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <UserCircleGear size={17} weight="bold" />
+                  <span className="text-sm font-medium">Admin</span>
+                </Link>
+              )}
+
+              <button
+                onClick={handleLogout}
+                aria-label="Abmelden"
+                title="Abmelden"
+                className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full text-white/80 hover:text-white border border-white/25 hover:bg-white/10 transition-colors"
+              >
+                <SignOut size={17} weight="bold" />
+                <span className="text-sm font-medium">Abmelden</span>
+              </button>
+            </div>
+
+            <HeaderMobileMenu isAdmin={isAdmin} showToolsToggle={showToolsToggle} onLogout={handleLogout} />
+          </>
         )}
       </div>
     </header>

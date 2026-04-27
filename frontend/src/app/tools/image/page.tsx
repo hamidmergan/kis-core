@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import BackLink from "@/components/ui/BackLink";
 import GenerateTab from "./_tabs/GenerateTab";
@@ -22,7 +21,6 @@ export default function ImagePage() {
 
   return (
     <ProtectedRoute>
-      <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <h1 className="text-xl font-bold mb-1">Image</h1>

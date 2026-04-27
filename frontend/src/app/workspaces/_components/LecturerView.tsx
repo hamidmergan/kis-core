@@ -4,9 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Files } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import CreateModuleModal from "./CreateModuleModal";
-import MobileSidebarToggle from "./MobileSidebarToggle";
 import ModuleTable from "./ModuleTable";
-import ToolsSidebar from "./ToolsSidebar";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
 import type { AccessLink, KiTutorModule } from "../_shared";
 
@@ -90,12 +88,8 @@ export default function LecturerView() {
         />
       )}
 
-      <div className="flex items-stretch min-h-[calc(100vh-4rem)] overflow-x-hidden">
-        <ToolsSidebar />
-
-        <div className="flex-1 min-w-0 px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
-          <div className="max-w-5xl mx-auto">
-          <MobileSidebarToggle />
+      <div className="px-4 sm:px-6 md:px-8 pt-6 pb-20 lg:pt-15 lg:pb-30">
+        <div className="max-w-5xl mx-auto">
           <h1 className="text-3xl font-bold mb-10 lg:mb-16">KI-Internationalisierung von Studiengängen</h1>
 
           <div className="mb-8">
@@ -136,7 +130,6 @@ export default function LecturerView() {
               />
             </div>
           )}
-          </div>
         </div>
       </div>
     </>

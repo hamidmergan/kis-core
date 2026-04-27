@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { api, parseDetail } from "@/lib/api";
 import { checkAuthStatus } from "@/lib/auth";
@@ -378,7 +377,6 @@ function ScreencastDemoPageInner() {
 
   return (
     <ProtectedRoute>
-      <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink href="/tools/screencast" label="Zurück" />
         {showStepIndicator && (

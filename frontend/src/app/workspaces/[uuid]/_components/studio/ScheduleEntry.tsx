@@ -1,6 +1,7 @@
 import { Check, Clock, PencilSimple, Trash } from "@phosphor-icons/react";
 import type { ScheduleEntry } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
+import { cleanScheduleDescription } from "@/components/schedule/utils";
 
 interface SourceLike { uuid: string; filename: string; }
 
@@ -8,6 +9,7 @@ export function ScheduleEntryCard({
   entry,
   isToday,
   isPast,
+  urgency,
   editMode,
   sources,
   sourceNumByUuid,
@@ -19,6 +21,7 @@ export function ScheduleEntryCard({
   entry: ScheduleEntry;
   isToday: boolean;
   isPast: boolean;
+  urgency: string | null;
   editMode: boolean;
   sources: SourceLike[];
   sourceNumByUuid: Map<string, number>;
@@ -81,21 +84,28 @@ export function ScheduleEntryCard({
           >
             {entry.title}
           </div>
-          {(entry.due_time || entry.description) && (
-            <div
-              className="mt-1 text-[11.5px] flex items-center gap-1.5 flex-wrap"
-              style={{ color: "var(--muted)" }}
-            >
-              {entry.due_time && (
-                <span className="inline-flex items-center gap-1">
-                  <Clock size={10} weight="bold" />
-                  {entry.due_time}
-                </span>
-              )}
-              {entry.due_time && entry.description && <span>·</span>}
-              {entry.description && <span>{entry.description}</span>}
-            </div>
-          )}
+          {(() => {
+            const description = cleanScheduleDescription(entry.description, entry.due_time);
+            if (!entry.due_time && !description) return null;
+            return (
+              <div
+                className="mt-1 text-[11.5px] flex items-center gap-1.5 flex-wrap"
+                style={{ color: "var(--muted)" }}
+              >
+                {entry.due_time && (
+                  <span
+                    className="inline-flex items-center gap-1"
+                    style={urgency ? { color: urgency } : undefined}
+                  >
+                    <Clock size={10} weight="bold" />
+                    {entry.due_time}
+                  </span>
+                )}
+                {entry.due_time && description && <span>·</span>}
+                {description && <span>{description}</span>}
+              </div>
+            );
+          })()}
 
           {chipRefs.length > 0 && (
             <div

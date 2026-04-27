@@ -23,8 +23,8 @@ const TOOLS: SidebarTool[] = [
   { key: "transcription", title: "Sprache in Text", href: "/tools/stt",        icon: Microphone },
   { key: "image",         title: "Bildgenerierung", href: "/tools/image",      icon: ImageIcon },
   { key: "summary",       title: "Zusammenfassung", href: "/tools/summarize",  icon: TextAlignLeft },
-  { key: "glossary",      title: "Glossar",         href: "/tools/glossary",   icon: BookOpen },
   { key: "screencast",    title: "Screencast",      href: "/tools/screencast", icon: MonitorPlay },
+  { key: "glossary",      title: "Glossar",         href: "/tools/glossary",   icon: BookOpen },
 ];
 
 const STORAGE_KEY = "kis_tools_sidebar_collapsed";
@@ -70,6 +70,9 @@ export default function ToolsSidebar() {
 
   const tools = TOOLS.filter((t) => isToolEnabled(t.key));
   if (tools.length === 0) return null;
+  const sections: { label: string; items: SidebarTool[] }[] = [
+    { label: "Tools", items: tools },
+  ];
 
   const effectiveCollapsed = userPref !== null ? userPref : !isLarge;
 
@@ -93,17 +96,9 @@ export default function ToolsSidebar() {
     >
       <div className="sticky top-0 px-3 pt-6 pb-4">
         <div
-          className={`mb-4 ${effectiveCollapsed ? "flex flex-col items-center gap-1" : "flex items-center"}`}
+          className={`mb-4 flex ${effectiveCollapsed ? "justify-center" : "justify-end"}`}
           style={{ minHeight: 28 }}
         >
-          {!effectiveCollapsed && (
-            <span
-              className="text-[11px] font-bold uppercase tracking-wider flex-1 px-1"
-              style={{ color: "var(--muted)" }}
-            >
-              Tools
-            </span>
-          )}
           <button
             type="button"
             onClick={toggle}
@@ -113,49 +108,56 @@ export default function ToolsSidebar() {
           >
             <Sidebar size={18} weight="bold" />
           </button>
-          {effectiveCollapsed && (
-            <span
-              className="text-[10px] font-bold uppercase tracking-wider mt-3"
-              style={{ color: "var(--muted)" }}
-            >
-              Tools
-            </span>
-          )}
         </div>
 
-        <ul className="flex flex-col gap-1">
-          {tools.map((tool) => {
-            const ToolIcon = tool.icon;
-            return (
-              <li key={tool.key}>
-                <Link
-                  href={tool.href}
-                  title={effectiveCollapsed ? tool.title : undefined}
-                  className={`flex items-center gap-3 rounded-lg no-underline transition-colors hover:bg-[var(--bg)] ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
+        <div className="flex flex-col gap-5">
+          {sections.map((section, idx) => (
+            <div key={section.label}>
+              <div
+                className={`mb-2 ${effectiveCollapsed ? "flex justify-center" : "px-1"}`}
+              >
+                <span
+                  className={`${effectiveCollapsed ? "text-[10px]" : "text-[11px]"} font-bold uppercase tracking-wider`}
+                  style={{ color: "var(--muted)" }}
                 >
-                  <span
-                    className="flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg"
-                    style={{
-                      backgroundColor: "var(--bg)",
-                      border: "1px solid var(--border)",
-                      color: "var(--kb)",
-                    }}
-                  >
-                    <ToolIcon size={22} weight="bold" />
-                  </span>
-                  {!effectiveCollapsed && (
-                    <span
-                      className="text-[15px] font-medium truncate"
-                      style={{ color: "var(--text)" }}
-                    >
-                      {tool.title}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                  {section.label}
+                </span>
+              </div>
+              <ul className="flex flex-col gap-1">
+                {section.items.map((tool) => {
+                  const ToolIcon = tool.icon;
+                  return (
+                    <li key={tool.key}>
+                      <Link
+                        href={tool.href}
+                        title={effectiveCollapsed ? tool.title : undefined}
+                        className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
+                      >
+                        <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
+                          <ToolIcon size={22} weight="bold" />
+                        </span>
+                        {!effectiveCollapsed && (
+                          <span
+                            className="text-[15px] font-medium truncate"
+                            style={{ color: "var(--text)" }}
+                          >
+                            {tool.title}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {idx < sections.length - 1 && (
+                <div
+                  className="mt-5"
+                  style={{ borderTop: "1px solid var(--border)" }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </aside>
   );

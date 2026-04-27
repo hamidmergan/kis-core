@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
@@ -110,7 +109,6 @@ export default function ZusammenfassungPage() {
 
   return (
     <ProtectedRoute>
-      <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>

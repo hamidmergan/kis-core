@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries } from "@/hooks/useGlossaries";
 
@@ -409,7 +408,6 @@ function ScreencastPageInner() {
 
   return (
     <ProtectedRoute>
-      <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         {/* Step indicator */}

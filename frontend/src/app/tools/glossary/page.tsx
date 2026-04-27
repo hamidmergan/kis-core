@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { BookOpen, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/react";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries, MAX_GLOSSARIES, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
 import BackLink from "@/components/ui/BackLink";
@@ -146,7 +145,6 @@ export default function GlossaryPage() {
 
   return (
     <ProtectedRoute>
-      <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>

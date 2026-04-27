@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import type { ChatMessage as ChatMessageType, Source } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
@@ -97,22 +97,35 @@ export function ChatPanel({
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  const getFilename = (srcUuid: string) =>
-    sources.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid;
+  // Stabile Callback-Identitäten via Refs — sonst invalidiert React.memo auf
+  // ChatMessage bei jedem Re-Render von page.tsx (z.B. Tab-Switch), weil
+  // `onPillClick` Deps wie `activeTab` hat und die Identität dauernd wechselt.
+  const sourcesRef = useRef(sources);
+  sourcesRef.current = sources;
+  const onPillClickRef = useRef(onPillClick);
+  onPillClickRef.current = onPillClick;
+
+  const getFilename = useCallback(
+    (srcUuid: string) => sourcesRef.current.find((s) => s.uuid === srcUuid)?.filename ?? srcUuid,
+    [],
+  );
 
   // Wrap onPillClick so opening the viewer doesn't cause the chat to jump.
   // Captures scrollTop before the click and restores it across a few frames
   // while the panel layout settles.
-  function handleChipClick(sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) {
-    const el = scrollContainerRef.current;
-    const savedTop = el?.scrollTop ?? 0;
-    onPillClick(sourceUuid, page, filename, sourceText, startTime, isExact);
-    if (el) {
-      const restore = () => { el.scrollTop = savedTop; };
-      requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
-      setTimeout(restore, 60);
-    }
-  }
+  const handleChipClick = useCallback(
+    (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => {
+      const el = scrollContainerRef.current;
+      const savedTop = el?.scrollTop ?? 0;
+      onPillClickRef.current(sourceUuid, page, filename, sourceText, startTime, isExact);
+      if (el) {
+        const restore = () => { el.scrollTop = savedTop; };
+        requestAnimationFrame(() => { restore(); requestAnimationFrame(restore); });
+        setTimeout(restore, 60);
+      }
+    },
+    [],
+  );
 
   return (
     <div className="flex flex-col h-full chat-60vh">

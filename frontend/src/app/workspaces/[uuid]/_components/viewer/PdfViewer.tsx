@@ -8,6 +8,7 @@ import { FileIcon } from "../sources/FileIcon";
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
 import { doHighlightSearch, type HighlightRefs } from "./_highlight";
+import { copyTextFromPromise } from "@/lib/clipboard";
 
 
 export function PdfViewer({
@@ -303,6 +304,37 @@ export function PdfViewer({
       },
     });
 
+    // Replace EmbedPDF's default copy-selection. Its action awaits getSelectedText()
+    // before calling navigator.clipboard.writeText(), which loses transient activation
+    // on iOS Safari touch (silent failure). copyTextFromPromise passes a Promise to
+    // ClipboardItem so the user gesture is preserved across the await.
+    commands.registerCommand({
+      id: "kis.copy-selection",
+      label: "Kopieren",
+      description: "Auswahl kopieren",
+      icon: "copy",
+      iconProps: { title: "Kopieren" },
+      categories: ["selection", "selection-copy"],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      visible: ({ state, documentId }: any) => {
+        const doc = state?.plugins?.selection?.documents?.[documentId];
+        if (!doc?.slices) return true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
+        return totalChars > 0;
+      },
+      action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sel = (r as any).getPlugin?.("selection")?.provides?.();
+        if (!sel) return;
+        const textTask = sel.getSelectedText?.(documentId);
+        const textPromise: Promise<string> = (textTask?.toPromise?.() ?? Promise.resolve([]))
+          .then((lines: string[] | string) => (Array.isArray(lines) ? lines : [lines]).join("\n"));
+        copyTextFromPromise(textPromise);
+        textPromise.finally(() => sel.forDocument?.(documentId)?.clear?.());
+      },
+    });
+
     // Register glossary extract command
     commands.registerCommand({
       id: "kis.add-to-glossary",
@@ -353,9 +385,23 @@ export function PdfViewer({
       },
     });
 
-    // Merge: add KI actions to selection menu + summary button to main toolbar
+    // Merge: add KI actions to selection menu + summary button to main toolbar.
+    // EmbedPDF-Defaults bis auf copy-selection rauswerfen — wir wollen weder
+    // highlight/underline/strikeout/squiggly/link/redact noch deren Trenner.
     const existingSchema = ui.getSchema?.();
-    const existingSelItems: unknown[] = existingSchema?.selectionMenus?.selection?.items ?? [];
+    // copy-selection ersetzen wir durch kis.copy-selection (Touch-Fix, siehe oben)
+    const KEEP_DEFAULT_IDS = new Set(["add-highlight"]);
+    const existingSelItems: unknown[] = (existingSchema?.selectionMenus?.selection?.items ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((it: any) => it?.type !== "command-button" || KEEP_DEFAULT_IDS.has(it?.id))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((it: any, idx: number, arr: any[]) => {
+        // Verwaiste Trenner am Anfang/Ende oder direkt nebeneinander entfernen
+        if (it?.type !== "divider") return true;
+        const next = arr[idx + 1];
+        const prev = arr[idx - 1];
+        return prev?.type === "command-button" && next?.type === "command-button";
+      });
     const mainToolbar = existingSchema?.toolbars?.["main-toolbar"];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newToolbarItems = mainToolbar?.items?.map((item: any) =>
@@ -368,20 +414,18 @@ export function PdfViewer({
         selection: {
           id: "selection",
           items: [
+            { type: "command-button", id: "kis.copy-selection", commandId: "kis.copy-selection", variant: "icon", categories: ["selection", "selection-copy"] },
             ...existingSelItems,
             { type: "divider", id: "kis-custom-divider", categories: ["kis-actions"] },
             { type: "command-button", id: "kis.add-to-glossary", commandId: "kis.add-to-glossary", variant: "icon", categories: ["kis-actions"] },
             { type: "command-button", id: "kis.custom-question", commandId: "kis.custom-question", variant: "icon", categories: ["kis-actions"] },
-            ...(actions?.length ? [
-              { type: "divider", id: "kis-divider", categories: ["kis-actions"] },
-              ...actions.map(a => ({
-                type: "command-button",
-                id: `kis.${a.key}`,
-                commandId: `kis.${a.key}`,
-                variant: "icon",
-                categories: ["kis-actions"],
-              })),
-            ] : []),
+            ...(actions?.length ? actions.map(a => ({
+              type: "command-button",
+              id: `kis.${a.key}`,
+              commandId: `kis.${a.key}`,
+              variant: "icon",
+              categories: ["kis-actions"],
+            })) : []),
           ],
         },
       },

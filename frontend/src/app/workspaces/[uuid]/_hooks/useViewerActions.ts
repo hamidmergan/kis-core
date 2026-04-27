@@ -51,11 +51,14 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
 
   // Fill chat input and focus it. `switchTab` forces mobile-tab switch to chat.
   const fillChatInput = useCallback((value: string, wasOpen: boolean, switchTab: boolean) => {
-    chatSetInputRef.current?.(value);
     if (isMobile || switchTab) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
     const delay = wasOpen ? 50 : 300;
     setTimeout(() => {
+      // setInput muss NACH dem Tab-/Panel-Switch kommen: Auf Smartphone ist
+      // ChatInputBar bei aktivem Quellen-/Studio-Tab unmounted und chatSetInputRef
+      // damit null. Erst nach setTimeout-delay ist der Mount-Cycle durch.
+      chatSetInputRef.current?.(value);
       const el = chatTextareaRef.current;
       if (!el) return;
       el.focus();

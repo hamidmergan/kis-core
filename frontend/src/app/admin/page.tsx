@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/layout/Header";
 import { checkAuthStatus } from "@/lib/auth";
 import PendingTab from "./_components/PendingTab";
 import WhitelistTab from "./_components/WhitelistTab";
@@ -58,7 +57,6 @@ export default function AdminPage() {
 
   return (
     <>
-      <Header showLogout />
       <main className="max-w-4xl mx-auto px-4 py-8">
         <h2 className="text-lg font-semibold mb-6">Admin-Bereich</h2>
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Stack } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 
 interface MyJob {
@@ -289,14 +290,12 @@ export default function JobsPanel() {
       <button
         onClick={handleButtonClick}
         onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open("/my-jobs", "_blank"); } }}
-        aria-label="Aufträge"
-        title="Aufträge"
-        className="relative flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+        aria-label="Jobs"
+        title="Jobs"
+        className="relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
       >
-        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.2} aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round"
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
+        <Stack size={17} weight="bold" aria-hidden="true" />
+        <span className="hidden sm:inline text-sm font-medium">Jobs</span>
         {attentionCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-white text-primary text-[9px] font-bold rounded-full flex items-center justify-center shadow">
             {attentionCount}

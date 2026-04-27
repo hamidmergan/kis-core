@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { CaretLeft, CaretRight, FilePdf, Files, Sparkle, Table, Trash } from "@phosphor-icons/react";
+import React, { useContext, useEffect, useState } from "react";
+import { CaretLeft, CaretRight, FilePdf, Files, SidebarSimple, Sparkle, Table, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { DatentabelleData, DatentabelleRowSource, DatentabelleSource, Source, StudentStats } from "../../_types";
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../../_utils";
+import { MinimizeContext } from "../../_context";
 import { SubviewHeader, _getToolBadge } from "../layout/SubviewHeader";
 
 export function DatentabelleStudio({
@@ -28,6 +29,7 @@ export function DatentabelleStudio({
   onViewerOpened?: () => void;
 }) {
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
+  const minimize = useContext(MinimizeContext);
 
   useEffect(() => {
     if (openInViewer) {
@@ -146,6 +148,13 @@ export function DatentabelleStudio({
               </div>
             );
           })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
+          {minimize && (
+            <button type="button" onClick={minimize} title="Panel minimieren"
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-auto"
+              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+              <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto">
           {!table && loading && (

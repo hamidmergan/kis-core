@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarBlank } from "@phosphor-icons/react";
-import { ScheduleListItem, type ScheduleListEntry } from "@/components/schedule/ScheduleListItem";
+import Link from "next/link";
+import { ArrowRight, CalendarBlank, CaretDown } from "@phosphor-icons/react";
+import { ScheduleTimeline } from "@/components/schedule/ScheduleTimeline";
+import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/schedule/ScheduleEntryCardGlobal";
 
 const WIDGET_LIMIT = 3;
 
 export default function UpcomingDeadlinesWidget() {
-  const router = useRouter();
   const [entries, setEntries] = useState<ScheduleListEntry[] | null>(null);
   const [error, setError] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,38 +34,64 @@ export default function UpcomingDeadlinesWidget() {
       style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}
     >
       <header
-        className="flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: "1px solid var(--border)" }}
+        role="button"
+        tabIndex={0}
+        onClick={() => setCollapsed((v) => !v)}
+        onKeyDown={(ev) => {
+          if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
+            setCollapsed((v) => !v);
+          }
+        }}
+        aria-expanded={!collapsed}
+        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:opacity-90 transition-opacity"
+        style={{
+          borderBottom: collapsed ? "none" : "1px solid var(--border)",
+          backgroundColor: "var(--border)",
+        }}
       >
         <div className="flex items-center gap-2">
+          <CaretDown
+            size={14}
+            weight="bold"
+            style={{
+              color: "var(--muted)",
+              transition: "transform 0.15s ease",
+              transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+            }}
+          />
           <CalendarBlank size={16} weight="bold" style={{ color: "var(--kb)" }} />
           <h3 className="text-sm font-semibold" style={{ color: "var(--text)" }}>
             Nächste Termine
           </h3>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/schedule")}
+        <Link
+          href="/schedule"
+          onClick={(ev) => ev.stopPropagation()}
           className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70 transition-opacity"
           style={{ color: "var(--kb)" }}
         >
           Alle anzeigen
           <ArrowRight size={12} weight="bold" />
-        </button>
+        </Link>
       </header>
 
-      <div className="overflow-x-auto">
-        <ul className="min-w-max">
-          {entries.map((e, idx) => (
-            <ScheduleListItem
-              key={e.id}
-              entry={e}
-              isFirst={idx === 0}
-              onClick={() => router.push(`/workspaces/${e.module_uuid}`)}
-            />
-          ))}
-        </ul>
-      </div>
+      {!collapsed && (
+        <div className="px-3 py-2">
+          <ScheduleTimeline
+            entries={entries}
+            renderCard={(entry, ctx) => (
+              <ScheduleEntryCardGlobal
+                entry={entry}
+                isToday={ctx.isToday}
+                isPast={ctx.isPast}
+                urgency={ctx.urgency}
+                href={`/workspaces/${entry.module_uuid}?tab=schedule`}
+              />
+            )}
+          />
+        </div>
+      )}
     </section>
   );
 }

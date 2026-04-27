@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
 import TtsStatus from "@/components/jobs/TtsStatus";
@@ -255,7 +254,6 @@ export default function TtsPage() {
 
   return (
     <ProtectedRoute>
-      <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>

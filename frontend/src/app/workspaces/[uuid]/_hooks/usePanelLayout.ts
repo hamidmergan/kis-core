@@ -7,6 +7,20 @@ import type { PanelKey, ViewerState } from "../_types";
 const MIN_PANEL = 50;
 const MOBILE_BREAKPOINT = 768;
 
+// Smartphones get the single-panel layout regardless of viewport dimensions
+// (landscape iPhones can be 844x390 — neither max-width:767 nor every browser's
+// pointer:coarse query catches that reliably). UA hints + UA-string fallback
+// cover real devices across iOS/Android/browsers. Tablets in portrait fall
+// into single-panel via the mediaQuery below; landscape keeps 3 panels.
+function isPhoneUA(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const uaData = (navigator as { userAgentData?: { mobile?: boolean } }).userAgentData;
+  if (uaData?.mobile === true) return true;
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPod|BlackBerry|webOS|Windows Phone|IEMobile|Opera Mini/i.test(ua)) return true;
+  return /Android/i.test(ua) && /Mobile/i.test(ua);
+}
+
 interface UsePanelLayoutOptions {
   uuid: string;
   viewerSource: ViewerState | null;
@@ -25,7 +39,13 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
   const [p2Width, setP2Width] = useState(500);
   const [p3Width, setP3Width] = useState(380);
   const [activeTab, setActiveTab] = useState<PanelKey>("chat");
-  const [isMobile, setIsMobile] = useState(false);
+  const [isPhone] = useState<boolean>(() => isPhoneUA());
+  const [isMobile, setIsMobile] = useState<boolean>(() => isPhoneUA());
+  const [isLandscape, setIsLandscape] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(orientation: landscape)").matches;
+  });
+  const isPhoneLandscape = isPhone && isLandscape;
   const [hideHeader, setHideHeader] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try { return localStorage.getItem(`ki-assistent-hide-header-${uuid}`) === "1"; } catch { return false; }
@@ -53,25 +73,47 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
   const mediaOpenRef = useRef(mediaOpen);
   mediaOpenRef.current = mediaOpen;
 
-  const mobileMediaQuery = `(max-width: ${MOBILE_BREAKPOINT - 1}px), (max-height: 500px) and (pointer: coarse)`;
+  // Tablet-portrait (iPad etc.) bekommt ebenfalls Single-Panel — bei 768-1024px
+  // breit ist 3-Panel-Layout zu eng. Bei orientation:landscape wechselt das
+  // Tablet zurück auf 3 Panels (matchMedia-Listener feuert auf Rotation).
+  const mobileMediaQuery = `(max-width: ${MOBILE_BREAKPOINT - 1}px), (max-height: 500px) and (pointer: coarse), (orientation: portrait) and (pointer: coarse) and (max-width: 1024px)`;
 
   useEffect(() => {
     const mq = window.matchMedia(mobileMediaQuery);
-    setIsMobile(mq.matches);
-    if (mq.matches) setActiveTab("quellen");
+    const computed = isPhone || mq.matches;
+    setIsMobile(computed);
+    if (computed) setActiveTab("quellen");
+    if (isPhone) return; // UA can't change at runtime — no listener needed
     const handler = (e: MediaQueryListEvent) => {
       if (mediaOpenRef.current) return;
       setIsMobile(e.matches);
     };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, [mobileMediaQuery]);
+  }, [isPhone, mobileMediaQuery]);
 
   useEffect(() => {
-    if (!mediaOpen) {
-      setIsMobile(window.matchMedia(mobileMediaQuery).matches);
-    }
-  }, [mediaOpen, mobileMediaQuery]);
+    if (mediaOpen) return;
+    setIsMobile(isPhone || window.matchMedia(mobileMediaQuery).matches);
+  }, [isPhone, mediaOpen, mobileMediaQuery]);
+
+  // Track orientation only on phones — drives is-phone-landscape body class
+  // so CSS rules that hide header/title and narrow the panel fire on phones
+  // in landscape regardless of pointer:coarse / viewport-height quirks.
+  useEffect(() => {
+    if (!isPhone) return;
+    const mq = window.matchMedia("(orientation: landscape)");
+    setIsLandscape(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsLandscape(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [isPhone]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.toggle("is-phone-landscape", isPhoneLandscape);
+    return () => { document.body.classList.remove("is-phone-landscape"); };
+  }, [isPhoneLandscape]);
 
   const togglePanel = useCallback((key: PanelKey) => {
     setPanels((prev) => {
@@ -81,7 +123,7 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
     });
   }, []);
 
-  const startDrag = useCallback((divider: 1 | 2, e: React.MouseEvent) => {
+  const startDrag = useCallback((divider: 1 | 2, e: React.PointerEvent) => {
     e.preventDefault();
     const p = panelsRef.current;
 
@@ -111,21 +153,32 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
     const startX = e.clientX;
     const startA = widths[keyA];
     const startB = widths[keyB];
+    const pointerId = e.pointerId;
+    const target = e.currentTarget as HTMLElement;
+    try { target.setPointerCapture(pointerId); } catch { /* ignore */ }
 
     function clampDelta(raw: number) {
       return Math.min(startB - MIN_PANEL, Math.max(-(startA - MIN_PANEL), raw));
     }
 
-    function onMove(ev: MouseEvent) {
+    function onMove(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return;
       if (!refA.current || !refB.current) return;
       const d = clampDelta(ev.clientX - startX);
       refA.current.style.flexBasis = `${startA + d}px`;
       refB.current.style.flexBasis = `${startB - d}px`;
     }
 
-    function onUp(ev: MouseEvent) {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
+    function cleanup() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onCancel);
+      try { target.releasePointerCapture(pointerId); } catch { /* ignore */ }
+    }
+
+    function onUp(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return;
+      cleanup();
       const d = clampDelta(ev.clientX - startX);
       const setA = keyA === "p1" ? setP1Width : keyA === "p2" ? setP2Width : setP3Width;
       const setB = keyB === "p1" ? setP1Width : keyB === "p2" ? setP2Width : setP3Width;
@@ -133,8 +186,14 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
       setB(startB - d);
     }
 
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+    function onCancel(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return;
+      cleanup();
+    }
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onCancel);
   }, [p1Width, p2Width, p3Width]);
 
   return {

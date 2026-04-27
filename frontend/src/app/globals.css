@@ -200,6 +200,18 @@ me-tpc:hover .mm-src-chip {
   opacity: 1;
 }
 
+/* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */
+.tools-sidebar-item__box {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--kb);
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.tools-sidebar-item:hover .tools-sidebar-item__box {
+  background-color: rgba(var(--kb-rgb), 0.12);
+  border-color: var(--kb);
+}
+
 /* Hide non-critical elements (disclaimers, labels) on phones in landscape
    so the chat/panel area keeps useful height. Scoped to touch devices so
    a narrow desktop window is unaffected. */
@@ -254,11 +266,78 @@ me-tpc:hover .mm-src-chip {
   display: none;
 }
 
-/* Hide "Panel minimieren" buttons on smartphones — the tab bar already
-   serves as the switcher, so the extra sidebar icon is redundant there. */
-@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) {
+/* Hide "Panel minimieren" buttons on smartphones and tablet-portrait — the
+   tab bar already serves as the switcher, so the extra sidebar icon is
+   redundant there. */
+@media (max-width: 767px), (max-height: 500px) and (pointer: coarse), (orientation: portrait) and (pointer: coarse) and (max-width: 1024px) {
   [title="Panel minimieren"] {
     display: none !important;
+  }
+}
+
+/* JS-driven mirror of the (max-height:500px)+(pointer:coarse) media block:
+   usePanelLayout sets body.is-phone-landscape on UA-detected phones in
+   landscape orientation. Needed because pointer:coarse misreads in DevTools
+   and on some hybrid browsers, leaving real iPhones with header/title still
+   visible and the panel stretched edge-to-edge. */
+body.is-phone-landscape .hide-on-short {
+  display: none !important;
+}
+body.is-phone-landscape .compact-on-short {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+body.is-phone-landscape .mobile-flow {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  flex: initial !important;
+}
+body.is-phone-landscape .mobile-center {
+  max-width: 560px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: 100% !important;
+}
+body.is-phone-landscape .show-on-short {
+  display: flex !important;
+}
+body.is-phone-landscape .chat-60vh {
+  height: 500px !important;
+  max-height: 500px !important;
+  overflow: hidden !important;
+  flex: initial !important;
+}
+body.is-phone-landscape .viewer-short {
+  height: 120svh !important;
+  max-height: 120svh !important;
+  flex: initial !important;
+}
+body.is-phone-landscape [title="Panel minimieren"] {
+  display: none !important;
+}
+
+/* Panel divider drag handle — slim & hover-only on mouse, larger & always visible on touch (iPad). */
+.panel-drag-handle {
+  width: 8px;
+}
+.panel-drag-handle-bar {
+  width: 2px;
+  height: 48px;
+  opacity: 0;
+}
+.panel-drag-handle:hover .panel-drag-handle-bar {
+  opacity: 1;
+}
+@media (pointer: coarse) {
+  .panel-drag-handle {
+    width: 14px;
+  }
+  .panel-drag-handle-bar {
+    width: 3px;
+    height: 64px;
+    opacity: 1;
   }
 }
 

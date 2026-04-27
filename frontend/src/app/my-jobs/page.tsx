@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
-import Header from "@/components/layout/Header";
 import BackLink from "@/components/ui/BackLink";
 import { ArrowsCounterClockwise } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
@@ -140,7 +139,6 @@ export default function MeineJobsPage() {
 
   return (
     <>
-      <Header showLogout />
       <main className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <div className="flex items-center justify-between mb-1">

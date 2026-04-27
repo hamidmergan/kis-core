@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import BackLink from "@/components/ui/BackLink";
 import ElevenLabsTab from "./_tabs/ElevenLabsTab";
@@ -54,7 +53,6 @@ function StimmenPageInner() {
 
   return (
     <ProtectedRoute>
-      <Header showLogout />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <h1 className="text-xl font-bold mb-1">Verfügbare Stimmen</h1>

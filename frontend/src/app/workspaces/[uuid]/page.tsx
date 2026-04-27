@@ -52,6 +52,7 @@ export default function KiTutorModulePage() {
   const searchParams = useSearchParams();
   const uuid = params.uuid as string;
   const enrollmentId = searchParams.get("eid") ? Number(searchParams.get("eid")) : null;
+  const initialTab = searchParams.get("tab");
 
   const [moduleDetail, setModuleDetail] = useState<ModuleDetail | null>(null);
   // auth + initialized kommen aus useWorkspaceInit (nach allen Source-/Chat-Hooks)
@@ -159,6 +160,22 @@ export default function KiTutorModulePage() {
   useEffect(() => {
     if (!studioEnabled && activeTab === "studio") setActiveTab("chat");
   }, [studioEnabled, activeTab]);
+
+  // Deep-link: arrive from /schedule with ?tab=schedule → open studio panel
+  // and jump straight to the schedule tab. Fire-once via ref so a later
+  // viewport-resize doesn't yank the user back here after they navigated away.
+  const tabDeepLinkHandledRef = useRef(false);
+  useEffect(() => {
+    if (tabDeepLinkHandledRef.current) return;
+    if (!initialized || initialTab !== "schedule" || !studioEnabled) return;
+    tabDeepLinkHandledRef.current = true;
+    setStudioTabRequest({ tab: "schedule", nonce: Date.now() });
+    if (isMobile) setActiveTab("studio");
+    else setPanels((prev) => ({ ...prev, studio: true }));
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tab");
+    window.history.replaceState({}, "", url.toString());
+  }, [initialized, initialTab, studioEnabled, isMobile, setActiveTab, setPanels]);
 
   // Persist settings to DB (only after init to avoid overwriting with defaults)
   useEffect(() => {

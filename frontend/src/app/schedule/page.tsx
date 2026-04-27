@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { CalendarBlank } from "@phosphor-icons/react";
-import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Spinner from "@/components/ui/Spinner";
-import { ScheduleListItem, type ScheduleListEntry } from "@/components/schedule/ScheduleListItem";
+import { ScheduleTimeline } from "@/components/schedule/ScheduleTimeline";
+import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/schedule/ScheduleEntryCardGlobal";
 
 const PAGE_SIZE = 20;
 
@@ -26,7 +25,6 @@ async function fetchPage(offset: number, hide: boolean): Promise<{ items: Schedu
 }
 
 export default function SchedulePage() {
-  const router = useRouter();
   const [entries, setEntries] = useState<ScheduleListEntry[]>([]);
   const [hideChecked, setHideChecked] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -99,7 +97,6 @@ export default function SchedulePage() {
 
   return (
     <ProtectedRoute>
-      <Header showLogout />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--text)" }}>
@@ -136,21 +133,18 @@ export default function SchedulePage() {
 
         {entries.length > 0 && (
           <>
-            <div
-              className="rounded-2xl overflow-x-auto"
-              style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}
-            >
-              <ul className="min-w-max">
-                {entries.map((e, idx) => (
-                  <ScheduleListItem
-                    key={e.id}
-                    entry={e}
-                    isFirst={idx === 0}
-                    onClick={() => router.push(`/workspaces/${e.module_uuid}`)}
-                  />
-                ))}
-              </ul>
-            </div>
+            <ScheduleTimeline
+              entries={entries}
+              renderCard={(entry, ctx) => (
+                <ScheduleEntryCardGlobal
+                  entry={entry}
+                  isToday={ctx.isToday}
+                  isPast={ctx.isPast}
+                  urgency={ctx.urgency}
+                  href={`/workspaces/${entry.module_uuid}?tab=schedule`}
+                />
+              )}
+            />
 
             <div ref={sentinelRef} aria-hidden="true" />
 

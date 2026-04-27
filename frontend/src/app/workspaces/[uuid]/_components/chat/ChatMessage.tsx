@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CaretDown, CaretUp, Check, Copy, NotePencil } from "@phosphor-icons/react";
@@ -19,7 +19,7 @@ interface ChatMessageProps {
 }
 
 
-export function ChatMessage({
+function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, loading,
 }: ChatMessageProps) {
   const [expandUserContent, setExpandUserContent] = useState(false);
@@ -64,7 +64,7 @@ export function ChatMessage({
       <button
         type="button"
         onClick={handleCopy}
-        className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+        className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
         style={{ color: "var(--muted)" }}
         title="Kopieren"
       >
@@ -75,7 +75,7 @@ export function ChatMessage({
           type="button"
           disabled={savingNote}
           onClick={handleSaveNote}
-          className="sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
+          className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
           style={{ color: saved ? "#16a34a" : "var(--muted)" }}
           title="Als Notiz speichern"
         >
@@ -218,3 +218,8 @@ export function ChatMessage({
     </div>
   );
 }
+
+// React.memo: skip Markdown-Re-Render wenn sich Message + Callbacks nicht ändern.
+// Auf iPad spürbar, weil ChatMessage sonst bei jedem page.tsx-Re-Render
+// (z.B. Tab-Switch) ReactMarkdown + Citation-Walk neu ausführt.
+export const ChatMessage = memo(ChatMessageImpl);

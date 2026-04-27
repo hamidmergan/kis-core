@@ -27,7 +27,7 @@ interface WorkspacePanelsLayoutProps {
   p3Style: React.CSSProperties;
   studioEnabled: boolean;
   canDrag: boolean;
-  startDrag: (which: 1 | 2, e: React.MouseEvent) => void;
+  startDrag: (which: 1 | 2, e: React.PointerEvent) => void;
   // Render slots
   renderQuellen: (ctx: PanelContext) => React.ReactNode;
   renderChat: (ctx: PanelContext) => React.ReactNode;
@@ -49,22 +49,45 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
 
   if (isMobile) {
     const switchToChat = () => setActiveTab("chat");
+    // Alle drei Panels gemountet halten + per position:absolute stapeln. Aktives
+    // Panel ist sichtbar, andere sind visibility:hidden + pointer-events:none.
+    // Auf iOS Safari ist `display:none` Toggle für große DOM-Subtrees (EmbedPDF,
+    // Chat-Markdown, Studio) sehr teuer (Reflow/Repaint). Visibility-Flip auf
+    // bereits-laid-out Layern ist nahezu kostenlos — Tab-Switch wird flüssig.
+    const layerStyle = (key: PanelKey): React.CSSProperties => {
+      const active = activeTab === key;
+      return {
+        position: "absolute",
+        inset: 8,
+        visibility: active ? "visible" : "hidden",
+        pointerEvents: active ? "auto" : "none",
+        zIndex: active ? 1 : 0,
+      };
+    };
     return (
       <div
         ref={panelContainerRef}
         className="flex flex-1 overflow-hidden mobile-flow"
-        style={{ padding: 8, gap: 0, backgroundColor: "var(--bg)" }}
+        style={{ position: "relative", backgroundColor: "var(--bg)" }}
       >
         <MinimizeContext.Provider value={switchToChat}>
           <div
-            className="flex flex-col flex-1 overflow-hidden rounded-2xl mobile-flow mobile-center"
-            style={panelBaseStyle}
+            className="flex flex-col overflow-hidden rounded-2xl mobile-flow mobile-center"
+            style={{ ...panelBaseStyle, ...layerStyle("quellen") }}
           >
-            {activeTab === "quellen"
-              ? renderQuellen({ onMinimize: switchToChat, hideHeader: true })
-              : activeTab === "chat"
-                ? renderChat({ onMinimize: switchToChat, hideHeader: true })
-                : renderStudio({ onMinimize: switchToChat, hideHeader: true })}
+            {renderQuellen({ onMinimize: switchToChat, hideHeader: true })}
+          </div>
+          <div
+            className="flex flex-col overflow-hidden rounded-2xl mobile-flow mobile-center"
+            style={{ ...panelBaseStyle, ...layerStyle("chat") }}
+          >
+            {renderChat({ onMinimize: switchToChat, hideHeader: true })}
+          </div>
+          <div
+            className="flex flex-col overflow-hidden rounded-2xl mobile-flow mobile-center"
+            style={{ ...panelBaseStyle, ...layerStyle("studio") }}
+          >
+            {renderStudio({ onMinimize: switchToChat, hideHeader: true })}
           </div>
         </MinimizeContext.Provider>
       </div>
@@ -83,7 +106,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
           : renderQuellen({ onMinimize: () => togglePanel("quellen"), hideHeader: false })}
       </div>
 
-      <DragHandle canDrag={canDrag} onMouseDown={(e) => canDrag && startDrag(1, e)} />
+      <DragHandle canDrag={canDrag} onPointerDown={(e) => canDrag && startDrag(1, e)} />
 
       <div ref={p2Ref} className={panelBaseClass} style={{ ...p2Style, ...panelBaseStyle }}>
         {!panels.chat
@@ -93,7 +116,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
 
       {studioEnabled && (
         <>
-          <DragHandle canDrag={canDrag} onMouseDown={(e) => canDrag && startDrag(2, e)} />
+          <DragHandle canDrag={canDrag} onPointerDown={(e) => canDrag && startDrag(2, e)} />
           <div ref={p3Ref} className={panelBaseClass} style={{ ...p3Style, ...panelBaseStyle }}>
             <MinimizeContext.Provider value={() => togglePanel("studio")}>
               {!panels.studio
@@ -107,16 +130,16 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
   );
 }
 
-function DragHandle({ canDrag, onMouseDown }: { canDrag: boolean; onMouseDown: (e: React.MouseEvent) => void }) {
+function DragHandle({ canDrag, onPointerDown }: { canDrag: boolean; onPointerDown: (e: React.PointerEvent) => void }) {
   return (
     <div
-      className="group flex-shrink-0 flex items-center justify-center"
-      style={{ width: 8, cursor: canDrag ? "col-resize" : "default" }}
-      onMouseDown={onMouseDown}
+      className="panel-drag-handle flex-shrink-0 flex items-center justify-center"
+      style={{ cursor: canDrag ? "col-resize" : "default", touchAction: "none" }}
+      onPointerDown={onPointerDown}
     >
       <div
-        className="w-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ height: 48, backgroundColor: "var(--kb)" }}
+        className="panel-drag-handle-bar rounded-full transition-opacity"
+        style={{ backgroundColor: "var(--kb)" }}
       />
     </div>
   );

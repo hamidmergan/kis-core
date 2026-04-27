@@ -1,5 +1,5 @@
 import "mind-elixir/style.css";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   ArrowsInLineVertical,
@@ -11,6 +11,7 @@ import {
   Files,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
+  SidebarSimple,
   Sparkle,
   Trash,
   TreeStructure,
@@ -18,6 +19,7 @@ import {
 import Spinner from "@/components/ui/Spinner";
 import type { Source, StudentStats } from "../../_types";
 import { _getChipIcon, _isMediaFile } from "../../_utils";
+import { MinimizeContext } from "../../_context";
 import { SubviewHeader, _getToolBadge } from "../layout/SubviewHeader";
 
 export interface MindmapNodeData {
@@ -55,6 +57,7 @@ export function MindmapStudio({
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
   const [allExpanded, setAllExpanded] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const minimize = useContext(MinimizeContext);
 
   useEffect(() => {
     if (openInViewer) {
@@ -254,7 +257,7 @@ export function MindmapStudio({
         downX = ev.clientX;
         downY = ev.clientY;
       };
-      const onUp = (ev: PointerEvent) => {
+      const onUp = async (ev: PointerEvent) => {
         if (!downTpc || ev.button !== 0) return;
         const dx = ev.clientX - downX;
         const dy = ev.clientY - downY;
@@ -273,6 +276,14 @@ export function MindmapStudio({
           ?? srcs.find((s) => s.filename.toLowerCase() === label)
           ?? srcs.find((s) => label.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(label));
         if (src) {
+          // Native Browser-Fullscreen verlassen, sonst bleibt der Viewer-Container
+          // im Element-Fullscreen und das Quelle-Panel im Workspace ist nicht sichtbar
+          // (schwarze Ränder + State-Mismatch).
+          if (document.fullscreenElement) {
+            try { await document.exitFullscreen(); } catch { /* ignore */ }
+          }
+          const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
+          orientation?.unlock?.();
           setFullscreenRef.current(false);
           const isMedia = _isMediaFile(src.filename);
           if (isMedia && typeof srcInfo.page_number === "string") {
@@ -446,6 +457,13 @@ export function MindmapStudio({
               style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
               {fullscreen ? <CornersIn size={13} /> : <CornersOut size={13} />}
             </button>
+            {minimize && (
+              <button type="button" onClick={minimize} title="Panel minimieren"
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+                <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
+              </button>
+            )}
           </div>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col">

@@ -58,7 +58,7 @@ def get_schedule_entries_for_user(
                     AND (e.enrolled_until IS NULL OR e.enrolled_until > NOW())
                )
            AND s.due_date IS NOT NULL
-           AND s.due_date >= CURRENT_DATE
+           AND s.due_date >= (NOW() AT TIME ZONE 'Europe/Berlin')::date
            AND (%(include_checked)s OR s.is_checked = FALSE)
          ORDER BY s.due_date ASC, s.due_time NULLS LAST, s.id
     """
