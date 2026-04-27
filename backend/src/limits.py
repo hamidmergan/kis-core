@@ -5,6 +5,15 @@
 # Alle anderen Module importieren von hier.
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─── Rate Limiting: Burst-Sperre für Chat (gegen Bugs/Missbrauch) ────────────
+# Idee: Wer in kurzer Zeit zu viele Chat-Anfragen schickt (typisch: Frontend-Bug
+# oder Skript), wird kurzzeitig vom Chat ausgeschlossen. Bewusst kein Tages-/
+# Stundenlimit, kein Strike-System: Studierende sollen 24/7 arbeiten können.
+# Werte: 50/60s liegt bei Anthropic-Tier-1-Niveau, fängt nur Bots/Bugs.
+RATE_LIMIT_BURST_REQUESTS       = 50   # max. Chat-Anfragen pro Burst-Fenster
+RATE_LIMIT_BURST_WINDOW_SECONDS = 60   # Burst-Fenster
+RATE_LIMIT_BLOCK_MINUTES        = 10   # Sperre-Dauer wenn Burst-Limit ausgelöst
+
 # ─── Quota: Tool-Limits pro User ──────────────────────────────────────────────
 # limit:        max. Anfragen pro Zeitfenster
 # window_hours: Stunden bis Reset (startet wenn Limit erstmals erreicht wird)

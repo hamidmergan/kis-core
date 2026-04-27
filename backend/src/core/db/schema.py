@@ -77,6 +77,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'lecturer'")
+            # Chat-Sperre nach Burst-Limit-Auslösung (überlebt Backend-Restart, anders als Redis-Counter).
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_blocked_until TIMESTAMP WITH TIME ZONE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS whitelist (
                     id         SERIAL PRIMARY KEY,
@@ -573,6 +575,33 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_jobs_module_user
                 ON kia_schedule_jobs(module_id, user_id)
+            """)
+
+            # ─── LLM Usage Log ────────────────────────────────────────────────
+            # Pro Request 1 Zeile: für Tagesalarm (Anomalie-Erkennung) und
+            # Admin-Sichtbarkeit. Token-Spalten sind nullable — Langfuse hat
+            # die exakte Wahrheit, hier reicht "best effort" aus response.usage.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS kia_llm_usage_log (
+                    id          BIGSERIAL PRIMARY KEY,
+                    user_id     INTEGER NOT NULL,
+                    ts          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    endpoint    VARCHAR(64) NOT NULL,
+                    provider    VARCHAR(32),
+                    model       VARCHAR(128),
+                    tokens_in   INTEGER,
+                    tokens_out  INTEGER,
+                    duration_ms INTEGER,
+                    status      VARCHAR(16) NOT NULL DEFAULT 'ok'
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_llm_usage_log_user_ts
+                ON kia_llm_usage_log(user_id, ts DESC)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_llm_usage_log_ts
+                ON kia_llm_usage_log(ts DESC)
             """)
         conn.commit()
 

@@ -24,6 +24,8 @@ from src.limits import (
     KIA_MODULE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
+from src.security.rate_limit import enforce_burst
+from src.security.usage_log import log_request as _log_usage
 from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
 from src.tool_prompts import (
     KIA_SYSTEM_DIRECT,
@@ -100,8 +102,15 @@ async def chat(
     current_user: dict = Depends(get_current_user),
     kisski=Depends(get_kisski_client),
 ):
+    import time as _time
     _trace_kisski(kisski, "kia-chat")
     user_id = current_user["user_id"]
+
+    # Burst-Sperre: bei >50 Chat-Anfragen in 60s wird der User für 10 Min gesperrt.
+    # Wirft 429 wenn aktuell gesperrt oder das Limit gerade gerissen wird.
+    enforce_burst(user_id)
+
+    _started_at = _time.monotonic()
     module = db.get_kia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
@@ -398,42 +407,55 @@ async def chat(
         source_pages.sort(key=lambda x: x["page_number"])
 
     def _stream() -> Generator[str, None, None]:
-        # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
-        # during streaming instead of falling back to activeSourceIds[0].
-        yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
-        answer_parts: list[str] = []
+        # Status wird beim LLM-Fehler auf "error" gesetzt — Default ist "ok".
+        _log_status = "ok"
         try:
-            stream = kisski._client.chat.completions.create(
-                model=kisski._model,
-                messages=messages,
-                temperature=0.2,
-                stream=True,
-                **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+            # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
+            # during streaming instead of falling back to activeSourceIds[0].
+            yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
+            answer_parts: list[str] = []
+            try:
+                stream = kisski._client.chat.completions.create(
+                    model=kisski._model,
+                    messages=messages,
+                    temperature=0.2,
+                    stream=True,
+                    **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+                )
+                for chunk_resp in stream:
+                    delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
+                    if delta and delta.content:
+                        answer_parts.append(delta.content)
+                        yield f"data: {json.dumps({'token': delta.content})}\n\n"
+            except Exception as e:
+                _log_status = "error"
+                logger.error("LLM stream error: {}", e)
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                return
+
+            answer = "".join(answer_parts).strip()
+            if is_popup:
+                suffix = f" [S. {body.source_page}]"
+                answer += suffix
+                yield f"data: {json.dumps({'token': suffix})}\n\n"
+
+            # Keywords in citations stay (used by frontend for highlighting)
+
+            # Save messages
+            db.save_kia_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
+            db.save_kia_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
+
+            # Send final metadata event — also send corrected answer
+            yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
+        finally:
+            _log_usage(
+                user_id=user_id,
+                endpoint="chat",
+                provider=getattr(kisski, "_provider", None),
+                model=getattr(kisski, "_model", None),
+                duration_ms=int((_time.monotonic() - _started_at) * 1000),
+                status=_log_status,
             )
-            for chunk_resp in stream:
-                delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
-                if delta and delta.content:
-                    answer_parts.append(delta.content)
-                    yield f"data: {json.dumps({'token': delta.content})}\n\n"
-        except Exception as e:
-            logger.error("LLM stream error: {}", e)
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            return
-
-        answer = "".join(answer_parts).strip()
-        if is_popup:
-            suffix = f" [S. {body.source_page}]"
-            answer += suffix
-            yield f"data: {json.dumps({'token': suffix})}\n\n"
-
-        # Keywords in citations stay (used by frontend for highlighting)
-
-        # Save messages
-        db.save_kia_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
-        db.save_kia_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
-
-        # Send final metadata event — also send corrected answer
-        yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
 
     return StreamingResponse(
         _stream(),

@@ -147,6 +147,15 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource }:
         flushTokens();
       } else if (res.status === 409) {
         updateLast({ content: "Der Workspace wird noch indiziert. Bitte warte einen Moment und versuche es erneut." });
+      } else if (res.status === 429) {
+        // Burst-Sperre: zu viele Chat-Anfragen in kurzer Zeit. Backend liefert
+        // konkrete Sperrzeit im detail.message ("Chat ist bis HH:MM Uhr gesperrt").
+        let msg = "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.";
+        try {
+          const err = await res.json();
+          if (err?.detail?.message) msg = err.detail.message;
+        } catch { /* ignore */ }
+        updateLast({ content: msg });
       } else {
         updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
       }
