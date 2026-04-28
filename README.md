@@ -183,3 +183,9 @@ Längere Begriffe werden bevorzugt zuerst ersetzt, um Überschneidungen zu verme
 - **poppler-utils** – PDF → PNG Konvertierung (Screencast)
 
 Diese werden im Docker-Image automatisch installiert.
+
+## Lizenz
+
+MIT License – Copyright (c) 2026 Technische Hochschule Lübeck
+
+Volltext: siehe [LICENSE](LICENSE). Hauptentwickler und Beitragende: siehe [AUTHORS](AUTHORS).
