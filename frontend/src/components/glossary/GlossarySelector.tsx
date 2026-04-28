@@ -93,7 +93,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
         <button
           type="button"
           onClick={() => setOpen(prev => !prev)}
-          className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-50 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+          className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-100 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
         >
           <span className={selectedIds.length === 0 ? "text-gray-400" : "text-gray-700"}>
             {buttonLabel}
@@ -122,7 +122,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
                 <li key={g.id}>
                   <label
                     className={`flex items-center gap-3 px-3 py-2 text-sm select-none ${
-                      isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-gray-50"
+                      isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-gray-100"
                     }`}
                   >
                     <input

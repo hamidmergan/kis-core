@@ -59,7 +59,7 @@ export default function ScreencastStatus({
             <button
               onClick={onDownload}
               aria-label="MP4"
-              className="px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-primary text-white text-sm rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors flex items-center gap-2"
             >
               <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -81,7 +81,7 @@ export default function ScreencastStatus({
             <button
               onClick={onReset}
               aria-label="Neue Datei hochladen"
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
             >
               Neue Datei
             </button>
@@ -108,7 +108,7 @@ export default function ScreencastStatus({
               <button
                 onClick={onRetry}
                 aria-label="Job wiederholen"
-                className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+                className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
               >
                 Wiederholen
               </button>
@@ -116,7 +116,7 @@ export default function ScreencastStatus({
             <button
               onClick={onReset}
               aria-label="Neue Datei hochladen"
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
             >
               Neue Datei
             </button>

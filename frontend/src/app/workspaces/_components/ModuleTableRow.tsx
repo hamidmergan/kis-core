@@ -47,7 +47,7 @@ export default function ModuleTableRow({
       />
 
       <tr
-        className="group border-t transition-colors"
+        className="module-row border-t transition-colors"
         style={{
           borderColor: "var(--border)",
           backgroundColor: a.expanded ? "var(--surface)" : undefined,
@@ -60,15 +60,14 @@ export default function ModuleTableRow({
               type="button"
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setExpanded(!a.expanded); }}
               title={a.expanded ? "Zuklappen" : "Aufklappen"}
-              className="w-7 h-7 flex items-center justify-center hover:opacity-60 transition-opacity flex-shrink-0"
-              style={{ color: "var(--muted)" }}
+              className="w-7 h-7 flex items-center justify-center text-[var(--muted)] hover:text-primary transition flex-shrink-0"
             >
               <CaretRight size={13} weight="bold" className={`transition-transform ${a.expanded ? "rotate-90" : ""}`} />
             </button>
           </div>
         </td>
         <td
-          className="pr-6 py-5 cursor-pointer"
+          className="row-main pr-6 py-5 cursor-pointer"
           onClick={a.handleOpen}
           onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
@@ -79,7 +78,7 @@ export default function ModuleTableRow({
           </div>
         </td>
         <td
-          className="px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
+          className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
           onClick={a.handleOpen}
           onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
@@ -88,7 +87,7 @@ export default function ModuleTableRow({
           {module.source_count}
         </td>
         <td
-          className="px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
+          className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
           onClick={a.handleOpen}
           onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
@@ -110,7 +109,7 @@ export default function ModuleTableRow({
               aria-label={module.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
               onClick={(e) => { e.stopPropagation(); a.handleToggle(!module.is_active); }}
               disabled={a.toggling}
-              className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
+              className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 hover:outline-2 hover:outline-primary"
               style={{
                 backgroundColor: module.is_active ? "var(--kb)" : "#d1d5db",
                 ...(module.is_active && { boxShadow: "0 0 0 0 var(--kb)" }),
@@ -195,6 +194,7 @@ export default function ModuleTableRow({
             <IconButton
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.handleOpen(); }}
               title="Workspace öffnen"
+              className="row-arrow"
             >
               <ArrowRight size={13} weight="bold" />
             </IconButton>

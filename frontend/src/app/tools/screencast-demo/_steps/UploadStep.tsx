@@ -68,7 +68,7 @@ export function UploadStep({
       <div className="flex gap-3 mt-6">
         <button
           onClick={showSteps ? onStart : onStartDirect}
-          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
         >
           Demo starten
         </button>

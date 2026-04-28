@@ -153,7 +153,7 @@ export default function KiTutorTab() {
                   <React.Fragment key={m.module_uuid}>
                     <tr
                       onClick={() => toggle(m.module_uuid)}
-                      className={`border-b border-gray-50 cursor-pointer transition-colors ${isOpen ? "bg-gray-50" : "hover:bg-gray-50"}`}
+                      className={`border-b border-gray-50 cursor-pointer transition-colors ${isOpen ? "bg-gray-50" : "hover:bg-gray-100"}`}
                     >
                       <td className="px-4 py-2 text-gray-400 text-xs">{isOpen ? "▼" : "▶"}</td>
                       <td className="px-4 py-2">

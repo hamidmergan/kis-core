@@ -59,7 +59,7 @@ export default function ScriptReviewStep({
             <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
               <button
                 onClick={() => onAccordionToggle(i)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-100 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 aria-expanded={isOpen}
                 aria-controls={`slide-panel-${i}`}
               >
@@ -114,13 +114,13 @@ export default function ScriptReviewStep({
                             <div className="flex gap-2">
                               <button
                                 onClick={onCancelEdit}
-                                className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                                className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
                               >
                                 Abbrechen
                               </button>
                               <button
                                 onClick={() => onSaveEdit(i)}
-                                className="px-3 py-1 text-xs bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+                                className="px-3 py-1 text-xs bg-primary text-white rounded hover:outline-2 hover:outline-primary transition-colors"
                               >
                                 Speichern
                               </button>
@@ -193,7 +193,7 @@ export default function ScriptReviewStep({
         <button
           onClick={onAcceptScripts}
           disabled={editingSlide !== null}
-          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Alle Skripte übernehmen
         </button>

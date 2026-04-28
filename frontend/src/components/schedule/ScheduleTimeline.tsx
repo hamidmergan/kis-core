@@ -99,16 +99,17 @@ export function ScheduleTimeline<T extends DatedEntry>({
           return (
             <div
               key={entry.id}
-              className="grid items-start py-1.5"
+              className="group grid items-start py-1.5"
               style={{ gridTemplateColumns: "24px 44px 1fr", columnGap: 0 }}
             >
               <div className="flex justify-center relative pt-2.5" style={{ zIndex: 1 }}>
                 <div
-                  className="rounded-full"
+                  className={`rounded-full transition-colors ${
+                    entry.is_checked ? "bg-[#10b981]" : "bg-[var(--border)] group-hover:bg-[var(--accent)]"
+                  }`}
                   style={{
                     width: 14,
                     height: 14,
-                    backgroundColor: entry.is_checked ? "#10b981" : "var(--border)",
                     boxShadow: entry.is_checked
                       ? "0 0 0 5px var(--bg), 0 0 0 6px #10b981"
                       : "0 0 0 5px var(--bg), 0 0 0 6px var(--accent)",

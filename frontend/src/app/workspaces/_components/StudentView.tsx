@@ -137,7 +137,7 @@ export default function StudentView() {
                 })
               : null;
             return (
-              <li key={`${m.uuid}-${m.enrollment_id ?? i}`} className="px-5 py-4 bg-white hover:bg-gray-50">
+              <li key={`${m.uuid}-${m.enrollment_id ?? i}`} className="px-5 py-4 bg-white hover:bg-gray-100">
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <h3 className="text-sm font-medium truncate">{m.title}</h3>

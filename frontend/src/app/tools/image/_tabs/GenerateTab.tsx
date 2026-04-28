@@ -81,7 +81,7 @@ export default function GenerateTab() {
               className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                 size === s
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
               }`}
             >
               {s}
@@ -101,7 +101,7 @@ export default function GenerateTab() {
               className={`w-10 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                 n === c
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
               }`}
             >
               {c}
@@ -114,7 +114,7 @@ export default function GenerateTab() {
         <button
           onClick={handleGenerate}
           disabled={!prompt.trim() || loading}
-          className="w-full px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Wird verarbeitet…" : "Bild generieren"}
         </button>
@@ -139,7 +139,7 @@ export default function GenerateTab() {
                     a.download = result.filename;
                     a.click();
                   }}
-                  className="w-full px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-md hover:bg-primary-hover transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-md hover:outline-2 hover:outline-primary transition-colors flex items-center justify-center gap-2"
                 >
                   <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -153,7 +153,7 @@ export default function GenerateTab() {
             <a
               href={`/api/jobs/${jobUuid}/download`}
               download
-              className="mt-4 w-full px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-md hover:bg-primary-hover transition-colors flex items-center justify-center gap-2"
+              className="mt-4 w-full px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-md hover:outline-2 hover:outline-primary transition-colors flex items-center justify-center gap-2"
             >
               <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -163,7 +163,7 @@ export default function GenerateTab() {
           )}
           <button
             onClick={() => { setResults([]); setJobUuid(null); }}
-            className="mt-4 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="mt-4 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
           >
             Neu generieren
           </button>

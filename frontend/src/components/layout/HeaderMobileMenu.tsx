@@ -24,7 +24,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
   }, [open]);
 
   const rowClass =
-    "flex items-center gap-3 w-full px-4 py-3 text-[15px] font-medium hover:bg-gray-50 transition-colors no-underline text-left";
+    "flex items-center gap-3 w-full px-4 py-3 text-[15px] font-medium hover:outline-2 hover:outline-primary -outline-offset-2 transition no-underline text-left";
 
   return (
     <div className="sm:hidden relative" ref={ref}>
@@ -33,7 +33,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Menü schließen" : "Menü öffnen"}
         aria-expanded={open}
-        className="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+        className="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:outline-2 hover:outline-white transition"
       >
         {open ? <X size={20} weight="bold" /> : <List size={20} weight="bold" />}
       </button>

@@ -72,7 +72,7 @@ export function ErrorStep({ errorMessage, onReset }: { errorMessage: string; onR
       {errorMessage && <p className="text-sm text-red-600 mb-3">{errorMessage}</p>}
       <div className="flex gap-3 justify-center">
         <button onClick={onReset} aria-label="Neue Präsentation hochladen"
-          className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors">
+          className="px-6 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors">
           Neue Präsentation
         </button>
       </div>

@@ -24,8 +24,7 @@ export default function HelpTooltip({ text }: { text: string }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-3.5 h-3.5 flex items-center justify-center hover:opacity-70 transition-opacity"
-        style={{ color: "var(--muted)" }}
+        className="w-3.5 h-3.5 flex items-center justify-center text-[var(--muted)] hover:text-primary transition"
       >
         <svg
           className="w-3.5 h-3.5"

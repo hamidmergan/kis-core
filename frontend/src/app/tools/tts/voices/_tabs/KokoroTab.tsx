@@ -49,7 +49,7 @@ export default function KokoroTab({ active }: { active: boolean }) {
           </summary>
           <div className="mt-1 divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
             {grouped[lang].map((voice) => (
-              <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50">
+              <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-100">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{voice.name}</p>
                   <p className="text-xs text-gray-400 mt-0.5">

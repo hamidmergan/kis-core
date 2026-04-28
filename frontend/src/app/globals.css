@@ -200,16 +200,22 @@ me-tpc:hover .mm-src-chip {
   opacity: 1;
 }
 
+/* Module table: hovering a main cell triggers arrow icon hover */
+tr.module-row:has(td.row-main:hover) .row-arrow {
+  color: var(--color-primary);
+  outline: 2px solid var(--color-primary);
+}
+
 /* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */
 .tools-sidebar-item__box {
   background-color: var(--bg);
   border: 1px solid var(--border);
   color: var(--kb);
-  transition: background-color 0.15s, border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .tools-sidebar-item:hover .tools-sidebar-item__box {
-  background-color: rgba(var(--kb-rgb), 0.12);
-  border-color: var(--kb);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
 /* Hide non-critical elements (disclaimers, labels) on phones in landscape
@@ -341,3 +347,40 @@ body.is-phone-landscape [title="Panel minimieren"] {
   }
 }
 
+/* ─── Globale Hover/Focus/Disabled-Regeln ─────────────────────────────
+   :where() hat Specificity 0, also gewinnen Tailwind-Utilities und
+   bestehende Komponenten-CSS-Regeln immer. Greift automatisch auf
+   alle interaktiven Elemente, egal welche Farbe oder Komponente. */
+@layer base {
+  :where(
+    a, button, summary, label[for],
+    [role="button"], [role="link"], [role="tab"], [role="menuitem"],
+    input, textarea, select
+  ) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, filter;
+    transition-duration: 150ms;
+    transition-timing-function: ease;
+  }
+
+  :where(
+    a, button, summary,
+    [role="button"], [role="link"], [role="tab"], [role="menuitem"],
+    [tabindex]
+  ):focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  :where(button, a, input, textarea, select):disabled,
+  :where([aria-disabled="true"]) {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(*) {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}

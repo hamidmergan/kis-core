@@ -50,7 +50,7 @@ export function ScheduleEntryCardGlobal({
   const description = cleanScheduleDescription(entry.description, entry.due_time);
 
   return (
-    <div style={containerStyle}>
+    <div className="hover:outline-2 hover:outline-primary transition" style={containerStyle}>
       <button
         type="button"
         aria-label={
@@ -68,10 +68,14 @@ export function ScheduleEntryCardGlobal({
           onToggleChecked?.(!entry.is_checked);
         }}
         disabled={isPast || !onToggleChecked}
-        className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5"
+        className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5 border-2 ${
+          entry.is_checked
+            ? "border-[#10b981] bg-[#10b981]"
+            : !isPast && onToggleChecked
+            ? "border-[var(--border)] bg-white hover:border-[#10b981]"
+            : "border-[var(--border)] bg-white"
+        }`}
         style={{
-          border: entry.is_checked ? "2px solid #10b981" : "2px solid var(--border)",
-          backgroundColor: entry.is_checked ? "#10b981" : "#fff",
           color: "#fff",
           cursor: isPast || !onToggleChecked ? "not-allowed" : "pointer",
         }}
@@ -81,7 +85,7 @@ export function ScheduleEntryCardGlobal({
 
       <Link
         href={href}
-        className="flex-1 min-w-0 hover:opacity-80 transition-opacity"
+        className="flex-1 min-w-0"
         style={{ color: "inherit", textDecoration: "none" }}
       >
         <div

@@ -81,7 +81,7 @@ export function UserPromptStep({
       {scriptInputMode === "generate" && <div className="mt-5 space-y-4" />}
       <div className="flex gap-3 mt-4">
         <button onClick={onNext} disabled={loading}
-          className="flex-1 px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Weiter
         </button>

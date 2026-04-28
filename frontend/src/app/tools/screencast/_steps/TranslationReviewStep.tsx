@@ -72,7 +72,7 @@ export default function TranslationReviewStep({
         </button>
 
         <div className="relative">
-          <label className="block w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-center cursor-pointer">
+          <label className="block w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-center cursor-pointer">
             {loading ? "Wird verarbeitet..." : "Korrigierte PPTX hochladen (optional)"}
             <input
               type="file"
@@ -100,7 +100,7 @@ export default function TranslationReviewStep({
         <button
           onClick={onAcceptAndNext}
           disabled={loading}
-          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Übersetzung übernehmen und weiter
         </button>

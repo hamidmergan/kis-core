@@ -293,14 +293,14 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
       <div className="flex gap-3">
         <button
           onClick={onBackToScripts}
-          className="px-4 py-3 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          className="px-4 py-3 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
         >
           Zurück
         </button>
         <button
           onClick={onStartRender}
           disabled={scriptOverLimit}
-          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Screencast erstellen
         </button>

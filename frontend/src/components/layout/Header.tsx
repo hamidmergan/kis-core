@@ -57,7 +57,7 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
                   href="/admin"
                   aria-label="Admin"
                   title="Admin"
-                  className="flex items-center justify-center h-9 px-3 gap-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                  className="flex items-center justify-center h-9 px-3 gap-1.5 rounded-full text-white/80 hover:text-white hover:outline-2 hover:outline-white transition"
                 >
                   <UserCircleGear size={17} weight="bold" />
                   <span className="text-sm font-medium">Admin</span>
@@ -68,7 +68,7 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
                 onClick={handleLogout}
                 aria-label="Abmelden"
                 title="Abmelden"
-                className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full text-white/80 hover:text-white border border-white/25 hover:bg-white/10 transition-colors"
+                className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full text-white/80 hover:text-white border border-white/25 hover:outline-2 hover:outline-white transition"
               >
                 <SignOut size={17} weight="bold" />
                 <span className="text-sm font-medium">Abmelden</span>

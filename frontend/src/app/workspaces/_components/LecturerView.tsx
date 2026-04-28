@@ -102,7 +102,7 @@ export default function LecturerView() {
               type="button"
               onClick={() => setShowCreate(true)}
               aria-label="Neuer Workspace"
-              className="whitespace-nowrap rounded-lg text-sm font-medium text-white bg-primary w-9 h-9 flex items-center justify-center text-lg md:w-auto md:h-auto md:px-4 md:py-2 md:text-sm"
+              className="whitespace-nowrap rounded-lg text-sm font-medium text-white bg-primary hover:bg-white hover:text-primary hover:outline-2 hover:outline-primary transition w-9 h-9 flex items-center justify-center text-lg md:w-auto md:h-auto md:px-4 md:py-2 md:text-sm"
             >
               <span className="md:hidden">+</span>
               <span className="hidden md:inline">+ Neuer Workspace</span>

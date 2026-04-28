@@ -64,7 +64,7 @@ export default function ModuleModals(props: ModuleModalsProps) {
             <p className="text-sm text-gray-600 mb-1"><span className="font-medium">{module.title}</span></p>
             <p className="text-sm text-red-600 mb-6">Der Workspace und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={onCancelDelete} disabled={deleting} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
+              <button onClick={onCancelDelete} disabled={deleting} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50">Abbrechen</button>
               <button onClick={onConfirmDelete} disabled={deleting} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
             </div>
           </div>
@@ -79,7 +79,7 @@ export default function ModuleModals(props: ModuleModalsProps) {
             </p>
             <p className="text-sm text-red-600 mb-6">Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={onCancelDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Abbrechen</button>
+              <button onClick={onCancelDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50">Abbrechen</button>
               <button onClick={onConfirmDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50">{deletingLink ? "..." : "Löschen"}</button>
             </div>
           </div>

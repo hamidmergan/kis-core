@@ -43,7 +43,7 @@ export default function TestphasePage() {
 
             <a
               href="mailto:hamid.mergan@th-luebeck.de"
-              className="inline-block px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover transition-colors mb-6"
+              className="inline-block px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary transition-colors mb-6"
             >
               hamid.mergan@th-luebeck.de
             </a>

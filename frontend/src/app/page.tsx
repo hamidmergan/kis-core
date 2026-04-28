@@ -95,7 +95,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:outline-2 hover:outline-primary transition"
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -121,7 +121,7 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={loading || !username.trim() || !password}
-              className="w-full px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+              className="w-full px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition"
             >
               {loading ? "Wird angemeldet..." : "Anmelden"}
             </button>

@@ -72,7 +72,7 @@ export default function UpcomingDeadlinesWidget() {
 
   return (
     <section
-      className="mb-6 rounded-2xl overflow-hidden"
+      className="mb-6 rounded-lg overflow-hidden"
       style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}
     >
       <header
@@ -86,7 +86,7 @@ export default function UpcomingDeadlinesWidget() {
           }
         }}
         aria-expanded={!collapsed}
-        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:opacity-90 transition-opacity"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer"
         style={{
           borderBottom: collapsed ? "none" : "1px solid var(--border)",
           backgroundColor: "var(--border)",
@@ -110,7 +110,8 @@ export default function UpcomingDeadlinesWidget() {
         <Link
           href="/schedule"
           onClick={(ev) => ev.stopPropagation()}
-          className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70 transition-opacity"
+          onPointerDown={(ev) => ev.stopPropagation()}
+          className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70 transition-opacity -my-2 px-3 py-2"
           style={{ color: "var(--kb)" }}
         >
           Alle anzeigen
@@ -119,7 +120,7 @@ export default function UpcomingDeadlinesWidget() {
       </header>
 
       {!collapsed && (
-        <div className="px-3 py-2">
+        <div className="p-8">
           <ScheduleTimeline
             entries={entries}
             renderCard={(entry, ctx) => (

@@ -273,7 +273,7 @@ export function SourcesPanel({
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteSourceId(null)}
-                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100"
               >
                 Abbrechen
               </button>

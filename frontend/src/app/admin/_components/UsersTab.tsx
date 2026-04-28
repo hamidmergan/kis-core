@@ -141,7 +141,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           <button
             onClick={() => setOffset(Math.max(0, offset - limit))}
             disabled={currentPage === 1}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-100"
           >
             ‹
           </button>
@@ -158,7 +158,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                 className={`px-3 py-1.5 text-sm border rounded-md ${
                   page === currentPage
                     ? "bg-primary text-white border-primary"
-                    : "border-gray-300 hover:bg-gray-50"
+                    : "border-gray-300 hover:bg-gray-100"
                 }`}
               >
                 {page}
@@ -168,7 +168,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           <button
             onClick={() => setOffset(offset + limit)}
             disabled={currentPage === totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-100"
           >
             ›
           </button>

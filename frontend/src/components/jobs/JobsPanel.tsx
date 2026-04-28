@@ -292,7 +292,7 @@ export default function JobsPanel() {
         onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open("/my-jobs", "_blank"); } }}
         aria-label="Jobs"
         title="Jobs"
-        className="relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+        className="relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full text-white/80 hover:text-white hover:outline-2 hover:outline-white transition"
       >
         <Stack size={17} weight="bold" aria-hidden="true" />
         <span className="hidden sm:inline text-sm font-medium">Jobs</span>
@@ -339,7 +339,7 @@ export default function JobsPanel() {
                     <li
                       key={job.job_uuid}
                       onClick={() => handleJobClick(job)}
-                      className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${expired ? "opacity-50" : ""}`}
+                      className={`px-4 py-3 cursor-pointer hover:outline-2 hover:outline-primary -outline-offset-2 transition ${expired ? "opacity-50" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">

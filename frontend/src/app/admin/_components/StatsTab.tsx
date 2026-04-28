@@ -113,7 +113,7 @@ export default function StatsTab() {
               </thead>
               <tbody>
                 {data.activity.map((a, i) => (
-                  <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
+                  <tr key={i} className="border-b border-gray-50 hover:bg-gray-100">
                     <td className="px-4 py-2 text-gray-700">{a.user}</td>
                     <td className="px-4 py-2 text-gray-600">{a.tool_label}</td>
                     <td className="px-4 py-2">

@@ -14,7 +14,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
             <p className="w-full">Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.</p>
             <p className="w-full">
               Feedback oder Probleme?{" "}
-              <a href="mailto:hamid.mergan@th-luebeck.de" className="underline hover:opacity-100 transition-opacity">
+              <a href="mailto:hamid.mergan@th-luebeck.de" className="opacity-75 hover:opacity-100 hover:underline transition-opacity">
                 hamid.mergan@th-luebeck.de
               </a>
             </p>
@@ -23,7 +23,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
         {/* Logos */}
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <a href="https://www.th-luebeck.de" target="_blank" rel="noopener noreferrer" aria-label="TH Lübeck"
-            className="flex items-center justify-center w-36 h-14 bg-white hover:brightness-90 transition-all px-3">
+            className="flex items-center justify-center w-36 h-14 bg-white hover:opacity-80 transition-opacity px-3">
             <Image
               src="/logos/logo-thl.jpg"
               alt="TH Lübeck"
@@ -34,7 +34,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
             />
           </a>
           <a href="https://www.th-luebeck.de/isy/" target="_blank" rel="noopener noreferrer" aria-label="ISY"
-            className="flex items-center justify-center w-36 h-14 bg-white hover:brightness-90 transition-all px-3">
+            className="flex items-center justify-center w-36 h-14 bg-white hover:opacity-80 transition-opacity px-3">
             <Image
               src="/logos/isy-logo.png"
               alt="ISY"
@@ -48,11 +48,11 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
 
         {/* Links */}
         <div className="text-sm">
-          <Link href="/imprint" className="hover:underline transition-opacity hover:opacity-100 opacity-75">
+          <Link href="/imprint" className="opacity-75 hover:opacity-100 hover:underline transition-opacity">
             Impressum
           </Link>
           <span className="mx-2 opacity-40">|</span>
-          <Link href="/privacy" className="hover:underline transition-opacity hover:opacity-100 opacity-75">
+          <Link href="/privacy" className="opacity-75 hover:opacity-100 hover:underline transition-opacity">
             Datenschutz
           </Link>
         </div>

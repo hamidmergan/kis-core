@@ -23,7 +23,7 @@ export function Pagination({ total, offset, limit, onOffsetChange }: PaginationP
       <button
         onClick={() => onOffsetChange(Math.max(0, offset - limit))}
         disabled={currentPage === 1}
-        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
+        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-100"
       >
         ‹
       </button>
@@ -34,7 +34,7 @@ export function Pagination({ total, offset, limit, onOffsetChange }: PaginationP
           className={`px-3 py-1.5 text-sm border rounded-md ${
             p === currentPage
               ? "bg-primary text-white border-primary"
-              : "border-gray-300 hover:bg-gray-50"
+              : "border-gray-300 hover:bg-gray-100"
           }`}
         >
           {p}
@@ -43,7 +43,7 @@ export function Pagination({ total, offset, limit, onOffsetChange }: PaginationP
       <button
         onClick={() => onOffsetChange(Math.min((totalPages - 1) * limit, offset + limit))}
         disabled={currentPage === totalPages}
-        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
+        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-100"
       >
         ›
       </button>

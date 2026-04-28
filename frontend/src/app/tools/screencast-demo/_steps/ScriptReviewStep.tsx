@@ -54,7 +54,7 @@ export function ScriptReviewStep({
             <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
               <button
                 onClick={() => { if (editingSlide !== null) onCancelEdit(); onOpenAccordionChange(isOpen ? -1 : i); }}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-100 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 aria-expanded={isOpen} aria-controls={`slide-panel-${i}`}
               >
                 <div className="flex-1 min-w-0">
@@ -86,8 +86,8 @@ export function ScriptReviewStep({
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-xs text-gray-400">ca. {wc} Wörter · ~{dur} Sek</span>
                             <div className="flex gap-2">
-                              <button onClick={onCancelEdit} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">Abbrechen</button>
-                              <button onClick={() => onSaveEdit(i)} className="px-3 py-1 text-xs bg-primary text-white rounded hover:bg-primary-hover transition-colors">Speichern</button>
+                              <button onClick={onCancelEdit} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-100 transition-colors">Abbrechen</button>
+                              <button onClick={() => onSaveEdit(i)} className="px-3 py-1 text-xs bg-primary text-white rounded hover:outline-2 hover:outline-primary transition-colors">Speichern</button>
                             </div>
                           </div>
                         </>
@@ -122,7 +122,7 @@ export function ScriptReviewStep({
                                 placeholder="z.B. Erkläre das Konzept vereinfacht für Einsteiger."
                                 className="w-full rounded-md border border-purple-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white" />
                               <div className="flex gap-2 justify-end">
-                                <button onClick={onCloseRegen} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors">Abbrechen</button>
+                                <button onClick={onCloseRegen} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-100 transition-colors">Abbrechen</button>
                                 <button onClick={() => onRunRegen(i)} disabled={regenLoading}
                                   className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center gap-1.5">
                                   {regenLoading && <Spinner size="xs" color="current" />}
@@ -135,7 +135,7 @@ export function ScriptReviewStep({
                                   <textarea value={regenProposal} onChange={(e) => onRegenProposalChange(e.target.value)} rows={4}
                                     className="w-full rounded-md border border-purple-300 px-3 py-2 text-sm font-mono text-gray-900 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white" />
                                   <div className="flex justify-end mt-2">
-                                    <button onClick={() => onApplyRegen(i)} className="px-3 py-1 text-xs bg-primary text-white rounded hover:bg-primary-hover transition-colors">Übernehmen</button>
+                                    <button onClick={() => onApplyRegen(i)} className="px-3 py-1 text-xs bg-primary text-white rounded hover:outline-2 hover:outline-primary transition-colors">Übernehmen</button>
                                   </div>
                                 </div>
                               )}
@@ -160,7 +160,7 @@ export function ScriptReviewStep({
 
       <div className="flex gap-3">
         <button onClick={onAcceptScripts} disabled={editingSlide !== null}
-          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
           Alle Skripte übernehmen
         </button>
       </div>

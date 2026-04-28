@@ -77,7 +77,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
         <button
           onClick={add}
           disabled={adding || !newEmail.trim()}
-          className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-md disabled:opacity-40 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-white bg-primary hover:outline-2 hover:outline-primary rounded-md disabled:opacity-40 transition-colors"
         >
           {adding ? "..." : "Hinzufügen"}
         </button>

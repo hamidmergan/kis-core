@@ -4,7 +4,7 @@ import { ButtonHTMLAttributes, forwardRef } from "react";
 
 /**
  * Consistent icon button used across the app.
- * rounded-full, hover:opacity-70, centered flex, theme-aware color.
+ * rounded-full, hover:outline-primary, centered flex, theme-aware color.
  */
 const IconButton = forwardRef<
   HTMLButtonElement,
@@ -15,8 +15,8 @@ const IconButton = forwardRef<
     <button
       ref={ref}
       type="button"
-      className={`${sizeClass} flex items-center justify-center rounded-full hover:opacity-70 transition-opacity flex-shrink-0 ${className}`}
-      style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)", ...style }}
+      className={`${sizeClass} flex items-center justify-center rounded-full text-[var(--muted)] hover:text-primary hover:outline-2 hover:outline-primary transition flex-shrink-0 ${className}`}
+      style={{ backgroundColor: "var(--surface-dim)", ...style }}
       {...props}
     >
       {children}

@@ -170,7 +170,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                   ? 0
                   : Math.min(100, Math.round((q.used / q.limit) * 100));
                 return (
-                  <tr key={q.quota_type} className="hover:bg-gray-50">
+                  <tr key={q.quota_type} className="hover:bg-gray-100">
                     <td className="px-4 py-3 font-medium text-gray-800">{q.label}</td>
                     <td className="px-4 py-3 text-gray-700">
                       <div className="flex items-center gap-2">

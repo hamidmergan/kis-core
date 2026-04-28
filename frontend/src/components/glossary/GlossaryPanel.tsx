@@ -84,7 +84,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
           <button
             onClick={handleAddEntry}
             disabled={!newSource.trim() || !newTarget.trim()}
-            className="px-4 py-2 bg-primary text-white text-sm rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors whitespace-nowrap"
+            className="px-4 py-2 bg-primary text-white text-sm rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors whitespace-nowrap"
           >
             Hinzufügen
           </button>
@@ -119,7 +119,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
             </thead>
             <tbody className="divide-y divide-gray-100">
               {entries.map((entry, index) => (
-                <tr key={`${entry.source}-${index}`} className="hover:bg-gray-50 transition-colors">
+                <tr key={`${entry.source}-${index}`} className="hover:bg-gray-100 transition-colors">
                   <td className="px-4 py-3 text-sm text-gray-900">{entry.source}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{entry.target}</td>
                   <td className="px-4 py-3 text-right">

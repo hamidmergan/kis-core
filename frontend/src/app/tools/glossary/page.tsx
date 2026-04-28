@@ -160,7 +160,7 @@ export default function GlossaryPage() {
               />
               <button
                 onClick={() => { setImportError(""); importRef.current?.click(); }}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
               >
                 Importieren
               </button>
@@ -168,7 +168,7 @@ export default function GlossaryPage() {
                 onClick={() => setCreatingNew(true)}
                 disabled={glossaries.length >= MAX_GLOSSARIES}
                 title={glossaries.length >= MAX_GLOSSARIES ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})` : undefined}
-                className="px-3 py-1.5 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-1.5 text-sm bg-primary text-white rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {glossaries.length >= MAX_GLOSSARIES
                   ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})`
@@ -198,13 +198,13 @@ export default function GlossaryPage() {
               <button
                 onClick={handleCreate}
                 disabled={!newName.trim()}
-                className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Erstellen
               </button>
               <button
                 onClick={() => { setCreatingNew(false); setNewName(""); }}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
               >
                 Abbrechen
               </button>
@@ -226,7 +226,7 @@ export default function GlossaryPage() {
                 </button>
                 <button
                   onClick={() => setConfirmDeleteId(null)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
                 >
                   Abbrechen
                 </button>
@@ -246,7 +246,7 @@ export default function GlossaryPage() {
                   {/* Glossary row */}
                   <div
                     className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                      selectedId === g.id ? "bg-[#e8f0fb]" : "bg-white hover:bg-gray-50"
+                      selectedId === g.id ? "bg-[#e8f0fb]" : "bg-white hover:bg-gray-100"
                     } ${i > 0 ? "border-t border-gray-100" : ""}`}
                     onClick={() => setSelectedId(g.id === selectedId ? null : g.id)}
                   >
@@ -324,7 +324,7 @@ export default function GlossaryPage() {
                           onClick={handleAddEntry}
                           disabled={!newEntryDe.trim() || !newEntryEn.trim() || Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY}
                           title={Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY ? `Maximum erreicht (${MAX_ENTRIES_PER_GLOSSARY}/${MAX_ENTRIES_PER_GLOSSARY})` : undefined}
-                          className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                          className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                         >
                           {Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY
                             ? `Maximum erreicht (${MAX_ENTRIES_PER_GLOSSARY}/${MAX_ENTRIES_PER_GLOSSARY})`
@@ -356,7 +356,7 @@ export default function GlossaryPage() {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                               {Object.entries(g.entries).map(([de, en]) => (
-                                <tr key={de} className="bg-white hover:bg-gray-50 transition-colors">
+                                <tr key={de} className="bg-white hover:bg-gray-100 transition-colors">
                                   <td className="px-4 py-2.5 text-sm text-gray-900">{de}</td>
                                   <td className="px-4 py-2.5 text-sm text-gray-600">{en}</td>
                                   <td className="px-4 py-2.5 text-right">

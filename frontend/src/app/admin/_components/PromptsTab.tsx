@@ -105,14 +105,14 @@ export default function PromptsTab() {
               <button
                 onClick={() => save(p.key)}
                 disabled={saving === p.key}
-                className="text-sm bg-primary text-white px-4 py-1.5 rounded-lg hover:bg-primary-hover disabled:opacity-50"
+                className="text-sm bg-primary text-white px-4 py-1.5 rounded-lg hover:outline-2 hover:outline-primary disabled:opacity-50"
               >
                 {saving === p.key ? "Speichert..." : saved === p.key ? "Gespeichert ✓" : "Speichern"}
               </button>
               <button
                 onClick={() => reset(p.key, p.default_value)}
                 disabled={saving === p.key || values[p.key] === p.default_value}
-                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
+                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-40"
               >
                 Zurücksetzen
               </button>

@@ -24,7 +24,7 @@ export function DeleteConfirmModal({ job, deleting, onCancel, onConfirm }: Delet
           <button
             onClick={onCancel}
             disabled={deleting}
-            className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
           >
             Abbrechen
           </button>
