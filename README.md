@@ -1,191 +1,191 @@
 # KIS
 
-> Entwickelt von **Hamid Mergan** – Institut für Systemtechnik (ISy), Technische Hochschule Lübeck  
-> 📧 hamid.mergan@th-luebeck.de · hamid.mergan@gmail.com
+> Built by **Hamid Mergan** at Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck
+> hamid.mergan@th-luebeck.de · hamid.mergan@gmail.com
 
-Webbasierter Übersetzungs- und Medienservice für Dokumente der TH Lübeck. Übersetzt DOCX, PPTX, MD, TEX und PDF automatisch von Deutsch nach Englisch – mit Glossar für konsistente Fachbegriffe. Zusätzlich: Text-to-Speech, Skript-Generierung, Transkription und automatische Screencast-Erstellung aus PPTX-Dateien.
+Web-based translation and media service for documents at TH Lübeck. Translates DOCX, PPTX, MD, TEX and PDF files automatically from German to English, with a glossary for consistent terminology. Also provides text-to-speech, script generation, transcription, and automatic screencast creation from PPTX files.
 
-## Architektur
+## Architecture
 
-- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS (Port 3000)
-- **Backend**: FastAPI, DeepL API, ElevenLabs API, KISSKI LLM, python-docx, python-pptx, FFmpeg (Port 8000)
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS (port 3000)
+- **Backend**: FastAPI, DeepL API, ElevenLabs API, KISSKI LLM, python-docx, python-pptx, FFmpeg (port 8000)
 
 ## Quick Start
 
 ```bash
-cp .env.example .env   # .env anpassen (siehe Konfiguration)
+cp .env.example .env   # adjust .env (see Configuration)
 docker-compose up -d --build
 ```
 
-## Lokale Entwicklung
+## Local Development
 
-Backend in Docker starten:
+Run the backend in Docker:
 ```bash
 docker compose up backend
 ```
 
-Frontend lokal starten (Hot Reload – kein Rebuild nötig):
+Run the frontend locally (hot reload, no rebuild needed):
 ```bash
 cd frontend && npm run dev
 ```
 
-Frontend läuft auf http://localhost:3001 (oder 3000 falls Port frei).
-Frontend-Änderungen sind sofort im Browser sichtbar.
-Backend-Änderungen werden automatisch neu geladen.
+The frontend is served on http://localhost:3001 (or 3000 if free).
+Frontend changes are visible in the browser immediately.
+Backend changes are auto-reloaded.
 
 
 ## Development Setup
 
-Nach dem Klonen einmalig ausführen damit die IDE (VSCode, WebStorm, Cursor etc.) TypeScript-Typen kennt:
+After cloning, run this once so the IDE (VSCode, WebStorm, Cursor, etc.) picks up TypeScript types:
 
 ```bash
 cd frontend && npm install
 ```
 
 - Frontend: `http://localhost:3000`
-- API-Docs: `http://localhost:8000/docs`
+- API docs: `http://localhost:8000/docs`
 
-Stoppen: `docker-compose down`
+Stop everything: `docker-compose down`
 
-## Funktionen
+## Features
 
-### Dokumentübersetzung
+### Document translation
 
-Übersetzt Dokumente von Deutsch nach Englisch mit Layout-Erhalt und optionalem Glossar.
+Translates documents from German to English while preserving layout. Supports an optional glossary.
 
-| Format | Methode | Hinweis |
-|--------|---------|---------|
-| `.docx` | Eigener Parser | Layout-Erhalt |
-| `.pptx` | Eigener Parser | inkl. Footer, Notizen, Master |
-| `.md` | Eigener Parser | Code-Blöcke bleiben unverändert |
-| `.tex` | Eigener Parser | Mathematik/Verbatim bleiben unverändert |
-| `.pdf` | DeepL Document API | Einschränkungen bei Formeln/komplexen Layouts |
+| Format | Method | Notes |
+|--------|--------|-------|
+| `.docx` | Custom parser | Layout preserved |
+| `.pptx` | Custom parser | Includes footer, notes, master |
+| `.md` | Custom parser | Code blocks remain unchanged |
+| `.tex` | Custom parser | Math/verbatim remain unchanged |
+| `.pdf` | DeepL Document API | Limitations on formulas/complex layouts |
 
 ### Text-to-Speech (TTS)
 
-Wandelt Dokumente in gesprochene MP3-Audiodateien um (via ElevenLabs API).
+Converts documents into spoken MP3 audio (via the ElevenLabs API).
 
-- Geschwindigkeitsregelung (0.5x – 1.2x)
-- Pausen-Presets (kurz, mittel, lang, sehr lang)
-- Erweiterte Spracheinstellungen (Stabilität, Ähnlichkeit, Stil, Speaker-Boost)
+- Speed control (0.5x to 1.2x)
+- Pause presets (short, medium, long, very long)
+- Advanced voice settings (stability, similarity, style, speaker boost)
 
-### Skript-Generierung
+### Script generation
 
-Erstellt per KI gesprochene Vortragstext-Skripte aus Dokumenten (via KISSKI LLM).
+Generates AI-spoken lecture scripts from documents (via the KISSKI LLM).
 
-- Upload eines Dokuments, KI generiert passenden Sprechertext
-- Download als Markdown
+- Upload a document, the AI produces a matching speaker text
+- Download as Markdown
 
-### Transkription
+### Transcription
 
-Transkribiert Audio- und Videodateien zu Text (via KISSKI Whisper).
+Transcribes audio and video files to text (via KISSKI Whisper).
 
-- Aufgabenmodus: Transkription oder Übersetzung
-- Ausgabeformate: Text, SRT, VTT
-- Unterstützt diverse Audio-/Videoformate
+- Task modes: transcription or translation
+- Output formats: text, SRT, VTT
+- Supports a wide range of audio/video formats
 
-### Screencast-Erstellung
+### Screencast creation
 
-Erstellt automatisch ein Screencast-Video aus einer PPTX-Präsentation: Übersetzung → Skript-Generierung → TTS → Video-Rendering.
+Automatically creates a screencast video from a PPTX presentation: translation, script generation, TTS, video rendering.
 
-**Auto-Modus**: Vollautomatischer Durchlauf mit einem Klick.
+**Auto mode**: fully automated one-click run.
 
-**Manueller Modus**: Schritt-für-Schritt mit Bearbeitungsmöglichkeit:
+**Manual mode**: step-by-step with editing options:
 
-1. PPTX hochladen
-2. Übersetzung (mit Glossar-Unterstützung)
-3. Optionaler User-Prompt zur Skript-Anpassung
-4. Übersetzung prüfen (Slide-Vorschau, korrigierte PPTX hochladen)
-5. Skript-Generierung per KI
-6. Skripte pro Folie bearbeiten
-7. TTS-Einstellungen (Geschwindigkeit, Pausen)
-8. Video-Rendering
-9. MP4-Download
+1. Upload PPTX
+2. Translation (with glossary support)
+3. Optional user prompt for script tweaks
+4. Review the translation (slide preview, upload corrected PPTX)
+5. AI script generation
+6. Edit the per-slide scripts
+7. TTS settings (speed, pauses)
+8. Video rendering
+9. MP4 download
 
-## Glossar
+## Glossary
 
-Das Glossar stellt sicher, dass Fachbegriffe bei der Übersetzung konsistent mit den gewünschten Zielsprachbegriffen ersetzt werden – unabhängig davon, was das jeweilige Übersetzungs-API zurückliefern würde.
+The glossary ensures that domain terms are translated consistently with the desired target-language equivalents, regardless of what the underlying translation API would return.
 
-### Verwaltung
+### Management
 
-- Pflege über den Glossar-Tab im Frontend (Deutsch → Englisch)
-- Die Einträge leben nur im Browser (kein Server-Speicher, kein Datenbank-Speicher)
-- Beim Absenden einer Übersetzungsanfrage werden die Einträge als JSON im Request-Body mitgesendet
+- Edited via the glossary tab in the frontend (German to English)
+- Entries live only in the browser (no server storage, no database storage)
+- On submit, entries are sent as JSON in the request body
 
-### Technische Umsetzung: Token-Ersatz-Verfahren
+### Implementation: token-replacement approach
 
-Das Projekt nutzt **kein** natives Glossar-Feature von DeepL oder einem anderen API-Anbieter. Stattdessen kommt ein eigenes Token-Ersatz-Verfahren zum Einsatz, das API-unabhängig funktioniert:
+The project does **not** use the native glossary feature of DeepL or any other API. Instead, a custom token-replacement approach works independently of the API:
 
-1. **Vor** der Übersetzung: Glossar-Begriffe im Originaltext werden durch eindeutige Platzhalter ersetzt (`__GLOSSARY_0__`, `__GLOSSARY_1__`, …)
-2. Der präparierte Text (mit Platzhaltern) wird an die Übersetzungs-API gesendet – die Platzhalter bleiben dabei unberührt
-3. **Nach** der Übersetzung: Die Platzhalter werden durch die definierten Zielbegriffe ersetzt
+1. **Before** translation: glossary terms in the source text are replaced with unique placeholders (`__GLOSSARY_0__`, `__GLOSSARY_1__`, ...)
+2. The prepared text (with placeholders) is sent to the translation API. Placeholders pass through untouched.
+3. **After** translation: placeholders are replaced with the defined target terms.
 
-**Beispiel:**
+**Example:**
 
 ```
-Eingabe:        "Die Lehrveranstaltung beginnt pünktlich."
-Nach Schritt 1: "Die __GLOSSARY_0__ beginnt pünktlich."
-Nach DeepL:     "The __GLOSSARY_0__ starts on time."
-Ausgabe:        "The Course starts on time."
+Input:           "Die Lehrveranstaltung beginnt pünktlich."
+After step 1:    "Die __GLOSSARY_0__ beginnt pünktlich."
+After DeepL:     "The __GLOSSARY_0__ starts on time."
+Output:          "The Course starts on time."
 ```
 
-Längere Begriffe werden bevorzugt zuerst ersetzt, um Überschneidungen zu vermeiden.
+Longer terms are replaced first to avoid overlaps.
 
-### Wo wird das Glossar angewendet?
+### Where is the glossary applied?
 
-| Tool | Glossar aktiv | Hinweis |
-|------|:---:|---------|
-| Dokumentübersetzung (DOCX, PPTX, MD, TEX) | ✅ | Token-Ersatz via `GlossaryService` |
-| Screencast-Übersetzung (PPTX-Schritt) | ✅ | Gleiche Logik wie Dokumentübersetzung |
-| Transkription | ❌ | Direkter KISSKI-Whisper-Aufruf, kein Glossar |
-| Text-to-Speech | ❌ | ElevenLabs-Aufruf, kein Glossar |
-| Skript-Generierung | ✅ | Glossar-Einträge werden als Terminologie-Anweisung in den LLM-System-Prompt eingefügt (kein Token-Ersatz) |
+| Tool | Glossary active | Notes |
+|------|:---:|-------|
+| Document translation (DOCX, PPTX, MD, TEX) | Yes | Token replacement via `GlossaryService` |
+| Screencast translation (PPTX step) | Yes | Same logic as document translation |
+| Transcription | No | Direct KISSKI Whisper call, no glossary |
+| Text-to-Speech | No | ElevenLabs call, no glossary |
+| Script generation | Yes | Glossary entries are injected as a terminology instruction into the LLM system prompt (no token replacement) |
 
-## API-Endpunkte
+## API endpoints
 
-| Endpunkt | Methode | Beschreibung |
-|----------|---------|-------------|
+| Endpoint | Method | Description |
+|----------|--------|-------------|
 | `/auth/login` | POST | Login |
 | `/auth/logout` | POST | Logout |
-| `/auth/status` | GET | Auth-Status prüfen |
-| `/health` | GET | Health-Check |
-| `/translate` | POST | Dokument übersetzen (eigene Parser) |
-| `/translate-document` | POST | Dokument übersetzen (DeepL Document API) |
-| `/tts` | POST | Text-to-Speech (Dokument → MP3) |
-| `/script` | POST | Skript-Generierung (Dokument → Sprechertext) |
-| `/transcription` | POST | Audio/Video-Transkription |
-| `/screencast` | POST | Screencast (Auto-Modus) |
-| `/screencast/translate` | POST | Screencast: PPTX übersetzen + Texte/Bilder extrahieren |
-| `/screencast/extract-texts` | POST | Screencast: Texte aus PPTX extrahieren |
-| `/screencast/prepare` | POST | Screencast: PPTX → Slide-Bilder |
-| `/screencast/generate-scripts` | POST | Screencast: Skripte generieren |
-| `/screencast/render` | POST | Screencast: MP4 rendern |
+| `/auth/status` | GET | Check auth status |
+| `/health` | GET | Health check |
+| `/translate` | POST | Translate document (custom parser) |
+| `/translate-document` | POST | Translate document (DeepL Document API) |
+| `/tts` | POST | Text-to-Speech (document to MP3) |
+| `/script` | POST | Script generation (document to speaker text) |
+| `/transcription` | POST | Audio/video transcription |
+| `/screencast` | POST | Screencast (auto mode) |
+| `/screencast/translate` | POST | Screencast: translate PPTX, extract texts/images |
+| `/screencast/extract-texts` | POST | Screencast: extract texts from PPTX |
+| `/screencast/prepare` | POST | Screencast: PPTX to slide images |
+| `/screencast/generate-scripts` | POST | Screencast: generate scripts |
+| `/screencast/render` | POST | Screencast: render MP4 |
 
-## Konfiguration
+## Configuration
 
-| Variable | Beschreibung | Standard |
-|----------|-------------|----------|
-| `DEEPL_API_KEY` | DeepL API Key | – |
-| `SOURCE_LANG` | Quellsprache | `DE` |
-| `TARGET_LANG` | Zielsprache | `EN-US` |
-| `ELEVENLABS_API_KEY` | ElevenLabs API Key (TTS) | – |
-| `KISSKI_API_KEY` | KISSKI LLM API Key (Skripte, Transkription) | – |
-| `KISSKI_BASE_URL` | KISSKI API Base-URL | `https://chat-ai.academiccloud.de/v1` |
-| `KISSKI_MODEL` | KISSKI LLM-Modell | `qwen3-30b-a3b-instruct-2507` |
-| `APP_PASSWORD` | Login-Passwort | `admin` |
-| `SESSION_SECRET` | Secret für Session-Tokens | – |
-| `SESSION_MAX_AGE_SECONDS` | Session-Dauer in Sekunden | `86400` |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEEPL_API_KEY` | DeepL API key | - |
+| `SOURCE_LANG` | Source language | `DE` |
+| `TARGET_LANG` | Target language | `EN-US` |
+| `ELEVENLABS_API_KEY` | ElevenLabs API key (TTS) | - |
+| `KISSKI_API_KEY` | KISSKI LLM API key (scripts, transcription) | - |
+| `KISSKI_BASE_URL` | KISSKI API base URL | `https://chat-ai.academiccloud.de/v1` |
+| `KISSKI_MODEL` | KISSKI LLM model | `qwen3-30b-a3b-instruct-2507` |
+| `APP_PASSWORD` | Login password | `admin` |
+| `SESSION_SECRET` | Secret for session tokens | - |
+| `SESSION_MAX_AGE_SECONDS` | Session lifetime in seconds | `86400` |
 
-## Systemabhängigkeiten (Backend-Container)
+## System dependencies (backend container)
 
-- **FFmpeg** – Video-/Audio-Verarbeitung (Screencast, TTS-Pausen)
-- **LibreOffice** – PPTX → PDF Konvertierung (Screencast)
-- **poppler-utils** – PDF → PNG Konvertierung (Screencast)
+- **FFmpeg**: video/audio processing (screencast, TTS pauses)
+- **LibreOffice**: PPTX to PDF conversion (screencast)
+- **poppler-utils**: PDF to PNG conversion (screencast)
 
-Diese werden im Docker-Image automatisch installiert.
+These are installed automatically inside the Docker image.
 
-## Lizenz
+## License
 
-MIT License – Copyright (c) 2026 Technische Hochschule Lübeck
+Apache License 2.0, Copyright 2026 Technische Hochschule Lübeck
 
-Volltext: siehe [LICENSE](LICENSE). Hauptentwickler und Beitragende: siehe [AUTHORS](AUTHORS).
+Full text: see [LICENSE](LICENSE). Attribution: see [NOTICE](NOTICE). Lead developer and contributors: see [AUTHORS](AUTHORS).
