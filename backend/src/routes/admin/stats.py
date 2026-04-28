@@ -43,11 +43,11 @@ async def get_stats(
     }
 
 
-@router.get("/ki-assistent/stats")
-async def get_kia_stats(
+@router.get("/ai-assistant/stats")
+async def get_aia_stats(
     days: int = Query(default=30, ge=1, le=365),
-    mode: str | None = Query(default=None, regex="^(quelle|glossar)$"),
+    mode: str | None = Query(default=None, regex="^(source|glossary)$"),
     _admin=Depends(get_admin_user),
 ):
     """Aggregated KI-Assistent statistics for the admin dashboard."""
-    return db.get_kia_admin_stats(days, mode=mode)
+    return db.get_aia_admin_stats(days, mode=mode)

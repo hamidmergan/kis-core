@@ -73,9 +73,9 @@ export function usePanelLayout({ uuid, viewerSource }: UsePanelLayoutOptions) {
   const mediaOpenRef = useRef(mediaOpen);
   mediaOpenRef.current = mediaOpen;
 
-  // Tablet-portrait (iPad etc.) bekommt ebenfalls Single-Panel — bei 768-1024px
-  // breit ist 3-Panel-Layout zu eng. Bei orientation:landscape wechselt das
-  // Tablet zurück auf 3 Panels (matchMedia-Listener feuert auf Rotation).
+  // Tablet portrait (iPad etc.) also gets single-panel - at 768-1024px wide
+  // the 3-panel layout is too narrow. With orientation:landscape the tablet
+  // switches back to 3 panels (matchMedia listener fires on rotation).
   const mobileMediaQuery = `(max-width: ${MOBILE_BREAKPOINT - 1}px), (max-height: 500px) and (pointer: coarse), (orientation: portrait) and (pointer: coarse) and (max-width: 1024px)`;
 
   useEffect(() => {

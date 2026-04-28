@@ -1,13 +1,13 @@
-"""myLab TTS client – OpenAI-kompatible API der TH Lübeck (Coqui XTTS-v2).
+"""myLab TTS client - OpenAI-compatible API of TH Luebeck (Coqui XTTS-v2).
 
-Endpunkte (OpenAI-kompatibel):
-    POST /v1/audio/speech   → Audio-Bytes (mp3)
+Endpoints (OpenAI-compatible):
+    POST /v1/audio/speech   -> audio bytes (mp3)
 
-Base-URL: https://models.mylab.th-luebeck.dev
-Modelle: tts-1-hd (= xtts-v2), xtts-v2
+Base URL: https://models.mylab.th-luebeck.dev
+Models: tts-1-hd (= xtts-v2), xtts-v2
 
-XTTS-v2 ist multilingual — unterstützt Deutsch, Englisch u.v.m.
-Kein API-Key nötig (Campus-weit offen).
+XTTS-v2 is multilingual - supports German, English and others.
+No API key required (campus-wide open).
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ _CHUNK_MIN = 9_500
 
 
 def _split_text(text: str) -> list[str]:
-    """Teilt langen Text an Satzgrenzen auf."""
+    """Split long text at sentence boundaries."""
     if len(text) <= _CHUNK_MAX:
         return [text]
 
@@ -47,7 +47,7 @@ def _split_text(text: str) -> list[str]:
     return chunks
 
 
-# Bekannte Stimmen der OpenAI-kompatiblen TTS-API (openedai-speech)
+# Known voices of the OpenAI-compatible TTS API (openedai-speech)
 _BUILTIN_VOICES = [
     {"voice_id": "alloy",   "name": "Alloy",   "description": "Neutral, vielseitig"},
     {"voice_id": "echo",    "name": "Echo",     "description": "Warm, klar"},
@@ -75,7 +75,7 @@ class MyLabClient:
         speed: float = 1.0,
         **kwargs,
     ) -> bytes:
-        """Wandelt Text in MP3-Bytes um."""
+        """Convert text to MP3 bytes."""
         chunks = _split_text(text)
         audio_parts: list[bytes] = []
 
@@ -93,7 +93,7 @@ class MyLabClient:
         speed: float = 1.0,
         **kwargs,
     ) -> bytes:
-        """Einzelnen Chunk synthetisieren (für Crash-Recovery in tts_tasks)."""
+        """Synthesize a single chunk (for crash recovery in tts_tasks)."""
         with httpx.Client(timeout=300.0) as client:
             return self._synthesize_one(client, text, voice_id=voice_id, speed=speed)
 
@@ -126,7 +126,7 @@ class MyLabClient:
         return response.content
 
     def get_voices(self) -> list[dict]:
-        """Gibt die verfügbaren Stimmen zurück."""
+        """Return the available voices."""
         return list(_BUILTIN_VOICES)
 
     def synthesize_with_timestamps(
@@ -138,16 +138,16 @@ class MyLabClient:
         speed: float = 1.0,
         **kwargs,
     ) -> dict:
-        """Drop-in für ElevenLabsClient.synthesize_with_timestamps().
+        """Drop-in for ElevenLabsClient.synthesize_with_timestamps().
 
-        Gibt {"audio_bytes": bytes, "alignment": None} zurück,
-        da XTTS-v2 keine Wort-Timestamps liefert.
+        Returns {"audio_bytes": bytes, "alignment": None},
+        since XTTS-v2 does not provide word timestamps.
         """
         audio_bytes = self.synthesize(text, language, voice_id=voice_id, speed=speed)
         return {"audio_bytes": audio_bytes, "alignment": None}
 
     def is_available(self) -> bool:
-        """Prüft ob der myLab TTS Server erreichbar ist."""
+        """Check if the myLab TTS server is reachable."""
         from loguru import logger
         try:
             with httpx.Client(timeout=5.0) as client:

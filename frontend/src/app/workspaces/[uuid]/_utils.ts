@@ -81,7 +81,7 @@ export function _chunkLabel(filename: string, num: number, startTime?: number | 
   return `S. ${num}`;
 }
 
-export function parseLernkarten(text: string): LernKarte[] {
+export function parseFlashcards(text: string): LernKarte[] {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const karten: LernKarte[] = [];
   for (const line of lines) {

@@ -1,4 +1,4 @@
-"""System-Prompt Verwaltung: Anzeige, Update und Reset."""
+"""System prompt management: view, update, and reset."""
 
 from fastapi import APIRouter, Depends, HTTPException
 

@@ -87,7 +87,7 @@ export function ScriptReviewStep({
                             <span className="text-xs text-gray-400">ca. {wc} Wörter · ~{dur} Sek</span>
                             <div className="flex gap-2">
                               <button onClick={onCancelEdit} className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-100 transition-colors">Abbrechen</button>
-                              <button onClick={() => onSaveEdit(i)} className="px-3 py-1 text-xs bg-primary text-white rounded hover:outline-2 hover:outline-primary transition-colors">Speichern</button>
+                              <button onClick={() => onSaveEdit(i)} className="px-3 py-1 text-xs btn-primary rounded  transition-colors">Speichern</button>
                             </div>
                           </div>
                         </>
@@ -135,7 +135,7 @@ export function ScriptReviewStep({
                                   <textarea value={regenProposal} onChange={(e) => onRegenProposalChange(e.target.value)} rows={4}
                                     className="w-full rounded-md border border-purple-300 px-3 py-2 text-sm font-mono text-gray-900 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 focus:outline-none bg-white" />
                                   <div className="flex justify-end mt-2">
-                                    <button onClick={() => onApplyRegen(i)} className="px-3 py-1 text-xs bg-primary text-white rounded hover:outline-2 hover:outline-primary transition-colors">Übernehmen</button>
+                                    <button onClick={() => onApplyRegen(i)} className="px-3 py-1 text-xs btn-primary rounded  transition-colors">Übernehmen</button>
                                   </div>
                                 </div>
                               )}
@@ -160,7 +160,7 @@ export function ScriptReviewStep({
 
       <div className="flex gap-3">
         <button onClick={onAcceptScripts} disabled={editingSlide !== null}
-          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
           Alle Skripte übernehmen
         </button>
       </div>

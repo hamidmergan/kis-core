@@ -1,4 +1,4 @@
-"""Embedding providers for KI Tutor – abstraction layer over KISSKI and future local models."""
+"""Embedding providers for AI assistant - abstraction layer over KISSKI and future local models."""
 
 import json
 import time
@@ -18,7 +18,7 @@ class EmbeddingProvider(ABC):
 
     @property
     def model_name(self) -> str:
-        """Configured model name — used for fingerprint metadata and logs."""
+        """Configured model name - used for fingerprint metadata and logs."""
         return getattr(self, "_model", "")
 
 
@@ -63,10 +63,10 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     — the OpenAI-compat /v1/embeddings endpoint ignores Modelfile parameters.
     """
 
-    # 600-char chunks ≈ 240 tokens each; batch of 5 ≈ 1200 tokens < 2048 limit → safe
+    # 600-char chunks ~ 240 tokens each; batch of 5 ~ 1200 tokens < 2048 limit -> safe
     _BATCH_SIZE = 5
-    # nomic-bert context_length=2048 tokens; German BERT subword-tokenizer ~2-3 chars/token
-    # → 1000 chars ≈ 400-500 tokens, safely within limit
+    # nomic-bert context_length=2048 tokens; German BERT subword tokenizer ~2-3 chars/token
+    # -> 1000 chars ~ 400-500 tokens, safely within limit
     _NUM_CTX = 2048
 
     def __init__(self) -> None:
@@ -81,7 +81,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         self._model = get_model("ollama_embedding_model")
         self._langfuse = Langfuse()
 
-    # Safety net only — chunker now produces ≤600 char chunks, this should never trigger
+    # Safety net only - chunker now produces <=600 char chunks, this should never trigger
     _MAX_CHARS = 700
 
     def _truncate(self, text: str) -> str:
@@ -184,8 +184,8 @@ class MyLabEmbeddingProvider(EmbeddingProvider):
 def get_embedding_provider() -> EmbeddingProvider:
     """Return the currently-active embedding provider.
 
-    Exactly one of the three admin toggles must be enabled. No env-var fallback
-    — the admin explicitly picks a provider and any change requires a reindex,
+    Exactly one of the three admin toggles must be enabled. No env-var fallback:
+    the admin explicitly picks a provider and any change requires a reindex,
     so a silent fallback would corrupt the index.
     """
     from src import database as db
@@ -205,7 +205,7 @@ def compute_fingerprint(provider: EmbeddingProvider) -> str:
     """Embed a fixed sentinel string and return the vector as a JSON string.
 
     The fingerprint is stored alongside indexed sources so we can detect
-    model drift (different model → different fingerprint).
+    model drift (different model -> different fingerprint).
     """
     vector = provider.embed_one("KIS Tutor Embedding Fingerprint v1")
     return json.dumps(vector)

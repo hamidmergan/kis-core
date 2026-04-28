@@ -1,4 +1,4 @@
-"""Maintenance-Mode, Stale-Fingerprint-Check und Reindex-Trigger."""
+"""Maintenance mode, stale fingerprint check, and reindex trigger."""
 
 import asyncio
 import json
@@ -31,7 +31,7 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
     stale_modules: list[dict] = []
     if current_fingerprint:
         try:
-            stale_modules = db.list_kia_modules_with_stale_fingerprint(current_fingerprint)
+            stale_modules = db.list_aia_modules_with_stale_fingerprint(current_fingerprint)
         except Exception as e:
             logger.warning("Maintenance: stale-module query failed: {}", e)
     else:
@@ -64,7 +64,7 @@ async def reindex_all(_admin=Depends(get_admin_user)):
     if progress and progress.get("running"):
         raise HTTPException(status_code=409, detail="Reindex läuft bereits")
 
-    from src.tasks.kia_tasks import run_reindex_all_sources
+    from src.tasks.aia_tasks import run_reindex_all_sources
     db.set_setting("reindex_progress", json.dumps({
         "total": 0, "done": 0, "current": "queued", "failed": 0, "running": True,
     }))

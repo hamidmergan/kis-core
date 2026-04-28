@@ -57,10 +57,10 @@ def get_session_store():
 
 
 def _resolve_llm_provider() -> tuple[str, str, str, str]:
-    """Resolve LLM provider based on admin toggles → (api_key, base_url, model, provider_name).
+    """Resolve LLM provider based on admin toggles -> (api_key, base_url, model, provider_name).
 
-    Genau ein Provider darf gleichzeitig aktiv sein (Radio-Logik in routes/admin/settings.py).
-    Wenn keiner aktiv ist, wirft RuntimeError mit klarer Anweisung.
+    Exactly one provider may be active at a time (radio logic in routes/admin/settings.py).
+    If none is active, raises RuntimeError with a clear instruction.
     """
     from src import database as db
     settings = get_settings()
@@ -152,7 +152,7 @@ def get_kokoro_client():
 
 
 def is_elevenlabs_enabled() -> bool:
-    """Gibt True zurück wenn ElevenLabs konfiguriert UND vom Admin freigeschaltet."""
+    """Return True when ElevenLabs is configured AND enabled by the admin."""
     from src import database as db
     settings = get_settings()
     if not settings.elevenlabs_api_key:
@@ -161,7 +161,7 @@ def is_elevenlabs_enabled() -> bool:
 
 
 def is_kokoro_enabled() -> bool:
-    """Gibt True zurück wenn Kokoro konfiguriert UND vom Admin freigeschaltet."""
+    """Return True when Kokoro is configured AND enabled by the admin."""
     from src import database as db
     settings = get_settings()
     if not settings.kokoro_base_url:
@@ -179,7 +179,7 @@ def get_mylab_client():
 
 
 def is_mylab_enabled() -> bool:
-    """Gibt True zurück wenn myLab TTS konfiguriert UND vom Admin freigeschaltet."""
+    """Return True when myLab TTS is configured AND enabled by the admin."""
     from src import database as db
     settings = get_settings()
     if not settings.mylab_tts_base_url:

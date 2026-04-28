@@ -195,28 +195,28 @@ export default function RegenChatModal({
                             <>
                               <button
                                 onClick={() => onApply("replace-selection", msg.content)}
-                                className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity"
+                                className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}
                               >
                                 Markierung ersetzen
                               </button>
                               <button
                                 onClick={() => onApply("insert-before", msg.content)}
-                                className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity"
+                                className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}
                               >
                                 Davor
                               </button>
                               <button
                                 onClick={() => onApply("insert-after", msg.content)}
-                                className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity"
+                                className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}
                               >
                                 Danach
                               </button>
                               <button
                                 onClick={() => onApply("replace-all", msg.content)}
-                                className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity"
+                                className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.05)", color: "var(--muted)" }}
                               >
                                 Ganzes Skript
@@ -225,7 +225,7 @@ export default function RegenChatModal({
                           ) : (
                             <button
                               onClick={() => onApply("replace-all", msg.content)}
-                              className="px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-opacity"
+                              className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                               style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}
                             >
                               Ersetzen

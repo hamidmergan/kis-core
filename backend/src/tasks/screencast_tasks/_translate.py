@@ -1,4 +1,4 @@
-"""Celery-Task: PPTX DE→EN übersetzen, Slide-Texte extrahieren, awaiting_user setzen."""
+"""Celery task: translate PPTX DE->EN, extract slide texts, set awaiting_user."""
 
 import asyncio
 import json
@@ -91,8 +91,8 @@ def run_screencast_translate(
 
         # awaiting_user: user must review scripts before render starts
         db.update_job_status(job_uuid, "awaiting_user")
-        db.update_job_expiry(job_uuid, 168)  # 7 days — no resources held while waiting
-        _maybe_dispatch_next(job_uuid)  # awaiting_user hält keinen Slot → nächsten Job starten
+        db.update_job_expiry(job_uuid, 168)  # 7 days - no resources held while waiting
+        _maybe_dispatch_next(job_uuid)  # awaiting_user holds no slot -> start the next job
 
         # Clean up input file
         delete_file(input_path)

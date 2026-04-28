@@ -11,7 +11,7 @@ celery_app = Celery(
         "src.tasks.general_tasks",
         "src.tasks.screencast_tasks",
         "src.tasks.watchdog_tasks",
-        "src.tasks.kia_tasks",
+        "src.tasks.aia_tasks",
     ],
 )
 
@@ -37,12 +37,12 @@ celery_app.conf.update(
         "screencast.auto": {"queue": "screencast"},
         "screencast.demo_render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
-        # KI-Tutor — dedicated queue for learning tools & Sprachtraining
+        # AI tutor: dedicated queue for learning tools and language training
         "kia.index_source": {"queue": "kia"},
         "kia.generate_summaries": {"queue": "kia"},
         "kia.generate_mindmap": {"queue": "kia"},
         "kia.generate_exercise_set": {"queue": "kia"},
-        "kia.generate_datentabelle": {"queue": "kia"},
+        "kia.generate_data_table": {"queue": "kia"},
         "kia.generate_glossary": {"queue": "kia"},
     },
     beat_schedule={

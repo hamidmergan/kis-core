@@ -1,12 +1,12 @@
-"""Quelltext-Scanner: baut Datum/TBD-Kandidaten aus den Chunks einer Source."""
+"""Source-text scanner: builds date/TBD candidates from a source's chunks."""
 
 from src import database as db
 
-from src.features.ki_assistent.tasks.studio.schedule._regex import (
+from src.features.ai_assistant.tasks.studio.schedule._regex import (
     _TBD_PATTERNS,
     _date_candidates_in_text,
 )
-from src.features.ki_assistent.tasks.studio.schedule._parse import (
+from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _normalize_date,
     _normalize_partial_date,
 )
@@ -14,7 +14,7 @@ from src.features.ki_assistent.tasks.studio.schedule._parse import (
 
 def _load_source_chunks(source_id: int) -> list[dict]:
     """Return ordered chunks with their positions (page or timestamp)."""
-    chunks = db.get_kia_chunks_by_source(source_id)
+    chunks = db.get_aia_chunks_by_source(source_id)
     if not chunks:
         return []
     return sorted(
@@ -26,7 +26,7 @@ def _load_source_chunks(source_id: int) -> list[dict]:
 def _build_candidates_for_source(src: dict) -> list[dict]:
     """Find all date candidates in a source. Year-full matches produce date_iso;
     year-less matches produce partial_date=(month, day), resolved to current year.
-    'Nach Vereinbarung'-style phrases produce is_tbd=True with no date.
+    'To-be-arranged'-style phrases produce is_tbd=True with no date.
     """
     candidates: list[dict] = []
     for c in _load_source_chunks(src["id"]):
@@ -49,7 +49,7 @@ def _build_candidates_for_source(src: dict) -> list[dict]:
                 if partial is None:
                     continue
                 date_iso = None
-            # ±450 chars so table headers with time (e.g. "17:30") at the top of a
+            # +/-450 chars so table headers with time (e.g. "17:30") at the top of a
             # schedule listing are visible to the classifier for every row below.
             ctx_start = max(0, s - 450)
             ctx_end = min(len(content), e + 450)
@@ -76,7 +76,7 @@ def _build_candidates_for_source(src: dict) -> list[dict]:
                 "source_filename": src.get("filename") or "",
             })
 
-        # TBD candidates ("nach Vereinbarung" etc.) — no date, but a real event
+        # TBD candidates ("nach Vereinbarung" etc.): no date, but a real event
         # whose scheduling is still open. Dedup per chunk: one TBD candidate even
         # if the phrase appears multiple times on the same page.
         tbd_seen = False

@@ -30,9 +30,9 @@ from src.tool_prompts import (
     KIA_MINDMAP_PROMPT,
 )
 
-from src.features.ki_assistent.tasks._helpers import (
+from src.features.ai_assistant.tasks._helpers import (
     _format_ts,
-    _save_kia_output,
+    _save_aia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -43,36 +43,36 @@ from src.features.ki_assistent.tasks._helpers import (
     _clean_llm_json,
 )
 
-_GLOSSARY_PROMPT = """Du bist ein Fachsprachen-Experte. Extrahiere die wichtigsten Fachbegriffe aus dem folgenden Text.
+_GLOSSARY_PROMPT = """You are a technical-terminology expert. Extract the most important technical terms from the following text.
 
-Die Textausschnitte sind mit Quellenangaben markiert: [Q1, S. 5] = Quelle 1, Seite 5.
+Text fragments are marked with source citations: [Q1, S. 5] = source 1, page 5.
 
-Für jeden Begriff gib EXAKT dieses JSON-Format zurück (als JSON-Array):
+For every term return EXACTLY this JSON format (as a JSON array):
 [
   {
-    "term_de": "Fachbegriff in der Quellsprache",
-    "term_en": "Übersetzung (siehe Regeln)",
-    "definition": "Kurze Erklärung auf Deutsch (B1 Niveau, 1-2 Sätze)",
+    "term_de": "Technical term in the source language",
+    "term_en": "Translation (see rules)",
+    "definition": "Short explanation in German (B1 level, 1-2 sentences)",
     "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
-    "example_sentence": "Ein Satz aus dem Text, der den Begriff verwendet",
+    "example_sentence": "A sentence from the text that uses the term (source language)",
     "example_sentence_en": "English translation of the example sentence",
     "source_label": "Q1",
     "page_number": 5
   }
 ]
 
-Regeln:
-- Extrahiere genau 5 Fachbegriffe (die wichtigsten und häufigsten)
-- Nur echte Fachbegriffe, keine allgemeinen Wörter
-- KRITISCH für term_de: Der Begriff muss WÖRTLICH als zusammenhängendes Wort oder Phrase im Text vorkommen. Wenn der Text "in den deutschen Arbeitsmarkt zu integrieren" sagt, darfst du NICHT "Arbeitsmarktintegration" daraus machen. Nimm stattdessen "Arbeitsmarkt" oder lass es weg. Erfinde KEINE Komposita oder Nominalisierungen die nicht exakt so im Text stehen.
-- term_en: Wenn der Quelltext NICHT auf Englisch ist, übersetze den Begriff ins Englische. Wenn der Quelltext auf Englisch ist, übersetze den Begriff ins Deutsche. Niemals die gleiche Sprache wie term_de verwenden!
-- definition: Einfache Erklärung auf Deutsch, verständlich auf B1-Sprachniveau
-- definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
-- example_sentence: Ein Satz aus dem gegebenen Text, der den Begriff verwendet
-- example_sentence_en: Englische Übersetzung dieses Satzes
-- source_label: Die Quellenangabe (Q1, Q2, ...) aus der der Begriff stammt
-- page_number ist die Seitenzahl, auf der der Begriff vorkommt
-- Antworte NUR mit dem JSON-Array, kein anderer Text"""
+Rules:
+- Extract exactly 5 technical terms (the most important and frequent ones)
+- Only true technical terms, no general words
+- CRITICAL for term_de: the term must appear VERBATIM as a contiguous word or phrase in the text. If the text says "in den deutschen Arbeitsmarkt zu integrieren", you may NOT turn that into "Arbeitsmarktintegration". Take "Arbeitsmarkt" instead, or skip it. Do NOT invent compounds or nominalizations that are not exactly in the text.
+- term_en: if the source text is NOT English, translate the term to English. If the source text is English, translate the term to German. Never the same language as term_de.
+- definition: simple explanation in German, understandable at B1 level
+- definition_en: simple explanation in English, understandable at B1 level
+- example_sentence: a sentence from the given text that uses the term
+- example_sentence_en: English translation of that sentence
+- source_label: the source citation (Q1, Q2, ...) the term comes from
+- page_number: the page number where the term appears
+- Respond ONLY with the JSON array, no other text."""
 
 
 @celery_app.task(bind=True, name="kia.generate_glossary", queue="kia",
@@ -117,7 +117,7 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         context = "\n\n---\n\n".join(context_parts)
 
         # Tell LLM which terms already exist so it doesn't repeat them
-        existing = db.get_kia_glossary_by_module(module_id)
+        existing = db.get_aia_glossary_by_module(module_id)
         existing_terms_list = [e["term_de"] for e in existing]
         exclude_hint = ""
         if existing_terms_list:
@@ -145,7 +145,7 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         entries_raw = [e for e in entries_raw if e.get("term_de", "").strip().lower() in context_lower]
 
         # Deduplicate: skip terms that already exist
-        existing = db.get_kia_glossary_by_module(module_id)
+        existing = db.get_aia_glossary_by_module(module_id)
         existing_terms = {e["term_de"].strip().lower() for e in existing}
         new_entries = [e for e in entries_raw if e.get("term_de", "").strip().lower() not in existing_terms]
 

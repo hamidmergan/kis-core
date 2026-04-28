@@ -1,18 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DatentabelleData, DatentabelleSource } from "../_types";
+import type { DataTableData, DataTableSource } from "../_types";
 
-interface UseDatentabelleOptions {
+interface UseDataTableOptions {
   uuid: string;
   selectedSourceIds: string[];
 }
 
-export function useDatentabelle({ uuid, selectedSourceIds }: UseDatentabelleOptions) {
-  const [datentabelle, setDatentabelle] = useState<DatentabelleData | null>(null);
-  const [datentabelleSources, setDatentabelleSources] = useState<DatentabelleSource[]>([]);
-  const [datentabelleLoading, setDatentabelleLoading] = useState(false);
-  const [datentabelleList, setDatentabelleList] = useState<{ id: number; title: string; created_at: string | null }[]>([]);
+export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
+  const [data_table, setDataTable] = useState<DataTableData | null>(null);
+  const [data_tableSources, setDataTableSources] = useState<DataTableSource[]>([]);
+  const [data_tableLoading, setDataTableLoading] = useState(false);
+  const [data_tableList, setDataTableList] = useState<{ id: number; title: string; created_at: string | null }[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -21,28 +21,28 @@ export function useDatentabelle({ uuid, selectedSourceIds }: UseDatentabelleOpti
 
   const refreshList = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabellen`, { credentials: "include" });
-      if (res.ok) setDatentabelleList(await res.json());
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_tables`, { credentials: "include" });
+      if (res.ok) setDataTableList(await res.json());
     } catch { /* ignore */ }
   }, [uuid]);
 
   const startPolling = useCallback((dtId: number) => {
     stopPolling();
-    setDatentabelleLoading(true);
+    setDataTableLoading(true);
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle/${dtId}`, { credentials: "include" });
+        const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_table/${dtId}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "success" && data.table_data) {
-          setDatentabelle(data.table_data);
-          setDatentabelleSources(data.sources || data.table_data.sources || []);
-          setDatentabelleLoading(false);
+          setDataTable(data.table_data);
+          setDataTableSources(data.sources || data.table_data.sources || []);
+          setDataTableLoading(false);
           stopPolling();
           refreshList();
         } else if (data.status === "failed") {
-          console.error("Datentabelle failed:", data.error);
-          setDatentabelleLoading(false);
+          console.error("DataTable failed:", data.error);
+          setDataTableLoading(false);
           stopPolling();
         }
       } catch { /* ignore */ }
@@ -52,12 +52,12 @@ export function useDatentabelle({ uuid, selectedSourceIds }: UseDatentabelleOpti
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle`, { credentials: "include" });
+        const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_table`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           if (data && data.status === "success" && data.table_data) {
-            setDatentabelle(data.table_data);
-            setDatentabelleSources(data.sources || data.table_data.sources || []);
+            setDataTable(data.table_data);
+            setDataTableSources(data.sources || data.table_data.sources || []);
           } else if (data && (data.status === "pending" || data.status === "running")) {
             startPolling(data.id);
           }
@@ -71,9 +71,9 @@ export function useDatentabelle({ uuid, selectedSourceIds }: UseDatentabelleOpti
 
   const generate = useCallback(async () => {
     if (selectedSourceIds.length === 0) return;
-    setDatentabelleLoading(true);
+    setDataTableLoading(true);
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle/generate`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_table/generate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -81,37 +81,37 @@ export function useDatentabelle({ uuid, selectedSourceIds }: UseDatentabelleOpti
       });
       if (res.ok) {
         const data = await res.json();
-        startPolling(data.datentabelle_id);
+        startPolling(data.data_table_id);
       } else {
-        console.error("Datentabelle generate error:", res.status);
-        setDatentabelleLoading(false);
+        console.error("DataTable generate error:", res.status);
+        setDataTableLoading(false);
       }
     } catch {
-      setDatentabelleLoading(false);
+      setDataTableLoading(false);
     }
   }, [uuid, selectedSourceIds, startPolling]);
 
   const select = useCallback(async (id: number) => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle/${id}`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_table/${id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       if (data.status === "success" && data.table_data) {
-        setDatentabelle(data.table_data);
-        setDatentabelleSources(data.sources || data.table_data.sources || []);
+        setDataTable(data.table_data);
+        setDataTableSources(data.sources || data.table_data.sources || []);
       }
     } catch { /* ignore */ }
   }, [uuid]);
 
   const remove = useCallback(async (id: number) => {
     try {
-      await fetch(`/api/ki-assistent/modules/${uuid}/datentabelle/${id}`, { method: "DELETE", credentials: "include" });
-      setDatentabelleList((prev) => prev.filter((d) => d.id !== id));
+      await fetch(`/api/ai-assistant/modules/${uuid}/data_table/${id}`, { method: "DELETE", credentials: "include" });
+      setDataTableList((prev) => prev.filter((d) => d.id !== id));
     } catch { /* ignore */ }
   }, [uuid]);
 
   return {
-    datentabelle, datentabelleSources, datentabelleLoading, datentabelleList,
+    data_table, data_tableSources, data_tableLoading, data_tableList,
     generate, select, remove,
   };
 }

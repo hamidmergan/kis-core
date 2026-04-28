@@ -1,12 +1,12 @@
-"""mode='glossar': Exercise-Items aus bereits indiziertem Glossar generieren."""
+"""mode='glossary': Exercise-Items aus bereits indiziertem Glossary generieren."""
 
 import json
 import random
 
 from src import database as db
-from src.features.ki_assistent.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
-from src.features.ki_assistent.tasks.sprachtraining._title import title_from_glossary_terms
+from src.features.ai_assistant.tasks.language_training._title import title_from_glossary_terms
 
 
 def generate_from_glossary(
@@ -15,15 +15,15 @@ def generate_from_glossary(
     tool: str,
     count: int,
 ) -> tuple[list[dict], str] | None:
-    """Returns (items, title) oder None wenn kein Glossar vorhanden."""
-    glossary = db.get_kia_glossary_by_module(module_id)
+    """Returns (items, title) oder None wenn kein Glossary vorhanden."""
+    glossary = db.get_aia_glossary_by_module(module_id)
     if not glossary:
         return None
 
     selected = random.sample(glossary, min(count, len(glossary)))
     items: list[dict] = []
 
-    if tool == "lernkarten":
+    if tool == "flashcards":
         items = [
             {
                 "front": e["term_de"],
@@ -57,20 +57,21 @@ def _generate_lueckentext(client, model, selected: list[dict], count: int) -> li
     terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
     messages = [
         {"role": "system", "content": (
-            "Du erstellst Lückentext-Übungen. Für jeden Begriff erstelle einen Satz "
-            "mit einer Lücke, die durch den Begriff gefüllt werden muss.\n\n"
-            "Antworte NUR mit einem JSON-Array:\n"
+            "You create cloze (gap-filling) exercises. For every term, build a sentence "
+            "with a gap that must be filled by the term. "
+            "Write sentences and answers in the SAME language as the input terms (German terms -> German sentences).\n\n"
+            "Respond ONLY with a JSON array:\n"
             '[{"sentence": "Der Prozess der ___ reduziert Redundanz.", '
             '"answer": "Normalisierung", '
             '"options": ["Indexierung", "Normalisierung", "Partitionierung", "Denormalisierung"], '
             '"correct_idx": 1, "term_de": "Normalisierung", "page_number": 12}]\n\n'
-            "Regeln:\n- Genau 4 Optionen pro Frage, eine davon korrekt\n"
-            "- correct_idx = Index der richtigen Option (0-3)\n"
-            "- ___ als Lücken-Platzhalter\n"
-            "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'\n"
-            "- Antworte NUR mit dem JSON-Array"
+            "Rules:\n- Exactly 4 options per question, one of them correct\n"
+            "- correct_idx = index of the correct option (0-3)\n"
+            "- ___ as the gap placeholder\n"
+            "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Source'\n"
+            "- Respond ONLY with the JSON array."
         )},
-        {"role": "user", "content": f"Erstelle Lückentext-Übungen:\n\n{terms_text}"},
+        {"role": "user", "content": f"Create cloze exercises (in the source language of the terms):\n\n{terms_text}"},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
     answer = _clean_llm_json(response.choices[0].message.content or "")
@@ -92,19 +93,20 @@ def _generate_vokabeltest(client, model, selected: list[dict], count: int) -> li
     terms_text = "\n".join(f"- {e['term_de']} ({e['term_en']}): {e['definition']}" for e in selected)
     messages = [
         {"role": "system", "content": (
-            "Du erstellst ein Begriffe-Quiz zu Fachbegriffen (Multiple Choice).\n\n"
-            "Antworte NUR mit einem JSON-Array:\n"
+            "You create a vocabulary quiz on technical terms (multiple choice). "
+            "Write questions and explanations in the SAME language as the input terms (German terms -> German questions).\n\n"
+            "Respond ONLY with a JSON array:\n"
             '[{"question": "Was ist die englische Übersetzung von Normalisierung?", '
             '"options": ["Indexing", "Normalization", "Partitioning", "Denormalization"], '
             '"correct_idx": 1, "explanation": "Normalization ist...", '
             '"term_de": "Normalisierung"}]\n\n'
-            "Regeln:\n- Mische DE→EN, EN→DE, Definitionsfragen\n"
-            "- Wähle Begriffe die sich gut für MC eignen (klare Definition, plausible Distraktoren)\n"
-            "- Genau 4 Optionen, eine korrekt\n- correct_idx = 0-3\n"
-            "- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'\n"
-            "- Antworte NUR mit dem JSON-Array"
+            "Rules:\n- Mix DE -> EN, EN -> DE, and definition questions\n"
+            "- Pick terms suitable for MC (clear definition, plausible distractors)\n"
+            "- Exactly 4 options, one correct\n- correct_idx = 0-3\n"
+            "- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Source'\n"
+            "- Respond ONLY with the JSON array."
         )},
-        {"role": "user", "content": f"Erstelle Begriffe-Quiz-Fragen zu diesen Fachbegriffen:\n\n{terms_text}"},
+        {"role": "user", "content": f"Create vocabulary-quiz questions for these technical terms (in the source language of the terms):\n\n{terms_text}"},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
     answer = _clean_llm_json(response.choices[0].message.content or "")

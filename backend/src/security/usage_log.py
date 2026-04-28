@@ -1,4 +1,4 @@
-"""LLM-Usage-Logging in eigene DB-Tabelle (``kia_llm_usage_log``).
+"""LLM-Usage-Logging in eigene DB-Tabelle (``aia_llm_usage_log``).
 
 Pro LLM-Request 1 Zeile mit User, Endpoint, Provider, Tokens (best effort),
 Dauer und Status. Wird vom Tagesalarm gegen rolling 7d-Average geprüft, um
@@ -29,7 +29,7 @@ def log_request(
     duration_ms: Optional[int] = None,
     status: str = "ok",
 ) -> None:
-    """Schreibt eine Zeile in ``kia_llm_usage_log``. Fail-safe.
+    """Schreibt eine Zeile in ``aia_llm_usage_log``. Fail-safe.
 
     ``status``: ``"ok"`` | ``"error"`` | ``"rate_limited"``.
     """
@@ -40,7 +40,7 @@ def log_request(
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    """INSERT INTO kia_llm_usage_log
+                    """INSERT INTO aia_llm_usage_log
                        (user_id, endpoint, provider, model, tokens_in, tokens_out, duration_ms, status)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                     (user_id, endpoint, provider, model, tokens_in, tokens_out, duration_ms, status),

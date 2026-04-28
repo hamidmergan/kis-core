@@ -55,9 +55,9 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     else setPanels((prev) => ({ ...prev, chat: true }));
     const delay = wasOpen ? 50 : 300;
     setTimeout(() => {
-      // setInput muss NACH dem Tab-/Panel-Switch kommen: Auf Smartphone ist
-      // ChatInputBar bei aktivem Quellen-/Studio-Tab unmounted und chatSetInputRef
-      // damit null. Erst nach setTimeout-delay ist der Mount-Cycle durch.
+      // setInput must come AFTER the tab/panel switch: on smartphone the
+      // ChatInputBar is unmounted while the sources/studio tab is active, so
+      // chatSetInputRef is null. The mount cycle is only complete after the setTimeout delay.
       chatSetInputRef.current?.(value);
       const el = chatTextareaRef.current;
       if (!el) return;

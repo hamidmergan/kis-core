@@ -74,7 +74,7 @@ async def kokoro_preview(body: dict, _user=Depends(get_current_user)):
     if not client or not client.is_available():
         raise HTTPException(status_code=503, detail="Kokoro Server nicht erreichbar")
     voice_id = body.get("voice_id", "af_heart")
-    # Deutschen Preview-Text für deutsche Stimmen verwenden
+    # Use German preview text for German voices
     if voice_id.startswith(("df_", "dm_")):
         preview_text = "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
     else:
@@ -188,7 +188,7 @@ async def text_to_speech(
     style: float = Form(0.20),
     use_speaker_boost: bool = Form(True),
     pause_preset: str = Form("medium"),
-    provider: str = Form("elevenlabs"),  # "elevenlabs" oder "fish_speech"
+    provider: str = Form("elevenlabs"),  # "elevenlabs" or "fish_speech"
     voice_label: str = Form(""),
     current_user: dict = Depends(get_current_user),
 ):

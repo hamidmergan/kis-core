@@ -276,9 +276,9 @@ export function MindmapStudio({
           ?? srcs.find((s) => s.filename.toLowerCase() === label)
           ?? srcs.find((s) => label.includes(s.filename.toLowerCase()) || s.filename.toLowerCase().includes(label));
         if (src) {
-          // Native Browser-Fullscreen verlassen, sonst bleibt der Viewer-Container
-          // im Element-Fullscreen und das Quelle-Panel im Workspace ist nicht sichtbar
-          // (schwarze Ränder + State-Mismatch).
+          // Exit native browser fullscreen, otherwise the viewer container stays
+          // in element fullscreen and the source panel in the workspace is not visible
+          // (black borders + state mismatch).
           if (document.fullscreenElement) {
             try { await document.exitFullscreen(); } catch { /* ignore */ }
           }
@@ -349,7 +349,7 @@ export function MindmapStudio({
           {savedList.length === 0 && !loading ? (
             <div className="flex flex-col items-center gap-3 pt-[15%]">
               <TreeStructure size={48} weight="duotone" style={{ color: "var(--border)" }} />
-              <p className="text-sm text-center" style={{ color: "var(--muted)" }}>Wähle Quellen aus und drücke auf Erstellen.</p>
+              <p className="text-sm text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
               <button type="button" onClick={() => onGenerate()}
                 disabled={noSources || loading || atLimit}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
@@ -392,12 +392,12 @@ export function MindmapStudio({
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-1">
-                      <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                      <span className="text-[10px] font-medium" >
                         {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+                        className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                        style={{ backgroundColor: "var(--surface-dim)" }}>
                         <Trash size={12} />
                       </button>
                     </div>
@@ -416,8 +416,8 @@ export function MindmapStudio({
       }} className="flex-col h-full">
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); else setView("list"); }}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+            style={{ backgroundColor: "var(--surface-dim)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (() => {
@@ -426,41 +426,41 @@ export function MindmapStudio({
               <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
                 {breadcrumbs.map((b, i) => (
                   <React.Fragment key={i}>
-                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>
-                    <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
+                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors"  onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>
+                    <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}
-                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={badge ? { backgroundColor: badge.bg, color: badge.color } : { color: "var(--muted)" }}>Mindmap</button>
-                <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
+                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>Mindmap</button>
+                <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                 <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>
               </div>
             );
           })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>)}
           <div className="flex items-center gap-1.5">
             <button type="button" onClick={handleZoomOut} title="Verkleinern"
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+              className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+              style={{ backgroundColor: "var(--surface-dim)" }}>
               <MagnifyingGlassMinus size={13} />
             </button>
             <button type="button" onClick={handleZoomIn} title="Vergrößern"
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+              className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+              style={{ backgroundColor: "var(--surface-dim)" }}>
               <MagnifyingGlassPlus size={13} />
             </button>
             <button type="button" onClick={handleToggleExpand} title={allExpanded ? "Alle einklappen" : "Alle ausklappen"}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+              className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+              style={{ backgroundColor: "var(--surface-dim)" }}>
               {allExpanded ? <ArrowsInLineVertical size={13} /> : <ArrowsOutLineVertical size={13} />}
             </button>
             <button type="button" onClick={handleFullscreenToggle} title={fullscreen ? "Vollbild beenden" : "Vollbild"}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+              className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+              style={{ backgroundColor: "var(--surface-dim)" }}>
               {fullscreen ? <CornersIn size={13} /> : <CornersOut size={13} />}
             </button>
             {minimize && (
               <button type="button" onClick={minimize} title="Panel minimieren"
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+                className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+                style={{ backgroundColor: "var(--surface-dim)" }}>
                 <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
               </button>
             )}
@@ -471,7 +471,7 @@ export function MindmapStudio({
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
                 <Spinner size="lg" />
-                <p className="text-xs" style={{ color: "var(--muted)" }}>Mindmap wird generiert…</p>
+                <p className="text-xs" >Mindmap wird generiert…</p>
               </div>
             </div>
           )}
@@ -485,7 +485,7 @@ export function MindmapStudio({
               {sourceIndexRef.current.size > 0 && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
                   {Array.from(sourceIndexRef.current.entries()).map(([filename, num]) => (
-                    <span key={num} className="text-[11px] leading-snug" style={{ color: "var(--muted)" }}>
+                    <span key={num} className="text-[11px] leading-snug" >
                       [{num}] {filename}
                     </span>
                   ))}

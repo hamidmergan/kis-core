@@ -18,13 +18,13 @@ from src.core.db.pool import get_connection
 from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
-def create_kia_source(
+def create_aia_source(
     module_id: int, uuid: str, filename: str, file_path: str, file_type: str
 ) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO kia_sources
+                """INSERT INTO aia_sources
                    (module_id, uuid, filename, file_path, file_type)
                    VALUES (%s, %s, %s, %s, %s)
                    RETURNING id""",
@@ -34,31 +34,31 @@ def create_kia_source(
         conn.commit()
     return source_id
 
-def get_kia_source(uuid: str) -> dict | None:
+def get_aia_source(uuid: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM kia_sources WHERE uuid = %s", (uuid,))
+            cur.execute("SELECT * FROM aia_sources WHERE uuid = %s", (uuid,))
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_kia_source_by_id(source_id: int) -> dict | None:
+def get_aia_source_by_id(source_id: int) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM kia_sources WHERE id = %s", (source_id,))
+            cur.execute("SELECT * FROM aia_sources WHERE id = %s", (source_id,))
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_kia_sources_by_module(module_id: int) -> list[dict]:
+def get_aia_sources_by_module(module_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT * FROM kia_sources WHERE module_id = %s ORDER BY created_at DESC",
+                "SELECT * FROM aia_sources WHERE module_id = %s ORDER BY created_at DESC",
                 (module_id,),
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
-def list_kia_modules_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
+def list_aia_modules_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
     """Return modules (with owner name) whose stored fingerprint differs from current.
 
     Modules without a fingerprint (never indexed) are ignored.
@@ -67,8 +67,8 @@ def list_kia_modules_with_stale_fingerprint(current_fingerprint: str) -> list[di
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT DISTINCT m.id, m.uuid, m.title, u.display_name AS owner
-                   FROM kia_modules m
-                   JOIN kia_sources s ON s.module_id = m.id
+                   FROM aia_modules m
+                   JOIN aia_sources s ON s.module_id = m.id
                    LEFT JOIN users u ON u.id = m.user_id
                    WHERE m.embedding_fingerprint IS NOT NULL
                      AND m.embedding_fingerprint <> %s
@@ -77,15 +77,15 @@ def list_kia_modules_with_stale_fingerprint(current_fingerprint: str) -> list[di
             )
             return [dict(row) for row in cur.fetchall()]
 
-def get_all_kia_sources() -> list[dict]:
+def get_all_aia_sources() -> list[dict]:
     """Return every KI-Assistent source across all modules — used for global re-indexing."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM kia_sources ORDER BY id ASC")
+            cur.execute("SELECT * FROM aia_sources ORDER BY id ASC")
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
-def update_kia_source_status(
+def update_aia_source_status(
     uuid: str,
     status: str,
     chunk_count: int | None = None,
@@ -97,7 +97,7 @@ def update_kia_source_status(
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE kia_sources
+                """UPDATE aia_sources
                    SET status = %s,
                        chunk_count = COALESCE(%s, chunk_count),
                        embedding_model = COALESCE(%s, embedding_model),
@@ -109,35 +109,35 @@ def update_kia_source_status(
             )
         conn.commit()
 
-def update_kia_source_toc(uuid: str, toc: list[dict]) -> None:
+def update_aia_source_toc(uuid: str, toc: list[dict]) -> None:
     import json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE kia_sources SET toc = %s WHERE uuid = %s",
+                "UPDATE aia_sources SET toc = %s WHERE uuid = %s",
                 (json.dumps(toc), uuid),
             )
         conn.commit()
 
-def delete_kia_source(uuid: str) -> None:
+def delete_aia_source(uuid: str) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM kia_sources WHERE uuid = %s", (uuid,))
+            cur.execute("DELETE FROM aia_sources WHERE uuid = %s", (uuid,))
         conn.commit()
 
-def delete_kia_chunks_by_source(source_id: int) -> None:
+def delete_aia_chunks_by_source(source_id: int) -> None:
     """Remove all chunks for a source (used when retrying a failed indexing run)."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM kia_chunks WHERE source_id = %s", (source_id,))
+            cur.execute("DELETE FROM aia_chunks WHERE source_id = %s", (source_id,))
         conn.commit()
 
-def reset_kia_source_for_retry(uuid: str) -> None:
+def reset_aia_source_for_retry(uuid: str) -> None:
     """Reset a failed source to pending state and clear the error message."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE kia_sources
+                """UPDATE aia_sources
                    SET status = 'pending', error_message = NULL, chunk_count = 0
                    WHERE uuid = %s""",
                 (uuid,),

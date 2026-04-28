@@ -42,7 +42,7 @@ def _generate_and_store_note_title(kisski, note_id: int, user_id: int, content: 
         logger.warning("Notiz-Titel: LLM lieferte keinen Titel (note_id={})", note_id)
         return
     try:
-        db.update_kia_note_title(note_id, user_id, title)
+        db.update_aia_note_title(note_id, user_id, title)
         logger.info("Notiz-Titel gesetzt (note_id={}): {}", note_id, title)
     except Exception as e:
         logger.warning("Notiz-Titel konnte nicht gespeichert werden (note_id={}): {}", note_id, e)
@@ -76,7 +76,7 @@ def _generate_note_title(kisski, content: str) -> Optional[str]:
         title = title[:_NOTE_TITLE_SAFETY_CAP].rstrip()
     return title
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
     _count_pages,
@@ -92,17 +92,17 @@ from src.features.ki_assistent.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
-@router.get("/ki-assistent/modules/{module_uuid}/notes")
+@router.get("/ai-assistant/modules/{module_uuid}/notes")
 async def get_notes(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -111,7 +111,7 @@ async def get_notes(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    notes = db.get_kia_notes(module["id"], user_id)
+    notes = db.get_aia_notes(module["id"], user_id)
     return [
         {
             "id": n["id"],
@@ -125,7 +125,7 @@ async def get_notes(
         for n in notes
     ]
 
-@router.post("/ki-assistent/modules/{module_uuid}/notes")
+@router.post("/ai-assistant/modules/{module_uuid}/notes")
 async def create_note(
     module_uuid: str,
     body: schemas.NoteBody,
@@ -134,7 +134,7 @@ async def create_note(
     kisski=Depends(get_kisski_client),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -143,14 +143,14 @@ async def create_note(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    if db.count_kia_notes(module["id"], user_id) >= KIA_NOTES_MAX_PER_USER:
+    if db.count_aia_notes(module["id"], user_id) >= KIA_NOTES_MAX_PER_USER:
         raise HTTPException(
             status_code=409,
             detail=f"Maximal {KIA_NOTES_MAX_PER_USER} Notizen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
         )
 
     content = body.content.strip()
-    note = db.create_kia_note(
+    note = db.create_aia_note(
         module["id"], user_id, content, None,
         body.source_uuids, body.source_pages, body.popup_selection,
     )
@@ -166,7 +166,7 @@ async def create_note(
         "created_at": note["created_at"].isoformat() + "Z" if note["created_at"] else None,
     }
 
-@router.patch("/ki-assistent/modules/{module_uuid}/notes/{note_id}/title")
+@router.patch("/ai-assistant/modules/{module_uuid}/notes/{note_id}/title")
 async def update_note_title(
     module_uuid: str,
     note_id: int,
@@ -174,31 +174,31 @@ async def update_note_title(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    updated = db.update_kia_note_title(note_id, user_id, body.title)
+    updated = db.update_aia_note_title(note_id, user_id, body.title)
     if not updated:
         raise HTTPException(status_code=404, detail="Notiz nicht gefunden")
     return {"ok": True}
 
-@router.delete("/ki-assistent/modules/{module_uuid}/notes/{note_id}")
+@router.delete("/ai-assistant/modules/{module_uuid}/notes/{note_id}")
 async def delete_note(
     module_uuid: str,
     note_id: int,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    deleted = db.delete_kia_note(note_id, user_id)
+    deleted = db.delete_aia_note(note_id, user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Notiz nicht gefunden")
     return {"ok": True}
 
 
-# ─── Sprachtraining: Glossar ─────────────────────────────────────────────────
+# ─── LanguageTraining: Glossary ─────────────────────────────────────────────────
 

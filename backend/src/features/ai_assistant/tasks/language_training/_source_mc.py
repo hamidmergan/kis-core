@@ -1,22 +1,22 @@
-"""MC-basierte Tools (lueckentext, quiz, vokabeltest) aus Quelltext (mode='quelle')."""
+"""MC-basierte Tools (lueckentext, quiz, vokabeltest) aus Quelltext (mode='source')."""
 
 import json
 import re
 
 from src import database as db
-from src.features.ki_assistent.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 
-from src.features.ki_assistent.tasks.sprachtraining._card_base import with_avoid
-from src.features.ki_assistent.tasks.sprachtraining._context import QuelleContext
-from src.features.ki_assistent.tasks.sprachtraining._text_utils import normalize_chunk
-from src.features.ki_assistent.tasks.sprachtraining._title import title_from_items
+from src.features.ai_assistant.tasks.language_training._card_base import with_avoid
+from src.features.ai_assistant.tasks.language_training._context import QuelleContext
+from src.features.ai_assistant.tasks.language_training._text_utils import normalize_chunk
+from src.features.ai_assistant.tasks.language_training._title import title_from_items
 
 
 _SOURCE_RULE = (
-    "- Gib für jede Frage source_label und page_number an — die Quelle/Seite aus der der Inhalt stammt.\n"
+    "- For every question, include source_label and page_number, the source/page the content came from.\n"
 )
 _PERSONAL_RULE = (
-    "WICHTIG:\n- Verwende KEINE Personennamen in Fragen. Statt 'laut Prof. X' schreibe 'laut Quelle'.\n"
+    "IMPORTANT:\n- Do NOT use personal names in questions. Instead of 'laut Prof. X', write 'laut Source'.\n"
 )
 
 
@@ -30,7 +30,7 @@ def generate_mc_from_source(
     tool_prompt = _build_prompt(tool, count)
     messages = [
         {"role": "system", "content": tool_prompt},
-        {"role": "user", "content": with_avoid(existing_fronts, f"Quellen:\n\n{ctx.context}")},
+        {"role": "user", "content": with_avoid(existing_fronts, f"Sources:\n\n{ctx.context}")},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
     answer = _clean_llm_json(response.choices[0].message.content or "")
@@ -57,43 +57,43 @@ def generate_mc_from_source(
 
 
 def _build_prompt(tool: str, count: int) -> str:
-    base = "Du erstellst Übungen basierend auf dem gegebenen Quelltext.\n\n"
+    base = "You create exercises based on the given source text. Write all questions, sentences, options, and answers in the SAME language as the source text (German source -> German content).\n\n"
     if tool == "lueckentext":
         return base + (
-            "Erstelle Lückentext-Übungen. Antworte NUR mit einem JSON-Array:\n"
-            '[{"sentence": "Satz mit ___ als Lücke", "answer": "Antwort", '
+            "Create cloze (gap-filling) exercises. Respond ONLY with a JSON array:\n"
+            '[{"sentence": "Sentence with ___ as a gap", "answer": "Answer", '
             '"options": ["A", "B", "C", "D"], "correct_idx": 0, '
-            '"source_label": "Dateiname.pdf", "page_number": 5}]\n'
+            '"source_label": "Filename.pdf", "page_number": 5}]\n'
             + _PERSONAL_RULE + _SOURCE_RULE +
-            f"Erstelle genau {count} Übungen."
+            f"Create exactly {count} exercises."
         )
     if tool == "quiz":
         return base + (
-            "Erstelle Multiple-Choice Verständnisfragen zum gegebenen Text. "
-            "Die Fragen sollen das Verständnis des Inhalts prüfen.\n\n"
-            "Antworte NUR mit einem JSON-Array:\n"
-            '[{"question": "Verständnisfrage?", "options": ["A", "B", "C", "D"], '
+            "Create multiple-choice comprehension questions for the given text. "
+            "The questions should test understanding of the content.\n\n"
+            "Respond ONLY with a JSON array:\n"
+            '[{"question": "Comprehension question?", "options": ["A", "B", "C", "D"], '
             '"correct_idx": 0, '
-            '"source_label": "Dateiname.pdf", "page_number": 5}]\n'
+            '"source_label": "Filename.pdf", "page_number": 5}]\n'
             + _PERSONAL_RULE + _SOURCE_RULE +
-            f"Erstelle genau {count} Fragen. Mische leichte und schwierige Fragen."
+            f"Create exactly {count} questions. Mix easy and hard ones."
         )
     # vokabeltest (default)
     return base + (
-        "Erstelle ein Begriffe-Quiz: Multiple-Choice-Fragen zu Fachbegriffen aus dem Quelltext.\n\n"
-        "Identifiziere zuerst die wichtigsten Fachbegriffe im Text, dann erstelle Fragen dazu.\n"
-        "Fragetypen mischen:\n"
-        "- Was bedeutet der Begriff X?\n"
-        "- Wie lautet die englische Übersetzung von X? (bzw. deutsche Übersetzung)\n"
-        "- Welcher Fachbegriff beschreibt folgendes: [Definition]?\n\n"
-        "Wähle Fachbegriffe, die sich gut für Multiple Choice eignen "
-        "(klare Definition, plausible Distraktoren möglich).\n\n"
-        "Antworte NUR mit einem JSON-Array:\n"
-        '[{"question": "Frage zum Fachbegriff?", "options": ["A", "B", "C", "D"], '
+        "Create a vocabulary quiz: multiple-choice questions on technical terms from the source text.\n\n"
+        "First identify the most important technical terms in the text, then create questions for them.\n"
+        "Mix question types:\n"
+        "- What does the term X mean?\n"
+        "- What is the English translation of X (or German translation)?\n"
+        "- Which technical term describes the following: [definition]?\n\n"
+        "Pick terms suitable for multiple choice "
+        "(clear definition, plausible distractors possible).\n\n"
+        "Respond ONLY with a JSON array:\n"
+        '[{"question": "Question about the technical term?", "options": ["A", "B", "C", "D"], '
         '"correct_idx": 0, '
-        '"source_label": "Dateiname.pdf", "page_number": 5}]\n'
+        '"source_label": "Filename.pdf", "page_number": 5}]\n'
         + _PERSONAL_RULE + _SOURCE_RULE +
-        f"Erstelle genau {count} Fragen."
+        f"Create exactly {count} questions."
     )
 
 
@@ -112,7 +112,7 @@ def _match_page(
     fallback_label: str,
     search_text: str,
 ) -> tuple[str, int | None]:
-    """Matcht den Übungstext gegen Kontext-Zeilen, um Quelle + Seite zu finden."""
+    """Matcht den Übungstext gegen Kontext-Zeilen, um Source + Seite zu finden."""
     words = re.findall(r"\w+", search_text.lower())
     if not words or not page_index:
         return fallback_label, None

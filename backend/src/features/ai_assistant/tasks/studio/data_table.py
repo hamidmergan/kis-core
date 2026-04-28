@@ -1,4 +1,4 @@
-"""KI-Assistent Celery tasks — datentabelle generation."""
+"""KI-Assistent Celery tasks — data_table generation."""
 
 import concurrent.futures
 import os
@@ -30,9 +30,9 @@ from src.tool_prompts import (
     KIA_MINDMAP_PROMPT,
 )
 
-from src.features.ki_assistent.tasks._helpers import (
+from src.features.ai_assistant.tasks._helpers import (
     _format_ts,
-    _save_kia_output,
+    _save_aia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -43,18 +43,18 @@ from src.features.ki_assistent.tasks._helpers import (
     _clean_llm_json,
 )
 
-@celery_app.task(bind=True, name="kia.generate_datentabelle", queue="kia",
+@celery_app.task(bind=True, name="kia.generate_data_table", queue="kia",
                  soft_time_limit=120, time_limit=180)
-@observe(name="kia-datentabelle")
-def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
+@observe(name="kia-data_table")
+def run_generate_data_table(self, data_table_id: int, source_ids: list[int],
                               source_uuids: list[str], source_map: dict):
     """Generate a data table from source chunks as a background job."""
     import json as _json
     from src.tool_prompts import KIA_DATENTABELLE_PROMPT
 
     try:
-        db.update_kia_datentabelle(datentabelle_id, "running")
-        logger.info("KI Tutor: generating datentabelle {}", datentabelle_id)
+        db.update_aia_data_table(data_table_id, "running")
+        logger.info("KI Tutor: generating data_table {}", data_table_id)
 
         # Build context with source filenames for citations
         _MEDIA_EXTS = {".mp3", ".mp4", ".m4a", ".wav", ".ogg", ".webm", ".flac", ".aac"}
@@ -63,7 +63,7 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
         for sid, suuid in zip(source_ids, source_uuids):
             chunks = db.get_chunks_by_source(sid)
             src_info = source_map.get(str(sid), {})
-            filename = src_info.get("filename", f"Quelle {src_info.get('number', '?')}")
+            filename = src_info.get("filename", f"Source {src_info.get('number', '?')}")
             is_media = any(filename.lower().endswith(ext) for ext in _MEDIA_EXTS)
             for chunk in chunks:
                 if is_media and chunk.get("start_time") is not None:
@@ -79,7 +79,7 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
                 context_len += len(part)
 
         if not context_parts:
-            db.update_kia_datentabelle(datentabelle_id, "failed", error="Keine Chunks vorhanden")
+            db.update_aia_data_table(data_table_id, "failed", error="Keine Chunks vorhanden")
             return
 
         context = "\n\n---\n\n".join(context_parts)
@@ -88,32 +88,32 @@ def run_generate_datentabelle(self, datentabelle_id: int, source_ids: list[int],
         messages = [
             {"role": "system", "content": KIA_DATENTABELLE_PROMPT},
             {"role": "user", "content": (
-                f"Erstelle eine strukturierte Datentabelle aus folgendem Text:\n\n{context}"
+                f"Create a structured data table from the following text (respond in the source-text language):\n\n{context}"
             )},
         ]
 
         response = client.chat.completions.create(model=model, messages=messages, temperature=0.2)
         raw = response.choices[0].message.content
         if not raw:
-            db.update_kia_datentabelle(datentabelle_id, "failed", error="LLM returned empty content")
+            db.update_aia_data_table(data_table_id, "failed", error="LLM returned empty content")
             return
 
         table_data = _json.loads(_clean_llm_json(raw))
         if not isinstance(table_data, dict) or "columns" not in table_data or "rows" not in table_data:
-            db.update_kia_datentabelle(datentabelle_id, "failed", error="Invalid table format")
+            db.update_aia_data_table(data_table_id, "failed", error="Invalid table format")
             return
 
         sources_list = [
             {"number": info["number"], "filename": info["filename"]}
             for info in sorted(source_map.values(), key=lambda x: x["number"])
         ]
-        title = table_data.get("title", "Datentabelle")
+        title = table_data.get("title", "DataTable")
 
-        db.update_kia_datentabelle(datentabelle_id, "success",
+        db.update_aia_data_table(data_table_id, "success",
                                         title=title, table_data=table_data, sources=sources_list)
-        logger.info("KI Tutor: datentabelle {} generated successfully", datentabelle_id)
+        logger.info("KI Tutor: data_table {} generated successfully", data_table_id)
 
     except Exception as e:
-        logger.error("KI Tutor: datentabelle {} generation failed: {}", datentabelle_id, e)
-        db.update_kia_datentabelle(datentabelle_id, "failed", error=str(e))
+        logger.error("KI Tutor: data_table {} generation failed: {}", data_table_id, e)
+        db.update_aia_data_table(data_table_id, "failed", error=str(e))
 

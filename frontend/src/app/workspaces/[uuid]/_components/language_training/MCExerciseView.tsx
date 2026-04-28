@@ -90,7 +90,7 @@ export function MCExerciseView({
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
       <Spinner size="lg" />
-      <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
+      <p className="text-xs" >Wird geladen…</p>
     </div>
   );
   const progressPct = showResults ? 100 : ((index + 1) / total) * 100;
@@ -101,15 +101,15 @@ export function MCExerciseView({
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
         <button type="button" onClick={onBack}
-          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+          className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+          style={{ backgroundColor: "var(--surface-dim)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.label, tool === "quiz" ? "lerntools" : "sprachtraining"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.label, tool === "quiz" ? "lerntools" : "language_training"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors"  onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+            style={{ backgroundColor: "var(--surface-dim)" }}
             title="Panel minimieren">
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
           </button>
@@ -149,7 +149,7 @@ export function MCExerciseView({
           {/* Question Card */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="mx-auto mt-4 sm:mt-6 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
-              <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
+              <div className="text-center text-xs font-semibold" >
                 {index + 1} / {total}
               </div>
               <div className="rounded-2xl flex flex-col gap-4 overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,40,60,0.08)" }}>
@@ -220,7 +220,7 @@ export function MCExerciseView({
                               <ChipIcon size={10} weight="bold" /> {_chunkLabel(card.source_label, card.page_number ?? 1, card.start_time)}
                             </button>
                           </div>
-                          <span className="text-[9px] truncate" style={{ color: "var(--muted)" }}>{card.source_label}</span>
+                          <span className="text-[9px] truncate" >{card.source_label}</span>
                         </div>
                         );
                       })()}

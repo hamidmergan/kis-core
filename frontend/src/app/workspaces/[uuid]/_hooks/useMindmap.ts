@@ -20,7 +20,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
 
   const refreshList = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmaps`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/mindmaps`, { credentials: "include" });
       if (res.ok) setMindmapList(await res.json());
     } catch { /* ignore */ }
   }, [uuid]);
@@ -30,7 +30,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
     setMindmapLoading(true);
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmap/${mindmapId}`, { credentials: "include" });
+        const res = await fetch(`/api/ai-assistant/modules/${uuid}/mindmap/${mindmapId}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "success" && data.mindmap) {
@@ -51,7 +51,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmap`, { credentials: "include" });
+        const res = await fetch(`/api/ai-assistant/modules/${uuid}/mindmap`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "success" && data.mindmap) {
@@ -70,7 +70,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
     if (selectedSourceIds.length === 0) return;
     setMindmapLoading(true);
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmap/generate`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/mindmap/generate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -91,7 +91,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
 
   const select = useCallback(async (id: number) => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/mindmap/${id}`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/mindmap/${id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       if (data.status === "success" && data.mindmap) setMindmapData(data.mindmap);
@@ -100,7 +100,7 @@ export function useMindmap({ uuid, selectedSourceIds }: UseMindmapOptions) {
 
   const remove = useCallback(async (id: number) => {
     try {
-      await fetch(`/api/ki-assistent/modules/${uuid}/mindmap/${id}`, { method: "DELETE", credentials: "include" });
+      await fetch(`/api/ai-assistant/modules/${uuid}/mindmap/${id}`, { method: "DELETE", credentials: "include" });
       setMindmapList((prev) => prev.filter((m) => m.id !== id));
     } catch { /* ignore */ }
   }, [uuid]);

@@ -23,21 +23,21 @@ interface RecentActivity {
 
 const ACTIVITY_TOOL_ICONS: Record<string, React.ComponentType<any>> = {
   karteikarten: Cards,
-  lernkarten: BookOpenText,
+  flashcards: BookOpenText,
   quiz: Question,
   lueckentext: TextAa,
   vokabeltest: Exam,
-  datentabelle: Table,
+  data_table: Table,
   mindmap: TreeStructure,
 };
 
 const ACTIVITY_TOOL_COLORS: Record<string, string> = {
   karteikarten: "#166534",
-  lernkarten: "#78350F",
+  flashcards: "#78350F",
   quiz: "#A16207",
   lueckentext: "#B91C1C",
   vokabeltest: "#534AB7",
-  datentabelle: "#C2410C",
+  data_table: "#C2410C",
   mindmap: "#0369A1",
 };
 
@@ -46,7 +46,7 @@ export function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { 
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/ki-assistent/modules/${moduleUuid}/recent-activities`, { credentials: "include" })
+    fetch(`/api/ai-assistant/modules/${moduleUuid}/recent-activities`, { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => setActivities(data))
       .catch(() => { })

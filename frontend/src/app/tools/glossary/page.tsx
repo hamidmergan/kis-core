@@ -149,7 +149,7 @@ export default function GlossaryPage() {
         <BackLink />
         <section>
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-xl font-bold">Glossary</h2>
+            <h2 className="text-xl font-bold">Glossar</h2>
             <div className="flex gap-2">
               <input
                 ref={importRef}
@@ -168,11 +168,11 @@ export default function GlossaryPage() {
                 onClick={() => setCreatingNew(true)}
                 disabled={glossaries.length >= MAX_GLOSSARIES}
                 title={glossaries.length >= MAX_GLOSSARIES ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})` : undefined}
-                className="px-3 py-1.5 text-sm bg-primary text-white rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-1.5 text-sm btn-primary rounded-md  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {glossaries.length >= MAX_GLOSSARIES
                   ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})`
-                  : "+ Neues Glossar"}
+                  : "+ Neues Glossary"}
               </button>
             </div>
           </div>
@@ -192,13 +192,13 @@ export default function GlossaryPage() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreatingNew(false); }}
-                placeholder="Name des Glossars"
+                placeholder="Name des Glossaries"
                 className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
               <button
                 onClick={handleCreate}
                 disabled={!newName.trim()}
-                className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 text-sm btn-primary rounded-md  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Erstellen
               </button>
@@ -215,7 +215,7 @@ export default function GlossaryPage() {
           {confirmDeleteId && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-4">
               <p className="text-sm text-red-700">
-                Glossar &ldquo;{glossaries.find(g => g.id === confirmDeleteId)?.name}&rdquo; wirklich löschen?
+                Glossary &ldquo;{glossaries.find(g => g.id === confirmDeleteId)?.name}&rdquo; wirklich löschen?
               </p>
               <div className="flex gap-2 shrink-0">
                 <button
@@ -237,7 +237,7 @@ export default function GlossaryPage() {
           {/* Glossary list with inline accordion */}
           {glossaries.length === 0 ? (
             <div className="text-center py-12 text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg">
-              Noch keine Glossare vorhanden. Erstellen Sie Ihr erstes Glossar.
+              Noch keine Glossaries vorhanden. Erstellen Sie Ihr erstes Glossary.
             </div>
           ) : (
             <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -324,7 +324,7 @@ export default function GlossaryPage() {
                           onClick={handleAddEntry}
                           disabled={!newEntryDe.trim() || !newEntryEn.trim() || Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY}
                           title={Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY ? `Maximum erreicht (${MAX_ENTRIES_PER_GLOSSARY}/${MAX_ENTRIES_PER_GLOSSARY})` : undefined}
-                          className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                          className="px-4 py-2 text-sm btn-primary rounded-md  disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                         >
                           {Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY
                             ? `Maximum erreicht (${MAX_ENTRIES_PER_GLOSSARY}/${MAX_ENTRIES_PER_GLOSSARY})`

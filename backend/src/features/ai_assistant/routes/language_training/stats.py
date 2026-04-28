@@ -1,4 +1,4 @@
-"""KI-Assistent routes — sprachtraining stats + streak + activities."""
+"""KI-Assistent routes — language_training stats + streak + activities."""
 
 import io
 import json
@@ -33,7 +33,7 @@ from src.tool_prompts import (
     KIA_POPUP_ACTIONS,
 )
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
     _count_pages,
@@ -49,17 +49,17 @@ from src.features.ki_assistent.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
-@router.get("/ki-assistent/modules/{module_uuid}/streak")
+@router.get("/ai-assistant/modules/{module_uuid}/streak")
 async def get_streak_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     streak = db.get_streak(module["id"], user_id)
@@ -68,18 +68,18 @@ async def get_streak_endpoint(
 
 # ─── Student Stats ─────────────────────────────────────────────────────────
 
-@router.get("/ki-assistent/modules/{module_uuid}/stats")
+@router.get("/ai-assistant/modules/{module_uuid}/stats")
 async def get_student_stats_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     return db.get_student_stats(module["id"], user_id)
 
-@router.get("/ki-assistent/modules/{module_uuid}/stats/day")
+@router.get("/ai-assistant/modules/{module_uuid}/stats/day")
 async def get_student_day_stats_endpoint(
     module_uuid: str,
     date: str,
@@ -87,42 +87,42 @@ async def get_student_day_stats_endpoint(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     return db.get_student_day_stats(module["id"], user_id, date, category)
 
-@router.get("/ki-assistent/modules/{module_uuid}/recent-activities")
+@router.get("/ai-assistant/modules/{module_uuid}/recent-activities")
 async def get_recent_activities_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     return db.get_recent_activities(module["id"], user_id, limit=10)
 
 
-# ─── Dozent: Module Statistics ───────────────────────────────────────────────
+# ─── Lecturer: Module Statistics ───────────────────────────────────────────────
 
-@router.get("/ki-assistent/modules/{module_uuid}/dozent-stats")
-async def get_dozent_module_stats(
+@router.get("/ai-assistant/modules/{module_uuid}/lecturer-stats")
+async def get_lecturer_module_stats(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     module = _require_own_module(module_uuid, current_user["user_id"])
-    return db.get_kia_module_stats(module["id"])
+    return db.get_aia_module_stats(module["id"])
 
 
-# ─── Glossar Count & Limit ───────────────────────────────────────────────────
+# ─── Glossary Count & Limit ───────────────────────────────────────────────────
 
-@router.get("/ki-assistent/modules/{module_uuid}/glossary-count")
+@router.get("/ai-assistant/modules/{module_uuid}/glossary-count")
 async def get_glossary_count_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     count = db.get_glossary_count(module["id"])

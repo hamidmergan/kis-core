@@ -24,7 +24,7 @@ export default function StudentView() {
 
   const loadModules = useCallback(async () => {
     try {
-      const res = await fetch("/api/ki-assistent/my-modules", { credentials: "include" });
+      const res = await fetch("/api/ai-assistant/my-modules", { credentials: "include" });
       if (res.ok) setModules(await res.json());
     } catch {
       /* ignore */
@@ -48,7 +48,7 @@ export default function StudentView() {
     setEnrolling(true);
     setEnrollError(null);
     try {
-      const res = await fetch("/api/ki-assistent/enroll", {
+      const res = await fetch("/api/ai-assistant/enroll", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

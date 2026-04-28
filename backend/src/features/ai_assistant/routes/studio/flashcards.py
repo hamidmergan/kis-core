@@ -1,4 +1,4 @@
-"""KI-Assistent routes — lernkarten."""
+"""KI-Assistent routes — flashcards."""
 
 import io
 import json
@@ -32,7 +32,7 @@ from src.tool_prompts import (
     KIA_POPUP_ACTIONS,
 )
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
     _count_pages,
@@ -48,20 +48,20 @@ from src.features.ki_assistent.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
-@router.post("/ki-assistent/modules/{module_uuid}/lernkarten/generate")
-@observe(name="kia-lernkarten")
-async def generate_lernkarten(
+@router.post("/ai-assistant/modules/{module_uuid}/flashcards/generate")
+@observe(name="kia-flashcards")
+async def generate_flashcards(
     module_uuid: str,
-    body: schemas.LernkartenGenerateBody,
+    body: schemas.FlashcardsGenerateBody,
     current_user: dict = Depends(get_current_user),
 ):
-    """Create a lernkarten exercise set via Celery."""
+    """Create a flashcards exercise set via Celery."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -74,17 +74,17 @@ async def generate_lernkarten(
     first_uuid = body.active_source_ids[0] if body.active_source_ids else None
 
     placeholder = db.create_exercise_set_placeholder(
-        module_id=module["id"], user_id=user_id, tool="lernkarten",
-        title="Wird generiert…", mode="quelle", source_uuid=first_uuid,
+        module_id=module["id"], user_id=user_id, tool="flashcards",
+        title="Wird generiert…", mode="source", source_uuid=first_uuid,
     )
 
-    from src.tasks.kia_tasks import run_generate_exercise_set
+    from src.tasks.aia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(
-        placeholder["id"], module["id"], "lernkarten", "quelle", body.count,
+        placeholder["id"], module["id"], "flashcards", "source", body.count,
         source_uuids=body.active_source_ids[:5],
     )
     return {"set_id": placeholder["id"], "status": "generating"}
 
 
-# ─── Datentabelle generieren ─────────────────────────────────────────────────
+# ─── DataTable generieren ─────────────────────────────────────────────────
 

@@ -14,7 +14,7 @@ from src.limits import (
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file, stream_s3_object
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _convert_office_to_pdf,
     _mp4_faststart,
     _count_pages,

@@ -71,10 +71,14 @@ export function ScheduleEntryCard({
           title={isPast ? "Vergangene Termine sind gesperrt" : undefined}
           onClick={() => { if (!isPast) onToggleChecked(!entry.is_checked); }}
           disabled={isPast}
-          className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5"
+          className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5 border-2 ${
+            entry.is_checked
+              ? "border-[#10b981] bg-[#10b981]"
+              : !isPast
+              ? "border-[var(--border)] bg-white hover:border-[#10b981]"
+              : "border-[var(--border)] bg-white"
+          }`}
           style={{
-            border: entry.is_checked ? "2px solid #10b981" : "2px solid var(--border)",
-            backgroundColor: entry.is_checked ? "#10b981" : "#fff",
             color: "#fff",
             cursor: isPast ? "not-allowed" : "pointer",
           }}
@@ -99,7 +103,7 @@ export function ScheduleEntryCard({
             return (
               <div
                 className="mt-1 text-[11.5px] flex items-center gap-1.5 flex-wrap"
-                style={{ color: "var(--muted)" }}
+                
               >
                 {entry.due_time && (
                   <span
@@ -145,7 +149,7 @@ export function ScheduleEntryCard({
                       onPillClick?.(ref.source_uuid, page, filename, ref.raw_quote ?? undefined, startTime, false);
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLElement).click(); }}
-                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap cursor-pointer"
+                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"
                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                     title={label ? `${filename}, ${label}` : filename}
                   >
@@ -165,8 +169,8 @@ export function ScheduleEntryCard({
               <button
                 type="button"
                 onClick={onEdit}
-                className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                style={{ backgroundColor: "var(--surface-dim)" }}
                 aria-label="Bearbeiten"
               >
                 <PencilSimple size={11} weight="bold" />
@@ -174,8 +178,8 @@ export function ScheduleEntryCard({
               <button
                 type="button"
                 onClick={onDelete}
-                className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                style={{ backgroundColor: "var(--surface-dim)" }}
                 aria-label="Löschen"
               >
                 <Trash size={11} weight="bold" />

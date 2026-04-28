@@ -1,17 +1,17 @@
-"""Text-Normalisierung und Evidence-Matching für Karteikarten-Validierung."""
+"""Text normalization and evidence matching for card validation."""
 
 import re
 
 
 def normalize_chunk(text: str) -> str:
-    """Entfernt Hyphenation über Zeilenumbrüche und kollabiert Whitespace."""
+    """Remove hyphenation across line breaks and collapse whitespace."""
     text = re.sub(r"-\s*\n\s*", "", text)
     text = re.sub(r"\s*\n\s*", " ", text)
     return text.strip()
 
 
 def normalize_for_match(text: str) -> str:
-    """Normalisiert Text für Fuzzy-Substring-Matching (Whitespace, Punctuation, Case)."""
+    """Normalize text for fuzzy substring matching (whitespace, punctuation, case)."""
     text = normalize_chunk(text).lower()
     text = re.sub(r"[^\w\säöüß]+", " ", text)
     text = re.sub(r"\s+", " ", text)
@@ -19,7 +19,7 @@ def normalize_for_match(text: str) -> str:
 
 
 def normalize_for_segment_lookup(text: str) -> str:
-    """Schärfere Normalisierung für Whisper-Segment-Lookup (inkl. Großschreibung der Umlaute)."""
+    """Stricter normalization for Whisper segment lookup (including uppercase umlauts)."""
     text = re.sub(r"-\s*\n\s*", "", text)
     text = re.sub(r"[^\w\säöüßÄÖÜ]+", " ", text)
     text = re.sub(r"\s+", " ", text)
@@ -27,7 +27,7 @@ def normalize_for_segment_lookup(text: str) -> str:
 
 
 def evidence_matches_page(evidence_norm: str, page_text_norm: str) -> bool:
-    """Prüft, ob die Evidence vollständig oder mit 6+ zusammenhängenden Wörtern in der Seite vorkommt."""
+    """Check whether the evidence appears in the page in full or with 6+ contiguous words."""
     if not evidence_norm or not page_text_norm:
         return False
     if evidence_norm in page_text_norm:
@@ -44,7 +44,7 @@ def evidence_matches_page(evidence_norm: str, page_text_norm: str) -> bool:
 
 
 def is_duplicate_evidence(new_norm: str, seen_norms: list[str]) -> bool:
-    """True wenn neue Evidence sich mit einer bereits gesehenen zu ≥70% überlappt."""
+    """True if new evidence overlaps an already-seen one by >=70%."""
     new_words = new_norm.split()
     if len(new_words) < 4:
         return new_norm in seen_norms
@@ -60,7 +60,7 @@ def is_duplicate_evidence(new_norm: str, seen_norms: list[str]) -> bool:
 
 
 def build_page_text(chunks: list[dict]) -> str:
-    """Konkateniert Chunks einer Seite und entfernt Overlap zwischen aufeinanderfolgenden Chunks."""
+    """Concatenate chunks of a page and remove overlap between consecutive chunks."""
     result = ""
     for ch in chunks:
         content = (ch.get("content") or "").strip()
@@ -69,7 +69,7 @@ def build_page_text(chunks: list[dict]) -> str:
         if not result:
             result = content
             continue
-        # Overlap-Detection: die letzten ≤200 Zeichen des Ergebnisses gegen den Anfang vergleichen
+        # Overlap detection: compare the last <=200 chars of the result against the start
         overlap_max = min(200, len(result), len(content))
         best_overlap = 0
         for n in range(overlap_max, 20, -1):
@@ -84,7 +84,7 @@ def build_page_text(chunks: list[dict]) -> str:
 
 
 def find_orig_span(orig: str, ev_text: str) -> tuple[int, int] | None:
-    """Lokalisiert ev_text im Original-Seitentext (Fuzzy über normalisierte Form)."""
+    """Locate ev_text in the original page text (fuzzy via normalized form)."""
     orig_norm = normalize_for_match(orig)
     ev_norm = normalize_for_match(ev_text)
     if not ev_norm:

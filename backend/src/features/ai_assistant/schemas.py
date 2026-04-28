@@ -1,4 +1,4 @@
-"""Pydantic request/response models for KI-Assistent routes."""
+"""Pydantic request/response models for AI assistant routes."""
 
 from typing import Optional
 
@@ -31,18 +31,18 @@ class EnrollBody(BaseModel):
 class ChatBody(BaseModel):
     question: str
     active_source_ids: Optional[list[str]] = None
-    direct_text: Optional[bool] = False  # True = kein RAG, direkt LLM aufrufen
-    source_uuid: Optional[str] = None  # Quell-PDF UUID (bei Popup-Aktionen)
+    direct_text: Optional[bool] = False  # True = no RAG, call LLM directly
+    source_uuid: Optional[str] = None  # Source PDF UUID (for popup actions)
     source_filename: Optional[str] = None
     source_page: Optional[int] = None
-    source_text: Optional[str] = None  # Markierter Text (für Highlight bei Pill-Click)
-    enrollment_id: Optional[int] = None  # Für per-Link Chat-Trennung
+    source_text: Optional[str] = None  # Selected text (for highlight on pill click)
+    enrollment_id: Optional[int] = None  # For per-link chat separation
 
 
 class UserSettingsBody(BaseModel):
     chat_lang: str
     studio_enabled: bool = True
-    sprachtraining_active: bool
+    language_training_active: bool
 
 
 class NoteBody(BaseModel):
@@ -59,7 +59,7 @@ class NoteTitleBody(BaseModel):
     title: Optional[str] = Field(None, max_length=200)
 
 
-# ─── Dozenten-Endpunkte ───────────────────────────────────────────────────────
+# ─── Lecturer endpoints ───────────────────────────────────────────────────────
 
 class GlossaryGenerateBody(BaseModel):
     active_source_ids: list[str]  # max 3 source UUIDs
@@ -76,16 +76,16 @@ class GlossaryExtractBody(BaseModel):
 class MindmapGenerateBody(BaseModel):
     active_source_ids: list[str]
 
-class LernkartenGenerateBody(BaseModel):
+class FlashcardsGenerateBody(BaseModel):
     active_source_ids: list[str]
     count: int = 10
 
-class DatentabelleGenerateBody(BaseModel):
+class DataTableGenerateBody(BaseModel):
     active_source_ids: list[str]
 
 class CreateSetBody(BaseModel):
-    tool: str  # "lernkarten" | "lueckentext" | "vokabeltest"
-    mode: str = "glossar"  # "glossar" | "quelle"
+    tool: str  # "flashcards" | "lueckentext" | "vokabeltest"
+    mode: str = "glossary"  # "glossary" | "source"
     source_uuid: Optional[str] = None
     count: int = 10
 
@@ -105,8 +105,8 @@ class ScheduleEntryCreateBody(BaseModel):
     type: str  # 'deadline' | 'termin'
     title: str = Field(..., max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
-    due_date: Optional[str] = None  # ISO date 'YYYY-MM-DD' oder None
-    due_time: Optional[str] = None  # 'HH:MM' oder None
+    due_date: Optional[str] = None  # ISO date 'YYYY-MM-DD' or None
+    due_time: Optional[str] = None  # 'HH:MM' or None
     is_optional: bool = False
 
 
@@ -118,6 +118,6 @@ class ScheduleEntryUpdateBody(BaseModel):
     due_time: Optional[str] = None
     is_optional: Optional[bool] = None
     is_checked: Optional[bool] = None
-    clear_date: bool = False  # explizit NULL setzen
+    clear_date: bool = False  # explicitly set to NULL
     clear_time: bool = False
 

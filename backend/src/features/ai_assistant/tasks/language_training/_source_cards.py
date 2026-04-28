@@ -1,25 +1,25 @@
-"""Karteikarten-Generierung aus Quelltext mit Evidence-Validierung + Chip-Merge (mode='quelle')."""
+"""Card generation from source text with evidence validation + chip merge (mode='source')."""
 
 import json
 import re
 
 from src import database as db
-from src.features.ki_assistent.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.tool_prompts import KIA_KARTEIKARTEN_PROMPT
 
-from src.features.ki_assistent.tasks.sprachtraining._card_base import parse_card, with_avoid
-from src.features.ki_assistent.tasks.sprachtraining._context import QuelleContext, resolve_segment_start
-from src.features.ki_assistent.tasks.sprachtraining._text_utils import (
+from src.features.ai_assistant.tasks.language_training._card_base import parse_card, with_avoid
+from src.features.ai_assistant.tasks.language_training._context import QuelleContext, resolve_segment_start
+from src.features.ai_assistant.tasks.language_training._text_utils import (
     build_page_text,
     evidence_matches_page,
     find_orig_span,
     is_duplicate_evidence,
     normalize_for_match,
 )
-from src.features.ki_assistent.tasks.sprachtraining._title import title_from_items
+from src.features.ai_assistant.tasks.language_training._title import title_from_items
 
 
-def generate_karteikarten_from_source(
+def generate_cards_from_source(
     client, model,
     ctx: QuelleContext,
     count: int,
@@ -30,41 +30,41 @@ def generate_karteikarten_from_source(
         {"role": "system", "content": prompt},
         {"role": "user", "content": with_avoid(
             existing_fronts,
-            f"Erstelle Karteikarten aus {ctx.source_hint}:\n\n{ctx.context}",
+            f"Create study cards from {ctx.source_hint} (respond in the source-text language):\n\n{ctx.context}",
         )},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
     answer = _clean_llm_json(response.choices[0].message.content or "")
     data = json.loads(answer)
 
-    items = [_parse_karteikarte(ctx, c) for c in data.get("cards", [])][:count]
+    items = [_parse_card(ctx, c) for c in data.get("cards", [])][:count]
     title = title_from_items(client, model, items, ctx.multi_label)
     return items, title
 
 
-def _parse_karteikarte(ctx: QuelleContext, c: dict) -> dict:
-    """Parse + validate ein Karteikarten-Objekt: baut Evidence-Chips, merged pro Seite."""
+def _parse_card(ctx: QuelleContext, c: dict) -> dict:
+    """Parse + validate a card object: builds evidence chips, merges per page."""
     answer_parts = c.get("answer_parts") or []
     back_text = " ".join((p.get("statement") or "").strip() for p in answer_parts if p.get("statement"))
     c_merged = dict(c)
     c_merged["back"] = back_text or c.get("back", "")
     item = parse_card(ctx, c_merged)
 
-    # Single-source Enforcement für Karteikarten
+    # Single-source enforcement for cards
     sl = c.get("source_label") or ctx.first_label
     src_obj = ctx.source_by_name.get(sl)
     if not src_obj:
         return item
 
-    # Page-Text-Lookup (deduped für überlappende Chunks)
+    # Page text lookup (deduped for overlapping chunks)
     page_chunks_raw: dict[int, list] = {}
     for ch in db.get_chunks_by_source(src_obj["id"]):
         page_chunks_raw.setdefault(ch["page_number"], []).append(ch)
     page_texts: dict[int, str] = {p: build_page_text(chs) for p, chs in page_chunks_raw.items()}
     page_texts_norm = {p: normalize_for_match(t) for p, t in page_texts.items()}
 
-    # Evidence jedes answer_part validieren — mehrere Chips pro Seite erlaubt,
-    # aber dedupliziert wenn sie einen langen gemeinsamen Substring haben
+    # Validate the evidence of each answer_part - multiple chips per page allowed,
+    # but deduplicated if they share a long common substring
     validated_chips: list[dict] = []
     seen_norms: list[str] = []
 
@@ -98,7 +98,7 @@ def _parse_karteikarte(ctx: QuelleContext, c: dict) -> dict:
 
     validated_chips = _merge_page_chips(page_texts, validated_chips)
 
-    # Sort by page_number bzw. start_time (media)
+    # Sort by page_number or start_time (media)
     validated_chips.sort(key=lambda s: (
         s.get("start_time") if s.get("start_time") is not None else (s.get("page_number") or 0),
     ))
@@ -119,7 +119,7 @@ def _parse_karteikarte(ctx: QuelleContext, c: dict) -> dict:
 
 
 def _merge_page_chips(page_texts: dict[int, str], chips: list[dict]) -> list[dict]:
-    """Merge alle Chips derselben Seite in einen (Span von erster bis letzter Evidence)."""
+    """Merge all chips of the same page into one (span from first to last evidence)."""
     by_page: dict[int, list[dict]] = {}
     for ch in chips:
         pn = ch.get("page_number") or 0

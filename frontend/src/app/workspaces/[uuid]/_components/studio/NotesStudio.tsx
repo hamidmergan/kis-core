@@ -32,7 +32,7 @@ function _notePreview(content: string, max = 60): string {
   return stripped.length > max ? stripped.slice(0, max).trimEnd() + "…" : stripped;
 }
 
-export function NotizenStudio({
+export function NotesStudio({
   notes, onAdd, onDelete, onUpdateTitle, onBack, sources, activeSourceIds, onPillClick, stats, breadcrumbs, pendingTitleIds,
 }: {
   notes: Note[]; onAdd: (content: string) => void; onDelete: (id: number) => void;
@@ -122,9 +122,9 @@ export function NotizenStudio({
 
           {/* Empty state */}
           {notes.length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-2 py-8" style={{ color: "var(--muted)" }}>
+            <div className="flex flex-col items-center justify-center gap-2 py-8" >
               <NotePencil size={32} weight="light" />
-              <span className="text-xs text-center">Noch keine Notizen. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.</span>
+              <span className="text-xs text-center">Noch keine Notes. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.</span>
             </div>
           )}
 
@@ -174,17 +174,17 @@ export function NotizenStudio({
                     >
                       <span
                         className="flex-1 text-sm truncate flex items-center gap-2"
-                        style={hasCustomTitle ? { fontWeight: 500 } : { color: "var(--muted)", fontStyle: "italic" }}
+                        style={hasCustomTitle ? { fontWeight: 500 } : { fontStyle: "italic" }}
                       >
                         {isTitlePending && <Spinner size="xs" color="current" />}
                         <span className="truncate">{rowLabel}</span>
                       </span>
-                      <span className="flex-shrink-0 text-[10px]" style={{ color: "var(--muted)" }}>
+                      <span className="flex-shrink-0 text-[10px]" >
                         {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       {isExpanded
-                        ? <CaretUp size={14} style={{ color: "var(--muted)" }} />
-                        : <CaretDown size={14} style={{ color: "var(--muted)" }} />}
+                        ? <CaretUp size={14}  />
+                        : <CaretDown size={14}  />}
                     </div>
 
                     {/* Accordion */}
@@ -217,7 +217,7 @@ export function NotizenStudio({
                               disabled={isTitlePending}
                               onClick={() => { setTitleDraft(note.title ?? ""); setEditingTitleId(note.id); }}
                               className="w-full text-left text-sm font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2 disabled:cursor-wait"
-                              style={hasCustomTitle ? { color: "var(--text)" } : { color: "var(--muted)", fontStyle: "italic", fontWeight: 400 }}
+                              style={hasCustomTitle ? { color: "var(--text)" } : { fontStyle: "italic", fontWeight: 400 }}
                               title={isTitlePending ? "Titel wird generiert…" : hasCustomTitle ? "Titel ändern" : "Titel vergeben"}
                             >
                               <span className="flex-1 truncate">
@@ -263,8 +263,8 @@ export function NotizenStudio({
                                   tabIndex={0}
                                   onClick={(e) => { e.stopPropagation(); onChipClick(s.uuid, 0, s.filename); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                                  className="inline-flex items-center gap-1 text-[10px] cursor-pointer hover:opacity-70 transition-opacity"
-                                  style={{ color: "var(--muted)" }}
+                                  className="inline-flex items-center gap-1 text-[10px] cursor-pointer btn-icon"
+                                  
                                   title={s.filename}
                                 >
                                   <ChipIcon size={10} weight="bold" />
@@ -277,14 +277,14 @@ export function NotizenStudio({
                         )}
 
                         <div className="flex items-center justify-between mt-3">
-                          <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                          <span className="text-[10px]" >
                             {note.created_at ? new Date(note.created_at).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                           </span>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
                           >
                             <Trash size={12} />
                           </button>

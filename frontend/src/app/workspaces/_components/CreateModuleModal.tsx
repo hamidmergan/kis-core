@@ -25,7 +25,7 @@ export default function CreateModuleModal({ onClose, onCreated }: CreateModuleMo
       form.append("title", title.trim());
       if (description.trim()) form.append("description", description.trim());
       if (expiresAt) form.append("expires_at", new Date(expiresAt).toISOString());
-      const res = await fetch("/api/ki-assistent/modules", {
+      const res = await fetch("/api/ai-assistant/modules", {
         method: "POST",
         credentials: "include",
         body: form,

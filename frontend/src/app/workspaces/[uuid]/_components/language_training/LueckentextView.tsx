@@ -38,7 +38,7 @@ export function LueckentextView({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
+        <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -77,7 +77,7 @@ export function LueckentextView({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
+      <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           <button

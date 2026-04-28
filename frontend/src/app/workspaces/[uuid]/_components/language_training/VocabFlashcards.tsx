@@ -39,7 +39,7 @@ export function VocabFlashcards({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
+        <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -107,7 +107,7 @@ export function VocabFlashcards({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />
+      <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
       <div className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto mt-4 sm:mt-6 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {/* Card */}

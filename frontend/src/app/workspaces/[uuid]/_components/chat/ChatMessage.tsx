@@ -64,8 +64,7 @@ function ChatMessageImpl({
       <button
         type="button"
         onClick={handleCopy}
-        className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
-        style={{ color: "var(--muted)" }}
+        className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full btn-icon"
         title="Kopieren"
       >
         {copied ? <Check size={13} weight="bold" /> : <Copy size={13} />}
@@ -75,8 +74,8 @@ function ChatMessageImpl({
           type="button"
           disabled={savingNote}
           onClick={handleSaveNote}
-          className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
-          style={{ color: saved ? "#16a34a" : "var(--muted)" }}
+          className={`[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full ${saved ? "" : "btn-icon"}`}
+          style={saved ? { color: "#16a34a" } : undefined}
           title="Als Notiz speichern"
         >
           {savingNote
@@ -97,7 +96,7 @@ function ChatMessageImpl({
           >
             KI
           </div>
-          <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
+          <span className="text-[11px] font-medium" >
             KI-Assistent
           </span>
         </div>
@@ -177,8 +176,7 @@ function ChatMessageImpl({
               <button
                 type="button"
                 onClick={() => setExpandSources(v => !v)}
-                className="flex items-center gap-1 text-[10px] hover:opacity-80 transition-opacity"
-                style={{ color: "var(--muted)" }}
+                className="flex items-center gap-1 text-[10px] text-[var(--muted)] hover:text-[var(--color-primary)] transition-colors"
               >
                 {expandSources ? <CaretUp size={10} /> : <CaretDown size={10} />}
                 {msgQmap.length} {msgQmap.length === 1 ? "Quelle" : "Quellen"}
@@ -196,8 +194,7 @@ function ChatMessageImpl({
                       tabIndex={0}
                       onClick={() => onChipClick(q.uuid, 0, q.filename)}
                       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                      className="inline-flex items-center gap-1 text-[10px] cursor-pointer hover:opacity-70 transition-opacity"
-                      style={{ color: "var(--muted)" }}
+                      className="inline-flex items-center gap-1 text-[10px] cursor-pointer text-[var(--muted)] hover:text-[var(--color-primary)] transition-colors"
                       title={q.filename}
                     >
                       <ChipIcon size={10} weight="bold" />
@@ -219,7 +216,7 @@ function ChatMessageImpl({
   );
 }
 
-// React.memo: skip Markdown-Re-Render wenn sich Message + Callbacks nicht ändern.
-// Auf iPad spürbar, weil ChatMessage sonst bei jedem page.tsx-Re-Render
-// (z.B. Tab-Switch) ReactMarkdown + Citation-Walk neu ausführt.
+// React.memo: skip Markdown re-render when message + callbacks do not change.
+// Noticeable on iPad, because otherwise ChatMessage re-runs ReactMarkdown +
+// citation walk on every page.tsx re-render (e.g. tab switch).
 export const ChatMessage = memo(ChatMessageImpl);

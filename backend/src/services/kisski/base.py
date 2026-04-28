@@ -1,4 +1,4 @@
-"""Basis-Klasse der KISSKI-Client-Mixins + interne Helper."""
+"""Base class of the KISSKI client mixins + internal helpers."""
 
 import json
 
@@ -40,10 +40,10 @@ def clean_whisper_response(raw: str) -> str:
 
 
 class _KisskiBase:
-    """Gemeinsame Attribute aller KISSKI-Client-Mixins.
+    """Shared attributes of all KISSKI client mixins.
 
     Mixins (`_ScriptsMixin`, `_SummaryMixin`, `_WhisperMixin`, `_WhisperChunkedMixin`)
-    erwarten diese Instanz-Variablen. Die konkrete Client-Klasse setzt sie hier."""
+    expect these instance variables. The concrete client class sets them here."""
 
     def __init__(
         self,
@@ -59,8 +59,8 @@ class _KisskiBase:
         self._base_url = base_url
         self._whisper_model = whisper_model
         self._extra_body: dict = {}
-        # Batch-Settings (werden in _ScriptsMixin.generate_scripts_batch verwendet).
-        # Defaults sind provider-unabhängig gleich; Platzhalter für künftige Provider-Profile.
+        # Batch settings (used in _ScriptsMixin.generate_scripts_batch).
+        # Defaults are provider-independent; placeholders for future provider profiles.
         if provider == "ollama":
             self._batch_max_workers: int = 3
             self._batch_timeout: float = 180.0

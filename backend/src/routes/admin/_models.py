@@ -1,4 +1,4 @@
-"""Pydantic-Models für Admin-Endpoints."""
+"""Pydantic models for admin endpoints."""
 
 from pydantic import BaseModel
 
@@ -14,19 +14,19 @@ class UpdateSettingsRequest(BaseModel):
     fish_speech_enabled: bool | None = None
     kokoro_enabled: bool | None = None
     mylab_enabled: bool | None = None
-    # Transkription
+    # Transcription
     kisski_whisper_enabled: bool | None = None
     mylab_whisper_enabled: bool | None = None
     # Embeddings
     kisski_embedding_enabled: bool | None = None
     mylab_embedding_enabled: bool | None = None
     ollama_embedding_enabled: bool | None = None
-    # Bild-Generierung
+    # Image generation
     kisski_image_gen_enabled: bool | None = None
     mylab_image_gen_enabled: bool | None = None
-    # Bild-Analyse (KISSKI only)
+    # Image analysis (KISSKI only)
     kisski_image_analyze_enabled: bool | None = None
-    # Bild-Bearbeitung
+    # Image editing
     kisski_image_edit_enabled: bool | None = None
     mylab_image_edit_enabled: bool | None = None
     # OCR
@@ -36,9 +36,9 @@ class UpdateSettingsRequest(BaseModel):
     kisski_llm_enabled: bool | None = None
     mylab_llm_enabled: bool | None = None
     ollama_llm_enabled: bool | None = None
-    # Transkript-Übersetzung (EN)
+    # Transcript translation (EN)
     transcript_translation_provider: str | None = None
-    # Provider-Modellnamen (DB-Setting). Erlaubte Keys: siehe runtime_models.MODEL_KEYS.
+    # Provider model names (DB setting). Allowed keys: see runtime_models.MODEL_KEYS.
     models: dict[str, str] | None = None
 
 
@@ -55,4 +55,4 @@ class UpdatePromptRequest(BaseModel):
 
 
 class SetQuotaOverrideRequest(BaseModel):
-    limit_value: int  # -1 = unlimitiert
+    limit_value: int  # -1 = unlimited

@@ -1,6 +1,6 @@
 import type { ScheduleData, ScheduleEntry, ScheduleEntryType } from "../_types";
 
-const base = (moduleUuid: string) => `/api/ki-assistent/modules/${moduleUuid}/schedule`;
+const base = (moduleUuid: string) => `/api/ai-assistant/modules/${moduleUuid}/schedule`;
 
 export async function fetchSchedule(moduleUuid: string): Promise<ScheduleData> {
   const r = await fetch(base(moduleUuid), { credentials: "include" });

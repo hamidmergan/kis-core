@@ -1,16 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { SprachtrainingView, StudioView } from "../_types";
+import type { LanguageTrainingView, StudioView } from "../_types";
 
 interface UseStudioNavigationOptions {
   studioView: StudioView;
   setStudioView: (v: StudioView) => void;
-  setSprachView: (v: SprachtrainingView) => void;
+  setSprachView: (v: LanguageTrainingView) => void;
   loadExerciseSets: (tool?: string) => void;
   loadExerciseSet: (id: number) => Promise<void>;
   selectMindmap: (id: number) => void;
-  selectDatentabelle: (id: number) => void;
+  selectDataTable: (id: number) => void;
   loadStreak: () => void;
   bumpStats: () => void;
 }
@@ -18,12 +18,12 @@ interface UseStudioNavigationOptions {
 export function useStudioNavigation(opts: UseStudioNavigationOptions) {
   const {
     studioView, setStudioView, setSprachView,
-    loadExerciseSets, loadExerciseSet, selectMindmap, selectDatentabelle,
+    loadExerciseSets, loadExerciseSet, selectMindmap, selectDataTable,
     loadStreak, bumpStats,
   } = opts;
 
   const [openMindmapInViewer, setOpenMindmapInViewer] = useState(false);
-  const [openDatentabelleInViewer, setOpenDatentabelleInViewer] = useState(false);
+  const [openDataTableInViewer, setOpenDataTableInViewer] = useState(false);
 
   // Load exercise sets when switching to quiz studio view
   useEffect(() => {
@@ -43,22 +43,22 @@ export function useStudioNavigation(opts: UseStudioNavigationOptions) {
       setStudioView("mindmap");
       return;
     }
-    if (tool === "datentabelle") {
-      selectDatentabelle(setId);
-      setOpenDatentabelleInViewer(true);
-      setStudioView("datentabelle");
+    if (tool === "data_table") {
+      selectDataTable(setId);
+      setOpenDataTableInViewer(true);
+      setStudioView("data_table");
       return;
     }
     loadExerciseSet(setId).then(() => {
-      if (tool === "lernkarten" || (tool === "karteikarten" && mode === "glossar")) setSprachView("lk-learn");
+      if (tool === "flashcards" || (tool === "karteikarten" && mode === "glossary")) setSprachView("lk-learn");
       else if (tool === "lueckentext") setSprachView("cl-learn");
       else if (tool === "vokabeltest") setSprachView("vt-learn");
       else setStudioView(tool as StudioView);
     });
-  }, [selectMindmap, selectDatentabelle, loadExerciseSet, setSprachView, setStudioView]);
+  }, [selectMindmap, selectDataTable, loadExerciseSet, setSprachView, setStudioView]);
 
-  const handleSprachNavigate = useCallback((view: SprachtrainingView) => {
-    if (view === "lk-sets") loadExerciseSets("lernkarten");
+  const handleSprachNavigate = useCallback((view: LanguageTrainingView) => {
+    if (view === "lk-sets") loadExerciseSets("flashcards");
     if (view === "cl-sets") loadExerciseSets("lueckentext");
     if (view === "vt-sets") loadExerciseSets("vokabeltest");
     setSprachView(view);
@@ -71,11 +71,11 @@ export function useStudioNavigation(opts: UseStudioNavigationOptions) {
   }, [loadStreak, loadExerciseSets, bumpStats]);
 
   const consumeMindmapViewerOpen = useCallback(() => setOpenMindmapInViewer(false), []);
-  const consumeDatentabelleViewerOpen = useCallback(() => setOpenDatentabelleInViewer(false), []);
+  const consumeDataTableViewerOpen = useCallback(() => setOpenDataTableInViewer(false), []);
 
   return {
     handleStudioSelect, handleNavigateToSet, handleSprachNavigate, refreshProgress,
     openMindmapInViewer, consumeMindmapViewerOpen,
-    openDatentabelleInViewer, consumeDatentabelleViewerOpen,
+    openDataTableInViewer, consumeDataTableViewerOpen,
   };
 }

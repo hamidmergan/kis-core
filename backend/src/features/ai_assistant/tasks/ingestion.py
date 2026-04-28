@@ -16,9 +16,9 @@ from src.limits import (
 )
 from src.tool_prompts import KIA_MINDMAP_PROMPT
 
-from src.features.ki_assistent.tasks._helpers import (
+from src.features.ai_assistant.tasks._helpers import (
     _format_ts,
-    _save_kia_output,
+    _save_aia_output,
     _detect_language,
     _summarize_batch,
     _get_llm_client,
@@ -40,7 +40,7 @@ def _save_transcript_artifact(key: str, text: str) -> None:
 def run_index_source(self, source_uuid: str):
     try:
         # 1. Load source from DB
-        source = db.get_kia_source(source_uuid)
+        source = db.get_aia_source(source_uuid)
         if source is None:
             raise RuntimeError(f"Source not found: {source_uuid}")
 
@@ -51,11 +51,11 @@ def run_index_source(self, source_uuid: str):
         filename = source["filename"]
 
         # 2. Status → indexing
-        db.update_kia_source_status(source_uuid, "indexing")
+        db.update_aia_source_status(source_uuid, "indexing")
         logger.info("KI Tutor: indexing source {} ({})", source_uuid, filename)
 
         # 3. Embedding provider + fingerprint
-        from src.services.kia_embeddings import get_embedding_provider, compute_fingerprint
+        from src.services.aia_embeddings import get_embedding_provider, compute_fingerprint
         provider = get_embedding_provider()
         fingerprint = compute_fingerprint(provider)
 
@@ -69,10 +69,10 @@ def run_index_source(self, source_uuid: str):
         media_language: str | None = None
         with open_input_file(file_path_stored, suffix=suffix) as local_path:
             # 5. Extract chunks (branch: media vs document)
-            from src.services import kia_chunker
+            from src.services import aia_chunker
             media_duration: float | None = None
 
-            if kia_chunker.is_media_file(file_type):
+            if aia_chunker.is_media_file(file_type):
                 # Audio/Video: transcribe with timestamps, then chunk
                 from src.services.subtitle_converter import segments_to_vtt
                 from src.dependencies import resolve_whisper_client
@@ -81,7 +81,7 @@ def run_index_source(self, source_uuid: str):
                 segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(local_path)
                 if not segments:
                     raise RuntimeError("Whisper returned no segments for this audio/video file.")
-                chunks = kia_chunker.segments_to_chunks(segments)
+                chunks = aia_chunker.segments_to_chunks(segments)
 
                 # Save full transcript as .txt next to the source file
                 transcript_text = "\n".join(
@@ -104,12 +104,12 @@ def run_index_source(self, source_uuid: str):
                 # before translation finishes.
                 _en_translation_pending = lang_code not in ("en", "unknown")
             else:
-                chunks = kia_chunker.extract_chunks(local_path, file_type)
+                chunks = aia_chunker.extract_chunks(local_path, file_type)
 
             # 6. Save chunks to DB
             chunk_ids: list[int] = []
             for chunk in chunks:
-                chunk_id = db.create_kia_chunk(
+                chunk_id = db.create_aia_chunk(
                     source_id=source_id,
                     page_number=chunk["page_number"],
                     content=chunk["content"],
@@ -133,7 +133,7 @@ def run_index_source(self, source_uuid: str):
                 )
 
         # 8. Source status → ready
-        db.update_kia_source_status(
+        db.update_aia_source_status(
             source_uuid,
             "ready",
             chunk_count=len(chunks),
@@ -144,13 +144,13 @@ def run_index_source(self, source_uuid: str):
         logger.info("KI Tutor: source {} indexed ({} chunks)", source_uuid, len(chunks))
 
         # 9. Check if all non-failed sources for this module are ready → set module ready
-        sources = db.get_kia_sources_by_module(module_id)
+        sources = db.get_aia_sources_by_module(module_id)
         non_failed = [s for s in sources if s["status"] != "failed"]
         all_ready = len(non_failed) > 0 and all(s["status"] == "ready" for s in non_failed)
         if all_ready:
-            module = db.get_kia_module_by_id(module_id)
+            module = db.get_aia_module_by_id(module_id)
             if module:
-                db.update_kia_module_status(
+                db.update_aia_module_status(
                     module["uuid"],
                     "ready",
                     embedding_model=embedding_model,
@@ -173,7 +173,7 @@ def run_index_source(self, source_uuid: str):
 
     except Exception as e:
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
-        db.update_kia_source_status(source_uuid, "failed", error_message=str(e))
+        db.update_aia_source_status(source_uuid, "failed", error_message=str(e))
         raise
 
 @celery_app.task(bind=True, name="kia.translate_transcript_en", queue="kia")
@@ -187,7 +187,7 @@ def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl")
     from src.services.subtitle_converter import vtt_to_segments, segments_to_vtt
     from src.storage import file_exists, get_file
 
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if source is None:
         logger.warning("KI Tutor EN-translate: source {} not found, skipping", source_uuid)
         return
@@ -272,20 +272,20 @@ def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl")
 def run_generate_summaries(self, source_uuid: str):
     """Generate AI page-level summaries for a PDF source."""
     try:
-        source = db.get_kia_source(source_uuid)
+        source = db.get_aia_source(source_uuid)
         if source is None:
             raise RuntimeError(f"Source not found: {source_uuid}")
 
         if source["file_type"] != "pdf":
             return
 
-        db.update_kia_source_summaries_status(source_uuid, "generating")
+        db.update_aia_source_summaries_status(source_uuid, "generating")
         logger.info("KI Tutor: generating page summaries for source {}", source_uuid)
 
         # 1. Build page texts from existing chunks in DB (no need to re-read PDF)
-        chunks = db.get_kia_chunks_by_source(source["id"])
+        chunks = db.get_aia_chunks_by_source(source["id"])
         if not chunks:
-            db.update_kia_source_summaries_status(source_uuid, "ready")
+            db.update_aia_source_summaries_status(source_uuid, "ready")
             logger.info("KI Tutor: no chunks found for {}", source_uuid)
             return
 
@@ -322,7 +322,7 @@ def run_generate_summaries(self, source_uuid: str):
         remaining_pages = [p for p in pages if p["page_number"] not in existing_pages]
 
         if not remaining_pages:
-            db.update_kia_source_summaries_status(source_uuid, "ready")
+            db.update_aia_source_summaries_status(source_uuid, "ready")
             logger.info("KI Tutor: all pages already summarized for {}", source_uuid)
             return
 
@@ -380,16 +380,16 @@ def run_generate_summaries(self, source_uuid: str):
 
         # 6. Set status based on results
         if rate_limited:
-            db.update_kia_source_summaries_status(source_uuid, "rate_limited")
+            db.update_aia_source_summaries_status(source_uuid, "rate_limited")
             logger.warning("KI Tutor: rate limited for {} - saved partial results, user can retry", source_uuid)
         elif failed_batches > 0:
-            db.update_kia_source_summaries_status(source_uuid, "failed")
+            db.update_aia_source_summaries_status(source_uuid, "failed")
             logger.warning(
                 "KI Tutor: {} batch(es) failed for {} - saved partial results, retry will resume",
                 failed_batches, source_uuid,
             )
         else:
-            db.update_kia_source_summaries_status(source_uuid, "ready")
+            db.update_aia_source_summaries_status(source_uuid, "ready")
             logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
 
     except Exception as e:
@@ -399,5 +399,5 @@ def run_generate_summaries(self, source_uuid: str):
         else:
             status = "failed"
         logger.error("KI Tutor: summary generation {} for {}: {}", status, source_uuid, e)
-        db.update_kia_source_summaries_status(source_uuid, status)
+        db.update_aia_source_summaries_status(source_uuid, status)
 

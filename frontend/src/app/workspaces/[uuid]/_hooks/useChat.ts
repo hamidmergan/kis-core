@@ -33,14 +33,14 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource }:
   const loadMessages = useCallback(async () => {
     try {
       const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/messages${eidParam}`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/messages${eidParam}`, { credentials: "include" });
       if (res.ok) setMessages(await res.json());
     } catch { /* ignore */ }
   }, [uuid, enrollmentId]);
 
   const loadPopupActions = useCallback(async () => {
     try {
-      const res = await fetch("/api/ki-assistent/popup-actions", { credentials: "include" });
+      const res = await fetch("/api/ai-assistant/popup-actions", { credentials: "include" });
       if (res.ok) {
         const d = await res.json();
         setPopupActions(d.actions ?? []);
@@ -74,7 +74,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource }:
       });
 
     try {
-      const res = await fetch(`/api/ki-assistent-stream/${uuid}`, {
+      const res = await fetch(`/api/ai-assistant-stream/${uuid}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -148,8 +148,8 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource }:
       } else if (res.status === 409) {
         updateLast({ content: "Der Workspace wird noch indiziert. Bitte warte einen Moment und versuche es erneut." });
       } else if (res.status === 429) {
-        // Burst-Sperre: zu viele Chat-Anfragen in kurzer Zeit. Backend liefert
-        // konkrete Sperrzeit im detail.message ("Chat ist bis HH:MM Uhr gesperrt").
+        // Burst lock: too many chat requests in a short time. Backend returns
+        // the concrete lock time in detail.message ("Chat ist bis HH:MM Uhr gesperrt").
         let msg = "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.";
         try {
           const err = await res.json();

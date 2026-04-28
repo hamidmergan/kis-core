@@ -13,7 +13,7 @@ export function ExerciseSetsOverview({
   onDownload?: (s: ExerciseSet) => void;
   sourceCount: number; stats?: StudentStats | null;
   breadcrumbs?: { label: string; onClick: () => void }[];
-  category?: "lerntools" | "sprachtraining";
+  category?: "lerntools" | "language_training";
 }) {
 
   const noSources = sourceCount === 0;
@@ -40,7 +40,7 @@ export function ExerciseSetsOverview({
         {sets.length === 0 ? (
           <div className="flex flex-col items-center gap-3 pt-[15%]">
             <Cards size={48} weight="duotone" style={{ color: "var(--border)" }} />
-            <p className="text-sm text-center" style={{ color: "var(--muted)" }}>Wähle Quellen aus und drücke auf Erstellen.</p>
+            <p className="text-sm text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
             <button type="button" onClick={onCreate}
               disabled={noSources || atLimit || isGenerating}
               className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
@@ -60,7 +60,7 @@ export function ExerciseSetsOverview({
             </div>
             <div className="flex items-center justify-between px-1">
               <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{sets.length} Übungen</span>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>{sets.reduce((s, e) => s + e.card_count, 0)} Karten</span>
+              <span className="text-xs" >{sets.reduce((s, e) => s + e.card_count, 0)} Karten</span>
             </div>
             <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
               {sets.map((s) => {
@@ -99,23 +99,23 @@ export function ExerciseSetsOverview({
                     </div>
                     {/* Bottom row: meta left, delete right */}
                     <div className="flex items-center justify-between mt-auto pt-1">
-                      <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                        {generating ? (s.mode === "glossar" ? "Glossar" : s.mode === "quiz" ? "Quiz" : s.mode === "lueckentext" ? "Lückentext" : s.mode === "vokabeltest" ? "Vokabeltest" : "Lernkarten") : failed ? "Fehlgeschlagen" : `${s.card_count} Karten`}
-                        {!generating && s.mode === "glossar" && " · Glossar"}
+                      <span className="text-xs font-medium" >
+                        {generating ? (s.mode === "glossary" ? "Glossar" : s.mode === "quiz" ? "Quiz" : s.mode === "lueckentext" ? "Lückentext" : s.mode === "vokabeltest" ? "Vokabeltest" : "Lernkarten") : failed ? "Fehlgeschlagen" : `${s.card_count} Karten`}
+                        {!generating && s.mode === "glossary" && " · Glossary"}
                         {!generating && ` · ${new Date(s.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {!generating && onDownload && (
                           <button type="button" onClick={(e) => { e.stopPropagation(); onDownload(s); }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
                             title="Als Textdatei herunterladen">
                             <DownloadSimple size={12} />
                           </button>
                         )}
                         {!generating && <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
-                          className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                          className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                          style={{ backgroundColor: "var(--surface-dim)" }}
                           title="Löschen">
                           <Trash size={12} />
                         </button>}

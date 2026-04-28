@@ -1,19 +1,19 @@
-"""Burst-Sperre für Chat: schützt vor Bug-Loops und Skript-Missbrauch.
+"""Burst block for chat: protects against bug loops and script abuse.
 
-Mechanik in 2 Schritten:
+Mechanics in 2 steps:
 
-1. **Counter (Redis)** — pro User wird gezählt wie viele Chat-Anfragen in
-   ``RATE_LIMIT_BURST_WINDOW_SECONDS`` reinkommen. Schnell, atomar, mit TTL.
+1. **Counter (Redis)** - per user, count how many chat requests come in within
+   ``RATE_LIMIT_BURST_WINDOW_SECONDS``. Fast, atomic, with TTL.
 
-2. **Sperre (Postgres)** — sobald der Counter ``RATE_LIMIT_BURST_REQUESTS``
-   übersteigt, wird ``users.chat_blocked_until`` auf jetzt + ``RATE_LIMIT_BLOCK_MINUTES``
-   gesetzt. Solange das in der Zukunft liegt, wirft ``enforce_burst`` 429.
+2. **Block (Postgres)** - as soon as the counter exceeds ``RATE_LIMIT_BURST_REQUESTS``,
+   ``users.chat_blocked_until`` is set to now + ``RATE_LIMIT_BLOCK_MINUTES``.
+   While that lies in the future, ``enforce_burst`` raises 429.
 
-Warum DB statt nur Redis: die Sperre soll auch nach Backend-Restart gelten.
-Redis-Wipe bricht den Schutz nicht (DB ist Wahrheit für "ist gesperrt?").
+Why DB instead of just Redis: the block should also apply after a backend restart.
+A Redis wipe does not break the protection (DB is truth for "is blocked?").
 
-Bei Redis-Ausfall: fail-open (Counter funktioniert nicht, Sperre aus DB greift
-trotzdem). Bei DB-Ausfall: ohnehin der ganze Service hin.
+On Redis outage: fail-open (counter does not work, block from DB still applies).
+On DB outage: the whole service is down anyway.
 """
 
 import os
@@ -36,13 +36,13 @@ _TZ_BERLIN = ZoneInfo("Europe/Berlin")
 
 
 def _redis():
-    """Redis-Client mit kurzen Timeouts (Pattern wie im restlichen Projekt)."""
+    """Redis client with short timeouts (pattern matches the rest of the project)."""
     import redis as _redis_lib
     return _redis_lib.from_url(_REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
 
 
 def _get_blocked_until(user_id: int) -> Optional[datetime]:
-    """Lese ``users.chat_blocked_until`` für diesen User. None wenn nicht gesperrt."""
+    """Read ``users.chat_blocked_until`` for this user. None if not blocked."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT chat_blocked_until FROM users WHERE id = %s", (user_id,))
@@ -56,7 +56,7 @@ def _get_blocked_until(user_id: int) -> Optional[datetime]:
 
 
 def _set_blocked_until(user_id: int, blocked_until: datetime) -> None:
-    """Setze ``users.chat_blocked_until``. Bestehender Wert wird überschrieben."""
+    """Set ``users.chat_blocked_until``. An existing value is overwritten."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -67,7 +67,7 @@ def _set_blocked_until(user_id: int, blocked_until: datetime) -> None:
 
 
 def _format_block_message(blocked_until: datetime) -> str:
-    """Deutsche Fehlermeldung mit lokaler Berlin-Zeit."""
+    """German error message with local Berlin time."""
     local = blocked_until.astimezone(_TZ_BERLIN)
     return (
         f"Chat ist bis {local.strftime('%H:%M')} Uhr gesperrt "
@@ -76,21 +76,21 @@ def _format_block_message(blocked_until: datetime) -> str:
 
 
 def enforce_burst(user_id: int) -> None:
-    """Wirft HTTP 429 wenn der User aktuell gesperrt ist oder das Burst-Limit überschreitet.
+    """Raise HTTP 429 if the user is currently blocked or exceeds the burst limit.
 
-    Reihenfolge:
-    1. DB-Sperre prüfen (überschrieb Redis-Counter, falls vorhanden).
-    2. Redis-Counter atomar erhöhen.
-    3. Wenn Limit überschritten: DB-Sperre setzen → 429.
+    Order:
+    1. Check DB block (takes precedence over Redis counter, if any).
+    2. Atomically increment Redis counter.
+    3. If limit exceeded: set DB block -> 429.
 
-    Bei ``user_id <= 0`` (anonym/admin-bypass): no-op.
+    With ``user_id <= 0`` (anonymous/admin bypass): no-op.
     """
     if user_id <= 0:
         return
 
     now = datetime.now(timezone.utc)
 
-    # 1. Bestehende Sperre?
+    # 1. Existing block?
     blocked_until = _get_blocked_until(user_id)
     if blocked_until and blocked_until > now:
         raise HTTPException(
@@ -103,7 +103,7 @@ def enforce_burst(user_id: int) -> None:
             headers={"Retry-After": str(int((blocked_until - now).total_seconds()))},
         )
 
-    # 2. Counter in Redis hochzählen.
+    # 2. Increment counter in Redis.
     redis_key = f"rl:burst:chat:{user_id}"
     try:
         r = _redis()
@@ -113,22 +113,22 @@ def enforce_burst(user_id: int) -> None:
         count, _ = pipe.execute()
         r.close()
     except Exception as e:
-        logger.warning("Burst rate-limit Redis-Fehler (user={}): {}", user_id, e)
+        logger.warning("Burst rate-limit Redis error (user={}): {}", user_id, e)
         return  # fail-open
 
     if count <= RATE_LIMIT_BURST_REQUESTS:
         return
 
-    # 3. Limit gerissen → DB-Sperre setzen, 429 werfen.
+    # 3. Limit exceeded -> set DB block, raise 429.
     new_block_until = now + timedelta(minutes=RATE_LIMIT_BLOCK_MINUTES)
     try:
         _set_blocked_until(user_id, new_block_until)
     except Exception as e:
         logger.error("Konnte chat_blocked_until nicht setzen (user={}): {}", user_id, e)
-        # Trotzdem 429 werfen — Counter hat schon ausgelöst.
+        # Raise 429 anyway - counter has already triggered.
 
     logger.warning(
-        "Chat-Burst ausgelöst: user={} count={}/{} → gesperrt bis {}",
+        "Chat burst triggered: user={} count={}/{} -> blocked until {}",
         user_id, count, RATE_LIMIT_BURST_REQUESTS,
         new_block_until.astimezone(_TZ_BERLIN).strftime("%H:%M:%S"),
     )

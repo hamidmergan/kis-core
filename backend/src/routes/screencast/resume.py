@@ -1,4 +1,4 @@
-"""Resume-Endpoints: Rekonstruktion des Wizard-Schrittes + Existenz-Check für Job-Folder."""
+"""Resume endpoints: reconstruct the wizard step + existence check for job folder."""
 
 import json
 import re
@@ -11,7 +11,7 @@ from src.storage import get_job_file, load_result_json
 
 router = APIRouter(tags=["screencast"])
 
-# Reihenfolge definiert die Step-Erkennung beim Resume
+# Order defines the step detection on resume
 _SCRIPT_FILES = (
     ("accepted_scripts.json", "tts-settings"),
     ("user_scripts.json", "script-review"),
@@ -20,7 +20,7 @@ _SCRIPT_FILES = (
 
 
 def _load_scripts_from_job(translate_job_uuid: str) -> tuple[list[str], str | None]:
-    """Liefert (scripts, step) aus dem ersten vorhandenen Script-File."""
+    """Return (scripts, step) from the first existing script file."""
     for filename, resolved_step in _SCRIPT_FILES:
         try:
             scripts = json.loads(get_job_file(translate_job_uuid, filename))

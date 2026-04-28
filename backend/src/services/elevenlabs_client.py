@@ -7,14 +7,14 @@ import httpx
 # Default voice
 DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb"  # Brian – EN, deep, professional narration
 
-# TTS model — Alternativen:
-# "eleven_turbo_v2_5"     → Turbo, schnell, minimal schlechtere Qualität (aktuell genutzt)
-# "eleven_multilingual_v2" → Höchste Qualität, langsamer
-# "eleven_flash_v2_5"     → Schnellstes/günstigstes Modell, spürbar schlechtere Qualität
+# TTS model - alternatives:
+# "eleven_turbo_v2_5"     -> Turbo, fast, slightly lower quality (currently used)
+# "eleven_multilingual_v2" -> Highest quality, slower
+# "eleven_flash_v2_5"     -> Fastest/cheapest model, noticeably lower quality
 _MODEL_ID = "eleven_turbo_v2_5"
 _API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
 
-# Turbo v2.5 erlaubt max 30.000 Zeichen pro Request — 5k Chunks für minimalen Verlust bei Crash
+# Turbo v2.5 allows max 30,000 chars per request - 5k chunks for minimal loss on crash
 _CHUNK_SIZE = 5_000
 
 # Optimized defaults for educational content

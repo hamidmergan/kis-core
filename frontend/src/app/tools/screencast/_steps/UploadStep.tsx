@@ -269,7 +269,7 @@ export default function UploadStep(props: UploadStepProps) {
         <button
           onClick={onUploadNext}
           disabled={!file || autoState === "processing" || !!hasActiveJob}
-          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {mode === "auto" ? "Screencast erstellen" : "Weiter"}
         </button>

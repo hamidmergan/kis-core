@@ -6,8 +6,8 @@ interface SettingsMenuProps {
   chatLang: "de" | "en";
   studioEnabled: boolean;
   onToggleStudio: () => void;
-  sprachtrainingActive: boolean;
-  onToggleSprachtraining: () => void;
+  language_trainingActive: boolean;
+  onToggleLanguageTraining: () => void;
   isLecturer: boolean;
   hideHeader: boolean;
   onToggleHideHeader: () => void;
@@ -17,8 +17,8 @@ export function SettingsMenu({
   chatLang,
   studioEnabled,
   onToggleStudio,
-  sprachtrainingActive,
-  onToggleSprachtraining,
+  language_trainingActive,
+  onToggleLanguageTraining,
   isLecturer,
   hideHeader,
   onToggleHideHeader,
@@ -74,7 +74,7 @@ export function SettingsMenu({
           />
         </button>
       </div>
-      {/* Sprachtraining */}
+      {/* LanguageTraining */}
       <div className="flex items-center justify-between px-4 py-3" style={{ opacity: studioEnabled ? 1 : 0.4 }}>
         <div>
           <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Fachsprachentraining</p>
@@ -83,15 +83,15 @@ export function SettingsMenu({
         <button
           type="button"
           role="switch"
-          aria-checked={sprachtrainingActive}
-          onClick={() => studioEnabled && onToggleSprachtraining()}
+          aria-checked={language_trainingActive}
+          onClick={() => studioEnabled && onToggleLanguageTraining()}
           disabled={!studioEnabled}
           className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
-          style={{ backgroundColor: sprachtrainingActive && studioEnabled ? "var(--kb)" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
+          style={{ backgroundColor: language_trainingActive && studioEnabled ? "var(--kb)" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
         >
           <span
             className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
-            style={{ transform: sprachtrainingActive && studioEnabled ? "translateX(16px)" : "translateX(0)" }}
+            style={{ transform: language_trainingActive && studioEnabled ? "translateX(16px)" : "translateX(0)" }}
           />
         </button>
       </div>

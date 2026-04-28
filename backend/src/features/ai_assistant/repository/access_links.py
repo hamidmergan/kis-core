@@ -21,7 +21,7 @@ def create_access_link(module_id: int, code: str, expires_at: datetime | None) -
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """INSERT INTO kia_access_links (module_id, code, expires_at)
+                """INSERT INTO aia_access_links (module_id, code, expires_at)
                    VALUES (%s, %s, %s)
                    RETURNING id, module_id, code, expires_at, created_at""",
                 (module_id, code, expires_at),
@@ -35,7 +35,7 @@ def get_access_links_by_module(module_id: int) -> list[dict]:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT id, module_id, code, expires_at, created_at
-                   FROM kia_access_links
+                   FROM aia_access_links
                    WHERE module_id = %s
                    ORDER BY created_at ASC""",
                 (module_id,),
@@ -46,7 +46,7 @@ def get_access_links_by_module(module_id: int) -> list[dict]:
 def delete_access_link(link_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM kia_access_links WHERE id = %s", (link_id,))
+            cur.execute("DELETE FROM aia_access_links WHERE id = %s", (link_id,))
         conn.commit()
 
 def get_module_by_access_link_code(code: str) -> tuple[dict, dict] | None:
@@ -55,8 +55,8 @@ def get_module_by_access_link_code(code: str) -> tuple[dict, dict] | None:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT m.*, al.id AS link_id, al.expires_at AS link_expires_at
-                   FROM kia_access_links al
-                   JOIN kia_modules m ON m.id = al.module_id
+                   FROM aia_access_links al
+                   JOIN aia_modules m ON m.id = al.module_id
                    WHERE al.code = %s AND (al.expires_at IS NULL OR al.expires_at > NOW())""",
                 (code,),
             )

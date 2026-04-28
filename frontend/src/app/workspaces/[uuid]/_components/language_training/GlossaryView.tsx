@@ -6,7 +6,7 @@ import type { GlossaryEntry, StudentStats } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
 import { SubviewHeader } from "../layout/SubviewHeader";
 
-export function GlossarMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
+export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -22,8 +22,8 @@ export function GlossarMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)}
-        className="w-5 h-5 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+        className="w-5 h-5 flex items-center justify-center rounded-full btn-icon"
+        style={{ backgroundColor: "var(--surface-dim)" }}>
         <DotsThreeVertical size={12} weight="bold" />
       </button>
       {open && (
@@ -31,7 +31,7 @@ export function GlossarMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
           style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
           <button type="button"
             onClick={() => { setOpen(false); onDeleteAll?.(); }}
-            className="w-full text-left px-3 py-1.5 text-[11px] hover:opacity-70 transition-opacity"
+            className="w-full text-left px-3 py-1.5 text-[11px] btn-icon"
             style={{ color: "#B91C1C" }}>
             Alle Begriffe löschen
           </button>
@@ -41,7 +41,7 @@ export function GlossarMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
   );
 }
 
-export function GlossarView({
+export function GlossaryView({
   entries, loading, extracting, onGenerate, onBack, onOpenSource, onDelete, onDeleteAll, sourceCount = 0, stats, breadcrumbs, showTranslation, feedback, onDismissFeedback,
 }: {
   entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
@@ -60,7 +60,7 @@ export function GlossarView({
   const [expandedId, setExpandedId] = useState<number | null>(null);
   return (
     <div className="flex flex-col h-full">
-      {onBack && <SubviewHeader title="Glossar" onBack={onBack} breadcrumbs={breadcrumbs} category="sprachtraining" />}
+      {onBack && <SubviewHeader title="Glossar" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
           style={{
@@ -89,7 +89,7 @@ export function GlossarView({
           <HelpTooltip text="Extrahiert Fachbegriffe aus den ausgewählten Quellen." />
           {entries.length > 0 && (
             <div className="absolute right-1 flex items-center">
-              <GlossarMenu onDeleteAll={onDeleteAll} />
+              <GlossaryMenu onDeleteAll={onDeleteAll} />
             </div>
           )}
         </div>
@@ -115,9 +115,9 @@ export function GlossarView({
             </div>
           )}
           {entries.length === 0 && !loading && (
-            <div className="flex flex-col items-center justify-center gap-2 py-8" style={{ color: "var(--muted)" }}>
+            <div className="flex flex-col items-center justify-center gap-2 py-8" >
               <Book size={32} weight="light" />
-              <span className="text-xs text-center">Noch kein Glossar generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.</span>
+              <span className="text-xs text-center">Noch kein Glossary generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.</span>
             </div>
           )}
         </div>
@@ -157,15 +157,15 @@ export function GlossarView({
                           tabIndex={0}
                           onClick={(e) => { e.stopPropagation(); onOpenSource?.(entry.page_number!, entry.term_de, entry.start_time); }}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); e.currentTarget.click(); } }}
-                          className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
+                          className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 chip-cite cursor-pointer"
                           style={{ backgroundColor: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)" }}
                         >
                           <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time) : `S. ${entry.page_number}`}
                         </span>
                       )}
                       {isExpanded
-                        ? <CaretUp size={14} style={{ color: "var(--muted)" }} />
-                        : <CaretDown size={14} style={{ color: "var(--muted)" }} />}
+                        ? <CaretUp size={14}  />
+                        : <CaretDown size={14}  />}
                     </div>
 
                     {isExpanded && (
@@ -173,7 +173,7 @@ export function GlossarView({
                         {showTranslation && entry.example_sentence && (
                           <div className="mb-2">
                             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>Kontext</span>
-                            <p className="text-sm italic leading-relaxed mt-0.5" style={{ color: "var(--muted)" }}>
+                            <p className="text-sm italic leading-relaxed mt-0.5" >
                               „{entry.example_sentence}"
                             </p>
                           </div>
@@ -188,8 +188,8 @@ export function GlossarView({
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onDelete?.(entry.id); }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
                           >
                             <Trash size={12} />
                           </button>

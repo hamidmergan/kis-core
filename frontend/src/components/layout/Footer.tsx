@@ -8,13 +8,13 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
       style={{ backgroundColor: "var(--kb)", color: "rgba(255,255,255,0.6)" }}
     >
       <div className="flex flex-col items-center gap-3 text-center">
-        {/* KI-Hinweis */}
+        {/* AI notice */}
         {loggedIn && (
           <div className="w-full text-xs leading-relaxed mb-2 flex flex-col gap-1">
             <p className="w-full">Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.</p>
             <p className="w-full">
               Feedback oder Probleme?{" "}
-              <a href="mailto:hamid.mergan@th-luebeck.de" className="opacity-75 hover:opacity-100 hover:underline transition-opacity">
+              <a href="mailto:hamid.mergan@th-luebeck.de" className="link-footer">
                 hamid.mergan@th-luebeck.de
               </a>
             </p>
@@ -23,7 +23,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
         {/* Logos */}
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <a href="https://www.th-luebeck.de" target="_blank" rel="noopener noreferrer" aria-label="TH Lübeck"
-            className="flex items-center justify-center w-36 h-14 bg-white hover:opacity-80 transition-opacity px-3">
+            className="flex items-center justify-center w-36 h-14 bg-white logo-link px-3">
             <Image
               src="/logos/logo-thl.jpg"
               alt="TH Lübeck"
@@ -34,7 +34,7 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
             />
           </a>
           <a href="https://www.th-luebeck.de/isy/" target="_blank" rel="noopener noreferrer" aria-label="ISY"
-            className="flex items-center justify-center w-36 h-14 bg-white hover:opacity-80 transition-opacity px-3">
+            className="flex items-center justify-center w-36 h-14 bg-white logo-link px-3">
             <Image
               src="/logos/isy-logo.png"
               alt="ISY"
@@ -48,11 +48,11 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
 
         {/* Links */}
         <div className="text-sm">
-          <Link href="/imprint" className="opacity-75 hover:opacity-100 hover:underline transition-opacity">
+          <Link href="/imprint" className="link-footer">
             Impressum
           </Link>
           <span className="mx-2 opacity-40">|</span>
-          <Link href="/privacy" className="opacity-75 hover:opacity-100 hover:underline transition-opacity">
+          <Link href="/privacy" className="link-footer">
             Datenschutz
           </Link>
         </div>

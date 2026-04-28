@@ -1,9 +1,9 @@
-"""Helper für den aktiven Embedding-Provider und Fingerprint-Cache.
+"""Helper for the active embedding provider and fingerprint cache.
 
-Der Fingerprint ist das Embedding eines festen Sentinel-Strings. Er ist
-deterministisch pro Provider/Modell und wird in der Settings-Tabelle persistiert,
-damit er Backend-Neustarts überlebt (der erste Cold-Call gegen KISSKI dauert
-15-50s, alle Folgeaufrufe sind instant).
+The fingerprint is the embedding of a fixed sentinel string. It is
+deterministic per provider/model and is persisted in the settings table,
+so it survives backend restarts (the first cold call against KISSKI takes
+15-50s, all subsequent calls are instant).
 """
 
 from loguru import logger
@@ -22,13 +22,13 @@ def active_embedding_provider_key() -> str:
 
 
 def get_cached_fingerprint() -> str | None:
-    """Fingerprint aus Settings-Tabelle lesen; on-demand berechnen falls leer."""
+    """Read fingerprint from settings table; compute on demand if empty."""
     key = f"fingerprint_{active_embedding_provider_key()}"
     cached = db.get_setting(key, "") or ""
     if cached:
         return cached
     try:
-        from src.services.kia_embeddings import compute_fingerprint, get_embedding_provider
+        from src.services.aia_embeddings import compute_fingerprint, get_embedding_provider
         fp = compute_fingerprint(get_embedding_provider())
         db.set_setting(key, fp)
         return fp
@@ -38,7 +38,7 @@ def get_cached_fingerprint() -> str | None:
 
 
 def invalidate_fingerprint_cache() -> None:
-    """Wird aufgerufen, wenn der Embedding-Provider-Toggle wechselt."""
+    """Called when the embedding provider toggle changes."""
     for provider in ("mylab", "kisski", "ollama", "default"):
         try:
             db.set_setting(f"fingerprint_{provider}", "")

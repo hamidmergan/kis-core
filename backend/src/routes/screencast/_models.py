@@ -1,4 +1,4 @@
-"""Pydantic-Models für die Screencast-Endpoints."""
+"""Pydantic models for the screencast endpoints."""
 
 from pydantic import BaseModel
 
@@ -55,5 +55,5 @@ class PrerenderRequest(BaseModel):
 
 class SaveScriptsRequest(BaseModel):
     scripts: list[str]
-    accepted: bool = False  # True = "Alle Skripte übernehmen" clicked
+    accepted: bool = False  # True = "Accept all scripts" clicked
     user_prompt: str | None = None

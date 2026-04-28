@@ -6,11 +6,11 @@ from datetime import date
 
 from loguru import logger
 
-from src.features.ki_assistent.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.tool_prompts import KIA_SCHEDULE_HARMONIZE_PROMPT
 
-from src.features.ki_assistent.tasks.studio.schedule._classify import _CLASSIFY_TIMEOUT_SECS
-from src.features.ki_assistent.tasks.studio.schedule._parse import (
+from src.features.ai_assistant.tasks.studio.schedule._classify import _CLASSIFY_TIMEOUT_SECS
+from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _parse_date,
     _resolve_current_year,
 )

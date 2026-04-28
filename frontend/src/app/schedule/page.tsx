@@ -18,7 +18,7 @@ async function fetchPage(offset: number, showAll: boolean): Promise<{ items: Sch
   });
   try {
     const r = await fetch(
-      `/api/ki-assistent/schedule/upcoming?${params.toString()}`,
+      `/api/ai-assistant/schedule/upcoming?${params.toString()}`,
       { credentials: "include" },
     );
     if (!r.ok) return null;
@@ -33,7 +33,7 @@ async function fetchPage(offset: number, showAll: boolean): Promise<{ items: Sch
 async function toggleChecked(moduleUuid: string, entryId: number, checked: boolean): Promise<boolean> {
   try {
     const r = await fetch(
-      `/api/ki-assistent/modules/${moduleUuid}/schedule/entries/${entryId}`,
+      `/api/ai-assistant/modules/${moduleUuid}/schedule/entries/${entryId}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

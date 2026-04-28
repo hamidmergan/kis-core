@@ -12,14 +12,14 @@ export function useExercises({ uuid }: UseExercisesOptions) {
   const [exerciseSets, setExerciseSets] = useState<ExerciseSet[]>([]);
   const [activeSet, setActiveSet] = useState<ExerciseSet | null>(null);
   const [setCreating, setSetCreating] = useState(false);
-  const [createSetTool, setCreateSetTool] = useState<string>("lernkarten");
+  const [createSetTool, setCreateSetTool] = useState<string>("flashcards");
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const loadExerciseSets = useCallback(async (tool?: string) => {
     try {
       const url = tool
-        ? `/api/ki-assistent/modules/${uuid}/exercise-sets?tool=${tool}`
-        : `/api/ki-assistent/modules/${uuid}/exercise-sets`;
+        ? `/api/ai-assistant/modules/${uuid}/exercise-sets?tool=${tool}`
+        : `/api/ai-assistant/modules/${uuid}/exercise-sets`;
       const res = await fetch(url, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
@@ -38,7 +38,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
 
   const loadExerciseSet = useCallback(async (setId: number) => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${setId}`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/exercise-sets/${setId}`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setActiveSet(data.set);
@@ -48,7 +48,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
 
   const createExerciseSet = useCallback(async (tool: string, mode: string, count: number, sourceUuid?: string) => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/exercise-sets`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool, mode, count, source_uuid: sourceUuid }),
@@ -64,7 +64,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
 
   const deleteExerciseSet = useCallback(async (setId: number, tool: string) => {
     try {
-      await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${setId}`, {
+      await fetch(`/api/ai-assistant/modules/${uuid}/exercise-sets/${setId}`, {
         method: "DELETE", credentials: "include",
       });
       loadExerciseSets(tool);
@@ -73,7 +73,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
 
   const downloadExerciseSet = useCallback(async (s: ExerciseSet) => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${s.id}`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/exercise-sets/${s.id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       const set = data.set as ExerciseSet;
@@ -129,7 +129,7 @@ export function useExercises({ uuid }: UseExercisesOptions) {
 
   const submitSingleAnswer = useCallback(async (setId: number, itemId: number, correct: boolean, newRun = false) => {
     try {
-      await fetch(`/api/ki-assistent/modules/${uuid}/exercise-sets/${setId}/progress`, {
+      await fetch(`/api/ai-assistant/modules/${uuid}/exercise-sets/${setId}/progress`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ results: [{ item_id: itemId, correct }], new_run: newRun }),

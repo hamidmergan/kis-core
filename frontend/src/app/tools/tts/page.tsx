@@ -126,7 +126,7 @@ export default function TtsPage() {
     });
   }, []);
 
-  // Wenn Provider wechselt → passende Stimme vorauswählen
+  // When provider changes, preselect a matching voice
   useEffect(() => {
     if (provider === "kokoro") {
       if (kokoroVoices.length > 0) setVoiceId(kokoroVoices[0].voice_id);
@@ -291,7 +291,7 @@ export default function TtsPage() {
           </div>
           )}
 
-          {/* Stimme */}
+          {/* Voice */}
           {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
           <div className="mt-4 mb-6 space-y-3">
             <div>
@@ -359,7 +359,7 @@ export default function TtsPage() {
           )}
 
 
-          {/* Geschwindigkeit */}
+          {/* Speed */}
           <div className="mb-6">
             <label htmlFor="speed-slider" className="block text-sm font-medium text-gray-700 mb-2">
               Geschwindigkeit: {speed.toFixed(1)}x
@@ -381,7 +381,7 @@ export default function TtsPage() {
             </div>
           </div>
 
-          {/* Pausen (nur ElevenLabs) */}
+          {/* Pauses (ElevenLabs only) */}
           {provider === "elevenlabs" && (
             <div className="mb-6">
               <label htmlFor="pause-select" className="block text-sm font-medium text-gray-700 mb-2">
@@ -408,7 +408,7 @@ export default function TtsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!pendingFile || isProcessing || noProvider}
-                className="self-start px-5 py-2 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 MP3 erstellen
               </button>

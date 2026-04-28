@@ -1,4 +1,4 @@
-"""Quota-Verwaltung: globale Defaults, per-User Overview und per-Type Overrides."""
+"""Quota management: global defaults, per-user overview, and per-type overrides."""
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -22,13 +22,13 @@ def _ensure_known_quota_type(quota_type: str) -> None:
 
 @router.get("/quota/defaults")
 async def get_quota_defaults(_admin=Depends(get_admin_user)):
-    """Globale Standard-Limits anzeigen."""
+    """Show global default limits."""
     return {"defaults": QUOTA_DEFAULTS}
 
 
 @router.get("/quota/overview")
 async def get_quota_overview(_admin=Depends(get_admin_user)):
-    """Alle aktiven User mit Kontingenten (auch ohne bisherige Aktivität)."""
+    """All active users with their quotas (even without prior activity)."""
     rows = db.quota_get_all_users_usage()
     users: dict[int, dict] = {}
     for row in rows:
@@ -71,7 +71,7 @@ async def get_quota_overview(_admin=Depends(get_admin_user)):
 
 @router.get("/quota/users/{user_id}")
 async def get_user_quota(user_id: int, _admin=Depends(get_admin_user)):
-    """Alle Quota-Typen für einen bestimmten User."""
+    """All quota types for a specific user."""
     rows, global_reset_at = db.quota_get_all_for_user(user_id)
     result = []
     for cfg_type, cfg in QUOTA_DEFAULTS.items():
@@ -103,7 +103,7 @@ async def set_quota_override(
     body: SetQuotaOverrideRequest,
     _admin=Depends(get_admin_user),
 ):
-    """Per-User Limit setzen. -1 = unlimitiert."""
+    """Set per-user limit. -1 = unlimited."""
     _ensure_known_quota_type(quota_type)
     db.quota_set_override(user_id, quota_type, body.limit_value)
     return {"ok": True}
@@ -115,7 +115,7 @@ async def delete_quota_override(
     quota_type: str,
     _admin=Depends(get_admin_user),
 ):
-    """Override löschen — User fällt auf globalen Standard zurück."""
+    """Delete override - user falls back to the global default."""
     _ensure_known_quota_type(quota_type)
     db.quota_remove_override(user_id, quota_type)
     return {"ok": True}
@@ -127,7 +127,7 @@ async def reset_user_quota(
     quota_type: str,
     _admin=Depends(get_admin_user),
 ):
-    """Quota-Zähler sofort auf 0 setzen und Reset-Timer löschen."""
+    """Reset quota counter to 0 immediately and clear the reset timer."""
     _ensure_known_quota_type(quota_type)
     db.quota_reset(user_id, quota_type)
     return {"ok": True}

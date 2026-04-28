@@ -33,7 +33,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Menü schließen" : "Menü öffnen"}
         aria-expanded={open}
-        className="flex items-center justify-center w-10 h-10 rounded-full text-white/80 hover:text-white hover:outline-2 hover:outline-white transition"
+        className="flex items-center justify-center w-10 h-10 rounded-full btn-on-dark"
       >
         {open ? <X size={20} weight="bold" /> : <List size={20} weight="bold" />}
       </button>

@@ -22,28 +22,51 @@ def init_db(admin_email: Optional[str] = None) -> None:
         with conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
-            # Migration: rename legacy ki_tutor_* tables -> kia_* (no-op on fresh DBs)
+            # Migration: rename legacy table prefixes to aia_*. All entries are
+            # idempotent (no-op on fresh DBs and on already-migrated DBs).
             for old, new in [
-                ("ki_tutor_modules", "kia_modules"),
-                ("ki_tutor_access_links", "kia_access_links"),
-                ("ki_tutor_enrollments", "kia_enrollments"),
-                ("ki_tutor_sources", "kia_sources"),
-                ("ki_tutor_chunks", "kia_chunks"),
-                ("ki_tutor_paragraph_summaries", "kia_paragraph_summaries"),
-                ("ki_tutor_mindmaps", "kia_mindmaps"),
-                ("ki_tutor_datentabellen", "kia_datentabellen"),
-                ("ki_tutor_messages", "kia_messages"),
-                ("ki_tutor_user_settings", "kia_user_settings"),
-                ("ki_tutor_notes", "kia_notes"),
-                ("ki_tutor_glossary_entries", "kia_glossary_entries"),
-                ("ki_tutor_exercise_sets", "kia_exercise_sets"),
-                ("ki_tutor_exercise_items", "kia_exercise_items"),
-                ("ki_tutor_exercise_progress", "kia_exercise_progress"),
-                ("ki_tutor_streaks", "kia_streaks"),
-                # Rename German "zeitplan" tables to English "schedule" (no-op on fresh DBs).
-                ("kia_zeitplan_entries", "kia_schedule_entries"),
-                ("kia_zeitplan_jobs", "kia_schedule_jobs"),
-                ("kia_zeitplan_processed_sources", "kia_schedule_processed_sources"),
+                # Stage 1: very old ki_tutor_* tables migrate straight to aia_*.
+                ("ki_tutor_modules", "aia_modules"),
+                ("ki_tutor_access_links", "aia_access_links"),
+                ("ki_tutor_enrollments", "aia_enrollments"),
+                ("ki_tutor_sources", "aia_sources"),
+                ("ki_tutor_chunks", "aia_chunks"),
+                ("ki_tutor_paragraph_summaries", "aia_paragraph_summaries"),
+                ("ki_tutor_mindmaps", "aia_mindmaps"),
+                ("ki_tutor_data_tables", "aia_data_tables"),
+                ("ki_tutor_messages", "aia_messages"),
+                ("ki_tutor_user_settings", "aia_user_settings"),
+                ("ki_tutor_notes", "aia_notes"),
+                ("ki_tutor_glossary_entries", "aia_glossary_entries"),
+                ("ki_tutor_exercise_sets", "aia_exercise_sets"),
+                ("ki_tutor_exercise_items", "aia_exercise_items"),
+                ("ki_tutor_exercise_progress", "aia_exercise_progress"),
+                ("ki_tutor_streaks", "aia_streaks"),
+                # Stage 2: intermediate kia_* tables migrate to aia_*.
+                ("kia_modules", "aia_modules"),
+                ("kia_access_links", "aia_access_links"),
+                ("kia_enrollments", "aia_enrollments"),
+                ("kia_sources", "aia_sources"),
+                ("kia_chunks", "aia_chunks"),
+                ("kia_paragraph_summaries", "aia_paragraph_summaries"),
+                ("kia_mindmaps", "aia_mindmaps"),
+                ("kia_data_tables", "aia_data_tables"),
+                ("kia_messages", "aia_messages"),
+                ("kia_user_settings", "aia_user_settings"),
+                ("kia_notes", "aia_notes"),
+                ("kia_glossary_entries", "aia_glossary_entries"),
+                ("kia_exercise_sets", "aia_exercise_sets"),
+                ("kia_exercise_items", "aia_exercise_items"),
+                ("kia_exercise_progress", "aia_exercise_progress"),
+                ("kia_streaks", "aia_streaks"),
+                ("kia_schedule_entries", "aia_schedule_entries"),
+                ("kia_schedule_processed_sources", "aia_schedule_processed_sources"),
+                ("kia_schedule_jobs", "aia_schedule_jobs"),
+                ("kia_llm_usage_log", "aia_llm_usage_log"),
+                # Stage 3: rename German "zeitplan" tables (any prefix that survived) to schedule.
+                ("kia_zeitplan_entries", "aia_schedule_entries"),
+                ("kia_zeitplan_jobs", "aia_schedule_jobs"),
+                ("kia_zeitplan_processed_sources", "aia_schedule_processed_sources"),
             ]:
                 cur.execute(
                     "SELECT to_regclass(%s) IS NOT NULL AND to_regclass(%s) IS NULL",
@@ -65,6 +88,20 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 if cur.fetchone()[0]:
                     cur.execute(f"ALTER INDEX {old_idx} RENAME TO {new_idx}")
 
+            # Rename legacy German column "sprachtraining_active" to "language_training_active" (idempotent).
+            cur.execute(
+                """
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'aia_user_settings'
+                  AND column_name = 'sprachtraining_active'
+                """
+            )
+            if cur.fetchone():
+                cur.execute(
+                    "ALTER TABLE aia_user_settings RENAME COLUMN sprachtraining_active TO language_training_active"
+                )
+
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id            SERIAL PRIMARY KEY,
@@ -77,7 +114,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'lecturer'")
-            # Chat-Sperre nach Burst-Limit-Auslösung (überlebt Backend-Restart, anders als Redis-Counter).
+            # Chat block after burst-limit trigger (survives backend restart, unlike Redis counter).
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_blocked_until TIMESTAMP WITH TIME ZONE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS whitelist (
@@ -153,7 +190,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     (admin_email.strip().lower(),),
                 )
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_modules (
+                CREATE TABLE IF NOT EXISTS aia_modules (
                     id                   SERIAL PRIMARY KEY,
                     uuid                 TEXT NOT NULL UNIQUE,
                     user_id              INTEGER NOT NULL,
@@ -171,43 +208,43 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             # Migration: add last_visited_at; backfill existing rows from updated_at so initial sort is meaningful
-            cur.execute("ALTER TABLE kia_modules ADD COLUMN IF NOT EXISTS last_visited_at TIMESTAMP")
-            cur.execute("UPDATE kia_modules SET last_visited_at = COALESCE(updated_at, created_at, NOW()) WHERE last_visited_at IS NULL")
-            cur.execute("ALTER TABLE kia_modules ALTER COLUMN last_visited_at SET NOT NULL")
-            cur.execute("ALTER TABLE kia_modules ALTER COLUMN last_visited_at SET DEFAULT NOW()")
+            cur.execute("ALTER TABLE aia_modules ADD COLUMN IF NOT EXISTS last_visited_at TIMESTAMP")
+            cur.execute("UPDATE aia_modules SET last_visited_at = COALESCE(updated_at, created_at, NOW()) WHERE last_visited_at IS NULL")
+            cur.execute("ALTER TABLE aia_modules ALTER COLUMN last_visited_at SET NOT NULL")
+            cur.execute("ALTER TABLE aia_modules ALTER COLUMN last_visited_at SET DEFAULT NOW()")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_access_links (
+                CREATE TABLE IF NOT EXISTS aia_access_links (
                     id         SERIAL PRIMARY KEY,
                     module_id  INTEGER NOT NULL
-                                 REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                 REFERENCES aia_modules(id) ON DELETE CASCADE,
                     code       TEXT NOT NULL UNIQUE,
                     expires_at TIMESTAMP,
                     created_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_enrollments (
+                CREATE TABLE IF NOT EXISTS aia_enrollments (
                     id             SERIAL PRIMARY KEY,
                     module_id      INTEGER NOT NULL
-                                     REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                     REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id        INTEGER NOT NULL,
-                    link_id        INTEGER REFERENCES kia_access_links(id) ON DELETE SET NULL,
+                    link_id        INTEGER REFERENCES aia_access_links(id) ON DELETE SET NULL,
                     enrolled_until TIMESTAMP,
                     created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
                     UNIQUE (module_id, user_id, link_id)
                 )
             """)
             # Migration: add link_id column if table already existed without it
-            cur.execute("ALTER TABLE kia_enrollments ADD COLUMN IF NOT EXISTS link_id INTEGER REFERENCES kia_access_links(id) ON DELETE SET NULL")
+            cur.execute("ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS link_id INTEGER REFERENCES aia_access_links(id) ON DELETE SET NULL")
             # Migration: drop old unique constraint and add new one with link_id
             cur.execute("""
                 DO $$ BEGIN
                     IF EXISTS (
                         SELECT 1 FROM pg_constraint
-                        WHERE conname = 'kia_enrollments_module_id_user_id_key'
+                        WHERE conname = 'aia_enrollments_module_id_user_id_key'
                     ) THEN
-                        ALTER TABLE kia_enrollments
-                            DROP CONSTRAINT kia_enrollments_module_id_user_id_key;
+                        ALTER TABLE aia_enrollments
+                            DROP CONSTRAINT aia_enrollments_module_id_user_id_key;
                     END IF;
                 END $$
             """)
@@ -215,44 +252,44 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 DO $$ BEGIN
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_constraint
-                        WHERE conname = 'kia_enrollments_module_id_user_id_link_id_key'
+                        WHERE conname = 'aia_enrollments_module_id_user_id_link_id_key'
                     ) THEN
-                        ALTER TABLE kia_enrollments
-                            ADD CONSTRAINT kia_enrollments_module_id_user_id_link_id_key
+                        ALTER TABLE aia_enrollments
+                            ADD CONSTRAINT aia_enrollments_module_id_user_id_link_id_key
                             UNIQUE (module_id, user_id, link_id);
                     END IF;
                 END $$
             """)
             # Migration: migrate existing enroll_code from modules to access_links
             cur.execute("""
-                INSERT INTO kia_access_links (module_id, code, expires_at)
+                INSERT INTO aia_access_links (module_id, code, expires_at)
                 SELECT id, enroll_code, enroll_code_expires
-                FROM kia_modules
+                FROM aia_modules
                 WHERE enroll_code IS NOT NULL
                   AND enroll_code_expires IS NOT NULL
                   AND NOT EXISTS (
-                      SELECT 1 FROM kia_access_links al
-                      WHERE al.code = kia_modules.enroll_code
+                      SELECT 1 FROM aia_access_links al
+                      WHERE al.code = aia_modules.enroll_code
                   )
             """)
             # Migration: link existing enrollments to their access_links
             cur.execute("""
-                UPDATE kia_enrollments e
+                UPDATE aia_enrollments e
                 SET link_id = al.id
-                FROM kia_access_links al
-                JOIN kia_modules m ON m.id = al.module_id
+                FROM aia_access_links al
+                JOIN aia_modules m ON m.id = al.module_id
                 WHERE e.module_id = m.id
                   AND al.code = m.enroll_code
                   AND e.link_id IS NULL
             """)
             # Migration: allow NULL expires_at in access_links
-            cur.execute("ALTER TABLE kia_access_links ALTER COLUMN expires_at DROP NOT NULL")
+            cur.execute("ALTER TABLE aia_access_links ALTER COLUMN expires_at DROP NOT NULL")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_sources (
+                CREATE TABLE IF NOT EXISTS aia_sources (
                     id              SERIAL PRIMARY KEY,
                     uuid            TEXT NOT NULL UNIQUE,
                     module_id       INTEGER NOT NULL
-                                      REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                      REFERENCES aia_modules(id) ON DELETE CASCADE,
                     filename        TEXT NOT NULL,
                     file_path       TEXT NOT NULL,
                     file_type       TEXT NOT NULL,
@@ -265,29 +302,29 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: add toc column if missing
             cur.execute("""
-                ALTER TABLE kia_sources ADD COLUMN IF NOT EXISTS toc JSONB
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS toc JSONB
             """)
             # Migration: add summaries_status column if missing
             cur.execute("""
-                ALTER TABLE kia_sources ADD COLUMN IF NOT EXISTS summaries_status TEXT NOT NULL DEFAULT 'none'
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summaries_status TEXT NOT NULL DEFAULT 'none'
             """)
             # Migration: add duration column for audio/video sources
             cur.execute("""
-                ALTER TABLE kia_sources ADD COLUMN IF NOT EXISTS duration REAL
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS duration REAL
             """)
             # Migration: add error_message column for failed sources
             cur.execute("""
-                ALTER TABLE kia_sources ADD COLUMN IF NOT EXISTS error_message TEXT
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS error_message TEXT
             """)
             # Migration: add language column (Whisper-detected source language, e.g. 'de', 'en')
             cur.execute("""
-                ALTER TABLE kia_sources ADD COLUMN IF NOT EXISTS language TEXT
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS language TEXT
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_chunks (
+                CREATE TABLE IF NOT EXISTS aia_chunks (
                     id          SERIAL PRIMARY KEY,
                     source_id   INTEGER NOT NULL
-                                  REFERENCES kia_sources(id) ON DELETE CASCADE,
+                                  REFERENCES aia_sources(id) ON DELETE CASCADE,
                     page_number INTEGER NOT NULL,
                     content     TEXT NOT NULL,
                     embedding   vector,
@@ -296,31 +333,31 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             # Migration: drop fixed-dimension constraint so any embedding model can be used
             cur.execute("""
-                ALTER TABLE kia_chunks
+                ALTER TABLE aia_chunks
                     ALTER COLUMN embedding TYPE vector
                     USING embedding::vector
             """)
             # Migration: add start_time/end_time for audio/video chunks
             cur.execute("""
-                ALTER TABLE kia_chunks ADD COLUMN IF NOT EXISTS start_time REAL
+                ALTER TABLE aia_chunks ADD COLUMN IF NOT EXISTS start_time REAL
             """)
             cur.execute("""
-                ALTER TABLE kia_chunks ADD COLUMN IF NOT EXISTS end_time REAL
+                ALTER TABLE aia_chunks ADD COLUMN IF NOT EXISTS end_time REAL
             """)
             # Hybrid Search: tsvector column for BM25-style keyword search
             cur.execute("""
-                ALTER TABLE kia_chunks
+                ALTER TABLE aia_chunks
                     ADD COLUMN IF NOT EXISTS search_vector tsvector
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_chunks_search
-                ON kia_chunks USING gin(search_vector)
+                ON aia_chunks USING gin(search_vector)
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_paragraph_summaries (
+                CREATE TABLE IF NOT EXISTS aia_paragraph_summaries (
                     id          SERIAL PRIMARY KEY,
                     source_id   INTEGER NOT NULL
-                                  REFERENCES kia_sources(id) ON DELETE CASCADE,
+                                  REFERENCES aia_sources(id) ON DELETE CASCADE,
                     page_number INTEGER NOT NULL,
                     block_index INTEGER NOT NULL,
                     bbox_x0     REAL NOT NULL,
@@ -333,10 +370,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_mindmaps (
+                CREATE TABLE IF NOT EXISTS aia_mindmaps (
                     id          SERIAL PRIMARY KEY,
                     module_id   INTEGER NOT NULL
-                                  REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                  REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id     INTEGER NOT NULL,
                     source_ids  JSONB NOT NULL,
                     status      TEXT NOT NULL DEFAULT 'pending',
@@ -347,10 +384,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_datentabellen (
+                CREATE TABLE IF NOT EXISTS aia_data_tables (
                     id          SERIAL PRIMARY KEY,
                     module_id   INTEGER NOT NULL
-                                  REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                  REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id     INTEGER NOT NULL,
                     source_ids  JSONB NOT NULL,
                     status      TEXT NOT NULL DEFAULT 'pending',
@@ -363,10 +400,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_messages (
+                CREATE TABLE IF NOT EXISTS aia_messages (
                     id           SERIAL PRIMARY KEY,
                     module_id    INTEGER NOT NULL
-                                   REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                   REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id      INTEGER NOT NULL,
                     role         TEXT NOT NULL,
                     content      TEXT NOT NULL,
@@ -375,41 +412,41 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             # Migration: add enrollment_id to messages for per-link scoping
-            cur.execute("ALTER TABLE kia_messages ADD COLUMN IF NOT EXISTS enrollment_id INTEGER REFERENCES kia_enrollments(id) ON DELETE SET NULL")
+            cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS enrollment_id INTEGER REFERENCES aia_enrollments(id) ON DELETE SET NULL")
             # Migration: add source_qmap (Q-number → source UUID mapping) to messages
-            cur.execute("ALTER TABLE kia_messages ADD COLUMN IF NOT EXISTS source_qmap JSONB")
+            cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS source_qmap JSONB")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_user_settings (
+                CREATE TABLE IF NOT EXISTS aia_user_settings (
                     id                   SERIAL PRIMARY KEY,
                     module_id            INTEGER NOT NULL
-                                           REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                           REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id              INTEGER NOT NULL,
                     chat_lang            TEXT NOT NULL DEFAULT 'de',
                     studio_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
-                    sprachtraining_active BOOLEAN NOT NULL DEFAULT FALSE,
+                    language_training_active BOOLEAN NOT NULL DEFAULT FALSE,
                     UNIQUE (module_id, user_id)
                 )
             """)
-            cur.execute("ALTER TABLE kia_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
+            cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_notes (
+                CREATE TABLE IF NOT EXISTS aia_notes (
                     id         SERIAL PRIMARY KEY,
                     module_id  INTEGER NOT NULL
-                                 REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                 REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id    INTEGER NOT NULL,
                     content    TEXT NOT NULL,
                     created_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS title TEXT")
-            cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS source_uuids JSONB")
-            cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS source_pages JSONB")
-            cur.execute("ALTER TABLE kia_notes ADD COLUMN IF NOT EXISTS popup_selection JSONB")
+            cur.execute("ALTER TABLE aia_notes ADD COLUMN IF NOT EXISTS title TEXT")
+            cur.execute("ALTER TABLE aia_notes ADD COLUMN IF NOT EXISTS source_uuids JSONB")
+            cur.execute("ALTER TABLE aia_notes ADD COLUMN IF NOT EXISTS source_pages JSONB")
+            cur.execute("ALTER TABLE aia_notes ADD COLUMN IF NOT EXISTS popup_selection JSONB")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_glossary_entries (
+                CREATE TABLE IF NOT EXISTS aia_glossary_entries (
                     id               SERIAL PRIMARY KEY,
                     source_id        INTEGER NOT NULL
-                                       REFERENCES kia_sources(id) ON DELETE CASCADE,
+                                       REFERENCES aia_sources(id) ON DELETE CASCADE,
                     term_de          TEXT NOT NULL,
                     term_en          TEXT NOT NULL,
                     definition       TEXT NOT NULL,
@@ -422,21 +459,21 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_glossary_source
-                ON kia_glossary_entries(source_id)
+                ON aia_glossary_entries(source_id)
             """)
             # Migration: add English columns to glossary
-            cur.execute("ALTER TABLE kia_glossary_entries ADD COLUMN IF NOT EXISTS definition_en TEXT")
-            cur.execute("ALTER TABLE kia_glossary_entries ADD COLUMN IF NOT EXISTS example_sentence_en TEXT")
+            cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS definition_en TEXT")
+            cur.execute("ALTER TABLE aia_glossary_entries ADD COLUMN IF NOT EXISTS example_sentence_en TEXT")
             # ─── Exercise Sets ──────────────────────────────────
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_exercise_sets (
+                CREATE TABLE IF NOT EXISTS aia_exercise_sets (
                     id          SERIAL PRIMARY KEY,
                     module_id   INTEGER NOT NULL
-                                  REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                  REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id     INTEGER NOT NULL,
                     tool        TEXT NOT NULL,
                     title       TEXT NOT NULL,
-                    mode        TEXT NOT NULL DEFAULT 'glossar',
+                    mode        TEXT NOT NULL DEFAULT 'glossary',
                     source_uuid TEXT,
                     card_count  INTEGER NOT NULL DEFAULT 0,
                     status      TEXT NOT NULL DEFAULT 'generating',
@@ -444,10 +481,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_exercise_items (
+                CREATE TABLE IF NOT EXISTS aia_exercise_items (
                     id          SERIAL PRIMARY KEY,
                     set_id      INTEGER NOT NULL
-                                  REFERENCES kia_exercise_sets(id) ON DELETE CASCADE,
+                                  REFERENCES aia_exercise_sets(id) ON DELETE CASCADE,
                     position    INTEGER NOT NULL DEFAULT 0,
                     front       TEXT NOT NULL,
                     back        TEXT NOT NULL,
@@ -461,14 +498,14 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             # Migration: add sources JSONB to exercise_items
-            cur.execute("ALTER TABLE kia_exercise_items ADD COLUMN IF NOT EXISTS sources JSONB")
+            cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS sources JSONB")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_exercise_progress (
+                CREATE TABLE IF NOT EXISTS aia_exercise_progress (
                     id          SERIAL PRIMARY KEY,
                     set_id      INTEGER NOT NULL
-                                  REFERENCES kia_exercise_sets(id) ON DELETE CASCADE,
+                                  REFERENCES aia_exercise_sets(id) ON DELETE CASCADE,
                     item_id     INTEGER NOT NULL
-                                  REFERENCES kia_exercise_items(id) ON DELETE CASCADE,
+                                  REFERENCES aia_exercise_items(id) ON DELETE CASCADE,
                     user_id     INTEGER NOT NULL,
                     correct     BOOLEAN NOT NULL,
                     answered_at TIMESTAMP NOT NULL DEFAULT NOW()
@@ -476,10 +513,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             # ─── Streak Tracking ────────────────────────────────
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_streaks (
+                CREATE TABLE IF NOT EXISTS aia_streaks (
                     id              SERIAL PRIMARY KEY,
                     module_id       INTEGER NOT NULL
-                                      REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                      REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id         INTEGER NOT NULL,
                     current_streak  INTEGER NOT NULL DEFAULT 0,
                     max_streak      INTEGER NOT NULL DEFAULT 0,
@@ -489,34 +526,34 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_exercise_sets_module_user
-                ON kia_exercise_sets(module_id, user_id)
+                ON aia_exercise_sets(module_id, user_id)
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_exercise_items_set
-                ON kia_exercise_items(set_id)
+                ON aia_exercise_items(set_id)
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_exercise_progress_set_user
-                ON kia_exercise_progress(set_id, user_id)
+                ON aia_exercise_progress(set_id, user_id)
             """)
             # Migration: add status column if table existed before
-            cur.execute("ALTER TABLE kia_exercise_sets ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ready'")
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ready'")
             # Migration: add start_time for audio/video exercise items
-            cur.execute("ALTER TABLE kia_exercise_items ADD COLUMN IF NOT EXISTS start_time REAL")
+            cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS start_time REAL")
             # Migration: add back_en for bilingual flashcards
-            cur.execute("ALTER TABLE kia_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
-            # Migration: add extras JSONB for Lernkarten structured fields (word_parts etc.)
-            cur.execute("ALTER TABLE kia_exercise_items ADD COLUMN IF NOT EXISTS extras JSONB")
+            cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS back_en TEXT")
+            # Migration: add extras JSONB for Flashcards structured fields (word_parts etc.)
+            cur.execute("ALTER TABLE aia_exercise_items ADD COLUMN IF NOT EXISTS extras JSONB")
             # Migration: last_run_start for tracking exercise run boundaries
-            cur.execute("ALTER TABLE kia_exercise_sets ADD COLUMN IF NOT EXISTS last_run_start TIMESTAMP")
+            cur.execute("ALTER TABLE aia_exercise_sets ADD COLUMN IF NOT EXISTS last_run_start TIMESTAMP")
             # Migration: drop legacy mastery columns if they exist
             for col in ("correct_streak", "total_attempts", "total_correct"):
-                cur.execute(f"ALTER TABLE kia_exercise_items DROP COLUMN IF EXISTS {col}")
+                cur.execute(f"ALTER TABLE aia_exercise_items DROP COLUMN IF EXISTS {col}")
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_schedule_entries (
+                CREATE TABLE IF NOT EXISTS aia_schedule_entries (
                     id           SERIAL PRIMARY KEY,
                     module_id    INTEGER NOT NULL
-                                   REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                   REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id      INTEGER NOT NULL,
                     type         TEXT NOT NULL CHECK (type IN ('deadline', 'termin')),
                     title        TEXT NOT NULL,
@@ -532,36 +569,36 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
-            cur.execute("ALTER TABLE kia_schedule_entries ADD COLUMN IF NOT EXISTS source_refs JSONB NOT NULL DEFAULT '[]'::jsonb")
+            cur.execute("ALTER TABLE aia_schedule_entries ADD COLUMN IF NOT EXISTS source_refs JSONB NOT NULL DEFAULT '[]'::jsonb")
             # Drop legacy columns (were single-position; replaced by source_refs array)
-            cur.execute("ALTER TABLE kia_schedule_entries DROP COLUMN IF EXISTS source_ids")
-            cur.execute("ALTER TABLE kia_schedule_entries DROP COLUMN IF EXISTS raw_quote")
-            cur.execute("ALTER TABLE kia_schedule_entries DROP COLUMN IF EXISTS page_number")
-            cur.execute("ALTER TABLE kia_schedule_entries DROP COLUMN IF EXISTS start_time")
+            cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS source_ids")
+            cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS raw_quote")
+            cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS page_number")
+            cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS start_time")
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_module_user
-                ON kia_schedule_entries(module_id, user_id)
+                ON aia_schedule_entries(module_id, user_id)
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_due_date
-                ON kia_schedule_entries(module_id, user_id, due_date)
+                ON aia_schedule_entries(module_id, user_id, due_date)
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_schedule_processed_sources (
+                CREATE TABLE IF NOT EXISTS aia_schedule_processed_sources (
                     module_id     INTEGER NOT NULL
-                                    REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                    REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id       INTEGER NOT NULL,
                     source_id     INTEGER NOT NULL
-                                    REFERENCES kia_sources(id) ON DELETE CASCADE,
+                                    REFERENCES aia_sources(id) ON DELETE CASCADE,
                     processed_at  TIMESTAMP NOT NULL DEFAULT NOW(),
                     PRIMARY KEY (module_id, user_id, source_id)
                 )
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_schedule_jobs (
+                CREATE TABLE IF NOT EXISTS aia_schedule_jobs (
                     id            SERIAL PRIMARY KEY,
                     module_id     INTEGER NOT NULL
-                                    REFERENCES kia_modules(id) ON DELETE CASCADE,
+                                    REFERENCES aia_modules(id) ON DELETE CASCADE,
                     user_id       INTEGER NOT NULL,
                     source_uuids  JSONB NOT NULL DEFAULT '[]'::jsonb,
                     status        TEXT NOT NULL DEFAULT 'pending'
@@ -574,15 +611,15 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_jobs_module_user
-                ON kia_schedule_jobs(module_id, user_id)
+                ON aia_schedule_jobs(module_id, user_id)
             """)
 
             # ─── LLM Usage Log ────────────────────────────────────────────────
-            # Pro Request 1 Zeile: für Tagesalarm (Anomalie-Erkennung) und
-            # Admin-Sichtbarkeit. Token-Spalten sind nullable — Langfuse hat
-            # die exakte Wahrheit, hier reicht "best effort" aus response.usage.
+            # One row per request: for daily alerts (anomaly detection) and
+            # admin visibility. Token columns are nullable - Langfuse has
+            # the exact truth, here "best effort" from response.usage is enough.
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS kia_llm_usage_log (
+                CREATE TABLE IF NOT EXISTS aia_llm_usage_log (
                     id          BIGSERIAL PRIMARY KEY,
                     user_id     INTEGER NOT NULL,
                     ts          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -597,11 +634,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_llm_usage_log_user_ts
-                ON kia_llm_usage_log(user_id, ts DESC)
+                ON aia_llm_usage_log(user_id, ts DESC)
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_llm_usage_log_ts
-                ON kia_llm_usage_log(ts DESC)
+                ON aia_llm_usage_log(ts DESC)
             """)
         conn.commit()
 
@@ -609,12 +646,12 @@ def init_db(admin_email: Optional[str] = None) -> None:
     from loguru import logger as _log
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM kia_chunks WHERE search_vector IS NULL")
+            cur.execute("SELECT COUNT(*) FROM aia_chunks WHERE search_vector IS NULL")
             null_count = cur.fetchone()[0]
             if null_count > 0:
                 _log.info("Backfilling search_vector for {} chunks...", null_count)
                 cur.execute("""
-                    UPDATE kia_chunks
+                    UPDATE aia_chunks
                     SET search_vector = to_tsvector('german', content)
                     WHERE search_vector IS NULL
                 """)
@@ -622,9 +659,9 @@ def init_db(admin_email: Optional[str] = None) -> None:
             else:
                 _log.info("search_vector: all chunks already populated.")
 
-            # Provider-Radio-Groups: genau ein Provider pro Gruppe darf aktiv sein.
-            # - Embedding: unterschiedliche Modelle haben unterschiedliche Vektor-Dimensionen.
-            # - LLM: System-weite Auswahl, Provider-Selection seit 2026-04-25 ueber DB statt Env.
+            # Provider radio groups: exactly one provider per group may be active.
+            # - Embedding: different models have different vector dimensions.
+            # - LLM: system-wide selection, provider selection via DB instead of env since 2026-04-25.
             _enforce_radio_group(
                 cur, _log,
                 keys=("kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled"),
@@ -638,8 +675,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 label="LLM",
             )
 
-            # Runtime-tunable Modellnamen: beim ersten Start mit Defaults seeden.
-            # Bestehende Werte werden NIE ueberschrieben — Admin-Edits bleiben erhalten.
+            # Runtime-tunable model names: seed with defaults on first start.
+            # Existing values are NEVER overwritten - admin edits are preserved.
             from src.services.runtime_models import MODEL_DEFAULTS
             for key, default in MODEL_DEFAULTS.items():
                 cur.execute("""
@@ -667,7 +704,7 @@ def _enforce_radio_group(cur, _log, *, keys: tuple[str, ...], default: str, labe
         _log.info("{} radio group: no provider active — seeded default {}", label, default)
         return
 
-    # Mehrere aktiv: behalte den hoechstpriorisierten (Reihenfolge in keys)
+    # Multiple active: keep the highest-priority one (order in keys)
     winner = next(k for k in keys if k in active)
     for k in active:
         if k == winner:

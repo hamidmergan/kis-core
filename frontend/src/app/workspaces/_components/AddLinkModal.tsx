@@ -20,7 +20,7 @@ export default function AddLinkModal({ moduleUuid, onClose, onCreated }: AddLink
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${moduleUuid}/access-links`, {
+      const res = await fetch(`/api/ai-assistant/modules/${moduleUuid}/access-links`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

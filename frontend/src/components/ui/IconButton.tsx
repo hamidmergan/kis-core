@@ -15,7 +15,7 @@ const IconButton = forwardRef<
     <button
       ref={ref}
       type="button"
-      className={`${sizeClass} flex items-center justify-center rounded-full text-[var(--muted)] hover:text-primary hover:outline-2 hover:outline-primary transition flex-shrink-0 ${className}`}
+      className={`${sizeClass} flex items-center justify-center rounded-full btn-icon flex-shrink-0 ${className}`}
       style={{ backgroundColor: "var(--surface-dim)", ...style }}
       {...props}
     >

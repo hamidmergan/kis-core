@@ -1,12 +1,12 @@
 import { BookOpenText, Exam, TextAa } from "@phosphor-icons/react";
-import type { SprachtrainingView } from "../../_types";
+import type { LanguageTrainingView } from "../../_types";
 
-export function SprachtrainingOverview({
+export function LanguageTrainingOverview({
   activeSourceCount, glossaryCount, onNavigate,
 }: {
   activeSourceCount: number;
   glossaryCount: number;
-  onNavigate: (view: SprachtrainingView) => void;
+  onNavigate: (view: LanguageTrainingView) => void;
 }) {
   const noSources = activeSourceCount === 0;
 
@@ -19,10 +19,10 @@ export function SprachtrainingOverview({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-        {/* Glossar counter */}
+        {/* Glossary counter */}
         {glossaryCount > 0 && (
           <span className="text-xs font-medium px-1" style={{ color: "var(--muted)" }}>
-            {glossaryCount}/150 Glossar
+            {glossaryCount}/150 Glossary
           </span>
         )}
 

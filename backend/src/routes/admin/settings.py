@@ -1,4 +1,4 @@
-"""Settings-Endpoints: Provider-Ping, Settings-Lesen, Settings-Update."""
+"""Settings endpoints: provider ping, read settings, update settings."""
 
 import asyncio
 
@@ -24,7 +24,7 @@ router = APIRouter(tags=["admin"])
 @router.get("/settings/ping")
 async def ping_service(service: str, _admin=Depends(get_admin_user)):
     """On-demand reachability probe. Called from the UI when the user clicks
-    a 'Testen' button, so the main settings load stays instant.
+    a 'Testen' (Test) button, so the main settings load stays instant.
     """
     from src.dependencies import get_settings as _get_settings
     app_settings = _get_settings()
@@ -86,7 +86,7 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_enabled": _enabled("mylab_enabled"),
         "mylab_configured": bool(app_settings.mylab_tts_base_url),
         "mylab_available": mylab_tts_available,
-        # ── Transkription ──
+        # ── Transcription ──
         "kisski_whisper_enabled": _enabled("kisski_whisper_enabled"),
         "kisski_whisper_configured": kisski_configured,
         "mylab_whisper_enabled": _enabled("mylab_whisper_enabled"),
@@ -100,16 +100,16 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_embedding_available": mylab_base_available,
         "ollama_embedding_enabled": _enabled("ollama_embedding_enabled", "false"),
         "ollama_embedding_configured": ollama_configured,
-        # ── Bild-Generierung ──
+        # ── Image generation ──
         "kisski_image_gen_enabled": _enabled("kisski_image_gen_enabled"),
         "kisski_image_gen_configured": kisski_configured,
         "mylab_image_gen_enabled": _enabled("mylab_image_gen_enabled"),
         "mylab_image_gen_configured": mylab_base_configured,
         "mylab_image_gen_available": mylab_base_available,
-        # ── Bild-Analyse ── (KISSKI only, keine myLab-Alternative verfuegbar)
+        # ── Image analysis ── (KISSKI only, no myLab alternative available)
         "kisski_image_analyze_enabled": _enabled("kisski_image_analyze_enabled"),
         "kisski_image_analyze_configured": kisski_configured,
-        # ── Bild-Bearbeitung ──
+        # ── Image editing ──
         "kisski_image_edit_enabled": _enabled("kisski_image_edit_enabled"),
         "kisski_image_edit_configured": kisski_configured,
         "mylab_image_edit_enabled": _enabled("mylab_image_edit_enabled"),
@@ -129,20 +129,20 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_llm_available": mylab_base_available,
         "ollama_llm_enabled": _enabled("ollama_llm_enabled", "false"),
         "ollama_llm_configured": ollama_configured,
-        # ── Transkript-Übersetzung (EN) ──
+        # ── Transcript translation (EN) ──
         "transcript_translation_provider": db.get_setting("transcript_translation_provider", "llm"),
-        # ── Provider-Modellnamen (im Admin-Panel editierbar) ──
+        # ── Provider model names (editable in the admin panel) ──
         "models": _current_models(),
     }
 
 
 def _current_models() -> dict[str, str]:
-    """Aktuelle Modellnamen pro Provider/Feature aus DB lesen."""
+    """Read current model names per provider/feature from DB."""
     from src.services.runtime_models import get_model, MODEL_KEYS
     return {key: get_model(key) for key in MODEL_KEYS}
 
 
-# Simple bool-Setting-Keys: werden alle nach dem gleichen Schema gesetzt
+# Simple bool setting keys: all set with the same schema
 _SIMPLE_BOOL_FIELDS = (
     "whitelist_enabled",
     "elevenlabs_enabled", "fish_speech_enabled", "kokoro_enabled", "mylab_enabled",
@@ -153,9 +153,9 @@ _SIMPLE_BOOL_FIELDS = (
     "kisski_ocr_enabled", "mylab_ocr_enabled",
 )
 
-# Radio-Felder: genau ein Provider darf gleichzeitig aktiv sein.
-# - Embedding: Vektor-Dimension waere bei parallelem Betrieb inkonsistent.
-# - LLM: System-weite Auswahl, kein Fallback (siehe _resolve_llm_provider).
+# Radio fields: exactly one provider may be active at a time.
+# - Embedding: vector dimension would be inconsistent under parallel operation.
+# - LLM: system-wide selection, no fallback (see _resolve_llm_provider).
 _EMBEDDING_KEYS = ("kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled")
 _LLM_KEYS = ("kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled")
 
@@ -204,17 +204,17 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
     if _apply_radio_group(body_dict, _EMBEDDING_KEYS, "Embedding"):
         invalidate_fingerprint_cache()
 
-    # LLM Chat — exactly one must be enabled at any time.
-    # Provider-Auswahl wird nicht mehr ueber Env-Vars gesteuert (siehe _resolve_llm_provider).
+    # LLM Chat - exactly one must be enabled at any time.
+    # Provider selection is no longer controlled via env vars (see _resolve_llm_provider).
     _apply_radio_group(body_dict, _LLM_KEYS, "LLM")
 
-    # Transkript-Übersetzung: only "deepl" oder "llm"
+    # Transcript translation: only "deepl" or "llm"
     if body.transcript_translation_provider is not None:
         if body.transcript_translation_provider not in ("deepl", "llm"):
             raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
         db.set_setting("transcript_translation_provider", body.transcript_translation_provider)
 
-    # Provider-Modellnamen
+    # Provider model names
     if body.models:
         from src.services.runtime_models import MODEL_KEYS
         unknown = [k for k in body.models if k not in MODEL_KEYS]
@@ -225,7 +225,7 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
             if not stripped:
                 raise HTTPException(status_code=400, detail=f"Modellname fuer {key} darf nicht leer sein")
             db.set_setting(key, stripped)
-        # Modell-Wechsel beim Embedding kann Reindex erfordern
+        # Model change for embedding may require reindex
         if any(k in MODEL_KEYS and "embedding" in k for k in body.models):
             invalidate_fingerprint_cache()
 

@@ -1,30 +1,30 @@
-"""Runtime-tunable model names — DB-backed, admin-panel editable.
+"""Runtime-tunable model names - DB-backed, admin-panel editable.
 
-Provider-Modellnamen (LLM, Embedding, OCR, Image, TTS) leben hier statt in
-Settings/.env, damit der Admin sie ueber das Admin-Panel wechseln kann ohne
-Server-Neustart oder .env-Editing.
+Provider model names (LLM, Embedding, OCR, Image, TTS) live here instead of in
+Settings/.env, so the admin can switch them via the admin panel without a
+server restart or .env editing.
 
-Defaults werden beim Backend-Start in die DB geseedet (siehe schema.py).
+Defaults are seeded into the DB on backend start (see schema.py).
 """
 
 from src import database as db
 
 
-# Single source of truth for default model names. Beim ersten Backend-Start
-# werden diese Werte in die settings-Tabelle geschrieben (siehe schema.py).
+# Single source of truth for default model names. On the first backend start
+# these values are written into the settings table (see schema.py).
 MODEL_DEFAULTS: dict[str, str] = {
     # LLM Chat
     "kisski_llm_model": "mistral-large-3-675b-instruct-2512",
     "mylab_llm_model": "chat-default",
     "ollama_llm_model": "qwen3:8b",
-    # Embeddings (KI-Assistent)
+    # Embeddings (AI assistant)
     "kisski_embedding_model": "e5-mistral-7b-instruct",
     "mylab_embedding_model": "qwen3-embedding-4b",
     "ollama_embedding_model": "nomic-embed-text",
     # OCR
     "kisski_ocr_model": "qwen3.5-122b-a10b",
     "mylab_ocr_model": "qwen3-vl-8b",
-    # Bild-Generierung / -Bearbeitung (myLab only)
+    # Image generation / editing (myLab only)
     "mylab_image_gen_model": "flux.1-dev",
     "mylab_image_edit_model": "flux.1-kontext",
     # TTS

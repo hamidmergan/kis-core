@@ -1,10 +1,10 @@
-"""KI-Assistent Celery tasks — schedule extraction (Regex + Batch-Classify pipeline).
+"""AI assistant Celery tasks: schedule extraction (regex + batch-classify pipeline).
 
 Pipeline:
-  1) Regex findet 100% der Datumskandidaten pro Source (_candidates)
-  2) Ein Batch-LLM-Call klassifiziert alle (keep/footer/historical/type/title) (_classify)
-  3) Same-date Harmonisierung richtet Titel an bestehende Entries aus (_harmonize)
-  4) Merge per fuzzy-title + date (_titles) in bestehende Einträge bzw. neu anlegen
+  1) Regex finds 100% of date candidates per source (_candidates)
+  2) A single batch LLM call classifies them all (keep/footer/historical/type/title) (_classify)
+  3) Same-date harmonization aligns titles with existing entries (_harmonize)
+  4) Merge by fuzzy-title + date (_titles) into existing entries or create new ones
 """
 
 from collections import defaultdict
@@ -15,21 +15,21 @@ from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
-from src.features.ki_assistent.tasks._helpers import _get_llm_client
+from src.features.ai_assistant.tasks._helpers import _get_llm_client
 
-from src.features.ki_assistent.tasks.studio.schedule._candidates import (
+from src.features.ai_assistant.tasks.studio.schedule._candidates import (
     _build_candidates_for_source,
 )
-from src.features.ki_assistent.tasks.studio.schedule._classify import _classify_candidates
-from src.features.ki_assistent.tasks.studio.schedule._harmonize import (
+from src.features.ai_assistant.tasks.studio.schedule._classify import _classify_candidates
+from src.features.ai_assistant.tasks.studio.schedule._harmonize import (
     _harmonize_same_date_titles,
 )
-from src.features.ki_assistent.tasks.studio.schedule._parse import (
+from src.features.ai_assistant.tasks.studio.schedule._parse import (
     _parse_date,
     _parse_time,
     _resolve_current_year,
 )
-from src.features.ki_assistent.tasks.studio.schedule._titles import _fuzzy_same
+from src.features.ai_assistant.tasks.studio.schedule._titles import _fuzzy_same
 
 
 @celery_app.task(bind=True, name="kia.generate_schedule", queue="kia",
@@ -40,7 +40,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
     """Regex-first pipeline:
       1) find all date candidates per source via regex (100% recall)
       2) classify all candidates in ONE LLM call (is_event? footer? type? title?)
-      3) merge into existing entries (fuzzy-title + same date → append source_ref)
+      3) merge into existing entries (fuzzy-title + same date, append source_ref)
     """
     try:
         db.update_schedule_job(job_id, "running")
@@ -48,7 +48,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
 
         sources: list[dict] = []
         for suuid in source_uuids:
-            src = db.get_kia_source(suuid)
+            src = db.get_aia_source(suuid)
             if src and src["module_id"] == module_id:
                 sources.append(src)
 
@@ -64,7 +64,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
         all_candidates: list[dict] = []
         for src in pending:
             cands = _build_candidates_for_source(src)
-            logger.info("Schedule job {}: source '{}' → {} date candidates",
+            logger.info("Schedule job {}: source '{}' -> {} date candidates",
                         job_id, src.get("filename", src["id"]), len(cands))
             all_candidates.extend(cands)
 
@@ -89,7 +89,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
         # A date that appears 4+ times in the same single source is almost certainly
         # a slide-deck footer (date printed on every slide), not a real event. Force
         # drop ALL candidates sharing (source_uuid, date). We trust this over the LLM
-        # because the LLM only sees ±250 chars of context per candidate and can't see
+        # because the LLM only sees +/-250 chars of context per candidate and can't see
         # how often the same date repeats across the whole document.
         _SLIDE_FOOTER_THRESHOLD = 4
         grp: dict[tuple[str, str], list[int]] = defaultdict(list)
@@ -103,7 +103,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
         for (suuid, date_key), indices in grp.items():
             if len(indices) >= _SLIDE_FOOTER_THRESHOLD:
                 logger.info(
-                    "Schedule job {}: slide-footer override — date {} repeats {}x in source {}, dropping all",
+                    "Schedule job {}: slide-footer override - date {} repeats {}x in source {}, dropping all",
                     job_id, date_key, len(indices), suuid,
                 )
                 for idx in indices:
@@ -136,8 +136,8 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
                 )
                 continue
 
-            # Resolve the date: explicit ISO → use it; partial (MM-DD) → current
-            # year; TBD ('nach Vereinbarung') → no date at all.
+            # Resolve the date: explicit ISO -> use it; partial (MM-DD) -> current
+            # year; TBD ('nach Vereinbarung') -> no date at all.
             if cand.get("is_tbd"):
                 due_date_obj = None
             elif cand["date_iso"]:
@@ -155,8 +155,8 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
                 "source_uuid": cand["source_uuid"],
                 "page_number": cand["page_number"],
                 "start_time": cand["start_time"],
-                # raw_quote is the short ±80-char snippet used by the frontend
-                # highlight search; context (±450) was only for the classifier.
+                # raw_quote is the short +/-80-char snippet used by the frontend
+                # highlight search; context (+/-450) was only for the classifier.
                 "raw_quote": cand.get("raw_quote") or cand.get("context"),
             }
 

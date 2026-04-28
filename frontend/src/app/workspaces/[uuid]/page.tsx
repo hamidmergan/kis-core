@@ -11,16 +11,16 @@ import type {
   ModuleDetail,
   ViewerState,
   StudioView,
-  SprachtrainingView,
+  LanguageTrainingView,
 } from "./_types";
 import { _isMediaFile } from "./_utils";
 import { usePanelLayout } from "./_hooks/usePanelLayout";
 import { useSources } from "./_hooks/useSources";
 import { useMindmap } from "./_hooks/useMindmap";
-import { useDatentabelle } from "./_hooks/useDatentabelle";
+import { useDataTable } from "./_hooks/useDataTable";
 import { useNotes } from "./_hooks/useNotes";
 import { useExercises } from "./_hooks/useExercises";
-import { useSprachtraining } from "./_hooks/useSprachtraining";
+import { useLanguageTraining } from "./_hooks/useLanguageTraining";
 import { useChat } from "./_hooks/useChat";
 import { useStats } from "./_hooks/useStats";
 import { useViewerActions } from "./_hooks/useViewerActions";
@@ -30,19 +30,19 @@ import { useStudioNavigation } from "./_hooks/useStudioNavigation";
 // Lightweight components needed on initial render
 import { SourcesPanel } from "./_components/sources/SourcesPanel";
 import { ChatPanel } from "./_components/chat/ChatPanel";
-import { CreateSetModal } from "./_components/sprachtraining/CreateSetModal";
-import { GlossarView } from "./_components/sprachtraining/GlossarView";
+import { CreateSetModal } from "./_components/language_training/CreateSetModal";
+import { GlossaryView } from "./_components/language_training/GlossaryView";
 import { WorkspaceTopbar } from "./_components/layout/WorkspaceTopbar";
 import { WorkspacePanelsLayout } from "./_components/layout/WorkspacePanelsLayout";
 import { StudioPanelContent } from "./_components/studio/StudioPanelContent";
-import { SprachtrainingContent } from "./_components/sprachtraining/SprachtrainingContent";
+import { LanguageTrainingContent } from "./_components/language_training/LanguageTrainingContent";
 
 // Heavy / conditionally-rendered components: loaded on demand to keep initial bundle small
 const dynamicLoader = () => <div className="flex-1 flex items-center justify-center p-6"><Spinner size="md" /></div>;
 
 const PdfViewer = dynamic(() => import("./_components/viewer/PdfViewer").then((m) => ({ default: m.PdfViewer })), { loading: dynamicLoader, ssr: false });
 const MediaPlayer = dynamic(() => import("./_components/viewer/MediaPlayer").then((m) => ({ default: m.MediaPlayer })), { loading: dynamicLoader, ssr: false });
-const NotizenStudio = dynamic(() => import("./_components/studio/NotizenStudio").then((m) => ({ default: m.NotizenStudio })), { loading: dynamicLoader, ssr: false });
+const NotesStudio = dynamic(() => import("./_components/studio/NotesStudio").then((m) => ({ default: m.NotesStudio })), { loading: dynamicLoader, ssr: false });
 
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -55,10 +55,10 @@ export default function KiTutorModulePage() {
   const initialTab = searchParams.get("tab");
 
   const [moduleDetail, setModuleDetail] = useState<ModuleDetail | null>(null);
-  // auth + initialized kommen aus useWorkspaceInit (nach allen Source-/Chat-Hooks)
+  // auth + initialized come from useWorkspaceInit (after all source/chat hooks)
 
-  // Layout state (panels, widths, mobile detection, drag) — siehe usePanelLayout
-  // Wird nach viewerSource definiert, weil der Hook viewerSource als Input braucht.
+  // Layout state (panels, widths, mobile detection, drag): see usePanelLayout
+  // Defined after viewerSource because the hook needs viewerSource as input.
 
   const {
     sources, setSources,
@@ -107,8 +107,8 @@ export default function KiTutorModulePage() {
 
   const [chatLang, setChatLang] = useState<"de" | "en">("de");
   const [studioEnabled, setStudioEnabled] = useState(true);
-  const [sprachtrainingActive, setSprachtrainingActive] = useState(false);
-  // popupActions aus useChat
+  const [language_trainingActive, setLanguageTrainingActive] = useState(false);
+  // popupActions from useChat
 
   const [studioView, setStudioView] = useState<StudioView>("overview");
   const mm = useMindmap({ uuid, selectedSourceIds });
@@ -117,18 +117,18 @@ export default function KiTutorModulePage() {
   const selectMindmap = mm.select;
   const deleteMindmap = mm.remove;
 
-  const dt = useDatentabelle({ uuid, selectedSourceIds });
-  const { datentabelle, datentabelleSources, datentabelleLoading, datentabelleList } = dt;
-  const generateDatentabelle = dt.generate;
-  const selectDatentabelle = dt.select;
-  const deleteDatentabelle = dt.remove;
+  const dt = useDataTable({ uuid, selectedSourceIds });
+  const { data_table, data_tableSources, data_tableLoading, data_tableList } = dt;
+  const generateDataTable = dt.generate;
+  const selectDataTable = dt.select;
+  const deleteDataTable = dt.remove;
   const { notes, setNotes, pendingTitleIds, addNote, deleteNote, updateNoteTitle } = useNotes({ uuid });
 
-  // ─── Sprachtraining State ─────────────────────────────────────────────────
-  const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossar" | "notizen" | "statistik" | "schedule"; nonce: number } | null>(null);
-  // Sprachtraining state — siehe useSprachtraining (init nach selectedSourceIds)
+  // ─── Language training state ─────────────────────────────────────────────
+  const [studioTabRequest, setStudioTabRequest] = useState<{ tab: "tools" | "glossary" | "notes" | "statistik" | "schedule"; nonce: number } | null>(null);
+  // Language training state: see useLanguageTraining (init after selectedSourceIds)
 
-  // ─── Exercise Sets State ─────────────────────────────────────────────────
+  // ─── Exercise sets state ─────────────────────────────────────────────────
   const ex = useExercises({ uuid });
   const {
     exerciseSets, activeSet, setActiveSet, setCreating, setSetCreating,
@@ -137,9 +137,9 @@ export default function KiTutorModulePage() {
     downloadExerciseSet, submitSingleAnswer,
   } = ex;
   // streakInfo, pageStats, statsVersion aus useStats (init nach initialized-Flag)
-  // glossaryCount aus useSprachtraining
+  // glossaryCount aus useLanguageTraining
 
-  // ─── Init (siehe useWorkspaceInit) ────────────────────────────────────────
+  // ─── Init (see useWorkspaceInit) ─────────────────────────────────────────
   const { auth, initialized } = useWorkspaceInit({
     uuid,
     setSources,
@@ -150,7 +150,7 @@ export default function KiTutorModulePage() {
     onSettingsLoaded: (s) => {
       setChatLang(s.chat_lang);
       setStudioEnabled(s.studio_enabled);
-      setSprachtrainingActive(s.sprachtraining_active);
+      setLanguageTrainingActive(s.language_training_active);
     },
   });
 
@@ -180,15 +180,15 @@ export default function KiTutorModulePage() {
   // Persist settings to DB (only after init to avoid overwriting with defaults)
   useEffect(() => {
     if (!initialized) return;
-    fetch(`/api/ki-assistent/modules/${uuid}/settings`, {
+    fetch(`/api/ai-assistant/modules/${uuid}/settings`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, sprachtraining_active: sprachtrainingActive }),
+      body: JSON.stringify({ chat_lang: chatLang, studio_enabled: studioEnabled, language_training_active: language_trainingActive }),
     }).catch(() => { /* ignore */ });
-  }, [chatLang, studioEnabled, sprachtrainingActive, initialized, uuid]);
+  }, [chatLang, studioEnabled, language_trainingActive, initialized, uuid]);
 
-  // ─── Viewer + Chat-Input Actions (siehe useViewerActions) ────────────────
+  // ─── Viewer + chat input actions (see useViewerActions) ─────────────────
   const {
     openViewer: handleOpenViewer,
     closeViewer: handleCloseViewer,
@@ -204,48 +204,48 @@ export default function KiTutorModulePage() {
     chatSetInputRef, chatTextareaRef, sendChatMessage,
   });
 
-  // Wrapper: Glossary-Extraktion mit UI-Navigation zur Glossar-Tab
+  // Wrapper: glossary extraction with UI navigation to the glossary tab
   async function handleAddToGlossary(text: string, sourceUuid: string, page: number) {
     setSprachView("overview");
-    setStudioTabRequest({ tab: "glossar", nonce: Date.now() });
+    setStudioTabRequest({ tab: "glossary", nonce: Date.now() });
     if (isMobile) setActiveTab("studio");
     else setPanels((prev) => ({ ...prev, studio: true }));
     await extractGlossary(text, sourceUuid, page);
   }
 
-  // ─── Sprachtraining Functions (aus useSprachtraining) ───────────────────
-  const sprachActiveIds = selectedSourceIds.slice(0, 3);
-  const spr = useSprachtraining({
+  // ─── Language training functions (from useLanguageTraining) ──────────────
+  const langTrainingActiveIds = selectedSourceIds.slice(0, 3);
+  const spr = useLanguageTraining({
     uuid,
-    sprachActiveIds,
+    langTrainingActiveIds,
     onAfterCloze: () => loadExerciseSets("lueckentext"),
     onAfterVocabTest: () => loadExerciseSets("vokabeltest"),
   });
   const {
-    sprachView, setSprachView,
+    langTrainingView, setSprachView,
     glossary, glossaryLoading, glossaryCount, glossaryExtracting, glossaryFeedback,
     clozeExercises, clozeLoading,
     vocabQuestions, vocabLoading,
-    sprachSourceUuid, setSprachSourceUuid,
+    langTrainingSourceUuid, setSprachSourceUuid,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
     generateGlossary, generateCloze, generateVocabTest,
     loadGlossary, loadGlossaryCount,
     extractGlossary, dismissFeedback,
   } = spr;
 
-  // Studio-Navigation (siehe useStudioNavigation)
+  // Studio navigation (see useStudioNavigation)
   const {
     handleStudioSelect, handleNavigateToSet, handleSprachNavigate, refreshProgress,
     openMindmapInViewer, consumeMindmapViewerOpen,
-    openDatentabelleInViewer, consumeDatentabelleViewerOpen,
+    openDataTableInViewer, consumeDataTableViewerOpen,
   } = useStudioNavigation({
     studioView, setStudioView, setSprachView,
     loadExerciseSets, loadExerciseSet,
-    selectMindmap, selectDatentabelle,
+    selectMindmap, selectDataTable,
     loadStreak, bumpStats,
   });
 
-  // Build the sprachtraining content tree
+  // Build the language_training content tree
   // Helper: selected source for create-set modal
   const selectedSourceForSet = (() => {
     if (selectedSourceIds.length === 0) return null;
@@ -255,9 +255,9 @@ export default function KiTutorModulePage() {
 
   const isAdmin = auth?.is_admin ?? false;
 
-  const sprachtrainingContent = (
-    <SprachtrainingContent
-      sprachView={sprachView}
+  const language_trainingContent = (
+    <LanguageTrainingContent
+      langTrainingView={langTrainingView}
       setSprachView={setSprachView}
       glossary={glossary}
       clozeExercises={clozeExercises}
@@ -286,8 +286,8 @@ export default function KiTutorModulePage() {
     />
   );
 
-  const glossarContent = (
-    <GlossarView
+  const glossaryContent = (
+    <GlossaryView
       entries={glossary}
       loading={glossaryLoading}
       extracting={glossaryExtracting}
@@ -308,14 +308,14 @@ export default function KiTutorModulePage() {
       onDelete={deleteGlossaryEntry}
       onDeleteAll={deleteAllGlossaryEntries}
       stats={pageStats}
-      showTranslation={sprachtrainingActive}
+      showTranslation={language_trainingActive}
       feedback={glossaryFeedback}
       onDismissFeedback={dismissFeedback}
     />
   );
 
-  const notizenContent = (
-    <NotizenStudio
+  const notesContent = (
+    <NotesStudio
       notes={notes}
       onAdd={(content) => addNote(content, undefined, { autoTitle: false })}
       onDelete={deleteNote}
@@ -347,21 +347,21 @@ export default function KiTutorModulePage() {
   const openCount = [panels.quellen, panels.chat, panels.studio].filter(Boolean).length;
   const canDrag = openCount >= 2;
 
-  // Studio-Panel Content (Mobile + Desktop identisch, nur Panel-Kontext unterscheidet sich)
+  // Studio panel content (mobile + desktop identical, only the panel context differs)
   const renderStudioPanel = (onMinimize: () => void, hideHeader = false) => (
     <StudioPanelContent
       studioView={studioView}
       setStudioView={setStudioView}
-      sprachView={sprachView}
-      sprachtrainingActive={sprachtrainingActive}
+      langTrainingView={langTrainingView}
+      language_trainingActive={language_trainingActive}
       studioTabRequest={studioTabRequest}
-      sprachtrainingContent={sprachtrainingContent}
-      glossarContent={glossarContent}
-      notizenContent={notizenContent}
+      language_trainingContent={language_trainingContent}
+      glossaryContent={glossaryContent}
+      notesContent={notesContent}
       exercises={ex}
       notes={{ notes, addNote, deleteNote, updateNoteTitle, pendingTitleIds }}
       mindmap={mm}
-      datentabelle={dt}
+      data_table={dt}
       moduleUuid={uuid}
       statsVersion={statsVersion}
       sources={sources}
@@ -376,14 +376,14 @@ export default function KiTutorModulePage() {
       refreshProgress={refreshProgress}
       openMindmapInViewer={openMindmapInViewer}
       consumeMindmapViewerOpen={consumeMindmapViewerOpen}
-      openDatentabelleInViewer={openDatentabelleInViewer}
-      consumeDatentabelleViewerOpen={consumeDatentabelleViewerOpen}
+      openDataTableInViewer={openDataTableInViewer}
+      consumeDataTableViewerOpen={consumeDataTableViewerOpen}
       onMinimize={onMinimize}
       hideHeader={hideHeader}
     />
   );
 
-  // Quellen-Panel Content (Viewer oder Quellenliste) — Mobile + Desktop gemeinsam
+  // Sources panel content (viewer or source list): mobile + desktop shared
   const renderQuellenContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => {
     if (viewerSource) {
       return _isMediaFile(viewerSource.filename) ? (
@@ -412,7 +412,7 @@ export default function KiTutorModulePage() {
     );
   };
 
-  // Chat-Panel Content — Mobile + Desktop gemeinsam
+  // Chat panel content: mobile + desktop shared
   const renderChatContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => (
     <ChatPanel
       messages={messages}
@@ -425,7 +425,7 @@ export default function KiTutorModulePage() {
       moduleReady={moduleDetail?.status === "ready"}
       onClear={() => {
         const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
-        fetch(`/api/ki-assistent/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" });
+        fetch(`/api/ai-assistant/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" });
         setMessages([]);
       }}
       externalTextareaRef={chatTextareaRef}
@@ -463,8 +463,8 @@ export default function KiTutorModulePage() {
           chatLang={chatLang}
           studioEnabled={studioEnabled}
           onToggleStudio={() => setStudioEnabled((v) => !v)}
-          sprachtrainingActive={sprachtrainingActive}
-          onToggleSprachtraining={() => setSprachtrainingActive((v) => !v)}
+          language_trainingActive={language_trainingActive}
+          onToggleLanguageTraining={() => setLanguageTrainingActive((v) => !v)}
           isLecturer={isLecturer}
           hideHeader={hideHeader}
           onToggleHideHeader={() => setHideHeader((v) => !v)}
@@ -504,7 +504,7 @@ export default function KiTutorModulePage() {
               // Studio tools stay in Studio
               setStudioView(createSetTool as StudioView);
             } else {
-              const setsView = `${createSetTool === "lernkarten" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-sets` as SprachtrainingView;
+              const setsView = `${createSetTool === "flashcards" ? "lk" : createSetTool === "lueckentext" ? "cl" : "vt"}-sets` as LanguageTrainingView;
               setSprachView(setsView);
             }
             await createExerciseSet(

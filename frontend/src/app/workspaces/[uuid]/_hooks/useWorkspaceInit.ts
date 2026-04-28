@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
 import type { AuthStatus } from "@/types";
 import type { ModuleDetail, Source } from "../_types";
-import type { Note } from "../_components/studio/NotizenStudio";
+import type { Note } from "../_components/studio/NotesStudio";
 
 interface WorkspaceSettings {
   chat_lang: "de" | "en";
   studio_enabled: boolean;
-  sprachtraining_active: boolean;
+  language_training_active: boolean;
 }
 
 interface UseWorkspaceInitOptions {
@@ -40,7 +40,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
         if (!authData.authenticated) { router.push("/"); return; }
         setAuth(authData);
 
-        const modRes = await fetch(`/api/ki-assistent/modules/${uuid}`, { credentials: "include" });
+        const modRes = await fetch(`/api/ai-assistant/modules/${uuid}`, { credentials: "include" });
         if (cancelled) return;
         if (!modRes.ok) { router.push("/workspaces"); return; }
         const mod: ModuleDetail = await modRes.json();
@@ -52,17 +52,17 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
 
         await loadMessages();
 
-        const settingsRes = await fetch(`/api/ki-assistent/modules/${uuid}/settings`, { credentials: "include" });
+        const settingsRes = await fetch(`/api/ai-assistant/modules/${uuid}/settings`, { credentials: "include" });
         if (!cancelled && settingsRes.ok) {
           const s: Partial<WorkspaceSettings> = await settingsRes.json();
           onSettingsLoaded({
             chat_lang: s.chat_lang ?? "de",
             studio_enabled: s.studio_enabled ?? true,
-            sprachtraining_active: s.sprachtraining_active ?? false,
+            language_training_active: s.language_training_active ?? false,
           });
         }
 
-        const notesRes = await fetch(`/api/ki-assistent/modules/${uuid}/notes`, { credentials: "include" });
+        const notesRes = await fetch(`/api/ai-assistant/modules/${uuid}/notes`, { credentials: "include" });
         if (!cancelled && notesRes.ok) setNotes(await notesRes.json());
 
         if (!cancelled) setInitialized(true);

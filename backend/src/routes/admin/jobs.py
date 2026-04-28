@@ -1,4 +1,4 @@
-"""Admin-Jobs: globale Liste aller Jobs + Admin-Cancel."""
+"""Admin jobs: global list of all jobs + admin cancel."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
@@ -12,13 +12,13 @@ from src.routes.admin._registries import TOOL_LABELS, tools_matching_query
 
 router = APIRouter(tags=["admin"])
 
-# Screencast-Tools haben einen separaten render_started_at-Zeitstempel,
-# der die reine ffmpeg-Laufzeit misst (Queue-Wartezeit ausgeschlossen).
+# Screencast tools have a separate render_started_at timestamp,
+# which measures the pure ffmpeg runtime (excluding queue wait time).
 _SCREENCAST_TOOLS = {"screencast_render", "screencast_auto", "screencast_demo_render", "screencast_translate"}
 
 
 def _compute_duration(job: dict) -> float | None:
-    """Dauer in Sekunden; bei Screencast-Tools ab render_started_at, sonst ab started_at."""
+    """Duration in seconds; for screencast tools from render_started_at, otherwise from started_at."""
     if job["status"] != "success" or not job["completed_at"]:
         return None
     if job["tool"] in _SCREENCAST_TOOLS and job["render_started_at"]:

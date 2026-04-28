@@ -70,9 +70,6 @@ export default function ToolsSidebar() {
 
   const tools = TOOLS.filter((t) => isToolEnabled(t.key));
   if (tools.length === 0) return null;
-  const sections: { label: string; items: SidebarTool[] }[] = [
-    { label: "Tools", items: tools },
-  ];
 
   const effectiveCollapsed = userPref !== null ? userPref : !isLarge;
 
@@ -96,9 +93,17 @@ export default function ToolsSidebar() {
     >
       <div className="sticky top-0 px-3 pt-6 pb-4">
         <div
-          className={`mb-4 flex ${effectiveCollapsed ? "justify-center" : "justify-end"}`}
+          className={`mb-4 flex items-center ${effectiveCollapsed ? "justify-center" : "justify-between"}`}
           style={{ minHeight: 28 }}
         >
+          {!effectiveCollapsed && (
+            <h2
+              className="text-base font-semibold tracking-tight px-2"
+              style={{ color: "var(--kb)" }}
+            >
+              Tools
+            </h2>
+          )}
           <button
             type="button"
             onClick={toggle}
@@ -110,54 +115,32 @@ export default function ToolsSidebar() {
           </button>
         </div>
 
-        <div className="flex flex-col gap-5">
-          {sections.map((section, idx) => (
-            <div key={section.label}>
-              <div
-                className={`mb-2 ${effectiveCollapsed ? "flex justify-center" : "px-1"}`}
-              >
-                <span
-                  className={`${effectiveCollapsed ? "text-[10px]" : "text-[11px]"} font-bold uppercase tracking-wider`}
-                  style={{ color: "var(--muted)" }}
+        <ul className="flex flex-col gap-1">
+          {tools.map((tool) => {
+            const ToolIcon = tool.icon;
+            return (
+              <li key={tool.key}>
+                <Link
+                  href={tool.href}
+                  title={effectiveCollapsed ? tool.title : undefined}
+                  className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
                 >
-                  {section.label}
-                </span>
-              </div>
-              <ul className="flex flex-col gap-1">
-                {section.items.map((tool) => {
-                  const ToolIcon = tool.icon;
-                  return (
-                    <li key={tool.key}>
-                      <Link
-                        href={tool.href}
-                        title={effectiveCollapsed ? tool.title : undefined}
-                        className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
-                      >
-                        <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
-                          <ToolIcon size={18} weight="bold" />
-                        </span>
-                        {!effectiveCollapsed && (
-                          <span
-                            className="text-[15px] truncate"
-                            style={{ color: "var(--text)" }}
-                          >
-                            {tool.title}
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-              {idx < sections.length - 1 && (
-                <div
-                  className="mt-5"
-                  style={{ borderTop: "1px solid var(--border)" }}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+                  <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
+                    <ToolIcon size={18} weight="bold" />
+                  </span>
+                  {!effectiveCollapsed && (
+                    <span
+                      className="text-[15px] truncate"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {tool.title}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </aside>
   );

@@ -489,7 +489,7 @@ function MaintenanceSection() {
         <div>
           <p className="text-sm font-medium text-gray-800">Alle Quellen neu indexieren</p>
           <p className="text-xs text-gray-500 mt-1">
-            Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notizen und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.
+            Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.
           </p>
         </div>
         {progress?.running ? (

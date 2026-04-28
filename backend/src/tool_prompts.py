@@ -1,6 +1,6 @@
 """Default system prompts and style configs for all LLM-backed tools."""
 
-# ── Screencast batch mode ──────────────────────────────────────────────────────
+# -- Screencast batch mode ----------------------------------------------------
 
 # Static preview shown in the admin panel. The runtime prompt is built
 # dynamically in kisski_client._generate_scripts_single_batch() and includes
@@ -37,7 +37,7 @@ SCRIPT_BATCH_PREVIEW = (
 )
 
 
-# ── Summary tool ──────────────────────────────────────────────────────────────
+# -- Summary tool -------------------------------------------------------------
 
 SUMMARY_DEFAULT = (
     "You are an expert university lecturer summarizing material for your audience.\n"
@@ -52,7 +52,7 @@ SUMMARY_DEFAULT = (
     "Rule 7: Do not use semicolons or any type of dash. Use only periods, commas and question marks."
 )
 
-# ── Screencast single-slide refine ────────────────────────────────────────────
+# -- Screencast single-slide refine -------------------------------------------
 
 SCRIPT_REFINE_DEFAULT = (
     "You are an expert editor of spoken narration scripts for presentations.\n"
@@ -78,7 +78,7 @@ SCRIPT_REFINE_DEFAULT = (
 )
 
 
-# ── Image analyze tool ────────────────────────────────────────────────────────
+# -- Image analyze tool -------------------------------------------------------
 
 IMAGE_ANALYZE_DEFAULT = (
     "You are an expert assistant helping university lecturers analyze visual content.\n"
@@ -93,20 +93,22 @@ IMAGE_ANALYZE_DEFAULT = (
 )
 
 
-# ── KI-Tutor: System-Prompts ────────────────────────────────────────────────
+# -- AI tutor: system prompts -------------------------------------------------
 
 KIA_SYSTEM_DIRECT = (
-    "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus. "
-    "Erfinde NIEMALS Bedeutungen, Definitionen oder Fakten, die nicht im bereitgestellten Text stehen. "
-    'Verwende keine Personennamen, schreibe stattdessen „laut Quelle".'
+    "You are a helpful assistant. Execute the task precisely. "
+    "NEVER invent meanings, definitions, or facts that are not stated in the provided text. "
+    "Do not use personal names; write 'laut Source' instead. "
+    "Respond in the user's language."
 )
 
 KIA_SYSTEM_DIRECT_WITH_CONTEXT = (
-    "Du bist ein hilfreicher Assistent. Führe die Aufgabe präzise aus. "
-    "Nutze NUR Informationen aus dem bereitgestellten Text. "
-    "Erfinde NIEMALS Bedeutungen, Definitionen oder Fakten, die nicht explizit im Text stehen. "
-    "Wenn etwas unklar ist, sage dass es im Text nicht erklärt wird. "
-    'Verwende keine Personennamen, schreibe stattdessen „laut Quelle".'
+    "You are a helpful assistant. Execute the task precisely. "
+    "Use ONLY information from the provided text. "
+    "NEVER invent meanings, definitions, or facts that are not explicitly stated in the text. "
+    "If something is unclear, say it is not explained in the text. "
+    "Do not use personal names; write 'laut Source' instead. "
+    "Respond in the user's language."
 )
 
 KIA_SYSTEM_RAG = (
@@ -133,7 +135,7 @@ KIA_SYSTEM_RAG = (
 )
 
 
-# ── KI-Tutor: Query Rewriter (Condense Question) ───────────────────────────
+# -- AI tutor: query rewriter (condense question) ----------------------------
 # Rewrites a follow-up question into a standalone question using conversation
 # history, so the answering LLM can be called single-turn without history and
 # cannot leak content from previous turns.
@@ -147,10 +149,10 @@ KIA_QUERY_REWRITE = (
     "- Keep the output in the same language as the user's latest question.\n\n"
     "EXAMPLES:\n"
     "History:\n"
-    "user: Was sagt Quelle 1 zum Arbeitsmarkt?\n"
-    "assistant: Die Quelle beschreibt Fachkräftemangel im MINT-Bereich.\n"
+    "user: Was sagt Source 1 zum Arbeitsmarkt?\n"
+    "assistant: Die Source beschreibt Fachkräftemangel im MINT-Bereich.\n"
     "Latest: Und Kontakt?\n"
-    "Output: Welche Kontaktdaten werden in Quelle 1 zum Thema Arbeitsmarkt genannt?\n\n"
+    "Output: Welche Kontaktdaten werden in Source 1 zum Thema Arbeitsmarkt genannt?\n\n"
     "History:\n"
     "user: Erkläre die Einwanderungsregeln.\n"
     "assistant: Die Regeln umfassen ...\n"
@@ -163,25 +165,25 @@ KIA_QUERY_REWRITE = (
 )
 
 
-# ── KI-Tutor: Notiz-Titel ───────────────────────────────────────────────────
-# Erzeugt einen kurzen, prägnanten Titel für eine vom Nutzer gespeicherte Notiz.
+# -- AI tutor: note title -----------------------------------------------------
+# Generates a short, concise title for a note saved by the user.
 KIA_NOTE_TITLE = (
-    "Du erzeugst einen prägnanten Titel für eine Notiz.\n\n"
-    "REGELN:\n"
-    "- Kurz und auf den Punkt; vermeide elend lange Titel. Lieber knapp halten, aber nicht künstlich kürzen.\n"
-    "- Keine Anführungszeichen, kein Punkt am Ende, kein Präfix wie 'Titel:'.\n"
-    "- Aufzählung mit Kommas ist erlaubt, wenn die Notiz mehrere Themen bündelt.\n"
-    "- Fasse den Kern zusammen; keine ganzen Sätze, keine Einleitung.\n"
-    "- Antworte in der Sprache der Notiz.\n"
-    "- Gib NUR den Titel zurück, nichts sonst."
+    "You generate a concise title for a note.\n\n"
+    "RULES:\n"
+    "- Short and to the point; avoid overly long titles. Keep it brief but do not truncate artificially.\n"
+    "- No quotation marks, no period at the end, no prefix like 'Title:'.\n"
+    "- Comma-separated enumerations are allowed when the note covers multiple topics.\n"
+    "- Summarize the core; no full sentences, no introduction.\n"
+    "- Respond in the language of the note.\n"
+    "- Return ONLY the title, nothing else."
 )
 
 
-# ── KI-Tutor: Popup-Aktionen ────────────────────────────────────────────────
-# Jede Aktion hat einen Schlüssel (key), ein Label für die UI und den Prompt.
-# Der markierte Text wird zur Laufzeit vom Frontend angehängt.
+# -- AI tutor: popup actions --------------------------------------------------
+# Each action has a key, a UI label and the prompt.
+# The selected text is appended at runtime by the frontend.
 
-# ── KI-Tutor: Seitenzusammenfassungen ──────────────────────────────────────
+# -- AI tutor: page summaries -------------------------------------------------
 KIA_SUMMARY_PAGE_SYSTEM = (
     "You are a precision summarizer.\n\n"
     "RULES:\n"
@@ -208,10 +210,10 @@ KIA_SUMMARY_PAGE_SYSTEM = (
 
 KIA_SUMMARY_PAGE_USER_SMALL = (
     "/no_think\n"
-    "Fasse diese Seite in 2-3 Sätzen auf {lang} zusammen. "
-    "Nur Informationen aus dem Text verwenden, nichts hinzufügen. "
-    "Beginne direkt, nicht mit 'Der Text...' oder 'Diese Seite...'. "
-    "Keine ISBN, DOI, URLs oder E-Mail-Adressen.\n\n"
+    "Summarize this page in 2-3 sentences in {lang}. "
+    "Only use information from the text, do not add anything. "
+    "Start directly, not with 'The text...' or 'This page...'. "
+    "No ISBN, DOI, URLs or email addresses.\n\n"
     "{content}"
 )
 
@@ -227,61 +229,62 @@ KIA_SUMMARY_PAGE_BATCH_USER = (
 
 
 KIA_MINDMAP_PROMPT = (
-    "Du bist ein Experte für Wissensstrukturierung. Erstelle eine hierarchische Mindmap aus dem gegebenen Text.\n\n"
-    "Antworte NUR mit einem JSON-Objekt in genau diesem Format (4 Ebenen):\n"
+    "You are an expert in knowledge structuring. Create a hierarchical mind map from the given text.\n\n"
+    "Respond ONLY with a JSON object in exactly this format (4 levels). Topic, keyword, and labels MUST be in the source-text language:\n"
     "{\n"
-    '  "topic": "Zentrales Thema",\n'
+    '  "topic": "Central topic",\n'
     '  "children": [\n'
     "    {\n"
-    '      "topic": "Hauptthema 1",\n'
-    '      "source_label": "Dateiname.pdf",\n'
+    '      "topic": "Main topic 1",\n'
+    '      "source_label": "Filename.pdf",\n'
     '      "page_number": 3,\n'
-    '      "keyword": "Maschinelles Lernen",\n'
+    '      "keyword": "Machine Learning",\n'
     '      "children": [\n'
     "        {\n"
-    '          "topic": "Unterthema 1a",\n'
-    '          "source_label": "Dateiname.pdf",\n'
+    '          "topic": "Subtopic 1a",\n'
+    '          "source_label": "Filename.pdf",\n'
     '          "page_number": 5,\n'
-    '          "keyword": "Neuronale Netze",\n'
+    '          "keyword": "Neural Networks",\n'
     '          "children": [\n'
-    '            { "topic": "Detail 1a-i", "source_label": "Dateiname.pdf", "page_number": 7, "keyword": "Backpropagation" },\n'
-    '            { "topic": "Detail 1a-ii", "source_label": "Dateiname.pdf", "page_number": 8, "keyword": "Gradient Descent" }\n'
+    '            { "topic": "Detail 1a-i", "source_label": "Filename.pdf", "page_number": 7, "keyword": "Backpropagation" },\n'
+    '            { "topic": "Detail 1a-ii", "source_label": "Filename.pdf", "page_number": 8, "keyword": "Gradient Descent" }\n'
     "          ]\n"
     "        },\n"
-    '        { "topic": "Unterthema 1b", "source_label": "Dateiname.pdf", "page_number": 10, "keyword": "Overfitting" }\n'
+    '        { "topic": "Subtopic 1b", "source_label": "Filename.pdf", "page_number": 10, "keyword": "Overfitting" }\n'
     "      ]\n"
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "Struktur:\n"
-    "- Ebene 1 (Root): Übergreifendes Thema das den gesamten Inhalt zusammenfasst\n"
-    "- Ebene 2: Maximal 5-7 Hauptthemen\n"
-    "- Ebene 3: Maximal 3-5 Unterthemen pro Hauptthema\n"
-    "- Ebene 4: Maximal 2-3 Details pro Unterthema (optional, nur bei Bedarf)\n\n"
-    "Regeln:\n"
-    "- Kurze, prägnante Beschriftungen (max 6 Wörter pro Knoten)\n"
-    "- Nur Informationen aus dem gegebenen Text verwenden\n"
-    "- Bei mehreren thematisch unterschiedlichen Quellen: Root als verbindenden Oberbegriff wählen, Hauptthemen nach Themenbereichen aufteilen\n"
-    "- Bei einer einzelnen Quelle: Root = Kernthema des Dokuments\n"
-    "- WICHTIG: Jeder Knoten (außer Root) MUSS source_label und page_number enthalten. "
-    "source_label ist der exakte Dateiname aus den Quellenangaben [Dateiname, S. X] bzw. [Dateiname, M:SS]. "
-    "page_number ist die Seitenzahl (z.B. 3) oder bei Audio/Video-Quellen der Zeitstempel als String (z.B. \"1:30\" oder \"1:05:30\") — "
-    "exakt so wie in den Quellenangaben angegeben.\n"
-    "- WICHTIG: Jeder Knoten (außer Root) MUSS ein keyword enthalten. "
-    "keyword ist ein Schlüsselbegriff (1-3 Wörter) der WÖRTLICH UNVERÄNDERT im Quelltext auf der angegebenen Seite vorkommt. "
-    "NICHT paraphrasieren! Kopiere das Wort direkt aus dem Quelltext. "
-    "Beispiel: Wenn im Quelltext 'intelligenten Assistenten' steht, schreibe keyword: 'intelligenten Assistenten' — NICHT 'KI-Assistenten'. "
-    "Das keyword dient zum Suchen/Markieren im PDF und MUSS dort exakt findbar sein.\n"
-    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+    "Structure:\n"
+    "- Level 1 (Root): umbrella topic that summarizes the entire content\n"
+    "- Level 2: max 5-7 main topics\n"
+    "- Level 3: max 3-5 subtopics per main topic\n"
+    "- Level 4: max 2-3 details per subtopic (optional, only if needed)\n\n"
+    "Rules:\n"
+    "- Short, concise labels (max 6 words per node)\n"
+    "- Only use information from the given text\n"
+    "- When sources cover different topics: pick a connecting umbrella as the root, split main topics by subject area\n"
+    "- For a single source: root = core topic of the document\n"
+    "- Output language: write topic, keyword, and labels in the SAME language as the source text (German source -> German labels). Field names stay English.\n"
+    "- IMPORTANT: every node (except root) MUST include source_label and page_number. "
+    "source_label is the exact filename from the source citations [Filename, S. X] or [Filename, M:SS]. "
+    "page_number is the page number (e.g. 3) or for audio/video sources the timestamp as a string (e.g. \"1:30\" or \"1:05:30\"), "
+    "exactly as given in the source citations.\n"
+    "- IMPORTANT: every node (except root) MUST include a keyword. "
+    "keyword is a key term (1-3 words) that appears VERBATIM and UNCHANGED in the source text on the given page. "
+    "DO NOT paraphrase. Copy the word directly from the source text. "
+    "Example: if the source text contains 'intelligenten Assistenten', write keyword: 'intelligenten Assistenten', NOT 'KI-Assistenten'. "
+    "The keyword is used for search/highlighting in the PDF and MUST be findable there exactly.\n"
+    "- Respond ONLY with the JSON object, no other text."
 )
 
 KIA_LERNKARTEN_PROMPT = (
-    "Du bist ein Sprachlehrer für internationale Studierende mit Deutschniveau B1. "
-    "Erstelle Lernkarten für Fachbegriffe aus dem gegebenen Text.\n\n"
-    "WICHTIG: Alle Texte MÜSSEN für B1-Niveau verständlich sein — einfache Wörter, kurze Sätze, keine verschachtelten Nebensätze.\n\n"
-    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "You are a language teacher for international students at German level B1. "
+    "Create flashcards for technical terms from the given text.\n\n"
+    "IMPORTANT: All German content MUST be understandable at B1 level: simple words, short sentences, no nested clauses.\n\n"
+    "Respond ONLY with a JSON object in exactly this format. The German fields (begriff, definition, word_parts, word_parts_explained, example_sentence, title) MUST be in German:\n"
     "{\n"
-    '  "title": "Kurzer Titel der das Thema zusammenfasst",\n'
+    '  "title": "Short title summarizing the topic (in German)",\n'
     '  "cards": [\n'
     "    {\n"
     '      "begriff": "Fachbegriff",\n'
@@ -290,106 +293,108 @@ KIA_LERNKARTEN_PROMPT = (
     '      "word_parts_explained": "Teil1 = einfache Erklärung | Teil2 = einfache Erklärung",\n'
     '      "example_sentence": "Ein einfacher Beispielsatz mit dem Begriff, wie man ihn im Studienalltag benutzt.",\n'
     '      "begriff_en": "English translation",\n'
-    '      "source_label": "Dateiname.pdf",\n'
+    '      "source_label": "Filename.pdf",\n'
     '      "page_number": 5\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "Regeln:\n"
-    "- Erstelle genau {count} Lernkarten\n"
-    "- Karten MÜSSEN alle Quellen abdecken, nicht nur eine — verteile sie gleichmäßig\n"
-    "- begriff: Ein zentraler deutscher Fachbegriff aus dem Text\n"
-    "- definition: Einfache Definition auf Deutsch. Schreibe so, dass ein Student mit B1-Deutsch es sofort versteht. "
-    "Keine Fachsprache in der Erklärung — erkläre Fachsprache MIT einfacher Sprache.\n"
-    "- word_parts: Zerlegung in SINNVOLLE Wortbestandteile (z.B. 'Studien + Abbruch + Quote'). "
-    "NUR bei zusammengesetzten deutschen Wörtern aus 2+ bedeutungstragenden Teilen. "
-    "NICHT bei Fremdwörtern (Microcredentials, Employability), Adjektiv+Nomen-Kombinationen (Hybride Lehre) oder einfachen Wörtern — dort leer lassen. "
-    "Verbindungs-Buchstaben wie 's' oder 'e' gehören zum vorherigen Teil, NICHT als eigenes Element.\n"
-    "- word_parts_explained: Erkläre jeden Teil so einfach wie möglich — wie man es einem Freund erklären würde. "
-    "Beispiel: 'Studien = wenn man an der Uni lernt | Abbruch = wenn man aufhört | Quote = eine Zahl in Prozent'. "
-    "NICHT: 'Studien = Plural von Studium' — das hilft einem B1-Studenten nicht.\n"
-    "- example_sentence: Ein EINFACHER Beispielsatz der zeigt, wie man den Begriff im Studienalltag benutzt. "
-    "Beispiel für 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch — viele Studenten hören auf, bevor sie fertig sind.' "
-    "Der Satz soll dem Studenten helfen, den Begriff im Kontext zu verstehen.\n"
-    "- begriff_en: Englische Übersetzung des Begriffs\n"
-    "- source_label und page_number: Die Hauptquelle aus den [Quellenname, S. X] Tags\n"
-    "- Nur Begriffe aus dem gegebenen Text verwenden\n"
-    "- Fokus auf zentrale Fachbegriffe, KEINE Verständnisfragen\n"
-    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+    "Rules:\n"
+    "- Create exactly {count} flashcards\n"
+    "- Cards MUST cover ALL sources, not just one. Distribute evenly.\n"
+    "- begriff: a central German technical term from the text\n"
+    "- definition: simple definition in German. Write it so a student with B1 German understands it immediately. "
+    "No technical jargon in the explanation. Explain technical terms with simple language.\n"
+    "- word_parts: split into MEANINGFUL word parts (e.g. 'Studien + Abbruch + Quote'). "
+    "ONLY for compound German words made of 2+ meaning-carrying parts. "
+    "NOT for loanwords (Microcredentials, Employability), adjective+noun combinations (Hybride Lehre), or simple words. Leave empty in those cases. "
+    "Linking letters like 's' or 'e' belong to the preceding part, NOT as separate elements.\n"
+    "- word_parts_explained: explain each part as simply as possible, the way you would explain it to a friend. "
+    "Example: 'Studien = wenn man an der Uni lernt | Abbruch = wenn man aufhört | Quote = eine Zahl in Prozent'. "
+    "NOT: 'Studien = Plural von Studium', that does not help a B1 student.\n"
+    "- example_sentence: a SIMPLE example sentence showing how the term is used in everyday student life. "
+    "Example for 'Studienabbruchquote': 'Die Studienabbruchquote ist hoch, viele Studenten hören auf, bevor sie fertig sind.' "
+    "The sentence should help the student understand the term in context.\n"
+    "- begriff_en: English translation of the term\n"
+    "- source_label and page_number: the primary source from the [SourceName, S. X] tags\n"
+    "- Only use terms from the given text\n"
+    "- Focus on central technical terms, NO comprehension questions\n"
+    "- Respond ONLY with the JSON object, no other text."
 )
 
 KIA_KARTEIKARTEN_PROMPT = (
-    "Du bist ein Experte für Lernmaterialien. Erstelle Karteikarten mit Verständnisfragen aus dem gegebenen Text.\n\n"
-    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "You are an expert in learning materials. Create study cards with comprehension questions from the given text. "
+    "Write the front, statements, and evidence in the SAME language as the source text (German source -> German content).\n\n"
+    "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
-    '  "title": "Kurzer Titel der das Thema zusammenfasst",\n'
+    '  "title": "Short title summarizing the topic (in source language)",\n'
     '  "cards": [\n'
     "    {\n"
-    '      "front": "Verständnisfrage",\n'
-    '      "source_label": "Dateiname.pdf",\n'
+    '      "front": "Comprehension question (in source language)",\n'
+    '      "source_label": "Filename.pdf",\n'
     '      "answer_parts": [\n'
-    '        {"statement": "Erster Satz der Antwort, der einen Fakt ausdrückt.", "page_number": 5, "evidence": "Wörtliches Zitat aus Seite 5 das diesen Fakt belegt."},\n'
-    '        {"statement": "Zweiter Satz der Antwort mit einem anderen Fakt.", "page_number": 7, "evidence": "Wörtliches Zitat aus Seite 7."},\n'
-    '        {"statement": "Dritter Satz.", "page_number": 11, "evidence": "Wörtliches Zitat aus Seite 11."}\n'
+    '        {"statement": "First sentence of the answer expressing a fact (in source language).", "page_number": 5, "evidence": "Verbatim quote from page 5 supporting this fact (in source language)."},\n'
+    '        {"statement": "Second sentence of the answer with a different fact.", "page_number": 7, "evidence": "Verbatim quote from page 7."},\n'
+    '        {"statement": "Third sentence.", "page_number": 11, "evidence": "Verbatim quote from page 11."}\n'
     "      ]\n"
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "KRITISCHE REGELN:\n"
-    "- Erstelle genau {count} Karteikarten\n"
-    "- Jede Karteikarte hat GENAU EINE Quelle (source_label) — NIEMALS mehrere Dateien pro Karte mischen! "
-    "Frage und Antwort müssen ausschließlich aus EINEM Dokument stammen.\n"
-    "- Vorderseite (front): Verständnisfrage (z.B. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
-    "- answer_parts: Die Antwort wird als Liste von Sätzen strukturiert. "
-    "JEDER Satz muss mit einem wörtlichen Zitat aus dem Quelltext belegt sein. "
-    "Beim Zusammenführen aller statements entsteht die komplette Antwort.\n"
-    "- statement: Ein einzelner präziser Satz der einen Aspekt der Antwort ausdrückt. "
-    "Maximal 15-20 Wörter. Kein Roman, keine Abschweifung, keine Einleitung. "
-    "Formuliere statements natürlich, sodass sie zusammen eine fließende Antwort ergeben.\n"
-    "- evidence: Ein WÖRTLICHES Zitat aus dem Quelltext der angegebenen Seite, das den statement-Satz belegt. "
-    "KEIN paraphrasieren, KEIN umformulieren — exakt wie im Quelltext. "
-    "Mindestens 8 Wörter, maximal 2 Sätze lang. "
-    "Muss exakt so im [Quellenname, S. X] Block vorkommen.\n"
-    "- page_number: Die Seitenzahl aus den [Quellenname, S. X] Tags.\n"
-    "- Antwortlänge: 2-5 answer_parts pro Karte — so viele wie nötig, um die Frage präzise zu beantworten. "
-    "Keine Abschweifungen, keine zusätzlichen Aspekte die nicht gefragt wurden.\n"
-    "- Jeder Aspekt der Antwort braucht einen eigenen answer_part mit eigener Evidence. "
-    "Wenn du mehrere Dinge nennst (z.B. 'Assistent, Self-Assessments, Microcredentials'), brauchst du mindestens 3 answer_parts.\n"
-    "- Nur Informationen aus dem gegebenen Text verwenden, keine Halluzinationen\n"
-    "- Mischung aus Verständnisfragen, Vergleichsfragen und Anwendungsfragen\n"
-    "- KEINE reinen Definitionsfragen — es geht um Verständnis und Zusammenhänge\n"
-    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+    "CRITICAL RULES:\n"
+    "- Create exactly {count} cards\n"
+    "- Each card has EXACTLY ONE source (source_label). NEVER mix multiple files per card. "
+    "Question and answer must come from ONE document only.\n"
+    "- Front: comprehension question (e.g. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
+    "- answer_parts: structure the answer as a list of sentences. "
+    "EACH sentence must be backed by a verbatim quote from the source text. "
+    "Concatenating all statements yields the complete answer.\n"
+    "- statement: a single precise sentence expressing one aspect of the answer. "
+    "Max 15-20 words. No rambling, no digression, no introduction. "
+    "Phrase statements naturally so they combine into a flowing answer.\n"
+    "- evidence: a VERBATIM quote from the source text on the given page that supports the statement. "
+    "DO NOT paraphrase, DO NOT rephrase. Exactly as in the source text. "
+    "At least 8 words, at most 2 sentences. "
+    "Must appear exactly in the [SourceName, S. X] block.\n"
+    "- page_number: the page number from the [SourceName, S. X] tags.\n"
+    "- Answer length: 2-5 answer_parts per card, as many as needed to answer the question precisely. "
+    "No digressions, no additional aspects that were not asked.\n"
+    "- Every aspect of the answer needs its own answer_part with its own evidence. "
+    "If you list multiple things (e.g. 'Assistent, Self-Assessments, Microcredentials'), you need at least 3 answer_parts.\n"
+    "- Only use information from the given text, no hallucinations\n"
+    "- Mix comprehension questions, comparison questions, and application questions\n"
+    "- NO pure definition questions. The goal is understanding and connections.\n"
+    "- Respond ONLY with the JSON object, no other text."
 )
 
 
 KIA_DATENTABELLE_PROMPT = (
-    "Du bist ein Experte für Datenextraktion und Strukturierung. "
-    "Analysiere den gegebenen Text und erstelle eine strukturierte Datentabelle.\n\n"
-    "Antworte NUR mit einem JSON-Objekt in genau diesem Format:\n"
+    "You are an expert in data extraction and structuring. "
+    "Analyze the given text and create a structured data table. "
+    "Write title, column headers, and cell values in the SAME language as the source text (German source -> German values).\n\n"
+    "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
-    '  "title": "Beschreibender Tabellentitel",\n'
-    '  "columns": ["Spalte1", "Spalte2", "Spalte3"],\n'
+    '  "title": "Descriptive table title (in source language)",\n'
+    '  "columns": ["Column1", "Column2", "Column3"],\n'
     '  "rows": [\n'
-    '    { "cells": ["Wert1", "Wert2", "Wert3"], "sources": [{"source_label": "Dateiname.pdf", "page": 3, "highlight": "Fachbegriff"}] },\n'
-    '    { "cells": ["Wert4", "Wert5", "Wert6"], "sources": [{"source_label": "Dateiname.pdf", "page": 5, "highlight": "Schlüsselwort"}, {"source_label": "Andere.pdf", "page": 2, "highlight": "Begriff"}] }\n'
+    '    { "cells": ["Value1", "Value2", "Value3"], "sources": [{"source_label": "Filename.pdf", "page": 3, "highlight": "TechTerm"}] },\n'
+    '    { "cells": ["Value4", "Value5", "Value6"], "sources": [{"source_label": "Filename.pdf", "page": 5, "highlight": "Keyword"}, {"source_label": "Other.pdf", "page": 2, "highlight": "Term"}] }\n'
     "  ]\n"
     "}\n\n"
-    "Regeln:\n"
-    "- Wähle sinnvolle Spalten, die den Inhalt am besten strukturieren\n"
-    "- Mindestens 3, maximal 8 Spalten\n"
-    "- Jede Zeile enthält ein 'cells'-Array (gleiche Länge wie 'columns') und ein 'sources'-Array\n"
-    "- WICHTIG: Jeder Eintrag in 'sources' MUSS 'source_label' (exakter Dateiname aus den Quellenangaben), 'page' und 'highlight' enthalten. "
-    "'page' ist die Seitenzahl bei PDFs (aus [Dateiname, S. X]) oder die Zeitangabe als String bei Media-Dateien (aus [Dateiname, M:SS] oder [Dateiname, H:MM:SS]). "
-    "'highlight' ist ein Schlüsselbegriff (1-3 Wörter) der WÖRTLICH UNVERÄNDERT im gegebenen Quelltext vorkommt. "
-    "NICHT paraphrasieren! Kopiere das Wort direkt aus dem Quelltext. "
-    "Beispiel: Wenn im Quelltext 'intelligenten Assistenten' steht, schreibe highlight: 'intelligenten Assistenten' — NICHT 'KI-Assistenten'. "
-    "Das highlight dient zum Suchen/Markieren im PDF und MUSS dort exakt findbar sein.\n"
-    "- Extrahiere so viele Zeilen wie der Text hergibt (keine erfundenen Daten)\n"
-    "- Der Titel soll den Tabelleninhalt kurz beschreiben\n"
-    "- Halte Zellenwerte prägnant aber informativ\n"
-    "- Nur Informationen aus dem gegebenen Text verwenden\n"
-    "- KEINE Spalte für Quellen/Quellenangaben/Dateinamen in 'columns' erstellen — die Quellen werden separat über das 'sources'-Array pro Zeile referenziert\n"
-    "- Antworte NUR mit dem JSON-Objekt, kein anderer Text"
+    "Rules:\n"
+    "- Choose meaningful columns that best structure the content\n"
+    "- Minimum 3, maximum 8 columns\n"
+    "- Each row contains a 'cells' array (same length as 'columns') and a 'sources' array\n"
+    "- IMPORTANT: every entry in 'sources' MUST contain 'source_label' (exact filename from the source citations), 'page', and 'highlight'. "
+    "'page' is the page number for PDFs (from [Filename, S. X]) or the timestamp as a string for media files (from [Filename, M:SS] or [Filename, H:MM:SS]). "
+    "'highlight' is a key term (1-3 words) that appears VERBATIM and UNCHANGED in the given source text. "
+    "DO NOT paraphrase. Copy the word directly from the source text. "
+    "Example: if the source text contains 'intelligenten Assistenten', write highlight: 'intelligenten Assistenten', NOT 'KI-Assistenten'. "
+    "The highlight is used for search/highlighting in the PDF and MUST be findable there exactly.\n"
+    "- Extract as many rows as the text supports (no invented data)\n"
+    "- The title should briefly describe the table content\n"
+    "- Keep cell values concise but informative\n"
+    "- Only use information from the given text\n"
+    "- Do NOT add a column for sources/citations/filenames in 'columns'. Sources are referenced separately via the 'sources' array per row.\n"
+    "- Respond ONLY with the JSON object, no other text."
 )
 
 
@@ -600,28 +605,28 @@ KIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
         "key": "elaborate",
         "label": "Genauer ausführen",
         "icon": "Binoculars",
-        "prompt": "Führe diese Textstelle genauer aus. Erkläre die Konzepte ausführlich und gib konkrete Beispiele:",
+        "prompt": "Elaborate on this passage. Explain the concepts in depth and give concrete examples. Respond in the source-text language:",
         "min_words": 1,
     },
     {
         "key": "summarize",
         "label": "Zusammenfassung",
         "icon": "FunnelSimple",
-        "prompt": "Fasse diese Textstelle in maximal 2-3 Sätzen zusammen. Verwende höchstens halb so viele Wörter wie der Originaltext. Fließtext, keine Stichpunkte:",
+        "prompt": "Summarize this passage in at most 2-3 sentences. Use at most half as many words as the original. Flowing text, no bullet points. Respond in the source-text language:",
         "min_words": 10,
     },
     {
         "key": "bullets",
         "label": "Stichpunkte",
         "icon": "ListBullets",
-        "prompt": "Wandle diese Textstelle in prägnante Stichpunkte um:",
+        "prompt": "Convert this passage into concise bullet points. Respond in the source-text language:",
         "min_words": 5,
     },
     {
         "key": "simplify",
         "label": "Erklären",
         "icon": "Lightbulb",
-        "prompt": "Erkläre diese Textstelle auf einem einfachen Sprachniveau (B1-Niveau). Nutze kurze Sätze, einfache Wörter und vermeide komplizierte Fachausdrücke soweit möglich:",
+        "prompt": "Explain this passage at a simple language level (B1). Use short sentences, simple words, and avoid complex jargon where possible. Respond in the source-text language:",
         "min_words": 3,
     },
 ]

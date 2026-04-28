@@ -1,41 +1,41 @@
-"""Context-Builder für mode='quelle': zieht Chunks/Summaries aus N Quellen
-und packt sie in einen budget-begrenzten Kontext-String für den LLM-Prompt."""
+"""Context builder for mode='source': pulls chunks/summaries from N sources
+and packs them into a budget-limited context string for the LLM prompt."""
 
 from dataclasses import dataclass, field
 
 from src import database as db
 
-from src.features.ki_assistent.tasks.sprachtraining._text_utils import (
+from src.features.ai_assistant.tasks.language_training._text_utils import (
     normalize_for_segment_lookup,
 )
 
 
 @dataclass
 class QuelleContext:
-    """Gesammelte Metadaten für mode='quelle' Generierung."""
-    context: str  # fertiger LLM-Kontext (trimmed)
+    """Collected metadata for mode='source' generation."""
+    context: str  # finished LLM context (trimmed)
     first_label: str
     multi_label: str
-    source_hint: str  # "folgender Quelle" / "folgenden Quellen"
+    source_hint: str  # "folgender Source" / "folgenden Sources"
     time_map: dict[tuple[str, int], float] = field(default_factory=dict)
     source_by_name: dict[str, dict] = field(default_factory=dict)
     segments_by_label: dict[str, list[dict]] = field(default_factory=dict)
 
 
-def build_quelle_context(uuids: list[str], tool: str) -> QuelleContext | None:
-    """Baut Kontext-String + Meta-Maps aus N Quellen. None = keine Inhalte verfügbar."""
+def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
+    """Build context string + meta maps from N sources. None = no content available."""
     context_parts: list[str] = []
     first_label = ""
     time_map: dict[tuple[str, int], float] = {}
     source_by_name: dict[str, dict] = {}
     segments_by_label: dict[str, list[dict]] = {}
 
-    # karteikarten braucht Raw-Chunks (LLM zitiert wörtlich für Evidence-Validierung)
-    # alle anderen Tools nutzen Page-Summaries (schneller, dichter)
+    # karteikarten needs raw chunks (LLM quotes verbatim for evidence validation)
+    # all other tools use page summaries (faster, denser)
     use_chunks = tool == "karteikarten"
 
     for suuid in uuids:
-        source = db.get_kia_source(suuid)
+        source = db.get_aia_source(suuid)
         if not source:
             continue
         source_label = source["filename"]
@@ -50,9 +50,9 @@ def build_quelle_context(uuids: list[str], tool: str) -> QuelleContext | None:
             for c in chunks_all:
                 if c.get("start_time") is not None:
                     time_map[(source_label, c["page_number"])] = c["start_time"]
-            # Whisper-Segmente laden für Sub-Chunk-Timestamp-Auflösung bei Media-Quellen
+            # Load Whisper segments for sub-chunk timestamp resolution on media sources
             if any(c.get("start_time") is not None for c in chunks_all):
-                from src.features.ki_assistent.routes._helpers import _load_transcript_segments
+                from src.features.ai_assistant.routes._helpers import _load_transcript_segments
                 segments_by_label[source_label] = _load_transcript_segments(source)
             parts = [f"[{source_label}, S. {c['page_number']}] {c['content']}" for c in chunks_all]
             context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
@@ -74,7 +74,7 @@ def build_quelle_context(uuids: list[str], tool: str) -> QuelleContext | None:
     if not context_parts:
         return None
 
-    # Fair budget split: 200k Zeichen total, ganze Zeilen
+    # Fair budget split: 200k chars total, whole lines
     budget_per_source = 200000 // len(context_parts)
     trimmed: list[str] = []
     for part in context_parts:
@@ -89,8 +89,8 @@ def build_quelle_context(uuids: list[str], tool: str) -> QuelleContext | None:
             size += len(line) + 1
         trimmed.append("\n".join(kept))
 
-    multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Quellen"
-    source_hint = "folgender Quelle" if len(uuids) == 1 else "folgenden Quellen"
+    multi_label = first_label if len(uuids) == 1 else f"{len(uuids)} Sources"
+    source_hint = "folgender Source" if len(uuids) == 1 else "folgenden Sources"
 
     return QuelleContext(
         context="\n\n".join(trimmed),
@@ -109,11 +109,11 @@ def resolve_segment_start(
     evidence: str,
     fallback: float | None,
 ) -> float | None:
-    """Für Media-Quellen: suche das Whisper-Segment, das die Evidence enthält, und
-    gib dessen start_time zurück. Fallback auf den Chunk-start_time wenn kein Match.
+    """For media sources: find the Whisper segment that contains the evidence, and
+    return its start_time. Fall back to the chunk start_time on no match.
 
-    Ohne diese Auflösung würde ein ~1000-Zeichen-Chunk, der 60-120s abdeckt, allen
-    Citations den gleichen Startzeitpunkt geben statt des Moments des Zitats.
+    Without this resolution, a ~1000-char chunk covering 60-120s would give all
+    citations the same start time instead of the moment of the quote.
     """
     segments = segments_by_label.get(source_label) or []
     if not segments or not evidence:
@@ -123,8 +123,8 @@ def resolve_segment_start(
     if not ev:
         return fallback
 
-    # Sliding-window: finde Segment, dessen normalisierter Text mit dem Evidence-Anfang
-    # maximal überlappt (die ersten Wörter sagen, wo das Zitat beginnt)
+    # Sliding window: find segment whose normalized text overlaps maximally with the
+    # start of the evidence (the first words tell where the quote begins)
     ev_words = ev.split()
     probe = " ".join(ev_words[: min(12, len(ev_words))])
     if len(probe) < 8:
@@ -136,7 +136,7 @@ def resolve_segment_start(
             continue
         if probe in seg_norm:
             return seg["start"]
-        # Evidence spannt möglicherweise Segment-Grenze: Suffix-Match + Nachbar-Prefix
+        # Evidence may span a segment boundary: suffix match + neighbor prefix
         overlap = 0
         for k in range(min(len(seg_norm), len(probe)), 6, -1):
             if seg_norm.endswith(probe[:k]):
@@ -157,8 +157,8 @@ def find_all_pages(
     segments_by_label: dict[str, list[dict]],
     search_term: str,
 ) -> list[dict]:
-    """Findet alle Seiten (über alle Quellen), in denen search_term im Chunk-Text vorkommt."""
-    from src.features.ki_assistent.tasks.sprachtraining._text_utils import normalize_chunk
+    """Find all pages (across all sources) where search_term appears in the chunk text."""
+    from src.features.ai_assistant.tasks.language_training._text_utils import normalize_chunk
 
     term_lower = search_term.lower()
     if not term_lower:

@@ -30,8 +30,8 @@ router = APIRouter(tags=["screencast-demo"])
 DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo"
 _S3_DEMO_PREFIX = "demo"
 
-# DEMO_LOCAL=true  → liest aus backend/demo/ (lokal)
-# DEMO_LOCAL=false / nicht gesetzt → liest aus S3 demo/-Prefix (Server)
+# DEMO_LOCAL=true  -> reads from backend/demo/ (local)
+# DEMO_LOCAL=false / not set -> reads from S3 demo/ prefix (server)
 DEMO_LOCAL = os.environ.get("DEMO_LOCAL", "false").lower() == "true"
 
 

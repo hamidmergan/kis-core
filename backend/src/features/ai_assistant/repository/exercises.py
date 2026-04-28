@@ -26,7 +26,7 @@ def create_exercise_set(
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """INSERT INTO kia_exercise_sets
+                """INSERT INTO aia_exercise_sets
                    (module_id, user_id, tool, title, mode, source_uuid, card_count, status)
                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'ready') RETURNING *""",
                 (module_id, user_id, tool, title, mode, source_uuid, len(items)),
@@ -35,7 +35,7 @@ def create_exercise_set(
             created_items = []
             for i, item in enumerate(items):
                 cur.execute(
-                    """INSERT INTO kia_exercise_items
+                    """INSERT INTO aia_exercise_items
                        (set_id, position, front, back, back_en, options, correct_idx,
                         source_label, page_number, explanation, start_time, sources, extras)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
@@ -65,7 +65,7 @@ def create_exercise_set_placeholder(
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """INSERT INTO kia_exercise_sets
+                """INSERT INTO aia_exercise_sets
                    (module_id, user_id, tool, title, mode, source_uuid, card_count, status)
                    VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating') RETURNING *""",
                 (module_id, user_id, tool, title, mode, source_uuid),
@@ -80,7 +80,7 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             for i, item in enumerate(items):
                 cur.execute(
-                    """INSERT INTO kia_exercise_items
+                    """INSERT INTO aia_exercise_items
                        (set_id, position, front, back, back_en, options, correct_idx,
                         source_label, page_number, explanation, start_time, sources, extras)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
@@ -98,7 +98,7 @@ def finalize_exercise_set(set_id: int, title: str, items: list[dict]) -> dict:
                     ),
                 )
             cur.execute(
-                """UPDATE kia_exercise_sets
+                """UPDATE aia_exercise_sets
                    SET status = 'ready', title = %s, card_count = %s
                    WHERE id = %s RETURNING *""",
                 (title, len(items), set_id),
@@ -112,7 +112,7 @@ def fail_exercise_set(set_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE kia_exercise_sets SET status = 'failed' WHERE id = %s",
+                "UPDATE aia_exercise_sets SET status = 'failed' WHERE id = %s",
                 (set_id,),
             )
         conn.commit()
@@ -134,16 +134,16 @@ def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> 
                                 THEN ROUND(COALESCE(m.items_correct, 0)::numeric / s.card_count * 100)
                                 ELSE 0 END AS progress_pct,
                            COALESCE(lr.last_run_correct, 0) AS last_run_correct
-                    FROM kia_exercise_sets s
+                    FROM aia_exercise_sets s
                     LEFT JOIN LATERAL (
                       SELECT COUNT(*) AS total_attempts,
                              COUNT(DISTINCT item_id) FILTER (WHERE correct) AS items_correct
-                      FROM kia_exercise_progress p
+                      FROM aia_exercise_progress p
                       WHERE p.set_id = s.id AND p.user_id = s.user_id
                     ) m ON true
                     LEFT JOIN LATERAL (
                       SELECT COUNT(DISTINCT item_id) FILTER (WHERE correct) AS last_run_correct
-                      FROM kia_exercise_progress p
+                      FROM aia_exercise_progress p
                       WHERE p.set_id = s.id AND p.user_id = s.user_id
                         AND s.last_run_start IS NOT NULL
                         AND p.answered_at >= s.last_run_start
@@ -163,8 +163,8 @@ def get_existing_exercise_fronts(
         with conn.cursor() as cur:
             cur.execute(
                 """SELECT i.front
-                   FROM kia_exercise_items i
-                   JOIN kia_exercise_sets s ON i.set_id = s.id
+                   FROM aia_exercise_items i
+                   JOIN aia_exercise_sets s ON i.set_id = s.id
                    WHERE s.module_id = %s AND s.tool = %s AND s.status = 'ready'
                    ORDER BY s.created_at DESC, i.position ASC
                    LIMIT %s""",
@@ -176,13 +176,13 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
     """Get a single set with all its items, enriching with chunk start_time where missing."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM kia_exercise_sets WHERE id = %s", (set_id,))
+            cur.execute("SELECT * FROM aia_exercise_sets WHERE id = %s", (set_id,))
             ex_set = cur.fetchone()
             if not ex_set:
                 return None
             ex_set = dict(ex_set)
             cur.execute(
-                "SELECT * FROM kia_exercise_items WHERE set_id = %s ORDER BY position",
+                "SELECT * FROM aia_exercise_items WHERE set_id = %s ORDER BY position",
                 (set_id,),
             )
             items = [dict(r) for r in cur.fetchall()]
@@ -201,12 +201,12 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
             any_needs = any(_needs_top(it) or _needs_nested(it) for it in items)
             if any_needs:
                 module_id = ex_set["module_id"]
-                cur.execute("SELECT id, filename FROM kia_sources WHERE module_id = %s", (module_id,))
+                cur.execute("SELECT id, filename FROM aia_sources WHERE module_id = %s", (module_id,))
                 src_map = {r["filename"]: r["id"] for r in cur.fetchall()}
                 source_ids = list(src_map.values())
                 if source_ids:
                     cur.execute(
-                        "SELECT source_id, page_number, start_time FROM kia_chunks "
+                        "SELECT source_id, page_number, start_time FROM aia_chunks "
                         "WHERE source_id = ANY(%s) AND start_time IS NOT NULL",
                         (source_ids,),
                     )
@@ -230,7 +230,7 @@ def delete_exercise_set(set_id: int) -> bool:
     """Delete an exercise set and all related data."""
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM kia_exercise_sets WHERE id = %s RETURNING id", (set_id,))
+            cur.execute("DELETE FROM aia_exercise_sets WHERE id = %s RETURNING id", (set_id,))
             deleted = cur.fetchone() is not None
         conn.commit()
     return deleted
@@ -240,7 +240,7 @@ def record_exercise_progress(set_id: int, item_id: int, user_id: int, correct: b
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO kia_exercise_progress
+                """INSERT INTO aia_exercise_progress
                    (set_id, item_id, user_id, correct) VALUES (%s, %s, %s, %s)""",
                 (set_id, item_id, user_id, correct),
             )
@@ -251,7 +251,7 @@ def start_new_run(set_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE kia_exercise_sets SET last_run_start = NOW() WHERE id = %s",
+                "UPDATE aia_exercise_sets SET last_run_start = NOW() WHERE id = %s",
                 (set_id,),
             )
         conn.commit()
@@ -262,7 +262,7 @@ def bulk_record_exercise_progress(set_id: int, user_id: int, results: list[dict]
         with conn.cursor() as cur:
             for r in results:
                 cur.execute(
-                    """INSERT INTO kia_exercise_progress
+                    """INSERT INTO aia_exercise_progress
                        (set_id, item_id, user_id, correct) VALUES (%s, %s, %s, %s)""",
                     (set_id, r["item_id"], user_id, r["correct"]),
                 )
@@ -278,13 +278,13 @@ def update_streak(module_id: int, user_id: int) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM kia_streaks WHERE module_id = %s AND user_id = %s",
+                "SELECT * FROM aia_streaks WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
             row = cur.fetchone()
             if not row:
                 cur.execute(
-                    """INSERT INTO kia_streaks
+                    """INSERT INTO aia_streaks
                        (module_id, user_id, current_streak, max_streak, last_active_date)
                        VALUES (%s, %s, 1, 1, %s) RETURNING *""",
                     (module_id, user_id, today),
@@ -299,7 +299,7 @@ def update_streak(module_id: int, user_id: int) -> dict:
                     new_streak = row["current_streak"] + 1
                     new_max = max(row["max_streak"], new_streak)
                     cur.execute(
-                        """UPDATE kia_streaks
+                        """UPDATE aia_streaks
                            SET current_streak = %s, max_streak = %s, last_active_date = %s
                            WHERE id = %s RETURNING *""",
                         (new_streak, new_max, today, row["id"]),
@@ -307,7 +307,7 @@ def update_streak(module_id: int, user_id: int) -> dict:
                     result = dict(cur.fetchone())
                 else:
                     cur.execute(
-                        """UPDATE kia_streaks
+                        """UPDATE aia_streaks
                            SET current_streak = 1, last_active_date = %s
                            WHERE id = %s RETURNING *""",
                         (today, row["id"]),
@@ -321,7 +321,7 @@ def get_streak(module_id: int, user_id: int) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM kia_streaks WHERE module_id = %s AND user_id = %s",
+                "SELECT * FROM aia_streaks WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
             row = cur.fetchone()
@@ -334,8 +334,8 @@ def get_glossary_count(module_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT COUNT(*) FROM kia_glossary_entries g
-                   JOIN kia_sources s ON s.id = g.source_id
+                """SELECT COUNT(*) FROM aia_glossary_entries g
+                   JOIN aia_sources s ON s.id = g.source_id
                    WHERE s.module_id = %s""",
                 (module_id,),
             )

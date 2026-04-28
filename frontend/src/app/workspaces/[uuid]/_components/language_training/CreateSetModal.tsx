@@ -12,9 +12,9 @@ export function CreateSetModal({
   onCreate: (mode: string, count: number) => void;
 }) {
   const isQuiz = tool === "quiz";
-  const [mode, setMode] = useState<"glossar" | "quelle">(isQuiz || glossaryCount === 0 ? "quelle" : "glossar");
+  const [mode, setMode] = useState<"glossary" | "quelle">(isQuiz || glossaryCount === 0 ? "quelle" : "glossary");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
-  const toolLabels: Record<string, string> = { karteikarten: "Karteikarten", lernkarten: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Begriffe-Quiz", quiz: "Quiz" };
+  const toolLabels: Record<string, string> = { karteikarten: "Karteikarten", flashcards: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Begriffe-Quiz", quiz: "Quiz" };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
@@ -26,19 +26,19 @@ export function CreateSetModal({
         <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>Quelle</div>
         <div className="flex flex-col gap-1.5 mb-3">
           {!isQuiz && (
-            <button type="button" onClick={() => glossaryCount > 0 && setMode("glossar")}
+            <button type="button" onClick={() => glossaryCount > 0 && setMode("glossary")}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
               style={{
-                ...(mode === "glossar"
+                ...(mode === "glossary"
                   ? { border: "1.5px solid var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)", color: "var(--text)" }
                   : { border: "1.5px solid var(--border)", backgroundColor: "var(--bg)", color: "var(--text)" }),
                 ...(glossaryCount === 0 ? { opacity: 0.4, pointerEvents: "none" as const } : {}),
               }}>
               <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-                style={{ borderColor: mode === "glossar" ? "var(--accent)" : "var(--border)" }}>
-                {mode === "glossar" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} />}
+                style={{ borderColor: mode === "glossary" ? "var(--accent)" : "var(--border)" }}>
+                {mode === "glossary" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--accent)" }} />}
               </div>
-              Aus Glossar <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
+              Aus Glossary <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
             </button>
           )}
           <button type="button" onClick={() => selectedSource && setMode("quelle")}

@@ -18,7 +18,7 @@ from src.core.db.pool import get_connection
 from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
-def save_kia_message(
+def save_aia_message(
     module_id: int,
     user_id: int,
     role: str,
@@ -30,7 +30,7 @@ def save_kia_message(
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO kia_messages
+                """INSERT INTO aia_messages
                    (module_id, user_id, role, content, source_pages, enrollment_id, source_qmap)
                    VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                 (
@@ -45,29 +45,29 @@ def save_kia_message(
             )
         conn.commit()
 
-def delete_kia_messages(module_id: int, user_id: int, enrollment_id: int | None = None) -> None:
+def delete_aia_messages(module_id: int, user_id: int, enrollment_id: int | None = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             if enrollment_id is not None:
                 cur.execute(
-                    "DELETE FROM kia_messages WHERE module_id = %s AND user_id = %s AND enrollment_id = %s",
+                    "DELETE FROM aia_messages WHERE module_id = %s AND user_id = %s AND enrollment_id = %s",
                     (module_id, user_id, enrollment_id),
                 )
             else:
                 cur.execute(
-                    "DELETE FROM kia_messages WHERE module_id = %s AND user_id = %s AND enrollment_id IS NULL",
+                    "DELETE FROM aia_messages WHERE module_id = %s AND user_id = %s AND enrollment_id IS NULL",
                     (module_id, user_id),
                 )
         conn.commit()
 
-def get_kia_messages(
+def get_aia_messages(
     module_id: int, user_id: int, limit: int = 20, enrollment_id: int | None = None
 ) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             if enrollment_id is not None:
                 cur.execute(
-                    """SELECT * FROM kia_messages
+                    """SELECT * FROM aia_messages
                        WHERE module_id = %s AND user_id = %s AND enrollment_id = %s
                        ORDER BY created_at DESC
                        LIMIT %s""",
@@ -75,7 +75,7 @@ def get_kia_messages(
                 )
             else:
                 cur.execute(
-                    """SELECT * FROM kia_messages
+                    """SELECT * FROM aia_messages
                        WHERE module_id = %s AND user_id = %s AND enrollment_id IS NULL
                        ORDER BY created_at DESC
                        LIMIT %s""",
@@ -84,31 +84,31 @@ def get_kia_messages(
             rows = cur.fetchall()
     return list(reversed([dict(row) for row in rows]))
 
-def get_kia_user_settings(module_id: int, user_id: int) -> dict:
+def get_aia_user_settings(module_id: int, user_id: int) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT * FROM kia_user_settings WHERE module_id = %s AND user_id = %s",
+                "SELECT * FROM aia_user_settings WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
             row = cur.fetchone()
     if row:
         return dict(row)
-    return {"chat_lang": "de", "studio_enabled": True, "sprachtraining_active": False}
+    return {"chat_lang": "de", "studio_enabled": True, "language_training_active": False}
 
-def upsert_kia_user_settings(
-    module_id: int, user_id: int, chat_lang: str, studio_enabled: bool, sprachtraining_active: bool
+def upsert_aia_user_settings(
+    module_id: int, user_id: int, chat_lang: str, studio_enabled: bool, language_training_active: bool
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO kia_user_settings (module_id, user_id, chat_lang, studio_enabled, sprachtraining_active)
+                """INSERT INTO aia_user_settings (module_id, user_id, chat_lang, studio_enabled, language_training_active)
                    VALUES (%s, %s, %s, %s, %s)
                    ON CONFLICT (module_id, user_id)
                    DO UPDATE SET chat_lang = EXCLUDED.chat_lang,
                                  studio_enabled = EXCLUDED.studio_enabled,
-                                 sprachtraining_active = EXCLUDED.sprachtraining_active""",
-                (module_id, user_id, chat_lang, studio_enabled, sprachtraining_active),
+                                 language_training_active = EXCLUDED.language_training_active""",
+                (module_id, user_id, chat_lang, studio_enabled, language_training_active),
             )
         conn.commit()
 

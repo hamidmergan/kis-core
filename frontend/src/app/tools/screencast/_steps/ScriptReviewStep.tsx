@@ -120,7 +120,7 @@ export default function ScriptReviewStep({
                               </button>
                               <button
                                 onClick={() => onSaveEdit(i)}
-                                className="px-3 py-1 text-xs bg-primary text-white rounded hover:outline-2 hover:outline-primary transition-colors"
+                                className="px-3 py-1 text-xs btn-primary rounded  transition-colors"
                               >
                                 Speichern
                               </button>
@@ -193,7 +193,7 @@ export default function ScriptReviewStep({
         <button
           onClick={onAcceptScripts}
           disabled={editingSlide !== null}
-          className="flex-1 px-4 py-3 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Alle Skripte übernehmen
         </button>

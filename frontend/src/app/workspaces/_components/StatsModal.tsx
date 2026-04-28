@@ -19,7 +19,7 @@ export default function StatsModal({ moduleUuid, onClose }: StatsModalProps) {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ki-assistent/modules/${moduleUuid}/dozent-stats`, {
+        const res = await fetch(`/api/ai-assistant/modules/${moduleUuid}/dozent-stats`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Fehler beim Laden");

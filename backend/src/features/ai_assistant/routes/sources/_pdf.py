@@ -9,15 +9,15 @@ from ._shared import (
 router = APIRouter(tags=["ki-assistent"])
 
 
-@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/toc")
+@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/toc")
 async def get_pdf_toc(
     module_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Liefert das gespeicherte Inhaltsverzeichnis aus der DB."""
+    """Return the stored table of contents from the DB."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -26,14 +26,14 @@ async def get_pdf_toc(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
     return {"toc": source.get("toc") or []}
 
 
-@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/summaries")
+@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/summaries")
 async def get_paragraph_summaries(
     module_uuid: str,
     source_uuid: str,
@@ -41,7 +41,7 @@ async def get_paragraph_summaries(
 ):
     """Return page-level summaries for the sidebar."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -50,7 +50,7 @@ async def get_paragraph_summaries(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -63,7 +63,7 @@ async def get_paragraph_summaries(
     return {"status": status, "pages": by_page}
 
 
-@router.post("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/summaries/generate")
+@router.post("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/summaries/generate")
 async def trigger_paragraph_summaries(
     module_uuid: str,
     source_uuid: str,
@@ -71,13 +71,13 @@ async def trigger_paragraph_summaries(
 ):
     """Manually trigger paragraph summary generation for a source."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     if module["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
     if source["file_type"] != "pdf":
@@ -88,14 +88,14 @@ async def trigger_paragraph_summaries(
         return {"status": "generating"}
 
     # Keep existing summaries — task resumes where it left off
-    db.update_kia_source_summaries_status(source_uuid, "generating")
+    db.update_aia_source_summaries_status(source_uuid, "generating")
 
-    from src.tasks.kia_tasks import run_generate_summaries
+    from src.tasks.aia_tasks import run_generate_summaries
     run_generate_summaries.delay(source_uuid)
     return {"status": "generating"}
 
 
-@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/search")
+@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/search")
 async def search_pdf(
     module_uuid: str,
     source_uuid: str,
@@ -103,7 +103,7 @@ async def search_pdf(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -112,7 +112,7 @@ async def search_pdf(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -172,7 +172,7 @@ async def search_pdf(
     return {"matches": matches, "page_width": page_width, "page_height": page_height}
 
 
-@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/markdown")
+@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/markdown")
 async def convert_source_to_markdown(
     module_uuid: str,
     source_uuid: str,
@@ -190,7 +190,7 @@ async def convert_source_to_markdown(
     from src.config import Settings
 
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -199,7 +199,7 @@ async def convert_source_to_markdown(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 

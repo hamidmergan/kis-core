@@ -105,7 +105,7 @@ export default function PromptsTab() {
               <button
                 onClick={() => save(p.key)}
                 disabled={saving === p.key}
-                className="text-sm bg-primary text-white px-4 py-1.5 rounded-lg hover:outline-2 hover:outline-primary disabled:opacity-50"
+                className="text-sm btn-primary px-4 py-1.5 rounded-lg  disabled:opacity-50"
               >
                 {saving === p.key ? "Speichert..." : saved === p.key ? "Gespeichert ✓" : "Speichern"}
               </button>

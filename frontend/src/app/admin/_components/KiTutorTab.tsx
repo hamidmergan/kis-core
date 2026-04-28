@@ -15,7 +15,7 @@ interface KiTutorStudentStat {
   correct: number;
   accuracy: number;
   lerntools: number;
-  sprachtraining: number;
+  language_training: number;
   chat_messages: number;
 }
 
@@ -39,10 +39,10 @@ interface KiTutorStatsData {
   days: number;
 }
 
-type StatsMode = "quelle" | "glossar";
+type StatsMode = "quelle" | "glossary";
 const MODE_META: Record<StatsMode, { label: string; accent: string }> = {
   quelle: { label: "Lerntools", accent: "var(--kb)" },
-  glossar: { label: "Fachsprachentraining", accent: "var(--st)" },
+  glossary: { label: "Fachsprachentraining", accent: "var(--st)" },
 };
 
 export default function KiTutorTab() {
@@ -54,7 +54,7 @@ export default function KiTutorTab() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/admin/ki-assistent/stats?days=${days}&mode=${mode}`, { credentials: "include" })
+    fetch(`/api/admin/ai-assistant/stats?days=${days}&mode=${mode}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setData(d))
       .finally(() => setLoading(false));
@@ -77,7 +77,7 @@ export default function KiTutorTab() {
     <div className={`space-y-6 transition-opacity ${loading ? "opacity-50 pointer-events-none" : ""}`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-1">
-          {(["quelle", "glossar"] as StatsMode[]).map((m) => {
+          {(["quelle", "glossary"] as StatsMode[]).map((m) => {
             const active = mode === m;
             const meta = MODE_META[m];
             return (
@@ -213,7 +213,7 @@ export default function KiTutorTab() {
                                         {s.lerntools}
                                       </td>
                                       <td className="px-4 py-2 text-right" style={{ color: "var(--st)" }}>
-                                        {s.sprachtraining}
+                                        {s.language_training}
                                       </td>
                                       <td className="px-4 py-2 text-right text-gray-600">
                                         {s.chat_messages}

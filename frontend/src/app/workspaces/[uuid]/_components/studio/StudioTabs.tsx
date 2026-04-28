@@ -20,7 +20,7 @@ export function StudioTabs({ tabs, active, onSelect, accentColor }: {
     return () => ro.disconnect();
   }, [tabs.length]);
 
-  const cols = fits ? tabs.map(t => t.key === "sprachtraining" ? "1.4fr" : "1fr").join(" ") : undefined;
+  const cols = fits ? tabs.map(t => t.key === "language_training" ? "1.4fr" : "1fr").join(" ") : undefined;
 
   return (
     <div ref={ref} className="flex-shrink-0 px-3 pt-6 pb-2 w-full mx-auto" style={{ maxWidth: 500 }}>
@@ -35,12 +35,14 @@ export function StudioTabs({ tabs, active, onSelect, accentColor }: {
               key={tab.key}
               type="button"
               onClick={() => onSelect(tab.key)}
-              className={`py-1.5 px-3 text-xs font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!fits ? "flex-shrink-0" : ""} ${!isActive ? "hover:bg-black/[0.03] hover:text-[var(--text)]" : ""}`}
+              className={`py-1.5 px-3 text-xs font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!fits ? "flex-shrink-0" : ""} ${!isActive ? "text-[var(--muted)] hover:text-[var(--accent)] hover:outline-2 hover:outline-[var(--accent)] -outline-offset-1" : ""}`}
               style={{
-                color: isActive ? (accentColor || "var(--accent)") : "var(--muted)",
-                backgroundColor: isActive ? "var(--bg)" : undefined,
+                ...(isActive ? {
+                  color: accentColor || "var(--accent)",
+                  backgroundColor: "var(--bg)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                } : {}),
                 border: "none",
-                boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
               }}
             >
               {tab.label}

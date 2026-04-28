@@ -165,10 +165,10 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
   vertical-align: middle;
   line-height: 1.5;
   white-space: nowrap;
-  transition: opacity 0.15s;
+  transition: outline-color 0.15s;
 }
 me-tpc:hover .mm-src-chip {
-  opacity: 0.8;
+  outline: 2px solid var(--color-primary);
 }
 
 /* Black tooltip for truncated card titles */
@@ -200,10 +200,73 @@ me-tpc:hover .mm-src-chip {
   opacity: 1;
 }
 
+/* ─── Hover-System: semantische Component-Klassen ─────────────────────
+   Eine zentrale Quelle fuer alle interaktiven Hover-Patterns.
+   Layer 2 oben liefert transition + focus-ring + disabled gratis. */
+@layer components {
+  /* Icon-Button: gray default, primary + outline on hover */
+  .btn-icon {
+    color: var(--muted);
+  }
+  .btn-icon:hover:not(:disabled, [aria-disabled="true"]) {
+    color: var(--color-primary);
+    outline: 2px solid var(--color-primary);
+  }
+
+  /* Solid Primary CTA: invert on hover (bg-white + text-primary + outline) */
+  .btn-primary {
+    background-color: var(--color-primary);
+    color: #ffffff;
+  }
+  .btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: #ffffff;
+    color: var(--color-primary);
+    outline: 2px solid var(--color-primary);
+  }
+
+  /* Ghost / outlined button: outline on hover */
+  .btn-ghost:hover:not(:disabled, [aria-disabled="true"]) {
+    outline: 2px solid var(--color-primary);
+  }
+
+  /* Button on dark blue header: white outline + brighter text */
+  .btn-on-dark {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  .btn-on-dark:hover:not(:disabled, [aria-disabled="true"]) {
+    color: #ffffff;
+    outline: 2px solid #ffffff;
+  }
+
+  /* Footer link: faded white, brightens + underline on hover */
+  .link-footer {
+    opacity: 0.75;
+  }
+  .link-footer:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+
+  /* Logo link: subtle opacity fade */
+  .logo-link:hover {
+    opacity: 0.8;
+  }
+
+  /* Citation chip: outline on hover (bg/color stay inline-styled) */
+  .chip-cite:hover:not(:disabled, [aria-disabled="true"]) {
+    outline: 2px solid var(--color-primary);
+  }
+}
+
 /* Module table: hovering a main cell triggers arrow icon hover */
 tr.module-row:has(td.row-main:hover) .row-arrow {
   color: var(--color-primary);
   outline: 2px solid var(--color-primary);
+}
+
+/* Sources panel: hovering "Alle auswählen" previews hover on per-source checkboxes */
+.sources-panel:has(.sources-select-all:hover) .source-checkbox {
+  border-color: var(--color-primary);
 }
 
 /* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */
@@ -357,7 +420,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
     [role="button"], [role="link"], [role="tab"], [role="menuitem"],
     input, textarea, select
   ) {
-    transition-property: color, background-color, border-color, box-shadow, opacity, filter;
+    transition-property: color, background-color, border-color, box-shadow, opacity, filter, outline-color;
     transition-duration: 150ms;
     transition-timing-function: ease;
   }

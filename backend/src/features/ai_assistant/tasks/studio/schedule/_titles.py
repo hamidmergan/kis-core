@@ -1,4 +1,4 @@
-"""Titel-Normalisierung + Fuzzy-Matching für Schedule-Deduplication."""
+"""Title normalization plus fuzzy matching for schedule deduplication."""
 
 from difflib import SequenceMatcher
 
@@ -14,7 +14,7 @@ def _norm_title(t: str) -> str:
 def _token_overlap(a: str, b: str) -> float:
     """Fraction of shorter token set that also appears in the longer one.
     Handles stem-like matches by simple prefix comparison for 5+ char tokens.
-    Digit-only tokens (years, day numbers, month numbers) are excluded — they
+    Digit-only tokens (years, day numbers, month numbers) are excluded: they
     carry no semantic signal about the event itself.
     Language-agnostic.
     """

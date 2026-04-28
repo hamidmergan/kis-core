@@ -1,8 +1,8 @@
-"""Audio-Chunking-Utilities für Whisper-Uploads.
+"""Audio chunking utilities for Whisper uploads.
 
-Whisper bei KISSKI akzeptiert max. 600s pro Upload. Längere Audios werden
-an Stille-Punkten gesplittet, einzeln transkribiert und wieder zusammengefügt.
-Alle Funktionen hier sind pur (kein Client-State)."""
+Whisper at KISSKI accepts max 600s per upload. Longer audio is split at silence
+points, transcribed individually and stitched back together.
+All functions here are pure (no client state)."""
 
 import json
 import re
@@ -10,11 +10,11 @@ import subprocess
 from pathlib import Path
 
 # ── Constants ────────────────────────────────────────────────────────────────
-CHUNK_MAX_SEC = 540        # 9 min — sicher unter KISSKIs 600s-Limit
-MAX_AUDIO_SEC = 12000      # 200 min, hartes Upload-Limit
-_SILENCE_NOISE_DB = -40    # dB-Schwelle für Stille-Detection
-_SILENCE_MIN_DURATION = 0.3  # Minimale Stille-Dauer (s)
-_SPLIT_SEARCH_WINDOW = 60  # Suchfenster um jeden Target-Splitpunkt (s)
+CHUNK_MAX_SEC = 540        # 9 min - safely under KISSKI's 600s limit
+MAX_AUDIO_SEC = 12000      # 200 min, hard upload limit
+_SILENCE_NOISE_DB = -40    # dB threshold for silence detection
+_SILENCE_MIN_DURATION = 0.3  # Minimum silence duration (s)
+_SPLIT_SEARCH_WINDOW = 60  # Search window around each target split point (s)
 
 
 def get_audio_duration(file_path: str) -> float:

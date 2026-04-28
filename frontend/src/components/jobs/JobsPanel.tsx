@@ -156,7 +156,7 @@ export default function JobsPanel() {
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         openSSE();
-        fetchJobs(); // sofortiger Snapshot beim Tab-Wechsel
+        fetchJobs(); // immediate snapshot on tab switch
       } else {
         closeSSE();
         if (fallbackPoll) { clearInterval(fallbackPoll); fallbackPoll = null; }
@@ -292,7 +292,7 @@ export default function JobsPanel() {
         onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open("/my-jobs", "_blank"); } }}
         aria-label="Jobs"
         title="Jobs"
-        className="relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full text-white/80 hover:text-white hover:outline-2 hover:outline-white transition"
+        className="relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full btn-on-dark"
       >
         <Stack size={17} weight="bold" aria-hidden="true" />
         <span className="hidden sm:inline text-sm font-medium">Jobs</span>

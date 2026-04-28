@@ -1,4 +1,4 @@
-"""KI-Assistent routes — sprachtraining exercises."""
+"""KI-Assistent routes — language_training exercises."""
 
 import io
 import json
@@ -33,7 +33,7 @@ from src.tool_prompts import (
     KIA_POPUP_ACTIONS,
 )
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
     _count_pages,
@@ -49,11 +49,11 @@ from src.features.ki_assistent.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
-@router.post("/ki-assistent/modules/{module_uuid}/exercises/cloze")
+@router.post("/ai-assistant/modules/{module_uuid}/exercises/cloze")
 async def generate_cloze(
     module_uuid: str,
     body: schemas.ExerciseGenerateBody,
@@ -61,7 +61,7 @@ async def generate_cloze(
 ):
     """Create a cloze exercise set via Celery."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -70,19 +70,19 @@ async def generate_cloze(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    entries = db.get_kia_glossary_by_module(module["id"])
+    entries = db.get_aia_glossary_by_module(module["id"])
     if not entries:
-        raise HTTPException(status_code=400, detail="Kein Glossar vorhanden")
+        raise HTTPException(status_code=400, detail="Kein Glossary vorhanden")
 
     placeholder = db.create_exercise_set_placeholder(
         module_id=module["id"], user_id=user_id, tool="lueckentext",
-        title="Wird generiert…", mode="glossar", source_uuid=None,
+        title="Wird generiert…", mode="glossary", source_uuid=None,
     )
-    from src.tasks.kia_tasks import run_generate_exercise_set
-    run_generate_exercise_set.delay(placeholder["id"], module["id"], "lueckentext", "glossar", 10, None)
+    from src.tasks.aia_tasks import run_generate_exercise_set
+    run_generate_exercise_set.delay(placeholder["id"], module["id"], "lueckentext", "glossary", 10, None)
     return {"set_id": placeholder["id"], "status": "generating"}
 
-@router.post("/ki-assistent/modules/{module_uuid}/exercises/vocab-test")
+@router.post("/ai-assistant/modules/{module_uuid}/exercises/vocab-test")
 async def generate_vocab_test(
     module_uuid: str,
     body: schemas.ExerciseGenerateBody,
@@ -90,7 +90,7 @@ async def generate_vocab_test(
 ):
     """Create a vocab test exercise set via Celery."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -99,22 +99,22 @@ async def generate_vocab_test(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    entries = db.get_kia_glossary_by_module(module["id"])
+    entries = db.get_aia_glossary_by_module(module["id"])
     if not entries:
-        raise HTTPException(status_code=400, detail="Kein Glossar vorhanden")
+        raise HTTPException(status_code=400, detail="Kein Glossary vorhanden")
 
     placeholder = db.create_exercise_set_placeholder(
         module_id=module["id"], user_id=user_id, tool="vokabeltest",
-        title="Wird generiert…", mode="glossar", source_uuid=None,
+        title="Wird generiert…", mode="glossary", source_uuid=None,
     )
-    from src.tasks.kia_tasks import run_generate_exercise_set
-    run_generate_exercise_set.delay(placeholder["id"], module["id"], "vokabeltest", "glossar", 10, None)
+    from src.tasks.aia_tasks import run_generate_exercise_set
+    run_generate_exercise_set.delay(placeholder["id"], module["id"], "vokabeltest", "glossary", 10, None)
     return {"set_id": placeholder["id"], "status": "generating"}
 
 
 # ─── Exercise Sets CRUD ──────────────────────────────────────────────────────
 
-@router.post("/ki-assistent/modules/{module_uuid}/exercise-sets")
+@router.post("/ai-assistant/modules/{module_uuid}/exercise-sets")
 async def create_exercise_set(
     module_uuid: str,
     body: schemas.CreateSetBody,
@@ -122,7 +122,7 @@ async def create_exercise_set(
 ):
     """Create a new exercise set — returns immediately, generates via Celery."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -131,29 +131,29 @@ async def create_exercise_set(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    if body.mode == "quelle" and not body.source_uuid:
-        raise HTTPException(status_code=400, detail="Keine Quelle angegeben")
+    if body.mode == "source" and not body.source_uuid:
+        raise HTTPException(status_code=400, detail="Keine Source angegeben")
 
     placeholder = db.create_exercise_set_placeholder(
         module_id=module["id"], user_id=user_id, tool=body.tool,
         title="Wird generiert…", mode=body.mode, source_uuid=body.source_uuid,
     )
 
-    from src.tasks.kia_tasks import run_generate_exercise_set
+    from src.tasks.aia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(
         placeholder["id"], module["id"], body.tool, body.mode, body.count, body.source_uuid,
     )
 
     return {"set": placeholder}
 
-@router.get("/ki-assistent/modules/{module_uuid}/exercise-sets")
+@router.get("/ai-assistant/modules/{module_uuid}/exercise-sets")
 async def list_exercise_sets(
     module_uuid: str,
     tool: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     sets = db.get_exercise_sets(module["id"], user_id, tool)
@@ -162,7 +162,7 @@ async def list_exercise_sets(
             s["created_at"] = s["created_at"].isoformat() + "Z"
     return {"sets": sets}
 
-@router.get("/ki-assistent/modules/{module_uuid}/exercise-sets/{set_id}")
+@router.get("/ai-assistant/modules/{module_uuid}/exercise-sets/{set_id}")
 async def get_exercise_set(
     module_uuid: str,
     set_id: int,
@@ -175,7 +175,7 @@ async def get_exercise_set(
         ex_set["created_at"] = ex_set["created_at"].isoformat() + "Z"
     return {"set": ex_set}
 
-@router.delete("/ki-assistent/modules/{module_uuid}/exercise-sets/{set_id}")
+@router.delete("/ai-assistant/modules/{module_uuid}/exercise-sets/{set_id}")
 async def delete_exercise_set_endpoint(
     module_uuid: str,
     set_id: int,
@@ -185,7 +185,7 @@ async def delete_exercise_set_endpoint(
         raise HTTPException(status_code=404, detail="Set nicht gefunden")
     return {"ok": True}
 
-@router.post("/ki-assistent/modules/{module_uuid}/exercise-sets/{set_id}/progress")
+@router.post("/ai-assistant/modules/{module_uuid}/exercise-sets/{set_id}/progress")
 async def record_set_progress(
     module_uuid: str,
     set_id: int,
@@ -193,7 +193,7 @@ async def record_set_progress(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     if body.new_run:

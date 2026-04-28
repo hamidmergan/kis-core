@@ -50,7 +50,7 @@ export function useModuleActions({ module, onToggleActive, onDelete, onLinksChan
     if (!deleteLinkConfirm) return;
     setDeletingLink(true);
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
+      const res = await fetch(`/api/ai-assistant/modules/${module.uuid}/access-links/${deleteLinkConfirm.id}`, {
         method: "DELETE",
         credentials: "include",
       });

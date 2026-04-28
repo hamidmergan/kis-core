@@ -20,7 +20,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
   const handleAddEntry = () => {
     if (!newSource.trim() || !newTarget.trim()) return;
     if (entries.some((e) => e.source.toLowerCase() === newSource.trim().toLowerCase())) {
-      setError(`"${newSource.trim()}" existiert bereits im Glossar`);
+      setError(`"${newSource.trim()}" existiert bereits im Glossary`);
       return;
     }
     onChange([...entries, { source: newSource.trim(), target: newTarget.trim() }]);
@@ -84,7 +84,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
           <button
             onClick={handleAddEntry}
             disabled={!newSource.trim() || !newTarget.trim()}
-            className="px-4 py-2 bg-primary text-white text-sm rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors whitespace-nowrap"
+            className="px-4 py-2 btn-primary text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors whitespace-nowrap"
           >
             Hinzufügen
           </button>
@@ -101,7 +101,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
       {/* Entries table */}
       {entries.length === 0 ? (
         <div className="text-center py-12 text-sm text-gray-400">
-          Noch keine Glossar-Einträge vorhanden.
+          Noch keine Glossary-Einträge vorhanden.
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

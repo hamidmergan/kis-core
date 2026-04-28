@@ -30,8 +30,8 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
           <button
             type="button"
             onClick={() => setChatMenuOpen((v) => !v)}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+            style={{ backgroundColor: "var(--surface-dim)" }}
             title="Optionen"
           >
             <DotsThreeVertical size={16} weight="bold" />
@@ -58,8 +58,8 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
           <button
             type="button"
             onClick={onMinimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+            style={{ backgroundColor: "var(--surface-dim)" }}
             title="Panel minimieren"
           >
             <SidebarSimple size={13} />

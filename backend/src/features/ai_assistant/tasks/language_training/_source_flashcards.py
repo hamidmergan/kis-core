@@ -1,16 +1,16 @@
-"""Lernkarten-Generierung aus Quelltext (mode='quelle')."""
+"""Flashcards-Generierung aus Quelltext (mode='source')."""
 
 import json
 
-from src.features.ki_assistent.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.tool_prompts import KIA_LERNKARTEN_PROMPT
 
-from src.features.ki_assistent.tasks.sprachtraining._card_base import parse_card, with_avoid
-from src.features.ki_assistent.tasks.sprachtraining._context import QuelleContext
-from src.features.ki_assistent.tasks.sprachtraining._title import title_from_items
+from src.features.ai_assistant.tasks.language_training._card_base import parse_card, with_avoid
+from src.features.ai_assistant.tasks.language_training._context import QuelleContext
+from src.features.ai_assistant.tasks.language_training._title import title_from_items
 
 
-def generate_lernkarten_from_source(
+def generate_flashcards_from_source(
     client, model,
     ctx: QuelleContext,
     count: int,
@@ -21,7 +21,7 @@ def generate_lernkarten_from_source(
         {"role": "system", "content": prompt},
         {"role": "user", "content": with_avoid(
             existing_fronts,
-            f"Erstelle Lernkarten aus {ctx.source_hint}:\n\n{ctx.context}",
+            f"Create flashcards from {ctx.source_hint} (respond in the source-text language):\n\n{ctx.context}",
         )},
     ]
     response = client.chat.completions.create(model=model, messages=messages, temperature=0.3)
@@ -37,7 +37,7 @@ def _format_lernkarte(ctx: QuelleContext, c: dict) -> dict:
     """Formatiert Lernkarte: Begriff/Definition in front/back-Spalten, Rest in extras JSONB."""
     begriff = (c.get("begriff") or "").strip()
     definition = (c.get("definition") or "").strip()
-    # Map semantic names to shared DB columns (front/back), damit die Karteikarten-Logik unverändert bleibt
+    # Map semantic names to shared DB columns (front/back) so the cards logic stays unchanged
     normalized = {
         "front": begriff,
         "back": definition,

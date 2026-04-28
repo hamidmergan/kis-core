@@ -1,4 +1,4 @@
-"""KI-Assistent routes — chat + RAG."""
+"""AI assistant routes - chat + RAG."""
 
 import io
 import json
@@ -72,7 +72,7 @@ def _rewrite_query(kisski, history: list[dict], question: str) -> str:
         return question
     return rewritten
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
     _count_pages,
@@ -90,11 +90,11 @@ from src.features.ki_assistent.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
-@router.post("/ki-assistent/modules/{module_uuid}/chat")
+@router.post("/ai-assistant/modules/{module_uuid}/chat")
 @observe(name="kia-chat")
 async def chat(
     module_uuid: str,
@@ -106,12 +106,12 @@ async def chat(
     _trace_kisski(kisski, "kia-chat")
     user_id = current_user["user_id"]
 
-    # Burst-Sperre: bei >50 Chat-Anfragen in 60s wird der User für 10 Min gesperrt.
-    # Wirft 429 wenn aktuell gesperrt oder das Limit gerade gerissen wird.
+    # Burst block: at >50 chat requests in 60s the user is blocked for 10 min.
+    # Raises 429 if currently blocked or the limit is being exceeded right now.
     enforce_burst(user_id)
 
     _started_at = _time.monotonic()
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -125,25 +125,25 @@ async def chat(
 
     # Sync module status: heal stale 'pending' if all sources are actually ready
     if module["status"] != "ready":
-        sources_check = db.get_kia_sources_by_module(module["id"])
+        sources_check = db.get_aia_sources_by_module(module["id"])
         ready_sources = [s for s in sources_check if s["status"] == "ready"]
         if not ready_sources:
-            raise HTTPException(status_code=409, detail="Keine indizierten Quellen vorhanden")
+            raise HTTPException(status_code=409, detail="Keine indizierten Sources vorhanden")
         if all(s["status"] == "ready" for s in sources_check):
-            db.update_kia_module_status(module_uuid, "ready")
+            db.update_aia_module_status(module_uuid, "ready")
 
     # Resolve active_source_ids (UUIDs → DB int ids)
     source_ids: list[int] | None = None
     if body.active_source_ids is not None:
         resolved = []
         for suuid in body.active_source_ids:
-            source = db.get_kia_source(suuid)
+            source = db.get_aia_source(suuid)
             if source and source["module_id"] == module["id"]:
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
 
-    # Erkennung: generische Zusammenfassungs-Anfrage vs. spezifische Frage
-    # Sprachunabhaengig: kurze Anfrage + Signal-Pattern = generisch
+    # Detection: generic summary request vs. specific question
+    # Language-independent: short request + signal pattern = generic
     import re as _re
     _q_lower = body.question.strip().lower()
     _q_words = len(_q_lower.split())
@@ -155,7 +155,7 @@ async def chat(
         r"wovon\s+handelt",
         r"(kern|haupt)(aussagen|punkte|themen)",
         r"wichtigsten?\s+(punkte|aussagen|themen|inhalte)",
-        r"(jede|alle)\w*\s+(quelle|datei|dokument)",
+        r"(jede|alle)\w*\s+(source|datei|dokument)",
         # English
         r"summar(y|ize|ise)",
         r"overview",
@@ -168,17 +168,17 @@ async def chat(
         not body.source_text
         and source_ids
         and _has_signal
-        and _q_words <= 15  # kurze Anfrage = wahrscheinlich generisch
+        and _q_words <= 15  # short request = likely generic
     )
 
-    # Default: Frage wird 1:1 benutzt. Nur im Hybrid-Search-Pfad mit History
-    # wird sie ggf. umgeschrieben (Condense Question).
+    # Default: question is used as-is. Only on the hybrid-search path with history
+    # is it potentially rewritten (condense question).
     rewritten_question = body.question
 
     if _is_generic:
-        # ── Generische Zusammenfassung: Summaries + zeitlich verteilte Media-Chunks ──
+        # ── Generic summary: summaries + time-distributed media chunks ──
         logger.info("Generic summary detected for {} sources, skipping hybrid search", len(source_ids))
-        all_sources_map = {s["id"]: s for s in db.get_kia_sources_by_module(module["id"])}
+        all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_module(module["id"])}
         chunks: list[dict] = []
         char_budget_per_source = 200000 // len(source_ids)
 
@@ -189,8 +189,8 @@ async def chat(
             is_media = Path(src["filename"]).suffix.lower() in _MEDIA_EXTENSIONS
 
             if is_media:
-                # Media: alle Chunks zeitlich sortiert laden, bis Budget voll
-                all_media_chunks = db.get_kia_chunks_by_source(sid)
+                # Media: load all chunks sorted by time until budget is full
+                all_media_chunks = db.get_aia_chunks_by_source(sid)
                 all_media_chunks.sort(key=lambda c: c.get("start_time") or 0)
                 taken: list[dict] = []
                 total_chars = 0
@@ -202,7 +202,7 @@ async def chat(
                 chunks.extend(taken)
                 logger.info("Generic: source {} (media) → {} chunks from {} total", sid, len(taken), len(all_media_chunks))
             else:
-                # PDF: vorhandene Paragraph-Summaries nutzen (kompakter als Raw-Chunks)
+                # PDF: use existing paragraph summaries (more compact than raw chunks)
                 summaries = db.get_paragraph_summaries_by_source(sid)
                 if summaries:
                     total_chars = 0
@@ -218,8 +218,8 @@ async def chat(
                         })
                     logger.info("Generic: source {} (PDF) → {} summaries used", sid, min(len(summaries), len([c for c in chunks if c["source_id"] == sid])))
                 else:
-                    # Fallback: Raw-Chunks gleichmäßig über Seiten verteilt
-                    all_pdf_chunks = db.get_kia_chunks_by_source(sid)
+                    # Fallback: raw chunks distributed evenly across pages
+                    all_pdf_chunks = db.get_aia_chunks_by_source(sid)
                     all_pdf_chunks.sort(key=lambda c: c.get("page_number") or 0)
                     sampled = []
                     total_chars = 0
@@ -236,12 +236,12 @@ async def chat(
 
         logger.info("Generic summary: {} total context chunks across {} sources", len(chunks), len(source_ids))
     else:
-        # ── Normaler Pfad: Hybrid Search ──
-        # Query rewriting (condense question): bei echter Folgefrage History zur
-        # standalone Frage zusammenfassen, damit der Answer-Call History-frei bleibt.
-        # Skip bei Popup (source_text) und Erstfrage (keine History).
+        # ── Normal path: hybrid search ──
+        # Query rewriting (condense question): on a real follow-up, condense history into
+        # a standalone question so the answer call stays history-free.
+        # Skip for popup (source_text) and first question (no history).
         if not body.source_text:
-            history_for_rewrite = db.get_kia_messages(
+            history_for_rewrite = db.get_aia_messages(
                 module["id"], user_id, limit=4, enrollment_id=enrollment_id
             )
             if history_for_rewrite:
@@ -254,16 +254,16 @@ async def chat(
                         body.question[:80], rewritten_question[:80],
                     )
 
-        from src.services.kia_embeddings import get_embedding_provider
+        from src.services.aia_embeddings import get_embedding_provider
         provider = get_embedding_provider()
 
         embed_text = body.source_text if body.source_text else rewritten_question
         query_vector = provider.embed_one(embed_text)
 
-        # Bei Popup-Aktionen nur in der Quell-Datei suchen
+        # For popup actions, only search in the source file
         search_source_ids = source_ids
         if body.source_uuid:
-            popup_source = db.get_kia_source(body.source_uuid)
+            popup_source = db.get_aia_source(body.source_uuid)
             if popup_source:
                 search_source_ids = [popup_source["id"]]
 
@@ -275,7 +275,7 @@ async def chat(
         found_source_ids = sorted(set(c["source_id"] for c in chunks))
         logger.info("Hybrid Search: {} chunks, source_ids={}, Seiten: {}, Query: '{}'", len(chunks), found_source_ids, found_pages, embed_text[:80])
 
-        # Source-Diversity: bei mehreren aktiven Quellen min. 1 Chunk pro Quelle
+        # Source diversity: with multiple active sources at least 1 chunk per source
         if source_ids and len(source_ids) > 1:
             seen_sources: set[int] = set()
             diverse_chunks: list[dict] = []
@@ -286,10 +286,10 @@ async def chat(
                     diverse_chunks.append(chunk)
                 else:
                     remaining.append(chunk)
-            # Fallback: Quellen ohne Hybrid-Search-Treffer trotzdem einbeziehen
+            # Fallback: include sources without hybrid-search hits anyway
             for sid in source_ids:
                 if sid not in seen_sources:
-                    fallback = db.get_kia_chunks_by_source(sid)
+                    fallback = db.get_aia_chunks_by_source(sid)
                     if fallback:
                         diverse_chunks.append(fallback[0])
                         seen_sources.add(sid)
@@ -297,7 +297,7 @@ async def chat(
             chunks = diverse_chunks + remaining
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
-    all_sources_list = {s["id"]: s for s in db.get_kia_sources_by_module(module["id"])}
+    all_sources_list = {s["id"]: s for s in db.get_aia_sources_by_module(module["id"])}
     source_id_to_qnum: dict[int, int] = {}
     source_qmap: list[dict] = []  # [{qnum, uuid, filename}, ...]
     qnum_counter = 0
@@ -326,7 +326,7 @@ async def chat(
             if src:
                 transcript_by_source[sid] = _load_transcript_segments(src)
 
-    # Build context (max 200000 chars) — XML-Tags pro Chunk (Anthropic Best Practice)
+    # Build context (max 200000 chars) - XML tags per chunk (Anthropic best practice)
     context_parts: list[str] = []
     context_len = 0
     for chunk in chunks:
@@ -347,10 +347,10 @@ async def chat(
         context_len += len(part)
     context = f"<documents>\n{''.join(context_parts)}\n</documents>"
 
-    # Popup-Aktionen: User hat Text selbst markiert
+    # Popup actions: user has selected text themselves
     if body.source_text:
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
-        # "Genauer ausführen" braucht RAG-Kontext, die anderen arbeiten nur mit dem markierten Text
+        # "Elaborate" needs RAG context, the others work only with the selected text
         elaborate_prompt = KIA_POPUP_ACTIONS[0]["prompt"]
         if body.question.startswith(str(elaborate_prompt)):
             system_prompt = KIA_SYSTEM_DIRECT_WITH_CONTEXT
@@ -362,9 +362,9 @@ async def chat(
         system_prompt = KIA_SYSTEM_RAG
         user_message = f"{context}\n\nQuestion: {rewritten_question}"
 
-    # Single-turn: System + user (keine History im Answer-Call, um Leaks aus
-    # vorherigen Turns zu verhindern). History-Kontext wurde ggf. im Query
-    # Rewriter verarbeitet und ist in rewritten_question geflossen.
+    # Single-turn: system + user (no history in the answer call, to prevent leaks
+    # from previous turns). History context was processed in the query
+    # rewriter if needed and flowed into rewritten_question.
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
@@ -383,7 +383,7 @@ async def chat(
             "is_popup_selection": True,
         })
     else:
-        all_sources = {s["id"]: s for s in db.get_kia_sources_by_module(module["id"])}
+        all_sources = {s["id"]: s for s in db.get_aia_sources_by_module(module["id"])}
         for chunk in chunks:
             source = all_sources.get(chunk["source_id"])
             if source:
@@ -407,7 +407,7 @@ async def chat(
         source_pages.sort(key=lambda x: x["page_number"])
 
     def _stream() -> Generator[str, None, None]:
-        # Status wird beim LLM-Fehler auf "error" gesetzt — Default ist "ok".
+        # Status is set to "error" on LLM failure - default is "ok".
         _log_status = "ok"
         try:
             # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
@@ -442,8 +442,8 @@ async def chat(
             # Keywords in citations stay (used by frontend for highlighting)
 
             # Save messages
-            db.save_kia_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
-            db.save_kia_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
+            db.save_aia_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
+            db.save_aia_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
 
             # Send final metadata event — also send corrected answer
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"

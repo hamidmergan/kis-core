@@ -70,7 +70,7 @@ export default function ModuleTableRow({
           className="row-main pr-6 py-5 cursor-pointer"
           onClick={a.handleOpen}
           onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
+          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="min-w-0">
@@ -81,7 +81,7 @@ export default function ModuleTableRow({
           className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
           onClick={a.handleOpen}
           onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
+          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           {module.source_count}
@@ -90,7 +90,7 @@ export default function ModuleTableRow({
           className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-gray-900 cursor-pointer"
           onClick={a.handleOpen}
           onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
+          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           {a.links.length}
@@ -98,7 +98,7 @@ export default function ModuleTableRow({
         <td
           className="px-6 py-5 cursor-pointer"
           onClick={() => !a.toggling && a.handleToggle(!module.is_active)}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
+          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex items-center gap-2.5">
@@ -132,7 +132,7 @@ export default function ModuleTableRow({
         <td
           className="py-5 text-center relative cursor-pointer"
           onClick={() => a.setShowMenu(!a.showMenu)}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
+          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex justify-center">
@@ -187,7 +187,7 @@ export default function ModuleTableRow({
           className="pr-2 py-5 cursor-pointer"
           onClick={a.handleOpen}
           onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "#FAFBFC"; }}
+          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex justify-end">

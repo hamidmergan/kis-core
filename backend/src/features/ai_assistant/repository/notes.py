@@ -18,26 +18,26 @@ from src.core.db.pool import get_connection
 from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
-def get_kia_notes(module_id: int, user_id: int) -> list[dict]:
+def get_aia_notes(module_id: int, user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 "SELECT id, title, content, source_uuids, source_pages, popup_selection, created_at "
-                "FROM kia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
+                "FROM aia_notes WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC",
                 (module_id, user_id),
             )
             return [dict(r) for r in cur.fetchall()]
 
-def count_kia_notes(module_id: int, user_id: int) -> int:
+def count_aia_notes(module_id: int, user_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT COUNT(*) FROM kia_notes WHERE module_id = %s AND user_id = %s",
+                "SELECT COUNT(*) FROM aia_notes WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
             return int(cur.fetchone()[0])
 
-def create_kia_note(
+def create_aia_note(
     module_id: int,
     user_id: int,
     content: str,
@@ -64,7 +64,7 @@ def create_kia_note(
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO kia_notes (module_id, user_id, content, title, source_uuids, source_pages, popup_selection) "
+                "INSERT INTO aia_notes (module_id, user_id, content, title, source_uuids, source_pages, popup_selection) "
                 "VALUES (%s, %s, %s, %s, %s, %s, %s) "
                 "RETURNING id, title, content, source_uuids, source_pages, popup_selection, created_at",
                 (module_id, user_id, content, clean_title,
@@ -75,25 +75,25 @@ def create_kia_note(
         conn.commit()
         return row
 
-def update_kia_note_title(note_id: int, user_id: int, title: Optional[str]) -> bool:
+def update_aia_note_title(note_id: int, user_id: int, title: Optional[str]) -> bool:
     clean = title.strip() if title else None
     if clean == "":
         clean = None
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE kia_notes SET title = %s WHERE id = %s AND user_id = %s",
+                "UPDATE aia_notes SET title = %s WHERE id = %s AND user_id = %s",
                 (clean, note_id, user_id),
             )
             updated = cur.rowcount > 0
         conn.commit()
         return updated
 
-def delete_kia_note(note_id: int, user_id: int) -> bool:
+def delete_aia_note(note_id: int, user_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM kia_notes WHERE id = %s AND user_id = %s",
+                "DELETE FROM aia_notes WHERE id = %s AND user_id = %s",
                 (note_id, user_id),
             )
             deleted = cur.rowcount > 0

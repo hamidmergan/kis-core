@@ -25,7 +25,7 @@ def enroll_student(
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO kia_enrollments (module_id, user_id, link_id, enrolled_until)
+                """INSERT INTO aia_enrollments (module_id, user_id, link_id, enrolled_until)
                    VALUES (%s, %s, %s, %s)
                    ON CONFLICT (module_id, user_id, link_id) DO NOTHING
                    RETURNING id""",
@@ -39,7 +39,7 @@ def is_student_enrolled(module_id: int, user_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT 1 FROM kia_enrollments WHERE module_id = %s AND user_id = %s",
+                "SELECT 1 FROM aia_enrollments WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
             return cur.fetchone() is not None
@@ -50,12 +50,12 @@ def get_enrollment(module_id: int, user_id: int, link_id: int | None = None) -> 
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             if link_id is not None:
                 cur.execute(
-                    "SELECT * FROM kia_enrollments WHERE module_id = %s AND user_id = %s AND link_id = %s",
+                    "SELECT * FROM aia_enrollments WHERE module_id = %s AND user_id = %s AND link_id = %s",
                     (module_id, user_id, link_id),
                 )
             else:
                 cur.execute(
-                    "SELECT * FROM kia_enrollments WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC LIMIT 1",
+                    "SELECT * FROM aia_enrollments WHERE module_id = %s AND user_id = %s ORDER BY created_at DESC LIMIT 1",
                     (module_id, user_id),
                 )
             row = cur.fetchone()
@@ -64,7 +64,7 @@ def get_enrollment(module_id: int, user_id: int, link_id: int | None = None) -> 
 def get_enrollment_by_id(enrollment_id: int) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM kia_enrollments WHERE id = %s", (enrollment_id,))
+            cur.execute("SELECT * FROM aia_enrollments WHERE id = %s", (enrollment_id,))
             row = cur.fetchone()
     return dict(row) if row else None
 
@@ -76,7 +76,7 @@ def get_module_by_enroll_code(code: str) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT * FROM kia_modules
+                """SELECT * FROM aia_modules
                    WHERE enroll_code = %s AND enroll_code_expires > NOW()""",
                 (code,),
             )

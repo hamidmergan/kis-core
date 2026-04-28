@@ -88,7 +88,7 @@ export function TranscriptPanel({
     const fetchLang = async (lang: Lang): Promise<Cue[] | null> => {
       try {
         const res = await fetch(
-          `/api/ki-assistent/modules/${moduleUuid}/sources/${sourceUuid}/transcript?lang=${lang}`,
+          `/api/ai-assistant/modules/${moduleUuid}/sources/${sourceUuid}/transcript?lang=${lang}`,
           { credentials: "include" },
         );
         if (!res.ok) return null;
@@ -187,7 +187,7 @@ export function TranscriptPanel({
       }
       try {
         const res = await fetch(
-          `/api/ki-assistent/modules/${moduleUuid}/sources/${sourceUuid}/transcript?lang=en`,
+          `/api/ai-assistant/modules/${moduleUuid}/sources/${sourceUuid}/transcript?lang=en`,
           { credentials: "include" },
         );
         if (res.ok) {
@@ -210,7 +210,7 @@ export function TranscriptPanel({
     setRegenError(null);
     try {
       const res = await fetch(
-        `/api/ki-assistent/modules/${moduleUuid}/sources/${sourceUuid}/regenerate-en-transcript`,
+        `/api/ai-assistant/modules/${moduleUuid}/sources/${sourceUuid}/regenerate-en-transcript`,
         { method: "POST", credentials: "include" },
       );
       if (!res.ok) {
@@ -406,8 +406,8 @@ export function TranscriptPanel({
                     disabled={savingCueIdx === idx}
                     onClick={(e) => { e.stopPropagation(); onSaveCue(idx); }}
                     title="Als Notiz speichern"
-                    className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/5"
-                    style={{ color: savedCueIdx === idx ? "#16a34a" : "var(--muted)" }}
+                    className={`[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full ${savedCueIdx === idx ? "" : "btn-icon"}`}
+                    style={savedCueIdx === idx ? { color: "#16a34a" } : undefined}
                   >
                     {savingCueIdx === idx
                       ? <Spinner size="xs" color="current" />

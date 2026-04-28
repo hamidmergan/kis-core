@@ -1,5 +1,5 @@
-"""Geteilte Helper für alle Screencast-Routen: Upload-Validierung, Translation-Service-Factory,
-Prerender-Task, Script-Generierungs-Locks, Job-Tool-Liste."""
+"""Shared helpers for all screencast routes: upload validation, translation-service factory,
+prerender task, script-generation locks, job-tool list."""
 
 import asyncio
 import json
@@ -16,22 +16,22 @@ from src.services.translation import TranslationService
 from src.storage import get_job_file
 from src.utils.file_validation import SCREENCAST_EXTENSIONS
 
-# Job-Tools, die in der Queue/Limit-Rechnung zum Screencast zählen
+# Job tools that count toward the screencast in the queue/limit calculation
 SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
 
-# Per-UUID Lock: verhindert parallele Skript-Generierung für denselben Job
+# Per-UUID lock: prevents parallel script generation for the same job
 _script_gen_locks: dict[str, asyncio.Lock] = {}
 
 
 def get_script_gen_lock(uuid_key: str) -> asyncio.Lock:
-    """Liefert den Lock für einen Job (erstellt ihn on-demand)."""
+    """Return the lock for a job (creates it on demand)."""
     if uuid_key not in _script_gen_locks:
         _script_gen_locks[uuid_key] = asyncio.Lock()
     return _script_gen_locks[uuid_key]
 
 
 def validate_upload(filename: str | None) -> str:
-    """Prüft Dateinamen/Endung eines PPTX-Uploads und gibt die Extension zurück."""
+    """Validate filename/extension of a PPTX upload and return the extension."""
     if not filename:
         raise HTTPException(status_code=400, detail="Dateiname fehlt")
     ext = Path(filename).suffix.lower()
@@ -41,7 +41,7 @@ def validate_upload(filename: str | None) -> str:
 
 
 def build_translation_service(glossary_json: str = "") -> TranslationService:
-    """Baut einen TranslationService mit DeepL-Client und optionalem Glossary."""
+    """Build a TranslationService with DeepL client and optional glossary."""
     client = get_deepl_client()
     if client is None:
         raise HTTPException(status_code=500, detail="DeepL API Key fehlt")

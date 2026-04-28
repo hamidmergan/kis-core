@@ -155,7 +155,7 @@ def _enrich_media_content(chunk: dict, segments: list[dict]) -> str:
     return " ".join(f"({_format_timestamp(s['start'])}) {s['text']}" for s in relevant)
 
 def _require_own_module(module_uuid: str, user_id: int) -> dict:
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     if module["user_id"] != user_id:
@@ -163,19 +163,19 @@ def _require_own_module(module_uuid: str, user_id: int) -> dict:
     return module
 
 def _save_source_file(username: str, module_uuid: str, source_uuid: str, ext: str, data: bytes) -> str:
-    key = f"kia/{username}/{module_uuid}/quellen/{source_uuid}{ext}"
+    key = f"kia/{username}/{module_uuid}/sources/{source_uuid}{ext}"
     if USE_S3:
         from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
         return key
     from src.storage import STORAGE_ROOT
-    dest = STORAGE_ROOT / "kia" / username / module_uuid / "quellen"
+    dest = STORAGE_ROOT / "kia" / username / module_uuid / "sources"
     dest.mkdir(parents=True, exist_ok=True)
     (dest / f"{source_uuid}{ext}").write_bytes(data)
     return str(dest / f"{source_uuid}{ext}")
 
 def _delete_source_files_for_module(module: dict) -> None:
-    sources = db.get_kia_sources_by_module(module["id"])
+    sources = db.get_aia_sources_by_module(module["id"])
     for source in sources:
         try:
             delete_file(source["file_path"])
@@ -229,14 +229,14 @@ def _markdown_fallback(pdf_bytes: bytes) -> dict:
 def _resolve_source_ids(module: dict, source_uuids: list[str], max_count: int = 3) -> list[int]:
     """Resolve source UUIDs to DB IDs, enforce max count."""
     if len(source_uuids) > max_count:
-        raise HTTPException(status_code=400, detail=f"Maximal {max_count} Quellen erlaubt")
+        raise HTTPException(status_code=400, detail=f"Maximal {max_count} Sources erlaubt")
     ids = []
     for suuid in source_uuids:
-        source = db.get_kia_source(suuid)
+        source = db.get_aia_source(suuid)
         if source and source["module_id"] == module["id"] and source["status"] == "ready":
             ids.append(source["id"])
     if not ids:
-        raise HTTPException(status_code=400, detail="Keine gültigen Quellen ausgewählt")
+        raise HTTPException(status_code=400, detail="Keine gültigen Sources ausgewählt")
     return ids
 
 def _term_appears_in_text(term: str, text_lower: str) -> bool:

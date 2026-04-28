@@ -5,9 +5,9 @@ class Settings(BaseSettings):
     # Translation
     translation_languages: str = "DE,EN-US,FR,ES,IT"
 
-    # Hinweis: Provider-Auswahl + Modellnamen werden ueber das Admin-Panel verwaltet
-    # (DB-Settings, siehe routes/admin/settings.py und services/runtime_models.py).
-    # Hier liegen nur Credentials/URLs und reines Deployment-Stuff.
+    # Note: provider selection and model names are managed via the admin panel
+    # (DB settings, see routes/admin/settings.py and services/runtime_models.py).
+    # Only credentials/URLs and pure deployment stuff live here.
 
     # API Keys + Endpoints
     deepl_api_key: str = ""
@@ -15,20 +15,20 @@ class Settings(BaseSettings):
     kisski_api_key: str = ""
     kisski_base_url: str = "https://chat-ai.academiccloud.de/v1"
 
-    # Ollama (lokal)
+    # Ollama (local)
     ollama_base_url: str = "http://ollama:11434/v1"
 
-    # Fish Speech TTS (lokaler TTS-Server) — leer = deaktiviert
+    # Fish Speech TTS (local TTS server): empty = disabled
     fish_speech_base_url: str = ""
 
-    # Kokoro TTS (Docker Service, Apache 2.0) — leer = deaktiviert
+    # Kokoro TTS (Docker service, Apache 2.0): empty = disabled
     kokoro_base_url: str = ""
     kokoro_api_key: str = ""
 
-    # myLab TTS (TH Lübeck, Coqui XTTS-v2) — leer = deaktiviert
+    # myLab TTS (TH Luebeck, Coqui XTTS-v2): empty = disabled
     mylab_tts_base_url: str = ""
 
-    # myLab Plattform (TH Lübeck) — gemeinsame Base-URL fuer Whisper, Image, Embeddings, OCR
+    # myLab platform (TH Luebeck): shared base URL for Whisper, Image, Embeddings, OCR
     mylab_base_url: str = ""
 
     # Security

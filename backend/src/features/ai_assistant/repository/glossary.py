@@ -17,15 +17,15 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 
-def get_kia_glossary(source_id: int) -> list[dict]:
+def get_aia_glossary(source_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """SELECT g.id, g.term_de, g.term_en, g.definition, g.definition_en,
                           g.example_sentence, g.example_sentence_en, g.page_number,
                           MIN(c.start_time) AS start_time
-                   FROM kia_glossary_entries g
-                   LEFT JOIN kia_chunks c
+                   FROM aia_glossary_entries g
+                   LEFT JOIN aia_chunks c
                      ON c.source_id = g.source_id AND c.page_number = g.page_number
                    WHERE g.source_id = %s
                    GROUP BY g.id
@@ -34,7 +34,7 @@ def get_kia_glossary(source_id: int) -> list[dict]:
             )
             return [dict(r) for r in cur.fetchall()]
 
-def get_kia_glossary_by_module(module_id: int) -> list[dict]:
+def get_aia_glossary_by_module(module_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -42,9 +42,9 @@ def get_kia_glossary_by_module(module_id: int) -> list[dict]:
                           g.example_sentence, g.example_sentence_en, g.page_number,
                           s.filename,
                           MIN(c.start_time) AS start_time
-                   FROM kia_glossary_entries g
-                   JOIN kia_sources s ON s.id = g.source_id
-                   LEFT JOIN kia_chunks c
+                   FROM aia_glossary_entries g
+                   JOIN aia_sources s ON s.id = g.source_id
+                   LEFT JOIN aia_chunks c
                      ON c.source_id = g.source_id AND c.page_number = g.page_number
                    WHERE s.module_id = %s
                    GROUP BY g.id, s.filename
@@ -73,7 +73,7 @@ def bulk_create_glossary_entries(source_id: int, entries: list[dict]) -> list[di
                     e.get("page_number"),
                 ])
             cur.execute(
-                f"""INSERT INTO kia_glossary_entries
+                f"""INSERT INTO aia_glossary_entries
                     (source_id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number)
                     VALUES {', '.join(values)}
                     RETURNING id, term_de, term_en, definition, definition_en, example_sentence, example_sentence_en, page_number""",
@@ -83,18 +83,18 @@ def bulk_create_glossary_entries(source_id: int, entries: list[dict]) -> list[di
         conn.commit()
         return rows
 
-def delete_kia_glossary(source_id: int) -> None:
+def delete_aia_glossary(source_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM kia_glossary_entries WHERE source_id = %s", (source_id,))
+            cur.execute("DELETE FROM aia_glossary_entries WHERE source_id = %s", (source_id,))
         conn.commit()
 
 def delete_all_glossary_entries(module_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """DELETE FROM kia_glossary_entries
-                   WHERE source_id IN (SELECT id FROM kia_sources WHERE module_id = %s)""",
+                """DELETE FROM aia_glossary_entries
+                   WHERE source_id IN (SELECT id FROM aia_sources WHERE module_id = %s)""",
                 (module_id,),
             )
             count = cur.rowcount
@@ -104,7 +104,7 @@ def delete_all_glossary_entries(module_id: int) -> int:
 def delete_glossary_entry(entry_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM kia_glossary_entries WHERE id = %s RETURNING id", (entry_id,))
+            cur.execute("DELETE FROM aia_glossary_entries WHERE id = %s RETURNING id", (entry_id,))
             deleted = cur.fetchone() is not None
         conn.commit()
     return deleted

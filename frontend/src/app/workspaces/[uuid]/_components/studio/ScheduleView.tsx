@@ -236,10 +236,10 @@ export function ScheduleView({
         <button
           type="button"
           onClick={() => setEditMode((v) => !v)}
-          className="w-7 h-7 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity flex-shrink-0"
+          className="w-7 h-7 rounded-full flex items-center justify-center btn-icon flex-shrink-0"
           style={{
             backgroundColor: editMode ? "var(--accent)" : "var(--surface-dim)",
-            color: editMode ? "#fff" : "var(--muted)",
+            ...(editMode ? { color: "#fff" } : {}),
           }}
           aria-label="Bearbeiten"
           title="Bearbeiten"
@@ -310,15 +310,15 @@ export function ScheduleView({
       {/* Content */}
       <div className="px-3 py-2">
         {loading && (
-          <p className="text-xs py-6 text-center" style={{ color: "var(--muted)" }}>Lade Zeitplan...</p>
+          <p className="text-xs py-6 text-center" >Lade Zeitplan...</p>
         )}
         {error && (
           <p className="text-xs py-6 text-center" style={{ color: "#B91C1C" }}>{error}</p>
         )}
         {!loading && !error && entries.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-10 text-center">
-            <CalendarBlank size={40} weight="light" style={{ color: "var(--muted)" }} />
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
+            <CalendarBlank size={40} weight="light"  />
+            <p className="text-xs" >
               Noch keine Einträge. Wähle Quellen links aus und generiere, oder erstelle manuelle Einträge.
             </p>
           </div>
@@ -338,7 +338,7 @@ export function ScheduleView({
             {sourceLegend.length > 0 && (
               <div className="flex flex-col gap-1 pt-4 mt-4 border-t border-dashed" style={{ borderColor: "var(--border)" }}>
                 {sourceLegend.map((s) => (
-                  <p key={s.number} className="text-[11px] leading-snug" style={{ color: "var(--muted)" }}>
+                  <p key={s.number} className="text-[11px] leading-snug" >
                     [{s.number}] {s.filename}
                   </p>
                 ))}
@@ -378,7 +378,7 @@ export function ScheduleView({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold mb-2" style={{ color: "var(--text)" }}>Zeitplan komplett löschen?</h3>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
+            <p className="text-xs" >
               Alle Einträge werden gelöscht und alle Quellen werden wieder generierbar. Diese Aktion kann nicht rückgängig gemacht werden.
             </p>
             <div className="mt-4 flex justify-end gap-2">
@@ -386,7 +386,7 @@ export function ScheduleView({
                 type="button"
                 onClick={() => setConfirmDeleteAll(false)}
                 className="px-4 py-2 rounded-lg text-xs font-semibold"
-                style={{ color: "var(--muted)", backgroundColor: "var(--surface-dim)" }}
+                style={{ backgroundColor: "var(--surface-dim)" }}
               >
                 Abbrechen
               </button>

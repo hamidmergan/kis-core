@@ -1,4 +1,4 @@
-"""Regex-basierte Datumsextraktion (DE + EN + ISO) + 'Nach-Vereinbarung'-Phrasen."""
+"""Regex-based date extraction (DE + EN + ISO) plus 'to-be-arranged' phrases."""
 
 import re
 
@@ -21,24 +21,24 @@ _DATE_PATTERNS_WITH_YEAR = [
     re.compile(r"\b(?P<date>\d{1,2}\.\d{1,2}\.\d{4})\b"),
     # YYYY-MM-DD (ISO)
     re.compile(r"\b(?P<date>\d{4}-\d{2}-\d{2})\b"),
-    # D. Month YYYY (German) — e.g. "15. Juli 2026"
+    # D. Month YYYY (German), e.g. "15. Juli 2026"
     re.compile(rf"\b(?P<date>\d{{1,2}}\.\s*(?:{_MONTH_DE})\s+\d{{4}})\b", re.IGNORECASE),
-    # Month D, YYYY (English) — e.g. "July 15, 2026"
+    # Month D, YYYY (English), e.g. "July 15, 2026"
     re.compile(rf"\b(?P<date>(?:{_MONTH_EN})\s+\d{{1,2}},\s*\d{{4}})\b", re.IGNORECASE),
 ]
 
 _DATE_PATTERNS_YEARLESS = [
-    # DD.MM. (German short, no year) — e.g. "03.07." or "3.7."
+    # DD.MM. (German short, no year), e.g. "03.07." or "3.7."
     re.compile(r"\b(?P<date>\d{1,2}\.\d{1,2}\.)(?!\d)"),
-    # D. Month (German, no year) — e.g. "15. Juli"
+    # D. Month (German, no year), e.g. "15. Juli"
     re.compile(rf"\b(?P<date>\d{{1,2}}\.\s*(?:{_MONTH_DE}))(?!\s+\d{{4}})\b", re.IGNORECASE),
-    # Month D (English, no year) — e.g. "July 15"
+    # Month D (English, no year), e.g. "July 15"
     re.compile(rf"\b(?P<date>(?:{_MONTH_EN})\s+\d{{1,2}})(?!,?\s*\d{{4}})\b", re.IGNORECASE),
 ]
 
 # "Date not yet fixed" patterns: the event is real but happens at a time still
 # to be negotiated. We surface these so the schedule shows them as a separate
-# 'Nach Vereinbarung' block in the UI.
+# 'to be arranged' block in the UI.
 _TBD_PATTERNS = [
     re.compile(
         r"(?P<phrase>nach\s+(?:individueller\s+)?(?:Vereinbarung|Absprache)"

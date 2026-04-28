@@ -72,8 +72,8 @@ export function ChatInputBar({
             <button
               type="button"
               onClick={() => { setInput(""); textareaRef.current?.focus(); }}
-              className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ color: "var(--muted)" }}
+              className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full btn-icon"
+              
               title="Eingabe löschen"
             >
               <X size={14} weight="bold" />

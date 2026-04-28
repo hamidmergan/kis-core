@@ -32,7 +32,7 @@ from src.tool_prompts import (
     KIA_POPUP_ACTIONS,
 )
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
     _count_pages,
@@ -48,11 +48,11 @@ from src.features.ki_assistent.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
-@router.get("/ki-assistent/popup-actions")
+@router.get("/ai-assistant/popup-actions")
 async def get_popup_actions():
     """Liefert die konfigurierten Popup-Aktionen für den PDF-Viewer."""
     return {

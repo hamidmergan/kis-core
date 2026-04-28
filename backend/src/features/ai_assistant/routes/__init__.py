@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from src.features.ki_assistent.routes import (
+from src.features.ai_assistant.routes import (
     popup,
     modules,
     sources,
@@ -11,13 +11,13 @@ from src.features.ki_assistent.routes import (
     notes,
     glossary,
 )
-from src.features.ki_assistent.routes.studio import (
+from src.features.ai_assistant.routes.studio import (
     mindmap,
-    lernkarten,
-    datentabelle,
+    flashcards,
+    data_table,
     schedule,
 )
-from src.features.ki_assistent.routes.sprachtraining import (
+from src.features.ai_assistant.routes.language_training import (
     exercises,
     stats,
 )
@@ -26,6 +26,6 @@ router = APIRouter(tags=["ki-assistent"])
 
 for m in [
     popup, modules, sources, chat, messages, notes, glossary,
-    mindmap, lernkarten, datentabelle, schedule, exercises, stats,
+    mindmap, flashcards, data_table, schedule, exercises, stats,
 ]:
     router.include_router(m.router)

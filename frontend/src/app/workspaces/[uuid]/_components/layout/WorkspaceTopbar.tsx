@@ -16,8 +16,8 @@ interface WorkspaceTopbarProps {
   chatLang: "de" | "en";
   studioEnabled: boolean;
   onToggleStudio: () => void;
-  sprachtrainingActive: boolean;
-  onToggleSprachtraining: () => void;
+  language_trainingActive: boolean;
+  onToggleLanguageTraining: () => void;
   isLecturer: boolean;
   hideHeader: boolean;
   onToggleHideHeader: () => void;
@@ -37,7 +37,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     isMobile, title,
     showSettings, onToggleSettings, settingsRef,
     chatLang, studioEnabled, onToggleStudio,
-    sprachtrainingActive, onToggleSprachtraining,
+    language_trainingActive, onToggleLanguageTraining,
     isLecturer, hideHeader, onToggleHideHeader,
     activeTab, setActiveTab,
   } = props;
@@ -47,8 +47,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       chatLang={chatLang}
       studioEnabled={studioEnabled}
       onToggleStudio={onToggleStudio}
-      sprachtrainingActive={sprachtrainingActive}
-      onToggleSprachtraining={onToggleSprachtraining}
+      language_trainingActive={language_trainingActive}
+      onToggleLanguageTraining={onToggleLanguageTraining}
       isLecturer={isLecturer}
       hideHeader={hideHeader}
       onToggleHideHeader={onToggleHideHeader}
@@ -59,8 +59,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     <button
       type="button"
       onClick={onToggleSettings}
-      className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-      style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--surface-dim)", color: showSettings ? "white" : "var(--muted)" }}
+      className={`w-7 h-7 flex items-center justify-center rounded-full ${showSettings ? "text-white" : "btn-icon"}`}
+      style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--surface-dim)" }}
       title="Einstellungen"
     >
       <GearSix size={17} weight={showSettings ? "fill" : "regular"} />

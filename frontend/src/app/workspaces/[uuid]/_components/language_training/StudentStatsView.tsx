@@ -15,10 +15,10 @@ interface DayDetail {
   chat_count: number;
 }
 
-export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, sprachtrainingActive = true }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; sprachtrainingActive?: boolean }) {
+export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, language_trainingActive = true }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; language_trainingActive?: boolean }) {
   const [period, setPeriod] = useState<StatsPeriod>("30");
 
-  // Responsive heatmap: Zellen an Containerbreite anpassen
+  // Responsive heatmap: adjust cells to container width
   const observerRef = useRef<ResizeObserver | null>(null);
   const [heatmapContainerWidth, setHeatmapContainerWidth] = useState(0);
   const heatmapContainerRef = (el: HTMLDivElement | null) => {
@@ -34,12 +34,12 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
   };
   useEffect(() => () => { observerRef.current?.disconnect(); }, []);
 
-  // Heatmap-Quelle: sprachtraining aus -> nur Lerntools; sonst kombiniert.
-  // Day-Detail-Endpoint spiegelt diese Wahl via category-Param.
+  // Heatmap source: language_training off -> learning tools only; otherwise combined.
+  // Day-detail endpoint mirrors this choice via the category param.
   const heatmapSource: HeatmapDay[] = stats
-    ? (sprachtrainingActive ? stats.heatmap : stats.lerntools_heatmap)
+    ? (language_trainingActive ? stats.heatmap : stats.lerntools_heatmap)
     : [];
-  const dayCategoryParam = sprachtrainingActive ? "" : "&category=lerntools";
+  const dayCategoryParam = language_trainingActive ? "" : "&category=lerntools";
 
   const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
   const [dayDetail, setDayDetail] = useState<DayDetail | null>(null);
@@ -53,14 +53,14 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
     setDayDetail(null);
     if (entry && entry.answers > 0) {
       setDayDetailLoading(true);
-      fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${entry.day}${dayCategoryParam}`, { credentials: "include" })
+      fetch(`/api/ai-assistant/modules/${moduleUuid}/stats/day?date=${entry.day}${dayCategoryParam}`, { credentials: "include" })
         .then(r => r.ok ? r.json() : null)
         .then(d => setDayDetail(d))
         .finally(() => setDayDetailLoading(false));
     }
-  }, [stats, moduleUuid, sprachtrainingActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stats, moduleUuid, language_trainingActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Expand/Collapse für Day-Detail (Limit auf 10 Einträge) ──
+  // ── Expand/collapse for day detail (limit to 10 entries) ──
   const DAY_DETAIL_LIMIT = 10;
   const [showAllSets, setShowAllSets] = useState(false);
   useEffect(() => { setShowAllSets(false); }, [selectedDay]);
@@ -133,7 +133,7 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
     if (d.answers > 0) {
       setDayDetailLoading(true);
       try {
-        const res = await fetch(`/api/ki-assistent/modules/${moduleUuid}/stats/day?date=${d.day}${dayCategoryParam}`, { credentials: "include" });
+        const res = await fetch(`/api/ai-assistant/modules/${moduleUuid}/stats/day?date=${d.day}${dayCategoryParam}`, { credentials: "include" });
         if (res.ok) setDayDetail(await res.json());
       } catch { /* ignore */ }
       setDayDetailLoading(false);

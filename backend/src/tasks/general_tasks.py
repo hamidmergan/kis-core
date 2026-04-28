@@ -13,7 +13,7 @@ from src.storage import delete_file, get_file, open_input_file, save_result_file
 from src.utils.heartbeat import job_heartbeat
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------------
 
 def _get_kisski_client():
     from src.services.kisski_client import KisskiClient
@@ -58,7 +58,7 @@ def _image_provider(task: str) -> str:
     return "kisski"
 
 
-# ── Translation ───────────────────────────────────────────────────────────────
+# -- Translation --------------------------------------------------------------
 
 @celery_app.task(bind=True, name="general.translate", queue="general")
 def run_translate(
@@ -106,7 +106,7 @@ def run_translate(
                 provider=_provider,
                 glossary=glossary_entries or None,
             )
-            glossary = GlossaryService()  # empty — LLM handles glossary via prompt
+            glossary = GlossaryService()  # empty: LLM handles glossary via prompt
         else:
             from src.services.deepl_client import DeepLClient
             if not settings.deepl_api_key:
@@ -155,7 +155,7 @@ def run_translate(
         raise
 
 
-# ── Transcription ─────────────────────────────────────────────────────────────
+# -- Transcription ------------------------------------------------------------
 
 _FORMAT_EXT = {"text": ".txt", "srt": ".srt", "vtt": ".vtt"}
 
@@ -201,7 +201,7 @@ def run_transcribe(
         raise
 
 
-# ── Image: Generate ───────────────────────────────────────────────────────────
+# -- Image: generate ----------------------------------------------------------
 
 @celery_app.task(bind=True, name="general.image_generate", queue="general")
 def run_image_generate(
@@ -257,7 +257,7 @@ def run_image_generate(
         raise
 
 
-# ── Image: Edit ───────────────────────────────────────────────────────────────
+# -- Image: edit --------------------------------------------------------------
 
 @celery_app.task(bind=True, name="general.image_edit", queue="general")
 def run_image_edit(
@@ -337,7 +337,7 @@ def run_image_edit(
         raise
 
 
-# ── Image: Analyze ────────────────────────────────────────────────────────────
+# -- Image: analyze -----------------------------------------------------------
 
 from src.tool_prompts import IMAGE_ANALYZE_DEFAULT as _IMAGE_ANALYZE_SYSTEM_PROMPT
 
@@ -403,7 +403,7 @@ def run_image_analyze(
         raise
 
 
-# ── Summary ───────────────────────────────────────────────────────────────────
+# -- Summary ------------------------------------------------------------------
 
 _SUMMARY_OUTPUT_EXT = {"txt": ".txt", "md": ".md", "html": ".html"}
 _SUMMARY_MIN_WORDS = 20

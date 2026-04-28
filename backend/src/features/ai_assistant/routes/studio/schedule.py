@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies import get_current_user
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
@@ -15,7 +15,7 @@ router = APIRouter(tags=["ki-assistent"])
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 def _require_module_access(module_uuid: str, user_id: int) -> dict:
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     is_owner = module["user_id"] == user_id
@@ -81,7 +81,7 @@ def _serialize_global_entry(row: dict) -> dict:
     }
 
 
-@router.get("/ki-assistent/schedule/upcoming")
+@router.get("/ai-assistant/schedule/upcoming")
 async def get_upcoming_schedule(
     limit: Optional[int] = None,
     offset: int = 0,
@@ -113,7 +113,7 @@ async def get_upcoming_schedule(
 
 # ─── GET ────────────────────────────────────────────────────────────────────
 
-@router.get("/ki-assistent/modules/{module_uuid}/schedule")
+@router.get("/ai-assistant/modules/{module_uuid}/schedule")
 async def get_schedule(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -125,7 +125,7 @@ async def get_schedule(
     processed_ids = db.get_processed_source_ids(module["id"], user_id)
     processed_uuids: list[str] = []
     for sid in processed_ids:
-        src = db.get_kia_source_by_id(sid)
+        src = db.get_aia_source_by_id(sid)
         if src:
             processed_uuids.append(src["uuid"])
 
@@ -137,7 +137,7 @@ async def get_schedule(
 
 # ─── GENERATE (async via Celery) ────────────────────────────────────────────
 
-@router.post("/ki-assistent/modules/{module_uuid}/schedule/generate")
+@router.post("/ai-assistant/modules/{module_uuid}/schedule/generate")
 async def generate_schedule(
     module_uuid: str,
     body: schemas.ScheduleGenerateBody,
@@ -147,20 +147,20 @@ async def generate_schedule(
     module = _require_module_access(module_uuid, user_id)
 
     if not body.source_ids:
-        raise HTTPException(status_code=400, detail="Keine Quellen ausgewählt")
+        raise HTTPException(status_code=400, detail="Keine Sources ausgewählt")
 
     # Filter: skip already-processed sources client-side already knows this,
     # but we also store the full selection for traceability. The task will
     # filter again on its own.
     job = db.create_schedule_job(module["id"], user_id, list(body.source_ids))
 
-    from src.tasks.kia_tasks import run_generate_schedule
+    from src.tasks.aia_tasks import run_generate_schedule
     run_generate_schedule.delay(job["id"], module["id"], user_id, list(body.source_ids))
 
     return {"job_id": job["id"], "status": "pending"}
 
 
-@router.get("/ki-assistent/modules/{module_uuid}/schedule/jobs/active")
+@router.get("/ai-assistant/modules/{module_uuid}/schedule/jobs/active")
 async def get_active_schedule_job_route(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -178,7 +178,7 @@ async def get_active_schedule_job_route(
     }
 
 
-@router.get("/ki-assistent/modules/{module_uuid}/schedule/jobs/{job_id}")
+@router.get("/ai-assistant/modules/{module_uuid}/schedule/jobs/{job_id}")
 async def get_schedule_job(
     module_uuid: str,
     job_id: int,
@@ -202,7 +202,7 @@ async def get_schedule_job(
 
 # ─── CREATE MANUAL ENTRY ────────────────────────────────────────────────────
 
-@router.post("/ki-assistent/modules/{module_uuid}/schedule/entries")
+@router.post("/ai-assistant/modules/{module_uuid}/schedule/entries")
 async def create_entry(
     module_uuid: str,
     body: schemas.ScheduleEntryCreateBody,
@@ -231,7 +231,7 @@ async def create_entry(
 
 # ─── UPDATE ENTRY ───────────────────────────────────────────────────────────
 
-@router.put("/ki-assistent/modules/{module_uuid}/schedule/entries/{entry_id}")
+@router.put("/ai-assistant/modules/{module_uuid}/schedule/entries/{entry_id}")
 async def update_entry(
     module_uuid: str,
     entry_id: int,
@@ -268,7 +268,7 @@ async def update_entry(
 
 # ─── DELETE ENTRY ───────────────────────────────────────────────────────────
 
-@router.delete("/ki-assistent/modules/{module_uuid}/schedule/entries/{entry_id}")
+@router.delete("/ai-assistant/modules/{module_uuid}/schedule/entries/{entry_id}")
 async def delete_entry(
     module_uuid: str,
     entry_id: int,
@@ -283,7 +283,7 @@ async def delete_entry(
 
 # ─── DELETE ALL ─────────────────────────────────────────────────────────────
 
-@router.delete("/ki-assistent/modules/{module_uuid}/schedule")
+@router.delete("/ai-assistant/modules/{module_uuid}/schedule")
 async def delete_all(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),

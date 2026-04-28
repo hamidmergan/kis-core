@@ -11,7 +11,7 @@ const WIDGET_LIMIT = 3;
 async function toggleChecked(moduleUuid: string, entryId: number, checked: boolean): Promise<boolean> {
   try {
     const r = await fetch(
-      `/api/ki-assistent/modules/${moduleUuid}/schedule/entries/${entryId}`,
+      `/api/ai-assistant/modules/${moduleUuid}/schedule/entries/${entryId}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -28,7 +28,7 @@ async function toggleChecked(moduleUuid: string, entryId: number, checked: boole
 async function fetchUpcoming(): Promise<ScheduleListEntry[] | null> {
   try {
     const r = await fetch(
-      `/api/ki-assistent/schedule/upcoming?limit=${WIDGET_LIMIT}&include_checked=false`,
+      `/api/ai-assistant/schedule/upcoming?limit=${WIDGET_LIMIT}&include_checked=false`,
       { credentials: "include" },
     );
     if (!r.ok) return null;

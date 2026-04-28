@@ -1,7 +1,7 @@
 """KI-Assistent Celery-Task: Exercise-Set-Generierung.
 
-Dispatcht je nach `mode` (glossar/quelle) und `tool`
-(lernkarten/karteikarten/lueckentext/quiz/vokabeltest) an die passenden
+Dispatcht je nach `mode` (glossary/source) und `tool`
+(flashcards/karteikarten/lueckentext/quiz/vokabeltest) an die passenden
 Handler-Module."""
 
 from langfuse.decorators import observe
@@ -9,17 +9,17 @@ from loguru import logger
 
 from src import database as db
 from src.celery_app import celery_app
-from src.features.ki_assistent.tasks._helpers import _get_llm_client
+from src.features.ai_assistant.tasks._helpers import _get_llm_client
 
-from src.features.ki_assistent.tasks.sprachtraining._context import build_quelle_context
-from src.features.ki_assistent.tasks.sprachtraining._glossar import generate_from_glossary
-from src.features.ki_assistent.tasks.sprachtraining._quelle_karteikarten import (
-    generate_karteikarten_from_source,
+from src.features.ai_assistant.tasks.language_training._context import build_source_context
+from src.features.ai_assistant.tasks.language_training._glossary import generate_from_glossary
+from src.features.ai_assistant.tasks.language_training._source_cards import (
+    generate_cards_from_source,
 )
-from src.features.ki_assistent.tasks.sprachtraining._quelle_lernkarten import (
-    generate_lernkarten_from_source,
+from src.features.ai_assistant.tasks.language_training._source_flashcards import (
+    generate_flashcards_from_source,
 )
-from src.features.ki_assistent.tasks.sprachtraining._quelle_mc import generate_mc_from_source
+from src.features.ai_assistant.tasks.language_training._source_mc import generate_mc_from_source
 
 
 @celery_app.task(bind=True, name="kia.generate_exercise_set", queue="kia",
@@ -28,9 +28,9 @@ from src.features.ki_assistent.tasks.sprachtraining._quelle_mc import generate_m
 def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
                               mode: str, count: int, source_uuid: str | None = None,
                               source_uuids: list[str] | None = None):
-    """Generate items for an exercise set (lernkarten/lueckentext/vokabeltest)."""
+    """Generate items for an exercise set (flashcards/lueckentext/vokabeltest)."""
     try:
-        module = db.get_kia_module_by_id(module_id)
+        module = db.get_aia_module_by_id(module_id)
         if not module:
             db.fail_exercise_set(set_id)
             return
@@ -41,27 +41,27 @@ def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
         items: list[dict] = []
         title = "Wird generiert…"
 
-        if mode == "glossar":
+        if mode == "glossary":
             result = generate_from_glossary(client, model, module_id, tool, count)
             if result is None:
                 db.fail_exercise_set(set_id)
                 return
             items, title = result
 
-        elif mode == "quelle":
+        elif mode == "source":
             uuids = source_uuids or ([source_uuid] if source_uuid else [])
             if not uuids:
                 db.fail_exercise_set(set_id)
                 return
-            ctx = build_quelle_context(uuids, tool)
+            ctx = build_source_context(uuids, tool)
             if ctx is None:
                 db.fail_exercise_set(set_id)
                 return
 
-            if tool == "lernkarten":
-                items, title = generate_lernkarten_from_source(client, model, ctx, count, existing_fronts)
+            if tool == "flashcards":
+                items, title = generate_flashcards_from_source(client, model, ctx, count, existing_fronts)
             elif tool == "karteikarten":
-                items, title = generate_karteikarten_from_source(client, model, ctx, count, existing_fronts)
+                items, title = generate_cards_from_source(client, model, ctx, count, existing_fronts)
             else:
                 items, title = generate_mc_from_source(client, model, ctx, tool, count, existing_fronts)
 

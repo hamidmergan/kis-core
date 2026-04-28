@@ -49,11 +49,12 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
 
   if (isMobile) {
     const switchToChat = () => setActiveTab("chat");
-    // Alle drei Panels gemountet halten + per position:absolute stapeln. Aktives
-    // Panel ist sichtbar, andere sind visibility:hidden + pointer-events:none.
-    // Auf iOS Safari ist `display:none` Toggle für große DOM-Subtrees (EmbedPDF,
-    // Chat-Markdown, Studio) sehr teuer (Reflow/Repaint). Visibility-Flip auf
-    // bereits-laid-out Layern ist nahezu kostenlos — Tab-Switch wird flüssig.
+    // Keep all three panels mounted and stack them via position:absolute. The
+    // active panel is visible, the others use visibility:hidden + pointer-events:none.
+    // On iOS Safari, toggling `display:none` on large DOM subtrees (EmbedPDF,
+    // chat markdown, studio) is very expensive (reflow/repaint). Flipping
+    // visibility on already-laid-out layers is nearly free, so tab switches
+    // stay smooth.
     const layerStyle = (key: PanelKey): React.CSSProperties => {
       const active = activeTab === key;
       return {

@@ -35,7 +35,7 @@ def _format_ts(seconds: float) -> str:
         return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
     return f"{s // 60:02d}:{s % 60:02d}"
 
-def _save_kia_output(username: str, module_uuid: str, filename: str, data: bytes) -> str:
+def _save_aia_output(username: str, module_uuid: str, filename: str, data: bytes) -> str:
     """Save a KI-Assistent output file (e.g. presentation) in the structured folder."""
     from src.storage import USE_S3
     key = f"kia/{username}/{module_uuid}/outputs/{filename}"
@@ -204,5 +204,5 @@ def _clean_llm_json(text: str) -> str:
     return text.strip()
 
 
-# ── Datentabelle generation ──────────────────────────────────────────────────
+# ── DataTable generation ──────────────────────────────────────────────────
 

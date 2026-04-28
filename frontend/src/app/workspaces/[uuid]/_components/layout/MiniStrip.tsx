@@ -5,13 +5,13 @@ export function MiniStrip({ label, onClick, side }: { label: string; onClick: ()
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center pt-4 h-full w-full gap-2 hover:opacity-70 transition-opacity"
-      style={{ color: "var(--muted)" }}
+      className="flex flex-col items-center pt-4 h-full w-full gap-2 btn-icon"
+      
       title={label}
     >
       <span
         className="w-7 h-7 flex items-center justify-center rounded-full"
-        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+        style={{ backgroundColor: "var(--surface-dim)" }}
       >
         <SidebarSimple
           size={13}
@@ -20,7 +20,7 @@ export function MiniStrip({ label, onClick, side }: { label: string; onClick: ()
       </span>
       <span
         className="text-[10px] font-semibold tracking-widest uppercase select-none"
-        style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", color: "var(--muted)" }}
+        style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
       >
         {label}
       </span>

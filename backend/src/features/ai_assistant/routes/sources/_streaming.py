@@ -12,7 +12,7 @@ from ._shared import (
 router = APIRouter(tags=["ki-assistent"])
 
 
-@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/file")
+@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/file")
 async def stream_source_file(
     module_uuid: str,
     source_uuid: str,
@@ -20,7 +20,7 @@ async def stream_source_file(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -29,7 +29,7 @@ async def stream_source_file(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -51,8 +51,8 @@ async def stream_source_file(
     disposition = f'inline; filename="{source["filename"]}"'
 
     if USE_S3:
-        # Stream durch das Backend statt Redirect zu presigned URL: gleiche
-        # Origin wie die App, funktioniert damit auch vom Smartphone aus.
+        # Stream through the backend instead of redirecting to a presigned URL:
+        # same origin as the app, so it works from smartphones too.
         range_header = request.headers.get("range")
         body_iter, content_length, content_range = stream_s3_object(source["file_path"], range_header)
         headers = {
@@ -79,7 +79,7 @@ async def stream_source_file(
     )
 
 
-@router.post("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/regenerate-en-transcript")
+@router.post("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/regenerate-en-transcript")
 async def regenerate_en_transcript(
     module_uuid: str,
     source_uuid: str,
@@ -92,7 +92,7 @@ async def regenerate_en_transcript(
     (``transcript_translation_provider`` setting; defaults to ``llm``).
     """
     _require_own_module(module_uuid, current_user["user_id"])
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
@@ -107,7 +107,7 @@ async def regenerate_en_transcript(
             detail="Kein Quell-Transkript gefunden. Neu-Übersetzung nicht möglich.",
         )
 
-    from src.tasks.kia_tasks import run_translate_transcript_en
+    from src.tasks.aia_tasks import run_translate_transcript_en
     run_translate_transcript_en.delay(source_uuid, effective_provider)
     logger.info(
         "KI Tutor: manual EN translation dispatched for {} (provider={})",
@@ -116,7 +116,7 @@ async def regenerate_en_transcript(
     return {"uuid": source_uuid, "status": "dispatched", "provider": effective_provider}
 
 
-@router.get("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/transcript")
+@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/transcript")
 async def get_transcript_vtt(
     module_uuid: str,
     source_uuid: str,
@@ -125,7 +125,7 @@ async def get_transcript_vtt(
 ):
     """Return a WebVTT transcript for a media source in the requested language."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -134,7 +134,7 @@ async def get_transcript_vtt(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 

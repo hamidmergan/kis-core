@@ -1,4 +1,4 @@
-"""KI-Assistent Celery tasks — mindmap generation."""
+"""AI assistant Celery tasks: mindmap generation."""
 
 import concurrent.futures
 import os
@@ -30,9 +30,9 @@ from src.tool_prompts import (
     KIA_MINDMAP_PROMPT,
 )
 
-from src.features.ki_assistent.tasks._helpers import (
+from src.features.ai_assistant.tasks._helpers import (
     _format_ts,
-    _save_kia_output,
+    _save_aia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -51,7 +51,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
     import json as _json
 
     try:
-        db.update_kia_mindmap(mindmap_id, "running")
+        db.update_aia_mindmap(mindmap_id, "running")
         logger.info("KI Tutor: generating mindmap {}", mindmap_id)
 
         # 1. Build context from page summaries (with fallback to chunks)
@@ -66,8 +66,8 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         context_parts: list[str] = []
         for sid, suuid in zip(source_ids, source_uuids):
-            source = db.get_kia_source(suuid)
-            source_label = source["filename"] if source else "Quelle"
+            source = db.get_aia_source(suuid)
+            source_label = source["filename"] if source else "Source"
             is_media = _Path(source_label).suffix.lower() in _MEDIA_EXTS if source else False
 
             if is_media:
@@ -95,7 +95,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                         context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
 
         if not context_parts:
-            db.update_kia_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
+            db.update_aia_mindmap(mindmap_id, "failed", error="Keine Inhalte vorhanden")
             return
 
         # Fair budget split per source (200k total, whole summaries only)
@@ -103,7 +103,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         trimmed_parts: list[str] = []
         for part in context_parts:
             lines = part.split("\n")
-            header = lines[0]  # "--- Dateiname ---"
+            header = lines[0]  # "--- filename ---"
             kept = [header]
             size = len(header)
             for line in lines[1:]:
@@ -126,7 +126,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         messages = [
             {"role": "system", "content": KIA_MINDMAP_PROMPT},
-            {"role": "user", "content": f"/no_think\nErstelle eine Mindmap aus folgenden Quellen:\n\n{context}"},
+            {"role": "user", "content": f"/no_think\nErstelle eine Mindmap aus folgenden Sources:\n\n{context}"},
         ]
 
         response = client.chat.completions.create(
@@ -138,7 +138,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         msg = response.choices[0].message
         raw = msg.content or getattr(msg, "reasoning_content", None)
         if not raw:
-            db.update_kia_mindmap(mindmap_id, "failed", error="LLM returned empty content")
+            db.update_aia_mindmap(mindmap_id, "failed", error="LLM returned empty content")
             return
 
         answer = raw.strip()
@@ -153,20 +153,20 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 
         mindmap = _json.loads(answer)
         if not isinstance(mindmap, dict) or "topic" not in mindmap:
-            db.update_kia_mindmap(mindmap_id, "failed", error="Invalid mindmap format")
+            db.update_aia_mindmap(mindmap_id, "failed", error="Invalid mindmap format")
             return
 
-        db.update_kia_mindmap(mindmap_id, "success", mindmap=mindmap)
+        db.update_aia_mindmap(mindmap_id, "success", mindmap=mindmap)
         logger.info("KI Tutor: mindmap {} generated successfully", mindmap_id)
 
     except Exception as e:
         logger.error("KI Tutor: mindmap {} generation failed: {}", mindmap_id, e)
-        db.update_kia_mindmap(mindmap_id, "failed", error=str(e))
+        db.update_aia_mindmap(mindmap_id, "failed", error=str(e))
 
 
-# ─── Presentation generation (NotebookLM-style + FLUX images) ───────────────
+# --- Presentation generation (NotebookLM-style + FLUX images) ---------------
 
-# NotebookLM-inspired slide prompt — clean, statement-driven, icon-aware layouts
+# NotebookLM-inspired slide prompt: clean, statement-driven, icon-aware layouts
 _PRES_PROMPT = (
     "Du erstellst eine professionelle Präsentation im Stil von Google NotebookLM: clean, modern, viel Whitespace, "
     "große fette Aussagesätze als Titel (KEINE generischen Titel wie 'Überblick' — stattdessen 'Warum dieses Projekt den Unterschied macht.').\n\n"
@@ -221,12 +221,12 @@ _PRES_PROMPT = (
     "- zweispalten für Gegenüberstellungen oder parallele Informationen.\n"
     "- Erste Folie IMMER 'deckblatt', letzte IMMER 'abschluss'.\n"
     "- image_prompt: Nur bei deckblatt und content. Englisch. Stil: 'flat vector illustration, people in modern setting, warm muted colors, white background, no text'. Max 3 Bilder total.\n"
-    "- Texte EXAKT aus der Quelle — keine Umformulierungen, keine Rechtschreibfehler.\n"
-    "- Sprache = Sprache der Quelle.\n"
+    "- Texte EXAKT aus der Source — keine Umformulierungen, keine Rechtschreibfehler.\n"
+    "- Sprache = Sprache der Source.\n"
     "- Antworte NUR mit JSON."
 )
 
 
 
-# ── Shared helpers for exercise / datentabelle / glossary generation ─────────
+# -- Shared helpers for exercise / data table / glossary generation ----------
 

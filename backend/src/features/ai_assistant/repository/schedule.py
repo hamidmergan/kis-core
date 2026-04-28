@@ -62,14 +62,14 @@ def get_schedule_entries_for_user(
                m.title AS module_title,
                CASE WHEN m.user_id = %(uid)s THEN 'owned' ELSE 'enrolled' END
                    AS module_relation
-          FROM kia_schedule_entries s
-          JOIN kia_modules m ON m.id = s.module_id
+          FROM aia_schedule_entries s
+          JOIN aia_modules m ON m.id = s.module_id
          WHERE s.module_id IN (
-                 SELECT id FROM kia_modules WHERE user_id = %(uid)s
+                 SELECT id FROM aia_modules WHERE user_id = %(uid)s
                  UNION
                  SELECT m2.id
-                   FROM kia_modules m2
-                   JOIN kia_enrollments e ON e.module_id = m2.id
+                   FROM aia_modules m2
+                   JOIN aia_enrollments e ON e.module_id = m2.id
                   WHERE e.user_id = %(uid)s
                     AND m2.is_active = TRUE
                     AND (e.enrolled_until IS NULL OR e.enrolled_until > NOW())
@@ -97,7 +97,7 @@ def get_schedule_entries(module_id: int, user_id: int) -> list[dict]:
             cur.execute(
                 f"""
                 SELECT {_ENTRY_COLS}
-                  FROM kia_schedule_entries
+                  FROM aia_schedule_entries
                  WHERE module_id = %s AND user_id = %s
                  ORDER BY due_date NULLS LAST, due_time NULLS LAST, id
                 """,
@@ -112,7 +112,7 @@ def get_schedule_entry(entry_id: int, user_id: int) -> Optional[dict]:
             cur.execute(
                 f"""
                 SELECT {_ENTRY_COLS}, module_id, user_id
-                  FROM kia_schedule_entries
+                  FROM aia_schedule_entries
                  WHERE id = %s AND user_id = %s
                 """,
                 (entry_id, user_id),
@@ -141,7 +141,7 @@ def create_schedule_entry(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 f"""
-                INSERT INTO kia_schedule_entries
+                INSERT INTO aia_schedule_entries
                     (module_id, user_id, type, title, description,
                      due_date, due_time, is_optional, origin, source_refs)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -213,7 +213,7 @@ def update_schedule_entry(
 
     sets.append("updated_at = NOW()")
     sql = (
-        "UPDATE kia_schedule_entries SET "
+        "UPDATE aia_schedule_entries SET "
         + ", ".join(sets)
         + " WHERE id = %s AND user_id = %s "
         + f"RETURNING {_ENTRY_COLS}"
@@ -236,7 +236,7 @@ def append_source_ref_to_entry(entry_id: int, ref: dict) -> None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                UPDATE kia_schedule_entries
+                UPDATE aia_schedule_entries
                    SET source_refs = (
                      SELECT COALESCE(jsonb_agg(DISTINCT x), '[]'::jsonb)
                        FROM jsonb_array_elements(source_refs || %s::jsonb) AS x
@@ -253,7 +253,7 @@ def delete_schedule_entry(entry_id: int, user_id: int) -> bool:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM kia_schedule_entries WHERE id = %s AND user_id = %s",
+                "DELETE FROM aia_schedule_entries WHERE id = %s AND user_id = %s",
                 (entry_id, user_id),
             )
             deleted = cur.rowcount > 0
@@ -265,12 +265,12 @@ def delete_all_schedule_entries(module_id: int, user_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM kia_schedule_entries WHERE module_id = %s AND user_id = %s",
+                "DELETE FROM aia_schedule_entries WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
             count = cur.rowcount
             cur.execute(
-                "DELETE FROM kia_schedule_processed_sources WHERE module_id = %s AND user_id = %s",
+                "DELETE FROM aia_schedule_processed_sources WHERE module_id = %s AND user_id = %s",
                 (module_id, user_id),
             )
         conn.commit()
@@ -285,7 +285,7 @@ def prune_old_entries(months: int = 1) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM kia_schedule_entries "
+                "DELETE FROM aia_schedule_entries "
                 "WHERE due_date IS NOT NULL "
                 "  AND due_date < (NOW() AT TIME ZONE 'Europe/Berlin')::date "
                 "                 - (%s || ' months')::interval",
@@ -304,7 +304,7 @@ def get_processed_source_ids(module_id: int, user_id: int) -> list[int]:
             cur.execute(
                 """
                 SELECT source_id
-                  FROM kia_schedule_processed_sources
+                  FROM aia_schedule_processed_sources
                  WHERE module_id = %s AND user_id = %s
                 """,
                 (module_id, user_id),
@@ -317,7 +317,7 @@ def mark_source_processed(module_id: int, user_id: int, source_id: int) -> None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO kia_schedule_processed_sources (module_id, user_id, source_id)
+                INSERT INTO aia_schedule_processed_sources (module_id, user_id, source_id)
                 VALUES (%s, %s, %s)
                 ON CONFLICT DO NOTHING
                 """,
@@ -333,7 +333,7 @@ def create_schedule_job(module_id: int, user_id: int, source_uuids: list[str]) -
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """
-                INSERT INTO kia_schedule_jobs (module_id, user_id, source_uuids, status)
+                INSERT INTO aia_schedule_jobs (module_id, user_id, source_uuids, status)
                 VALUES (%s, %s, %s, 'pending')
                 RETURNING id, module_id, user_id, source_uuids, status, error, added_count,
                           created_at, updated_at
@@ -353,7 +353,7 @@ def get_active_schedule_job(module_id: int, user_id: int) -> Optional[dict]:
                 """
                 SELECT id, module_id, user_id, source_uuids, status, error, added_count,
                        created_at, updated_at
-                  FROM kia_schedule_jobs
+                  FROM aia_schedule_jobs
                  WHERE module_id = %s AND user_id = %s
                    AND status IN ('pending', 'running')
                  ORDER BY id DESC
@@ -372,7 +372,7 @@ def get_schedule_job(job_id: int, user_id: int) -> Optional[dict]:
                 """
                 SELECT id, module_id, user_id, source_uuids, status, error, added_count,
                        created_at, updated_at
-                  FROM kia_schedule_jobs
+                  FROM aia_schedule_jobs
                  WHERE id = %s AND user_id = %s
                 """,
                 (job_id, user_id),
@@ -397,7 +397,7 @@ def update_schedule_job(
         sets.append("added_count = %s")
         params.append(added_count)
     params.append(job_id)
-    sql = "UPDATE kia_schedule_jobs SET " + ", ".join(sets) + " WHERE id = %s"
+    sql = "UPDATE aia_schedule_jobs SET " + ", ".join(sets) + " WHERE id = %s"
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params)

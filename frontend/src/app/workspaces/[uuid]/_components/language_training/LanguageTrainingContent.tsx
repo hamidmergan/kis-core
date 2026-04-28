@@ -11,7 +11,7 @@ const loader = () => <div className="flex-1 flex items-center justify-center p-6
 const VocabFlashcards = dynamic(() => import("./VocabFlashcards").then((m) => ({ default: m.VocabFlashcards })), { loading: loader, ssr: false });
 const LueckentextView = dynamic(() => import("./LueckentextView").then((m) => ({ default: m.LueckentextView })), { loading: loader, ssr: false });
 const VokabeltestView = dynamic(() => import("./VokabeltestView").then((m) => ({ default: m.VokabeltestView })), { loading: loader, ssr: false });
-const LernkartenLearnView = dynamic(() => import("./LernkartenLearnView").then((m) => ({ default: m.LernkartenLearnView })), { loading: loader, ssr: false });
+const FlashcardsLearnView = dynamic(() => import("./FlashcardsLearnView").then((m) => ({ default: m.FlashcardsLearnView })), { loading: loader, ssr: false });
 const MCExerciseView = dynamic(() => import("./MCExerciseView").then((m) => ({ default: m.MCExerciseView })), { loading: loader, ssr: false });
 
 import type {
@@ -19,14 +19,14 @@ import type {
   ExerciseSet,
   GlossaryEntry,
   Source,
-  SprachtrainingView,
+  LanguageTrainingView,
   StudentStats,
   VocabTestQuestion,
 } from "../../_types";
 
-interface SprachtrainingContentProps {
-  sprachView: SprachtrainingView;
-  setSprachView: (v: SprachtrainingView) => void;
+interface LanguageTrainingContentProps {
+  langTrainingView: LanguageTrainingView;
+  setSprachView: (v: LanguageTrainingView) => void;
   // Content
   glossary: GlossaryEntry[];
   clozeExercises: ClozeExercise[];
@@ -58,9 +58,9 @@ interface SprachtrainingContentProps {
 
 const TITLE_PREFIX_RE = /^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i;
 
-export function SprachtrainingContent(props: SprachtrainingContentProps) {
+export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   const {
-    sprachView, setSprachView,
+    langTrainingView, setSprachView,
     glossary, clozeExercises, clozeLoading, vocabQuestions, vocabLoading,
     generateCloze, generateVocabTest,
     exerciseSets, activeSet, setActiveSet,
@@ -79,7 +79,7 @@ export function SprachtrainingContent(props: SprachtrainingContentProps) {
   const toOverviewWithReset = { label: "Studio", onClick: () => { setActiveSet(null); setSprachView("overview"); } };
 
   const inner = (() => {
-    switch (sprachView) {
+    switch (langTrainingView) {
       case "karteikarten":
         return (
           <VocabFlashcards
@@ -108,26 +108,26 @@ export function SprachtrainingContent(props: SprachtrainingContentProps) {
             breadcrumbs={[toOverviewCrumb]}
           />
         );
-      // ─── Lernkarten Sets Flow ──────────────────────────────
+      // ─── Flashcards Sets Flow ──────────────────────────────
       case "lk-sets":
         return (
           <ExerciseSetsOverview
             title="Lernkarten"
-            sets={exerciseSets.filter((s) => s.tool === "lernkarten")}
+            sets={exerciseSets.filter((s) => s.tool === "flashcards")}
             onBack={() => setSprachView("overview")}
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("lk-learn")); }}
-            onCreate={() => { setCreateSetTool("lernkarten"); setShowCreateModal(true); }}
-            onDelete={(id) => deleteExerciseSet(id, "lernkarten")}
+            onCreate={() => { setCreateSetTool("flashcards"); setShowCreateModal(true); }}
+            onDelete={(id) => deleteExerciseSet(id, "flashcards")}
             onDownload={isAdmin ? downloadExerciseSet : undefined}
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
             breadcrumbs={[toOverviewCrumb]}
-            category="sprachtraining"
+            category="language_training"
           />
         );
       case "lk-learn":
         return activeSet ? (
-          <LernkartenLearnView
+          <FlashcardsLearnView
             exerciseSet={activeSet}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); refreshProgress(); }}
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
@@ -144,7 +144,7 @@ export function SprachtrainingContent(props: SprachtrainingContentProps) {
             results={[]}
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("lk-learn")}
-            onBack={() => { setSprachView("lk-sets"); setActiveSet(null); loadExerciseSets("lernkarten"); }}
+            onBack={() => { setSprachView("lk-sets"); setActiveSet(null); loadExerciseSets("flashcards"); }}
             breadcrumbs={[toOverviewWithReset, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
           />
         ) : null;
@@ -162,7 +162,7 @@ export function SprachtrainingContent(props: SprachtrainingContentProps) {
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
             breadcrumbs={[toOverviewCrumb]}
-            category="sprachtraining"
+            category="language_training"
           />
         );
       case "cl-learn":
@@ -202,7 +202,7 @@ export function SprachtrainingContent(props: SprachtrainingContentProps) {
             sourceCount={selectedSourceIds.length}
             stats={pageStats}
             breadcrumbs={[toOverviewCrumb]}
-            category="sprachtraining"
+            category="language_training"
           />
         );
       case "vt-learn":

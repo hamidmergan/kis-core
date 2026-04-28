@@ -1,4 +1,4 @@
-"""Celery-Task: Final-MP4 aus bearbeiteten Scripts + gespeichertem PPTX rendern."""
+"""Celery task: render the final MP4 from edited scripts + stored PPTX."""
 
 from pathlib import Path
 
@@ -71,7 +71,7 @@ def run_screencast_render(
     except _JobCancelled:
         logger.info("Screencast render task {} cancelled by user", translate_job_uuid)
         db.reset_job_to_awaiting(translate_job_uuid)
-        _maybe_dispatch_next(translate_job_uuid)  # awaiting_user hält keinen Slot → nächsten Job starten
+        _maybe_dispatch_next(translate_job_uuid)  # awaiting_user holds no slot -> start the next job
 
     except SoftTimeLimitExceeded:
         logger.warning("Screencast render task {} hit soft time limit", translate_job_uuid)

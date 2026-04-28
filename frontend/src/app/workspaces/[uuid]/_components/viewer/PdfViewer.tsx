@@ -96,7 +96,7 @@ export function PdfViewer({
     const fetchSummaries = async () => {
       try {
         const res = await fetch(
-          `/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/summaries`,
+          `/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/summaries`,
           { credentials: "include" },
         );
         if (res.ok && !cancelled) {
@@ -338,10 +338,10 @@ export function PdfViewer({
     // Register glossary extract command
     commands.registerCommand({
       id: "kis.add-to-glossary",
-      label: "Zum Glossar",
-      description: "Fachbegriffe zum Glossar hinzufügen",
+      label: "Zum Glossary",
+      description: "Fachbegriffe zum Glossary hinzufügen",
       icon: "ph-book",
-      iconProps: { title: "Zum Glossar hinzufügen" },
+      iconProps: { title: "Zum Glossary hinzufügen" },
       categories: ["kis-actions"],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       visible: ({ state, documentId }: any) => {
@@ -386,17 +386,17 @@ export function PdfViewer({
     });
 
     // Merge: add KI actions to selection menu + summary button to main toolbar.
-    // EmbedPDF-Defaults bis auf copy-selection rauswerfen — wir wollen weder
-    // highlight/underline/strikeout/squiggly/link/redact noch deren Trenner.
+    // Drop EmbedPDF defaults except copy-selection: we want neither
+    // highlight/underline/strikeout/squiggly/link/redact nor their dividers.
     const existingSchema = ui.getSchema?.();
-    // copy-selection ersetzen wir durch kis.copy-selection (Touch-Fix, siehe oben)
+    // We replace copy-selection with kis.copy-selection (touch fix, see above)
     const KEEP_DEFAULT_IDS = new Set(["add-highlight"]);
     const existingSelItems: unknown[] = (existingSchema?.selectionMenus?.selection?.items ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .filter((it: any) => it?.type !== "command-button" || KEEP_DEFAULT_IDS.has(it?.id))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .filter((it: any, idx: number, arr: any[]) => {
-        // Verwaiste Trenner am Anfang/Ende oder direkt nebeneinander entfernen
+        // Remove orphaned dividers at start/end or directly next to each other
         if (it?.type !== "divider") return true;
         const next = arr[idx + 1];
         const prev = arr[idx - 1];
@@ -448,16 +448,16 @@ export function PdfViewer({
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <button type="button" onClick={onClose}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }} title="Zurück">
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+          style={{ backgroundColor: "var(--surface-dim)" }} title="Zurück">
           <CaretLeft size={13} weight="bold" color="var(--muted)" />
         </button>
         <FileIcon filename={source.filename} />
         <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>{source.filename}</span>
         {onMinimize && (
           <button type="button" onClick={onMinimize}
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }} title="Panel minimieren">
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon ml-2"
+            style={{ backgroundColor: "var(--surface-dim)" }} title="Panel minimieren">
             <SidebarSimple size={13} />
           </button>
         )}
@@ -469,7 +469,7 @@ export function PdfViewer({
         <PDFViewer
           ref={viewerRef}
           config={{
-            src: `/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/file`,
+            src: `/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/file`,
             worker: true,
             search: { showAllResults: false },
             annotations: { locked: { type: "all" } },
@@ -510,7 +510,7 @@ export function PdfViewer({
                     setSummariesStatus("generating");
                     setSummariesLoaded(false);
                     try {
-                      await fetch(`/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
+                      await fetch(`/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
                     } catch { /* ignore */ }
                   }}
                   style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-accent, #3b82f6)", background: "var(--color-accent, #3b82f6)", color: "var(--color-accent-fg, #fff)", cursor: "pointer", fontWeight: 500 }}

@@ -1,12 +1,12 @@
-"""Kokoro TTS client – kompatibel mit Kokoro-FastAPI (ghcr.io/remsky/kokoro-fastapi-gpu).
+"""Kokoro TTS client - compatible with Kokoro-FastAPI (ghcr.io/remsky/kokoro-fastapi-gpu).
 
-Endpunkte (OpenAI-kompatibel):
-    POST /v1/audio/speech   → Audio-Bytes (mp3)
-    GET  /v1/voices         → Stimmliste
+Endpoints (OpenAI-compatible):
+    POST /v1/audio/speech   -> audio bytes (mp3)
+    GET  /v1/voices         -> voice list
 
-Auth: Authorization: Bearer <api_key>  (optional wenn kein Key gesetzt)
+Auth: Authorization: Bearer <api_key>  (optional if no key is set)
 
-Starten via Docker:
+Start via Docker:
     docker-compose --profile kokoro up -d
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ _CHUNK_MIN = 9_500
 
 
 def _split_text(text: str) -> list[str]:
-    """Teilt langen Text an Satzgrenzen auf."""
+    """Split long text at sentence boundaries."""
     if len(text) <= _CHUNK_MAX:
         return [text]
 
@@ -66,7 +66,7 @@ class KokoroClient:
         speed: float = 1.0,
         **kwargs,
     ) -> bytes:
-        """Wandelt Text in MP3-Bytes um."""
+        """Convert text to MP3 bytes."""
         chunks = _split_text(text)
         audio_parts: list[bytes] = []
 
@@ -84,7 +84,7 @@ class KokoroClient:
         speed: float = 1.0,
         **kwargs,
     ) -> bytes:
-        """Einzelnen Chunk synthetisieren (für Crash-Recovery in tts_tasks)."""
+        """Synthesize a single chunk (for crash recovery in tts_tasks)."""
         with httpx.Client(timeout=300.0) as client:
             return self._synthesize_one(client, text, voice_id=voice_id, speed=speed)
 
@@ -118,7 +118,7 @@ class KokoroClient:
             )
         return response.content
 
-    # Sprachzuordnung anhand des Kokoro Voice-ID Prefix
+    # Language mapping based on Kokoro voice-id prefix
     _LANGUAGE_MAP = {
         "af_": {"language": "English", "accent": "American", "gender": "Female"},
         "am_": {"language": "English", "accent": "American", "gender": "Male"},
@@ -144,12 +144,12 @@ class KokoroClient:
         "km_": {"language": "Korean",  "accent": "Korean",   "gender": "Male"},
     }
 
-    # Nur Englisch + Deutsch als unterstützte Sprachen
+    # Only English + German as supported languages
     _SUPPORTED_PREFIXES = ("af_", "am_", "bf_", "bm_", "df_", "dm_")
 
-    # Feste Stimmliste als Fallback (Kokoro v1.0+, Apache 2.0)
+    # Fixed voice list as fallback (Kokoro v1.0+, Apache 2.0)
     _BUILTIN_VOICES = [
-        # Englisch — American
+        # English - American
         {"voice_id": "af_heart",    "name": "Heart",    "language": "English", "accent": "American", "gender": "Female"},
         {"voice_id": "af_alloy",    "name": "Alloy",    "language": "English", "accent": "American", "gender": "Female"},
         {"voice_id": "af_aoede",    "name": "Aoede",    "language": "English", "accent": "American", "gender": "Female"},
@@ -170,7 +170,7 @@ class KokoroClient:
         {"voice_id": "am_onyx",     "name": "Onyx",     "language": "English", "accent": "American", "gender": "Male"},
         {"voice_id": "am_puck",     "name": "Puck",     "language": "English", "accent": "American", "gender": "Male"},
         {"voice_id": "am_santa",    "name": "Santa",    "language": "English", "accent": "American", "gender": "Male"},
-        # Englisch — British
+        # English - British
         {"voice_id": "bf_emma",     "name": "Emma",     "language": "English", "accent": "British",  "gender": "Female"},
         {"voice_id": "bf_isabella", "name": "Isabella", "language": "English", "accent": "British",  "gender": "Female"},
         {"voice_id": "bf_alice",    "name": "Alice",    "language": "English", "accent": "British",  "gender": "Female"},
@@ -179,7 +179,7 @@ class KokoroClient:
         {"voice_id": "bm_fable",    "name": "Fable",    "language": "English", "accent": "British",  "gender": "Male"},
         {"voice_id": "bm_lewis",    "name": "Lewis",    "language": "English", "accent": "British",  "gender": "Male"},
         {"voice_id": "bm_daniel",   "name": "Daniel",   "language": "English", "accent": "British",  "gender": "Male"},
-        # Deutsch
+        # German
         {"voice_id": "df_eva",      "name": "Eva",      "language": "Deutsch", "accent": "Deutsch",  "gender": "Female"},
         {"voice_id": "df_dora",     "name": "Dora",     "language": "Deutsch", "accent": "Deutsch",  "gender": "Female"},
         {"voice_id": "dm_florian",  "name": "Florian",  "language": "Deutsch", "accent": "Deutsch",  "gender": "Male"},
@@ -192,15 +192,15 @@ class KokoroClient:
 
     @classmethod
     def _normalize_voice_id(cls, voice_id: str) -> dict:
-        """Konvertiert z.B. 'af_alloy' → {voice_id, name, language, accent, gender}."""
+        """Convert e.g. 'af_alloy' -> {voice_id, name, language, accent, gender}."""
         prefix = voice_id[:3] if len(voice_id) >= 3 else ""
         info = cls._LANGUAGE_MAP.get(prefix, {"language": "Unknown", "accent": "Unknown", "gender": "Unknown"})
         name = voice_id[3:].replace("_", " ").title() if len(voice_id) > 3 else voice_id
         return {"voice_id": voice_id, "name": name, **info}
 
     def get_voices(self) -> list[dict]:
-        """Stimmliste vom Server abrufen, Fallback auf eingebettete Liste.
-        Gibt Englisch + Deutsch Stimmen zurück.
+        """Fetch voice list from server, fall back to embedded list.
+        Returns English + German voices.
         """
         try:
             with httpx.Client(timeout=5.0) as client:
@@ -233,16 +233,16 @@ class KokoroClient:
         speed: float = 1.0,
         **kwargs,
     ) -> dict:
-        """Drop-in für ElevenLabsClient.synthesize_with_timestamps().
+        """Drop-in for ElevenLabsClient.synthesize_with_timestamps().
 
-        Gibt {"audio_bytes": bytes, "alignment": None} zurück,
-        da Kokoro keine Wort-Timestamps liefert.
+        Returns {"audio_bytes": bytes, "alignment": None},
+        since Kokoro does not provide word timestamps.
         """
         audio_bytes = self.synthesize(text, language, voice_id=voice_id, speed=speed)
         return {"audio_bytes": audio_bytes, "alignment": None}
 
     def is_available(self) -> bool:
-        """Prüft ob der Kokoro Server erreichbar ist."""
+        """Check if the Kokoro server is reachable."""
         from loguru import logger
         for path in ("/health", "/v1/audio/voices", "/"):
             try:
@@ -252,7 +252,7 @@ class KokoroClient:
                 if resp.status_code < 500:
                     return True
             except httpx.ConnectError as e:
-                # Host unreachable / DNS fail — trying other paths won't help.
+                # Host unreachable / DNS fail - trying other paths won't help.
                 logger.warning("Kokoro is_available: connect failed, aborting: {}", e)
                 return False
             except Exception as e:

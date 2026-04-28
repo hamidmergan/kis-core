@@ -1,6 +1,6 @@
-"""Geteilter Karten-Parser für Lernkarten/Karteikarten (mode='quelle')."""
+"""Shared card parser for flashcards/cards (mode='source')."""
 
-from src.features.ki_assistent.tasks.sprachtraining._context import (
+from src.features.ai_assistant.tasks.language_training._context import (
     QuelleContext,
     find_all_pages,
 )
@@ -30,7 +30,7 @@ def parse_card(
         if pages:
             if multi_source:
                 item["sources"] = pages
-            # LLM-zugewiesene Seite beibehalten, wenn sie den Term enthält; sonst erste Match nehmen
+            # Keep LLM-assigned page if it contains the term; otherwise take first match
             llm_page_valid = any(
                 p["source_label"] == sl and p["page_number"] == pn
                 for p in pages
@@ -43,8 +43,8 @@ def parse_card(
 
 
 def with_avoid(existing_fronts: list[str], base_content: str) -> str:
-    """Hängt einen 'avoid duplicates'-Block an, damit der LLM Variationen statt
-    Wiederholungen aus früheren Sets desselben Tools liefert."""
+    """Append an 'avoid duplicates' block so the LLM produces variations instead
+    of repetitions from earlier sets of the same tool."""
     if not existing_fronts:
         return base_content
     preview = "\n".join(f"- {(f or '')[:160]}" for f in existing_fronts)

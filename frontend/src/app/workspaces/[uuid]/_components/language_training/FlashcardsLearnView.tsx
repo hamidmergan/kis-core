@@ -6,7 +6,7 @@ import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { _getToolBadge } from "../layout/SubviewHeader";
 
-export function LernkartenLearnView({
+export function FlashcardsLearnView({
   exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation,
 }: {
   exerciseSet: ExerciseSet;
@@ -23,7 +23,7 @@ export function LernkartenLearnView({
   useEffect(() => {
     const raw = exerciseSet.items || [];
     if (raw.length > 0 && !shuffledRef.current) {
-      if (exerciseSet.tool === "lernkarten") {
+      if (exerciseSet.tool === "flashcards") {
         setShuffledItems(raw);
       } else {
         const arr = [...raw];
@@ -44,7 +44,7 @@ export function LernkartenLearnView({
 
   const total = items.length;
   const card = items[index];
-  const isVocab = exerciseSet.tool === "lernkarten";
+  const isVocab = exerciseSet.tool === "flashcards";
 
   useEffect(() => { setFlipped(false); }, [index]);
 
@@ -114,7 +114,7 @@ export function LernkartenLearnView({
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
       <Spinner size="lg" />
-      <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
+      <p className="text-xs" >Wird geladen…</p>
     </div>
   );
   const progressPct = showResults ? 100 : ((index + 1) / total) * 100;
@@ -124,15 +124,15 @@ export function LernkartenLearnView({
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
         <button type="button" onClick={onBack}
-          className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+          className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+          style={{ backgroundColor: "var(--surface-dim)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.label, isVocab ? "sprachtraining" : "lerntools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.label, isVocab ? "language_training" : "lerntools"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors"  onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+            style={{ backgroundColor: "var(--surface-dim)" }}
             title="Panel minimieren">
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
           </button>
@@ -165,7 +165,7 @@ export function LernkartenLearnView({
                 {(wrongCount > 0 || pendingCount > 0) && (
                   <>
                     <br />
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                    <span className="text-xs" >
                       {wrongCount > 0 && <>{wrongCount} falsch</>}
                       {wrongCount > 0 && pendingCount > 0 && ", "}
                       {pendingCount > 0 && <>{pendingCount} offen</>}
@@ -217,7 +217,7 @@ export function LernkartenLearnView({
       })() : card ? (() => {
         const cardSource = card.source_label ? { source_label: card.source_label, page_number: card.page_number, start_time: card.start_time } : null;
 
-        // ── Lernkarten: single-page card, no flip ──
+        // ── Flashcards: single-page card, no flip ──
         if (isVocab) {
           const definition = (card.back || "").trim();
           const wordParts = card.extras?.word_parts?.trim() || "";
@@ -226,7 +226,7 @@ export function LernkartenLearnView({
           return <>
             <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-3">
               <div className="mx-auto w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
-                <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
+                <div className="text-center text-xs font-semibold" >
                   {index + 1} / {total}
                 </div>
                 <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--surface)", boxShadow: "0 4px 20px rgba(0,0,0,0.07)" }}>
@@ -235,12 +235,12 @@ export function LernkartenLearnView({
                     <div className="text-center">
                       <p className="text-lg font-bold" style={{ color: "var(--text)" }}>{card.front}</p>
                       {showTranslation && card.back_en && (
-                        <p className="text-xs italic mt-0.5" style={{ color: "var(--muted)" }}>EN: {card.back_en}</p>
+                        <p className="text-xs italic mt-0.5" >EN: {card.back_en}</p>
                       )}
                     </div>
                     {/* Definition */}
                     <div>
-                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Definition</span>
+                      <span className="text-[9px] font-bold uppercase tracking-widest" >Definition</span>
                       <p className="text-sm leading-relaxed mt-1" style={{ color: "var(--text)" }}>{definition}</p>
                     </div>
                     {/* Word parts */}
@@ -248,7 +248,7 @@ export function LernkartenLearnView({
                       const parts = wordPartsExplained.split("|").map(p => p.trim()).filter(Boolean);
                       return (
                         <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--surface-dim)" }}>
-                          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Wortzerlegung</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest" >Wortzerlegung</span>
                           <p className="text-sm font-semibold mt-1.5" style={{ color: "var(--text)" }}>{wordParts}</p>
                           {parts.length > 0 && (
                             <div className="flex flex-col gap-1 mt-2">
@@ -258,7 +258,7 @@ export function LernkartenLearnView({
                                 return (
                                   <div key={pi} className="flex items-baseline gap-1.5 text-xs">
                                     <span className="font-semibold shrink-0" style={{ color: "var(--text)" }}>{term.trim()}</span>
-                                    {explanation && <span style={{ color: "var(--muted)" }}>{explanation}</span>}
+                                    {explanation && <span >{explanation}</span>}
                                   </div>
                                 );
                               })}
@@ -270,7 +270,7 @@ export function LernkartenLearnView({
                     {/* Context sentence */}
                     {exampleSentence && (
                       <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
-                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Beispiel</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest" >Beispiel</span>
                         <p className="text-xs italic leading-relaxed mt-1" style={{ color: "var(--text)" }}>{exampleSentence}</p>
                       </div>
                     )}
@@ -304,7 +304,7 @@ export function LernkartenLearnView({
                           })}
                         </div>
                         {uniqueFiles.map((f, fi) => (
-                          <span key={fi} className="text-[9px]" style={{ color: "var(--muted)" }}>
+                          <span key={fi} className="text-[9px]" >
                             {multiFile ? `[${fi + 1}] ` : ""}{f}
                           </span>
                         ))}
@@ -337,7 +337,7 @@ export function LernkartenLearnView({
         // ── Karteikarten: flip card ──
         return <>
           <div className="flex-1 flex flex-col items-center px-3 sm:px-4 pt-4 sm:pt-6 pb-3 gap-3">
-            <div className="text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
+            <div className="text-center text-xs font-semibold" >
               {index + 1} / {total}
             </div>
             <div className="w-full" style={{ perspective: 1200, maxWidth: 560, userSelect: "none" }}>
@@ -354,7 +354,7 @@ export function LernkartenLearnView({
                   border: "1px solid var(--border)",
                   boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
                 }}>
-                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "var(--muted)" }}>Frage</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" >Frage</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "var(--text)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                     <span />
@@ -461,7 +461,7 @@ export function LernkartenLearnView({
                     })}
                   </div>
                   {uniqueFiles.map((f, fi) => (
-                    <span key={fi} className="text-[9px]" style={{ color: "var(--muted)" }}>
+                    <span key={fi} className="text-[9px]" >
                       {multiFile ? `[${fi + 1}] ` : ""}{f}
                     </span>
                   ))}

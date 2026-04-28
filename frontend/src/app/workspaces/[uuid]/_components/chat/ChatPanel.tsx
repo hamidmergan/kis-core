@@ -97,9 +97,9 @@ export function ChatPanel({
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  // Stabile Callback-Identitäten via Refs — sonst invalidiert React.memo auf
-  // ChatMessage bei jedem Re-Render von page.tsx (z.B. Tab-Switch), weil
-  // `onPillClick` Deps wie `activeTab` hat und die Identität dauernd wechselt.
+  // Stable callback identities via refs - otherwise React.memo on ChatMessage
+  // gets invalidated on every re-render of page.tsx (e.g. tab switch), because
+  // `onPillClick` has deps like `activeTab` and its identity keeps changing.
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
   const onPillClickRef = useRef(onPillClick);

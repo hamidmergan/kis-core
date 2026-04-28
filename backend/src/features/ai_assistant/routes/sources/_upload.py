@@ -12,7 +12,7 @@ from ._shared import (
 router = APIRouter(tags=["ki-assistent"])
 
 
-@router.post("/ki-assistent/modules/{module_uuid}/sources")
+@router.post("/ai-assistant/modules/{module_uuid}/sources")
 async def upload_source(
     module_uuid: str,
     file: UploadFile = File(...),
@@ -20,11 +20,11 @@ async def upload_source(
 ):
     module = _require_own_module(module_uuid, current_user["user_id"])
 
-    existing_sources = db.get_kia_sources_by_module(module["id"])
+    existing_sources = db.get_aia_sources_by_module(module["id"])
     if len(existing_sources) >= KIA_MODULE_MAX_SOURCES:
         raise HTTPException(
             status_code=409,
-            detail=f"Maximal {KIA_MODULE_MAX_SOURCES} Quellen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Quellen.",
+            detail=f"Maximal {KIA_MODULE_MAX_SOURCES} Sources pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Sources.",
         )
 
     if not file.filename:
@@ -64,7 +64,7 @@ async def upload_source(
     file_path = _save_source_file(username, module_uuid, source_uuid, ext, data)
     file_type = ext.lstrip(".")
 
-    db.create_kia_source(
+    db.create_aia_source(
         module_id=module["id"],
         uuid=source_uuid,
         filename=stored_filename,
@@ -72,50 +72,50 @@ async def upload_source(
         file_type=file_type,
     )
 
-    from src.tasks.kia_tasks import run_index_source
+    from src.tasks.aia_tasks import run_index_source
     run_index_source.delay(source_uuid)
 
     logger.info("KI Tutor: source {} ({}) uploaded to module {}", source_uuid, stored_filename, module_uuid)
     return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}
 
 
-@router.post("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}/retry")
+@router.post("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/retry")
 async def retry_source(
     module_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     _require_own_module(module_uuid, current_user["user_id"])
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
     if source["status"] != "failed":
-        raise HTTPException(status_code=409, detail="Nur fehlgeschlagene Quellen können neu indexiert werden")
+        raise HTTPException(status_code=409, detail="Nur fehlgeschlagene Sources können neu indexiert werden")
 
-    db.delete_kia_chunks_by_source(source["id"])
-    db.reset_kia_source_for_retry(source_uuid)
+    db.delete_aia_chunks_by_source(source["id"])
+    db.reset_aia_source_for_retry(source_uuid)
 
-    from src.tasks.kia_tasks import run_index_source
+    from src.tasks.aia_tasks import run_index_source
     run_index_source.delay(source_uuid)
 
     logger.info("KI Tutor: source {} retry dispatched", source_uuid)
     return {"uuid": source_uuid, "status": "pending"}
 
 
-@router.delete("/ki-assistent/modules/{module_uuid}/sources/{source_uuid}")
+@router.delete("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}")
 async def delete_source(
     module_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     _require_own_module(module_uuid, current_user["user_id"])
-    source = db.get_kia_source(source_uuid)
+    source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
     try:
         delete_file(source["file_path"])
     except Exception as e:
         logger.warning("KI Tutor: could not delete source file {}: {}", source["file_path"], e)
-    db.delete_kia_source(source_uuid)
+    db.delete_aia_source(source_uuid)
     logger.info("KI Tutor: source {} deleted", source_uuid)
     return {"deleted": source_uuid}

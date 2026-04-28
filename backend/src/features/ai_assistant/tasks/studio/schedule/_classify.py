@@ -6,7 +6,7 @@ from datetime import date
 
 from loguru import logger
 
-from src.features.ki_assistent.tasks._helpers import _clean_llm_json
+from src.features.ai_assistant.tasks._helpers import _clean_llm_json
 from src.tool_prompts import KIA_SCHEDULE_CLASSIFY_PROMPT
 
 

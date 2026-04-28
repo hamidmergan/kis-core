@@ -121,7 +121,7 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={loading || !username.trim() || !password}
-              className="w-full px-4 py-2 bg-primary text-white text-sm font-medium rounded-md hover:outline-2 hover:outline-primary disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition"
+              className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary"
             >
               {loading ? "Wird angemeldet..." : "Anmelden"}
             </button>

@@ -6,6 +6,7 @@ import {
   Eye,
   ArrowCounterClockwise,
   Trash,
+  Check,
 } from "@phosphor-icons/react";
 import type { Source } from "../../_types";
 import { FileIcon, SourceStatus } from "./FileIcon";
@@ -72,7 +73,7 @@ export function SourcesPanel({
   }
 
   return (
-    <div ref={panelRef} className="flex flex-col h-full">
+    <div ref={panelRef} className="sources-panel flex flex-col h-full">
       {/* Panel header */}
       {!hideHeader && (
         <div
@@ -85,8 +86,8 @@ export function SourcesPanel({
           <button
             type="button"
             onClick={onMinimize}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+            style={{ backgroundColor: "var(--surface-dim)" }}
             title="Panel minimieren"
           >
             <SidebarSimple size={13} />
@@ -136,7 +137,7 @@ export function SourcesPanel({
                   style={{ width: `${uploadProgress.percent}%`, backgroundColor: "var(--kb)" }}
                 />
               </div>
-              <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+              <p className="text-[11px] mt-1" >
                 {uploadProgress.total > 1
                   ? `Datei ${uploadProgress.current}/${uploadProgress.total} – ${uploadProgress.percent}%`
                   : `Hochladen… ${uploadProgress.percent}%`}
@@ -151,20 +152,27 @@ export function SourcesPanel({
 
       {/* Select all row */}
       {sources.length > 0 && (
-        <div
-          className="flex items-center gap-3 px-4 py-2 flex-shrink-0"
+        <label
+          className="sources-select-all flex items-center gap-3 px-4 py-2 flex-shrink-0 cursor-pointer"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={toggleAll}
-            className="w-3.5 h-3.5 flex-shrink-0 accent-primary"
-          />
-          <span className="text-xs" style={{ color: "var(--muted)" }}>
+          <button
+            type="button"
+            onClick={toggleAll}
+            aria-label={allSelected ? "Alle abwählen" : "Alle auswählen"}
+            className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
+              allSelected
+                ? "border-[var(--color-primary)] bg-[var(--color-primary)]"
+                : "border-[var(--border)] bg-white hover:border-[var(--color-primary)]"
+            }`}
+            style={{ color: "#fff" }}
+          >
+            {allSelected && <Check size={11} weight="bold" />}
+          </button>
+          <span className="text-xs" >
             Alle auswählen
           </span>
-        </div>
+        </label>
       )}
 
       {/* Source list */}
@@ -172,7 +180,7 @@ export function SourcesPanel({
         {sources.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4 gap-2">
             <FilePdf size={32} color="var(--border)" />
-            <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
+            <p className="text-xs text-center" >
               Lade eine Quelle hoch.
             </p>
           </div>
@@ -180,20 +188,35 @@ export function SourcesPanel({
           sources.map((src) => (
             <div
               key={src.uuid}
-              className="relative flex items-center transition-colors"
+              className="relative flex items-center transition-colors hover:bg-[var(--surface-dim)]"
               style={{ borderBottom: "1px solid var(--border)" }}
             >
               <label
                 className={`flex-1 flex items-center gap-3 px-4 py-2.5 min-w-0 ${src.status === "ready" ? "cursor-pointer" : "cursor-default"}`}
               >
-                <input
-                  type="checkbox"
-                  checked={selectedSourceIds.includes(src.uuid)}
-                  onChange={() => onToggleSource(src.uuid)}
-                  disabled={src.status !== "ready"}
-                  className="flex-shrink-0 w-3.5 h-3.5 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={src.status !== "ready" ? "Quelle wird noch verarbeitet" : undefined}
-                />
+                {(() => {
+                  const checked = selectedSourceIds.includes(src.uuid);
+                  const ready = src.status === "ready";
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => { if (ready) onToggleSource(src.uuid); }}
+                      disabled={!ready}
+                      aria-label={checked ? "Quelle abwählen" : "Quelle auswählen"}
+                      title={!ready ? "Quelle wird noch verarbeitet" : undefined}
+                      className={`source-checkbox flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
+                        checked
+                          ? "border-[var(--color-primary)] bg-[var(--color-primary)]"
+                          : ready
+                          ? "border-[var(--border)] bg-white hover:border-[var(--color-primary)]"
+                          : "border-[var(--border)] bg-white"
+                      }`}
+                      style={{ color: "#fff" }}
+                    >
+                      {checked && <Check size={11} weight="bold" />}
+                    </button>
+                  );
+                })()}
                 <FileIcon filename={src.filename} />
                 <span
                   className="flex-1 text-xs leading-snug truncate min-w-0 font-medium"
@@ -221,8 +244,8 @@ export function SourcesPanel({
                       <button
                         type="button"
                         onClick={() => onRetrySource(src.uuid)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+                        style={{ backgroundColor: "var(--surface-dim)" }}
                         title="Erneut versuchen"
                       >
                         <ArrowCounterClockwise size={13} weight="regular" />
@@ -231,8 +254,8 @@ export function SourcesPanel({
                       <button
                         type="button"
                         onClick={() => onOpenViewer(src)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+                        style={{ backgroundColor: "var(--surface-dim)" }}
                         title="Im Viewer öffnen"
                       >
                         <Eye size={13} />
@@ -244,8 +267,8 @@ export function SourcesPanel({
                       <button
                         type="button"
                         onClick={() => setDeleteSourceId(src.uuid)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+                        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+                        style={{ backgroundColor: "var(--surface-dim)" }}
                         title="Quelle löschen"
                       >
                         <Trash size={13} weight="regular" />

@@ -65,24 +65,24 @@ export interface ViewerState {
   startTime?: number;
 }
 
-export interface DatentabelleRowSource {
+export interface DataTableRowSource {
   source_label: string;
   page: number | string;
   highlight?: string;
 }
 
-export interface DatentabelleData {
+export interface DataTableData {
   title: string;
   columns: string[];
-  rows: { cells: string[]; sources: number[] | DatentabelleRowSource[] }[];
+  rows: { cells: string[]; sources: number[] | DataTableRowSource[] }[];
 }
 
-export interface DatentabelleSource {
+export interface DataTableSource {
   number: number;
   filename: string;
 }
 
-export type StudioView = "overview" | "karteikarten" | "quiz" | "datentabelle" | "mindmap" | "notizen";
+export type StudioView = "overview" | "karteikarten" | "quiz" | "data_table" | "mindmap" | "notes";
 export type PanelKey = "quellen" | "chat" | "studio";
 
 export interface GlossaryEntry {
@@ -114,7 +114,7 @@ export interface VocabTestQuestion {
   explanation?: string;
 }
 
-export type SprachtrainingView = "overview" | "karteikarten" | "lueckentext" | "vokabeltest"
+export type LanguageTrainingView = "overview" | "karteikarten" | "lueckentext" | "vokabeltest"
   | "lk-sets" | "lk-learn" | "lk-complete"
   | "cl-sets" | "cl-learn" | "cl-complete"
   | "vt-sets" | "vt-learn" | "vt-complete"
@@ -193,10 +193,10 @@ export interface StudentStats {
   streak: StreakInfo;
   overview: ExerciseOverview;
   lerntools: ExerciseOverview;
-  sprachtraining: ExerciseOverview;
+  language_training: ExerciseOverview;
   heatmap: HeatmapDay[];
   lerntools_heatmap: HeatmapDay[];
-  sprachtraining_heatmap: HeatmapDay[];
+  language_training_heatmap: HeatmapDay[];
   chat: { total: number; today: number };
   first_activity: string | null;
   active_days: number;

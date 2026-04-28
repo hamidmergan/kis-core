@@ -1,24 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClozeExercise, GlossaryEntry, SprachtrainingView, VocabTestQuestion } from "../_types";
+import type { ClozeExercise, GlossaryEntry, LanguageTrainingView, VocabTestQuestion } from "../_types";
 
-interface UseSprachtrainingOptions {
+interface UseLanguageTrainingOptions {
   uuid: string;
-  sprachActiveIds: string[];
+  langTrainingActiveIds: string[];
   onAfterCloze?: () => void;
   onAfterVocabTest?: () => void;
 }
 
-export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfterVocabTest }: UseSprachtrainingOptions) {
-  const [sprachView, setSprachView] = useState<SprachtrainingView>("overview");
+export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze, onAfterVocabTest }: UseLanguageTrainingOptions) {
+  const [langTrainingView, setSprachView] = useState<LanguageTrainingView>("overview");
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [glossaryLoading, setGlossaryLoading] = useState(false);
   const [clozeExercises, setClozeExercises] = useState<ClozeExercise[]>([]);
   const [clozeLoading, setClozeLoading] = useState(false);
   const [vocabQuestions, setVocabQuestions] = useState<VocabTestQuestion[]>([]);
   const [vocabLoading, setVocabLoading] = useState(false);
-  const [sprachSourceUuid, setSprachSourceUuid] = useState("");
+  const [langTrainingSourceUuid, setSprachSourceUuid] = useState("");
   const [glossaryCount, setGlossaryCount] = useState(0);
   const [glossaryExtracting, setGlossaryExtracting] = useState(false);
   const [glossaryFeedback, setGlossaryFeedback] = useState<{ kind: "success" | "info" | "error"; message: string } | null>(null);
@@ -43,7 +43,7 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
 
   const loadGlossary = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/glossary`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setGlossary(data.entries || []);
@@ -55,7 +55,7 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
 
   const loadGlossaryCount = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary-count`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/glossary-count`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setGlossaryCount(data.count);
@@ -72,7 +72,7 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
 
   const deleteGlossaryEntry = useCallback(async (entryId: number) => {
     try {
-      await fetch(`/api/ki-assistent/modules/${uuid}/glossary/${entryId}`, {
+      await fetch(`/api/ai-assistant/modules/${uuid}/glossary/${entryId}`, {
         method: "DELETE", credentials: "include",
       });
       setGlossary((prev) => prev.filter((e) => e.id !== entryId));
@@ -82,7 +82,7 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
 
   const deleteAllGlossaryEntries = useCallback(async () => {
     try {
-      await fetch(`/api/ki-assistent/modules/${uuid}/glossary`, {
+      await fetch(`/api/ai-assistant/modules/${uuid}/glossary`, {
         method: "DELETE", credentials: "include",
       });
       setGlossary([]);
@@ -91,13 +91,13 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
   }, [uuid, loadGlossaryCount]);
 
   const generateGlossary = useCallback(async () => {
-    if (sprachActiveIds.length === 0) return;
+    if (langTrainingActiveIds.length === 0) return;
     setGlossaryLoading(true);
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary/generate`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/glossary/generate`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: sprachActiveIds }),
+        body: JSON.stringify({ active_source_ids: langTrainingActiveIds }),
       });
       if (res.ok) {
         stopGlossaryPolling();
@@ -105,7 +105,7 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
         glossaryPollRef.current = setInterval(async () => {
           const hasNew = await loadGlossary();
           if (hasNew) {
-            const res2 = await fetch(`/api/ki-assistent/modules/${uuid}/glossary`, { credentials: "include" });
+            const res2 = await fetch(`/api/ai-assistant/modules/${uuid}/glossary`, { credentials: "include" });
             if (res2.ok) {
               const data2 = await res2.json();
               if ((data2.entries || []).length !== startCount) {
@@ -124,16 +124,16 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
     } catch {
       setGlossaryLoading(false);
     }
-  }, [uuid, sprachActiveIds, glossary.length, loadGlossary, loadGlossaryCount, stopGlossaryPolling]);
+  }, [uuid, langTrainingActiveIds, glossary.length, loadGlossary, loadGlossaryCount, stopGlossaryPolling]);
 
   const generateCloze = useCallback(async () => {
-    if (sprachActiveIds.length === 0) return;
+    if (langTrainingActiveIds.length === 0) return;
     setClozeLoading(true);
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercises/cloze`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/exercises/cloze`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: sprachActiveIds }),
+        body: JSON.stringify({ active_source_ids: langTrainingActiveIds }),
       });
       if (res.ok) {
         onAfterCloze?.();
@@ -142,16 +142,16 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
     } catch { /* ignore */ } finally {
       setClozeLoading(false);
     }
-  }, [uuid, sprachActiveIds, onAfterCloze]);
+  }, [uuid, langTrainingActiveIds, onAfterCloze]);
 
   const generateVocabTest = useCallback(async () => {
-    if (sprachActiveIds.length === 0) return;
+    if (langTrainingActiveIds.length === 0) return;
     setVocabLoading(true);
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/exercises/vocab-test`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/exercises/vocab-test`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active_source_ids: sprachActiveIds }),
+        body: JSON.stringify({ active_source_ids: langTrainingActiveIds }),
       });
       if (res.ok) {
         onAfterVocabTest?.();
@@ -160,13 +160,13 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
     } catch { /* ignore */ } finally {
       setVocabLoading(false);
     }
-  }, [uuid, sprachActiveIds, onAfterVocabTest]);
+  }, [uuid, langTrainingActiveIds, onAfterVocabTest]);
 
   const extractGlossary = useCallback(async (text: string, sourceUuid: string, page: number) => {
     setGlossaryFeedback(null);
     setGlossaryExtracting(true);
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}/glossary/extract`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}/glossary/extract`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, source_uuid: sourceUuid, page_number: page }),
@@ -191,11 +191,11 @@ export function useSprachtraining({ uuid, sprachActiveIds, onAfterCloze, onAfter
   }, [uuid, loadGlossary, loadGlossaryCount, showFeedback]);
 
   return {
-    sprachView, setSprachView,
+    langTrainingView, setSprachView,
     glossary, glossaryLoading, glossaryCount, glossaryExtracting, glossaryFeedback,
     clozeExercises, clozeLoading,
     vocabQuestions, vocabLoading,
-    sprachSourceUuid, setSprachSourceUuid,
+    langTrainingSourceUuid, setSprachSourceUuid,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
     generateGlossary, generateCloze, generateVocabTest,
     loadGlossary, loadGlossaryCount,

@@ -30,9 +30,9 @@ from src.tool_prompts import (
     KIA_MINDMAP_PROMPT,
 )
 
-from src.features.ki_assistent.tasks._helpers import (
+from src.features.ai_assistant.tasks._helpers import (
     _format_ts,
-    _save_kia_output,
+    _save_aia_output,
     _detect_language,
     _parse_numbered_summaries,
     _clean_summary,
@@ -53,13 +53,13 @@ def run_reindex_all_sources(self):
     (LLM-generated, not embedding-dependent).
     """
     import json as _json
-    from src.services.kia_embeddings import get_embedding_provider, compute_fingerprint
+    from src.services.aia_embeddings import get_embedding_provider, compute_fingerprint
 
     provider = get_embedding_provider()
     fingerprint = compute_fingerprint(provider)
     embedding_model = provider.model_name
 
-    sources = db.get_all_kia_sources()
+    sources = db.get_all_aia_sources()
     total = len(sources)
     done = 0
 
@@ -80,7 +80,7 @@ def run_reindex_all_sources(self):
         filename = source.get("filename") or ""
         try:
             _set_progress(filename)
-            chunks = db.get_kia_chunks_by_source(source["id"])
+            chunks = db.get_aia_chunks_by_source(source["id"])
             if not chunks:
                 logger.info("KI Tutor reindex: source {} has no chunks, skipping", source_uuid)
             else:
@@ -93,21 +93,21 @@ def run_reindex_all_sources(self):
                         db.update_chunk_embedding(c["id"], vec)
                 logger.info("KI Tutor reindex: source {} re-embedded ({} chunks)", source_uuid, len(chunks))
 
-            db.update_kia_source_status(source_uuid, "ready", embedding_model=embedding_model)
+            db.update_aia_source_status(source_uuid, "ready", embedding_model=embedding_model)
             module_ids_seen.add(source["module_id"])
         except Exception as e:
             failed += 1
             logger.error("KI Tutor reindex: source {} failed: {}", source_uuid, e)
-            db.update_kia_source_status(source_uuid, "failed", error_message=str(e))
+            db.update_aia_source_status(source_uuid, "failed", error_message=str(e))
         finally:
             done += 1
             _set_progress(filename, failed=failed)
 
     # Bump fingerprint on every touched module so the new provider is recorded
     for module_id in module_ids_seen:
-        module = db.get_kia_module_by_id(module_id)
+        module = db.get_aia_module_by_id(module_id)
         if module:
-            db.update_kia_module_status(
+            db.update_aia_module_status(
                 module["uuid"], "ready",
                 embedding_model=embedding_model,
                 embedding_fingerprint=fingerprint,

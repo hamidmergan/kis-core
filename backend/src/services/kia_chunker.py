@@ -136,7 +136,7 @@ def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
         if should_ocr:
             if not ocr_checked:
                 try:
-                    from src.services.kia_ocr import get_ocr_provider
+                    from src.services.aia_ocr import get_ocr_provider
                     ocr_provider = get_ocr_provider()
                 except Exception as e:
                     logger.warning("OCR provider lookup failed: {}", e)

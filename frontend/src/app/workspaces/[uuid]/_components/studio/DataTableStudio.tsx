@@ -1,19 +1,19 @@
 import React, { useContext, useEffect, useState } from "react";
 import { CaretLeft, CaretRight, FilePdf, Files, SidebarSimple, Sparkle, Table, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import type { DatentabelleData, DatentabelleRowSource, DatentabelleSource, Source, StudentStats } from "../../_types";
+import type { DataTableData, DataTableRowSource, DataTableSource, Source, StudentStats } from "../../_types";
 import { _getChipIcon, _isMediaFile, _sourceChipKey } from "../../_utils";
 import { MinimizeContext } from "../../_context";
 import { SubviewHeader, _getToolBadge } from "../layout/SubviewHeader";
 
-export function DatentabelleStudio({
+export function DataTableStudio({
   table, sources, loading, onGenerate, onBack,
   savedList, onSelect, onDelete, sourceCount,
   allSources, onPillClick, stats, breadcrumbs,
   openInViewer, onViewerOpened,
 }: {
-  table: DatentabelleData | null;
-  sources: DatentabelleSource[];
+  table: DataTableData | null;
+  sources: DataTableSource[];
   loading: boolean;
   onGenerate: () => void;
   onBack: () => void;
@@ -64,7 +64,7 @@ export function DatentabelleStudio({
           {savedList.length === 0 && !loading ? (
             <div className="flex flex-col items-center gap-3 pt-[15%]">
               <Table size={48} weight="duotone" style={{ color: "var(--border)" }} />
-              <p className="text-sm text-center" style={{ color: "var(--muted)" }}>Wähle Quellen aus und drücke auf Erstellen.</p>
+              <p className="text-sm text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
               <button type="button" onClick={() => onGenerate()}
                 disabled={noSources || loading || atLimit}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
@@ -107,12 +107,12 @@ export function DatentabelleStudio({
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-1">
-                      <span className="text-[10px] font-medium" style={{ color: "var(--muted)" }}>
+                      <span className="text-[10px] font-medium" >
                         {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70 transition-opacity"
-                        style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+                        className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
+                        style={{ backgroundColor: "var(--surface-dim)" }}>
                         <Trash size={12} />
                       </button>
                     </div>
@@ -128,8 +128,8 @@ export function DatentabelleStudio({
       <div style={{ display: view === "viewer" ? "flex" : "none" }} className="flex-col h-full">
         <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
           <button type="button" onClick={() => setView("list")}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+            style={{ backgroundColor: "var(--surface-dim)" }}>
             <CaretLeft size={13} />
           </button>
           {breadcrumbs ? (() => {
@@ -138,20 +138,20 @@ export function DatentabelleStudio({
               <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
                 {breadcrumbs.map((b, i) => (
                   <React.Fragment key={i}>
-                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: "var(--muted)" }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>
-                    <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
+                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors"  onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>
+                    <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}
-                <button type="button" onClick={() => setView("list")} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={badge ? { backgroundColor: badge.bg, color: badge.color } : { color: "var(--muted)" }}>Datentabelle</button>
-                <CaretRight size={10} weight="bold" style={{ color: "var(--muted)", opacity: 0.5 }} className="shrink-0" />
+                <button type="button" onClick={() => setView("list")} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>Datentabelle</button>
+                <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                 <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>
               </div>
             );
           })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--text)" }}>{activeTitle}</span>)}
           {minimize && (
             <button type="button" onClick={minimize} title="Panel minimieren"
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-auto"
-              style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}>
+              className="w-7 h-7 flex items-center justify-center rounded-full btn-icon ml-auto"
+              style={{ backgroundColor: "var(--surface-dim)" }}>
               <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
             </button>
           )}
@@ -161,13 +161,13 @@ export function DatentabelleStudio({
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
                 <Spinner size="lg" />
-                <p className="text-xs" style={{ color: "var(--muted)" }}>Datentabelle wird generiert…</p>
+                <p className="text-xs" >Datentabelle wird generiert…</p>
               </div>
             </div>
           )}
           {table && (
             <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ userSelect: "text" }}>
-              <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+              <p className="text-[11px]" >
                 Basierend auf {sources.length} Quelle{sources.length !== 1 ? "n" : ""}
               </p>
 
@@ -208,7 +208,7 @@ export function DatentabelleStudio({
                               const seenKeys = new Set<string>();
                               return row.sources.filter((s) => {
                                 if (typeof s === "object" && s !== null && "source_label" in s) {
-                                  const rs = s as DatentabelleRowSource;
+                                  const rs = s as DataTableRowSource;
                                   const isMedia = _isMediaFile(rs.source_label);
                                   let startTime: number | undefined;
                                   let pageNum = 0;
@@ -231,7 +231,7 @@ export function DatentabelleStudio({
                               });
                             })().map((s, si) => {
                               if (typeof s === "object" && s !== null && "source_label" in s) {
-                                const rs = s as DatentabelleRowSource;
+                                const rs = s as DataTableRowSource;
                                 const src = allSources?.find((a) => a.filename === rs.source_label);
                                 const isMedia = _isMediaFile(rs.source_label);
                                 const SourceIcon = _getChipIcon(rs.source_label);
@@ -250,7 +250,7 @@ export function DatentabelleStudio({
                                   <span key={si} role="button" tabIndex={0}
                                     onClick={() => src && onPillClick?.(src.uuid, pageNum, src.filename, rs.highlight, startTime)}
                                     onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap cursor-pointer"
+                                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"
                                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
                                     <SourceIcon size={10} weight="bold" />
                                     [{sourceNum}] {label}
@@ -266,7 +266,7 @@ export function DatentabelleStudio({
                                 <span key={si} role="button" tabIndex={0}
                                   onClick={() => src && onPillClick?.(src.uuid, 0, src.filename)}
                                   onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity whitespace-nowrap cursor-pointer"
+                                  className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"
                                   style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}>
                                   <LegacyIcon size={10} weight="bold" />
                                   [{num}]
@@ -286,7 +286,7 @@ export function DatentabelleStudio({
               {sources.length > 0 && (
                 <div className="flex flex-col gap-1 pt-2">
                   {sources.map((s) => (
-                    <p key={s.number} className="text-[11px] leading-snug" style={{ color: "var(--muted)" }}>
+                    <p key={s.number} className="text-[11px] leading-snug" >
                       [{s.number}] {s.filename}
                     </p>
                   ))}

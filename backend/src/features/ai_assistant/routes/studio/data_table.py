@@ -1,4 +1,4 @@
-"""KI-Assistent routes — datentabelle."""
+"""AI assistant routes - data_table."""
 
 import io
 import json
@@ -32,7 +32,7 @@ from src.tool_prompts import (
     KIA_POPUP_ACTIONS,
 )
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
     _count_pages,
@@ -48,18 +48,18 @@ from src.features.ki_assistent.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
-@router.post("/ki-assistent/modules/{module_uuid}/datentabelle/generate")
-async def generate_datentabelle(
+@router.post("/ai-assistant/modules/{module_uuid}/data_table/generate")
+async def generate_data_table(
     module_uuid: str,
-    body: schemas.DatentabelleGenerateBody,
+    body: schemas.DataTableGenerateBody,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -73,84 +73,84 @@ async def generate_datentabelle(
     # Build source map for citations
     source_map: dict[int, dict] = {}
     for idx, suuid in enumerate(body.active_source_ids):
-        src = db.get_kia_source(suuid)
+        src = db.get_aia_source(suuid)
         if src and src["id"] in source_ids:
             source_map[src["id"]] = {"number": idx + 1, "filename": src["filename"], "uuid": suuid}
 
-    datentabelle_id = db.create_kia_datentabelle(module["id"], user_id, source_ids)
+    data_table_id = db.create_aia_data_table(module["id"], user_id, source_ids)
 
-    from src.tasks.kia_tasks import run_generate_datentabelle
+    from src.tasks.aia_tasks import run_generate_data_table
     # Convert int keys to str for JSON serialization
     source_map_str = {str(k): v for k, v in source_map.items()}
-    run_generate_datentabelle.delay(datentabelle_id, source_ids, body.active_source_ids, source_map_str)
-    return {"datentabelle_id": datentabelle_id, "status": "pending"}
+    run_generate_data_table.delay(data_table_id, source_ids, body.active_source_ids, source_map_str)
+    return {"data_table_id": data_table_id, "status": "pending"}
 
-@router.get("/ki-assistent/modules/{module_uuid}/datentabelle/{datentabelle_id}")
-async def get_datentabelle(
+@router.get("/ai-assistant/modules/{module_uuid}/data_table/{data_table_id}")
+async def get_data_table(
     module_uuid: str,
-    datentabelle_id: int,
+    data_table_id: int,
     current_user: dict = Depends(get_current_user),
 ):
-    """Poll datentabelle status."""
+    """Poll data_table status."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    dt = db.get_kia_datentabelle(datentabelle_id)
+    dt = db.get_aia_data_table(data_table_id)
     if not dt or dt["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="Datentabelle nicht gefunden")
+        raise HTTPException(status_code=404, detail="DataTable nicht gefunden")
 
     return dt
 
-@router.get("/ki-assistent/modules/{module_uuid}/datentabelle")
-async def get_latest_datentabelle(
+@router.get("/ai-assistant/modules/{module_uuid}/data_table")
+async def get_latest_data_table(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Get the most recent datentabelle for a module."""
+    """Get the most recent data_table for a module."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    dt = db.get_latest_kia_datentabelle(module["id"], user_id)
+    dt = db.get_latest_aia_data_table(module["id"], user_id)
     return dt or {}
 
-@router.get("/ki-assistent/modules/{module_uuid}/datentabellen")
-async def get_datentabellen(
+@router.get("/ai-assistant/modules/{module_uuid}/data_tables")
+async def get_data_tables(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Get all datentabellen for a module."""
+    """Get all data_tables for a module."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    rows = db.get_kia_datentabellen_by_module(module["id"], user_id)
+    rows = db.get_aia_data_tables_by_module(module["id"], user_id)
     return [
         {
             "id": r["id"],
-            "title": r["title"] or "Datentabelle",
+            "title": r["title"] or "DataTable",
             "created_at": r["created_at"].isoformat() + "Z" if r["created_at"] else None,
         }
         for r in rows
     ]
 
-@router.delete("/ki-assistent/modules/{module_uuid}/datentabelle/{datentabelle_id}")
-async def delete_datentabelle(
+@router.delete("/ai-assistant/modules/{module_uuid}/data_table/{data_table_id}")
+async def delete_data_table(
     module_uuid: str,
-    datentabelle_id: int,
+    data_table_id: int,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    dt = db.get_kia_datentabelle(datentabelle_id)
+    dt = db.get_aia_data_table(data_table_id)
     if not dt or dt["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="Datentabelle nicht gefunden")
-    db.delete_kia_datentabelle(datentabelle_id)
+        raise HTTPException(status_code=404, detail="DataTable nicht gefunden")
+    db.delete_aia_data_table(data_table_id)
     return {"ok": True}
 
 
-# ─── Sprachtraining: Übungen generieren (via Celery) ────────────────────────
+# ─── LanguageTraining: generate exercises (via Celery) ────────────────────────
 

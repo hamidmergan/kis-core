@@ -1,4 +1,4 @@
-"""Statische Konfigurations-Registries: System-Prompts, Tool-Katalog, Tool-Labels."""
+"""Static configuration registries: system prompts, tool catalog, tool labels."""
 
 from src.tool_prompts import (
     SCRIPT_BATCH_PREVIEW as _PROMPT_SCRIPT_BATCH_PREVIEW,
@@ -105,7 +105,7 @@ TOOLS_CONFIG = [
     {"key": "tts",           "label": "Text in Sprache"},
     {"key": "transcription", "label": "Transkription"},
     {"key": "image",         "label": "Bild-KI"},
-    {"key": "glossary",      "label": "Glossare"},
+    {"key": "glossary",      "label": "Glossaries"},
     {"key": "summary",       "label": "Zusammenfassung"},
 ]
 
@@ -126,7 +126,7 @@ TOOL_LABELS = {
 
 
 TOOL_LABELS_TUTOR = {
-    "lernkarten": "Lernkarten",
+    "flashcards": "Flashcards",
     "karteikarten": "Karteikarten",
     "quiz": "Quiz",
     "lueckentext": "Lückentext",
@@ -138,6 +138,6 @@ DEFAULT_DISABLED_TOOLS: set[str] = set()
 
 
 def tools_matching_query(q: str) -> list[str]:
-    """Liefert alle Tool-Keys, deren Label den Query enthält (case-insensitive)."""
+    """Return all tool keys whose label contains the query (case-insensitive)."""
     q_lower = q.lower()
     return [k for k, label in TOOL_LABELS.items() if q_lower in label.lower()]

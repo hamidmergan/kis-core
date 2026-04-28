@@ -3,26 +3,26 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import Spinner from "@/components/ui/Spinner";
-import { ExerciseSetsOverview } from "../sprachtraining/ExerciseSetsOverview";
+import { ExerciseSetsOverview } from "../language_training/ExerciseSetsOverview";
 import { StudioOverview } from "./StudioOverview";
 import type {
   ExerciseSet,
-  SprachtrainingView,
+  LanguageTrainingView,
   StudentStats,
   StudioView,
   Source,
 } from "../../_types";
-import type { Note } from "./NotizenStudio";
+import type { Note } from "./NotesStudio";
 import type { useMindmap } from "../../_hooks/useMindmap";
-import type { useDatentabelle } from "../../_hooks/useDatentabelle";
+import type { useDataTable } from "../../_hooks/useDataTable";
 
 const loader = () => <div className="flex-1 flex items-center justify-center p-6"><Spinner size="md" /></div>;
 
-const NotizenStudio = dynamic(() => import("./NotizenStudio").then((m) => ({ default: m.NotizenStudio })), { loading: loader, ssr: false });
-const DatentabelleStudio = dynamic(() => import("./DatentabelleStudio").then((m) => ({ default: m.DatentabelleStudio })), { loading: loader, ssr: false });
+const NotesStudio = dynamic(() => import("./NotesStudio").then((m) => ({ default: m.NotesStudio })), { loading: loader, ssr: false });
+const DataTableStudio = dynamic(() => import("./DataTableStudio").then((m) => ({ default: m.DataTableStudio })), { loading: loader, ssr: false });
 const MindmapStudio = dynamic(() => import("./MindmapStudio").then((m) => ({ default: m.MindmapStudio })), { loading: loader, ssr: false });
-const LernkartenLearnView = dynamic(() => import("../sprachtraining/LernkartenLearnView").then((m) => ({ default: m.LernkartenLearnView })), { loading: loader, ssr: false });
-const MCExerciseView = dynamic(() => import("../sprachtraining/MCExerciseView").then((m) => ({ default: m.MCExerciseView })), { loading: loader, ssr: false });
+const FlashcardsLearnView = dynamic(() => import("../language_training/FlashcardsLearnView").then((m) => ({ default: m.FlashcardsLearnView })), { loading: loader, ssr: false });
+const MCExerciseView = dynamic(() => import("../language_training/MCExerciseView").then((m) => ({ default: m.MCExerciseView })), { loading: loader, ssr: false });
 
 interface ExerciseBundle {
   exerciseSets: ExerciseSet[];
@@ -45,24 +45,24 @@ interface NotesBundle {
 }
 
 type MindmapBundle = ReturnType<typeof useMindmap>;
-type DatentabelleBundle = ReturnType<typeof useDatentabelle>;
+type DataTableBundle = ReturnType<typeof useDataTable>;
 
 interface StudioPanelContentProps {
   // View-Zustand
   studioView: StudioView;
   setStudioView: (v: StudioView) => void;
-  sprachView: SprachtrainingView;
-  sprachtrainingActive: boolean;
-  studioTabRequest: { tab: "tools" | "glossar" | "notizen" | "statistik" | "schedule"; nonce: number } | null;
+  langTrainingView: LanguageTrainingView;
+  language_trainingActive: boolean;
+  studioTabRequest: { tab: "tools" | "glossary" | "notes" | "statistik" | "schedule"; nonce: number } | null;
   // Content-Slots
-  sprachtrainingContent: React.ReactNode;
-  glossarContent: React.ReactNode;
-  notizenContent: React.ReactNode;
+  language_trainingContent: React.ReactNode;
+  glossaryContent: React.ReactNode;
+  notesContent: React.ReactNode;
   // Domain-Bundles
   exercises: ExerciseBundle;
   notes: NotesBundle;
   mindmap: MindmapBundle;
-  datentabelle: DatentabelleBundle;
+  data_table: DataTableBundle;
   // Kontext
   moduleUuid: string;
   statsVersion: number;
@@ -73,15 +73,15 @@ interface StudioPanelContentProps {
   // Callbacks
   onStudioSelect: (v: StudioView) => void;
   onNavigateToSet: (setId: number, tool: string, mode: string) => void;
-  onSprachNavigate: (v: SprachtrainingView) => void;
+  onSprachNavigate: (v: LanguageTrainingView) => void;
   onAskChat: (text: string, switchTab?: boolean) => void;
   onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
   refreshProgress: () => void;
   // Schnellzugriff: direkt in Viewer-Modus springen statt Liste
   openMindmapInViewer: boolean;
   consumeMindmapViewerOpen: () => void;
-  openDatentabelleInViewer: boolean;
-  consumeDatentabelleViewerOpen: () => void;
+  openDataTableInViewer: boolean;
+  consumeDataTableViewerOpen: () => void;
   // Panel-Kontext
   onMinimize: () => void;
   hideHeader: boolean;
@@ -89,33 +89,33 @@ interface StudioPanelContentProps {
 
 export function StudioPanelContent(props: StudioPanelContentProps) {
   const {
-    studioView, setStudioView, sprachView, sprachtrainingActive, studioTabRequest,
-    sprachtrainingContent, glossarContent, notizenContent,
-    exercises: ex, notes: nt, mindmap: mm, datentabelle: dt,
+    studioView, setStudioView, langTrainingView, language_trainingActive, studioTabRequest,
+    language_trainingContent, glossaryContent, notesContent,
+    exercises: ex, notes: nt, mindmap: mm, data_table: dt,
     moduleUuid, statsVersion, sources, selectedSourceIds, isAdmin, pageStats,
     onStudioSelect, onNavigateToSet, onSprachNavigate, onAskChat, onPillClick,
     refreshProgress, onMinimize, hideHeader,
     openMindmapInViewer, consumeMindmapViewerOpen,
-    openDatentabelleInViewer, consumeDatentabelleViewerOpen,
+    openDataTableInViewer, consumeDataTableViewerOpen,
   } = props;
 
-  if (sprachView !== "overview") return <>{sprachtrainingContent}</>;
+  if (langTrainingView !== "overview") return <>{language_trainingContent}</>;
 
   if (studioView === "overview") {
     return (
       <StudioOverview
         onSelect={onStudioSelect}
         onMinimize={onMinimize}
-        sprachtrainingActive={sprachtrainingActive}
-        sprachtrainingContent={sprachtrainingContent}
-        glossarContent={glossarContent}
-        notizenContent={notizenContent}
+        language_trainingActive={language_trainingActive}
+        language_trainingContent={language_trainingContent}
+        glossaryContent={glossaryContent}
+        notesContent={notesContent}
         moduleUuid={moduleUuid}
         statsVersion={statsVersion}
         onNavigateToSet={onNavigateToSet}
         onSprachNavigate={onSprachNavigate}
         activeSourceCount={selectedSourceIds.length}
-        sprachView={sprachView}
+        langTrainingView={langTrainingView}
         requestedTab={studioTabRequest}
         sources={sources}
         selectedSourceIds={selectedSourceIds}
@@ -134,7 +134,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
 
   if (activeSet && activeSet.tool === "karteikarten") {
     return (
-      <LernkartenLearnView
+      <FlashcardsLearnView
         exerciseSet={activeSet}
         onBack={() => { setActiveSet(null); refreshProgress(); }}
         onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
@@ -178,9 +178,9 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     );
   }
 
-  if (studioView === "notizen") {
+  if (studioView === "notes") {
     return (
-      <NotizenStudio
+      <NotesStudio
         notes={nt.notes}
         onAdd={(content) => nt.addNote(content, undefined, { autoTitle: false })}
         onDelete={nt.deleteNote}
@@ -196,15 +196,15 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     );
   }
 
-  if (studioView === "datentabelle") {
+  if (studioView === "data_table") {
     return (
-      <DatentabelleStudio
-        table={dt.datentabelle}
-        sources={dt.datentabelleSources}
-        loading={dt.datentabelleLoading}
+      <DataTableStudio
+        table={dt.data_table}
+        sources={dt.data_tableSources}
+        loading={dt.data_tableLoading}
         onGenerate={dt.generate}
         onBack={() => setStudioView("overview")}
-        savedList={dt.datentabelleList}
+        savedList={dt.data_tableList}
         onSelect={dt.select}
         onDelete={dt.remove}
         sourceCount={selectedSourceIds.length}
@@ -212,8 +212,8 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onPillClick={onPillClick}
         stats={pageStats}
         breadcrumbs={setsCrumb}
-        openInViewer={openDatentabelleInViewer}
-        onViewerOpened={consumeDatentabelleViewerOpen}
+        openInViewer={openDataTableInViewer}
+        onViewerOpened={consumeDataTableViewerOpen}
       />
     );
   }

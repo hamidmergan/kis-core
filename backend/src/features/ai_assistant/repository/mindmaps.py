@@ -18,13 +18,13 @@ from src.core.db.pool import get_connection
 from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
-def create_kia_mindmap(module_id: int, user_id: int, source_ids: list[int]) -> int:
+def create_aia_mindmap(module_id: int, user_id: int, source_ids: list[int]) -> int:
     """Create a pending mindmap record, return its id."""
     import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO kia_mindmaps (module_id, user_id, source_ids, status)
+                """INSERT INTO aia_mindmaps (module_id, user_id, source_ids, status)
                    VALUES (%s, %s, %s, 'pending') RETURNING id""",
                 (module_id, user_id, _json.dumps(source_ids)),
             )
@@ -32,31 +32,31 @@ def create_kia_mindmap(module_id: int, user_id: int, source_ids: list[int]) -> i
         conn.commit()
     return row[0]
 
-def update_kia_mindmap(mindmap_id: int, status: str, mindmap: dict | None = None, error: str | None = None) -> None:
+def update_aia_mindmap(mindmap_id: int, status: str, mindmap: dict | None = None, error: str | None = None) -> None:
     import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE kia_mindmaps
+                """UPDATE aia_mindmaps
                    SET status = %s, mindmap = %s, error = %s, updated_at = NOW()
                    WHERE id = %s""",
                 (status, _json.dumps(mindmap) if mindmap else None, error, mindmap_id),
             )
         conn.commit()
 
-def get_kia_mindmap(mindmap_id: int) -> dict | None:
+def get_aia_mindmap(mindmap_id: int) -> dict | None:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT * FROM kia_mindmaps WHERE id = %s", (mindmap_id,))
+            cur.execute("SELECT * FROM aia_mindmaps WHERE id = %s", (mindmap_id,))
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_latest_kia_mindmap(module_id: int, user_id: int) -> dict | None:
+def get_latest_aia_mindmap(module_id: int, user_id: int) -> dict | None:
     """Get the most recent mindmap for a module/user."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT * FROM kia_mindmaps
+                """SELECT * FROM aia_mindmaps
                    WHERE module_id = %s AND user_id = %s
                    ORDER BY created_at DESC LIMIT 1""",
                 (module_id, user_id),
@@ -64,13 +64,13 @@ def get_latest_kia_mindmap(module_id: int, user_id: int) -> dict | None:
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_all_kia_mindmaps(module_id: int, user_id: int) -> list[dict]:
+def get_all_aia_mindmaps(module_id: int, user_id: int) -> list[dict]:
     """Get all successful mindmaps for a module/user, newest first."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT id, status, created_at, mindmap
-                   FROM kia_mindmaps
+                   FROM aia_mindmaps
                    WHERE module_id = %s AND user_id = %s AND status = 'success'
                    ORDER BY created_at DESC""",
                 (module_id, user_id),
@@ -78,12 +78,12 @@ def get_all_kia_mindmaps(module_id: int, user_id: int) -> list[dict]:
             rows = cur.fetchall()
     return [dict(r) for r in rows]
 
-def delete_kia_mindmap(mindmap_id: int) -> None:
+def delete_aia_mindmap(mindmap_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM kia_mindmaps WHERE id = %s", (mindmap_id,))
+            cur.execute("DELETE FROM aia_mindmaps WHERE id = %s", (mindmap_id,))
         conn.commit()
 
 
-# --- KI Tutor: Datentabellen ---
+# --- KI Tutor: DataTables ---
 

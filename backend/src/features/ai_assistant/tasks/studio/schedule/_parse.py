@@ -1,4 +1,4 @@
-"""Datum/Zeit-Parser für den Schedule-Pipeline: ISO, DE, EN Formate → date/time-Objekte."""
+"""Date/time parser for the schedule pipeline: ISO, DE, EN formats to date/time objects."""
 
 import re
 from datetime import date, time

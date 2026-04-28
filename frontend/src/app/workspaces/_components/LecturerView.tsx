@@ -15,7 +15,7 @@ export default function LecturerView() {
 
   const loadModules = useCallback(async () => {
     try {
-      const res = await fetch("/api/ki-assistent/modules", { credentials: "include" });
+      const res = await fetch("/api/ai-assistant/modules", { credentials: "include" });
       if (res.ok) setModules(await res.json());
     } catch { /* ignore */ }
   }, []);
@@ -33,7 +33,7 @@ export default function LecturerView() {
 
   async function handleToggleActive(uuid: string, newVal: boolean) {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -47,7 +47,7 @@ export default function LecturerView() {
 
   async function handleDelete(uuid: string) {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -59,7 +59,7 @@ export default function LecturerView() {
 
   async function handleEdit(uuid: string, newTitle: string, newDescription: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/ki-assistent/modules/${uuid}`, {
+      const res = await fetch(`/api/ai-assistant/modules/${uuid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -102,7 +102,7 @@ export default function LecturerView() {
               type="button"
               onClick={() => setShowCreate(true)}
               aria-label="Neuer Workspace"
-              className="whitespace-nowrap rounded-lg text-sm font-medium text-white bg-primary hover:bg-white hover:text-primary hover:outline-2 hover:outline-primary transition w-9 h-9 flex items-center justify-center text-lg md:w-auto md:h-auto md:px-4 md:py-2 md:text-sm"
+              className="whitespace-nowrap rounded-lg text-sm font-medium btn-primary w-9 h-9 flex items-center justify-center text-lg md:w-auto md:h-auto md:px-4 md:py-2 md:text-sm"
             >
               <span className="md:hidden">+</span>
               <span className="hidden md:inline">+ Neuer Workspace</span>

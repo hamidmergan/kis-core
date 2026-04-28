@@ -19,9 +19,9 @@ export function MediaPlayer({
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
   const isVideo = [".mp4", ".webm"].includes(ext);
-  const mediaUrl = `/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/file`;
+  const mediaUrl = `/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/file`;
   const transcriptUrl = (lang: "de" | "en") =>
-    `/api/ki-assistent/modules/${moduleUuid}/sources/${source.uuid}/transcript?lang=${lang}`;
+    `/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/transcript?lang=${lang}`;
 
   // Detect which VTT languages exist so we only attach available <track> elements.
   const [availableLangs, setAvailableLangs] = useState<("de" | "en")[]>([]);
@@ -59,16 +59,16 @@ export function MediaPlayer({
         style={{ borderBottom: "1px solid var(--border)" }}
       >
         <button type="button" onClick={onClose}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-          style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }} title="Zurück">
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+          style={{ backgroundColor: "var(--surface-dim)" }} title="Zurück">
           <CaretLeft size={13} weight="bold" color="var(--muted)" />
         </button>
         <FileIcon filename={source.filename} />
         <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>{source.filename}</span>
         {onMinimize && (
           <button type="button" onClick={onMinimize}
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity ml-2"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }} title="Panel minimieren">
+            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon ml-2"
+            style={{ backgroundColor: "var(--surface-dim)" }} title="Panel minimieren">
             <SidebarSimple size={13} />
           </button>
         )}

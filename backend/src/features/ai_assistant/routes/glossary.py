@@ -33,7 +33,7 @@ from src.tool_prompts import (
     KIA_POPUP_ACTIONS,
 )
 
-from src.features.ki_assistent.routes._helpers import (
+from src.features.ai_assistant.routes._helpers import (
     _trace_kisski,
     _convert_office_to_pdf,
     _count_pages,
@@ -49,17 +49,17 @@ from src.features.ki_assistent.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
-from src.features.ki_assistent import schemas
+from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent"])
 
-@router.get("/ki-assistent/modules/{module_uuid}/glossary")
+@router.get("/ai-assistant/modules/{module_uuid}/glossary")
 async def get_glossary(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -68,17 +68,17 @@ async def get_glossary(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    entries = db.get_kia_glossary_by_module(module["id"])
+    entries = db.get_aia_glossary_by_module(module["id"])
     return {"entries": entries}
 
-@router.post("/ki-assistent/modules/{module_uuid}/glossary/generate")
+@router.post("/ai-assistant/modules/{module_uuid}/glossary/generate")
 async def generate_glossary(
     module_uuid: str,
     body: schemas.GlossaryGenerateBody,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -89,11 +89,11 @@ async def generate_glossary(
 
     source_ids = _resolve_source_ids(module, body.active_source_ids)
 
-    from src.tasks.kia_tasks import run_generate_glossary
+    from src.tasks.aia_tasks import run_generate_glossary
     run_generate_glossary.delay(module["id"], source_ids)
     return {"status": "generating"}
 
-@router.delete("/ki-assistent/modules/{module_uuid}/glossary/{entry_id}")
+@router.delete("/ai-assistant/modules/{module_uuid}/glossary/{entry_id}")
 async def delete_glossary_entry_endpoint(
     module_uuid: str,
     entry_id: int,
@@ -103,51 +103,51 @@ async def delete_glossary_entry_endpoint(
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
     return {"ok": True}
 
-@router.delete("/ki-assistent/modules/{module_uuid}/glossary")
+@router.delete("/ai-assistant/modules/{module_uuid}/glossary")
 async def delete_all_glossary_endpoint(
     module_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
     count = db.delete_all_glossary_entries(module["id"])
     return {"ok": True, "deleted": count}
 
 
-# ─── Glossar: Aus Markierung extrahieren ─────────────────────────────────────
+# ─── Glossary: Aus Markierung extrahieren ─────────────────────────────────────
 
-_GLOSSARY_EXTRACT_PROMPT = """Du bist ein Sprachexperte für internationale Studierende auf B1-Niveau. Analysiere den markierten Text und extrahiere daraus Wörter/Phrasen, die ein B1-Lerner für das Studium lernen sollte.
+_GLOSSARY_EXTRACT_PROMPT = """You are a language expert for international students at B1 level. Analyze the highlighted text and extract words/phrases that a B1 learner should learn for university study.
 
-Antworte NUR mit einem JSON-Array:
+Respond ONLY with a JSON array:
 [
   {
-    "term_de": "Begriff in der Quellsprache",
-    "term_en": "Übersetzung (siehe Regeln)",
-    "definition": "Kurze Erklärung auf Deutsch (B1 Niveau, 1-2 Sätze)",
+    "term_de": "Term in the source language",
+    "term_en": "Translation (see rules)",
+    "definition": "Short explanation in German (B1 level, 1-2 sentences)",
     "definition_en": "Short explanation in English (B1 level, 1-2 sentences)",
-    "example_sentence": "Beispielsatz mit dem Begriff",
+    "example_sentence": "Example sentence using the term (source language)",
     "example_sentence_en": "English translation of the example sentence"
   }
 ]
 
-Zwei Kategorien sind erlaubt (beide für B1-Studierende wichtig):
-1. **Fachbegriffe**: Domänenspezifische Termini (z.B. "Arbeitsmarkt", "Integralrechnung", "Curriculum")
-2. **Wissenschafts-/Bildungssprache**: Akademische Nomen, Verben, Adjektive oder Kollokationen, die über A2/B1-Alltagswortschatz hinausgehen (z.B. "Studium", "Voraussetzung", "erhöhen", "entwickeln", "berücksichtigen", "Erkenntnis")
+Two categories are allowed (both important for B1 students):
+1. Technical terms: domain-specific terminology (e.g. "Arbeitsmarkt", "Integralrechnung", "Curriculum")
+2. Academic/educational language: academic nouns, verbs, adjectives, or collocations that go beyond A2/B1 everyday vocabulary (e.g. "Studium", "Voraussetzung", "erhöhen", "entwickeln", "berücksichtigen", "Erkenntnis")
 
-Regeln:
-- NICHT extrahieren: reine Funktionswörter (und, oder, aber, ist, der, die, das, ein, eine, er, sie, es, im, zu, mit, von, für, auf, etc.), triviale A1/A2-Alltagswörter (Haus, Tag, gehen, machen, gut, schön)
-- KRITISCH für term_de: Der Begriff muss WÖRTLICH als zusammenhängendes Wort oder Phrase im Text vorkommen. Wenn der Text "in den deutschen Arbeitsmarkt zu integrieren" sagt, darfst du NICHT "Arbeitsmarktintegration" daraus machen. Nimm stattdessen "Arbeitsmarkt" oder "integrieren". Erfinde KEINE Komposita oder Nominalisierungen die nicht exakt so im Text stehen.
-- Bei Verben/Adjektiven in Flexion: Grundform als term_de ist erlaubt, wenn die Wortform im Text klar erkennbar ist (z.B. Text "zu erhöhen" → term_de "erhöhen" ist OK).
-- term_en: Wenn der Quelltext NICHT auf Englisch ist, übersetze ins Englische. Wenn der Quelltext auf Englisch ist, übersetze ins Deutsche. Niemals die gleiche Sprache wie term_de!
-- definition: Einfache Erklärung auf Deutsch, verständlich auf B1-Sprachniveau
-- definition_en: Einfache Erklärung auf Englisch, verständlich auf B1-Sprachniveau
-- example_sentence_en: Englische Übersetzung des Beispielsatzes
-- Maximal 5 Begriffe pro Markierung, priorisiere die für B1 schwierigsten
-- Wenn der Text wirklich nur Funktionswörter/Trivialwortschatz enthält, antworte mit: []
-- Antworte NUR mit dem JSON-Array"""
+Rules:
+- DO NOT extract: pure function words (und, oder, aber, ist, der, die, das, ein, eine, er, sie, es, im, zu, mit, von, für, auf, etc.), trivial A1/A2 everyday words (Haus, Tag, gehen, machen, gut, schön)
+- CRITICAL for term_de: the term must appear VERBATIM as a contiguous word or phrase in the text. If the text says "in den deutschen Arbeitsmarkt zu integrieren", you may NOT turn that into "Arbeitsmarktintegration". Take "Arbeitsmarkt" or "integrieren" instead. Do NOT invent compounds or nominalizations that are not exactly in the text.
+- For inflected verbs/adjectives: the base form as term_de is allowed when the form in the text is clearly recognizable (e.g. text "zu erhöhen" -> term_de "erhöhen" is fine).
+- term_en: if the source text is NOT English, translate to English. If the source text is English, translate to German. Never the same language as term_de.
+- definition: simple explanation in German, understandable at B1 level
+- definition_en: simple explanation in English, understandable at B1 level
+- example_sentence_en: English translation of the example sentence
+- At most 5 terms per selection; prioritize the ones most difficult at B1
+- If the text really only contains function words / trivial vocabulary, respond with: []
+- Respond ONLY with the JSON array."""
 
-@router.post("/ki-assistent/modules/{module_uuid}/glossary/extract")
+@router.post("/ai-assistant/modules/{module_uuid}/glossary/extract")
 async def extract_glossary_from_selection(
     module_uuid: str,
     body: schemas.GlossaryExtractBody,
@@ -156,7 +156,7 @@ async def extract_glossary_from_selection(
 ):
     """Extract glossary terms from a PDF text selection."""
     user_id = current_user["user_id"]
-    module = db.get_kia_module(module_uuid)
+    module = db.get_aia_module(module_uuid)
     if not module:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
@@ -168,7 +168,7 @@ async def extract_glossary_from_selection(
     # Check glossary limit
     current_count = db.get_glossary_count(module["id"])
     if current_count >= GLOSSARY_LIMIT:
-        return {"added": 0, "message": "Glossar voll (150 / 150) — entferne Begriffe um neue hinzuzufügen."}
+        return {"added": 0, "message": "Glossary voll (150 / 150) — entferne Begriffe um neue hinzuzufügen."}
 
     # Truncate to 300 chars
     text = body.text[:300].strip()
@@ -176,12 +176,12 @@ async def extract_glossary_from_selection(
         return {"added": 0, "message": "Kein Text markiert."}
 
     # Find the source
-    source = db.get_kia_source(body.source_uuid)
+    source = db.get_aia_source(body.source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Quelle nicht gefunden")
+        raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
     # Get existing terms to avoid duplicates
-    existing = db.get_kia_glossary_by_module(module["id"])
+    existing = db.get_aia_glossary_by_module(module["id"])
     existing_terms = {e["term_de"].lower() for e in existing}
 
     # Ask LLM to extract terms
@@ -229,14 +229,14 @@ async def extract_glossary_from_selection(
 
         if not new_entries:
             if existing_terms and any(t.get("term_de", "").lower() in existing_terms for t in terms):
-                return {"added": 0, "message": "Die erkannten Begriffe sind bereits im Glossar."}
+                return {"added": 0, "message": "Die erkannten Begriffe sind bereits im Glossary."}
             return {"added": 0, "message": "Keine neuen lernenswerten Begriffe in der Markierung gefunden."}
 
         db.bulk_create_glossary_entries(source["id"], new_entries)
         count = len(new_entries)
         return {
             "added": count,
-            "message": f"{count} Begriff{'e' if count > 1 else ''} zum Glossar hinzugefügt.",
+            "message": f"{count} Begriff{'e' if count > 1 else ''} zum Glossary hinzugefügt.",
             "entries": new_entries,
         }
     except (json.JSONDecodeError, ValueError):
