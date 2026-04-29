@@ -68,8 +68,8 @@ export default function KiTutorTab() {
       return next;
     });
 
-  if (loading && !data) return <p className="text-sm text-gray-500">Laden…</p>;
-  if (!data) return <p className="text-sm text-red-500">Fehler beim Laden</p>;
+  if (loading && !data) return <p className="text-sm text-muted">Laden…</p>;
+  if (!data) return <p className="text-sm text-error">Fehler beim Laden</p>;
 
   const accent = MODE_META[mode].accent;
 
@@ -88,7 +88,7 @@ export default function KiTutorTab() {
                 style={
                   active
                     ? { backgroundColor: meta.accent, color: "#fff", borderColor: meta.accent }
-                    : { borderColor: "#d1d5db", color: "#6b7280" }
+                    : { borderColor: "var(--border)", color: "var(--muted)" }
                 }
               >
                 {meta.label}
@@ -101,7 +101,7 @@ export default function KiTutorTab() {
             <button
               key={d}
               onClick={() => setDays(d)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 hover:border-gray-400"}`}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-kb text-white border-kb" : "border-border text-foreground-soft hover:border-muted"}`}
             >
               {d === 7 ? "7 Tage" : d === 30 ? "1 Monat" : d === 90 ? "3 Monate" : "6 Monate"}
             </button>
@@ -110,33 +110,33 @@ export default function KiTutorTab() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Workspaces</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">{data.summary.total_modules}</p>
+        <div className="bg-white border border-border-soft rounded-lg p-4">
+          <p className="text-xs text-muted uppercase tracking-wide">Workspaces</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{data.summary.total_modules}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Aktive Teilnehmer ({days}T)</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">{data.summary.active_students}</p>
+        <div className="bg-white border border-border-soft rounded-lg p-4">
+          <p className="text-xs text-muted uppercase tracking-wide">Aktive Teilnehmer ({days}T)</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{data.summary.active_students}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Übungen ({days}T)</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">
+        <div className="bg-white border border-border-soft rounded-lg p-4">
+          <p className="text-xs text-muted uppercase tracking-wide">Übungen ({days}T)</p>
+          <p className="text-2xl font-bold text-foreground mt-1">
             {data.summary.total_answers.toLocaleString("de-DE")}
           </p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Chat ({days}T)</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">
+        <div className="bg-white border border-border-soft rounded-lg p-4">
+          <p className="text-xs text-muted uppercase tracking-wide">Chat ({days}T)</p>
+          <p className="text-2xl font-bold text-foreground mt-1">
             {data.summary.total_chat_messages.toLocaleString("de-DE")}
           </p>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-white border border-border-soft rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase">
+              <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
                 <th className="px-4 py-2 w-6"></th>
                 <th className="px-4 py-2">Workspace</th>
                 <th className="px-4 py-2">Ersteller</th>
@@ -153,41 +153,41 @@ export default function KiTutorTab() {
                   <React.Fragment key={m.module_uuid}>
                     <tr
                       onClick={() => toggle(m.module_uuid)}
-                      className={`border-b border-gray-50 cursor-pointer transition-colors ${isOpen ? "bg-gray-50" : "hover:bg-gray-100"}`}
+                      className={`border-b border-border-soft cursor-pointer transition-colors ${isOpen ? "bg-surface" : "hover:bg-surface"}`}
                     >
-                      <td className="px-4 py-2 text-gray-400 text-xs">{isOpen ? "▼" : "▶"}</td>
+                      <td className="px-4 py-2 text-muted-soft text-xs">{isOpen ? "▼" : "▶"}</td>
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`w-2 h-2 rounded-full shrink-0 ${m.is_active ? "bg-green-400" : "bg-gray-300"}`}
+                            className={`w-2 h-2 rounded-full shrink-0 ${m.is_active ? "bg-success-border" : "bg-border"}`}
                           />
-                          <span className="font-medium text-gray-700 truncate max-w-[200px]">
+                          <span className="font-medium text-foreground-soft truncate max-w-[200px]">
                             {m.title}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-gray-600">{m.owner}</td>
-                      <td className="px-4 py-2 text-right text-gray-600">{m.source_count}</td>
-                      <td className="px-4 py-2 text-right text-gray-600">{m.enrollment_count}</td>
+                      <td className="px-4 py-2 text-foreground-soft">{m.owner}</td>
+                      <td className="px-4 py-2 text-right text-foreground-soft">{m.source_count}</td>
+                      <td className="px-4 py-2 text-right text-foreground-soft">{m.enrollment_count}</td>
                       <td className="px-4 py-2 text-right" style={{ color: accent }}>
                         {(m.total_answers + m.dozent.exercises).toLocaleString("de-DE")}
                       </td>
-                      <td className="px-4 py-2 text-right text-gray-600">
+                      <td className="px-4 py-2 text-right text-foreground-soft">
                         {(m.chat_messages + m.dozent.messages).toLocaleString("de-DE")}
                       </td>
                     </tr>
                     {isOpen && (
                       <tr>
                         <td colSpan={7} className="px-0 py-0">
-                          <div className="bg-gray-50 border-t border-gray-100">
+                          <div className="bg-surface border-t border-border-soft">
                             {m.students.length === 0 ? (
-                              <p className="px-8 py-3 text-xs text-gray-400">
+                              <p className="px-8 py-3 text-xs text-muted-soft">
                                 Keine eingeschriebenen Teilnehmer
                               </p>
                             ) : (
                               <table className="w-full text-xs">
                                 <thead>
-                                  <tr className="text-left text-gray-400 uppercase">
+                                  <tr className="text-left text-muted-soft uppercase">
                                     <th className="pl-12 pr-4 py-2">Student</th>
                                     <th className="px-4 py-2 text-right">Übungen</th>
                                     <th className="px-4 py-2 text-right">Richtig</th>
@@ -200,13 +200,13 @@ export default function KiTutorTab() {
                                   {m.students.map((s) => (
                                     <tr
                                       key={s.name}
-                                      className="border-t border-gray-100 hover:bg-gray-100/50"
+                                      className="border-t border-border-soft hover:bg-surface/50"
                                     >
-                                      <td className="pl-12 pr-4 py-2 text-gray-700">{s.name}</td>
-                                      <td className="px-4 py-2 text-right text-gray-600">
+                                      <td className="pl-12 pr-4 py-2 text-foreground-soft">{s.name}</td>
+                                      <td className="px-4 py-2 text-right text-foreground-soft">
                                         {s.answers.toLocaleString("de-DE")}
                                       </td>
-                                      <td className="px-4 py-2 text-right text-green-600">
+                                      <td className="px-4 py-2 text-right text-success">
                                         {s.correct.toLocaleString("de-DE")}
                                       </td>
                                       <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
@@ -215,7 +215,7 @@ export default function KiTutorTab() {
                                       <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
                                         {s.language_training}
                                       </td>
-                                      <td className="px-4 py-2 text-right text-gray-600">
+                                      <td className="px-4 py-2 text-right text-foreground-soft">
                                         {s.chat_messages}
                                       </td>
                                     </tr>
@@ -232,7 +232,7 @@ export default function KiTutorTab() {
               })}
               {data.module_stats.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                  <td colSpan={7} className="px-4 py-6 text-center text-muted-soft">
                     Keine Workspaces vorhanden
                   </td>
                 </tr>

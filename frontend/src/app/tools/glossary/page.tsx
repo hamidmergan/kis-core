@@ -160,7 +160,7 @@ export default function GlossaryPage() {
               />
               <button
                 onClick={() => { setImportError(""); importRef.current?.click(); }}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+                className="px-3 py-1.5 text-sm border border-border rounded-md text-foreground-soft hover:bg-surface transition-colors"
               >
                 Importieren
               </button>
@@ -177,9 +177,9 @@ export default function GlossaryPage() {
             </div>
           </div>
           {importError && (
-            <p className="mt-2 mb-0 text-sm text-red-600">{importError}</p>
+            <p className="mt-2 mb-0 text-sm text-error">{importError}</p>
           )}
-          <p className="text-sm text-gray-500 mb-6 mt-1">
+          <p className="text-sm text-muted mb-6 mt-1">
             Eigene Begriffslisten anlegen für konsistente Fachbegriffe in Übersetzungen.
           </p>
 
@@ -193,7 +193,7 @@ export default function GlossaryPage() {
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreatingNew(false); }}
                 placeholder="Name des Glossaries"
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                className="flex-1 rounded-md border border-border px-3 py-2 text-sm focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
               />
               <button
                 onClick={handleCreate}
@@ -204,7 +204,7 @@ export default function GlossaryPage() {
               </button>
               <button
                 onClick={() => { setCreatingNew(false); setNewName(""); }}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+                className="px-3 py-2 text-sm border border-border rounded-md text-foreground-soft hover:bg-surface transition-colors"
               >
                 Abbrechen
               </button>
@@ -213,20 +213,20 @@ export default function GlossaryPage() {
 
           {/* Delete confirmation dialog */}
           {confirmDeleteId && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-4">
-              <p className="text-sm text-red-700">
+            <div className="mb-4 p-4 bg-error-bg border border-error-border rounded-lg flex items-center justify-between gap-4">
+              <p className="text-sm text-error-strong">
                 Glossary &ldquo;{glossaries.find(g => g.id === confirmDeleteId)?.name}&rdquo; wirklich löschen?
               </p>
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={handleDeleteConfirmed}
-                  className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                  className="px-3 py-1.5 text-sm bg-error text-white rounded-md hover:bg-error-strong transition-colors"
                 >
                   Löschen
                 </button>
                 <button
                   onClick={() => setConfirmDeleteId(null)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+                  className="px-3 py-1.5 text-sm border border-border rounded-md text-foreground-soft hover:bg-surface transition-colors"
                 >
                   Abbrechen
                 </button>
@@ -236,21 +236,21 @@ export default function GlossaryPage() {
 
           {/* Glossary list with inline accordion */}
           {glossaries.length === 0 ? (
-            <div className="text-center py-12 text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg">
+            <div className="text-center py-12 text-sm text-muted-soft border border-dashed border-border-soft rounded-lg">
               Noch keine Glossaries vorhanden. Erstellen Sie Ihr erstes Glossary.
             </div>
           ) : (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="border border-border-soft rounded-lg overflow-hidden">
               {glossaries.map((g, i) => (
                 <div key={g.id}>
                   {/* Glossary row */}
                   <div
                     className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                      selectedId === g.id ? "bg-[#e8f0fb]" : "bg-white hover:bg-gray-100"
-                    } ${i > 0 ? "border-t border-gray-100" : ""}`}
+                      selectedId === g.id ? "bg-[var(--kb20)]" : "bg-white hover:bg-surface"
+                    } ${i > 0 ? "border-t border-border-soft" : ""}`}
                     onClick={() => setSelectedId(g.id === selectedId ? null : g.id)}
                   >
-                    <BookOpen size={16} weight="regular" className="text-gray-400 shrink-0" />
+                    <BookOpen size={16} weight="regular" className="text-muted-soft shrink-0" />
                     {renamingId === g.id ? (
                       <input
                         type="text"
@@ -263,35 +263,35 @@ export default function GlossaryPage() {
                         }}
                         onBlur={() => handleRename(g.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex-1 rounded border border-gray-300 px-2 py-0.5 text-sm focus:border-primary focus:outline-none"
+                        className="flex-1 rounded border border-border px-2 py-0.5 text-sm focus:border-kb focus:outline-none"
                       />
                     ) : (
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-800">{g.name} </span>
-                        <span className="text-sm text-gray-400">
+                        <span className="text-sm font-medium text-foreground">{g.name} </span>
+                        <span className="text-sm text-muted-soft">
                           ({Object.keys(g.entries).length} Einträge)
                         </span>
-                        <span className="ml-2 text-xs text-gray-300">· {formatDate(g.createdAt)}</span>
+                        <span className="ml-2 text-xs text-border">· {formatDate(g.createdAt)}</span>
                       </div>
                     )}
                     <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleStartRename(g.id, g.name)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                        className="p-1.5 text-muted-soft hover:text-foreground-soft transition-colors"
                         title="Umbenennen"
                       >
                         <PencilSimple size={15} weight="regular" />
                       </button>
                       <button
                         onClick={() => handleExport(g.id)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                        className="p-1.5 text-muted-soft hover:text-foreground-soft transition-colors"
                         title="Als JSON exportieren"
                       >
                         <DownloadSimple size={15} weight="regular" />
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(g.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                        className="p-1.5 text-muted-soft hover:text-error transition-colors"
                         title="Löschen"
                       >
                         <Trash size={15} weight="regular" />
@@ -301,7 +301,7 @@ export default function GlossaryPage() {
 
                   {/* Inline accordion: entries panel */}
                   {selectedId === g.id && (
-                    <div className="border-t border-gray-200 bg-gray-50 px-4 py-4">
+                    <div className="border-t border-border-soft bg-surface px-4 py-4">
                       {/* Add entry */}
                       <div className="flex gap-2 mb-3">
                         <input
@@ -310,7 +310,7 @@ export default function GlossaryPage() {
                           onChange={(e) => { setNewEntryDe(e.target.value); setEntryError(""); }}
                           onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}
                           placeholder="Deutsch"
-                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                          className="flex-1 rounded-md border border-border px-3 py-2 text-sm bg-white focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
                         />
                         <input
                           type="text"
@@ -318,7 +318,7 @@ export default function GlossaryPage() {
                           onChange={(e) => { setNewEntryEn(e.target.value); setEntryError(""); }}
                           onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}
                           placeholder="Englisch"
-                          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                          className="flex-1 rounded-md border border-border px-3 py-2 text-sm bg-white focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
                         />
                         <button
                           onClick={handleAddEntry}
@@ -333,37 +333,37 @@ export default function GlossaryPage() {
                       </div>
 
                       {entryError && (
-                        <p className="mb-2 text-sm text-red-600">{entryError}</p>
+                        <p className="mb-2 text-sm text-error">{entryError}</p>
                       )}
 
                       {Object.keys(g.entries).length === 0 ? (
-                        <div className="text-center py-6 text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg bg-white">
+                        <div className="text-center py-6 text-sm text-muted-soft border border-dashed border-border-soft rounded-lg bg-white">
                           Noch keine Einträge vorhanden.
                         </div>
                       ) : (
-                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="border border-border-soft rounded-lg overflow-hidden">
                           <table className="w-full">
                             <thead>
-                              <tr className="bg-white border-b border-gray-200">
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
+                              <tr className="bg-white border-b border-border-soft">
+                                <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-4 py-2.5">
                                   Deutsch
                                 </th>
-                                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
+                                <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-4 py-2.5">
                                   Englisch
                                 </th>
                                 <th className="w-12 px-4 py-2.5" />
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-border-soft">
                               {Object.entries(g.entries).map(([de, en]) => (
-                                <tr key={de} className="bg-white hover:bg-gray-100 transition-colors">
-                                  <td className="px-4 py-2.5 text-sm text-gray-900">{de}</td>
-                                  <td className="px-4 py-2.5 text-sm text-gray-600">{en}</td>
+                                <tr key={de} className="bg-white hover:bg-surface transition-colors">
+                                  <td className="px-4 py-2.5 text-sm text-foreground">{de}</td>
+                                  <td className="px-4 py-2.5 text-sm text-foreground-soft">{en}</td>
                                   <td className="px-4 py-2.5 text-right">
                                     <button
                                       onClick={() => handleRemoveEntry(de)}
                                       aria-label={`${de} entfernen`}
-                                      className="text-gray-400 hover:text-red-500 transition-colors"
+                                      className="text-muted-soft hover:text-error transition-colors"
                                     >
                                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -374,7 +374,7 @@ export default function GlossaryPage() {
                               ))}
                             </tbody>
                           </table>
-                          <div className="px-4 py-2.5 bg-white border-t border-gray-100 text-xs text-gray-400">
+                          <div className="px-4 py-2.5 bg-white border-t border-border-soft text-xs text-muted-soft">
                             {Object.keys(g.entries).length} / {MAX_ENTRIES_PER_GLOSSARY} Einträge
                           </div>
                         </div>

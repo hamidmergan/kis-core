@@ -156,12 +156,12 @@ export default function SchedulePage() {
     <ProtectedRoute>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
         <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
-          <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--text)" }}>
+          <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--foreground)" }}>
             <CalendarBlank size={20} weight="bold" style={{ color: "var(--kb)" }} />
             Mein Zeitplan
           </h1>
           <label className="inline-flex items-center gap-2 text-xs cursor-pointer select-none">
-            <span style={{ color: "var(--text)" }}>Alle anzeigen</span>
+            <span style={{ color: "var(--foreground)" }}>Alle anzeigen</span>
             <button
               type="button"
               role="switch"
@@ -186,7 +186,7 @@ export default function SchedulePage() {
         )}
 
         {!initialLoading && error && entries.length === 0 && (
-          <p className="text-center text-sm py-12" style={{ color: "#B91C1C" }}>{error}</p>
+          <p className="text-center text-sm py-12" style={{ color: "var(--error-strong)" }}>{error}</p>
         )}
 
         {!initialLoading && !error && entries.length === 0 && (
@@ -206,7 +206,7 @@ export default function SchedulePage() {
                   isToday={ctx.isToday}
                   isPast={ctx.isPast}
                   urgency={ctx.urgency}
-                  href={`/workspaces/${entry.module_uuid}?tab=schedule`}
+                  href={`/workspace/${entry.module_uuid}?tab=schedule`}
                   onToggleChecked={(checked) => handleToggleChecked(entry, checked)}
                 />
               )}

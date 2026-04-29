@@ -1,12 +1,12 @@
 export default function DatenschutzPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white rounded-xl shadow-sm border border-border-soft p-8">
           <h1 className="text-2xl font-bold mb-6">Datenschutzerklärung</h1>
 
           <section className="mb-6">
             <h2 className="text-lg font-semibold mb-2">1. Verantwortlicher</h2>
-            <p className="text-gray-600">
+            <p className="text-foreground-soft">
               Hamid Mergan<br />
               Mönkhofer Weg 239<br />
               23562 Lübeck<br />
@@ -19,17 +19,17 @@ export default function DatenschutzPage() {
             <h2 className="text-lg font-semibold mb-2">
               2. Authentifizierung und Nutzerkonto
             </h2>
-            <p className="text-gray-600 mb-2">
+            <p className="text-foreground-soft mb-2">
               Der Zugang zur Plattform erfolgt über das Hochschulkonto mittels LDAP-Authentifizierung.
               Dabei werden folgende Daten aus dem Verzeichnisdienst der Hochschule übernommen und
               in unserer Datenbank gespeichert:
             </p>
-            <ul className="list-disc pl-6 text-gray-600 space-y-1">
+            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
               <li>Benutzername (LDAP-Username)</li>
               <li>Anzeigename (vollständiger Name)</li>
               <li>E-Mail-Adresse</li>
             </ul>
-            <p className="text-gray-600 mt-2">
+            <p className="text-foreground-soft mt-2">
               Passwörter werden nicht gespeichert. Die Authentifizierung erfolgt ausschließlich
               über den LDAP-Server der Hochschule.
             </p>
@@ -39,11 +39,11 @@ export default function DatenschutzPage() {
             <h2 className="text-lg font-semibold mb-2">
               3. Cookies und lokale Speicherung
             </h2>
-            <p className="text-gray-600 mb-2">
+            <p className="text-foreground-soft mb-2">
               Diese Plattform verwendet ausschließlich technisch notwendige Cookies und
               Speichermechanismen:
             </p>
-            <ul className="list-disc pl-6 text-gray-600 space-y-1">
+            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
               <li>
                 <strong>Session-Cookie</strong> — Ein HttpOnly-Cookie zur Authentifizierung
                 (Gültigkeit: 24&nbsp;Stunden). Ohne dieses Cookie ist kein Login möglich.
@@ -53,7 +53,7 @@ export default function DatenschutzPage() {
                 im Browser (wird beim Schließen des Tabs automatisch gelöscht).
               </li>
             </ul>
-            <p className="text-gray-600 mt-2">
+            <p className="text-foreground-soft mt-2">
               Es werden keine Tracking-, Analyse- oder Marketing-Cookies eingesetzt.
               Es erfolgt keine Weitergabe von Cookie-Daten an Dritte.
             </p>
@@ -63,18 +63,18 @@ export default function DatenschutzPage() {
             <h2 className="text-lg font-semibold mb-2">
               4. Verarbeitung von Nutzer-Uploads und Job-Daten
             </h2>
-            <p className="text-gray-600 mb-2">
+            <p className="text-foreground-soft mb-2">
               Beim Nutzen der KI-Tools werden hochgeladene Dateien (z.&nbsp;B. Dokumente,
               Audio-Dateien, Präsentationen) sowie die daraus erzeugten Ergebnisse temporär
               gespeichert. Zusätzlich wird für jeden Verarbeitungsauftrag (Job) gespeichert:
             </p>
-            <ul className="list-disc pl-6 text-gray-600 space-y-1">
+            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
               <li>Genutztes Tool (z.&nbsp;B. Transkription, TTS, Zusammenfassung)</li>
               <li>Ursprünglicher Dateiname</li>
               <li>Zeitpunkt der Erstellung und Fertigstellung</li>
               <li>Verarbeitungsstatus</li>
             </ul>
-            <p className="text-gray-600 mt-2">
+            <p className="text-foreground-soft mt-2">
               Job-Daten und zugehörige Dateien werden nach spätestens{" "}
               <strong>7 Tagen</strong> automatisch gelöscht.
             </p>
@@ -84,10 +84,10 @@ export default function DatenschutzPage() {
             <h2 className="text-lg font-semibold mb-2">
               5. Drittanbieter und externe KI-Dienste
             </h2>
-            <p className="text-gray-600 mb-2">
+            <p className="text-foreground-soft mb-2">
               Zur Bereitstellung der KI-Funktionen werden Inhalte an externe Dienste übermittelt:
             </p>
-            <ul className="list-disc pl-6 text-gray-600 space-y-1 mb-2">
+            <ul className="list-disc pl-6 text-foreground-soft space-y-1 mb-2">
               <li>
                 <strong>ElevenLabs, Inc. (USA)</strong> — Text-to-Speech-Verarbeitung.
                 Dabei werden Texteingaben zur Sprachsynthese übermittelt. ElevenLabs ist ein
@@ -101,7 +101,7 @@ export default function DatenschutzPage() {
                 und unterliegt deutschem Datenschutzrecht.
               </li>
             </ul>
-            <p className="text-gray-600">
+            <p className="text-foreground-soft">
               Es werden nur die für die jeweilige Funktion notwendigen Inhalte übermittelt.
               Keine dauerhafte Speicherung bei den Drittanbietern über die Verarbeitungsdauer hinaus.
             </p>
@@ -111,24 +111,24 @@ export default function DatenschutzPage() {
             <h2 className="text-lg font-semibold mb-2">
               6. Server-Logfiles
             </h2>
-            <p className="text-gray-600 mb-2">
+            <p className="text-foreground-soft mb-2">
               Beim Aufruf dieser Webseite werden durch den Webserver automatisch
               Informationen in sogenannten Server-Logfiles erfasst. Dies umfasst:
             </p>
-            <ul className="list-disc pl-6 text-gray-600 space-y-1">
+            <ul className="list-disc pl-6 text-foreground-soft space-y-1">
               <li>IP-Adresse des anfragenden Geräts</li>
               <li>Datum und Uhrzeit des Zugriffs</li>
               <li>Aufgerufene URL und Referrer-URL</li>
               <li>Verwendeter Browser und Betriebssystem</li>
             </ul>
-            <p className="text-gray-600 mt-2">
+            <p className="text-foreground-soft mt-2">
               Diese Daten werden nach spätestens <strong>7 Tagen</strong> automatisch gelöscht.
             </p>
           </section>
 
           <section className="mb-6">
             <h2 className="text-lg font-semibold mb-2">7. Rechtsgrundlage</h2>
-            <p className="text-gray-600">
+            <p className="text-foreground-soft">
               Die Verarbeitung erfolgt auf Grundlage von{" "}
               <strong>Art. 6 Abs. 1 lit. f DSGVO</strong> (berechtigtes Interesse) für
               Server-Logs sowie auf Grundlage von{" "}
@@ -139,10 +139,10 @@ export default function DatenschutzPage() {
 
           <section>
             <h2 className="text-lg font-semibold mb-2">8. Ihre Rechte</h2>
-            <p className="text-gray-600">
+            <p className="text-foreground-soft">
               Sie haben das Recht auf Auskunft, Berichtigung und Löschung Ihrer gespeicherten
               Daten. Bei Fragen wenden Sie sich an:{" "}
-              <a href="mailto:hamid.mergan@th-luebeck.de" className="text-blue-600 hover:underline">
+              <a href="mailto:hamid.mergan@th-luebeck.de" className="text-info hover:underline">
                 hamid.mergan@th-luebeck.de
               </a>
               . Sie können sich außerdem beim Unabhängigen Landeszentrum für Datenschutz

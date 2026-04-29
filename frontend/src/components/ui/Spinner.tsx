@@ -13,7 +13,7 @@ const sizes = {
 };
 
 const colors = {
-  primary: "border-primary border-t-transparent",
+  primary: "border-kb border-t-transparent",
   current: "border-current border-t-transparent",
 };
 
@@ -21,7 +21,7 @@ export default function Spinner({ size = "md", color = "primary", label, classNa
   return (
     <span className={`inline-flex items-center gap-2 ${className}`} role="status" aria-live="polite">
       <span className={`${sizes[size]} ${colors[color]} rounded-full animate-spin inline-block shrink-0`} />
-      {label && <span className="text-sm text-gray-500">{label}</span>}
+      {label && <span className="text-sm text-muted">{label}</span>}
     </span>
   );
 }

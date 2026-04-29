@@ -7,7 +7,7 @@ export default function UploadRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/workspaces");
+    router.replace("/");
   }, [router]);
 
   return null;

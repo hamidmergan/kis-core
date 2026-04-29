@@ -60,15 +60,15 @@ export default function AdminPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <h2 className="text-lg font-semibold mb-6">Admin-Bereich</h2>
 
-        <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto scrollbar-none">
+        <div className="flex gap-1 border-b border-border-soft mb-6 overflow-x-auto scrollbar-none">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                 tab === t.key
-                  ? "border-primary text-primary"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-kb text-kb"
+                  : "border-transparent text-muted hover:text-foreground-soft"
               }`}
             >
               {t.label}

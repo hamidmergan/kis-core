@@ -23,7 +23,7 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
     <button
       onClick={handleClick}
       disabled={busy}
-      className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+      className="text-xs text-kb hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {busy ? (
         <Spinner size="sm" />
@@ -37,7 +37,7 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
 
 function DisabledChip({ label }: { label: string }) {
   return (
-    <span className="text-xs text-gray-400 flex items-center gap-1 cursor-not-allowed select-none">
+    <span className="text-xs text-muted-soft flex items-center gap-1 cursor-not-allowed select-none">
       <DownloadSimple size={12} weight="bold" className="shrink-0" />
       {label}
     </span>
@@ -57,14 +57,14 @@ export function JobArtifacts({ job }: { job: MyJob }) {
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             {job.is_generating_scripts ? (
-              <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
                 <Spinner size="sm" />
                 Skripte werden generiert…
               </span>
             ) : (
               <a
-                href={`/screencast?resume=${job.job_uuid}`}
-                className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
+                href={`/tools/screencast?resume=${job.job_uuid}`}
+                className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
               >
                 Screencast fortsetzen →
               </a>
@@ -110,14 +110,14 @@ export function JobArtifacts({ job }: { job: MyJob }) {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {job.is_generating_scripts ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
               <Spinner size="xs" />
               Skripte werden generiert…
             </span>
           ) : (
             <a
-              href={`/screencast-demo?resume=${job.job_uuid}`}
-              className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
+              href={`/tools/screencast-demo?resume=${job.job_uuid}`}
+              className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
             >
               Demo fortsetzen →
             </a>

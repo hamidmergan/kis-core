@@ -23,7 +23,7 @@ export function Pagination({ total, offset, limit, onOffsetChange }: PaginationP
       <button
         onClick={() => onOffsetChange(Math.max(0, offset - limit))}
         disabled={currentPage === 1}
-        className="px-3 py-1.5 text-sm border-2 border-gray-300 rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--color-primary)] enabled:hover:text-[var(--color-primary)]"
+        className="px-3 py-1.5 text-sm border-2 border-border rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--kb)] enabled:hover:text-[var(--kb)]"
       >
         ‹
       </button>
@@ -33,8 +33,8 @@ export function Pagination({ total, offset, limit, onOffsetChange }: PaginationP
           onClick={() => onOffsetChange((p - 1) * limit)}
           className={`px-3 py-1.5 text-sm border-2 rounded-md transition-colors ${
             p === currentPage
-              ? "bg-primary text-white border-primary"
-              : "border-gray-300 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              ? "bg-kb text-white border-kb"
+              : "border-border hover:border-[var(--kb)] hover:text-[var(--kb)]"
           }`}
         >
           {p}
@@ -43,7 +43,7 @@ export function Pagination({ total, offset, limit, onOffsetChange }: PaginationP
       <button
         onClick={() => onOffsetChange(Math.min((totalPages - 1) * limit, offset + limit))}
         disabled={currentPage === totalPages}
-        className="px-3 py-1.5 text-sm border-2 border-gray-300 rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--color-primary)] enabled:hover:text-[var(--color-primary)]"
+        className="px-3 py-1.5 text-sm border-2 border-border rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--kb)] enabled:hover:text-[var(--kb)]"
       >
         ›
       </button>

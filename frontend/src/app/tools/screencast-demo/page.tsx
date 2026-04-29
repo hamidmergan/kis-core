@@ -19,6 +19,7 @@ import { TranslationReviewStep } from "./_steps/TranslationReviewStep";
 import { ScriptReviewStep } from "./_steps/ScriptReviewStep";
 import { TtsSettingsStep } from "./_steps/TtsSettingsStep";
 import { DoneStep } from "./_steps/DoneStep";
+import RegenChatModal from "@/app/tools/screencast/_components/RegenChatModal";
 import { useDemoRegen } from "./_hooks/useDemoRegen";
 import { useDemoScriptEditing } from "./_hooks/useDemoScriptEditing";
 
@@ -52,10 +53,7 @@ function ScreencastDemoPageInner() {
   const [slidePause, setSlidePause] = useState<number>(0.5);
   const [dpi, setDpi] = useState(144);
   const [slides, setSlides] = useState<SlideData[]>([]);
-  const {
-    regeneratingSlide, regenPrompt, regenProposal, regenLoading,
-    setRegenPrompt, setRegenProposal, openRegen, closeRegen, runRegen, applyRegen,
-  } = useDemoRegen(slides, setSlides);
+  const { regeneratingSlide, openRegen, closeRegen } = useDemoRegen(slides, setSlides);
   const {
     openAccordion, editingSlide, editBuffer,
     setOpenAccordion, setEditBuffer, startEdit, saveEdit, cancelEdit, reset: resetScriptEditing,
@@ -322,7 +320,7 @@ function ScreencastDemoPageInner() {
             <div className="flex justify-between mb-6">
               <button
                 onClick={() => resetAll()}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-red-500 rounded transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-soft hover:text-kb rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -331,7 +329,7 @@ function ScreencastDemoPageInner() {
               </button>
               <button
                 onClick={() => resetAll()}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 rounded transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-error border-2 border-error-border hover:border-error rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -401,20 +399,12 @@ function ScreencastDemoPageInner() {
             editingSlide={editingSlide}
             editBuffer={editBuffer}
             regeneratingSlide={regeneratingSlide}
-            regenPrompt={regenPrompt}
-            regenProposal={regenProposal}
-            regenLoading={regenLoading}
             onOpenAccordionChange={setOpenAccordion}
             onEditBufferChange={setEditBuffer}
             onStartEdit={startEdit}
             onCancelEdit={cancelEdit}
             onSaveEdit={saveEdit}
             onOpenRegen={openRegen}
-            onCloseRegen={closeRegen}
-            onRegenPromptChange={setRegenPrompt}
-            onRegenProposalChange={setRegenProposal}
-            onRunRegen={runRegen}
-            onApplyRegen={applyRegen}
             onAcceptScripts={handleAcceptScripts}
           />
         )}
@@ -468,6 +458,14 @@ function ScreencastDemoPageInner() {
         )}
         {step === "error" && (
           <ErrorStep errorMessage={errorMessage} onReset={() => resetAll()} />
+        )}
+
+        {regeneratingSlide !== null && slides[regeneratingSlide] && (
+          <RegenChatModal
+            slideIndex={regeneratingSlide}
+            demo
+            onClose={closeRegen}
+          />
         )}
       </div>
     </ProtectedRoute>

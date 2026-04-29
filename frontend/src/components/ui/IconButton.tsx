@@ -4,7 +4,7 @@ import { ButtonHTMLAttributes, forwardRef } from "react";
 
 /**
  * Consistent icon button used across the app.
- * rounded-full, hover:outline-primary, centered flex, theme-aware color.
+ * rounded-full, hover:outline-kb, centered flex, theme-aware color.
  */
 const IconButton = forwardRef<
   HTMLButtonElement,

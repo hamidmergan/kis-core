@@ -24,7 +24,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
   }, [open]);
 
   const rowClass =
-    "flex items-center gap-3 w-full px-4 py-3 text-[15px] font-medium hover:outline-2 hover:outline-primary -outline-offset-2 transition no-underline text-left";
+    "flex items-center gap-3 w-full px-4 py-3 text-[15px] font-medium hover:outline-2 hover:outline-kb -outline-offset-2 transition no-underline text-left";
 
   return (
     <div className="sm:hidden relative" ref={ref}>
@@ -41,7 +41,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
       {open && (
         <div
           className="absolute right-0 top-full mt-2 z-50 w-56 rounded-xl shadow-xl overflow-hidden"
-          style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}
+          style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
         >
           {showToolsToggle && (
             <button
@@ -51,7 +51,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
                 window.dispatchEvent(new Event("tools-sidebar:open"));
               }}
               className={rowClass}
-              style={{ color: "var(--text)" }}
+              style={{ color: "var(--foreground)" }}
             >
               <Sidebar size={20} weight="bold" />
               <span>Tools</span>
@@ -61,7 +61,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
             href="/my-jobs"
             onClick={() => setOpen(false)}
             className={rowClass}
-            style={{ color: "var(--text)" }}
+            style={{ color: "var(--foreground)" }}
           >
             <Stack size={20} weight="bold" />
             <span>Jobs</span>
@@ -71,7 +71,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
               href="/admin"
               onClick={() => setOpen(false)}
               className={rowClass}
-              style={{ color: "var(--text)" }}
+              style={{ color: "var(--foreground)" }}
             >
               <UserCircleGear size={20} weight="bold" />
               <span>Admin</span>
@@ -84,7 +84,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
               onLogout();
             }}
             className={rowClass}
-            style={{ color: "var(--text)", borderTop: "1px solid var(--border)" }}
+            style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)" }}
           >
             <SignOut size={20} weight="bold" />
             <span>Abmelden</span>

@@ -5,7 +5,7 @@ type BackLinkProps = {
   label?: string;
 };
 
-export default function BackLink({ href = "/workspaces", label = "Zur Übersicht" }: BackLinkProps) {
+export default function BackLink({ href = "/", label = "Zur Übersicht" }: BackLinkProps) {
   return (
     <Link
       href={href}

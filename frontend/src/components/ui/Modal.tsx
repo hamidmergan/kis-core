@@ -67,7 +67,7 @@ export default function Modal({
       <div
         ref={dialogRef}
         className={`w-full ${sizeClass[size]} rounded-xl shadow-lg flex flex-col max-h-[90vh] ${className}`}
-        style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}
+        style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
@@ -75,7 +75,7 @@ export default function Modal({
             className="px-5 py-4 flex items-center justify-between gap-4"
             style={{ borderBottom: "1px solid var(--border)" }}
           >
-            <div className="text-base font-semibold" style={{ color: "var(--text)" }}>
+            <div className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
               {title}
             </div>
             <button

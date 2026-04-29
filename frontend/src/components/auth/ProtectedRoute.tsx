@@ -14,12 +14,12 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   useEffect(() => {
     checkAuthStatus().then((status) => {
       if (!status.authenticated) {
-        router.replace("/");
+        router.replace("/login");
       } else {
         const role = status.role ?? "lecturer";
-        const isKiTutor = pathname?.startsWith("/workspaces");
+        const isKiTutor = pathname === "/" || pathname?.startsWith("/workspace/");
         if (role === "student" && !isKiTutor) {
-          router.replace("/workspaces");
+          router.replace("/");
         } else {
           setAuthenticated(true);
         }

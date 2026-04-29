@@ -18,7 +18,7 @@ export default function PlayButton({ voiceId, playingId, loadingId, onClick }: P
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary border border-primary rounded-md hover:bg-primary-20 transition-colors"
+      className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-kb border border-kb rounded-md hover:bg-kb20 transition-colors"
       aria-label={isPlaying ? "Stoppen" : "Anhören"}
     >
       {isLoading ? (

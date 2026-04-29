@@ -20,11 +20,11 @@ export default function ElevenLabsTab({ enabled }: { enabled: boolean }) {
       .finally(() => setLoading(false));
   }, [enabled]);
 
-  if (loading) return <p className="text-sm text-gray-500">Wird geladen…</p>;
-  if (voices.length === 0) return <p className="text-sm text-gray-500">Keine Stimmen verfügbar.</p>;
+  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
+  if (voices.length === 0) return <p className="text-sm text-muted">Keine Stimmen verfügbar.</p>;
 
   return (
-    <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+    <div className="divide-y divide-border-soft border border-border-soft rounded-lg overflow-hidden">
       {voices.map((voice) => {
         const labelParts: string[] = [];
         if (voice.category && CATEGORY_DE[voice.category]) labelParts.push(CATEGORY_DE[voice.category]);
@@ -32,11 +32,11 @@ export default function ElevenLabsTab({ enabled }: { enabled: boolean }) {
         if (desc) labelParts.push(desc);
 
         return (
-          <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-100">
+          <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-surface">
             <div>
-              <p className="text-sm font-medium text-gray-900">{voice.label.split(" - ")[0]}</p>
+              <p className="text-sm font-medium text-foreground">{voice.label.split(" - ")[0]}</p>
               {labelParts.length > 0 && (
-                <p className="text-xs text-gray-400 mt-0.5">{labelParts.join(" · ")}</p>
+                <p className="text-xs text-muted-soft mt-0.5">{labelParts.join(" · ")}</p>
               )}
             </div>
             {voice.preview_url ? (
@@ -47,7 +47,7 @@ export default function ElevenLabsTab({ enabled }: { enabled: boolean }) {
                 onClick={() => playUrl(voice.voice_id, voice.preview_url!)}
               />
             ) : (
-              <span className="text-xs text-gray-400">Kein Sample</span>
+              <span className="text-xs text-muted-soft">Kein Sample</span>
             )}
           </div>
         );

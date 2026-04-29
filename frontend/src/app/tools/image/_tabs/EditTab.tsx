@@ -95,8 +95,8 @@ export default function EditTab() {
       />
 
       {previewUrl && (
-        <div className="mb-4 rounded-lg overflow-hidden border border-gray-200">
-          <img src={previewUrl} alt="Vorschau" className="w-full max-h-64 object-contain bg-gray-50" />
+        <div className="mb-4 rounded-lg overflow-hidden border border-border-soft">
+          <img src={previewUrl} alt="Vorschau" className="w-full max-h-64 object-contain bg-surface" />
         </div>
       )}
 
@@ -105,28 +105,28 @@ export default function EditTab() {
         onChange={(e) => setPrompt(e.target.value)}
         rows={3}
         placeholder="Beschreiben Sie die gewünschte Änderung."
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none mb-4"
+        className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none mb-4"
       />
 
       {!resultUrl && (
         <button
           onClick={handleSubmit}
           disabled={!file || !prompt.trim() || loading}
-          className="w-full px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Wird verarbeitet…" : "Bild bearbeiten"}
         </button>
       )}
 
       {loading && <Spinner label={spinnerLabel} className="justify-center mt-6" />}
-      {error && <p className="mt-4 text-sm text-red-600" role="alert">{error}</p>}
+      {error && <p className="mt-4 text-sm text-error" role="alert">{error}</p>}
       {resultUrl && (
         <div className="mt-6">
-          <img src={resultUrl} alt="Bearbeitetes Bild" className="w-full rounded-lg border border-gray-200 bg-gray-50" />
+          <img src={resultUrl} alt="Bearbeitetes Bild" className="w-full rounded-lg border border-border-soft bg-surface" />
           <div className="mt-3 flex items-center gap-3">
             <button
               onClick={handleDownload}
-              className="px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors flex items-center gap-2"
+              className="px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
             >
               <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -135,7 +135,7 @@ export default function EditTab() {
             </button>
             <button
               onClick={() => { setResultUrl(null); setResultFilename(null); }}
-              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors"
             >
               Neu bearbeiten
             </button>

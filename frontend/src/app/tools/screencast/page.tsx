@@ -366,7 +366,7 @@ function ScreencastPageInner() {
             <div className="flex justify-between mb-6">
               <button
                 onClick={() => resetAll(step !== "done")}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-red-500 rounded transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-soft hover:text-kb rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -375,7 +375,7 @@ function ScreencastPageInner() {
               </button>
               <button
                 onClick={() => resetAll(step !== "done")}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 rounded transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-error border-2 border-error-border hover:border-error rounded transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -390,7 +390,7 @@ function ScreencastPageInner() {
         {resumeLoading && (
           <section className="animate-[fadeIn_0.2s_ease-out] text-center py-16" role="status" aria-live="polite">
             <Spinner size="lg" className="justify-center mb-4" />
-            <p className="text-sm text-gray-700">Screencast wird wiederhergestellt…</p>
+            <p className="text-sm text-foreground-soft">Screencast wird wiederhergestellt…</p>
           </section>
         )}
 

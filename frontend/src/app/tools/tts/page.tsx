@@ -259,7 +259,7 @@ export default function TtsPage() {
         <BackLink />
         <section>
           <h1 className="text-xl font-bold mb-1">Text in Sprache</h1>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-muted mb-6">
             Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen.
           </p>
 
@@ -269,13 +269,13 @@ export default function TtsPage() {
             selectedFilename={ttsSelectedFile || undefined}
           />
           {noProvider && (
-            <p className="mt-3 text-sm text-gray-400">Kein TTS-Anbieter aktiv — bitte im Admin-Bereich einen Anbieter freischalten.</p>
+            <p className="mt-3 text-sm text-muted-soft">Kein TTS-Anbieter aktiv — bitte im Admin-Bereich einen Anbieter freischalten.</p>
           )}
 
           {/* Provider */}
           {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
           <div className="mt-6 mb-2">
-            <label htmlFor="provider-select" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="provider-select" className="block text-sm font-medium text-foreground-soft mb-2">
               TTS-Anbieter
             </label>
             <Select
@@ -296,7 +296,7 @@ export default function TtsPage() {
           {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
           <div className="mt-4 mb-6 space-y-3">
             <div>
-              <label htmlFor="voice-select" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="voice-select" className="block text-sm font-medium text-foreground-soft mb-2">
                 Stimme
               </label>
               <Select
@@ -321,7 +321,7 @@ export default function TtsPage() {
                 href="/tools/tts/voices"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline"
+                className="text-sm text-kb hover:underline"
               >
                 Stimmen anhören →
               </a>
@@ -331,7 +331,7 @@ export default function TtsPage() {
                 href="/tools/tts/voices?tab=kokoro"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline"
+                className="text-sm text-kb hover:underline"
               >
                 Stimmen anhören →
               </a>
@@ -341,7 +341,7 @@ export default function TtsPage() {
                 href="/tools/tts/voices?tab=mylab"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline"
+                className="text-sm text-kb hover:underline"
               >
                 Stimmen anhören →
               </a>
@@ -352,7 +352,7 @@ export default function TtsPage() {
 
           {/* Speed */}
           <div className="mb-6">
-            <label htmlFor="speed-slider" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="speed-slider" className="block text-sm font-medium text-foreground-soft mb-2">
               Geschwindigkeit: {speed.toFixed(1)}x
             </label>
             <input
@@ -364,9 +364,9 @@ export default function TtsPage() {
               value={speed}
               onChange={(e) => setSpeed(parseFloat(e.target.value))}
               disabled={isProcessing}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary disabled:opacity-50"
+              className="w-full h-2 bg-surface-dim rounded-lg appearance-none cursor-pointer accent-kb disabled:opacity-50"
             />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <div className="flex justify-between text-xs text-muted-soft mt-1">
               <span>Langsam (0.7x)</span>
               <span>Schnell (1.2x)</span>
             </div>
@@ -375,7 +375,7 @@ export default function TtsPage() {
           {/* Pauses (ElevenLabs only) */}
           {provider === "elevenlabs" && (
             <div className="mb-6">
-              <label htmlFor="pause-select" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="pause-select" className="block text-sm font-medium text-foreground-soft mb-2">
                 Pausen
               </label>
               <Select
@@ -393,7 +393,7 @@ export default function TtsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!pendingFile || isProcessing || noProvider}
-                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 MP3 erstellen
               </button>
@@ -406,7 +406,7 @@ export default function TtsPage() {
                     if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
                     setTtsState("idle");
                   }}
-                  className="px-4 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 text-sm text-error border border-error-border rounded-md hover:bg-error-bg transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -42,7 +42,7 @@ export default function ScriptReviewStep({
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold mb-1">Skripte überprüfen und anpassen</h2>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-muted mb-4">
         Überprüfen Sie die generierten Skripte für jede Folie. Klicken Sie auf den Stift um zu bearbeiten.
       </p>
 
@@ -54,19 +54,19 @@ export default function ScriptReviewStep({
           const preview = slide.script.slice(0, 60) + (slide.script.length > 60 ? "..." : "");
 
           return (
-            <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
+            <div key={i} className="border border-border-soft rounded-lg overflow-hidden">
               <button
                 onClick={() => onAccordionToggle(i)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-100 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-surface transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb"
                 aria-expanded={isOpen}
                 aria-controls={`slide-panel-${i}`}
               >
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-gray-900">Folie {i + 1}</span>
-                  {!isOpen && <span className="ml-2 text-xs text-gray-400 truncate">{preview}</span>}
+                  <span className="text-sm font-medium text-foreground">Folie {i + 1}</span>
+                  {!isOpen && <span className="ml-2 text-xs text-muted-soft truncate">{preview}</span>}
                 </div>
                 <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  className={`w-4 h-4 text-muted-soft transition-transform ${isOpen ? "rotate-180" : ""}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -77,19 +77,19 @@ export default function ScriptReviewStep({
               </button>
 
               {isOpen && (
-                <div id={`slide-panel-${i}`} className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]">
+                <div id={`slide-panel-${i}`} className="border-t border-border-soft p-4 animate-[fadeIn_0.2s_ease-out]">
                   <div className="flex flex-col gap-4">
                     <div className="flex-shrink-0" style={{ width: "100px" }}>
                       {slide.imageBase64 ? (
                         <button
                           onClick={() => onLightboxOpen(i)}
-                          className="w-full rounded border border-gray-200 hover:border-primary transition-colors overflow-hidden cursor-zoom-in focus-visible:outline-2 focus-visible:outline-primary"
+                          className="w-full rounded border border-border-soft hover:border-kb transition-colors overflow-hidden cursor-zoom-in focus-visible:outline-2 focus-visible:outline-kb"
                           aria-label={`Folie ${i + 1} vergrößern`}
                         >
                           <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full" />
                         </button>
                       ) : (
-                        <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center">
+                        <div className="w-full aspect-video bg-surface rounded flex items-center justify-center">
                           <Spinner size="sm" />
                         </div>
                       )}
@@ -102,15 +102,15 @@ export default function ScriptReviewStep({
                             value={editBuffer}
                             onChange={(e) => onEditBufferChange(e.target.value)}
                             rows={8}
-                            className="w-full rounded-md border border-primary px-3 py-2 text-sm font-mono text-gray-900 focus:ring-1 focus:ring-primary focus:outline-none"
+                            className="w-full rounded-md border border-kb px-3 py-2 text-sm font-mono text-foreground focus:ring-1 focus:ring-kb focus:outline-none"
                             aria-label={`Skript für Folie ${i + 1} bearbeiten`}
                           />
                           <div className="flex items-center justify-between mt-2">
-                            <span className="text-xs text-gray-400">ca. {wc} Wörter</span>
+                            <span className="text-xs text-muted-soft">ca. {wc} Wörter</span>
                             <div className="flex gap-2">
                               <button
                                 onClick={onCancelEdit}
-                                className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                                className="px-3 py-1 text-xs text-foreground-soft border border-border rounded hover:bg-surface transition-colors"
                               >
                                 Abbrechen
                               </button>
@@ -126,11 +126,11 @@ export default function ScriptReviewStep({
                       ) : (
                         <>
                           <div className="flex items-start justify-between mb-2">
-                            <span className="text-xs text-gray-400">ca. {wc} Wörter</span>
+                            <span className="text-xs text-muted-soft">ca. {wc} Wörter</span>
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => onOpenRegen(i)}
-                                className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:text-primary hover:bg-gray-100 ${regenAnchorSlide === i && regenAnchorText ? "text-primary" : "text-gray-400"}`}
+                                className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:text-kb hover:bg-surface ${regenAnchorSlide === i && regenAnchorText ? "text-kb" : "text-muted-soft"}`}
                                 aria-label={`Skript für Folie ${i + 1} per KI neu generieren`}
                                 title="Mit KI neu generieren"
                               >
@@ -145,7 +145,7 @@ export default function ScriptReviewStep({
                               </button>
                               <button
                                 onClick={() => onStartEdit(i)}
-                                className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-100 transition-colors"
+                                className="w-7 h-7 flex items-center justify-center rounded-full text-muted-soft hover:text-kb hover:bg-surface transition-colors"
                                 aria-label={`Skript für Folie ${i + 1} bearbeiten`}
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -160,13 +160,13 @@ export default function ScriptReviewStep({
                             </div>
                           </div>
                           <p
-                            className="text-sm font-mono text-gray-700 whitespace-pre-wrap leading-relaxed"
+                            className="text-sm font-mono text-foreground-soft whitespace-pre-wrap leading-relaxed"
                             onMouseUp={() => {
                               const text = window.getSelection()?.toString().trim();
                               onRegenAnchor(text ? i : null, text || "");
                             }}
                           >
-                            {slide.script || <span className="text-gray-400 italic">Kein Skript (leere Folie)</span>}
+                            {slide.script || <span className="text-muted-soft italic">Kein Skript (leere Folie)</span>}
                           </p>
                         </>
                       )}
@@ -180,7 +180,7 @@ export default function ScriptReviewStep({
       </div>
 
       {slides.filter((s) => !s.script.trim()).length > 0 && (
-        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
+        <p className="text-sm text-warn-strong bg-warn-bg border border-warn-border rounded-md px-3 py-2">
           {slides.filter((s) => !s.script.trim()).length} Folie(n) haben kein Skript. Bitte füllen Sie diese aus, bevor Sie fortfahren.
         </p>
       )}
@@ -189,7 +189,7 @@ export default function ScriptReviewStep({
         <button
           onClick={onAcceptScripts}
           disabled={editingSlide !== null}
-          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Alle Skripte übernehmen
         </button>

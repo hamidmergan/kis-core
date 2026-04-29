@@ -1,5 +1,5 @@
-export const URGENCY_RED = "#B91C1C";
-export const URGENCY_ORANGE = "#EA580C";
+export const URGENCY_RED = "var(--error-strong)";
+export const URGENCY_ORANGE = "var(--warn)";
 
 export function todayISO(): string {
   const d = new Date();

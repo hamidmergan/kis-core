@@ -67,11 +67,11 @@ export default function GenerateTab() {
         onChange={(e) => setPrompt(e.target.value)}
         rows={4}
         placeholder="Beschreiben Sie das gewünschte Bild ..."
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none mb-4"
+        className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none mb-4"
       />
 
       <div className="mb-4">
-        <p className="text-sm font-medium text-gray-700 mb-2">Größe</p>
+        <p className="text-sm font-medium text-foreground-soft mb-2">Größe</p>
         <div className="flex flex-wrap gap-2">
           {SIZES.map((s) => (
             <button
@@ -80,8 +80,8 @@ export default function GenerateTab() {
               onClick={() => setSize(s)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                 size === s
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  ? "border-kb bg-kb/10 text-kb"
+                  : "border-border text-foreground-soft hover:bg-surface"
               }`}
             >
               {s}
@@ -91,7 +91,7 @@ export default function GenerateTab() {
       </div>
 
       <div className="mb-6">
-        <p className="text-sm font-medium text-gray-700 mb-2">Anzahl</p>
+        <p className="text-sm font-medium text-foreground-soft mb-2">Anzahl</p>
         <div className="flex gap-2">
           {COUNTS.map((c) => (
             <button
@@ -100,8 +100,8 @@ export default function GenerateTab() {
               onClick={() => setN(c)}
               className={`w-10 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                 n === c
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  ? "border-kb bg-kb/10 text-kb"
+                  : "border-border text-foreground-soft hover:bg-surface"
               }`}
             >
               {c}
@@ -114,14 +114,14 @@ export default function GenerateTab() {
         <button
           onClick={handleGenerate}
           disabled={!prompt.trim() || loading}
-          className="w-full px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Wird verarbeitet…" : "Bild generieren"}
         </button>
       )}
 
       {loading && <Spinner label={spinnerLabel} className="justify-center mt-6" />}
-      {error && <p className="mt-4 text-sm text-red-600" role="alert">{error}</p>}
+      {error && <p className="mt-4 text-sm text-error" role="alert">{error}</p>}
       {results.length > 0 && (
         <div className="mt-6">
           <div className={`${results.length > 1 ? "grid grid-cols-2 gap-4" : ""}`}>
@@ -130,7 +130,7 @@ export default function GenerateTab() {
                 <img
                   src={result.url}
                   alt={`Generiertes Bild ${i + 1}`}
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 mb-2"
+                  className="w-full rounded-lg border border-border-soft bg-surface mb-2"
                 />
                 <button
                   onClick={() => {
@@ -163,7 +163,7 @@ export default function GenerateTab() {
           )}
           <button
             onClick={() => { setResults([]); setJobUuid(null); }}
-            className="mt-4 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+            className="mt-4 px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors"
           >
             Neu generieren
           </button>

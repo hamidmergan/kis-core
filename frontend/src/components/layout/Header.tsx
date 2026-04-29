@@ -34,7 +34,7 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
       <div className="px-4 sm:px-6 flex items-center justify-between">
         <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Link
-            href="/workspaces"
+            href="/"
             aria-label="Zur Startseite"
             className="text-white logo-link"
           >

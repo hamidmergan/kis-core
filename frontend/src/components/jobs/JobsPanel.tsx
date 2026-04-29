@@ -53,18 +53,18 @@ function toMs(dateStr: string): number {
 
 function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {
   if (expired)
-    return <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Abgelaufen</span>;
+    return <span className="text-xs font-medium text-muted-soft bg-surface px-2 py-0.5 rounded-full">Abgelaufen</span>;
   if (status === "success")
-    return <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">Fertig</span>;
+    return <span className="text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">Fertig</span>;
   if (status === "failed")
-    return <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-0.5 rounded-full">Fehler</span>;
+    return <span className="text-xs font-medium text-error-strong bg-error-bg px-2 py-0.5 rounded-full">Fehler</span>;
   if (status === "running" || isGeneratingScripts)
-    return <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
+    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
   if (status === "awaiting_user")
-    return <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
+    return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
   if (status === "queued")
-    return <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">In der Schlange</span>;
-  return <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Wartend</span>;
+    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">In der Schlange</span>;
+  return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">Wartend</span>;
 }
 
 export default function JobsPanel() {
@@ -297,7 +297,7 @@ export default function JobsPanel() {
         <Stack size={17} weight="bold" aria-hidden="true" />
         <span className="hidden sm:inline text-sm font-medium">Jobs</span>
         {attentionCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-white text-primary text-[9px] font-bold rounded-full flex items-center justify-center shadow">
+          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-white text-kb text-[9px] font-bold rounded-full flex items-center justify-center shadow">
             {attentionCount}
           </span>
         )}
@@ -314,46 +314,46 @@ export default function JobsPanel() {
           fixed inset-x-0 bottom-0 z-50 rounded-t-xl
           sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:bottom-auto sm:mt-2 sm:w-80 sm:rounded-xl
           shadow-xl overflow-hidden
-        " style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}>
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-800">Meine Jobs</span>
+        " style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}>
+          <div className="px-4 py-3 border-b border-border-soft flex items-center justify-between">
+            <span className="text-sm font-semibold text-foreground">Meine Jobs</span>
             {loading && (
               <Spinner size="sm" />
             )}
           </div>
 
           <div className="px-4 py-2 border-b" style={{ borderColor: "var(--border)" }}>
-            <p className="text-xs text-primary">
+            <p className="text-xs text-kb">
               Downloads 7 Tage verfügbar. Es werden nur die letzten 20 Jobs gespeichert.
             </p>
           </div>
 
           <div>
             {jobs.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">Keine Jobs vorhanden</p>
+              <p className="text-sm text-muted-soft text-center py-8">Keine Jobs vorhanden</p>
             ) : (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-border-soft">
                 {jobs.slice(0, 3).map((job) => {
                   const expired = isExpired(job);
                   return (
                     <li
                       key={job.job_uuid}
                       onClick={() => handleJobClick(job)}
-                      className={`px-4 py-3 cursor-pointer hover:bg-gray-100 transition ${expired ? "opacity-50" : ""}`}
+                      className={`px-4 py-3 cursor-pointer hover:bg-surface transition ${expired ? "opacity-50" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-gray-800 truncate mb-0.5">{job.tool_label}</p>
-                          <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
+                          <p className="text-xs font-medium text-foreground truncate mb-0.5">{job.tool_label}</p>
+                          <p className="text-xs text-muted-soft truncate mt-0.5">{job.original_filename}</p>
                           {job.tts_params?.voice_label || job.tts_params?.provider ? (
-                            <p className="text-xs text-gray-400 truncate mt-0.5">
+                            <p className="text-xs text-muted-soft truncate mt-0.5">
                               {job.tts_params.provider === "kokoro" ? "Kokoro TTS" : job.tts_params.provider === "mylab" ? "THL myLab" : job.tts_params.provider === "elevenlabs" ? "ElevenLabs" : job.tts_params.provider}
                               {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
                             </p>
                           ) : null}
-                          <p className="text-xs text-gray-400 mt-0.5">{timeAgo(job.created_at)}</p>
+                          <p className="text-xs text-muted-soft mt-0.5">{timeAgo(job.created_at)}</p>
                           {(job.started_at || job.completed_at) && (
-                            <p className="text-xs text-gray-300 mt-0.5">
+                            <p className="text-xs text-border mt-0.5">
                               {job.started_at && (
                                 <>Warte: {formatDuration(toMs(job.started_at) - toMs(job.created_at))}</>
                               )}
@@ -363,13 +363,13 @@ export default function JobsPanel() {
                             </p>
                           )}
                           {job.status === "failed" && job.error && (
-                            <p className="text-xs text-red-500 mt-1 line-clamp-2">{job.error}</p>
+                            <p className="text-xs text-error mt-1 line-clamp-2">{job.error}</p>
                           )}
                           {!expired && job.status === "success" && job.has_download && (
                             <div className="mt-1.5 flex flex-row flex-wrap gap-2">
                               <button
                                 onClick={(e) => handleDownload(e, job)}
-                                className="text-xs text-primary hover:underline flex items-center gap-1"
+                                className="text-xs text-kb hover:underline flex items-center gap-1"
                               >
                                 <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -379,7 +379,7 @@ export default function JobsPanel() {
                               {(SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate") && (
                                 <button
                                   onClick={(e) => handleDownloadBundle(e, job)}
-                                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                                  className="text-xs text-kb hover:underline flex items-center gap-1"
                                 >
                                   <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -396,7 +396,7 @@ export default function JobsPanel() {
                             <button
                               onClick={(e) => handleCancel(e, job)}
                               disabled={cancelling === job.job_uuid}
-                              className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                              className="text-xs text-error hover:underline disabled:opacity-50"
                             >
                               {cancelling === job.job_uuid ? "..." : "Abbrechen"}
                             </button>
@@ -405,7 +405,7 @@ export default function JobsPanel() {
                             <button
                               onClick={(e) => handleRetry(e, job)}
                               disabled={retrying === job.job_uuid}
-                              className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                              className="text-xs text-info hover:underline disabled:opacity-50"
                             >
                               {retrying === job.job_uuid ? "..." : "Wiederholen"}
                             </button>
@@ -415,7 +415,7 @@ export default function JobsPanel() {
                       {job.status === "awaiting_user" && (job.tool === "screencast_translate" || job.tool === "screencast_demo_render") && (
                         <div className="mt-2">
                           {job.is_generating_scripts ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full">
+                            <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
                               <Spinner size="sm" />
                               Skripte werden generiert…
                             </span>
@@ -423,7 +423,7 @@ export default function JobsPanel() {
                             <a
                               href={job.tool === "screencast_demo_render" ? `/tools/screencast-demo?resume=${job.job_uuid}` : `/tools/screencast?resume=${job.job_uuid}`}
                               onClick={(e) => { e.stopPropagation(); setOpen(false); }}
-                              className="inline-flex items-center gap-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-full"
+                              className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
                             >
                               {job.tool === "screencast_demo_render" ? "Demo fortsetzen →" : "Screencast fortsetzen →"}
                             </a>
@@ -437,11 +437,11 @@ export default function JobsPanel() {
             )}
           </div>
 
-          <div className="px-4 py-2.5 border-t border-gray-100 text-center">
+          <div className="px-4 py-2.5 border-t border-border-soft text-center">
             <Link
               href="/my-jobs"
               onClick={() => setOpen(false)}
-              className="text-xs text-primary hover:underline"
+              className="text-xs text-kb hover:underline"
             >
               Zur Übersicht
             </Link>

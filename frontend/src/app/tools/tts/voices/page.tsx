@@ -57,15 +57,15 @@ function StimmenPageInner() {
         <BackLink />
         <h1 className="text-xl font-bold mb-1">Verfügbare Stimmen</h1>
 
-        <div className="flex gap-1 border-b border-gray-200 mb-6">
+        <div className="flex gap-1 border-b border-border-soft mb-6">
           {tabs.filter((t) => t.enabled).map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-kb text-kb"
+                  : "border-transparent text-muted hover:text-foreground-soft"
               }`}
             >
               {label}

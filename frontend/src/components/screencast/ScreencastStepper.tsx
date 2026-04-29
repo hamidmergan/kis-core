@@ -113,16 +113,16 @@ export default function ScreencastStepper({
                 aria-disabled={!isClickable}
                 className={`
                   inline-flex items-center gap-1 sm:gap-1.5 rounded-sm px-1 py-0.5 transition-colors select-none
-                  ${isClickable ? "cursor-pointer hover:bg-gray-100" : "cursor-default"}
+                  ${isClickable ? "cursor-pointer hover:bg-surface" : "cursor-default"}
                 `}
               >
                 <span
                   className={`
                     inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] sm:text-xs font-medium transition-colors flex-shrink-0
-                    ${isActive ? "bg-primary text-white" : ""}
-                    ${isDone ? "bg-primary/20 text-primary" : ""}
-                    ${isSkipped ? "bg-gray-100 text-gray-300" : ""}
-                    ${!isActive && !isDone && !isSkipped ? "bg-gray-100 text-gray-400" : ""}
+                    ${isActive ? "bg-kb text-white" : ""}
+                    ${isDone ? "bg-kb/20 text-kb" : ""}
+                    ${isSkipped ? "bg-surface text-border" : ""}
+                    ${!isActive && !isDone && !isSkipped ? "bg-surface text-muted-soft" : ""}
                   `}
                   aria-current={isActive ? "step" : undefined}
                 >
@@ -158,12 +158,12 @@ export default function ScreencastStepper({
                 <span
                   className={`text-[10px] sm:text-xs whitespace-nowrap ${
                     isSkipped
-                      ? "text-gray-300 line-through"
+                      ? "text-border line-through"
                       : isActive
-                        ? "text-gray-900 font-medium"
+                        ? "text-foreground font-medium"
                         : isClickable
-                          ? "text-gray-600"
-                          : "text-gray-400"
+                          ? "text-foreground-soft"
+                          : "text-muted-soft"
                   }`}
                 >
                   {label}
@@ -172,7 +172,7 @@ export default function ScreencastStepper({
               {i < STEP_LABELS.length - 1 && (
                 <span
                   className={`w-3 sm:w-8 h-px flex-shrink-0 ${
-                    i < currentIdx && !isSkipped ? "bg-primary" : "bg-gray-200"
+                    i < currentIdx && !isSkipped ? "bg-kb" : "bg-surface-dim"
                   }`}
                   aria-hidden="true"
                 />

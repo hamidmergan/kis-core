@@ -34,23 +34,23 @@ export function JobListItem({
     && job.status === "failed";
 
   return (
-    <li className={`px-5 py-4 hover:bg-gray-100 transition ${expired ? "opacity-50" : ""}`}>
+    <li className={`px-5 py-4 hover:bg-surface transition ${expired ? "opacity-50" : ""}`}>
       <div className="flex items-stretch justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-gray-800 mb-0.5">{job.tool_label}</p>
-          <p className="text-xs text-gray-400 truncate mt-0.5">{job.original_filename}</p>
+          <p className="text-sm font-medium text-foreground mb-0.5">{job.tool_label}</p>
+          <p className="text-xs text-muted-soft truncate mt-0.5">{job.original_filename}</p>
           {job.tts_params?.voice_label || job.tts_params?.provider ? (
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-muted-soft mt-0.5">
               {providerLabel(job.tts_params.provider)}
               {job.tts_params.voice_label ? ` · ${job.tts_params.voice_label}` : ""}
             </p>
           ) : null}
           {isAdmin && job.folder_name && (
-            <p className="text-xs text-gray-300 font-mono truncate mt-0.5">{job.folder_name}</p>
+            <p className="text-xs text-border font-mono truncate mt-0.5">{job.folder_name}</p>
           )}
           <TimingInfo job={job} isAdmin={isAdmin} />
           {job.status === "failed" && job.error && (
-            <p className="text-xs text-red-500 mt-1">{job.error}</p>
+            <p className="text-xs text-error mt-1">{job.error}</p>
           )}
           {!expired && <JobArtifacts job={job} />}
         </div>
@@ -60,7 +60,7 @@ export function JobListItem({
             <button
               onClick={() => onCancel(job)}
               disabled={cancelling === job.job_uuid}
-              className="text-xs text-red-500 hover:underline disabled:opacity-50"
+              className="text-xs text-error hover:underline disabled:opacity-50"
             >
               {cancelling === job.job_uuid ? "..." : "Abbrechen"}
             </button>
@@ -69,7 +69,7 @@ export function JobListItem({
             <button
               onClick={() => onRetry(job)}
               disabled={retrying === job.job_uuid}
-              className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+              className="text-xs text-info hover:underline disabled:opacity-50"
             >
               {retrying === job.job_uuid ? "..." : "Wiederholen"}
             </button>

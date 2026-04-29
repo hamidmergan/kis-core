@@ -40,20 +40,22 @@ export type RegenApplyMode = "replace-selection" | "insert-before" | "insert-aft
 
 interface RegenChatModalProps {
   slideIndex: number;
-  slideExtractedText: string;
-  currentScript: string;
-  anchorText: string;
-  targetLang: string;
-  onApply: (mode: RegenApplyMode, content: string) => void;
+  slideExtractedText?: string;
+  currentScript?: string;
+  anchorText?: string;
+  targetLang?: string;
+  demo?: boolean;
+  onApply?: (mode: RegenApplyMode, content: string) => void;
   onClose: () => void;
 }
 
 export default function RegenChatModal({
   slideIndex,
-  slideExtractedText,
-  currentScript,
-  anchorText,
-  targetLang,
+  slideExtractedText = "",
+  currentScript = "",
+  anchorText = "",
+  targetLang = "",
+  demo = false,
   onApply,
   onClose,
 }: RegenChatModalProps) {
@@ -67,6 +69,7 @@ export default function RegenChatModal({
   }, [messages, loading]);
 
   async function runRegen() {
+    if (demo) return;
     const userText = prompt.trim();
     if (!userText) return;
     const newMessages: { role: "user" | "assistant"; content: string }[] = [
@@ -97,7 +100,7 @@ export default function RegenChatModal({
       <div className="fixed inset-0 z-40" />
       <div
         className={`fixed z-50 shadow-2xl flex flex-col overflow-hidden sm:inset-auto sm:top-16 sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl ${messages.length > 0 ? "inset-0 rounded-none" : "inset-x-0 bottom-0 rounded-t-2xl max-h-[60vh]"}`}
-        style={{ backgroundColor: "var(--bg)" }}
+        style={{ backgroundColor: "var(--background)" }}
       >
         <div
           className="flex items-center justify-between px-4 py-3"
@@ -110,7 +113,7 @@ export default function RegenChatModal({
             >
               KI
             </div>
-            <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+            <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
               KI-Assistent · Folie {slideIndex + 1}
             </span>
           </div>
@@ -132,7 +135,7 @@ export default function RegenChatModal({
                 className="w-full rounded-xl px-3 py-1.5 text-xs italic"
                 style={{
                   backgroundColor: "rgba(var(--kb-rgb),0.06)",
-                  color: "var(--text)",
+                  color: "var(--foreground)",
                   border: "1px solid var(--border)",
                 }}
               >
@@ -181,15 +184,15 @@ export default function RegenChatModal({
                         onChange={(v) =>
                           setMessages(messages.map((m, i) => (i === idx ? { ...m, content: v } : m)))
                         }
-                        className="text-sm rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none leading-relaxed w-full overflow-y-auto"
+                        className="text-sm rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-kb/30 resize-none leading-relaxed w-full overflow-y-auto"
                         style={{
                           backgroundColor: "var(--surface)",
-                          color: "var(--text)",
+                          color: "var(--foreground)",
                           border: "1px solid var(--border)",
                           borderTopLeftRadius: 6,
                         }}
                       />
-                      {isLastAssistant && (
+                      {isLastAssistant && onApply && (
                         <div className="flex flex-wrap gap-1.5">
                           {anchorText ? (
                             <>
@@ -288,19 +291,20 @@ export default function RegenChatModal({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (!loading) runRegen();
+                  if (!loading && !demo) runRegen();
                 }
               }}
               rows={1}
-              placeholder="Text eingeben…"
-              autoFocus
-              className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
-              style={{ color: "var(--text)", maxHeight: 160, overflowY: "auto" }}
+              placeholder={demo ? "Nicht in der Demo verfügbar" : "Text eingeben…"}
+              autoFocus={!demo}
+              disabled={demo}
+              className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed bg-transparent"
+              style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}
             />
             <button
               onClick={runRegen}
-              disabled={loading}
-              className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl disabled:opacity-40 transition-colors"
+              disabled={loading || demo}
+              className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <Spinner size="sm" color="current" />

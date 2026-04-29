@@ -110,7 +110,7 @@ export default function UebersetzungPage() {
         <BackLink />
         <section>
           <h1 className="text-xl font-bold mb-1">Übersetzung</h1>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-muted mb-6">
             Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.
           </p>
 
@@ -123,7 +123,7 @@ export default function UebersetzungPage() {
           {languages.length > 0 && (
             <div className="mb-4 flex items-center gap-3">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground-soft mb-1">
                   Quellsprache
                 </label>
                 <Select
@@ -140,10 +140,10 @@ export default function UebersetzungPage() {
                 />
               </div>
 
-              <div className="mt-5 text-gray-400 shrink-0">→</div>
+              <div className="mt-5 text-muted-soft shrink-0">→</div>
 
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground-soft mb-1">
                   Zielsprache
                 </label>
                 <Select
@@ -164,7 +164,7 @@ export default function UebersetzungPage() {
 
           {providers.length > 0 && (
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground-soft mb-1">
                 Übersetzungs-Engine
               </label>
               <Select
@@ -181,7 +181,7 @@ export default function UebersetzungPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!pendingFile || processing}
-                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {processing && (
                   <Spinner size="sm" color="current" />
@@ -192,27 +192,27 @@ export default function UebersetzungPage() {
           )}
 
           {stallMessage && !errorMessage && (
-            <p className="text-sm text-amber-600" role="status">{stallMessage}</p>
+            <p className="text-sm text-warn" role="status">{stallMessage}</p>
           )}
 
           {errorMessage && (
-            <p className="text-sm text-red-600" role="alert">{errorMessage}</p>
+            <p className="text-sm text-error" role="alert">{errorMessage}</p>
           )}
 
           {doneJobUuid && (
-            <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6" role="status" aria-live="polite">
+            <div className="mt-6 rounded-lg border border-border-soft bg-white p-6" role="status" aria-live="polite">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-gray-900">Fertig! Download bereit</span>
+                  <span className="text-sm font-medium text-foreground">Fertig! Download bereit</span>
                 </div>
-                {selectedFile && <p className="text-xs text-gray-500">{selectedFile}</p>}
+                {selectedFile && <p className="text-xs text-muted">{selectedFile}</p>}
                 <div className="flex gap-3">
                   <button
                     onClick={handleDownload}
-                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors flex items-center gap-2"
+                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
                   >
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -221,7 +221,7 @@ export default function UebersetzungPage() {
                   </button>
                   <button
                     onClick={handleReset}
-                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+                    className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
                   >
                     Neue Datei
                   </button>

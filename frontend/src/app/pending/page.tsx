@@ -7,11 +7,11 @@ export default function TestphasePage() {
       <Header />
       <div className="flex items-center justify-center min-h-[70vh] px-4">
         <div className="w-full max-w-lg">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+          <div className="bg-white rounded-xl shadow-sm border border-border-soft p-8 text-center">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 bg-warn-bg rounded-full flex items-center justify-center">
                 <svg
-                  className="w-8 h-8 text-yellow-500"
+                  className="w-8 h-8 text-warn"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -31,13 +31,13 @@ export default function TestphasePage() {
               Konto noch nicht freigeschaltet
             </h1>
 
-            <p className="text-gray-600 mb-4">
+            <p className="text-foreground-soft mb-4">
               KIS befindet sich derzeit in der Testphase. Ihr TH-Lübeck-Konto
               wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung
               freigegeben.
             </p>
 
-            <p className="text-gray-600 mb-6">
+            <p className="text-foreground-soft mb-6">
               Wenn Sie Zugang zu KIS benötigen, wenden Sie sich bitte an:
             </p>
 
@@ -51,7 +51,7 @@ export default function TestphasePage() {
             <div>
               <Link
                 href="/login"
-                className="text-sm text-primary hover:underline"
+                className="text-sm text-kb hover:underline"
               >
                 Zurück zur Anmeldung
               </Link>

@@ -25,12 +25,12 @@ export default function MaintenancePage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center space-y-4">
-        <Wrench size={56} weight="duotone" className="mx-auto text-gray-500" />
-        <h1 className="text-2xl font-semibold text-gray-800">Wartungsarbeiten</h1>
-        <p className="text-sm text-gray-600">
+        <Wrench size={56} weight="duotone" className="mx-auto text-muted" />
+        <h1 className="text-2xl font-semibold text-foreground">Wartungsarbeiten</h1>
+        <p className="text-sm text-foreground-soft">
           Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.
         </p>
-        <p className="text-xs text-gray-400">Diese Seite aktualisiert sich automatisch, sobald die Wartung beendet ist.</p>
+        <p className="text-xs text-muted-soft">Diese Seite aktualisiert sich automatisch, sobald die Wartung beendet ist.</p>
       </div>
     </div>
   );

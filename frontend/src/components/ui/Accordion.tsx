@@ -23,14 +23,14 @@ export function AccordionItem({ header, open, onToggle, children, className = ""
   return (
     <div
       className={`rounded-lg overflow-hidden ${className}`}
-      style={{ backgroundColor: "var(--bg)", border: "1px solid var(--border)" }}
+      style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
     >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:opacity-80 transition-opacity"
-        style={{ color: "var(--text)" }}
+        style={{ color: "var(--foreground)" }}
       >
         <div className="flex-1 min-w-0">{header}</div>
         <svg

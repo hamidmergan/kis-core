@@ -31,9 +31,9 @@ export default function GlossarySelector({ values, onChange }: Props) {
   if (glossaries.length === 0) {
     return (
       <div className="mb-4">
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-muted-soft">
           Noch kein Glossary erstellt →{" "}
-          <Link href="/tools/glossary" className="text-primary hover:underline">
+          <Link href="/tools/glossary" className="text-kb hover:underline">
             Glossaries verwalten
           </Link>
         </p>
@@ -93,13 +93,13 @@ export default function GlossarySelector({ values, onChange }: Props) {
         <button
           type="button"
           onClick={() => setOpen(prev => !prev)}
-          className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-100 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+          className="w-full flex items-center justify-between rounded-md border border-border bg-white px-3 py-2 text-sm shadow-sm hover:bg-surface focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
         >
-          <span className={selectedIds.length === 0 ? "text-gray-400" : "text-gray-700"}>
+          <span className={selectedIds.length === 0 ? "text-muted-soft" : "text-foreground-soft"}>
             {buttonLabel}
           </span>
           <svg
-            className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${open ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-muted-soft transition-transform flex-shrink-0 ${open ? "rotate-180" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -111,7 +111,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
 
         {open && (
           <ul
-            className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg max-h-60 overflow-auto py-1"
+            className="absolute z-10 mt-1 w-full rounded-md border border-border-soft bg-white shadow-lg max-h-60 overflow-auto py-1"
             role="listbox"
             aria-multiselectable="true"
           >
@@ -122,7 +122,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
                 <li key={g.id}>
                   <label
                     className={`flex items-center gap-3 px-3 py-2 text-sm select-none ${
-                      isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-gray-100"
+                      isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-surface"
                     }`}
                   >
                     <input
@@ -130,10 +130,10 @@ export default function GlossarySelector({ values, onChange }: Props) {
                       checked={isSelected}
                       disabled={isDisabled}
                       onChange={() => toggleGlossary(g.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary flex-shrink-0"
+                      className="h-4 w-4 rounded border-border text-kb focus:ring-kb flex-shrink-0"
                     />
-                    <span className="flex-1 text-gray-700">{g.name}</span>
-                    <span className="text-gray-400 text-xs">
+                    <span className="flex-1 text-foreground-soft">{g.name}</span>
+                    <span className="text-muted-soft text-xs">
                       {Object.keys(g.entries).length} Einträge
                     </span>
                   </label>
@@ -164,17 +164,17 @@ export default function GlossarySelector({ values, onChange }: Props) {
                   isDraggingThis
                     ? "opacity-40"
                     : isDragTarget
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-gray-300 bg-gray-100 text-gray-700"
+                      ? "border-kb bg-kb/10 text-kb"
+                      : "border-border bg-surface text-foreground-soft"
                 }`}
               >
-                <span className="text-gray-400 text-[10px]">{index + 1}</span>
+                <span className="text-muted-soft text-[10px]">{index + 1}</span>
                 {g.name}
                 <button
                   type="button"
                   onClick={() => removeTag(id)}
                   aria-label={`${g.name} entfernen`}
-                  className="w-5 h-5 flex items-center justify-center rounded-full text-gray-400 hover:text-primary hover:bg-gray-200 transition-colors"
+                  className="w-5 h-5 flex items-center justify-center rounded-full text-muted-soft hover:text-kb hover:bg-surface-dim transition-colors"
                 >
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -187,7 +187,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
       )}
 
       {/* Info text */}
-      <p className="mt-2 text-xs text-gray-400">
+      <p className="mt-2 text-xs text-muted-soft">
         Bei gleichen Begriffen hat das oben stehende Glossary Vorrang
         {" · "}Max. {MAX_SELECTED} gleichzeitig wählbar
       </p>

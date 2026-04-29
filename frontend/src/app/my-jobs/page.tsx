@@ -145,7 +145,7 @@ export default function MeineJobsPage() {
           <h2 className="text-xl font-semibold mb-4">Meine Jobs</h2>
           <div className="flex items-center gap-2">
             {lastUpdated && !loading && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-soft">
                 {lastUpdated.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })}
               </span>
             )}
@@ -153,14 +153,14 @@ export default function MeineJobsPage() {
               onClick={() => { fetchJobs(); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }}
               disabled={loading}
               title="Aktualisieren"
-              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 disabled:opacity-40 transition-colors"
+              className="flex items-center gap-1.5 text-sm text-muted hover:text-foreground disabled:opacity-40 transition-colors"
             >
               <ArrowsCounterClockwise size={16} className={loading ? "animate-spin" : ""} />
               Aktualisieren
             </button>
           </div>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted mb-4">
           Es werden bis zu 20 Jobs gespeichert. Fertige Downloads sind 7 Tage verfügbar. Ältere Dateien werden automatisch entfernt.
         </p>
 
@@ -183,12 +183,12 @@ export default function MeineJobsPage() {
         {loading ? (
           <Spinner className="flex justify-center py-16" />
         ) : jobs.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-16">
+          <p className="text-sm text-muted-soft text-center py-16">
             {debouncedQ ? "Keine Ergebnisse für diese Suche" : "Keine Jobs in den letzten 7 Tagen"}
           </p>
         ) : (
           <>
-            <ul className="border border-gray-200 divide-y divide-gray-200 rounded-xl overflow-hidden">
+            <ul className="border border-border-soft divide-y divide-border-soft rounded-xl overflow-hidden">
               {jobs.map((job) => (
                 <JobListItem
                   key={job.job_uuid}

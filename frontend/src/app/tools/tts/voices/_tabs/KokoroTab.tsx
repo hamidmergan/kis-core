@@ -21,9 +21,9 @@ export default function KokoroTab({ active }: { active: boolean }) {
       .finally(() => setLoading(false));
   }, [active, voices.length]);
 
-  if (loading) return <p className="text-sm text-gray-500">Wird geladen…</p>;
+  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
   if (voices.length === 0) {
-    return <p className="text-sm text-gray-400">Kokoro Server nicht erreichbar oder keine Stimmen gefunden.</p>;
+    return <p className="text-sm text-muted-soft">Kokoro Server nicht erreichbar oder keine Stimmen gefunden.</p>;
   }
 
   const grouped: Record<string, KokoroVoice[]> = {};
@@ -41,18 +41,18 @@ export default function KokoroTab({ active }: { active: boolean }) {
     <div className="space-y-4">
       {languages.map((lang) => (
         <details key={lang} open={lang === "Deutsch"}>
-          <summary className="cursor-pointer select-none px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-800 hover:bg-gray-100 transition-colors">
+          <summary className="cursor-pointer select-none px-4 py-3 bg-surface border border-border-soft rounded-lg text-sm font-medium text-foreground hover:bg-surface transition-colors">
             {KOKORO_LANGUAGE_LABEL[lang] ?? lang}
-            <span className="ml-2 text-xs text-gray-400 font-normal">
+            <span className="ml-2 text-xs text-muted-soft font-normal">
               {grouped[lang].length} {grouped[lang].length === 1 ? "Stimme" : "Stimmen"}
             </span>
           </summary>
-          <div className="mt-1 divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+          <div className="mt-1 divide-y divide-border-soft border border-border-soft rounded-lg overflow-hidden">
             {grouped[lang].map((voice) => (
-              <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-100">
+              <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-surface">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{voice.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-sm font-medium text-foreground">{voice.name}</p>
+                  <p className="text-xs text-muted-soft mt-0.5">
                     {voice.gender === "Female" ? "Weiblich" : "Männlich"}
                     {voice.accent && lang === "English" ? ` · ${voice.accent}` : ""}
                   </p>

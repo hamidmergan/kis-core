@@ -9,12 +9,12 @@ interface StatusBadgeProps {
 }
 
 const palette: Record<StatusKind, { bg: string; fg: string; border: string }> = {
-  queued:   { bg: "#F3F4F6", fg: "#4B5563", border: "#E5E7EB" },
-  running:  { bg: "#DBEAFE", fg: "#1D4ED8", border: "#BFDBFE" },
-  success:  { bg: "#D1FAE5", fg: "#047857", border: "#A7F3D0" },
-  failed:   { bg: "#FEE2E2", fg: "#B91C1C", border: "#FECACA" },
-  neutral:  { bg: "#F3F4F6", fg: "#374151", border: "#E5E7EB" },
-  warning:  { bg: "#FEF3C7", fg: "#92400E", border: "#FDE68A" },
+  queued:   { bg: "var(--surface)",    fg: "var(--foreground-soft)",       border: "var(--border-soft)" },
+  running:  { bg: "var(--info-bg)",    fg: "var(--info-strong)",     border: "var(--info-border)" },
+  success:  { bg: "var(--success-bg)", fg: "var(--success-strong)",  border: "var(--success-border)" },
+  failed:   { bg: "var(--error-bg)",   fg: "var(--error-strong)",    border: "var(--error-border)" },
+  neutral:  { bg: "var(--surface)",    fg: "var(--foreground-soft)",       border: "var(--border-soft)" },
+  warning:  { bg: "var(--warn-bg)",    fg: "var(--warn-strong)",     border: "var(--warn-border)" },
 };
 
 export default function StatusBadge({ kind, children, className = "" }: StatusBadgeProps) {

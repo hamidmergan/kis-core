@@ -1,11 +1,58 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #004261;
-  --color-primary-hover: #003a56;
-  --color-primary-60: #668DA0;
-  --color-primary-20: #CCD9DF;
-  --color-secondary: #ffffff;
+  /* Disable Tailwind's default color palette — only CD tokens below remain */
+  --color-*: initial;
+
+  /* Special color tokens (re-declared after wipe) */
+  --color-white:       #ffffff;
+  --color-black:       #000000;
+  --color-transparent: transparent;
+  --color-current:     currentColor;
+  --color-inherit:     inherit;
+
+  /* Brand */
+  --color-kb:         var(--kb);
+  --color-kb-dark:    var(--kb-dark);
+  --color-kb-darker:  var(--kb-darker);
+  --color-kb60:       var(--kb60);
+  --color-kb20:       var(--kb20);
+
+  /* Foreground / muted text */
+  --color-foreground:      var(--foreground);
+  --color-foreground-soft: var(--foreground-soft);
+  --color-muted:           var(--muted);
+  --color-muted-soft:      var(--muted-soft);
+
+  /* Backgrounds */
+  --color-background:  var(--background);
+  --color-surface:     var(--surface);
+  --color-surface-dim: var(--surface-dim);
+
+  /* Borders */
+  --color-border:      var(--border);
+  --color-border-soft: var(--border-soft);
+
+  /* Semantic state colors */
+  --color-error:        var(--error);
+  --color-error-strong: var(--error-strong);
+  --color-error-bg:     var(--error-bg);
+  --color-error-border: var(--error-border);
+
+  --color-success:        var(--success);
+  --color-success-strong: var(--success-strong);
+  --color-success-bg:     var(--success-bg);
+  --color-success-border: var(--success-border);
+
+  --color-warn:        var(--warn);
+  --color-warn-strong: var(--warn-strong);
+  --color-warn-bg:     var(--warn-bg);
+  --color-warn-border: var(--warn-border);
+
+  --color-info:        var(--info);
+  --color-info-strong: var(--info-strong);
+  --color-info-bg:     var(--info-bg);
+  --color-info-border: var(--info-border);
 }
 
 /* PDF Text Layer — undo Tailwind Preflight damage */
@@ -36,35 +83,64 @@
 }
 
 
-/* ─── Brand tokens ─── */
+/* ─── Corporate Design tokens — single source of truth ──────────────────
+   To rebrand the entire app, change ONLY the values below. Every utility
+   class, component style, and inline `var(--…)` reference picks up the
+   new values automatically. The @theme block above only re-exports these
+   as Tailwind utilities; it never defines its own colors. */
 :root {
-  --kb:       #004261;
-  --kb-rgb:   0, 66, 97;
-  --accent:   #004261;
-  --accent-rgb: 0, 66, 97;
-  --kb-dark:  #003350;
-  --kb-darker:#00293d;
-  --kb60:     #668DA0;
-  --kb20:     #EBEDF0;
+  /* Brand */
+  --kb:           #004261;
+  --kb-rgb:       0, 66, 97;
+  --kb-dark:      #003350;
+  --kb-darker:    #00293d;
+  --kb60:         #668DA0;
+  --kb20:         #EBEDF0;
 
-  --bg:      #ffffff;
-  --surface: #F3F4F6;
-  --surface-dim: #EBEDF0;
-  --border:  #B8CDD5;
-  --text:    #0D1F2D;
-  --muted:   #668DA0;
-  --shadow:  0 1px 4px rgba(0,66,97,.10);
+  /* Neutrals (CD blue-tinted scale) */
+  --background:      #ffffff;
+  --surface:         #F3F4F6;
+  --surface-dim:     #EBEDF0;
+  --border-soft:     #D9E2E6;
+  --border:          #B8CDD5;
+  --muted-soft:      #8FAEC0;
+  --muted:           #668DA0;
+  --foreground-soft: #2F4D5C;
+  --foreground:      #0D1F2D;
+
+  /* Semantic states (replaces Tailwind red/green/amber/blue) */
+  --error:         #DC2626;
+  --error-strong:  #991B1B;
+  --error-bg:      #FEF2F2;
+  --error-border:  #FCA5A5;
+
+  --success:        #16A34A;
+  --success-strong: #15803D;
+  --success-bg:     #F0FDF4;
+  --success-border: #86EFAC;
+
+  --warn:         #D97706;
+  --warn-strong:  #92400E;
+  --warn-bg:      #FFFBEB;
+  --warn-border:  #FCD34D;
+
+  --info:         #2563EB;
+  --info-strong:  #1E40AF;
+  --info-bg:      #EFF6FF;
+  --info-border:  #93C5FD;
+
+  --shadow:       0 1px 4px rgba(0,66,97,.10);
   --shadow-hover: 0 6px 20px rgba(0,66,97,.15);
 }
 
 /* ─── Base ─── */
 html {
-  background-color: var(--bg);
+  background-color: var(--background);
 }
 
 body {
-  background-color: var(--bg);
-  color: var(--text);
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -75,9 +151,6 @@ h1 {
 h2, h3, h4, h5, h6 {
   color: var(--kb);
 }
-
-/* Old brand-colour links → new brand colour */
-.text-\[\#0066cc\] { color: #004261; }
 
 /* ─── Utilities ─── */
 button,
@@ -159,7 +232,7 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
   transition: outline-color 0.15s;
 }
 me-tpc:hover .mm-src-chip {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--kb);
 }
 
 /* Black tooltip for truncated card titles */
@@ -203,20 +276,20 @@ me-tpc:hover .mm-src-chip {
     outline: 2px solid transparent;
   }
   .btn-icon:hover:not(:disabled, [aria-disabled="true"]) {
-    color: var(--color-primary);
-    outline-color: var(--color-primary);
+    color: var(--kb);
+    outline-color: var(--kb);
   }
 
-  /* Solid Primary CTA: invert on hover (bg-white + text-primary + outline) */
+  /* Solid Primary CTA: invert on hover (bg-white + text-kb + outline) */
   .btn-primary {
-    background-color: var(--color-primary);
+    background-color: var(--kb);
     color: #ffffff;
     outline: 2px solid transparent;
   }
   .btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: #ffffff;
-    color: var(--color-primary);
-    outline-color: var(--color-primary);
+    color: var(--kb);
+    outline-color: var(--kb);
   }
 
   /* Ghost / outlined button: outline on hover */
@@ -224,7 +297,7 @@ me-tpc:hover .mm-src-chip {
     outline: 2px solid transparent;
   }
   .btn-ghost:hover:not(:disabled, [aria-disabled="true"]) {
-    outline-color: var(--color-primary);
+    outline-color: var(--kb);
   }
 
   /* Button on dark blue header: full white default, opacity fade on hover (matches logo-link). */
@@ -254,52 +327,52 @@ me-tpc:hover .mm-src-chip {
     outline: 2px solid transparent;
   }
   .chip-cite:hover:not(:disabled, [aria-disabled="true"]) {
-    outline-color: var(--accent);
+    outline-color: var(--kb);
   }
 
   /* Outlined Accent CTA: white bg, accent border + text. Hover: invert (fill accent + white text). */
   .btn-outline-accent {
-    background-color: var(--bg);
-    color: var(--accent);
-    border: 2px solid var(--accent);
+    background-color: var(--background);
+    color: var(--kb);
+    border: 2px solid var(--kb);
   }
   .btn-outline-accent:hover:not(:disabled, [aria-disabled="true"]) {
-    background-color: var(--accent);
+    background-color: var(--kb);
     color: #ffffff;
   }
 
   /* Solid Accent CTA: accent bg + white text. Hover: invert (white bg, accent border + text). */
   .btn-fill-accent {
-    background-color: var(--accent);
+    background-color: var(--kb);
     color: #ffffff;
-    border: 2px solid var(--accent);
+    border: 2px solid var(--kb);
   }
   .btn-fill-accent:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: #ffffff;
-    color: var(--accent);
+    color: var(--kb);
   }
 
   /* Soft Accent CTA: tinted accent bg + accent text. Hover: outline ring. */
   .btn-soft-accent {
-    background-color: rgba(var(--accent-rgb), 0.07);
-    color: var(--accent);
+    background-color: rgba(var(--kb-rgb), 0.07);
+    color: var(--kb);
     border: 2px solid transparent;
     outline: 2px solid transparent;
   }
   .btn-soft-accent:hover:not(:disabled, [aria-disabled="true"]) {
-    outline-color: var(--accent);
+    outline-color: var(--kb);
   }
 }
 
 /* Module table: hovering a main cell triggers arrow icon hover */
 tr.module-row:has(td.row-main:hover) .row-arrow {
-  color: var(--color-primary);
-  outline: 2px solid var(--color-primary);
+  color: var(--kb);
+  outline: 2px solid var(--kb);
 }
 
 /* Sources panel: hovering "Alle auswählen" previews hover on per-source checkboxes */
 .sources-panel:has(.sources-select-all:hover) .source-checkbox {
-  border-color: var(--color-primary);
+  border-color: var(--kb);
 }
 
 /* Expandable row: hovering the row turns the expand-caret accent. Direct CSS
@@ -310,7 +383,7 @@ tr.module-row:has(td.row-main:hover) .row-arrow {
   transition: color 0.15s ease;
 }
 .row-expandable:hover .row-caret {
-  color: var(--accent);
+  color: var(--kb);
 }
 
 /* MiniStrip: hovering the full vertical strip turns icon + label blue, with outline on the icon. */
@@ -322,36 +395,36 @@ tr.module-row:has(td.row-main:hover) .row-arrow {
   transition: color 0.15s, outline-color 0.15s;
 }
 .mini-strip-btn:hover {
-  color: var(--color-primary);
+  color: var(--kb);
 }
 .mini-strip-btn:hover .mini-strip-icon {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--kb);
 }
 
 /* Schedule timeline dot: ring also turns blue on row hover (overrides inline
    box-shadow that holds the checked-green ring). bg is handled by Tailwind
    group-hover utility on the dot itself. */
 .schedule-row:hover .schedule-dot {
-  box-shadow: 0 0 0 5px var(--bg), 0 0 0 6px var(--accent) !important;
+  box-shadow: 0 0 0 5px var(--background), 0 0 0 6px var(--kb) !important;
 }
 
 /* Heatmap-Cell (Sprachtraining-Stats): Accent-Outline auf Hover.
    !important noetig, weil das selected-Outline inline gesetzt wird. */
 .heatmap-cell:hover {
-  outline: 2px solid var(--accent) !important;
+  outline: 2px solid var(--kb) !important;
   outline-offset: 1px !important;
 }
 
 /* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */
 .tools-sidebar-item__box {
-  background-color: var(--bg);
+  background-color: var(--background);
   border: 1px solid var(--border);
   color: var(--kb);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .tools-sidebar-item:hover .tools-sidebar-item__box {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-primary);
+  border-color: var(--kb);
+  box-shadow: 0 0 0 1px var(--kb);
 }
 
 /* Hide non-critical elements (disclaimers, labels) on phones in landscape
@@ -503,7 +576,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
     [role="button"], [role="link"], [role="tab"], [role="menuitem"],
     [tabindex]
   ):focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--kb);
     outline-offset: 2px;
   }
 

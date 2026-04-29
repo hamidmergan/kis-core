@@ -126,16 +126,16 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
               setSelectedUser(null);
               onBack();
             }}
-            className="text-sm text-primary hover:underline"
+            className="text-sm text-kb hover:underline"
           >
             ← Zurück
           </button>
-          <span className="text-sm text-gray-500">|</span>
-          <span className="text-sm font-medium text-gray-800">{selectedUser.display_name}</span>
+          <span className="text-sm text-muted">|</span>
+          <span className="text-sm font-medium text-foreground">{selectedUser.display_name}</span>
         </div>
 
         {selectedUser.global_reset_at && (
-          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
+          <div className="flex items-center gap-2 text-xs text-warn-strong bg-warn-bg border border-warn-border rounded-lg px-4 py-2.5">
             <span>
               Globaler Reset aktiv — alle Tools werden zurückgesetzt ab{" "}
               {new Date(selectedUser.global_reset_at).toLocaleString("de-DE", {
@@ -150,19 +150,19 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
           </div>
         )}
 
-        <div className="border border-gray-200 rounded-xl bg-white overflow-x-auto">
+        <div className="border border-border-soft rounded-xl bg-white overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-surface border-b border-border-soft">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Tool</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Verbraucht</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Limit (Standard)</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Override</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Reset</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Tool</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Verbraucht</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Limit (Standard)</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Override</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Reset</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-soft">
               {selectedUser.quotas.map((q) => {
                 const def = defaults[q.quota_type];
                 const effectiveLimit = q.limit_is_unlimited ? "∞" : String(q.limit);
@@ -170,27 +170,27 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                   ? 0
                   : Math.min(100, Math.round((q.used / q.limit) * 100));
                 return (
-                  <tr key={q.quota_type} className="hover:bg-gray-100">
-                    <td className="px-4 py-3 font-medium text-gray-800">{q.label}</td>
-                    <td className="px-4 py-3 text-gray-700">
+                  <tr key={q.quota_type} className="hover:bg-surface">
+                    <td className="px-4 py-3 font-medium text-foreground">{q.label}</td>
+                    <td className="px-4 py-3 text-foreground-soft">
                       <div className="flex items-center gap-2">
                         <span>
                           {q.used} / {effectiveLimit}
                         </span>
                         {!q.limit_is_unlimited && (
-                          <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="w-16 h-1.5 bg-surface-dim rounded-full overflow-hidden">
                             <div
-                              className={`h-full rounded-full ${pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-400" : "bg-blue-500"}`}
+                              className={`h-full rounded-full ${pct >= 100 ? "bg-error" : pct >= 80 ? "bg-warn-border" : "bg-info"}`}
                               style={{ width: `${pct}%` }}
                             />
                           </div>
                         )}
                       </div>
                       {!q.limit_is_unlimited && q.used >= q.limit && (
-                        <p className="text-xs text-amber-600 mt-0.5">Gesperrt</p>
+                        <p className="text-xs text-warn mt-0.5">Gesperrt</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-muted">
                       {def ? `${def.limit} / ${def.window_hours}h` : "–"}
                     </td>
                     <td className="px-4 py-3">
@@ -203,23 +203,23 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                             setOverrideInputs((prev) => ({ ...prev, [q.quota_type]: e.target.value }))
                           }
                           placeholder="Standard"
-                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-primary"
+                          className="w-24 border border-border rounded px-2 py-1 text-sm focus:outline-none focus:border-kb"
                         />
                         <button
                           onClick={() => saveOverride(q.quota_type, overrideInputs[q.quota_type] ?? "")}
                           disabled={saving === q.quota_type}
-                          className="text-xs text-primary hover:underline disabled:opacity-50"
+                          className="text-xs text-kb hover:underline disabled:opacity-50"
                         >
                           Speichern
                         </button>
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">-1 = unlimitiert, leer = Standard</p>
+                      <p className="text-xs text-muted-soft mt-0.5">-1 = unlimitiert, leer = Standard</p>
                     </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => resetQuota(q.quota_type)}
                         disabled={saving === q.quota_type + "_reset" || q.used === 0}
-                        className="text-xs text-red-600 hover:underline disabled:opacity-40"
+                        className="text-xs text-error hover:underline disabled:opacity-40"
                       >
                         Zurücksetzen
                       </button>
@@ -231,11 +231,11 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
           </table>
         </div>
 
-        <div className="border border-gray-200 rounded-xl bg-white p-4">
-          <p className="text-xs font-medium text-gray-500 mb-3">Standard-Limits (global)</p>
+        <div className="border border-border-soft rounded-xl bg-white p-4">
+          <p className="text-xs font-medium text-muted mb-3">Standard-Limits (global)</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {Object.entries(defaults).map(([type, def]) => (
-              <div key={type} className="text-xs text-gray-600">
+              <div key={type} className="text-xs text-foreground-soft">
                 <span className="font-medium">{def.label}:</span> {def.limit} / {def.window_hours}h
               </div>
             ))}
@@ -246,9 +246,9 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
   }
 
   return (
-    <div className="text-center py-12 text-sm text-gray-500">
+    <div className="text-center py-12 text-sm text-muted">
       Bitte einen User über{" "}
-      <span className="font-medium text-gray-700">Alle User → Kontingente →</span> auswählen.
+      <span className="font-medium text-foreground-soft">Alle User → Kontingente →</span> auswählen.
     </div>
   );
 }

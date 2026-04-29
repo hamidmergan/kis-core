@@ -70,14 +70,14 @@ export default function PromptsTab() {
       {prompts.map((p) => (
         <div
           key={p.key}
-          className={`rounded-xl border p-5 space-y-3 ${p.editable ? "border-gray-200 bg-white" : "border-gray-100 bg-gray-50"}`}
+          className={`rounded-xl border p-5 space-y-3 ${p.editable ? "border-border-soft bg-white" : "border-border-soft bg-surface"}`}
         >
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-sm font-medium text-gray-800">{p.label}</p>
+                <p className="text-sm font-medium text-foreground">{p.label}</p>
                 {!p.editable && (
-                  <span className="inline-flex items-center gap-1 text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-soft bg-surface-dim px-2 py-0.5 rounded-full">
                     <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
                       <path d="M12 6h-1V4a3 3 0 0 0-6 0v2H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1zm-5 5.73V13h2v-1.27a1.5 1.5 0 1 0-2 0zM7 4a1 1 0 0 1 2 0v2H7V4z" />
                     </svg>
@@ -85,7 +85,7 @@ export default function PromptsTab() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">{p.description}</p>
+              <p className="text-xs text-muted-soft mt-0.5">{p.description}</p>
             </div>
           </div>
           <textarea
@@ -96,8 +96,8 @@ export default function PromptsTab() {
             spellCheck={false}
             className={`w-full text-xs font-mono rounded-lg border px-3 py-2.5 resize-y leading-relaxed focus:outline-none ${
               p.editable
-                ? "border-gray-300 bg-white text-gray-800 focus:ring-2 focus:ring-primary"
-                : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed select-none"
+                ? "border-border bg-white text-foreground focus:ring-2 focus:ring-kb"
+                : "border-border-soft bg-surface text-muted-soft cursor-not-allowed select-none"
             }`}
           />
           {p.editable && (
@@ -112,7 +112,7 @@ export default function PromptsTab() {
               <button
                 onClick={() => reset(p.key, p.default_value)}
                 disabled={saving === p.key || values[p.key] === p.default_value}
-                className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-40"
+                className="text-sm text-muted hover:text-foreground-soft px-3 py-1.5 rounded-lg border border-border hover:bg-surface disabled:opacity-40"
               >
                 Zurücksetzen
               </button>

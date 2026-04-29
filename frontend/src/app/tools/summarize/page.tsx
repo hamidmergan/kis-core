@@ -113,7 +113,7 @@ export default function ZusammenfassungPage() {
         <BackLink />
         <section>
           <h1 className="text-xl font-bold mb-1">Zusammenfassung</h1>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-muted mb-6">
             Lange Dokumente, Audio- und Videoinhalte auf das Wesentliche bringen.
           </p>
 
@@ -134,26 +134,26 @@ export default function ZusammenfassungPage() {
             onDragLeave={() => setDragActive(false)}
             className={[
               "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-              dragActive ? "border-primary bg-blue-50" : selectedFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-primary",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb",
+              dragActive ? "border-kb bg-info-bg" : selectedFile ? "border-success-border bg-success-bg" : "border-border hover:border-kb",
               processing ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
             ].join(" ")}
           >
             {selectedFile ? (
               <>
-                <svg className="mx-auto h-8 w-8 text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <svg className="mx-auto h-8 w-8 text-success mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <p className="text-sm font-medium text-gray-800">{selectedFile.name}</p>
-                <p className="text-xs text-gray-400 mt-1">Klicken um zu ersetzen</p>
+                <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
+                <p className="text-xs text-muted-soft mt-1">Klicken um zu ersetzen</p>
               </>
             ) : (
               <>
-                <p className="text-sm font-medium text-gray-500">
+                <p className="text-sm font-medium text-muted">
                   Datei hierher ziehen oder{" "}
-                  <span className="text-primary underline">durchsuchen</span>
+                  <span className="text-kb underline">durchsuchen</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-soft mt-1">
                   {ACCEPTED_EXTENSIONS.join(", ")}
                 </p>
               </>
@@ -168,7 +168,7 @@ export default function ZusammenfassungPage() {
             aria-hidden="true"
           />
           {uploadError && (
-            <p className="mt-2 text-sm text-red-600" role="alert">{uploadError}</p>
+            <p className="mt-2 text-sm text-error" role="alert">{uploadError}</p>
           )}
 
           {!doneJobUuid && (
@@ -176,7 +176,7 @@ export default function ZusammenfassungPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!selectedFile || processing}
-                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {processing && (
                   <Spinner size="sm" color="current" />
@@ -187,27 +187,27 @@ export default function ZusammenfassungPage() {
           )}
 
           {stallMessage && !errorMessage && (
-            <p className="mt-3 text-sm text-amber-600" role="status">{stallMessage}</p>
+            <p className="mt-3 text-sm text-warn" role="status">{stallMessage}</p>
           )}
 
           {errorMessage && (
-            <p className="mt-3 text-sm text-red-600" role="alert">{errorMessage}</p>
+            <p className="mt-3 text-sm text-error" role="alert">{errorMessage}</p>
           )}
 
           {doneJobUuid && (
-            <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6" role="status" aria-live="polite">
+            <div className="mt-6 rounded-lg border border-border-soft bg-white p-6" role="status" aria-live="polite">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-gray-900">Fertig! Download bereit</span>
+                  <span className="text-sm font-medium text-foreground">Fertig! Download bereit</span>
                 </div>
-                {selectedFile && <p className="text-xs text-gray-500">{selectedFile.name}</p>}
+                {selectedFile && <p className="text-xs text-muted">{selectedFile.name}</p>}
                 <div className="flex gap-3">
                   <button
                     onClick={handleDownload}
-                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors flex items-center gap-2"
+                    className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
                   >
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -216,7 +216,7 @@ export default function ZusammenfassungPage() {
                   </button>
                   <button
                     onClick={handleReset}
-                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+                    className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
                   >
                     Neue Datei
                   </button>

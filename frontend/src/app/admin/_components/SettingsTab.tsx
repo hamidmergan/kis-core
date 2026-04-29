@@ -49,16 +49,16 @@ function ProviderToggle({
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-700">{label}</p>
-        <p className="text-xs text-gray-500 mt-0.5">{statusText}</p>
+        <p className="text-sm text-foreground-soft">{label}</p>
+        <p className="text-xs text-muted mt-0.5">{statusText}</p>
         {!configured && envHint && (
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-muted-soft">
             <code className="font-mono">{envHint}</code> nicht gesetzt
           </p>
         )}
         {modelKey && onModelChange && (
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-gray-500 shrink-0">Modell:</span>
+            <span className="text-xs text-muted shrink-0">Modell:</span>
             <input
               type="text"
               value={draft}
@@ -67,7 +67,7 @@ function ProviderToggle({
               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
               disabled={saving || !configured}
               spellCheck={false}
-              className="font-mono text-xs px-2 py-1 border border-gray-200 rounded w-full max-w-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="font-mono text-xs px-2 py-1 border border-border-soft rounded w-full max-w-md disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
         )}
@@ -77,7 +77,7 @@ function ProviderToggle({
         disabled={saving || !configured}
         title={!configured && envHint ? `${envHint} ist nicht in .env gesetzt` : undefined}
         className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-          enabled ? "bg-primary" : "bg-gray-300"
+          enabled ? "bg-kb" : "bg-border"
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <span
@@ -100,13 +100,13 @@ function ProviderSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border border-gray-200 rounded-xl bg-white p-5">
-      <p className="text-sm font-medium text-gray-800 mb-1">{title}</p>
-      {hint && <p className="text-xs text-gray-400 mb-4">{hint}</p>}
+    <div className="border border-border-soft rounded-xl bg-white p-5">
+      <p className="text-sm font-medium text-foreground mb-1">{title}</p>
+      {hint && <p className="text-xs text-muted-soft mb-4">{hint}</p>}
       {!hint && <div className="mb-3" />}
       <div className="space-y-4">
         {React.Children.toArray(children).flatMap((child, i, arr) =>
-          i < arr.length - 1 ? [child, <div key={`sep-${i}`} className="border-t border-gray-100" />] : [child],
+          i < arr.length - 1 ? [child, <div key={`sep-${i}`} className="border-t border-border-soft" />] : [child],
         )}
       </div>
     </div>
@@ -188,11 +188,11 @@ function GeneralSettingsSection() {
 
   return (
     <div className="space-y-4">
-      <div className="border border-gray-200 rounded-xl bg-white p-5">
+      <div className="border border-border-soft rounded-xl bg-white p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-gray-800">Whitelist-Modus</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm font-medium text-foreground">Whitelist-Modus</p>
+            <p className="text-xs text-muted mt-1">
               {whitelistEnabled
                 ? "Aktiv — nur freigeschaltete E-Mail-Adressen dürfen sich einloggen."
                 : "Deaktiviert — alle authentifizierten TH-Accounts haben Zugang."}
@@ -206,7 +206,7 @@ function GeneralSettingsSection() {
             }}
             disabled={saving}
             className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-              whitelistEnabled ? "bg-primary" : "bg-gray-300"
+              whitelistEnabled ? "bg-kb" : "bg-border"
             } disabled:opacity-50`}
             aria-label="Whitelist umschalten"
           >
@@ -218,7 +218,7 @@ function GeneralSettingsSection() {
           </button>
         </div>
         {!whitelistEnabled && (
-          <p className="mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          <p className="mt-3 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
             Achtung: Alle TH-Mitarbeiter mit gültigem LDAP-Account können sich einloggen.
           </p>
         )}
@@ -269,8 +269,8 @@ function GeneralSettingsSection() {
       <ProviderSection title="Transkript-Übersetzung (EN)" hint="Automatische Übersetzung deutscher Video-/Audio-Transkripte ins Englische nach dem Indexieren. Betrifft aktuell nur den KI-Assistenten.">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-gray-800">Anbieter</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm font-medium text-foreground">Anbieter</p>
+            <p className="text-xs text-muted mt-1">
               DeepL: schnell, aber Kontingent-limitiert. LLM: nutzt den konfigurierten Chat-Provider, keine zusätzliche Quote.
             </p>
           </div>
@@ -282,7 +282,7 @@ function GeneralSettingsSection() {
               patch({ transcript_translation_provider: v });
             }}
             disabled={saving}
-            className="shrink-0 border border-gray-300 rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
+            className="shrink-0 border border-border rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
           >
             <option value="deepl">DeepL</option>
             <option value="llm">LLM</option>
@@ -327,18 +327,18 @@ function ToolsSettingsSection() {
   if (!tools) return <Spinner className="flex justify-center py-12" />;
 
   return (
-    <div className="border border-gray-200 rounded-xl bg-white p-5">
-      <p className="text-sm font-medium text-gray-800 mb-1">Tools ein-/ausschalten</p>
-      <p className="text-xs text-gray-500 mb-4">Deaktivierte Tools werden auf der Startseite ausgeblendet.</p>
+    <div className="border border-border-soft rounded-xl bg-white p-5">
+      <p className="text-sm font-medium text-foreground mb-1">Tools ein-/ausschalten</p>
+      <p className="text-xs text-muted mb-4">Deaktivierte Tools werden auf der Startseite ausgeblendet.</p>
       <div className="space-y-3">
         {tools.map((tool) => (
           <div key={tool.key} className="flex items-center justify-between">
-            <span className="text-sm text-gray-700">{tool.label}</span>
+            <span className="text-sm text-foreground-soft">{tool.label}</span>
             <button
               onClick={() => toggle(tool.key, !tool.enabled)}
               disabled={saving === tool.key}
               className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                tool.enabled ? "bg-primary" : "bg-gray-300"
+                tool.enabled ? "bg-kb" : "bg-border"
               } disabled:opacity-50`}
               aria-label={`${tool.label} ${tool.enabled ? "deaktivieren" : "aktivieren"}`}
             >
@@ -443,9 +443,9 @@ function MaintenanceSection() {
   const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="border border-gray-200 rounded-xl bg-white p-5 space-y-4">
+    <div className="border border-border-soft rounded-xl bg-white p-5 space-y-4">
       {staleModules.length > 0 && !progress?.running && (
-        <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs text-amber-800 space-y-2">
+        <div className="bg-warn-bg border border-warn-border rounded-md px-3 py-2 text-xs text-warn-strong space-y-2">
           <div>
             <strong>Hinweis:</strong> {staleModules.length} Workspace
             {staleModules.length === 1 ? "" : "s"} wurde{staleModules.length === 1 ? "" : "n"} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten &quot;Reindex starten&quot; ausführst.
@@ -454,7 +454,7 @@ function MaintenanceSection() {
             {staleModules.map((m) => (
               <li key={m.uuid}>
                 <span className="font-medium">{m.title}</span>
-                {m.owner && <span className="text-amber-700"> — {m.owner}</span>}
+                {m.owner && <span className="text-warn-strong"> — {m.owner}</span>}
               </li>
             ))}
           </ul>
@@ -462,8 +462,8 @@ function MaintenanceSection() {
       )}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-gray-800">Wartungsmodus</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-sm font-medium text-foreground">Wartungsmodus</p>
+          <p className="text-xs text-muted mt-1">
             {enabled
               ? "Aktiv — alle Nicht-Admin-Anfragen erhalten eine Wartungsseite."
               : "Deaktiviert — App ist normal nutzbar."}
@@ -473,7 +473,7 @@ function MaintenanceSection() {
           onClick={() => toggle(!enabled)}
           disabled={working || !!progress?.running}
           className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-            enabled ? "bg-red-500" : "bg-gray-300"
+            enabled ? "bg-error" : "bg-border"
           } disabled:opacity-50`}
           aria-label="Wartungsmodus umschalten"
         >
@@ -485,26 +485,26 @@ function MaintenanceSection() {
         </button>
       </div>
 
-      <div className="border-t border-gray-100 pt-4 space-y-3">
+      <div className="border-t border-border-soft pt-4 space-y-3">
         <div>
-          <p className="text-sm font-medium text-gray-800">Alle Quellen neu indexieren</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-sm font-medium text-foreground">Alle Quellen neu indexieren</p>
+          <p className="text-xs text-muted mt-1">
             Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.
           </p>
         </div>
         {progress?.running ? (
           <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-600">
+            <div className="flex justify-between text-xs text-foreground-soft">
               <span>Läuft: {progress.current}</span>
               <span>
                 {progress.done}/{progress.total} ({pct}%)
               </span>
             </div>
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+            <div className="w-full h-2 bg-surface-dim rounded-full overflow-hidden">
+              <div className="h-full bg-kb transition-all" style={{ width: `${pct}%` }} />
             </div>
             {progress.failed > 0 && (
-              <p className="text-xs text-red-600">{progress.failed} Fehler — siehe Backend-Logs.</p>
+              <p className="text-xs text-error">{progress.failed} Fehler — siehe Backend-Logs.</p>
             )}
           </div>
         ) : (
@@ -512,22 +512,22 @@ function MaintenanceSection() {
             <button
               onClick={startReindex}
               disabled={working || !enabled}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:opacity-90 rounded-md disabled:opacity-40"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-kb hover:opacity-90 rounded-md disabled:opacity-40"
             >
               {working ? "…" : "Reindex starten"}
             </button>
             {progress && !progress.running && progress.done > 0 && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted">
                 Letzter Lauf: {progress.done}/{progress.total} fertig
                 {progress.failed > 0 ? `, ${progress.failed} Fehler` : ""}.
               </p>
             )}
             {!enabled && (
-              <p className="text-xs text-gray-400">Wartungsmodus aktivieren, bevor du startest.</p>
+              <p className="text-xs text-muted-soft">Wartungsmodus aktivieren, bevor du startest.</p>
             )}
           </div>
         )}
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="text-xs text-error">{error}</p>}
       </div>
     </div>
   );

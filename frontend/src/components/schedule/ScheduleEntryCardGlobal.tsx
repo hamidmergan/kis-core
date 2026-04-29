@@ -34,7 +34,7 @@ export function ScheduleEntryCardGlobal({
 }: ScheduleEntryCardGlobalProps) {
   const containerStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
-    backgroundColor: entry.is_checked ? "#f0fdf4" : "var(--bg)",
+    backgroundColor: entry.is_checked ? "var(--success-bg)" : "var(--background)",
     opacity: isPast ? 0.55 : 1,
     boxShadow: "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
@@ -50,7 +50,7 @@ export function ScheduleEntryCardGlobal({
   const description = cleanScheduleDescription(entry.description, entry.due_time);
 
   return (
-    <div className="hover:outline-2 hover:outline-primary transition" style={containerStyle}>
+    <div className="hover:outline-2 hover:outline-kb transition" style={containerStyle}>
       <button
         type="button"
         aria-label={
@@ -70,9 +70,9 @@ export function ScheduleEntryCardGlobal({
         disabled={isPast || !onToggleChecked}
         className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5 border-2 ${
           entry.is_checked
-            ? "border-[#10b981] bg-[#10b981]"
+            ? "border-[var(--success)] bg-[var(--success)]"
             : !isPast && onToggleChecked
-            ? "border-[var(--border)] bg-white hover:border-[#10b981]"
+            ? "border-[var(--border)] bg-white hover:border-[var(--success)]"
             : "border-[var(--border)] bg-white"
         }`}
         style={{
@@ -91,7 +91,7 @@ export function ScheduleEntryCardGlobal({
         <div
           className="font-semibold leading-tight break-words"
           style={{
-            color: entry.is_checked ? "#166534" : "var(--text)",
+            color: entry.is_checked ? "var(--success-strong)" : "var(--foreground)",
             textDecoration: entry.is_checked ? "line-through" : "none",
             fontSize: 14,
           }}

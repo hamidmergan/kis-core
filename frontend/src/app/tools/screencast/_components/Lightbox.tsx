@@ -23,7 +23,7 @@ export default function Lightbox({ index, slides, onClose, onIndexChange }: Ligh
       <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={onClose}
-          className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
+          className="absolute -top-10 right-0 text-white hover:text-border transition-colors"
           aria-label="Schließen"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

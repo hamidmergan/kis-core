@@ -24,7 +24,7 @@ export default function HelpTooltip({ text }: { text: string }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-3.5 h-3.5 flex items-center justify-center text-[var(--muted)] hover:text-[var(--color-primary)] transition-colors"
+        className="w-3.5 h-3.5 flex items-center justify-center text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
       >
         <svg
           className="w-3.5 h-3.5"
@@ -43,7 +43,7 @@ export default function HelpTooltip({ text }: { text: string }) {
           className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 w-56 rounded-lg p-2.5 text-xs leading-relaxed shadow-lg text-center whitespace-normal break-words"
           style={{
             backgroundColor: "var(--surface)",
-            color: "var(--text)",
+            color: "var(--foreground)",
             border: "1px solid var(--border)",
           }}
         >

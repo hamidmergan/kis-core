@@ -85,7 +85,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
           left: 11,
           top: 12,
           bottom: tbd.length > 0 ? 0 : 12,
-          backgroundColor: "var(--accent)",
+          backgroundColor: "var(--kb)",
         }}
       />
 
@@ -105,15 +105,15 @@ export function ScheduleTimeline<T extends DatedEntry>({
             >
               <div className="flex justify-center relative pt-2.5" style={{ zIndex: 1 }}>
                 <div
-                  className={`schedule-dot rounded-full transition-[background-color,box-shadow] group-hover:bg-[var(--accent)] ${
-                    entry.is_checked ? "bg-[#10b981]" : "bg-[var(--border)]"
+                  className={`schedule-dot rounded-full transition-[background-color,box-shadow] group-hover:bg-[var(--kb)] ${
+                    entry.is_checked ? "bg-[var(--success)]" : "bg-[var(--border)]"
                   }`}
                   style={{
                     width: 14,
                     height: 14,
                     boxShadow: entry.is_checked
-                      ? "0 0 0 5px var(--bg), 0 0 0 6px #10b981"
-                      : "0 0 0 5px var(--bg), 0 0 0 6px var(--accent)",
+                      ? "0 0 0 5px var(--background), 0 0 0 6px var(--success)"
+                      : "0 0 0 5px var(--background), 0 0 0 6px var(--kb)",
                   }}
                 />
               </div>
@@ -122,7 +122,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
                 <div
                   className="font-bold leading-none"
                   style={{
-                    color: urgency ?? (past_ && !today_ ? "var(--muted)" : "var(--text)"),
+                    color: urgency ?? (past_ && !today_ ? "var(--muted)" : "var(--foreground)"),
                     fontSize: 17,
                   }}
                 >
@@ -137,7 +137,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
                 {year && (
                   <div
                     className="mt-0.5 font-semibold"
-                    style={{ color: "#B91C1C", fontSize: 9 }}
+                    style={{ color: "var(--error-strong)", fontSize: 9 }}
                   >
                     {year}
                   </div>
@@ -169,10 +169,10 @@ export function ScheduleTimeline<T extends DatedEntry>({
                     style={{
                       width: 14,
                       height: 14,
-                      backgroundColor: entry.is_checked ? "#10b981" : "var(--border)",
+                      backgroundColor: entry.is_checked ? "var(--success)" : "var(--border)",
                       boxShadow: entry.is_checked
-                        ? "0 0 0 5px var(--bg), 0 0 0 6px #10b981"
-                        : "0 0 0 5px var(--bg), 0 0 0 6px var(--accent)",
+                        ? "0 0 0 5px var(--background), 0 0 0 6px var(--success)"
+                        : "0 0 0 5px var(--background), 0 0 0 6px var(--kb)",
                     }}
                   />
                 </div>
