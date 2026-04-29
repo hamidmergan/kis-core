@@ -102,10 +102,10 @@ async def get_recent_activities_endpoint(
     return db.get_recent_activities(workspace["id"], user_id, limit=10)
 
 
-# ─── Lecturer: Module Statistics ───────────────────────────────────────────────
+# ─── Lecturer: Workspace Statistics ────────────────────────────────────────────
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/lecturer-stats")
-async def get_lecturer_module_stats(
+async def get_lecturer_workspace_stats(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):

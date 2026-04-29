@@ -364,8 +364,8 @@ me-tpc:hover .mm-src-chip {
   }
 }
 
-/* Module table: hovering a main cell triggers arrow icon hover */
-tr.module-row:has(td.row-main:hover) .row-arrow {
+/* Workspace table: hovering a main cell triggers arrow icon hover */
+tr.workspace-row:has(td.row-main:hover) .row-arrow {
   color: var(--kb);
   outline: 2px solid var(--kb);
 }

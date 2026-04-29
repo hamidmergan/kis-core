@@ -19,7 +19,7 @@ export default function StatsModal({ workspaceUuid, onClose }: StatsModalProps) 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/dozent-stats`, {
+        const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/lecturer-stats`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Fehler beim Laden");

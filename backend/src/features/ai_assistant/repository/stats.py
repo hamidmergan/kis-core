@@ -294,7 +294,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 
             # ── 1. Summary ──
             cur.execute("SELECT COUNT(*) AS cnt FROM aia_workspaces")
-            total_modules = cur.fetchone()["cnt"]
+            total_workspaces = cur.fetchone()["cnt"]
 
             cur.execute(
                 f"""SELECT COUNT(DISTINCT p.user_id) AS cnt
@@ -321,7 +321,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
             )
             total_chat_messages = cur.fetchone()["cnt"]
 
-            # ── 2. Module list with lecturer activity + enrolled students ──
+            # ── 2. Workspace list with lecturer activity + enrolled students ──
             cur.execute(
                 """SELECT m.id, m.uuid, m.title, m.is_active, m.user_id AS owner_id,
                           u.display_name AS owner_name, u.ldap_username AS owner_username,
@@ -333,8 +333,8 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
             )
             workspaces_raw = [dict(r) for r in cur.fetchall()]
 
-            module_stats = []
-            for m in modules_raw:
+            workspace_stats = []
+            for m in workspaces_raw:
                 mid = m["id"]
                 owner_id = m["owner_id"]
                 owner = m["owner_name"] or m["owner_username"] or "Unbekannt"
@@ -428,7 +428,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                         "chat_messages": st_chat,
                     })
 
-                module_stats.append({
+                workspace_stats.append({
                     "workspace_uuid": m["uuid"],
                     "title": m["title"],
                     "owner": owner,
@@ -447,12 +447,12 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 
     return {
         "summary": {
-            "total_modules": total_modules,
+            "total_workspaces": total_workspaces,
             "active_students": active_students,
             "total_answers": total_answers,
             "total_chat_messages": total_chat_messages,
         },
-        "module_stats": module_stats,
+        "workspace_stats": workspace_stats,
         "days": days,
         "mode": mode,
     }

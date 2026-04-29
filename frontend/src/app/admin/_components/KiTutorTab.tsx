@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 
 interface KiTutorSummary {
-  total_modules: number;
+  total_workspaces: number;
   active_students: number;
   total_answers: number;
   total_chat_messages: number;
@@ -29,7 +29,7 @@ interface KiTutorWorkspaceStat {
   total_answers: number;
   accuracy: number;
   chat_messages: number;
-  dozent: { messages: number; exercises: number };
+  lecturer: { messages: number; exercises: number };
   students: KiTutorStudentStat[];
 }
 
@@ -39,9 +39,9 @@ interface KiTutorStatsData {
   days: number;
 }
 
-type StatsMode = "quelle" | "glossary";
+type StatsMode = "source" | "glossary";
 const MODE_META: Record<StatsMode, { label: string; accent: string }> = {
-  quelle: { label: "Lerntools", accent: "var(--kb)" },
+  source: { label: "Lerntools", accent: "var(--kb)" },
   glossary: { label: "Fachsprachentraining", accent: "var(--kb)" },
 };
 
@@ -49,7 +49,7 @@ export default function KiTutorTab() {
   const [data, setData] = useState<KiTutorStatsData | null>(null);
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<StatsMode>("quelle");
+  const [mode, setMode] = useState<StatsMode>("source");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function KiTutorTab() {
     <div className={`space-y-6 transition-opacity ${loading ? "opacity-50 pointer-events-none" : ""}`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-1">
-          {(["quelle", "glossary"] as StatsMode[]).map((m) => {
+          {(["source", "glossary"] as StatsMode[]).map((m) => {
             const active = mode === m;
             const meta = MODE_META[m];
             return (
@@ -112,7 +112,7 @@ export default function KiTutorTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white border border-border-soft rounded-lg p-4">
           <p className="text-xs text-muted uppercase tracking-wide">Workspaces</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{data.summary.total_modules}</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{data.summary.total_workspaces}</p>
         </div>
         <div className="bg-white border border-border-soft rounded-lg p-4">
           <p className="text-xs text-muted uppercase tracking-wide">Aktive Teilnehmer ({days}T)</p>
@@ -170,10 +170,10 @@ export default function KiTutorTab() {
                       <td className="px-4 py-2 text-right text-foreground-soft">{m.source_count}</td>
                       <td className="px-4 py-2 text-right text-foreground-soft">{m.enrollment_count}</td>
                       <td className="px-4 py-2 text-right" style={{ color: accent }}>
-                        {(m.total_answers + m.dozent.exercises).toLocaleString("de-DE")}
+                        {(m.total_answers + m.lecturer.exercises).toLocaleString("de-DE")}
                       </td>
                       <td className="px-4 py-2 text-right text-foreground-soft">
-                        {(m.chat_messages + m.dozent.messages).toLocaleString("de-DE")}
+                        {(m.chat_messages + m.lecturer.messages).toLocaleString("de-DE")}
                       </td>
                     </tr>
                     {isOpen && (
