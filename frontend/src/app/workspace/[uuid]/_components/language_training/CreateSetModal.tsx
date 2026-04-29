@@ -10,7 +10,7 @@ export function CreateSetModal({
   onCreate: (mode: string, count: number) => void;
 }) {
   const isQuiz = tool === "quiz";
-  const [mode, setMode] = useState<"glossary" | "quelle">(isQuiz || glossaryCount === 0 ? "quelle" : "glossary");
+  const [mode, setMode] = useState<"glossary" | "source">(isQuiz || glossaryCount === 0 ? "source" : "glossary");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
   const toolLabels: Record<string, string> = { karteikarten: "Karteikarten", flashcards: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Begriffe-Quiz", quiz: "Quiz" };
 
@@ -39,10 +39,10 @@ export function CreateSetModal({
               Aus Glossary <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
             </button>
           )}
-          <button type="button" onClick={() => selectedSource && setMode("quelle")}
+          <button type="button" onClick={() => selectedSource && setMode("source")}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-all text-left"
             style={{
-              ...(mode === "quelle"
+              ...(mode === "source"
                 ? { border: "1.5px solid var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }
                 : { border: "1.5px solid var(--border)", backgroundColor: "var(--background)" }),
               color: "var(--foreground)",
@@ -50,8 +50,8 @@ export function CreateSetModal({
               pointerEvents: selectedSource ? "auto" : "none",
             }}>
             <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0"
-              style={{ borderColor: mode === "quelle" ? "var(--kb)" : "var(--border)" }}>
-              {mode === "quelle" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
+              style={{ borderColor: mode === "source" ? "var(--kb)" : "var(--border)" }}>
+              {mode === "source" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
             </div>
             Aus ausgewählter Quelle {selectedSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={selectedSource.filename} style={{ color: "var(--muted)" }}>({selectedSource.filename})</span>}
           </button>

@@ -1,7 +1,6 @@
-"""Card generation from source text with evidence validation + chip merge (mode='source')."""
+"""Card generation from source text (mode='source'): one chip per evidence with short keyword."""
 
 import json
-import re
 
 from src import database as db
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
@@ -12,7 +11,6 @@ from src.features.ai_assistant.tasks.language_training._context import QuelleCon
 from src.features.ai_assistant.tasks.language_training._text_utils import (
     build_page_text,
     evidence_matches_page,
-    find_orig_span,
     is_duplicate_evidence,
     normalize_for_match,
 )
@@ -43,7 +41,7 @@ def generate_cards_from_source(
 
 
 def _parse_card(ctx: QuelleContext, c: dict) -> dict:
-    """Parse + validate a card object: builds evidence chips, merges per page."""
+    """Parse + validate a card object: one chip per answer_part with a short highlight keyword."""
     answer_parts = c.get("answer_parts") or []
     back_text = " ".join((p.get("statement") or "").strip() for p in answer_parts if p.get("statement"))
     c_merged = dict(c)
@@ -63,14 +61,17 @@ def _parse_card(ctx: QuelleContext, c: dict) -> dict:
     page_texts: dict[int, str] = {p: build_page_text(chs) for p, chs in page_chunks_raw.items()}
     page_texts_norm = {p: normalize_for_match(t) for p, t in page_texts.items()}
 
-    # Validate the evidence of each answer_part - multiple chips per page allowed,
-    # but deduplicated if they share a long common substring
+    # Validate evidence + use the LLM-supplied short `highlight` keyword as
+    # highlight_text — same pattern as chat citations and DataTable.
+    # Frontend tryHighlightOnPage finds the keyword and expands via sentence/paragraph
+    # heuristic. Long verbatim quotes don't match reliably across PDF line wraps.
     validated_chips: list[dict] = []
     seen_norms: list[str] = []
 
     for part in answer_parts:
         ev_text = (part.get("evidence") or "").strip()
         ev_page = part.get("page_number")
+        highlight = (part.get("highlight") or "").strip()
         if not ev_text or ev_page is None:
             continue
         ev_norm = normalize_for_match(ev_text)
@@ -86,17 +87,20 @@ def _parse_card(ctx: QuelleContext, c: dict) -> dict:
                     break
         if target_page is None:
             continue
+        # Verify the highlight keyword actually appears on the target page; fall
+        # back to the first 3 words of the evidence if it's missing or unfindable.
+        hl_norm = normalize_for_match(highlight) if highlight else ""
+        if not hl_norm or hl_norm not in page_texts_norm[target_page]:
+            highlight = " ".join(ev_text.split()[:3])
         seen_norms.append(ev_norm)
         chunk_start = ctx.time_map.get((sl, target_page))
-        seg_start = resolve_segment_start(ctx.segments_by_label, sl, ev_text, chunk_start)
+        seg_start = resolve_segment_start(ctx.segments_by_label, sl, highlight, chunk_start)
         validated_chips.append({
             "source_label": sl,
             "page_number": target_page,
             "start_time": seg_start,
-            "highlight_text": ev_text,
+            "highlight_text": highlight,
         })
-
-    validated_chips = _merge_page_chips(page_texts, validated_chips)
 
     # Sort by page_number or start_time (media)
     validated_chips.sort(key=lambda s: (
@@ -116,41 +120,3 @@ def _parse_card(ctx: QuelleContext, c: dict) -> dict:
                 item["page_number"] = first_pn
                 item["start_time"] = ctx.time_map.get((sl, first_pn))
     return item
-
-
-def _merge_page_chips(page_texts: dict[int, str], chips: list[dict]) -> list[dict]:
-    """Merge all chips of the same page into one (span from first to last evidence)."""
-    by_page: dict[int, list[dict]] = {}
-    for ch in chips:
-        pn = ch.get("page_number") or 0
-        by_page.setdefault(pn, []).append(ch)
-    merged: list[dict] = []
-    for pn, page_chips in by_page.items():
-        if len(page_chips) == 1:
-            merged.append(page_chips[0])
-            continue
-        page_orig = page_texts.get(pn, "")
-        if not page_orig:
-            merged.append(page_chips[0])
-            continue
-        positions: list[tuple[int, int]] = []
-        for ch in page_chips:
-            span = find_orig_span(page_orig, ch["highlight_text"])
-            if span:
-                positions.append(span)
-        if not positions:
-            merged.append(page_chips[0])
-            continue
-        span_start = min(p[0] for p in positions)
-        span_end = max(p[1] for p in positions)
-        combined = page_orig[span_start:span_end].strip()
-        combined = re.sub(r"[ \t]+", " ", combined)
-        combined = re.sub(r" *\n *", "\n", combined)
-        first_ch = page_chips[0]
-        merged.append({
-            "source_label": first_ch["source_label"],
-            "page_number": first_ch["page_number"],
-            "start_time": first_ch.get("start_time"),
-            "highlight_text": combined,
-        })
-    return merged

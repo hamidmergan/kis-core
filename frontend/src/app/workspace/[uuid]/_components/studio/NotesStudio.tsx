@@ -257,7 +257,7 @@ export function NotesStudio({
                               hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
                             }}
                           >
-                            {note.content.replace(/\[([^\]]*\|[^\]]*)\]/g, (m) => m.replace(/\|/g, "\u2758"))}
+                            {note.content.replace(/[[\u3010]([^\]\u3011]*\|[^\]\u3011]*)[\]\u3011]/g, (m) => m.replace(/\|/g, "\u2758"))}
                           </ReactMarkdown>
                         </div>
 

@@ -73,7 +73,8 @@ export function PdfViewer({
     return () => document.removeEventListener("keydown", handler, true);
   }, []);
 
-  // Watch for EmbedPDF summary sidebar DOM (shadow root) to sync React state + portal target
+  // Watch for EmbedPDF summary sidebar DOM (shadow root) to sync React state + portal target.
+  // NOTE: querying embedpdf-container.shadowRoot directly is NOT a public API — re-verify on @embedpdf bump.
   useEffect(() => {
     if (!registryReady) return;
     const embedEl = containerRef.current?.querySelector("embedpdf-container");
@@ -182,7 +183,9 @@ export function PdfViewer({
       selCap?.enableForMode?.("panMode", { enableSelection: false, showSelectionRects: true });
     } catch { /* ignore */ }
 
-    // Match scrollbar width to app (5px instead of default 8px)
+    // Inject KIS Corporate Design overrides into EmbedPDF's shadow DOM:
+    // - 5px scrollbar (instead of default 8px)
+    // - 2px border on buttons (transparent default, KB-blue on hover/focus)
     const injectScrollbarStyle = () => {
       const embedEl = containerRef.current?.querySelector("embedpdf-container");
       const shadow = embedEl?.shadowRoot;
@@ -195,6 +198,43 @@ export function PdfViewer({
           :host *::-webkit-scrollbar-thumb { background: #d8d8d8 !important; border-radius: 999px !important; }
           :host *::-webkit-scrollbar-thumb:hover { background: #bbb !important; }
           :host * { scrollbar-width: thin !important; scrollbar-color: #d8d8d8 transparent !important; }
+          /* KIS-CD: 2px outline on hover/focus for all interactive elements.
+             outline (not border) — preserves EmbedPDF's own border-b tab indicator
+             and doesn't shift layout. Matches KIS pattern from globals.css. */
+          :host button,
+          :host [role="button"],
+          :host [class*="command-button"],
+          :host [class*="-button"] {
+            outline: 2px solid transparent !important;
+            outline-offset: 0 !important;
+          }
+          :host button:hover,
+          :host button:focus-visible,
+          :host [role="button"]:hover,
+          :host [role="button"]:focus-visible,
+          :host [class*="command-button"]:hover,
+          :host [class*="command-button"]:focus-visible,
+          :host [class*="-button"]:hover,
+          :host [class*="-button"]:focus-visible {
+            outline-color: #004261 !important; /* --kb */
+            /* Suppress EmbedPDFs hover ring (Tailwind ring + box-shadow) so only our outline shows */
+            box-shadow: none !important;
+            --tw-ring-shadow: 0 0 transparent !important;
+            --tw-ring-offset-shadow: 0 0 transparent !important;
+          }
+          /* Mode tabs: inactive ones get rounded + hover outline; bottom border off */
+          :host [data-epdf-i="mode-tabs"] button {
+            border-radius: 6px !important;
+            border-bottom: 0 !important;
+          }
+          /* Active mode tab: only bottom strich (no outline, no radius, no hover effect) */
+          :host [data-epdf-i="mode-tabs"] button[class*="text-accent"],
+          :host [data-epdf-i="mode-tabs"] button[class*="text-accent"]:hover,
+          :host [data-epdf-i="mode-tabs"] button[class*="text-accent"]:focus-visible {
+            outline: none !important;
+            border-bottom: 2px solid #004261 !important;
+            border-radius: 0 !important;
+          }
         `;
         shadow.appendChild(s);
         return true;
@@ -224,7 +264,8 @@ export function PdfViewer({
       });
     }
 
-    // Clear search highlight when user clicks empty space or starts a new selection
+    // Clear search highlight when user clicks empty space or starts a new selection.
+    // NOTE: onEmptySpaceClick/onBeginSelection are EmbedPDF-internal hooks — re-verify on bump.
     const selectionForClear = reg.getPlugin?.("selection")?.provides?.();
     const searchForClear = reg.getPlugin?.("search")?.provides?.();
     if (selectionForClear && searchForClear) {
@@ -265,8 +306,8 @@ export function PdfViewer({
             const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
             promise.then((lines: string[]) => {
               const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
-              const bRects: Array<{ page: number }> = sel.getBoundingRects?.(documentId) ?? [];
-              const selPage = bRects.length > 0 ? bRects[0].page + 1 : 1;
+              const formatted: Array<{ pageIndex: number }> = sel.forDocument?.(documentId)?.getFormattedSelection?.() ?? [];
+              const selPage = formatted.length > 0 ? formatted[0].pageIndex + 1 : 1;
               onAskWithSelectionRef.current?.(
                 `${action.prompt}\n\n"${text}"`,
                 { uuid: sourceRef.current.uuid, filename: sourceRef.current.filename, page: selPage, selectedText: text },
@@ -361,8 +402,8 @@ export function PdfViewer({
         const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
         promise.then((lines: string[]) => {
           const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
-          const bRects: Array<{ page: number }> = sel.getBoundingRects?.(documentId) ?? [];
-          const selPage = bRects.length > 0 ? bRects[0].page + 1 : 1;
+          const formatted: Array<{ pageIndex: number }> = sel.forDocument?.(documentId)?.getFormattedSelection?.() ?? [];
+          const selPage = formatted.length > 0 ? formatted[0].pageIndex + 1 : 1;
           onAddToGlossaryRef.current?.(text, sourceRef.current.uuid, selPage);
         }).catch(() => { /* ignore */ });
       },
@@ -475,9 +516,49 @@ export function PdfViewer({
             worker: true,
             search: { showAllResults: false },
             annotations: { locked: { type: LockModeType.All } },
+            // KIS Corporate Design — values mirror tokens in globals.css.
+            // Update both files together when CD changes.
             theme: {
               preference: themeModeRef.current,
               light: {
+                accent: {
+                  primary:           "#004261", // --kb
+                  primaryHover:      "#003350", // --kb-dark
+                  primaryActive:     "#00293d", // --kb-darker
+                  primaryLight:      "#EBEDF0", // --surface-dim (text-selection background)
+                  primaryForeground: "#ffffff",
+                },
+                background: {
+                  app:        "#F3F4F6", // --surface
+                  surface:    "#ffffff", // --background (toolbars, panels)
+                  surfaceAlt: "#EBEDF0", // --surface-dim
+                  elevated:   "#ffffff",
+                  input:      "#ffffff",
+                },
+                foreground: {
+                  primary:   "#0D1F2D", // --foreground
+                  secondary: "#2F4D5C", // --foreground-soft
+                  muted:     "#668DA0", // --muted
+                  disabled:  "#8FAEC0", // --muted-soft
+                  onAccent:  "#ffffff",
+                },
+                border: {
+                  default: "#B8CDD5", // --border
+                  subtle:  "#D9E2E6", // --border-soft
+                  strong:  "#8FAEC0", // --muted-soft
+                },
+                interactive: {
+                  hover:    "#F3F4F6", // --surface
+                  active:   "#EBEDF0", // --surface-dim
+                  selected: "#EBEDF0", // --surface-dim
+                  focus:    "#004261", // --kb
+                },
+                state: {
+                  error:        "#DC2626", errorLight:   "#FEF2F2",
+                  warning:      "#D97706", warningLight: "#FFFBEB",
+                  success:      "#16A34A", successLight: "#F0FDF4",
+                  info:         "#2563EB", infoLight:    "#EFF6FF",
+                },
                 scrollbar: { track: "transparent", thumb: "#d8d8d8", thumbHover: "#bbb" },
               },
               dark: {

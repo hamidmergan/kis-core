@@ -140,7 +140,7 @@ function ChatMessageImpl({
                 td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{wrapCitations(children)}</td>,
               }}
             >
-              {msg.content.replace(/\[([^\]]*\|[^\]]*)\]/g, (m) => m.replace(/\|/g, "❘"))}
+              {msg.content.replace(/[[【]([^\]】]*\|[^\]】]*)[\]】]/g, (m) => m.replace(/\|/g, "❘"))}
             </ReactMarkdown>
           ) : (
             <>

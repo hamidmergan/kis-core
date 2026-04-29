@@ -66,7 +66,9 @@ export function parseCitations(
   // Matches [1, S. 2 | kw], [Q1, S. 2 | kw], [S. 2], [1, 05:32 | kw] (Q prefix optional for backwards compat).
   // Optional :uuid suffix on Q-prefix lets notes embed source UUIDs verbatim, so they survive even when
   // the active source selection changes after the note was saved.
-  const pattern = /\[(?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|❘]\s*([^\]]+))?\s*\]/g;
+  // Also accept CJK lenticular brackets 【】 (U+3010/U+3011): some LLMs emit those instead of [] despite
+  // the prompt — render them as chips rather than raw text.
+  const pattern = /[[【](?:Q?(\d+)(?::([a-f0-9]{6,64}))?,\s*)?(?:S\.\s*(\d+)|(\d{1,2}:\d{2}(?::\d{2})?))(?:\s*[|❘]\s*([^\]】]+))?\s*[\]】]/g;
   const nodes: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -141,7 +143,7 @@ export function withCitations(
 // Strips citation markers and copies the cleaned text to the clipboard.
 // Falls back to a hidden textarea for non-secure contexts.
 export async function copyMessageText(content: string): Promise<void> {
-  const text = content.replace(/\[(?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]/g, "").trim();
+  const text = content.replace(/[[【](?:Q?\d+(?::[a-f0-9]{6,64})?,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]】]+)?[\]】]/g, "").trim();
   if (navigator.clipboard?.writeText && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
     return;

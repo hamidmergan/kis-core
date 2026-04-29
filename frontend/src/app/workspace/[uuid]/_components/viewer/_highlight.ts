@@ -2,6 +2,12 @@
 // Extracted from PdfViewer.tsx. Uses the EmbedPDF registry/engine/selection
 // plugins plus heuristics (bullet detection, sentence/paragraph expansion)
 // to turn a raw search string + page number into an EmbedPDF instant selection.
+//
+// EmbedPDF-internal APIs in use (NOT in public docs — re-verify on @embedpdf bump):
+//   selection.applyInstantSelection, selection.enableForMode, selCap.getState,
+//   engine.getPageGeometry, engine.getTextSlices.
+// Public Search plugin can't replace this: it only highlights exact matches,
+// not the surrounding sentence/paragraph that _findParaBounds expands to.
 
 export type HighlightRefs = {
   prevHighlightRef: { current: { pageIndex: number; ids: string[] } | null };
@@ -154,7 +160,9 @@ export function tryHighlightOnPage(
       // 01.04.2026 Webkonferenz..."). If the matched range crosses a raw
       // newline AND contains a date pattern after it, the real target is the
       // date-bullet — trim matchStart forward to that date.
-      if (matchStart >= 0 && _isBulletPage) {
+      // Skip entirely for exactSelection: the user-popup selection IS the
+      // intended highlight bounds; heuristics must not move them.
+      if (matchStart >= 0 && _isBulletPage && !exactSelection) {
         const dateRe = /\b\d{1,2}\.\d{1,2}\.(?:\d{2,4})?\b|\b\d{1,2}\.\s*(?:Jan(?:uar)?|Feb(?:ruar)?|Mär(?:z)?|Apr(?:il)?|Mai|Jun(?:i)?|Jul(?:i)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?)/i;
         const matchedSlice = cleanText.slice(matchStart, matchEnd + 1);
         const dm = dateRe.exec(matchedSlice);
