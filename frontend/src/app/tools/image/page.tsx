@@ -23,9 +23,9 @@ export default function ImagePage() {
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
-        <h1 className="text-xl font-bold mb-1">Image</h1>
+        <h1 className="text-xl font-bold mb-1">Bildgenerierung</h1>
         <p className="text-sm text-gray-500 mb-6">
-          Bilder generieren, bearbeiten und analysieren mit KI.
+          Bilder erzeugen, bestehende Bilder anpassen oder beschreiben lassen.
         </p>
 
         <div className="flex gap-1 mb-6 border-b border-gray-200">
@@ -44,9 +44,9 @@ export default function ImagePage() {
           ))}
         </div>
 
-        {activeTab === "generate" && <GenerateTab />}
-        {activeTab === "edit" && <EditTab />}
-        {activeTab === "analyze" && <AnalyzeTab />}
+        <div className={activeTab === "generate" ? "" : "hidden"}><GenerateTab /></div>
+        <div className={activeTab === "edit" ? "" : "hidden"}><EditTab /></div>
+        <div className={activeTab === "analyze" ? "" : "hidden"}><AnalyzeTab /></div>
       </div>
     </ProtectedRoute>
   );

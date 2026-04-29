@@ -246,7 +246,7 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
                                   key={d.day}
                                   type="button"
                                   onClick={() => selectDay(d)}
-                                  className="rounded-[4px] transition-all flex items-center justify-center"
+                                  className="heatmap-cell rounded-[4px] transition-all flex items-center justify-center"
                                   style={{
                                     width: cellSize,
                                     height: cellSize,

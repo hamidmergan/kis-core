@@ -3,7 +3,6 @@ import type { SlideData } from "@/types";
 
 interface TranslationReviewStepProps {
   slides: SlideData[];
-  fastMode: boolean;
   loading: boolean;
   lightboxIndex: number | null;
   onLightboxOpen: (idx: number | null) => void;
@@ -12,7 +11,7 @@ interface TranslationReviewStepProps {
 
 
 export function TranslationReviewStep({
-  slides, fastMode, loading, lightboxIndex, onLightboxOpen, onAcceptAndNext,
+  slides, loading, lightboxIndex, onLightboxOpen, onAcceptAndNext,
 }: TranslationReviewStepProps) {
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
@@ -23,27 +22,25 @@ export function TranslationReviewStep({
         Version hochladen.
       </p>
 
-      {!fastMode && (
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
-          {slides.map((slide, i) => (
-            <button key={i} onClick={() => onLightboxOpen(i)} style={{ width: "100px" }}
-              className="relative rounded-lg overflow-hidden border border-gray-200 hover:border-primary transition-colors focus-visible:outline-2 focus-visible:outline-primary group flex-shrink-0"
-              aria-label={`Folie ${i + 1} vergrößern`}
-            >
-              {slide.imageBase64 ? (
-                <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full object-cover" />
-              ) : (
-                <div className="aspect-video bg-gray-100 flex items-center justify-center text-xs text-gray-400">Wird geladen...</div>
-              )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-gray-700 px-2 py-1 rounded transition-opacity">Folie {i + 1}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
+        {slides.map((slide, i) => (
+          <button key={i} onClick={() => onLightboxOpen(i)} style={{ width: "100px" }}
+            className="relative rounded-lg overflow-hidden border border-gray-200 hover:border-primary transition-colors focus-visible:outline-2 focus-visible:outline-primary group flex-shrink-0"
+            aria-label={`Folie ${i + 1} vergrößern`}
+          >
+            {slide.imageBase64 ? (
+              <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full object-cover" />
+            ) : (
+              <div className="aspect-video bg-gray-100 flex items-center justify-center text-xs text-gray-400">Wird geladen...</div>
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-gray-700 px-2 py-1 rounded transition-opacity">Folie {i + 1}</span>
+            </div>
+          </button>
+        ))}
+      </div>
 
-      {!fastMode && lightboxIndex !== null && (
+      {lightboxIndex !== null && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           onClick={() => onLightboxOpen(null)} role="dialog" aria-modal="true" aria-label={`Folie ${lightboxIndex + 1}`}
         >

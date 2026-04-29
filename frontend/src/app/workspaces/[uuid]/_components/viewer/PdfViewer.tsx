@@ -450,7 +450,7 @@ export function PdfViewer({
         <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon"
           style={{ backgroundColor: "var(--surface-dim)" }} title="Zurück">
-          <CaretLeft size={13} weight="bold" color="var(--muted)" />
+          <CaretLeft size={13} weight="bold" />
         </button>
         <FileIcon filename={source.filename} />
         <span className="flex-1 text-sm font-medium truncate min-w-0" style={{ color: "var(--text)" }}>{source.filename}</span>

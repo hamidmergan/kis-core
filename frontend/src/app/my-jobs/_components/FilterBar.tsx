@@ -21,7 +21,7 @@ export function FilterBar({
 }: FilterBarProps) {
   return (
     <div className="mb-4 flex flex-wrap gap-2 items-center">
-      <div className="flex-1 min-w-[220px] flex items-center border border-gray-300 rounded-md bg-white focus-within:ring-2 focus-within:ring-primary">
+      <div className="flex-1 min-w-[220px] flex items-center border border-gray-300 rounded-md bg-white focus-within:ring-2 focus-within:ring-primary hover:outline-2 hover:outline-primary transition">
         <input
           type="text"
           value={q}
@@ -49,14 +49,14 @@ export function FilterBar({
         value={dateFrom}
         onChange={(e) => onDateFromChange(e.target.value)}
         title="Von"
-        className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+        className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary hover:outline-2 hover:outline-primary transition"
       />
       <input
         type="date"
         value={dateTo}
         onChange={(e) => onDateToChange(e.target.value)}
         title="Bis"
-        className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+        className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary hover:outline-2 hover:outline-primary transition"
       />
       <select
         value={limit}

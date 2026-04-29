@@ -9,7 +9,7 @@ from src import database as db
 from src.storage import get_job_file
 
 
-_SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
+_SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_demo_render"]
 
 
 def dispatch_next_screencast_job_for_user(user_id: int) -> None:
@@ -21,23 +21,14 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
     try:
         from src.tasks.screencast_tasks._translate import run_screencast_translate
         from src.tasks.screencast_tasks._render import run_screencast_render
-        from src.tasks.screencast_tasks._auto import run_screencast_auto
         from src.tasks.screencast_tasks._demo import run_screencast_demo_render
 
         params = json.loads(get_job_file(job_uuid, "queue_params.json"))
         dispatch_as = params.get("dispatch_as", "")
-        if dispatch_as == "auto":
-            task = run_screencast_auto.apply_async(args=[
-                job_uuid, params["input_path"], params["filename"],
-                params["voice_id"], params["speed"], params["glossary_json"],
-                params["provider"], params["voice_label"],
-                params["source_lang"], params["target_lang"],
-                params.get("dpi", 100),
-            ])
-        elif dispatch_as == "translate":
+        if dispatch_as == "translate":
             task = run_screencast_translate.apply_async(args=[
                 job_uuid, params["input_path"], params["filename"],
-                params["glossary_json"], params["fast_mode"],
+                params["glossary_json"],
                 params["source_lang"], params["target_lang"],
             ])
         elif dispatch_as == "render":

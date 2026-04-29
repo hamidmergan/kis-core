@@ -112,10 +112,9 @@ export default function ZusammenfassungPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>
-          <h1 className="text-xl font-bold mb-1">Summarize</h1>
+          <h1 className="text-xl font-bold mb-1">Zusammenfassung</h1>
           <p className="text-sm text-gray-500 mb-6">
-            Laden Sie eine Datei hoch, um deren Inhalt automatisch zusammenzufassen. Unterstützt werden
-             Untertitel (srt, vtt) sowie Dokumente (txt, md, pptx, docx).
+            Lange Dokumente, Audio- und Videoinhalte auf das Wesentliche bringen.
           </p>
 
           {/* File upload */}
@@ -136,7 +135,7 @@ export default function ZusammenfassungPage() {
             className={[
               "border-2 border-dashed rounded-lg p-10 text-center transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-              dragActive ? "border-primary bg-blue-50" : selectedFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-gray-400",
+              dragActive ? "border-primary bg-blue-50" : selectedFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-primary",
               processing ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
             ].join(" ")}
           >

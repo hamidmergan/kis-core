@@ -124,10 +124,12 @@ export function SourcesPanel({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90"
-            style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", border: "1.5px dashed rgba(var(--kb-rgb),0.3)" }}
+            style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", border: "2px dashed rgba(var(--kb-rgb),0.3)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--kb)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.3)"; }}
           >
             <Plus size={15} weight="bold" />
-            Quelle hinzufügen
+            Quellen hinzufügen
           </button>
           {uploadProgress !== null && (
             <div className="mt-2">

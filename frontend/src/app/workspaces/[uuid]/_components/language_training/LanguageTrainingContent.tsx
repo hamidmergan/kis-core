@@ -113,6 +113,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
         return (
           <ExerciseSetsOverview
             title="Lernkarten"
+            toolKey="Flashcards"
             sets={exerciseSets.filter((s) => s.tool === "flashcards")}
             onBack={() => setSprachView("overview")}
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("lk-learn")); }}
@@ -133,7 +134,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: "Lernkarten", toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
             showTranslation
           />
         ) : null;
@@ -141,11 +142,13 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
         return activeSet ? (
           <ExerciseCompletion
             title={activeSet.title.replace(TITLE_PREFIX_RE, "")}
+            toolKey="Flashcards"
+            category="language_training"
             results={[]}
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("lk-learn")}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); loadExerciseSets("flashcards"); }}
-            breadcrumbs={[toOverviewWithReset, { label: "Lernkarten", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: "Lernkarten", toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
           />
         ) : null;
       // ─── Lückentext Sets Flow ──────────────────────────────
@@ -153,6 +156,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
         return (
           <ExerciseSetsOverview
             title="Lückentext"
+            toolKey="Cloze"
             sets={exerciseSets.filter((s) => s.tool === "lueckentext")}
             onBack={() => setSprachView("overview")}
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("cl-learn")); }}
@@ -174,18 +178,20 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: "Lückentext", toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
           />
         ) : null;
       case "cl-complete":
         return activeSet ? (
           <ExerciseCompletion
             title={activeSet.title.replace(TITLE_PREFIX_RE, "")}
+            toolKey="Cloze"
+            category="language_training"
             results={[]}
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("cl-learn")}
             onBack={() => { setSprachView("cl-sets"); setActiveSet(null); loadExerciseSets("lueckentext"); }}
-            breadcrumbs={[toOverviewWithReset, { label: "Lückentext", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: "Lückentext", toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
           />
         ) : null;
       // ─── Vokabeltest Sets Flow ─────────────────────────────
@@ -193,6 +199,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
         return (
           <ExerciseSetsOverview
             title="Begriffe-Quiz"
+            toolKey="TermQuiz"
             sets={exerciseSets.filter((s) => s.tool === "vokabeltest")}
             onBack={() => setSprachView("overview")}
             onSelect={(s) => { loadExerciseSet(s.id).then(() => setSprachView("vt-learn")); }}
@@ -214,18 +221,20 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: "Begriffe-Quiz", toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
           />
         ) : null;
       case "vt-complete":
         return activeSet ? (
           <ExerciseCompletion
             title={activeSet.title.replace(TITLE_PREFIX_RE, "")}
+            toolKey="TermQuiz"
+            category="language_training"
             results={[]}
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("vt-learn")}
             onBack={() => { setSprachView("vt-sets"); setActiveSet(null); loadExerciseSets("vokabeltest"); }}
-            breadcrumbs={[toOverviewWithReset, { label: "Begriffe-Quiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: "Begriffe-Quiz", toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
           />
         ) : null;
       default:
@@ -234,10 +243,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
   })();
 
   return (
-    <div
-      style={{ "--accent": "#9333EA", "--accent-rgb": "147,51,234" } as React.CSSProperties}
-      className="flex flex-col flex-1 overflow-hidden"
-    >
+    <div className="flex flex-col flex-1 overflow-hidden">
       {inner}
     </div>
   );

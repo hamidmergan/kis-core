@@ -94,8 +94,10 @@ export function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { 
               key={`${a.set_id}-${a.tool}-${a.mode}`}
               type="button"
               onClick={() => onNavigateToSet?.(a.set_id, a.tool, a.mode)}
-              className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-opacity hover:opacity-70"
+              className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left border-2 border-transparent transition-colors"
               style={{ backgroundColor: "var(--hover)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = iconColor; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "transparent"; }}
             >
               <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
                 <Icon size={16} color={iconColor} weight="bold" />

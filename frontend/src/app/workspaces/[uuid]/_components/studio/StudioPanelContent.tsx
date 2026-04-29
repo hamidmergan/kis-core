@@ -140,7 +140,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
         onAskChat={(text) => onAskChat(text, hideHeader)}
         onSourceClick={onSourceClick}
-        breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+        breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", toolKey: "Flashcards", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
       />
     );
   }
@@ -154,7 +154,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
         onAskChat={(text) => onAskChat(text, true)}
         onSourceClick={onSourceClick}
-        breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+        breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", toolKey: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
       />
     );
   }
@@ -165,6 +165,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     return (
       <ExerciseSetsOverview
         title="Karteikarten"
+        toolKey="Flashcards"
         sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
         onBack={() => setStudioView("overview")}
         onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}
@@ -243,6 +244,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     return (
       <ExerciseSetsOverview
         title="Quiz"
+        toolKey="Quiz"
         sets={exerciseSets.filter((s) => s.tool === "quiz")}
         onBack={() => setStudioView("overview")}
         onSelect={(s) => { setActiveSet(s); loadExerciseSet(s.id); }}

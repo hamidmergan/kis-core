@@ -27,7 +27,7 @@ export default function UploadZone({
       className={`relative mb-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-colors ${
         dragOver
           ? "border-primary bg-primary/5"
-          : "border-gray-300 hover:border-primary/50 hover:bg-gray-100"
+          : "border-gray-300 hover:border-primary"
       } ${disabled ? "pointer-events-none opacity-50" : ""}`}
     >
       <input

@@ -1,9 +1,7 @@
 "use client";
 
 import type { DragEvent, RefObject } from "react";
-import ScreencastStatus from "@/components/jobs/ScreencastStatus";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
-import type { ScreencastState } from "@/types";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
@@ -13,20 +11,10 @@ interface UploadStepProps {
   file: File | null;
   fileError: string | null;
   dragOver: boolean;
-  autoState: ScreencastState;
-  mode: "auto" | "manual";
-  isAdmin: boolean;
-  fastMode: boolean;
   sourceLang: string;
   targetLang: string;
   languages: { id: string; label: string }[];
   glossaryIds: string[];
-  isAutoMode: boolean;
-  autoDownloadName: string;
-  autoError: string;
-  renderProgressLabel: string;
-  failedRenderJobUuid: string | null;
-  audioId: string;
   fileRef: RefObject<HTMLInputElement | null>;
   onDragOver: (e: DragEvent) => void;
   onDragLeave: (e: DragEvent) => void;
@@ -35,13 +23,7 @@ interface UploadStepProps {
   onSourceLangChange: (v: string) => void;
   onTargetLangChange: (v: string) => void;
   onGlossaryIdsChange: (v: string[]) => void;
-  onModeChange: (v: "auto" | "manual") => void;
-  onFastModeChange: (v: boolean) => void;
   onUploadNext: () => void;
-  onAutoDownload: () => void;
-  onReset: () => void;
-  onRetryRender?: () => void;
-  onZipDownload: () => void;
 }
 
 export default function UploadStep(props: UploadStepProps) {
@@ -51,20 +33,10 @@ export default function UploadStep(props: UploadStepProps) {
     file,
     fileError,
     dragOver,
-    autoState,
-    mode,
-    isAdmin,
-    fastMode,
     sourceLang,
     targetLang,
     languages,
     glossaryIds,
-    isAutoMode,
-    autoDownloadName,
-    autoError,
-    renderProgressLabel,
-    failedRenderJobUuid,
-    audioId,
     fileRef,
     onDragOver,
     onDragLeave,
@@ -73,19 +45,13 @@ export default function UploadStep(props: UploadStepProps) {
     onSourceLangChange,
     onTargetLangChange,
     onGlossaryIdsChange,
-    onModeChange,
-    onFastModeChange,
     onUploadNext,
-    onAutoDownload,
-    onReset,
-    onRetryRender,
-    onZipDownload,
   } = props;
 
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <div className="flex items-baseline justify-between mb-1">
-        <h1 className="text-xl font-bold">Screencast erstellen</h1>
+        <h1 className="text-xl font-bold">Screencast</h1>
         {showDemoLink && (
           <a
             href="/tools/screencast-demo"
@@ -97,7 +63,7 @@ export default function UploadStep(props: UploadStepProps) {
         )}
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        Laden Sie eine PowerPoint-Präsentation hoch. Die Präsentation wird per DeepL übersetzt und als vertontes Video exportiert.
+        Aus PowerPoint-Folien ein vertontes Video erzeugen, wahlweise in einer anderen Sprache.
       </p>
 
       {hasActiveJob === true && (
@@ -131,9 +97,8 @@ export default function UploadStep(props: UploadStepProps) {
               ? "border-primary bg-primary/5"
               : file
                 ? "border-green-400 bg-green-50"
-                : "border-gray-300 hover:border-gray-400")
+                : "border-gray-300 hover:border-primary")
           }
-          ${autoState === "processing" ? "opacity-50 pointer-events-none" : ""}
         `}
       >
         <input
@@ -181,7 +146,6 @@ export default function UploadStep(props: UploadStepProps) {
             if (e.target.checked) onSourceLangChange(targetLang);
             else onSourceLangChange("DE");
           }}
-          disabled={autoState === "processing"}
           className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
         />
         <span className="text-sm font-medium text-gray-700">
@@ -236,58 +200,15 @@ export default function UploadStep(props: UploadStepProps) {
         </p>
       )}
 
-      <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={mode === "manual"}
-          onChange={(e) => onModeChange(e.target.checked ? "manual" : "auto")}
-          disabled={autoState === "processing"}
-          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-        />
-        <div>
-          <span className="text-sm font-medium text-gray-700">Zwischenschritte anzeigen und bearbeiten</span>
-          <p className="text-xs text-gray-400 mt-0.5">Empfohlen für beste Ergebnisse</p>
-        </div>
-      </label>
-
-      {mode === "manual" && isAdmin && (
-        <label className="flex items-center gap-2 cursor-pointer select-none mt-4 mb-6">
-          <input
-            type="checkbox"
-            checked={fastMode}
-            onChange={(e) => onFastModeChange(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-          />
-          <div>
-            <span className="text-sm font-medium text-gray-700">Schnellmodus</span>
-            <p className="text-xs text-gray-400 mt-0.5">Folienvorschau wird übersprungen, schnellere Verarbeitung.</p>
-          </div>
-        </label>
-      )}
-
       <div className="flex gap-3">
         <button
           onClick={onUploadNext}
-          disabled={!file || autoState === "processing" || !!hasActiveJob}
+          disabled={!file || !!hasActiveJob}
           className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {mode === "auto" ? "Screencast erstellen" : "Weiter"}
+          Weiter
         </button>
       </div>
-
-      {isAutoMode && (
-        <ScreencastStatus
-          state={autoState}
-          fileName={autoDownloadName}
-          errorMessage={autoError}
-          progressLabel={autoState === "processing" ? renderProgressLabel : undefined}
-          onDownload={onAutoDownload}
-          onReset={onReset}
-          onRetry={failedRenderJobUuid ? onRetryRender : undefined}
-          hasZip={!!audioId}
-          onZipDownload={onZipDownload}
-        />
-      )}
     </section>
   );
 }

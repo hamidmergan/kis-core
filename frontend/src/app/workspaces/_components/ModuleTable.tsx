@@ -83,31 +83,33 @@ export default function ModuleTable({
               type="button"
               onClick={() => setPage(safePage - 1)}
               disabled={safePage === 1}
-              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/5"
-              style={{ color: "var(--text)" }}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[var(--text)] enabled:hover:outline-2 enabled:hover:outline-[var(--color-primary)] enabled:hover:text-[var(--color-primary)] -outline-offset-1"
             >
               Zurück
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPage(p)}
-                className="w-8 h-8 text-sm font-medium rounded-lg transition-colors"
-                style={{
-                  backgroundColor: p === safePage ? "var(--kb)" : "transparent",
-                  color: p === safePage ? "white" : "var(--text)",
-                }}
-              >
-                {p}
-              </button>
-            ))}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+              const isActive = p === safePage;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPage(p)}
+                  className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "text-white"
+                      : "text-[var(--text)] hover:outline-2 hover:outline-[var(--color-primary)] hover:text-[var(--color-primary)] -outline-offset-1"
+                  }`}
+                  style={{ backgroundColor: isActive ? "var(--kb)" : "transparent" }}
+                >
+                  {p}
+                </button>
+              );
+            })}
             <button
               type="button"
               onClick={() => setPage(safePage + 1)}
               disabled={safePage === totalPages}
-              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/5"
-              style={{ color: "var(--text)" }}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[var(--text)] enabled:hover:outline-2 enabled:hover:outline-[var(--color-primary)] enabled:hover:text-[var(--color-primary)] -outline-offset-1"
             >
               Weiter
             </button>

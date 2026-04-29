@@ -4,7 +4,7 @@ import Spinner from "@/components/ui/Spinner";
 import type { ExerciseItem, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md } from "../../_utils";
 import { MinimizeContext } from "../../_context";
-import { _getToolBadge } from "../layout/SubviewHeader";
+import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export function MCExerciseView({
   exerciseSet, tool, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs,
@@ -15,7 +15,7 @@ export function MCExerciseView({
   onAnswer: (itemId: number, correct: boolean, newRun?: boolean) => void;
   onAskChat: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number, highlightText?: string) => void;
-  breadcrumbs?: { label: string; onClick: () => void }[];
+  breadcrumbs?: BreadcrumbItem[];
 }) {
   const minimize = useContext(MinimizeContext);
   const [shuffledItems, setShuffledItems] = useState<ExerciseItem[]>([]);
@@ -105,7 +105,7 @@ export function MCExerciseView({
           style={{ backgroundColor: "var(--surface-dim)" }}>
           <CaretLeft size={13} />
         </button>
-        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.label, tool === "quiz" ? "lerntools" : "language_training"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors"  onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
+        {breadcrumbs && breadcrumbs.length > 0 ? (<div className="flex items-center gap-1 text-[12px] min-w-0 flex-1">{breadcrumbs.map((b, i) => { const bBadge = _getToolBadge(b.toolKey, tool === "quiz" ? "learning_tools" : "language_training"); return (<React.Fragment key={i}>{bBadge ? (<button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>) : (<button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: "var(--muted)" }}>{b.label}</button>)}<CaretRight size={9} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" /></React.Fragment>); })}<span className="font-semibold truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span></div>) : (<span className="text-[12px] font-semibold flex-1 truncate" style={{ color: "var(--text)" }}>{exerciseSet.title.replace(/^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i, "")}</span>)}
         {minimize && (
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
@@ -129,13 +129,11 @@ export function MCExerciseView({
           </p>
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={() => { setShowResults(false); setIndex(0); setSelected(null); setResults([]); shuffledRef.current = false; }}
-              className="px-5 py-2 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+              className="btn-outline-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
               Erneut versuchen
             </button>
             <button type="button" onClick={onBack}
-              className="px-5 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: "var(--kb)" }}>
+              className="btn-fill-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
               Fertig
             </button>
           </div>
@@ -183,10 +181,10 @@ export function MCExerciseView({
                       return (
                         <button key={oi} type="button" onClick={() => select(oi)}
                           disabled={answered}
-                          className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${!answered ? "hover:shadow-sm active:scale-[0.98] cursor-pointer" : ""}`}
-                          style={{ border: `1.5px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}
-                          onMouseEnter={(e) => { if (!answered) e.currentTarget.style.borderColor = "var(--kb)"; }}
-                          onMouseLeave={(e) => { if (!answered) e.currentTarget.style.borderColor = borderColor; }}>
+                          className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${!answered ? "active:scale-[0.98] cursor-pointer" : ""}`}
+                          style={{ border: `2px solid ${borderColor}`, backgroundColor: bg, color: "var(--text)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}
+                          onMouseEnter={(e) => { if (!answered) { e.currentTarget.style.borderColor = "var(--accent)"; } }}
+                          onMouseLeave={(e) => { if (!answered) { e.currentTarget.style.borderColor = borderColor; } }}>
                           <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                             style={{ backgroundColor: dotBg, color: dotColor }}>
                             {String.fromCharCode(65 + oi)}
@@ -215,12 +213,12 @@ export function MCExerciseView({
                           <div className="flex items-center gap-1 flex-wrap">
                             <button type="button"
                               onClick={() => { if (onSourceClick) onSourceClick(card.source_label!, card.page_number ?? 1, card.start_time, card.back.replace(/[*_#`~<>[\](){}|]/g, "")); }}
-                              className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-opacity hover:opacity-80"
-                              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                              className="chip-cite inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-full border-none cursor-pointer transition-colors"
+                              style={{ color: "var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.07)" }}>
                               <ChipIcon size={10} weight="bold" /> {_chunkLabel(card.source_label, card.page_number ?? 1, card.start_time)}
                             </button>
                           </div>
-                          <span className="text-[9px] truncate" >{card.source_label}</span>
+                          <span className="text-[9px] truncate text-[var(--muted)]">{card.source_label}</span>
                         </div>
                         );
                       })()}
@@ -228,8 +226,7 @@ export function MCExerciseView({
                     {tool === "quiz" && !answered && (
                       <button type="button" onClick={requestHint}
                         disabled={hintLoading}
-                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80 disabled:opacity-50"
-                        style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                        className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
                         <Lightbulb size={13} weight="bold" />
                         {hintLoading ? "Wird geladen…" : "Tipp"}
                       </button>
@@ -241,13 +238,11 @@ export function MCExerciseView({
                       <button type="button" onClick={() => onAskChat(tool === "vokabeltest" || tool === "lueckentext"
                         ? `Erkläre mir den Begriff „${tool === "lueckentext" ? card.back : card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
                         : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`)}
-                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all hover:opacity-80"
-                        style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                        className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all">
                         <Chat size={13} weight="bold" /> Mehr erfahren
                       </button>
                       <button type="button" onClick={advance}
-                        className="flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold text-white transition-all hover:opacity-90"
-                        style={{ backgroundColor: "var(--kb)" }}>
+                        className="btn-fill-accent flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold transition-all">
                         {index >= total - 1 ? "Abschließen" : "Weiter"} <CaretRight size={14} weight="bold" />
                       </button>
                     </div>

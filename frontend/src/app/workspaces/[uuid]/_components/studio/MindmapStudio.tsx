@@ -20,7 +20,7 @@ import Spinner from "@/components/ui/Spinner";
 import type { Source, StudentStats } from "../../_types";
 import { _getChipIcon, _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
-import { SubviewHeader, _getToolBadge } from "../layout/SubviewHeader";
+import { SubviewHeader, _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export interface MindmapNodeData {
   topic: string;
@@ -47,7 +47,7 @@ export function MindmapStudio({
   sources?: Source[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number) => void;
   stats?: StudentStats | null;
-  breadcrumbs?: { label: string; onClick: () => void }[];
+  breadcrumbs?: BreadcrumbItem[];
   openInViewer?: boolean;
   onViewerOpened?: () => void;
 }) {
@@ -330,7 +330,7 @@ export function MindmapStudio({
     <div className="flex flex-col h-full">
       {/* ── List view ── */}
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
-        <SubviewHeader title="Mindmap" onBack={onBack} breadcrumbs={breadcrumbs} />
+        <SubviewHeader title="Mindmap" toolKey="Mindmap" onBack={onBack} breadcrumbs={breadcrumbs} />
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
             style={{
@@ -352,8 +352,7 @@ export function MindmapStudio({
               <p className="text-sm text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
               <button type="button" onClick={() => onGenerate()}
                 disabled={noSources || loading || atLimit}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+                className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40">
                 <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
               </button>
             </div>
@@ -362,8 +361,7 @@ export function MindmapStudio({
               <div className="flex justify-center">
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                  style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40">
                   <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
                 </button>
               </div>
@@ -383,7 +381,7 @@ export function MindmapStudio({
                 {savedList.map((item) => (
                   <div key={item.id}
                     onClick={() => { onSelect(item.id); setView("viewer"); }}
-                    className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:opacity-80 transition-opacity"
+                    className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:outline-2 hover:outline-[var(--accent)] -outline-offset-2 transition"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <TreeStructure size={16} weight="duotone" style={{ color: "var(--kb)", flexShrink: 0 }} />
@@ -430,7 +428,7 @@ export function MindmapStudio({
                     <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}
-                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>Mindmap</button>
+                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>Mindmap</button>
                 <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                 <span className="font-semibold truncate" style={{ color: "var(--text)" }}>{activeTopicName}</span>
               </div>
@@ -485,7 +483,7 @@ export function MindmapStudio({
               {sourceIndexRef.current.size > 0 && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
                   {Array.from(sourceIndexRef.current.entries()).map(([filename, num]) => (
-                    <span key={num} className="text-[11px] leading-snug" >
+                    <span key={num} className="text-[11px] leading-snug text-[var(--muted)]">
                       [{num}] {filename}
                     </span>
                   ))}

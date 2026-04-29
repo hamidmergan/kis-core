@@ -45,7 +45,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
                 type="button"
                 onClick={() => { onClear(); setChatMenuOpen(false); }}
                 disabled={messageCount === 0}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 disabled:opacity-40 transition-colors"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] disabled:opacity-40 transition-colors"
                 style={{ color: "#B91C1C" }}
               >
                 <Trash size={16} />

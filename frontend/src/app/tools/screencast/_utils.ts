@@ -81,15 +81,6 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function triggerUrlDownload(url: string, filename = ""): void {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
 export function parseScriptJsonFile(file: File): Promise<ScriptJsonParseResult> {
   if (!file.name.toLowerCase().endsWith(".json")) {
     return Promise.resolve({ error: "Bitte eine gültige JSON-Datei auswählen (.json)." });

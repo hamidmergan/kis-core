@@ -10,7 +10,7 @@ from src.limits import MAX_QUEUED_SCREENCAST_JOBS
 router = APIRouter()
 
 _TOOL_GROUP_TOOLS = {
-    "screencast": ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"],
+    "screencast": ["screencast_translate", "screencast_render", "screencast_demo_render"],
     "tts": ["tts"],
 }
 

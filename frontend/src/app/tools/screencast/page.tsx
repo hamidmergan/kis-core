@@ -7,11 +7,7 @@ import { useGlossaries } from "@/hooks/useGlossaries";
 
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
-import type {
-  ScreencastState,
-  ScreencastStep,
-  SlideData,
-} from "@/types";
+import type { ScreencastStep } from "@/types";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
 import { stepToIndex } from "@/components/screencast/steps";
 import UploadStep from "./_steps/UploadStep";
@@ -28,7 +24,7 @@ import ScriptReviewStep from "./_steps/ScriptReviewStep";
 import TtsSettingsStep from "./_steps/TtsSettingsStep";
 import Lightbox from "./_components/Lightbox";
 import RegenChatModal, { type RegenApplyMode } from "./_components/RegenChatModal";
-import { parseScriptJsonFile, triggerBlobDownload, triggerUrlDownload, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
+import { parseScriptJsonFile, triggerBlobDownload, checkHasActiveJob, checkJobValidity, checkJobFolderExists } from "./_utils";
 import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
@@ -40,27 +36,12 @@ import { useScriptEditing, useScriptAutosave } from "@/hooks/useScriptEditing";
 import { useScreencastResume, useSlideImageBackfill, useActiveJobCheck } from "@/hooks/useScreencastResume";
 import { useLanguageConfig } from "@/hooks/useLanguageConfig";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useRenderResult } from "@/hooks/useRenderResult";
 import { useFailedRender } from "@/hooks/useFailedRender";
-import { useAutoModeFlow } from "@/hooks/useAutoModeFlow";
 import { useScriptInputMode } from "@/hooks/useScriptInputMode";
 import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
-
-interface TranslateResponse {
-  slide_count: number;
-  slide_texts: string[];
-  slide_images: string[];
-  translate_job_uuid?: string;
-  user_prompt?: string;
-}
-
-interface GenerateScriptsResponse {
-  scripts: string[];
-}
-
 
 const RENDER_SESSION_KEY = "kis_screencast_active_render";
 const SCREENCAST_MAX_CHARS = 100_000;
@@ -68,26 +49,15 @@ const SCREENCAST_MAX_CHARS = 100_000;
 function ScreencastPageInner() {
   const { mergeToApiJson } = useGlossaries();
 
-  // ── Auto mode state ──
-  const auto = useAutoModeFlow();
-  const {
-    state: autoState,
-    setState: setAutoState,
-    downloadBlob: autoDownloadBlob,
-    downloadName: autoDownloadName,
-    error: autoError,
-    setError: setAutoError,
-  } = auto;
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const failedRender = useFailedRender();
-  const { jobUuid: failedRenderJobUuid, isAuto: failedRenderIsAuto } = failedRender;
+  const { jobUuid: failedRenderJobUuid } = failedRender;
   const [ttsSettingsError, setTtsSettingsError] = useState("");
 
   // ── Job-Flow-State via Reducer ──
   const [flow, dispatch] = useReducer(flowReducer, INITIAL_FLOW_STATE);
-  const { step, loading, errorMessage, slides, translateJobUuid, maxReachedIdx, correctedFileName, lightboxIndex, isResumedJob } = flow;
+  const { step, loading, errorMessage, slides, translateJobUuid, maxReachedIdx, correctedFileName, lightboxIndex } = flow;
 
-  const [mode, setMode] = useState<"auto" | "manual">("manual");
   const {
     file,
     fileError,
@@ -152,8 +122,6 @@ function ScreencastPageInner() {
     if (defaultVoiceId && !voiceId) setVoiceId(defaultVoiceId);
   }, [defaultVoiceId, voiceId]);
   const { languages, sourceLang, setSourceLang, targetLang, setTargetLang } = useLanguageConfig();
-  const [fastMode, setFastMode] = useState(false);
-  const { isAdmin } = useIsAdmin();
   const { isToolEnabled } = useEnabledTools();
   const showDemoLink = isToolEnabled("screencast-demo");
 
@@ -222,7 +190,6 @@ function ScreencastPageInner() {
     setGlossaryIds(["", "", ""]);
     clearRenderResult();
     resetScriptEditing();
-    auto.reset();
     failedRender.clear();
     sessionStorage.removeItem(RENDER_SESSION_KEY);
     setSourceLang("DE");
@@ -265,8 +232,6 @@ function ScreencastPageInner() {
   }, [translateJobUuid, goError]);
 
   const {
-    onRenderProgress,
-    handleAutoSubmit,
     handleStartRender,
     handleRetryRender,
     newSignal,
@@ -274,7 +239,6 @@ function ScreencastPageInner() {
     translateJobUuid,
     slides,
     dispatch,
-    file,
     speed,
     slidePause,
     dpi,
@@ -282,11 +246,6 @@ function ScreencastPageInner() {
     ttsProvider,
     kokoroVoices,
     voices,
-    sourceLang,
-    targetLang,
-    glossaryIds,
-    mergeToApiJson,
-    auto,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -296,16 +255,6 @@ function ScreencastPageInner() {
     abortControllerRef,
     currentJobUuidRef,
   });
-
-  const handleAutoDownload = () => {
-    if (!autoDownloadBlob) return;
-    triggerBlobDownload(autoDownloadBlob, autoDownloadName);
-  };
-
-  const handleAutoZipDownload = useCallback(() => {
-    if (!audioId) return;
-    triggerUrlDownload(`/api/jobs/${audioId}/bundle`);
-  }, [audioId]);
 
   const {
     handleUploadNext,
@@ -317,13 +266,10 @@ function ScreencastPageInner() {
     slides,
     dispatch,
     file,
-    mode,
     sourceLang,
     targetLang,
-    fastMode,
     glossaryIds,
     mergeToApiJson,
-    handleAutoSubmit,
     checkBeforeSubmit,
     checkJobStillValid,
     checkJobFolder,
@@ -393,8 +339,6 @@ function ScreencastPageInner() {
     dispatch({ type: "ADVANCE_REACHED", idx: stepToIndex(step) });
   }, [step]);
 
-  const isAutoMode =
-    mode === "auto" && step === "upload" && autoState !== "idle";
   const showStepIndicator = step !== "upload" && step !== "error";
 
   const totalWords = slides.reduce(
@@ -458,20 +402,10 @@ function ScreencastPageInner() {
             file={file}
             fileError={fileError}
             dragOver={dragOver}
-            autoState={autoState}
-            mode={mode}
-            isAdmin={isAdmin}
-            fastMode={fastMode}
             sourceLang={sourceLang}
             targetLang={targetLang}
             languages={languages}
             glossaryIds={glossaryIds}
-            isAutoMode={isAutoMode}
-            autoDownloadName={autoDownloadName}
-            autoError={autoError}
-            renderProgressLabel={renderProgressLabel}
-            failedRenderJobUuid={failedRenderJobUuid}
-            audioId={audioId}
             fileRef={fileRef}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -480,13 +414,7 @@ function ScreencastPageInner() {
             onSourceLangChange={setSourceLang}
             onTargetLangChange={setTargetLang}
             onGlossaryIdsChange={setGlossaryIds}
-            onModeChange={setMode}
-            onFastModeChange={setFastMode}
             onUploadNext={handleUploadNext}
-            onAutoDownload={handleAutoDownload}
-            onReset={resetAll}
-            onRetryRender={failedRenderJobUuid ? handleRetryRender : undefined}
-            onZipDownload={handleAutoZipDownload}
           />
         )}
 
@@ -544,7 +472,6 @@ function ScreencastPageInner() {
         {!resumeLoading && step === "translation-review" && (
           <TranslationReviewStep
             slides={slides}
-            fastMode={fastMode}
             loading={loading}
             correctedFileName={correctedFileName}
             onLightboxOpen={(idx) => dispatch({ type: "SET_LIGHTBOX", index: idx })}
@@ -582,7 +509,6 @@ function ScreencastPageInner() {
             openAccordion={openAccordion}
             editingSlide={editingSlide}
             editBuffer={editBuffer}
-            fastMode={fastMode}
             regenAnchorSlide={regenAnchorSlide}
             regenAnchorText={regenAnchorText}
             onEditBufferChange={setEditBuffer}
@@ -642,8 +568,7 @@ function ScreencastPageInner() {
                 notifyJobsChanged();
               }
               setRenderProgressLabel("");
-              setAutoState("idle");
-              dispatch({ type: "SET_STEP", step: mode === "auto" ? "upload" : "tts-settings" });
+              dispatch({ type: "SET_STEP", step: "tts-settings" });
               dispatch({ type: "SET_LOADING", loading: false });
             }}
           />
@@ -668,7 +593,7 @@ function ScreencastPageInner() {
             onReset={() => resetAll()}
           />
         )}
-        {!fastMode && lightboxIndex !== null && (
+        {lightboxIndex !== null && (
           <Lightbox
             index={lightboxIndex}
             slides={slides}

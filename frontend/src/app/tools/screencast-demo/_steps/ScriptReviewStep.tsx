@@ -8,7 +8,6 @@ interface ScriptReviewStepProps {
   openAccordion: number;
   editingSlide: number | null;
   editBuffer: string;
-  fastMode: boolean;
   regeneratingSlide: number | null;
   regenPrompt: string;
   regenProposal: string | null;
@@ -29,7 +28,7 @@ interface ScriptReviewStepProps {
 
 
 export function ScriptReviewStep({
-  slides, openAccordion, editingSlide, editBuffer, fastMode,
+  slides, openAccordion, editingSlide, editBuffer,
   regeneratingSlide, regenPrompt, regenProposal, regenLoading,
   onOpenAccordionChange, onEditBufferChange, onStartEdit, onCancelEdit, onSaveEdit,
   onOpenRegen, onCloseRegen, onRegenPromptChange, onRegenProposalChange, onRunRegen, onApplyRegen,
@@ -68,16 +67,14 @@ export function ScriptReviewStep({
               {isOpen && (
                 <div id={`slide-panel-${i}`} className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]">
                   <div className="flex flex-col md:flex-row gap-4">
-                    {!fastMode && (
-                      <div className="flex-shrink-0" style={{ width: "100px" }}>
-                        {slide.imageBase64 ? (
-                          <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full rounded border border-gray-200" />
-                        ) : (
-                          <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">Kein Bild</div>
-                        )}
-                      </div>
-                    )}
-                    <div className={`${fastMode ? "w-full" : "md:w-3/5"} flex flex-col`}>
+                    <div className="flex-shrink-0" style={{ width: "100px" }}>
+                      {slide.imageBase64 ? (
+                        <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full rounded border border-gray-200" />
+                      ) : (
+                        <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center text-sm text-gray-400">Kein Bild</div>
+                      )}
+                    </div>
+                    <div className="md:w-3/5 flex flex-col">
                       {isEditing ? (
                         <>
                           <textarea value={editBuffer} onChange={(e) => onEditBufferChange(e.target.value)} rows={8}

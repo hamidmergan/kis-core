@@ -9,7 +9,6 @@ interface ScriptReviewStepProps {
   openAccordion: number;
   editingSlide: number | null;
   editBuffer: string;
-  fastMode: boolean;
   regenAnchorSlide: number | null;
   regenAnchorText: string;
   onEditBufferChange: (v: string) => void;
@@ -28,7 +27,6 @@ export default function ScriptReviewStep({
   openAccordion,
   editingSlide,
   editBuffer,
-  fastMode,
   regenAnchorSlide,
   regenAnchorText,
   onEditBufferChange,
@@ -81,23 +79,21 @@ export default function ScriptReviewStep({
               {isOpen && (
                 <div id={`slide-panel-${i}`} className="border-t border-gray-200 p-4 animate-[fadeIn_0.2s_ease-out]">
                   <div className="flex flex-col gap-4">
-                    {!fastMode && (
-                      <div className="flex-shrink-0" style={{ width: "100px" }}>
-                        {slide.imageBase64 ? (
-                          <button
-                            onClick={() => onLightboxOpen(i)}
-                            className="w-full rounded border border-gray-200 hover:border-primary transition-colors overflow-hidden cursor-zoom-in focus-visible:outline-2 focus-visible:outline-primary"
-                            aria-label={`Folie ${i + 1} vergrößern`}
-                          >
-                            <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full" />
-                          </button>
-                        ) : (
-                          <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center">
-                            <Spinner size="sm" />
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex-shrink-0" style={{ width: "100px" }}>
+                      {slide.imageBase64 ? (
+                        <button
+                          onClick={() => onLightboxOpen(i)}
+                          className="w-full rounded border border-gray-200 hover:border-primary transition-colors overflow-hidden cursor-zoom-in focus-visible:outline-2 focus-visible:outline-primary"
+                          aria-label={`Folie ${i + 1} vergrößern`}
+                        >
+                          <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full" />
+                        </button>
+                      ) : (
+                        <div className="w-full aspect-video bg-gray-100 rounded flex items-center justify-center">
+                          <Spinner size="sm" />
+                        </div>
+                      )}
+                    </div>
 
                     <div className="w-full flex flex-col">
                       {isEditing ? (

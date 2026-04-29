@@ -2,18 +2,18 @@ import { Cards, DownloadSimple, Files, Sparkle, Trash } from "@phosphor-icons/re
 import Spinner from "@/components/ui/Spinner";
 import type { ExerciseSet, StudentStats } from "../../_types";
 import { TOOL_LABELS } from "../../_constants";
-import { SubviewHeader } from "../layout/SubviewHeader";
+import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
 
 export function ExerciseSetsOverview({
-  title, sets, onBack, onSelect, onCreate, onDelete, onDownload, sourceCount, stats, breadcrumbs, category,
+  title, toolKey, sets, onBack, onSelect, onCreate, onDelete, onDownload, sourceCount, stats, breadcrumbs, category,
 }: {
-  title: string; sets: ExerciseSet[];
+  title: string; toolKey?: string; sets: ExerciseSet[];
   onBack: () => void; onSelect: (s: ExerciseSet) => void;
   onCreate: () => void; onDelete: (id: number) => void;
   onDownload?: (s: ExerciseSet) => void;
   sourceCount: number; stats?: StudentStats | null;
-  breadcrumbs?: { label: string; onClick: () => void }[];
-  category?: "lerntools" | "language_training";
+  breadcrumbs?: BreadcrumbItem[];
+  category?: ToolCategory;
 }) {
 
   const noSources = sourceCount === 0;
@@ -21,7 +21,7 @@ export function ExerciseSetsOverview({
   const isGenerating = sets.some((s) => s.status === "generating");
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title={title} onBack={onBack} breadcrumbs={breadcrumbs} category={category} />
+      <SubviewHeader title={title} toolKey={toolKey} onBack={onBack} breadcrumbs={breadcrumbs} category={category} />
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
           style={{
@@ -43,8 +43,7 @@ export function ExerciseSetsOverview({
             <p className="text-sm text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
             <button type="button" onClick={onCreate}
               disabled={noSources || atLimit || isGenerating}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-              style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+              className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
               <Sparkle size={12} weight="bold" /> {isGenerating ? "Wird generiert…" : `Erstellen (${sets.length}/20)`}
             </button>
           </div>
@@ -53,8 +52,7 @@ export function ExerciseSetsOverview({
             <div className="flex justify-center">
               <button type="button" onClick={onCreate}
                 disabled={noSources || atLimit || isGenerating}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-                style={{ color: "var(--kb)", backgroundColor: "#fff", border: "1.5px solid var(--kb)" }}>
+                className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                 <Sparkle size={12} weight="bold" /> {isGenerating ? "Wird generiert…" : `Erstellen (${sets.length}/20)`}
               </button>
             </div>
@@ -70,7 +68,7 @@ export function ExerciseSetsOverview({
                 const hasRun = (s.total_attempts ?? 0) > 0;
                 return (
                   <div key={s.id} onClick={() => !generating && !failed && onSelect(s)}
-                    className={`bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group ${generating ? "opacity-70" : "cursor-pointer"}`}
+                    className={`bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group border-2 border-transparent transition-colors ${generating ? "opacity-70" : "cursor-pointer hover:border-[var(--kb)]"}`}
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     {/* Title + Score */}
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">

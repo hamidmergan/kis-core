@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X } from "@phosphor-icons/react";
+import { Check, X } from "@phosphor-icons/react";
 import type { ScheduleEntry, ScheduleEntryType } from "../../_types";
 
 export interface EditInput {
@@ -72,8 +72,8 @@ export function ScheduleEntryEditModal({
           <button
             type="button"
             onClick={onCancel}
-            className="w-7 h-7 rounded-full flex items-center justify-center hover:opacity-70"
-            style={{ backgroundColor: "var(--surface-dim)", color: "var(--muted)" }}
+            className="w-7 h-7 rounded-full flex items-center justify-center btn-icon"
+            style={{ backgroundColor: "var(--surface-dim)" }}
             aria-label="Schließen"
           >
             <X size={14} weight="bold" />
@@ -89,8 +89,8 @@ export function ScheduleEntryEditModal({
               maxLength={200}
               value={titleVal}
               onChange={(e) => setTitleVal(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+              className="w-full px-3 py-2 rounded-lg text-sm border-2 border-[var(--border)] hover:border-[var(--accent)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+              style={{ backgroundColor: "var(--surface)", color: "var(--text)" }}
             />
           </label>
 
@@ -101,8 +101,8 @@ export function ScheduleEntryEditModal({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+                className="w-full px-3 py-2 rounded-lg text-sm border-2 border-[var(--border)] hover:border-[var(--accent)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+                style={{ backgroundColor: "var(--surface)", color: "var(--text)" }}
               />
             </label>
             <label className="block">
@@ -111,8 +111,8 @@ export function ScheduleEntryEditModal({
                 type="time"
                 value={dueTime}
                 onChange={(e) => setDueTime(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+                className="w-full px-3 py-2 rounded-lg text-sm border-2 border-[var(--border)] hover:border-[var(--accent)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+                style={{ backgroundColor: "var(--surface)", color: "var(--text)" }}
               />
             </label>
           </div>
@@ -124,17 +124,25 @@ export function ScheduleEntryEditModal({
               maxLength={2000}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-              style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+              className="w-full px-3 py-2 rounded-lg text-sm resize-none border-2 border-[var(--border)] hover:border-[var(--accent)] focus:border-[var(--accent)] focus:outline-none transition-colors"
+              style={{ backgroundColor: "var(--surface)", color: "var(--text)" }}
             />
           </label>
 
           <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isOptional}
-              onChange={(e) => setIsOptional(e.target.checked)}
-            />
+            <button
+              type="button"
+              onClick={() => setIsOptional(!isOptional)}
+              aria-label={isOptional ? "Nicht optional" : "Als optional markieren"}
+              className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
+                isOptional
+                  ? "border-[var(--accent)] bg-[var(--accent)]"
+                  : "border-[var(--border)] bg-white hover:border-[var(--accent)]"
+              }`}
+              style={{ color: "#fff" }}
+            >
+              {isOptional && <Check size={11} weight="bold" />}
+            </button>
             <span className="text-xs" style={{ color: "var(--text)" }}>Optional (freiwillig)</span>
           </label>
         </div>
@@ -143,16 +151,15 @@ export function ScheduleEntryEditModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-xs font-semibold"
-            style={{ color: "var(--muted)", backgroundColor: "var(--surface-dim)" }}
+            className="px-4 py-2 rounded-lg text-xs font-semibold transition-all text-[var(--muted)] hover:text-[var(--accent)] hover:outline-2 hover:outline-[var(--accent)]"
+            style={{ backgroundColor: "var(--surface-dim)" }}
           >
             Abbrechen
           </button>
           <button
             type="submit"
             disabled={submitting || !titleVal.trim()}
-            className="px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-40"
-            style={{ color: "#fff", backgroundColor: "var(--accent)" }}
+            className="btn-fill-accent px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40"
           >
             {submitting ? "..." : submitLabel}
           </button>

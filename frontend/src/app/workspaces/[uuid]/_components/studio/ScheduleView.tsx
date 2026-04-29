@@ -254,8 +254,7 @@ export function ScheduleView({
           type="button"
           onClick={handleGenerate}
           disabled={!canGenerate}
-          className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-          style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}
+          className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
         >
           {generating ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
           {generating ? "Termine werden extrahiert..." : "Abgaben & Termine aus Quellen"}
@@ -291,7 +290,7 @@ export function ScheduleView({
           <button
             type="button"
             onClick={() => setCreatingManual(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:outline-2 hover:outline-[var(--accent)]"
             style={{ color: "var(--accent)", backgroundColor: "var(--surface-dim)" }}
           >
             <Plus size={12} weight="bold" /> Neuer Eintrag
@@ -299,7 +298,7 @@ export function ScheduleView({
           <button
             type="button"
             onClick={() => setConfirmDeleteAll(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:outline-2 hover:outline-[#B91C1C]"
             style={{ color: "#B91C1C", backgroundColor: "rgba(185,28,28,.08)" }}
           >
             <Trash size={12} weight="bold" /> Alles löschen
@@ -338,7 +337,7 @@ export function ScheduleView({
             {sourceLegend.length > 0 && (
               <div className="flex flex-col gap-1 pt-4 mt-4 border-t border-dashed" style={{ borderColor: "var(--border)" }}>
                 {sourceLegend.map((s) => (
-                  <p key={s.number} className="text-[11px] leading-snug" >
+                  <p key={s.number} className="text-[11px] leading-snug text-[var(--muted)]">
                     [{s.number}] {s.filename}
                   </p>
                 ))}

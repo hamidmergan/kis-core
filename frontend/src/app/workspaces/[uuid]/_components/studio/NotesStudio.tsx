@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CaretDown, CaretUp, NotePencil, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, NotePencil, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
 import type { ChatMessage, Source, SourceQmap, SourceRef, StudentStats } from "../../_types";
 import { _getChipIcon } from "../../_utils";
 import { withCitations, type CitationChipClickHandler } from "../chat/_citations";
-import { SubviewHeader } from "../layout/SubviewHeader";
+import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 import Spinner from "@/components/ui/Spinner";
 
 export interface Note {
@@ -41,7 +41,7 @@ export function NotesStudio({
   sources?: Source[]; activeSourceIds?: string[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
   stats?: StudentStats | null;
-  breadcrumbs?: { label: string; onClick: () => void }[];
+  breadcrumbs?: BreadcrumbItem[];
   pendingTitleIds?: Set<number>;
 }) {
   const [draft, setDraft] = useState("");
@@ -82,13 +82,13 @@ export function NotesStudio({
 
   return (
     <div className="flex flex-col h-full">
-      {onBack && <SubviewHeader title="Notizen" onBack={onBack} breadcrumbs={breadcrumbs} />}
+      {onBack && <SubviewHeader title="Notizen" toolKey="Notes" onBack={onBack} breadcrumbs={breadcrumbs} />}
       <div className="flex-1 overflow-y-auto">
         <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-3">
           {/* New note input */}
           <div
-            className="mx-auto w-full flex gap-2 items-center rounded-xl p-2"
-            style={{ maxWidth: 640, backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
+            className="mx-auto w-full flex gap-2 items-center rounded-xl p-2 border-2 border-[var(--border)] hover:border-[var(--accent)] focus-within:border-[var(--accent)] transition-colors"
+            style={{ maxWidth: 640, backgroundColor: "var(--background)" }}
           >
             <textarea
               ref={textareaRef}
@@ -108,12 +108,21 @@ export function NotesStudio({
                 {draft.length}/2000
               </span>
             )}
+            {draft && (
+              <button
+                type="button"
+                onClick={() => { setDraft(""); textareaRef.current?.focus(); }}
+                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full btn-icon"
+                title="Eingabe löschen"
+              >
+                <X size={14} weight="bold" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => { if (draft.trim()) { onAdd(draft.trim()); setDraft(""); } }}
               disabled={!draft.trim()}
-              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-white disabled:opacity-40 transition-opacity hover:opacity-85"
-              style={{ backgroundColor: "var(--kb)" }}
+              className="btn-fill-accent flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg disabled:opacity-40 transition-colors"
               title="Notiz speichern"
             >
               <Plus size={14} weight="bold" />
@@ -169,7 +178,7 @@ export function NotesStudio({
                       tabIndex={0}
                       onClick={() => setExpandedId(isExpanded ? null : note.id)}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedId(isExpanded ? null : note.id); } }}
-                      className="flex items-center gap-3 px-3 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="row-expandable flex items-center gap-3 px-3 cursor-pointer hover:bg-[var(--surface-dim)] transition-colors"
                       style={{ minHeight: 48, color: "var(--text)" }}
                     >
                       <span
@@ -179,12 +188,12 @@ export function NotesStudio({
                         {isTitlePending && <Spinner size="xs" color="current" />}
                         <span className="truncate">{rowLabel}</span>
                       </span>
-                      <span className="flex-shrink-0 text-[10px]" >
+                      <span className="flex-shrink-0 text-[10px] text-[var(--muted)]">
                         {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }) : ""}
                       </span>
-                      {isExpanded
-                        ? <CaretUp size={14}  />
-                        : <CaretDown size={14}  />}
+                      <span className="row-caret flex-shrink-0 transition-colors">
+                        {isExpanded ? <CaretUp size={14} /> : <CaretDown size={14} />}
+                      </span>
                     </div>
 
                     {/* Accordion */}
@@ -216,7 +225,7 @@ export function NotesStudio({
                               type="button"
                               disabled={isTitlePending}
                               onClick={() => { setTitleDraft(note.title ?? ""); setEditingTitleId(note.id); }}
-                              className="w-full text-left text-sm font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2 disabled:cursor-wait"
+                              className="group w-full text-left text-sm font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2 disabled:cursor-wait"
                               style={hasCustomTitle ? { color: "var(--text)" } : { fontStyle: "italic", fontWeight: 400 }}
                               title={isTitlePending ? "Titel wird generiert…" : hasCustomTitle ? "Titel ändern" : "Titel vergeben"}
                             >
@@ -225,7 +234,7 @@ export function NotesStudio({
                               </span>
                               {isTitlePending
                                 ? <Spinner size="xs" color="current" />
-                                : <PencilSimple size={16} className="flex-shrink-0 opacity-60" />}
+                                : <PencilSimple size={16} weight="bold" className="flex-shrink-0 opacity-60 group-hover:opacity-100 group-hover:text-[var(--kb)] group-focus:opacity-100 group-focus:text-[var(--kb)] transition-colors" />}
                             </button>
                           )
                         )}
@@ -263,13 +272,12 @@ export function NotesStudio({
                                   tabIndex={0}
                                   onClick={(e) => { e.stopPropagation(); onChipClick(s.uuid, 0, s.filename); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                                  className="inline-flex items-center gap-1 text-[10px] cursor-pointer btn-icon"
-                                  
+                                  className="inline-flex items-center gap-1 text-[10px] cursor-pointer text-[var(--muted)] hover:text-[var(--accent)] transition-colors"
                                   title={s.filename}
                                 >
                                   <ChipIcon size={10} weight="bold" />
                                   <span style={{ color: "var(--kb)" }}>[{s.qnum}]</span>
-                                  <span className="max-w-[160px] truncate">{s.filename}</span>
+                                  <span className="max-w-[500px] truncate">{s.filename}</span>
                                 </span>
                               );
                             })}

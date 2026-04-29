@@ -47,7 +47,7 @@ def get_job_stats(days: int = 30) -> dict:
                        ROUND(AVG(EXTRACT(EPOCH FROM (
                            completed_at - COALESCE(
                                CASE WHEN tool IN (
-                                   'screencast_render', 'screencast_auto',
+                                   'screencast_render',
                                    'screencast_demo_render', 'screencast_translate'
                                ) THEN render_started_at END,
                                started_at
@@ -57,7 +57,7 @@ def get_job_stats(days: int = 30) -> dict:
                 WHERE status = 'success' AND completed_at IS NOT NULL
                   AND COALESCE(
                       CASE WHEN tool IN (
-                          'screencast_render', 'screencast_auto',
+                          'screencast_render',
                           'screencast_demo_render', 'screencast_translate'
                       ) THEN render_started_at END,
                       started_at
@@ -77,7 +77,7 @@ def get_job_stats(days: int = 30) -> dict:
 
 def get_job_activity_log(days: int = 30, limit: int = 50) -> list[dict]:
     """Recent job activity for admin dashboard — chronological log."""
-    screencast_tools = {"screencast_render", "screencast_auto", "screencast_demo_render", "screencast_translate"}
+    screencast_tools = {"screencast_render", "screencast_demo_render", "screencast_translate"}
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(

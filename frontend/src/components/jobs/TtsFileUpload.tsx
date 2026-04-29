@@ -69,7 +69,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
     ? "border-primary bg-blue-50"
     : selectedFilename
       ? "border-green-400 bg-green-50"
-      : "border-gray-300 hover:border-gray-400";
+      : "border-gray-300 hover:border-primary";
 
   return (
     <div>

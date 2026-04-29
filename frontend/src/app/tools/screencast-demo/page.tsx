@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { api, parseDetail } from "@/lib/api";
-import { checkAuthStatus } from "@/lib/auth";
 import BackLink from "@/components/ui/BackLink";
 import { wordCount } from "@/lib/text";
 import { KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
@@ -79,19 +78,12 @@ function ScreencastDemoPageInner() {
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [audioId, setAudioId] = useState<string>("");
   const [, setAudioCount] = useState(0);
-  const [fastMode, setFastMode] = useState(false);
-  const [showSteps, setShowSteps] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
   const [importedScripts, setImportedScripts] = useState<string[] | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    checkAuthStatus().then((status) => { setIsAdmin(!!status.is_admin); });
-  }, []);
 
   useEffect(() => {
     api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
@@ -178,7 +170,7 @@ function ScreencastDemoPageInner() {
       const res = await fetch("/api/screencast-demo/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fast_mode: fastMode }),
+        body: JSON.stringify({}),
         credentials: "include",
       });
       if (!res.ok) {
@@ -200,7 +192,7 @@ function ScreencastDemoPageInner() {
     } catch (err) {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
-  }, [fastMode, goError]);
+  }, [goError]);
 
   const handleAcceptTranslation = useCallback(async () => {
     setStep("generating-scripts");
@@ -268,66 +260,6 @@ function ScreencastDemoPageInner() {
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, voices, translateJobUuid, goError, processRenderResponse]);
-
-  const handleDemoStartDirect = useCallback(async () => {
-    setStep("translating");
-    setLoading(true);
-    try {
-      // Step 1: translate
-      const res1 = await fetch("/api/screencast-demo/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fast_mode: fastMode }),
-        credentials: "include",
-      });
-      if (!res1.ok) {
-        const err = await res1.json().catch(() => ({ detail: "Fehler beim Laden der Demo" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${res1.status}`));
-      }
-      const data1: TranslateResponse = await res1.json();
-      const loadedSlides = (data1.slide_texts || []).map((text, i) => ({
-        index: i,
-        imageBase64: (data1.slide_images || [])[i] || "",
-        extractedText: text,
-        script: "",
-      }));
-      setTranslateJobUuid(data1.translate_job_uuid ?? "demo");
-      setSlides(loadedSlides);
-
-      // Step 2: generate scripts
-      const res2 = await fetch("/api/screencast-demo/generate-scripts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-        credentials: "include",
-      });
-      if (!res2.ok) {
-        const err = await res2.json().catch(() => ({ detail: "Fehler beim Laden der Skripte" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${res2.status}`));
-      }
-      const data2: GenerateScriptsResponse = await res2.json();
-      setSlides(loadedSlides.map((s, i) => ({ ...s, script: data2.scripts[i] || "" })));
-
-      // Step 3: render
-      const voiceLabel = ttsProvider === "kokoro"
-        ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
-        : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
-      const res3 = await fetch("/api/screencast-demo/render", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          translate_job_uuid: data1.translate_job_uuid ?? "demo",
-          voice_id: voiceId, voice_label: voiceLabel,
-          speed, slide_pause: slidePause, dpi, provider: ttsProvider,
-        }),
-        credentials: "include",
-      });
-      await processRenderResponse(res3);
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-    }
-  }, [fastMode, ttsProvider, kokoroVoices, voiceId, voices, speed, slidePause, dpi, goError, processRenderResponse]);
 
   const handleJsonImport = useCallback((file: File) => {
     setImportError(null);
@@ -411,15 +343,7 @@ function ScreencastDemoPageInner() {
         )}
 
         {step === "upload" && (
-          <UploadStep
-            showSteps={showSteps}
-            isAdmin={isAdmin}
-            fastMode={fastMode}
-            onShowStepsChange={setShowSteps}
-            onFastModeChange={setFastMode}
-            onStart={handleDemoStart}
-            onStartDirect={handleDemoStartDirect}
-          />
+          <UploadStep onStart={handleDemoStart} />
         )}
 
         {step === "translating" && (
@@ -455,7 +379,6 @@ function ScreencastDemoPageInner() {
         {step === "translation-review" && (
           <TranslationReviewStep
             slides={slides}
-            fastMode={fastMode}
             loading={loading}
             lightboxIndex={lightboxIndex}
             onLightboxOpen={setLightboxIndex}
@@ -477,7 +400,6 @@ function ScreencastDemoPageInner() {
             openAccordion={openAccordion}
             editingSlide={editingSlide}
             editBuffer={editBuffer}
-            fastMode={fastMode}
             regeneratingSlide={regeneratingSlide}
             regenPrompt={regenPrompt}
             regenProposal={regenProposal}

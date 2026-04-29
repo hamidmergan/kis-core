@@ -14,7 +14,7 @@ router = APIRouter(tags=["admin"])
 
 # Screencast tools have a separate render_started_at timestamp,
 # which measures the pure ffmpeg runtime (excluding queue wait time).
-_SCREENCAST_TOOLS = {"screencast_render", "screencast_auto", "screencast_demo_render", "screencast_translate"}
+_SCREENCAST_TOOLS = {"screencast_render", "screencast_demo_render", "screencast_translate"}
 
 
 def _compute_duration(job: dict) -> float | None:

@@ -35,7 +35,7 @@ export function ScheduleEntryCardGlobal({
   const containerStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     backgroundColor: entry.is_checked ? "#f0fdf4" : "var(--bg)",
-    opacity: isPast ? 0.55 : entry.is_checked ? 0.7 : 1,
+    opacity: isPast ? 0.55 : 1,
     boxShadow: "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
     padding: "12px 14px",

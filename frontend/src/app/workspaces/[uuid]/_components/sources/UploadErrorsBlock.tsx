@@ -17,7 +17,7 @@ export function UploadErrorsBlock({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="flex-1 text-left hover:opacity-80"
+          className="flex-1 text-left hover:underline transition-colors"
         >
           {errors.length === 1
             ? `1 Datei fehlgeschlagen`

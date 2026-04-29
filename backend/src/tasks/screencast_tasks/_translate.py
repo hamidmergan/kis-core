@@ -28,7 +28,6 @@ def run_screencast_translate(
     input_path: str,
     filename: str,
     glossary_json: str,
-    fast_mode: bool,
     source_lang: str = "DE",
     target_lang: str = "EN-US",
 ):
@@ -62,29 +61,22 @@ def run_screencast_translate(
         save_job_file(job_uuid, "translated.pptx", translated_bytes)
         save_job_file(job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
 
-        if fast_mode:
-            result = {
-                "slide_count": len(slide_texts),
-                "slide_texts": slide_texts,
-                "slide_images": [],
-            }
-        else:
-            db.update_job_status(job_uuid, "running", progress={"step": "images"})
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmp = Path(tmpdir)
-                pptx_path = tmp / "translated.pptx"
-                pptx_path.write_bytes(translated_bytes)
-                img_dir = tmp / "images"
-                img_dir.mkdir()
-                slide_image_paths = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir))
-                import base64
-                slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
+        db.update_job_status(job_uuid, "running", progress={"step": "images"})
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            pptx_path = tmp / "translated.pptx"
+            pptx_path.write_bytes(translated_bytes)
+            img_dir = tmp / "images"
+            img_dir.mkdir()
+            slide_image_paths = asyncio.run(_convert_slides_to_images_async(pptx_path, img_dir))
+            import base64
+            slide_images_b64 = [base64.b64encode(p.read_bytes()).decode() for p in slide_image_paths]
 
-            result = {
-                "slide_count": len(slide_texts),
-                "slide_texts": slide_texts,
-                "slide_images": slide_images_b64,
-            }
+        result = {
+            "slide_count": len(slide_texts),
+            "slide_texts": slide_texts,
+            "slide_images": slide_images_b64,
+        }
 
         result_path = save_result_json(job_uuid, result)
         save_result_and_evict(job_uuid, result_path, f"{Path(filename).stem}_translate.json")

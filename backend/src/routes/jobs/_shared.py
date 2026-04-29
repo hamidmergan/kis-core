@@ -30,7 +30,6 @@ _TOOL_LABELS = {
     "screencast_demo_render": "Demo-Screencast",
     "screencast_render": "Screencast",
     "screencast_translate": "Screencast-Übersetzung",
-    "screencast_auto": "Screencast (Auto)",
     "tts": "Text in Sprache",
     "translation": "Übersetzung",
     "transcription": "Transkription",
@@ -41,16 +40,16 @@ _TOOL_LABELS = {
 }
 
 
-_META_TOOLS = {"screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"}
+_META_TOOLS = {"screencast_translate", "screencast_render", "screencast_demo_render"}
 
 
 _TOOL_FILTER_GROUPS: dict[str, list[str]] = {
-    "screencast": ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"],
+    "screencast": ["screencast_translate", "screencast_render", "screencast_demo_render"],
     "image": ["image_generate", "image_edit", "image_analyze"],
 }
 
 
-_SCREENCAST_TOOLS = {"screencast_translate", "screencast_auto", "screencast_render", "screencast_demo_render"}
+_SCREENCAST_TOOLS = {"screencast_translate", "screencast_render", "screencast_demo_render"}
 
 
 def _tools_matching_query(q: str) -> list[str]:
@@ -90,7 +89,7 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
         tts_params: dict = {}
         is_generating_scripts = False
         tool = job["tool"]
-        if tool in ("tts", "screencast_auto", "screencast_render", "screencast_translate",
+        if tool in ("tts", "screencast_render", "screencast_translate",
                     "screencast_demo_render"):
             try:
                 progress = json_lib.loads(job["progress"] or "{}")

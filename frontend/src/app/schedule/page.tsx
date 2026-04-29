@@ -62,6 +62,8 @@ export default function SchedulePage() {
   const offsetRef = useRef(0);
   const showAllRef = useRef(showAll);
   showAllRef.current = showAll;
+  const entriesRef = useRef<ScheduleListEntry[]>(entries);
+  entriesRef.current = entries;
 
   // Reset + initial load whenever the toggle flips.
   useEffect(() => {
@@ -119,7 +121,26 @@ export default function SchedulePage() {
   }, [triggerLoadMore, entries.length]);
 
   const handleToggleChecked = useCallback(async (entry: ScheduleListEntry, checked: boolean) => {
+    // In showAll + check: jump to the next still-open task so users immediately
+    // see what's next (the just-completed entry stays in place since showAll
+    // keeps everything visible). Computed before the state update so we can
+    // use the index of the entry as it was clicked.
+    let nextOpenId: number | null = null;
+    if (showAllRef.current && checked) {
+      const list = entriesRef.current;
+      const idx = list.findIndex((e) => e.id === entry.id);
+      const next = idx >= 0 ? list.slice(idx + 1).find((e) => !e.is_checked) : undefined;
+      if (next) nextOpenId = next.id;
+    }
     setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_checked: checked } : e));
+    if (nextOpenId !== null) {
+      // Short delay so the user sees the just-clicked entry flip to checked
+      // before the page scrolls away to the next open task.
+      setTimeout(() => {
+        const el = document.querySelector<HTMLElement>(`[data-entry-id="${nextOpenId}"]`);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 350);
+    }
     const ok = await toggleChecked(entry.module_uuid, entry.id, checked);
     if (!ok) {
       setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_checked: !checked } : e));
@@ -146,18 +167,13 @@ export default function SchedulePage() {
               role="switch"
               aria-checked={showAll}
               onClick={() => setShowAll((v) => !v)}
-              className="relative inline-block w-9 h-5 rounded-full transition-colors flex-shrink-0"
+              className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] transition-colors duration-200"
               style={{ backgroundColor: showAll ? "var(--kb)" : "var(--border)" }}
             >
               <span
                 aria-hidden="true"
-                className="absolute top-0.5 w-4 h-4 rounded-full transition-transform"
-                style={{
-                  left: 2,
-                  backgroundColor: "#fff",
-                  transform: showAll ? "translateX(16px)" : "translateX(0)",
-                  boxShadow: "0 1px 2px rgba(0,0,0,.2)",
-                }}
+                className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+                style={{ transform: showAll ? "translateX(16px)" : "translateX(0)" }}
               />
             </button>
           </label>

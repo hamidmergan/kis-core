@@ -5,12 +5,11 @@ export function MiniStrip({ label, onClick, side }: { label: string; onClick: ()
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center pt-4 h-full w-full gap-2 btn-icon"
-      
+      className="mini-strip-btn flex flex-col items-center pt-4 h-full w-full gap-2"
       title={label}
     >
       <span
-        className="w-7 h-7 flex items-center justify-center rounded-full"
+        className="mini-strip-icon w-7 h-7 flex items-center justify-center rounded-full"
         style={{ backgroundColor: "var(--surface-dim)" }}
       >
         <SidebarSimple

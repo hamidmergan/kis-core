@@ -176,12 +176,12 @@ export function ChatPanel({
         externalTextareaRef={externalTextareaRef}
         registerSetInput={registerSetInput}
       />
-      <p className="hide-on-short w-full text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+      <p className="hide-on-short w-full text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)" }}>
         Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.
       </p>
-      <p className="hide-on-short w-full text-center mt-1 pb-2 text-[10px]" style={{ color: "var(--muted)", opacity: 0.5 }}>
+      <p className="hide-on-short w-full text-center mt-1 pb-2 text-[10px]" style={{ color: "var(--muted)" }}>
         Feedback oder Probleme?{" "}
-        <a href="mailto:hamid.mergan@th-luebeck.de" className="underline hover:opacity-100 transition-opacity">
+        <a href="mailto:hamid.mergan@th-luebeck.de" className="hover:underline hover:text-[var(--accent)] transition-colors">
           hamid.mergan@th-luebeck.de
         </a>
       </p>

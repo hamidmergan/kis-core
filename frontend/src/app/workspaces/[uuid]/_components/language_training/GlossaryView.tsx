@@ -4,7 +4,7 @@ import HelpTooltip from "@/components/ui/HelpTooltip";
 import Spinner from "@/components/ui/Spinner";
 import type { GlossaryEntry, StudentStats } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
-import { SubviewHeader } from "../layout/SubviewHeader";
+import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
   const [open, setOpen] = useState(false);
@@ -31,7 +31,7 @@ export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
           style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
           <button type="button"
             onClick={() => { setOpen(false); onDeleteAll?.(); }}
-            className="w-full text-left px-3 py-1.5 text-[11px] btn-icon"
+            className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--surface-dim)] transition-colors"
             style={{ color: "#B91C1C" }}>
             Alle Begriffe löschen
           </button>
@@ -51,7 +51,7 @@ export function GlossaryView({
   onDeleteAll?: () => void;
   sourceCount?: number;
   stats?: StudentStats | null;
-  breadcrumbs?: { label: string; onClick: () => void }[];
+  breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
   feedback?: { kind: "success" | "info" | "error"; message: string } | null;
   onDismissFeedback?: () => void;
@@ -60,7 +60,7 @@ export function GlossaryView({
   const [expandedId, setExpandedId] = useState<number | null>(null);
   return (
     <div className="flex flex-col h-full">
-      {onBack && <SubviewHeader title="Glossar" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
+      {onBack && <SubviewHeader title="Glossar" toolKey="Glossary" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
           style={{
@@ -80,8 +80,7 @@ export function GlossaryView({
             type="button"
             onClick={onGenerate}
             disabled={loading || noSources}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-40"
-            style={{ color: "var(--accent)", backgroundColor: "#fff", border: "1.5px solid var(--accent)" }}
+            className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
           >
             {loading ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
             {loading ? "Begriffe werden extrahiert…" : `Begriffe extrahieren (${entries.length}/150)`}
@@ -142,7 +141,7 @@ export function GlossaryView({
                       tabIndex={0}
                       onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedId(isExpanded ? null : entry.id); } }}
-                      className="flex items-center gap-3 px-3 cursor-pointer hover:opacity-80 transition-opacity"
+                      className="group flex items-center gap-3 px-3 cursor-pointer hover:bg-[var(--surface-dim)] transition-colors"
                       style={{ minHeight: 48, color: "var(--text)" }}
                     >
                       <span className="flex-1 text-sm truncate">
@@ -164,8 +163,8 @@ export function GlossaryView({
                         </span>
                       )}
                       {isExpanded
-                        ? <CaretUp size={14}  />
-                        : <CaretDown size={14}  />}
+                        ? <CaretUp size={14} weight="bold" className="group-hover:text-[var(--kb)] transition-colors" />
+                        : <CaretDown size={14} weight="bold" className="group-hover:text-[var(--kb)] transition-colors" />}
                     </div>
 
                     {isExpanded && (

@@ -160,7 +160,7 @@ export default function JobsTab() {
           <button
             onClick={() => setOffset(Math.max(0, offset - limit))}
             disabled={currentPage === 1}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-100"
+            className="px-3 py-1.5 text-sm border-2 border-gray-300 rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--color-primary)] enabled:hover:text-[var(--color-primary)]"
           >
             ‹
           </button>
@@ -175,10 +175,10 @@ export default function JobsTab() {
               <button
                 key={page}
                 onClick={() => setOffset((page - 1) * limit)}
-                className={`px-3 py-1.5 text-sm border rounded-md ${
+                className={`px-3 py-1.5 text-sm border-2 rounded-md transition-colors ${
                   page === currentPage
                     ? "bg-primary text-white border-primary"
-                    : "border-gray-300 hover:bg-gray-100"
+                    : "border-gray-300 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
                 }`}
               >
                 {page}
@@ -188,7 +188,7 @@ export default function JobsTab() {
           <button
             onClick={() => setOffset(offset + limit)}
             disabled={currentPage === totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-100"
+            className="px-3 py-1.5 text-sm border-2 border-gray-300 rounded-md transition-colors disabled:opacity-40 enabled:hover:border-[var(--color-primary)] enabled:hover:text-[var(--color-primary)]"
           >
             ›
           </button>

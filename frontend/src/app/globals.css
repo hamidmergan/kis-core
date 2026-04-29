@@ -47,15 +47,6 @@
   --kb60:     #668DA0;
   --kb20:     #EBEDF0;
 
-  /* Sprachtraining purple */
-  --st:       #9333EA;
-  --st-rgb:   147, 51, 234;
-  --st-dark:  #7E22CE;
-  --st-darker:#6B21A8;
-  --st60:     #B07CE8;
-  --st20:     #E9D5FF;
-  --st-today: #C084FC;
-
   --bg:      #ffffff;
   --surface: #F3F4F6;
   --surface-dim: #EBEDF0;
@@ -204,38 +195,44 @@ me-tpc:hover .mm-src-chip {
    Eine zentrale Quelle fuer alle interaktiven Hover-Patterns.
    Layer 2 oben liefert transition + focus-ring + disabled gratis. */
 @layer components {
-  /* Icon-Button: gray default, primary + outline on hover */
+  /* Icon-Button: gray default, primary + outline on hover.
+     Pre-render outline as transparent 2px so the hover state only swaps the
+     color (no layout/border-width jolt on hover). */
   .btn-icon {
     color: var(--muted);
+    outline: 2px solid transparent;
   }
   .btn-icon:hover:not(:disabled, [aria-disabled="true"]) {
     color: var(--color-primary);
-    outline: 2px solid var(--color-primary);
+    outline-color: var(--color-primary);
   }
 
   /* Solid Primary CTA: invert on hover (bg-white + text-primary + outline) */
   .btn-primary {
     background-color: var(--color-primary);
     color: #ffffff;
+    outline: 2px solid transparent;
   }
   .btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: #ffffff;
     color: var(--color-primary);
-    outline: 2px solid var(--color-primary);
+    outline-color: var(--color-primary);
   }
 
   /* Ghost / outlined button: outline on hover */
+  .btn-ghost {
+    outline: 2px solid transparent;
+  }
   .btn-ghost:hover:not(:disabled, [aria-disabled="true"]) {
-    outline: 2px solid var(--color-primary);
+    outline-color: var(--color-primary);
   }
 
-  /* Button on dark blue header: white outline + brighter text */
+  /* Button on dark blue header: full white default, opacity fade on hover (matches logo-link). */
   .btn-on-dark {
-    color: rgba(255, 255, 255, 0.8);
+    color: #ffffff;
   }
   .btn-on-dark:hover:not(:disabled, [aria-disabled="true"]) {
-    color: #ffffff;
-    outline: 2px solid #ffffff;
+    opacity: 0.8;
   }
 
   /* Footer link: faded white, brightens + underline on hover */
@@ -252,9 +249,45 @@ me-tpc:hover .mm-src-chip {
     opacity: 0.8;
   }
 
-  /* Citation chip: outline on hover (bg/color stay inline-styled) */
+  /* Citation chip: outline on hover (bg/color stay inline-styled). */
+  .chip-cite {
+    outline: 2px solid transparent;
+  }
   .chip-cite:hover:not(:disabled, [aria-disabled="true"]) {
-    outline: 2px solid var(--color-primary);
+    outline-color: var(--accent);
+  }
+
+  /* Outlined Accent CTA: white bg, accent border + text. Hover: invert (fill accent + white text). */
+  .btn-outline-accent {
+    background-color: var(--bg);
+    color: var(--accent);
+    border: 2px solid var(--accent);
+  }
+  .btn-outline-accent:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: var(--accent);
+    color: #ffffff;
+  }
+
+  /* Solid Accent CTA: accent bg + white text. Hover: invert (white bg, accent border + text). */
+  .btn-fill-accent {
+    background-color: var(--accent);
+    color: #ffffff;
+    border: 2px solid var(--accent);
+  }
+  .btn-fill-accent:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: #ffffff;
+    color: var(--accent);
+  }
+
+  /* Soft Accent CTA: tinted accent bg + accent text. Hover: outline ring. */
+  .btn-soft-accent {
+    background-color: rgba(var(--accent-rgb), 0.07);
+    color: var(--accent);
+    border: 2px solid transparent;
+    outline: 2px solid transparent;
+  }
+  .btn-soft-accent:hover:not(:disabled, [aria-disabled="true"]) {
+    outline-color: var(--accent);
   }
 }
 
@@ -267,6 +300,46 @@ tr.module-row:has(td.row-main:hover) .row-arrow {
 /* Sources panel: hovering "Alle auswählen" previews hover on per-source checkboxes */
 .sources-panel:has(.sources-select-all:hover) .source-checkbox {
   border-color: var(--color-primary);
+}
+
+/* Expandable row: hovering the row turns the expand-caret accent. Direct CSS
+   instead of Tailwind group-hover so we don't rely on arbitrary-value variants
+   inside group-hover (which can be fragile across Tailwind versions). */
+.row-caret {
+  color: var(--muted);
+  transition: color 0.15s ease;
+}
+.row-expandable:hover .row-caret {
+  color: var(--accent);
+}
+
+/* MiniStrip: hovering the full vertical strip turns icon + label blue, with outline on the icon. */
+.mini-strip-btn {
+  color: var(--muted);
+  transition: color 0.15s;
+}
+.mini-strip-icon {
+  transition: color 0.15s, outline-color 0.15s;
+}
+.mini-strip-btn:hover {
+  color: var(--color-primary);
+}
+.mini-strip-btn:hover .mini-strip-icon {
+  outline: 2px solid var(--color-primary);
+}
+
+/* Schedule timeline dot: ring also turns blue on row hover (overrides inline
+   box-shadow that holds the checked-green ring). bg is handled by Tailwind
+   group-hover utility on the dot itself. */
+.schedule-row:hover .schedule-dot {
+  box-shadow: 0 0 0 5px var(--bg), 0 0 0 6px var(--accent) !important;
+}
+
+/* Heatmap-Cell (Sprachtraining-Stats): Accent-Outline auf Hover.
+   !important noetig, weil das selected-Outline inline gesetzt wird. */
+.heatmap-cell:hover {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 1px !important;
 }
 
 /* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */

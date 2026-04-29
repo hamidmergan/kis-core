@@ -26,15 +26,12 @@ interface UseScreencastTranslateFlowOptions {
 
   // Upload/Translate config
   file: File | null;
-  mode: "auto" | "manual";
   sourceLang: string;
   targetLang: string;
-  fastMode: boolean;
   glossaryIds: string[];
   mergeToApiJson: (ids: string[]) => string | null;
 
   // Callbacks from other hooks
-  handleAutoSubmit: () => void | Promise<void>;
   checkBeforeSubmit: () => Promise<boolean>;
   checkJobStillValid: (uuid: string) => Promise<"ok" | "running" | "deleted">;
   checkJobFolder: () => Promise<boolean>;
@@ -52,13 +49,10 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     slides,
     dispatch,
     file,
-    mode,
     sourceLang,
     targetLang,
-    fastMode,
     glossaryIds,
     mergeToApiJson,
-    handleAutoSubmit,
     checkBeforeSubmit,
     checkJobStillValid,
     checkJobFolder,
@@ -68,13 +62,9 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     isGeneratingScriptsRef,
   } = opts;
 
-  // ── Step: Upload → Translating (or delegate to auto) ──
+  // ── Step: Upload → Translating ──
   const handleUploadNext = useCallback(async () => {
     if (!file) return;
-    if (mode === "auto") {
-      handleAutoSubmit();
-      return;
-    }
 
     const ok = await checkBeforeSubmit();
     if (!ok) return;
@@ -128,7 +118,6 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       formData.append("file", file);
       const glossaryJson = mergeToApiJson(glossaryIds);
       if (glossaryJson) formData.append("glossary_json", glossaryJson);
-      formData.append("fast_mode", String(fastMode));
       formData.append("source_lang", sourceLang);
       formData.append("target_lang", targetLang);
 
@@ -167,8 +156,8 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [
-    file, mode, sourceLang, targetLang, fastMode, glossaryIds, mergeToApiJson,
-    handleAutoSubmit, checkBeforeSubmit, goError,
+    file, sourceLang, targetLang, glossaryIds, mergeToApiJson,
+    checkBeforeSubmit, goError,
     newSignal, dispatch, currentJobUuidRef,
   ]);
 

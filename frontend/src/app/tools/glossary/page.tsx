@@ -180,7 +180,7 @@ export default function GlossaryPage() {
             <p className="mt-2 mb-0 text-sm text-red-600">{importError}</p>
           )}
           <p className="text-sm text-gray-500 mb-6 mt-1">
-            Erstellen und verwalten Sie Begriffslisten für konsistente Übersetzungen.
+            Eigene Begriffslisten anlegen für konsistente Fachbegriffe in Übersetzungen.
           </p>
 
           {/* Create new glossary */}

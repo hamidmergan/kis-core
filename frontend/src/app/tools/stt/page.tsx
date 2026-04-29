@@ -6,6 +6,7 @@ import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
+import HelpTooltip from "@/components/ui/HelpTooltip";
 
 const FORMAT_OPTIONS = [
   { value: "text", label: "Text (.txt)" },
@@ -90,16 +91,19 @@ export default function TranscriptionPage() {
         <section>
           <h1 className="text-xl font-bold mb-1">Sprache in Text</h1>
           <p className="text-sm text-gray-500 mb-6">
-            Laden Sie eine Audio- oder Videodatei hoch, um sie in der Originalsprache zu transkribieren.
+            Audio und Video transkribieren. Auch als Untertitel mit Zeitstempeln.
           </p>
 
           <TranscriptionFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
 
           <div className="mb-6 mt-6">
-            <span className="block text-sm font-medium text-gray-700 mb-2">Ausgabeformat</span>
+            <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
+              Ausgabeformat
+              <HelpTooltip text="TXT ist reiner Text ohne Zeitstempel. SRT und VTT sind Untertitel-Formate: VTT für Moodle und moderne Web-Player, SRT für klassische Video-Player wie VLC." />
+            </span>
             <div className="flex gap-6">
               {FORMAT_OPTIONS.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                <label key={opt.value} className="group flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
                     name="response-format"
@@ -107,9 +111,9 @@ export default function TranscriptionPage() {
                     checked={responseFormat === opt.value}
                     onChange={() => setResponseFormat(opt.value)}
                     disabled={processing}
-                    className="accent-primary"
+                    className="appearance-none w-4 h-4 rounded-full border-2 border-gray-400 group-hover:border-[var(--color-primary)] checked:border-[var(--color-primary)] checked:bg-[var(--color-primary)] checked:shadow-[inset_0_0_0_2px_white] transition-colors cursor-pointer"
                   />
-                  <span className="text-sm text-gray-700">{opt.label}</span>
+                  <span className="text-sm text-gray-700 group-hover:text-[var(--color-primary)]">{opt.label}</span>
                 </label>
               ))}
             </div>

@@ -1,4 +1,4 @@
-"""Translate-Endpoints: Auto-Mode, Translate-Queue, Text-Extraktion, PPTX→Bilder, korrigierter Upload."""
+"""Translate-Endpoints: Translate-Queue, Text-Extraktion, PPTX→Bilder, korrigierter Upload."""
 
 import base64
 import json
@@ -36,68 +36,11 @@ def _enforce_queue_and_quota(user_id: int, current_user: dict) -> None:
     enforce_quota(user_id, "screencast", is_admin_user(current_user))
 
 
-@router.post("/screencast")
-async def screencast(
-    request: Request,
-    file: UploadFile = File(...),
-    voice_id: str = Form(""),
-    voice_label: str = Form(""),
-    speed: float = Form(1.0),
-    dpi: int = Form(100),
-    glossary_json: str = Form(""),
-    provider: str = Form("elevenlabs"),
-    source_lang: str = Form("DE"),
-    target_lang: str = Form("EN-US"),
-    current_user: dict = Depends(get_current_user),
-):
-    """Queue a screencast job: translate DE PPTX → EN, generate scripts, TTS, render MP4."""
-    validate_upload(file.filename)
-
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
-
-    pptx_bytes = await file.read()
-    if not pptx_bytes:
-        raise HTTPException(status_code=400, detail="Datei ist leer")
-
-    user_id = current_user.get("user_id", 0)
-    _enforce_queue_and_quota(user_id, current_user)
-
-    job_uuid = uuid.uuid4().hex
-    filename = file.filename or "screencast.pptx"
-    db.create_job(job_uuid, user_id, "screencast_auto", filename, username=current_user.get("username", "unknown"))
-    input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
-    db.set_job_input_path(job_uuid, input_path)
-
-    # Always save params and queue; dispatch_next atomically dispatches if no active job
-    save_job_file(job_uuid, "queue_params.json", json.dumps({
-        "dispatch_as": "auto",
-        "input_path": input_path,
-        "filename": filename,
-        "voice_id": voice_id,
-        "speed": speed,
-        "dpi": dpi,
-        "glossary_json": glossary_json,
-        "provider": provider,
-        "voice_label": voice_label,
-        "source_lang": source_lang,
-        "target_lang": target_lang,
-    }).encode())
-    db.update_job_status(job_uuid, "queued")
-    from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
-    dispatch_next_screencast_job_for_user(user_id)
-    logger.info("Screencast auto job submitted: job_uuid={}, file={}", job_uuid, filename)
-
-    return {"job_uuid": job_uuid}
-
-
 @router.post("/screencast/translate")
 async def screencast_translate(
     request: Request,
     file: UploadFile = File(...),
     glossary_json: str = Form(""),
-    fast_mode: bool = Form(False),
     source_lang: str = Form("DE"),
     target_lang: str = Form("EN-US"),
     current_user: dict = Depends(get_current_user),
@@ -128,14 +71,13 @@ async def screencast_translate(
         "input_path": input_path,
         "filename": filename,
         "glossary_json": glossary_json,
-        "fast_mode": fast_mode,
         "source_lang": source_lang,
         "target_lang": target_lang,
     }).encode())
     db.update_job_status(job_uuid, "queued")
     from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
     dispatch_next_screencast_job_for_user(user_id)
-    logger.info("Screencast translate job submitted: job_uuid={}, file={}, fast_mode={}", job_uuid, filename, fast_mode)
+    logger.info("Screencast translate job submitted: job_uuid={}, file={}", job_uuid, filename)
 
     return {"job_uuid": job_uuid}
 

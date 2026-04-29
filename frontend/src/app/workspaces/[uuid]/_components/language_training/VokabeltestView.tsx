@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { CaretRight, Exam } from "@phosphor-icons/react";
 import type { VocabTestQuestion } from "../../_types";
-import { SubviewHeader } from "../layout/SubviewHeader";
+import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export function VokabeltestView({
   questions, loading, onGenerate, onBack, breadcrumbs,
 }: {
   questions: VocabTestQuestion[]; loading: boolean;
   onGenerate: () => void; onBack: () => void;
-  breadcrumbs?: { label: string; onClick: () => void }[];
+  breadcrumbs?: BreadcrumbItem[];
 }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [current, setCurrent] = useState(0);
@@ -38,7 +38,7 @@ export function VokabeltestView({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Begriffe-Quiz" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+        <SubviewHeader title="Begriffe-Quiz" toolKey="TermQuiz" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -76,7 +76,7 @@ export function VokabeltestView({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Begriffe-Quiz" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+      <SubviewHeader title="Begriffe-Quiz" toolKey="TermQuiz" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           <button

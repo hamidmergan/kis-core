@@ -7,6 +7,7 @@ import { ScheduleTimeline } from "@/components/schedule/ScheduleTimeline";
 import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/schedule/ScheduleEntryCardGlobal";
 
 const WIDGET_LIMIT = 3;
+const COLLAPSED_STORAGE_KEY = "kis.upcoming-deadlines.collapsed";
 
 async function toggleChecked(moduleUuid: string, entryId: number, checked: boolean): Promise<boolean> {
   try {
@@ -42,7 +43,14 @@ async function fetchUpcoming(): Promise<ScheduleListEntry[] | null> {
 export default function UpcomingDeadlinesWidget() {
   const [entries, setEntries] = useState<ScheduleListEntry[] | null>(null);
   const [error, setError] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem(COLLAPSED_STORAGE_KEY) === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    try { window.localStorage.setItem(COLLAPSED_STORAGE_KEY, collapsed ? "1" : "0"); } catch { /* ignore */ }
+  }, [collapsed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,22 +94,22 @@ export default function UpcomingDeadlinesWidget() {
           }
         }}
         aria-expanded={!collapsed}
-        className="flex items-center justify-between px-4 py-3 cursor-pointer"
+        className="row-expandable flex items-center justify-between px-4 py-3 cursor-pointer"
         style={{
           borderBottom: collapsed ? "none" : "1px solid var(--border)",
           backgroundColor: "var(--border)",
         }}
       >
         <div className="flex items-center gap-2">
-          <CaretDown
-            size={14}
-            weight="bold"
+          <span
+            className="row-caret inline-flex"
             style={{
-              color: "var(--muted)",
               transition: "transform 0.15s ease",
               transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
             }}
-          />
+          >
+            <CaretDown size={14} weight="bold" />
+          </span>
           <CalendarBlank size={16} weight="bold" style={{ color: "var(--kb)" }} />
           <h3 className="text-sm font-semibold" style={{ color: "var(--text)" }}>
             Nächste Termine

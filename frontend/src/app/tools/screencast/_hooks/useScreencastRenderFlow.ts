@@ -5,7 +5,6 @@ import { downloadJobAsBlob, parseDetail, pollJob, type JobStatus } from "@/lib/a
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { SlideData } from "@/types";
 import type { ElevenLabsVoice, KokoroVoice, TtsProvider } from "@/hooks/useVoices";
-import type { useAutoModeFlow } from "@/hooks/useAutoModeFlow";
 import type { useFailedRender } from "@/hooks/useFailedRender";
 import type { useRenderResult } from "@/hooks/useRenderResult";
 import { computeVoiceLabel, renderProgressLabel as renderProgressLabelFn } from "../_utils";
@@ -21,7 +20,6 @@ interface UseScreencastRenderFlowOptions {
   dispatch: Dispatch<FlowAction>;
 
   // Render config
-  file: File | null;
   speed: number;
   slidePause: number;
   dpi: number;
@@ -30,14 +28,7 @@ interface UseScreencastRenderFlowOptions {
   kokoroVoices: KokoroVoice[];
   voices: ElevenLabsVoice[];
 
-  // Translate config (auto-flow)
-  sourceLang: string;
-  targetLang: string;
-  glossaryIds: string[];
-  mergeToApiJson: (ids: string[]) => string | null;
-
   // Sub-hooks
-  auto: ReturnType<typeof useAutoModeFlow>;
   failedRender: ReturnType<typeof useFailedRender>;
   renderResult: ReturnType<typeof useRenderResult>;
 
@@ -57,7 +48,6 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     translateJobUuid,
     slides,
     dispatch,
-    file,
     speed,
     slidePause,
     dpi,
@@ -65,11 +55,6 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     ttsProvider,
     kokoroVoices,
     voices,
-    sourceLang,
-    targetLang,
-    glossaryIds,
-    mergeToApiJson,
-    auto,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -108,82 +93,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     [dispatch, renderResult],
   );
 
-  // ── Auto mode: end-to-end PPTX → MP4 ──
-  const handleAutoSubmit = useCallback(async () => {
-    if (!file) return;
-    const ok = await checkBeforeSubmit();
-    if (!ok) return;
-    const signal = newSignal();
-    auto.start();
-    dispatch({ type: "SET_STEP", step: "rendering" });
-    dispatch({ type: "SET_LOADING", loading: true });
-
-    try {
-      const glossaryJson = mergeToApiJson(glossaryIds);
-      const formData = new FormData();
-      const voiceLabel = computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices);
-
-      formData.append("file", file);
-      formData.append("speed", String(speed));
-      formData.append("dpi", String(dpi));
-      formData.append("voice_id", voiceId);
-      formData.append("voice_label", voiceLabel);
-      formData.append("provider", ttsProvider);
-      formData.append("source_lang", sourceLang);
-      formData.append("target_lang", targetLang);
-      if (glossaryJson) formData.append("glossary_json", glossaryJson);
-
-      const uploadRes = await fetch("/api/screencast", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-        signal,
-      });
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${uploadRes.status}`));
-      }
-      const { job_uuid } = await uploadRes.json();
-      currentJobUuidRef.current = job_uuid;
-      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: true }));
-      notifyJobsChanged();
-
-      const jobResult = await pollJob(
-        job_uuid,
-        onRenderProgress,
-        5000,
-        signal,
-        () => setRenderProgressLabel(STUCK_LABEL),
-        60_000,
-      );
-      currentJobUuidRef.current = null;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      const { blob } = await downloadJobAsBlob(jobResult.job_uuid, "screencast.mp4");
-      const meta = jobResult.meta ?? {};
-      renderResult.apply(blob, {
-        audioId: meta.audio_id as string | undefined,
-        audioCount: meta.audio_count as number | undefined,
-      });
-      const stem = file?.name?.replace(/\.pptx$/i, "") || "screencast";
-      auto.succeed(blob, `${stem}_screencast.mp4`);
-      dispatch({ type: "SET_LOADING", loading: false });
-      dispatch({ type: "SET_STEP", step: "upload" });
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      sessionStorage.removeItem(RENDER_SESSION_KEY);
-      failedRender.mark(currentJobUuidRef.current, true);
-      auto.setState("error");
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
-    }
-  }, [
-    file, speed, dpi, voiceId, ttsProvider, kokoroVoices, voices,
-    sourceLang, targetLang, glossaryIds, mergeToApiJson,
-    newSignal, onRenderProgress, setRenderProgressLabel,
-    auto, failedRender, renderResult,
-    checkBeforeSubmit, goError, dispatch, currentJobUuidRef,
-  ]);
-
-  // ── Manual mode: render from accepted scripts ──
+  // ── Render from accepted scripts ──
   const handleStartRender = useCallback(async () => {
     setTtsSettingsError("");
     if (!translateJobUuid) {
@@ -222,7 +132,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
-      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid, isAuto: false }));
+      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid: job_uuid }));
       notifyJobsChanged();
 
       if (signal.aborted) {
@@ -244,7 +154,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
-      failedRender.mark(currentJobUuidRef.current, false);
+      failedRender.mark(currentJobUuidRef.current);
       goError(err instanceof Error ? err.message : "Unbekannter Fehler");
     }
   }, [
@@ -258,7 +168,6 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
   // ── Retry a failed render ──
   const handleRetryRender = useCallback(async () => {
     const uuid = failedRender.jobUuid;
-    const isAuto = failedRender.isAuto;
     if (!uuid) return;
     try {
       const res = await fetch(`/api/jobs/${uuid}/retry`, { method: "POST", credentials: "include" });
@@ -272,7 +181,6 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         }
         if (jobData.status === "success") {
           failedRender.clear();
-          if (isAuto) auto.setState("done");
           await processRenderResultFromJob(jobData);
           return;
         }
@@ -284,12 +192,11 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
 
       setRenderProgressLabel("In der Warteschlange…");
       currentJobUuidRef.current = uuid;
-      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid, isAuto }));
+      sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid }));
       notifyJobsChanged();
       dispatch({ type: "SET_STEP", step: "rendering" });
       dispatch({ type: "SET_ERROR_MESSAGE", message: "" });
       dispatch({ type: "SET_LOADING", loading: true });
-      if (isAuto) { auto.setState("processing"); auto.setError(""); }
       const signal = newSignal();
       const jobResult = await pollJob(
         uuid, onRenderProgress, 3000, signal,
@@ -299,18 +206,16 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       failedRender.clear();
       notifyJobsChanged();
-      if (isAuto) auto.setState("done");
       await processRenderResultFromJob(jobResult);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       const msg = err instanceof Error ? err.message : "Retry fehlgeschlagen";
-      failedRender.mark(uuid, isAuto);
-      if (isAuto) { auto.setState("error"); auto.setError(msg); }
+      failedRender.mark(uuid);
       goError(msg);
     }
   }, [
-    failedRender, auto,
+    failedRender,
     newSignal, onRenderProgress, setRenderProgressLabel,
     processRenderResultFromJob, goError, dispatch, currentJobUuidRef,
   ]);
@@ -319,14 +224,14 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
   useEffect(() => {
     const saved = sessionStorage.getItem(RENDER_SESSION_KEY);
     if (!saved) return;
-    let parsed: { uuid: string; isAuto: boolean };
+    let parsed: { uuid: string };
     try {
       parsed = JSON.parse(saved);
     } catch {
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       return;
     }
-    const { uuid, isAuto } = parsed;
+    const { uuid } = parsed;
 
     fetch(`/api/jobs/${uuid}`, { credentials: "include" })
       .then((r) => r.json())
@@ -337,21 +242,14 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         }
         if (job.status === "failed") {
           sessionStorage.removeItem(RENDER_SESSION_KEY);
-          failedRender.mark(uuid, isAuto);
-          if (isAuto) {
-            auto.setError(job.error || "Job fehlgeschlagen");
-            auto.setState("error");
-          } else {
-            goError(job.error || "Job fehlgeschlagen");
-          }
+          failedRender.mark(uuid);
+          goError(job.error || "Job fehlgeschlagen");
           return;
         }
         currentJobUuidRef.current = uuid;
-        failedRender.setIsAuto(isAuto);
         setRenderProgressLabel("Verbindung wiederhergestellt…");
         dispatch({ type: "SET_STEP", step: "rendering" });
         dispatch({ type: "SET_LOADING", loading: true });
-        if (isAuto) auto.setState("processing");
         const ctrl = new AbortController();
         abortControllerRef.current = ctrl;
         pollJob(uuid, onRenderProgress, 3000, ctrl.signal,
@@ -361,14 +259,12 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
             currentJobUuidRef.current = null;
             failedRender.clear();
             notifyJobsChanged();
-            if (isAuto) auto.setState("done");
             processRenderResultFromJob(jobResult);
           })
           .catch((err) => {
             if (err instanceof Error && err.name === "AbortError") return;
             sessionStorage.removeItem(RENDER_SESSION_KEY);
-            failedRender.mark(uuid, isAuto);
-            if (isAuto) auto.setState("error");
+            failedRender.mark(uuid);
             goError(err.message);
           });
       })
@@ -378,7 +274,6 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
 
   return {
     onRenderProgress,
-    handleAutoSubmit,
     handleStartRender,
     handleRetryRender,
     newSignal,

@@ -65,7 +65,7 @@ export function SettingsMenu({
           role="switch"
           aria-checked={studioEnabled}
           onClick={onToggleStudio}
-          className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+          className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] disabled:hover:border-transparent transition-colors duration-200"
           style={{ backgroundColor: studioEnabled ? "var(--kb)" : "#CBD5E1" }}
         >
           <span
@@ -86,7 +86,7 @@ export function SettingsMenu({
           aria-checked={language_trainingActive}
           onClick={() => studioEnabled && onToggleLanguageTraining()}
           disabled={!studioEnabled}
-          className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+          className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] disabled:hover:border-transparent transition-colors duration-200"
           style={{ backgroundColor: language_trainingActive && studioEnabled ? "var(--kb)" : "#CBD5E1", cursor: studioEnabled ? "pointer" : "not-allowed" }}
         >
           <span
@@ -107,7 +107,7 @@ export function SettingsMenu({
             role="switch"
             aria-checked={hideHeader}
             onClick={onToggleHideHeader}
-            className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200"
+            className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] disabled:hover:border-transparent transition-colors duration-200"
             style={{ backgroundColor: hideHeader ? "var(--kb)" : "#CBD5E1" }}
           >
             <span

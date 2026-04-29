@@ -83,8 +83,7 @@ export function ChatInputBar({
             type="button"
             onClick={submit}
             disabled={loading || !input.trim() || activeSourceIds.length === 0}
-            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-white disabled:opacity-40 transition-opacity hover:opacity-85"
-            style={{ backgroundColor: "var(--kb)" }}
+            className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl disabled:opacity-40 transition-colors"
             title="Senden"
           >
             <PaperPlaneRight size={16} weight="bold" />

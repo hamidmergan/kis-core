@@ -42,7 +42,7 @@ interface KiTutorStatsData {
 type StatsMode = "quelle" | "glossary";
 const MODE_META: Record<StatsMode, { label: string; accent: string }> = {
   quelle: { label: "Lerntools", accent: "var(--kb)" },
-  glossary: { label: "Fachsprachentraining", accent: "var(--st)" },
+  glossary: { label: "Fachsprachentraining", accent: "var(--kb)" },
 };
 
 export default function KiTutorTab() {
@@ -212,7 +212,7 @@ export default function KiTutorTab() {
                                       <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
                                         {s.lerntools}
                                       </td>
-                                      <td className="px-4 py-2 text-right" style={{ color: "var(--st)" }}>
+                                      <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
                                         {s.language_training}
                                       </td>
                                       <td className="px-4 py-2 text-right text-gray-600">

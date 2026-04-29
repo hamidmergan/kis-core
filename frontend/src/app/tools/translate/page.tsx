@@ -8,6 +8,7 @@ import { useGlossaries } from "@/hooks/useGlossaries";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
+import Select from "@/components/ui/Select";
 
 export default function UebersetzungPage() {
   const { mergeToApiJson } = useGlossaries();
@@ -108,9 +109,9 @@ export default function UebersetzungPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>
-          <h1 className="text-xl font-bold mb-1">Translate</h1>
+          <h1 className="text-xl font-bold mb-1">Übersetzung</h1>
           <p className="text-sm text-gray-500 mb-6">
-            Übersetzen Sie Dokumente automatisch von Deutsch nach Englisch.
+            Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.
           </p>
 
           <FileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
@@ -125,10 +126,9 @@ export default function UebersetzungPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Quellsprache
                 </label>
-                <select
+                <Select
                   value={sourceLang}
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  onChange={(val) => {
                     setSourceLang(val);
                     if (val !== "auto" && val === targetLang) {
                       const other = languages.find((l) => l.id !== val);
@@ -136,13 +136,8 @@ export default function UebersetzungPage() {
                     }
                   }}
                   disabled
-                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="auto">Automatisch erkennen</option>
-                  {languages.map((l) => (
-                    <option key={l.id} value={l.id}>{l.label}</option>
-                  ))}
-                </select>
+                  options={[{ value: "auto", label: "Automatisch erkennen" }, ...languages.map((l) => ({ value: l.id, label: l.label }))]}
+                />
               </div>
 
               <div className="mt-5 text-gray-400 shrink-0">→</div>
@@ -151,10 +146,9 @@ export default function UebersetzungPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Zielsprache
                 </label>
-                <select
+                <Select
                   value={targetLang}
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  onChange={(val) => {
                     setTargetLang(val);
                     if (sourceLang !== "auto" && val === sourceLang) {
                       const other = languages.find((l) => l.id !== val && l.id !== "auto");
@@ -162,12 +156,8 @@ export default function UebersetzungPage() {
                     }
                   }}
                   disabled
-                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {languages.map((l) => (
-                    <option key={l.id} value={l.id}>{l.label}</option>
-                  ))}
-                </select>
+                  options={languages.map((l) => ({ value: l.id, label: l.label }))}
+                />
               </div>
             </div>
           )}
@@ -177,16 +167,12 @@ export default function UebersetzungPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Übersetzungs-Engine
               </label>
-              <select
+              <Select
                 value={translationProvider}
-                onChange={(e) => setTranslationProvider(e.target.value)}
+                onChange={setTranslationProvider}
                 disabled={processing}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
+                options={providers.map((p) => ({ value: p.id, label: p.label }))}
+              />
             </div>
           )}
 

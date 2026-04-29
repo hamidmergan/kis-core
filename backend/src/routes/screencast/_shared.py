@@ -17,7 +17,7 @@ from src.storage import get_job_file
 from src.utils.file_validation import SCREENCAST_EXTENSIONS
 
 # Job tools that count toward the screencast in the queue/limit calculation
-SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_auto", "screencast_demo_render"]
+SCREENCAST_TOOLS = ["screencast_translate", "screencast_render", "screencast_demo_render"]
 
 # Per-UUID lock: prevents parallel script generation for the same job
 _script_gen_locks: dict[str, asyncio.Lock] = {}

@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { ArrowCounterClockwise, Check, WarningCircle, XIcon } from "@phosphor-icons/react";
 import type { GlossaryEntry } from "../../_types";
 import { _chunkLabel, _md } from "../../_utils";
-import { SubviewHeader } from "../layout/SubviewHeader";
+import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export function VocabFlashcards({
   entries, onBack, breadcrumbs,
 }: {
   entries: GlossaryEntry[];
   onBack: () => void;
-  breadcrumbs?: { label: string; onClick: () => void }[];
+  breadcrumbs?: BreadcrumbItem[];
 }) {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -39,7 +39,7 @@ export function VocabFlashcards({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+        <SubviewHeader title="Karteikarten" toolKey="Flashcards" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -107,7 +107,7 @@ export function VocabFlashcards({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Karteikarten" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+      <SubviewHeader title="Karteikarten" toolKey="Flashcards" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
       <div className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto mt-4 sm:mt-6 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {/* Card */}
@@ -151,8 +151,7 @@ export function VocabFlashcards({
           {/* Toggle + Answer buttons */}
           {!flipped ? (
             <button type="button" onClick={() => setFlipped(true)}
-              className="w-full py-2.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
-              style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+              className="btn-soft-accent w-full py-2.5 rounded-xl text-xs font-semibold transition-all">
               Antwort zeigen
             </button>
           ) : (
@@ -160,15 +159,14 @@ export function VocabFlashcards({
               <button
                 type="button"
                 onClick={() => handleAnswer(false)}
-                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all hover:outline-2 hover:outline-[#B91C1C]"
                 style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#B91C1C", border: "1px solid rgba(239,68,68,0.2)" }}
               >
                 <XIcon size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
                 Nochmal
               </button>
               <button type="button" onClick={() => setFlipped(false)}
-                className="py-2.5 px-4 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
-                style={{ color: "var(--kb)", backgroundColor: "rgba(var(--kb-rgb),0.07)" }}>
+                className="btn-soft-accent py-2.5 px-4 rounded-xl text-xs font-semibold transition-all">
                 Frage zeigen
               </button>
               <button

@@ -1,5 +1,6 @@
 import { translateDesc } from "@/lib/voice-labels";
 import type { SlideData } from "@/types";
+import Select from "@/components/ui/Select";
 
 
 interface Voice {
@@ -63,15 +64,15 @@ export function TtsSettingsStep({
       {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
         <div className="mb-2">
           <label htmlFor="sc-provider-select" className="block text-sm font-medium text-gray-700 mb-2">TTS-Anbieter</label>
-          <select id="sc-provider-select" value={ttsProvider}
-            onChange={(e) => handleProviderChange(e.target.value as TtsProvider)}
-            className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
-          >
-            {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
-            {mylabEnabled && <option value="mylab">THL myLab (XTTS-v2)</option>}
-            {fishSpeechEnabled && <option value="fish_speech">Fish Speech 1.5.1</option>}
-            {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
-          </select>
+          <Select id="sc-provider-select" value={ttsProvider}
+            onChange={(v) => handleProviderChange(v as TtsProvider)}
+            options={[
+              ...(kokoroEnabled ? [{ value: "kokoro", label: "Kokoro TTS" }] : []),
+              ...(mylabEnabled ? [{ value: "mylab", label: "THL myLab (XTTS-v2)" }] : []),
+              ...(fishSpeechEnabled ? [{ value: "fish_speech", label: "Fish Speech 1.5.1" }] : []),
+              ...(elevenlabsEnabled ? [{ value: "elevenlabs", label: "ElevenLabs" }] : []),
+            ]}
+          />
         </div>
       )}
 
@@ -79,28 +80,24 @@ export function TtsSettingsStep({
         <div className="mb-6 mt-4 space-y-3">
           <div>
             <label htmlFor="sc-voice-select" className="block text-sm font-medium text-gray-700 mb-2">Stimme</label>
-            <select id="sc-voice-select" value={voiceId} onChange={(e) => onVoiceIdChange(e.target.value)}
+            <Select id="sc-voice-select" value={voiceId} onChange={onVoiceIdChange}
               disabled={ttsProvider === "fish_speech"}
-              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {ttsProvider === "fish_speech" ? (
-                <option value="default">Standard</option>
-              ) : ttsProvider === "kokoro" ? (
-                kokoroVoices.map((v) => {
-                  const flag = v.accent === "American" ? "🇺🇸" : v.accent === "British" ? "🇬🇧" : "";
-                  return <option key={v.voice_id} value={v.voice_id}>{flag} {v.name}</option>;
-                })
-              ) : ttsProvider === "mylab" ? (
-                mylabVoices.map((v) => (
-                  <option key={v.voice_id} value={v.voice_id}>{v.name} – {v.description}</option>
-                ))
-              ) : (
-                voices.map((v) => {
-                  const desc = translateDesc(v.description);
-                  return <option key={v.voice_id} value={v.voice_id}>{desc ? `${v.label} – ${desc}` : v.label}</option>;
-                })
-              )}
-            </select>
+              options={
+                ttsProvider === "fish_speech"
+                  ? [{ value: "default", label: "Standard" }]
+                  : ttsProvider === "kokoro"
+                  ? kokoroVoices.map((v) => {
+                      const flag = v.accent === "American" ? "🇺🇸" : v.accent === "British" ? "🇬🇧" : "";
+                      return { value: v.voice_id, label: `${flag} ${v.name}`.trim() };
+                    })
+                  : ttsProvider === "mylab"
+                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} – ${v.description}` }))
+                  : voices.map((v) => {
+                      const desc = translateDesc(v.description);
+                      return { value: v.voice_id, label: desc ? `${v.label} – ${desc}` : v.label };
+                    })
+              }
+            />
           </div>
           {ttsProvider === "elevenlabs" && (
             <a href="/tools/tts/voices" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Stimmen anhören →</a>

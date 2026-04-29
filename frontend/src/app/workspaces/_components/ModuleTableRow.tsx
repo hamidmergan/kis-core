@@ -155,7 +155,7 @@ export default function ModuleTableRow({
                 <button
                   type="button"
                   onClick={() => { a.setShowMenu(false); a.setShowStats(true); }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
                   style={{ color: "var(--text)" }}
                 >
                   <ChartBar size={16} />
@@ -164,7 +164,7 @@ export default function ModuleTableRow({
                 <button
                   type="button"
                   onClick={() => { a.setShowMenu(false); a.setEditOpen(true); }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
                   style={{ color: "var(--text)" }}
                 >
                   <PencilSimple size={16} />
@@ -173,7 +173,7 @@ export default function ModuleTableRow({
                 <button
                   type="button"
                   onClick={() => { a.setShowMenu(false); a.setDeleteConfirm(true); }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-black/5 transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
                   style={{ color: "rgb(185, 28, 28)" }}
                 >
                   <Trash size={16} />

@@ -34,7 +34,7 @@ export function JobListItem({
     && job.status === "failed";
 
   return (
-    <li className={`px-5 py-4 ${expired ? "opacity-50" : ""}`}>
+    <li className={`px-5 py-4 hover:bg-gray-100 transition ${expired ? "opacity-50" : ""}`}>
       <div className="flex items-stretch justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-800 mb-0.5">{job.tool_label}</p>

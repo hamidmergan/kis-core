@@ -109,7 +109,7 @@ export default function UserPromptStep({
                         ? "border-green-400 bg-green-50"
                         : jsonDragOver
                           ? "border-primary bg-primary/5"
-                          : "border-gray-300 hover:border-gray-400"
+                          : "border-gray-300 hover:border-primary"
                     }`}
                 >
                   <input

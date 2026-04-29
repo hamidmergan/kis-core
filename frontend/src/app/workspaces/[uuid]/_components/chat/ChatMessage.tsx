@@ -199,7 +199,7 @@ function ChatMessageImpl({
                     >
                       <ChipIcon size={10} weight="bold" />
                       <span style={{ color: "var(--kb)" }}>[{q.qnum}]</span>
-                      <span className="max-w-[160px] truncate">{q.filename}</span>
+                      <span className="max-w-[500px] truncate">{q.filename}</span>
                     </span>
                   );
                 })}

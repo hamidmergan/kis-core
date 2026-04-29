@@ -4,17 +4,14 @@ import { useCallback, useState } from "react";
 
 export function useFailedRender() {
   const [jobUuid, setJobUuid] = useState<string | null>(null);
-  const [isAuto, setIsAuto] = useState(false);
 
-  const mark = useCallback((uuid: string | null, fromAutoMode: boolean) => {
+  const mark = useCallback((uuid: string | null) => {
     setJobUuid(uuid);
-    setIsAuto(fromAutoMode);
   }, []);
 
   const clear = useCallback(() => {
     setJobUuid(null);
-    setIsAuto(false);
   }, []);
 
-  return { jobUuid, isAuto, mark, clear, setJobUuid, setIsAuto };
+  return { jobUuid, mark, clear, setJobUuid };
 }

@@ -339,7 +339,7 @@ export default function JobsPanel() {
                     <li
                       key={job.job_uuid}
                       onClick={() => handleJobClick(job)}
-                      className={`px-4 py-3 cursor-pointer hover:outline-2 hover:outline-primary -outline-offset-2 transition ${expired ? "opacity-50" : ""}`}
+                      className={`px-4 py-3 cursor-pointer hover:bg-gray-100 transition ${expired ? "opacity-50" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">

@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { CaretRight, Check, TextAa, XIcon } from "@phosphor-icons/react";
 import type { ClozeExercise } from "../../_types";
-import { SubviewHeader } from "../layout/SubviewHeader";
+import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export function LueckentextView({
   exercises, loading, onGenerate, onBack, breadcrumbs,
 }: {
   exercises: ClozeExercise[]; loading: boolean;
   onGenerate: () => void; onBack: () => void;
-  breadcrumbs?: { label: string; onClick: () => void }[];
+  breadcrumbs?: BreadcrumbItem[];
 }) {
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -38,7 +38,7 @@ export function LueckentextView({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+        <SubviewHeader title="Lückentext" toolKey="Cloze" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
@@ -77,7 +77,7 @@ export function LueckentextView({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Lückentext" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+      <SubviewHeader title="Lückentext" toolKey="Cloze" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           <button

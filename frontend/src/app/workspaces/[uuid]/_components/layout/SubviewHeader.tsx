@@ -2,35 +2,41 @@ import React, { useContext } from "react";
 import { CaretLeft, CaretRight, SidebarSimple } from "@phosphor-icons/react";
 import { MinimizeContext } from "../../_context";
 
-// Lerntools: var(--kb) blue tones
-const LERNTOOLS_BADGE: Record<string, { bg: string; color: string }> = {
-  Karteikarten: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
+type BadgeStyle = { bg: string; color: string };
+
+// Learning tools: distinct tool colors
+const LEARNING_TOOLS_BADGE: Record<string, BadgeStyle> = {
+  Flashcards: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
   Quiz: { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
   DataTable: { bg: "rgba(255,237,213,0.7)", color: "#C2410C" },
   Mindmap: { bg: "rgba(236,254,255,0.7)", color: "#0E7490" },
-  Infografik: { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
-  "Präsentation": { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
+  Infographic: { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+  Presentation: { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
 };
-// LanguageTraining: distinct tool colors (each unique)
-const SPRACHTRAINING_BADGE: Record<string, { bg: string; color: string }> = {
+// Language training: distinct tool colors (each unique)
+const LANGUAGE_TRAINING_BADGE: Record<string, BadgeStyle> = {
   Flashcards: { bg: "rgba(245,235,220,0.7)", color: "#78350F" },
   Glossary: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
-  "Lückentext": { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
-  "Begriffe-Quiz": { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+  Cloze: { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
+  TermQuiz: { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
 };
-const SHARED_BADGE: Record<string, { bg: string; color: string }> = {
+const SHARED_BADGE: Record<string, BadgeStyle> = {
   Notes: { bg: "rgba(241,245,249,0.7)", color: "#475569" },
-  Statistik: { bg: "rgba(241,245,249,0.7)", color: "#475569" },
+  Statistics: { bg: "rgba(241,245,249,0.7)", color: "#475569" },
 };
 
-export function _getToolBadge(title: string, category?: "lerntools" | "language_training"): { bg: string; color: string } | null {
-  const map = category === "language_training" ? SPRACHTRAINING_BADGE[title] : LERNTOOLS_BADGE[title];
-  return map ?? SHARED_BADGE[title] ?? null;
+export type ToolCategory = "learning_tools" | "language_training";
+export type BreadcrumbItem = { label: string; onClick: () => void; toolKey?: string };
+
+export function _getToolBadge(toolKey: string | undefined, category?: ToolCategory): BadgeStyle | null {
+  if (!toolKey) return null;
+  const map = category === "language_training" ? LANGUAGE_TRAINING_BADGE[toolKey] : LEARNING_TOOLS_BADGE[toolKey];
+  return map ?? SHARED_BADGE[toolKey] ?? null;
 }
 
-export function SubviewHeader({ title, onBack, breadcrumbs, rightContent, category }: { title: string; onBack: () => void; breadcrumbs?: { label: string; onClick: () => void }[]; rightContent?: React.ReactNode; category?: "lerntools" | "language_training" }) {
+export function SubviewHeader({ title, toolKey, onBack, breadcrumbs, rightContent, category }: { title: string; toolKey?: string; onBack: () => void; breadcrumbs?: BreadcrumbItem[]; rightContent?: React.ReactNode; category?: ToolCategory }) {
   const minimize = useContext(MinimizeContext);
-  const badge = _getToolBadge(title, category);
+  const badge = _getToolBadge(toolKey, category);
   const mutedColor = "var(--muted)";
   const btnBg = "var(--surface-dim)";
   return (
@@ -49,13 +55,13 @@ export function SubviewHeader({ title, onBack, breadcrumbs, rightContent, catego
       {breadcrumbs && breadcrumbs.length > 0 ? (
         <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
           {breadcrumbs.map((b, i) => {
-            const bBadge = _getToolBadge(b.label, category);
+            const bBadge = _getToolBadge(b.toolKey, category);
             return (
               <React.Fragment key={i}>
                 {bBadge ? (
-                  <button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded transition-opacity hover:opacity-80" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>
+                  <button type="button" onClick={b.onClick} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={{ backgroundColor: bBadge.bg, color: bBadge.color }}>{b.label}</button>
                 ) : (
-                  <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors" style={{ color: mutedColor }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = mutedColor}>{b.label}</button>
+                  <button type="button" onClick={b.onClick} className="font-medium shrink-0 opacity-60 hover:opacity-100 transition-opacity" style={{ color: mutedColor }}>{b.label}</button>
                 )}
                 <CaretRight size={10} weight="bold" style={{ color: mutedColor, opacity: 0.5 }} className="shrink-0" />
               </React.Fragment>

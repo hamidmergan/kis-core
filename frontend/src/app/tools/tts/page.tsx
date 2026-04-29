@@ -7,6 +7,7 @@ import TtsStatus from "@/components/jobs/TtsStatus";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import type { TTSState } from "@/types";
 import BackLink from "@/components/ui/BackLink";
+import Select from "@/components/ui/Select";
 
 interface Voice {
   voice_id: string;
@@ -259,7 +260,7 @@ export default function TtsPage() {
         <section>
           <h1 className="text-xl font-bold mb-1">Text in Sprache</h1>
           <p className="text-sm text-gray-500 mb-6">
-            Laden Sie ein Dokument hoch und lassen Sie den Inhalt als MP3-Audiodatei vorlesen.
+            Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen.
           </p>
 
           <TtsFileUpload
@@ -277,17 +278,17 @@ export default function TtsPage() {
             <label htmlFor="provider-select" className="block text-sm font-medium text-gray-700 mb-2">
               TTS-Anbieter
             </label>
-            <select
+            <Select
               id="provider-select"
               value={provider}
-              onChange={(e) => setProvider(e.target.value as "elevenlabs" | "kokoro" | "mylab")}
+              onChange={(v) => setProvider(v as "elevenlabs" | "kokoro" | "mylab")}
               disabled={isProcessing}
-              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {elevenlabsEnabled && <option value="elevenlabs">ElevenLabs</option>}
-              {kokoroEnabled && <option value="kokoro">Kokoro TTS</option>}
-              {mylabEnabled && <option value="mylab">THL myLab (XTTS-v2)</option>}
-            </select>
+              options={[
+                ...(elevenlabsEnabled ? [{ value: "elevenlabs", label: "ElevenLabs" }] : []),
+                ...(kokoroEnabled ? [{ value: "kokoro", label: "Kokoro TTS" }] : []),
+                ...(mylabEnabled ? [{ value: "mylab", label: "THL myLab (XTTS-v2)" }] : []),
+              ]}
+            />
           </div>
           )}
 
@@ -298,32 +299,22 @@ export default function TtsPage() {
               <label htmlFor="voice-select" className="block text-sm font-medium text-gray-700 mb-2">
                 Stimme
               </label>
-              <select
+              <Select
                 id="voice-select"
                 value={voiceId}
-                onChange={(e) => setVoiceId(e.target.value)}
+                onChange={setVoiceId}
                 disabled={isProcessing}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {provider === "kokoro" && kokoroVoices.map((v) => (
-                  <option key={v.voice_id} value={v.voice_id}>
-                    {KOKORO_ACCENT_LABEL[v.accent] ?? ""} {v.name}
-                  </option>
-                ))}
-                {provider === "mylab" && mylabVoices.map((v) => (
-                  <option key={v.voice_id} value={v.voice_id}>
-                    {v.name} – {v.description}
-                  </option>
-                ))}
-                {provider === "elevenlabs" && voices.map((v) => {
-                  const desc = translateDesc(v.description);
-                  return (
-                    <option key={v.voice_id} value={v.voice_id}>
-                      {desc ? `${v.label} – ${desc}` : v.label}
-                    </option>
-                  );
-                })}
-              </select>
+                options={
+                  provider === "kokoro"
+                    ? kokoroVoices.map((v) => ({ value: v.voice_id, label: `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() }))
+                    : provider === "mylab"
+                    ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} – ${v.description}` }))
+                    : voices.map((v) => {
+                        const desc = translateDesc(v.description);
+                        return { value: v.voice_id, label: desc ? `${v.label} – ${desc}` : v.label };
+                      })
+                }
+              />
             </div>
             {provider === "elevenlabs" && (
               <a
@@ -387,19 +378,13 @@ export default function TtsPage() {
               <label htmlFor="pause-select" className="block text-sm font-medium text-gray-700 mb-2">
                 Pausen
               </label>
-              <select
+              <Select
                 id="pause-select"
                 value={pausePreset}
-                onChange={(e) => setPausePreset(e.target.value)}
+                onChange={setPausePreset}
                 disabled={isProcessing}
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {PAUSE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                options={PAUSE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+              />
             </div>
           )}
 

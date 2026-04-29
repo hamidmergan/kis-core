@@ -37,10 +37,6 @@ DEMO_LOCAL = os.environ.get("DEMO_LOCAL", "false").lower() == "true"
 
 # ── Pydantic models ──────────────────────────────────────────────────────────
 
-class DemoTranslateRequest(BaseModel):
-    fast_mode: bool = False
-
-
 class DemoGenerateScriptsRequest(BaseModel):
     translate_job_uuid: str | None = None
     user_prompt: str | None = None
@@ -180,7 +176,7 @@ async def demo_available():
 
 
 @router.post("/screencast-demo/translate")
-async def demo_translate(body: DemoTranslateRequest, _: dict = Depends(get_current_user)):
+async def demo_translate(_: dict = Depends(get_current_user)):
     """Return demo slide data instantly from pre-baked files."""
     _require_demo_enabled()
 
