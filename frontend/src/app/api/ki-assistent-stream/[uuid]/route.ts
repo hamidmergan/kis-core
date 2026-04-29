@@ -13,7 +13,7 @@ export async function POST(
   const body = await req.text();
 
   const upstream = await fetch(
-    `${BACKEND}/ai-assistant/modules/${uuid}/chat`,
+    `${BACKEND}/ai-assistant/workspaces/${uuid}/chat`,
     {
       method: "POST",
       headers: {

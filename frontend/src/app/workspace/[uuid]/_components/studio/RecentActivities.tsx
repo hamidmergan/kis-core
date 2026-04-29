@@ -41,17 +41,17 @@ const ACTIVITY_TOOL_COLORS: Record<string, string> = {
   mindmap: "#0369A1",
 };
 
-export function RecentActivities({ moduleUuid, onNavigateToSet, refreshKey }: { moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; refreshKey?: number }) {
+export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }: { workspaceUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; refreshKey?: number }) {
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/ai-assistant/modules/${moduleUuid}/recent-activities`, { credentials: "include" })
+    fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/recent-activities`, { credentials: "include" })
       .then(r => r.ok ? r.json() : [])
       .then(data => setActivities(data))
       .catch(() => { })
       .finally(() => setLoaded(true));
-  }, [moduleUuid, refreshKey]);
+  }, [workspaceUuid, refreshKey]);
 
   if (!loaded) return null;
 

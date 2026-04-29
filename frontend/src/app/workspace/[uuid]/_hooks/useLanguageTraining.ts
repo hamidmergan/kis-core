@@ -42,7 +42,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
 
   const loadGlossary = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/glossary`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setGlossary(data.entries || []);
@@ -54,7 +54,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
 
   const loadGlossaryCount = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/glossary-count`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary-count`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setGlossaryCount(data.count);
@@ -71,7 +71,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
 
   const deleteGlossaryEntry = useCallback(async (entryId: number) => {
     try {
-      await fetch(`/api/ai-assistant/modules/${uuid}/glossary/${entryId}`, {
+      await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary/${entryId}`, {
         method: "DELETE", credentials: "include",
       });
       setGlossary((prev) => prev.filter((e) => e.id !== entryId));
@@ -81,7 +81,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
 
   const deleteAllGlossaryEntries = useCallback(async () => {
     try {
-      await fetch(`/api/ai-assistant/modules/${uuid}/glossary`, {
+      await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary`, {
         method: "DELETE", credentials: "include",
       });
       setGlossary([]);
@@ -93,7 +93,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
     if (langTrainingActiveIds.length === 0) return;
     setGlossaryLoading(true);
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/glossary/generate`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary/generate`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active_source_ids: langTrainingActiveIds }),
@@ -104,7 +104,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
         glossaryPollRef.current = setInterval(async () => {
           const hasNew = await loadGlossary();
           if (hasNew) {
-            const res2 = await fetch(`/api/ai-assistant/modules/${uuid}/glossary`, { credentials: "include" });
+            const res2 = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary`, { credentials: "include" });
             if (res2.ok) {
               const data2 = await res2.json();
               if ((data2.entries || []).length !== startCount) {
@@ -129,7 +129,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
     if (langTrainingActiveIds.length === 0) return;
     setClozeLoading(true);
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/exercises/cloze`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/exercises/cloze`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active_source_ids: langTrainingActiveIds }),
@@ -147,7 +147,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
     if (langTrainingActiveIds.length === 0) return;
     setVocabLoading(true);
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/exercises/vocab-test`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/exercises/vocab-test`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active_source_ids: langTrainingActiveIds }),
@@ -165,7 +165,7 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
     setGlossaryFeedback(null);
     setGlossaryExtracting(true);
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/glossary/extract`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/glossary/extract`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, source_uuid: sourceUuid, page_number: page }),

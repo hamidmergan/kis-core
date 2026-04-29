@@ -2,31 +2,31 @@
 
 import { useState } from "react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
-import ModuleTableRow from "./ModuleTableRow";
-import type { AccessLink, KiTutorModule } from "../_shared";
+import WorkspaceTableRow from "./WorkspaceTableRow";
+import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
 const MODULES_PER_PAGE = 20;
 
-interface ModuleTableProps {
-  modules: KiTutorModule[];
+interface WorkspaceTableProps {
+  workspaces: KiTutorWorkspace[];
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
   onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }
 
-export default function ModuleTable({
-  modules,
+export default function WorkspaceTable({
+  workspaces,
   onToggleActive,
   onDelete,
   onEdit,
   onLinksChanged,
-}: ModuleTableProps) {
+}: WorkspaceTableProps) {
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(modules.length / MODULES_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(workspaces.length / MODULES_PER_PAGE));
   const safePage = Math.min(page, totalPages);
   const startIdx = (safePage - 1) * MODULES_PER_PAGE;
-  const visibleModules = modules.slice(startIdx, startIdx + MODULES_PER_PAGE);
+  const visibleModules = workspaces.slice(startIdx, startIdx + MODULES_PER_PAGE);
 
   return (
     <>
@@ -59,9 +59,9 @@ export default function ModuleTable({
           </thead>
           <tbody>
             {visibleModules.map((m) => (
-              <ModuleTableRow
+              <WorkspaceTableRow
                 key={m.uuid}
-                module={m}
+                workspace={m}
                 onToggleActive={onToggleActive}
                 onDelete={onDelete}
                 onEdit={onEdit}
@@ -76,7 +76,7 @@ export default function ModuleTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Zeige {startIdx + 1} bis {Math.min(startIdx + MODULES_PER_PAGE, modules.length)} von {modules.length} Workspaces
+            Zeige {startIdx + 1} bis {Math.min(startIdx + MODULES_PER_PAGE, workspaces.length)} von {workspaces.length} Workspaces
           </p>
           <div className="flex items-center gap-1">
             <button

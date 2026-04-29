@@ -22,8 +22,8 @@ from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
-    KIA_MODULE_MAX_SOURCES,
-    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_WORKSPACE_MAX_SOURCES,
+    KIA_WORKSPACE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file
@@ -39,9 +39,9 @@ from src.features.ai_assistant.routes._helpers import (
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
-    _require_own_module,
+    _require_own_workspace,
     _save_source_file,
-    _delete_source_files_for_module,
+    _delete_source_files_for_workspace,
     _resolve_source_ids,
     _term_appears_in_text,
     _ALLOWED_EXTENSIONS,
@@ -52,27 +52,27 @@ from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: studio"])
 
-@router.post("/ai-assistant/modules/{module_uuid}/mindmap/generate")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/mindmap/generate")
 async def generate_mindmap(
-    module_uuid: str,
+    workspace_uuid: str,
     body: schemas.MindmapGenerateBody,
     current_user: dict = Depends(get_current_user),
 ):
     """Queue mindmap generation as a background Celery task."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
-    source_ids = _resolve_source_ids(module, body.active_source_ids, max_count=5)
+    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5)
 
     # Build uuid→id mapping for the task
     source_uuids = []
@@ -82,7 +82,7 @@ async def generate_mindmap(
             source_uuids.append(suuid)
 
     # Create DB record
-    mindmap_id = db.create_aia_mindmap(module["id"], user_id, source_ids)
+    mindmap_id = db.create_aia_mindmap(workspace["id"], user_id, source_ids)
 
     # Queue Celery task
     from src.tasks.aia_tasks import run_generate_mindmap
@@ -90,25 +90,25 @@ async def generate_mindmap(
 
     return {"mindmap_id": mindmap_id, "status": "pending"}
 
-@router.get("/ai-assistant/modules/{module_uuid}/mindmap/{mindmap_id}")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmap/{mindmap_id}")
 async def get_mindmap(
-    module_uuid: str,
+    workspace_uuid: str,
     mindmap_id: int,
     current_user: dict = Depends(get_current_user),
 ):
     """Poll mindmap generation status."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     mindmap = db.get_aia_mindmap(mindmap_id)
-    if not mindmap or mindmap["module_id"] != module["id"]:
+    if not mindmap or mindmap["workspace_id"] != workspace["id"]:
         raise HTTPException(status_code=404, detail="Mindmap nicht gefunden")
 
     return {
@@ -118,23 +118,23 @@ async def get_mindmap(
         "error": mindmap["error"],
     }
 
-@router.get("/ai-assistant/modules/{module_uuid}/mindmap")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmap")
 async def get_latest_mindmap(
-    module_uuid: str,
+    workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Get the latest mindmap for this module."""
+    """Get the latest mindmap for this workspace."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    mindmap = db.get_latest_aia_mindmap(module["id"], user_id)
+    mindmap = db.get_latest_aia_mindmap(workspace["id"], user_id)
     if not mindmap:
         return {"id": None, "status": None, "mindmap": None, "error": None}
 
@@ -145,23 +145,23 @@ async def get_latest_mindmap(
         "error": mindmap["error"],
     }
 
-@router.get("/ai-assistant/modules/{module_uuid}/mindmaps")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/mindmaps")
 async def list_mindmaps(
-    module_uuid: str,
+    workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """List all saved mindmaps for this module."""
+    """List all saved mindmaps for this workspace."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    rows = db.get_all_aia_mindmaps(module["id"], user_id)
+    rows = db.get_all_aia_mindmaps(workspace["id"], user_id)
     return [
         {
             "id": r["id"],
@@ -171,20 +171,20 @@ async def list_mindmaps(
         for r in rows
     ]
 
-@router.delete("/ai-assistant/modules/{module_uuid}/mindmap/{mindmap_id}")
+@router.delete("/ai-assistant/workspaces/{workspace_uuid}/mindmap/{mindmap_id}")
 async def delete_mindmap(
-    module_uuid: str,
+    workspace_uuid: str,
     mindmap_id: int,
     current_user: dict = Depends(get_current_user),
 ):
     """Delete a mindmap."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
     mindmap = db.get_aia_mindmap(mindmap_id)
-    if not mindmap or mindmap["module_id"] != module["id"] or mindmap["user_id"] != user_id:
+    if not mindmap or mindmap["workspace_id"] != workspace["id"] or mindmap["user_id"] != user_id:
         raise HTTPException(status_code=404, detail="Mindmap nicht gefunden")
 
     db.delete_aia_mindmap(mindmap_id)

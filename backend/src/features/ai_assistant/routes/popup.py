@@ -20,8 +20,8 @@ from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
-    KIA_MODULE_MAX_SOURCES,
-    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_WORKSPACE_MAX_SOURCES,
+    KIA_WORKSPACE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file
@@ -37,9 +37,9 @@ from src.features.ai_assistant.routes._helpers import (
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
-    _require_own_module,
+    _require_own_workspace,
     _save_source_file,
-    _delete_source_files_for_module,
+    _delete_source_files_for_workspace,
     _resolve_source_ids,
     _term_appears_in_text,
     _ALLOWED_EXTENSIONS,

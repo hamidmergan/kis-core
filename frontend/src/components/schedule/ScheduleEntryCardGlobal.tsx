@@ -6,7 +6,7 @@ import { cleanScheduleDescription } from "./utils";
 
 export interface ScheduleListEntry {
   id: number;
-  module_uuid: string;
+  workspace_uuid: string;
   module_title: string;
   module_relation: "owned" | "enrolled";
   title: string;

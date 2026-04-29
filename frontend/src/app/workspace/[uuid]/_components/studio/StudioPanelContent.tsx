@@ -64,7 +64,7 @@ interface StudioPanelContentProps {
   mindmap: MindmapBundle;
   data_table: DataTableBundle;
   // Kontext
-  moduleUuid: string;
+  workspaceUuid: string;
   statsVersion: number;
   sources: Source[];
   selectedSourceIds: string[];
@@ -92,7 +92,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     studioView, setStudioView, langTrainingView, language_trainingActive, studioTabRequest,
     language_trainingContent, glossaryContent, notesContent,
     exercises: ex, notes: nt, mindmap: mm, data_table: dt,
-    moduleUuid, statsVersion, sources, selectedSourceIds, isAdmin, pageStats,
+    workspaceUuid, statsVersion, sources, selectedSourceIds, isAdmin, pageStats,
     onStudioSelect, onNavigateToSet, onSprachNavigate, onAskChat, onPillClick,
     refreshProgress, onMinimize, hideHeader,
     openMindmapInViewer, consumeMindmapViewerOpen,
@@ -110,7 +110,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         language_trainingContent={language_trainingContent}
         glossaryContent={glossaryContent}
         notesContent={notesContent}
-        moduleUuid={moduleUuid}
+        workspaceUuid={workspaceUuid}
         statsVersion={statsVersion}
         onNavigateToSet={onNavigateToSet}
         onSprachNavigate={onSprachNavigate}

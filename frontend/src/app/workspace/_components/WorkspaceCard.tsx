@@ -11,34 +11,34 @@ import {
 } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import LinkRow from "./LinkRow";
-import ModuleModals from "./ModuleModals";
-import { MAX_ACCESS_LINKS, type AccessLink, type KiTutorModule } from "../_shared";
-import { useModuleActions } from "../_hooks/useModuleActions";
+import WorkspaceModals from "./WorkspaceModals";
+import { MAX_ACCESS_LINKS, type AccessLink, type KiTutorWorkspace } from "../_shared";
+import { useWorkspaceActions } from "../_hooks/useWorkspaceActions";
 
-interface ModuleCardProps {
-  module: KiTutorModule;
+interface WorkspaceCardProps {
+  workspace: KiTutorWorkspace;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
   onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }
 
-export default function ModuleCard({
-  module,
+export default function WorkspaceCard({
+  workspace,
   onToggleActive,
   onDelete,
   onEdit,
   onLinksChanged,
-}: ModuleCardProps) {
-  const a = useModuleActions({ module, onToggleActive, onDelete, onLinksChanged });
+}: WorkspaceCardProps) {
+  const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
 
   return (
     <>
-      <ModuleModals
-        module={module}
+      <WorkspaceModals
+        workspace={workspace}
         showStats={a.showStats} onCloseStats={() => a.setShowStats(false)}
         editOpen={a.editOpen} onCloseEdit={() => a.setEditOpen(false)}
-        onSubmitEdit={(t, d) => onEdit(module.uuid, t, d)}
+        onSubmitEdit={(t, d) => onEdit(workspace.uuid, t, d)}
         showAddLink={a.showAddLink} onCloseAddLink={() => a.setShowAddLink(false)} onLinkCreated={a.handleLinkCreated}
         deleteConfirm={a.deleteConfirm} onCancelDelete={() => a.setDeleteConfirm(false)}
         onConfirmDelete={a.handleDeleteConfirm} deleting={a.deleting}
@@ -71,7 +71,7 @@ export default function ModuleCard({
             onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
             className="flex-1 min-w-0 text-left"
           >
-            <div className="text-[15px] font-semibold text-foreground break-words">{module.title}</div>
+            <div className="text-[15px] font-semibold text-foreground break-words">{workspace.title}</div>
           </button>
         </div>
 
@@ -81,24 +81,24 @@ export default function ModuleCard({
             <button
               type="button"
               role="switch"
-              aria-checked={module.is_active}
-              aria-label={module.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
-              onClick={() => a.handleToggle(!module.is_active)}
+              aria-checked={workspace.is_active}
+              aria-label={workspace.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
+              onClick={() => a.handleToggle(!workspace.is_active)}
               disabled={a.toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
-              style={{ backgroundColor: module.is_active ? "var(--kb)" : "var(--border)" }}
+              style={{ backgroundColor: workspace.is_active ? "var(--kb)" : "var(--border)" }}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                  module.is_active ? "translate-x-[18px]" : "translate-x-0.5"
+                  workspace.is_active ? "translate-x-[18px]" : "translate-x-0.5"
                 }`}
               />
             </button>
-            <span className="text-xs font-medium" style={{ color: module.is_active ? "var(--kb)" : "var(--muted)" }}>
-              {module.is_active ? "Aktiv" : "Inaktiv"}
+            <span className="text-xs font-medium" style={{ color: workspace.is_active ? "var(--kb)" : "var(--muted)" }}>
+              {workspace.is_active ? "Aktiv" : "Inaktiv"}
             </span>
           </div>
-          <span className="text-xs" style={{ color: "var(--muted)" }}>{module.source_count} Quellen</span>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>{workspace.source_count} Quellen</span>
           <span className="text-xs" style={{ color: "var(--muted)" }}>{a.links.length} Links</span>
           <div className="ml-auto flex items-center gap-2">
             <div className="relative">
@@ -147,9 +147,9 @@ export default function ModuleCard({
 
         {a.expanded && (
           <div className="flex flex-col gap-3 pl-[52px] pr-2 pb-5">
-            {module.description && (
+            {workspace.description && (
               <p className="text-[13px] leading-relaxed break-words" style={{ color: "var(--muted)" }}>
-                {module.description}
+                {workspace.description}
               </p>
             )}
             {a.links.map((link) => (

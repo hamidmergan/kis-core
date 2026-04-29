@@ -3,19 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { Files } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
-import CreateModuleModal from "./CreateModuleModal";
-import ModuleTable from "./ModuleTable";
+import CreateWorkspaceModal from "./CreateWorkspaceModal";
+import WorkspaceTable from "./WorkspaceTable";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
-import type { AccessLink, KiTutorModule } from "../_shared";
+import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
 export default function LecturerView() {
-  const [modules, setModules] = useState<KiTutorModule[]>([]);
+  const [workspaces, setModules] = useState<KiTutorWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
   const loadModules = useCallback(async () => {
     try {
-      const res = await fetch("/api/ai-assistant/modules", { credentials: "include" });
+      const res = await fetch("/api/ai-assistant/workspaces", { credentials: "include" });
       if (res.ok) setModules(await res.json());
     } catch { /* ignore */ }
   }, []);
@@ -25,15 +25,15 @@ export default function LecturerView() {
   }, [loadModules]);
 
   useEffect(() => {
-    const needsPoll = modules.some((m) => m.status === "pending" || m.status === "indexing");
+    const needsPoll = workspaces.some((m) => m.status === "pending" || m.status === "indexing");
     if (!needsPoll) return;
     const id = setInterval(loadModules, 3000);
     return () => clearInterval(id);
-  }, [modules, loadModules]);
+  }, [workspaces, loadModules]);
 
   async function handleToggleActive(uuid: string, newVal: boolean) {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -47,7 +47,7 @@ export default function LecturerView() {
 
   async function handleDelete(uuid: string) {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -59,7 +59,7 @@ export default function LecturerView() {
 
   async function handleEdit(uuid: string, newTitle: string, newDescription: string): Promise<boolean> {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -82,7 +82,7 @@ export default function LecturerView() {
   return (
     <>
       {showCreate && (
-        <CreateModuleModal
+        <CreateWorkspaceModal
           onClose={() => setShowCreate(false)}
           onCreated={(m) => setModules((prev) => [m, ...prev])}
         />
@@ -113,7 +113,7 @@ export default function LecturerView() {
             <div className="flex items-center justify-center min-h-[60vh]">
               <Spinner size="lg" />
             </div>
-          ) : modules.length === 0 ? (
+          ) : workspaces.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20" style={{ color: "var(--muted)" }}>
               <Files size={40} weight="duotone" className="mb-3 opacity-40" />
               <p className="text-base">Noch keine Workspaces vorhanden.</p>
@@ -121,8 +121,8 @@ export default function LecturerView() {
             </div>
           ) : (
             <div className="mt-3 md:mt-10">
-              <ModuleTable
-                modules={modules}
+              <WorkspaceTable
+                workspaces={workspaces}
                 onToggleActive={handleToggleActive}
                 onDelete={handleDelete}
                 onEdit={handleEdit}

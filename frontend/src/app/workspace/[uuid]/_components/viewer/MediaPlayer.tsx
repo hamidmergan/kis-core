@@ -6,11 +6,11 @@ import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel } from "./TranscriptPanel";
 
 export function MediaPlayer({
-  source, onClose, moduleUuid, onMinimize, canDownload = false, canManage = false, onSaveNote,
+  source, onClose, workspaceUuid, onMinimize, canDownload = false, canManage = false, onSaveNote,
 }: {
   source: ViewerState;
   onClose: () => void;
-  moduleUuid: string;
+  workspaceUuid: string;
   onMinimize?: () => void;
   canDownload?: boolean;
   canManage?: boolean;
@@ -19,9 +19,9 @@ export function MediaPlayer({
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
   const isVideo = [".mp4", ".webm"].includes(ext);
-  const mediaUrl = `/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/file`;
+  const mediaUrl = `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`;
   const transcriptUrl = (lang: "de" | "en") =>
-    `/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/transcript?lang=${lang}`;
+    `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/transcript?lang=${lang}`;
 
   // Detect which VTT languages exist so we only attach available <track> elements.
   const [availableLangs, setAvailableLangs] = useState<("de" | "en")[]>([]);
@@ -41,7 +41,7 @@ export function MediaPlayer({
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moduleUuid, source.uuid]);
+  }, [workspaceUuid, source.uuid]);
 
   // Seek to timestamp when source changes
   useEffect(() => {
@@ -117,7 +117,7 @@ export function MediaPlayer({
       </div>
       <TranscriptPanel
         mediaRef={mediaRef}
-        moduleUuid={moduleUuid}
+        workspaceUuid={workspaceUuid}
         sourceUuid={source.uuid}
         canManage={canManage}
         onSaveNote={onSaveNote}

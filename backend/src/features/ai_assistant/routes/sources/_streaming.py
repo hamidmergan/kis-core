@@ -6,26 +6,26 @@ from ._shared import (
     get_current_user,
     FileResponse, Response, StreamingResponse,
     USE_S3, file_exists, get_file, stream_s3_object,
-    _require_own_module,
+    _require_own_workspace,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
 
-@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/file")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/file")
 async def stream_source_file(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     request: Request,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
@@ -79,9 +79,9 @@ async def stream_source_file(
     )
 
 
-@router.post("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/regenerate-en-transcript")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/regenerate-en-transcript")
 async def regenerate_en_transcript(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     provider: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
@@ -91,7 +91,7 @@ async def regenerate_en_transcript(
     If ``provider`` is omitted, falls back to the admin-configured default
     (``transcript_translation_provider`` setting; defaults to ``llm``).
     """
-    _require_own_module(module_uuid, current_user["user_id"])
+    _require_own_workspace(workspace_uuid, current_user["user_id"])
     source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
@@ -116,21 +116,21 @@ async def regenerate_en_transcript(
     return {"uuid": source_uuid, "status": "dispatched", "provider": effective_provider}
 
 
-@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/transcript")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/transcript")
 async def get_transcript_vtt(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     lang: str,
     current_user: dict = Depends(get_current_user),
 ):
     """Return a WebVTT transcript for a media source in the requested language."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 

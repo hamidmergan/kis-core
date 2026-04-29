@@ -60,12 +60,12 @@ def update_chunk_embedding(chunk_id: int, embedding: list[float]) -> None:
         conn.commit()
 
 def search_similar_chunks(
-    module_id: int,
+    workspace_id: int,
     query_embedding: list[float],
     source_ids: list[int] | None = None,
     limit: int = 5,
 ) -> list[dict]:
-    params: list = [str(query_embedding), module_id]
+    params: list = [str(query_embedding), workspace_id]
     source_filter = ""
     if source_ids is not None:
         source_filter = "AND s.id = ANY(%s)"
@@ -79,7 +79,7 @@ def search_similar_chunks(
                            c.embedding <=> %s::vector AS distance
                     FROM aia_chunks c
                     JOIN aia_sources s ON s.id = c.source_id
-                    WHERE s.module_id = %s {source_filter}
+                    WHERE s.workspace_id = %s {source_filter}
                       AND c.embedding IS NOT NULL
                     ORDER BY distance ASC
                     LIMIT %s""",
@@ -89,7 +89,7 @@ def search_similar_chunks(
     return [dict(row) for row in rows]
 
 def hybrid_search_chunks(
-    module_id: int,
+    workspace_id: int,
     query_text: str,
     query_embedding: list[float],
     source_ids: list[int] | None = None,
@@ -114,11 +114,11 @@ def hybrid_search_chunks(
                     ) AS rank
                     FROM aia_chunks c
                     JOIN aia_sources s ON s.id = c.source_id
-                    WHERE s.module_id = %s {source_filter}
+                    WHERE s.workspace_id = %s {source_filter}
                       AND c.embedding IS NOT NULL
                     ORDER BY c.embedding <=> %s::vector
                     LIMIT 40""",
-                [str(query_embedding), module_id] + source_param + [str(query_embedding)],
+                [str(query_embedding), workspace_id] + source_param + [str(query_embedding)],
             )
             vec_rows = cur.fetchall()
 
@@ -131,11 +131,11 @@ def hybrid_search_chunks(
                     ) AS rank
                     FROM aia_chunks c
                     JOIN aia_sources s ON s.id = c.source_id
-                    WHERE s.module_id = %s {source_filter}
+                    WHERE s.workspace_id = %s {source_filter}
                       AND c.search_vector IS NOT NULL
                       AND c.search_vector @@ (regexp_replace(plainto_tsquery('german', %s)::text, ' & ', ' | ', 'g'))::tsquery
                     LIMIT 40""",
-                [query_text, module_id] + source_param + [query_text],
+                [query_text, workspace_id] + source_param + [query_text],
             )
             kw_rows = cur.fetchall()
 
@@ -154,10 +154,10 @@ def hybrid_search_chunks(
                         ) AS rank
                         FROM aia_chunks c
                         JOIN aia_sources s ON s.id = c.source_id
-                        WHERE s.module_id = %s {source_filter}
+                        WHERE s.workspace_id = %s {source_filter}
                           AND {ilike_clauses}
                         LIMIT 20""",
-                    [module_id] + source_param + ilike_params,
+                    [workspace_id] + source_param + ilike_params,
                 )
                 ilike_rows = cur.fetchall()
                 if ilike_rows:

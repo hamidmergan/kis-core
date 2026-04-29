@@ -19,8 +19,8 @@ interface KiTutorStudentStat {
   chat_messages: number;
 }
 
-interface KiTutorModuleStat {
-  module_uuid: string;
+interface KiTutorWorkspaceStat {
+  workspace_uuid: string;
   title: string;
   owner: string;
   is_active: boolean;
@@ -35,7 +35,7 @@ interface KiTutorModuleStat {
 
 interface KiTutorStatsData {
   summary: KiTutorSummary;
-  module_stats: KiTutorModuleStat[];
+  workspace_stats: KiTutorWorkspaceStat[];
   days: number;
 }
 
@@ -147,12 +147,12 @@ export default function KiTutorTab() {
               </tr>
             </thead>
             <tbody>
-              {data.module_stats.map((m) => {
-                const isOpen = expanded.has(m.module_uuid);
+              {data.workspace_stats.map((m) => {
+                const isOpen = expanded.has(m.workspace_uuid);
                 return (
-                  <React.Fragment key={m.module_uuid}>
+                  <React.Fragment key={m.workspace_uuid}>
                     <tr
-                      onClick={() => toggle(m.module_uuid)}
+                      onClick={() => toggle(m.workspace_uuid)}
                       className={`border-b border-border-soft cursor-pointer transition-colors ${isOpen ? "bg-surface" : "hover:bg-surface"}`}
                     >
                       <td className="px-4 py-2 text-muted-soft text-xs">{isOpen ? "▼" : "▶"}</td>
@@ -230,7 +230,7 @@ export default function KiTutorTab() {
                   </React.Fragment>
                 );
               })}
-              {data.module_stats.length === 0 && (
+              {data.workspace_stats.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-6 text-center text-muted-soft">
                     Keine Workspaces vorhanden

@@ -3,23 +3,23 @@
 import { useEffect, useState } from "react";
 import { X } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
-import type { ModuleStats } from "../_shared";
+import type { WorkspaceStats } from "../_shared";
 
 interface StatsModalProps {
-  moduleUuid: string;
+  workspaceUuid: string;
   moduleTitle: string;
   onClose: () => void;
 }
 
-export default function StatsModal({ moduleUuid, onClose }: StatsModalProps) {
-  const [stats, setStats] = useState<ModuleStats | null>(null);
+export default function StatsModal({ workspaceUuid, onClose }: StatsModalProps) {
+  const [stats, setStats] = useState<WorkspaceStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ai-assistant/modules/${moduleUuid}/dozent-stats`, {
+        const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/dozent-stats`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Fehler beim Laden");
@@ -30,7 +30,7 @@ export default function StatsModal({ moduleUuid, onClose }: StatsModalProps) {
         setLoading(false);
       }
     })();
-  }, [moduleUuid]);
+  }, [workspaceUuid]);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>

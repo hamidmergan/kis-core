@@ -16,15 +16,15 @@ router = APIRouter(tags=["ki-assistent: studio"])
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-def _require_module_access(module_uuid: str, user_id: int) -> dict:
-    module = db.get_aia_module(module_uuid)
-    if not module:
+def _require_module_access(workspace_uuid: str, user_id: int) -> dict:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
-    return module
+    return workspace
 
 
 def _parse_date(s: Optional[str]) -> Optional[date]:
@@ -65,13 +65,13 @@ def _serialize_entry(row: dict) -> dict:
     }
 
 
-# ─── GLOBAL SCHEDULE (across all owned + enrolled modules) ─────────────────
+# ─── GLOBAL SCHEDULE (across all owned + enrolled workspaces) ─────────────────
 
 def _serialize_global_entry(row: dict) -> dict:
-    """Serialize a row enriched with module info (owned vs. enrolled)."""
+    """Serialize a row enriched with workspace info (owned vs. enrolled)."""
     return {
         "id": row["id"],
-        "module_uuid": row["module_uuid"],
+        "workspace_uuid": row["workspace_uuid"],
         "module_title": row["module_title"],
         "module_relation": row["module_relation"],
         "type": row["type"],
@@ -92,7 +92,7 @@ async def get_upcoming_schedule(
     include_past_open: bool = False,
     current_user: dict = Depends(get_current_user),
 ):
-    """Top-N upcoming schedule entries across all the user's modules
+    """Top-N upcoming schedule entries across all the user's workspaces
     (owned + enrolled). Used by the home widget (limit=5) and the global
     overview page (paginated with limit + offset).
 
@@ -115,16 +115,16 @@ async def get_upcoming_schedule(
 
 # ─── GET ────────────────────────────────────────────────────────────────────
 
-@router.get("/ai-assistant/modules/{module_uuid}/schedule")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/schedule")
 async def get_schedule(
-    module_uuid: str,
+    workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = _require_module_access(module_uuid, user_id)
+    workspace = _require_module_access(workspace_uuid, user_id)
 
-    entries = db.get_schedule_entries(module["id"], user_id)
-    processed_ids = db.get_processed_source_ids(module["id"], user_id)
+    entries = db.get_schedule_entries(workspace["id"], user_id)
+    processed_ids = db.get_processed_source_ids(workspace["id"], user_id)
     processed_uuids: list[str] = []
     for sid in processed_ids:
         src = db.get_aia_source_by_id(sid)
@@ -139,14 +139,14 @@ async def get_schedule(
 
 # ─── GENERATE (async via Celery) ────────────────────────────────────────────
 
-@router.post("/ai-assistant/modules/{module_uuid}/schedule/generate")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/schedule/generate")
 async def generate_schedule(
-    module_uuid: str,
+    workspace_uuid: str,
     body: schemas.ScheduleGenerateBody,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = _require_module_access(module_uuid, user_id)
+    workspace = _require_module_access(workspace_uuid, user_id)
 
     if not body.source_ids:
         raise HTTPException(status_code=400, detail="Keine Sources ausgewählt")
@@ -157,22 +157,22 @@ async def generate_schedule(
     # Filter: skip already-processed sources client-side already knows this,
     # but we also store the full selection for traceability. The task will
     # filter again on its own.
-    job = db.create_schedule_job(module["id"], user_id, list(body.source_ids))
+    job = db.create_schedule_job(workspace["id"], user_id, list(body.source_ids))
 
     from src.tasks.aia_tasks import run_generate_schedule
-    run_generate_schedule.delay(job["id"], module["id"], user_id, list(body.source_ids))
+    run_generate_schedule.delay(job["id"], workspace["id"], user_id, list(body.source_ids))
 
     return {"job_id": job["id"], "status": "pending"}
 
 
-@router.get("/ai-assistant/modules/{module_uuid}/schedule/jobs/active")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/schedule/jobs/active")
 async def get_active_schedule_job_route(
-    module_uuid: str,
+    workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = _require_module_access(module_uuid, user_id)
-    job = db.get_active_schedule_job(module["id"], user_id)
+    workspace = _require_module_access(workspace_uuid, user_id)
+    job = db.get_active_schedule_job(workspace["id"], user_id)
     if not job:
         return {"active": False}
     return {
@@ -183,14 +183,14 @@ async def get_active_schedule_job_route(
     }
 
 
-@router.get("/ai-assistant/modules/{module_uuid}/schedule/jobs/{job_id}")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/schedule/jobs/{job_id}")
 async def get_schedule_job(
-    module_uuid: str,
+    workspace_uuid: str,
     job_id: int,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(module_uuid, user_id)
+    _require_module_access(workspace_uuid, user_id)
     job = db.get_schedule_job(job_id, user_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job nicht gefunden")
@@ -207,20 +207,20 @@ async def get_schedule_job(
 
 # ─── CREATE MANUAL ENTRY ────────────────────────────────────────────────────
 
-@router.post("/ai-assistant/modules/{module_uuid}/schedule/entries")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/schedule/entries")
 async def create_entry(
-    module_uuid: str,
+    workspace_uuid: str,
     body: schemas.ScheduleEntryCreateBody,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = _require_module_access(module_uuid, user_id)
+    workspace = _require_module_access(workspace_uuid, user_id)
 
     if body.type not in ("deadline", "termin"):
         raise HTTPException(status_code=400, detail="Typ muss 'deadline' oder 'termin' sein")
 
     row = db.create_schedule_entry(
-        module["id"],
+        workspace["id"],
         user_id,
         type=body.type,
         title=body.title.strip(),
@@ -236,15 +236,15 @@ async def create_entry(
 
 # ─── UPDATE ENTRY ───────────────────────────────────────────────────────────
 
-@router.put("/ai-assistant/modules/{module_uuid}/schedule/entries/{entry_id}")
+@router.put("/ai-assistant/workspaces/{workspace_uuid}/schedule/entries/{entry_id}")
 async def update_entry(
-    module_uuid: str,
+    workspace_uuid: str,
     entry_id: int,
     body: schemas.ScheduleEntryUpdateBody,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(module_uuid, user_id)
+    _require_module_access(workspace_uuid, user_id)
 
     existing = db.get_schedule_entry(entry_id, user_id)
     if not existing:
@@ -273,14 +273,14 @@ async def update_entry(
 
 # ─── DELETE ENTRY ───────────────────────────────────────────────────────────
 
-@router.delete("/ai-assistant/modules/{module_uuid}/schedule/entries/{entry_id}")
+@router.delete("/ai-assistant/workspaces/{workspace_uuid}/schedule/entries/{entry_id}")
 async def delete_entry(
-    module_uuid: str,
+    workspace_uuid: str,
     entry_id: int,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(module_uuid, user_id)
+    _require_module_access(workspace_uuid, user_id)
     if not db.delete_schedule_entry(entry_id, user_id):
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
     return {"ok": True}
@@ -288,12 +288,12 @@ async def delete_entry(
 
 # ─── DELETE ALL ─────────────────────────────────────────────────────────────
 
-@router.delete("/ai-assistant/modules/{module_uuid}/schedule")
+@router.delete("/ai-assistant/workspaces/{workspace_uuid}/schedule")
 async def delete_all(
-    module_uuid: str,
+    workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = _require_module_access(module_uuid, user_id)
-    count = db.delete_all_schedule_entries(module["id"], user_id)
+    workspace = _require_module_access(workspace_uuid, user_id)
+    count = db.delete_all_schedule_entries(workspace["id"], user_id)
     return {"deleted": count}

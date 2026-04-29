@@ -17,8 +17,8 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 
-def get_student_stats(module_id: int, user_id: int) -> dict:
-    """Aggregate personal learning stats for a student in a module."""
+def get_student_stats(workspace_id: int, user_id: int) -> dict:
+    """Aggregate personal learning stats for a student in a workspace."""
     from zoneinfo import ZoneInfo
     tz = ZoneInfo("Europe/Berlin")
 
@@ -27,8 +27,8 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
             # ── Streak ──
             cur.execute(
                 "SELECT current_streak, max_streak, last_active_date "
-                "FROM aia_streaks WHERE module_id = %s AND user_id = %s",
-                (module_id, user_id),
+                "FROM aia_streaks WHERE workspace_id = %s AND user_id = %s",
+                (workspace_id, user_id),
             )
             streak_row = cur.fetchone()
             streak = dict(streak_row) if streak_row else {
@@ -50,9 +50,9 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                      FROM aia_exercise_progress p
                      WHERE p.set_id = s.id AND p.user_id = s.user_id
                    ) m ON true
-                   WHERE s.module_id = %s AND s.user_id = %s AND s.status = 'ready'
+                   WHERE s.workspace_id = %s AND s.user_id = %s AND s.status = 'ready'
                    ORDER BY s.created_at DESC""",
-                (module_id, user_id),
+                (workspace_id, user_id),
             )
             sets = [dict(r) for r in cur.fetchall()]
 
@@ -84,7 +84,7 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
 
             def _build_heatmap(category_filter: str | None) -> list[dict]:
                 mode_clause = ""
-                params: list = [user_id, module_id, user_id]
+                params: list = [user_id, workspace_id, user_id]
                 if category_filter == "language_training":
                     mode_clause = " AND s2.tool IN ('flashcards', 'lueckentext', 'vokabeltest')"
                 elif category_filter == "lerntools":
@@ -98,7 +98,7 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                        FROM aia_exercise_progress ep
                        JOIN aia_exercise_sets s2 ON s2.id = ep.set_id
                        WHERE ep.user_id = %s
-                         AND s2.module_id = %s AND s2.user_id = %s
+                         AND s2.workspace_id = %s AND s2.user_id = %s
                          {mode_clause}
                          AND ep.answered_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date - INTERVAL '179 days'
                        GROUP BY day ORDER BY day""",
@@ -136,8 +136,8 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                             WHERE created_at >= (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date
                           ) AS today
                    FROM aia_messages
-                   WHERE module_id = %s AND user_id = %s AND role = 'user'""",
-                (module_id, user_id),
+                   WHERE workspace_id = %s AND user_id = %s AND role = 'user'""",
+                (workspace_id, user_id),
             )
             chat_row = cur.fetchone()
 
@@ -146,8 +146,8 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
                 """SELECT MIN(answered_at) AS first_activity
                    FROM aia_exercise_progress ep
                    JOIN aia_exercise_sets s ON s.id = ep.set_id
-                   WHERE s.module_id = %s AND ep.user_id = %s""",
-                (module_id, user_id),
+                   WHERE s.workspace_id = %s AND ep.user_id = %s""",
+                (workspace_id, user_id),
             )
             first_row = cur.fetchone()
             first_activity = str(first_row["first_activity"].date()) if first_row and first_row["first_activity"] else None
@@ -169,12 +169,12 @@ def get_student_stats(module_id: int, user_id: int) -> dict:
         "today": str(today),
     }
 
-def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: str | None = None) -> dict:
+def get_student_day_stats(workspace_id: int, user_id: int, day_str: str, category: str | None = None) -> dict:
     """Per-set breakdown for a specific day, optionally filtered by category."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             mode_clause = ""
-            params: list = [module_id, user_id, day_str]
+            params: list = [workspace_id, user_id, day_str]
             if category == "language_training":
                 mode_clause = " AND s.tool IN ('flashcards', 'lueckentext', 'vokabeltest')"
             elif category == "lerntools":
@@ -188,7 +188,7 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
                           MAX(ep.answered_at) AS last_answer
                    FROM aia_exercise_progress ep
                    JOIN aia_exercise_sets s ON s.id = ep.set_id
-                   WHERE s.module_id = %s AND ep.user_id = %s
+                   WHERE s.workspace_id = %s AND ep.user_id = %s
                      AND (ep.answered_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date
                      {mode_clause}
                    GROUP BY s.id ORDER BY MAX(ep.answered_at) DESC""",
@@ -211,9 +211,9 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
             cur.execute(
                 """SELECT COUNT(*) AS cnt
                    FROM aia_messages
-                   WHERE module_id = %s AND user_id = %s AND role = 'user'
+                   WHERE workspace_id = %s AND user_id = %s AND role = 'user'
                      AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Berlin')::date = %s::date""",
-                (module_id, user_id, day_str),
+                (workspace_id, user_id, day_str),
             )
             chat_count = cur.fetchone()["cnt"]
 
@@ -226,7 +226,7 @@ def get_student_day_stats(module_id: int, user_id: int, day_str: str, category: 
         "chat_count": chat_count,
     }
 
-def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[dict]:
+def get_recent_activities(workspace_id: int, user_id: int, limit: int = 5) -> list[dict]:
     """Return the most recently used or created exercise sets + mindmaps for the activity feed."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -240,7 +240,7 @@ def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[
                      FROM aia_exercise_sets s
                      LEFT JOIN aia_exercise_progress ep
                           ON ep.set_id = s.id AND ep.user_id = %s
-                     WHERE s.module_id = %s AND s.user_id = %s
+                     WHERE s.workspace_id = %s AND s.user_id = %s
                        AND s.status = 'ready'
                      GROUP BY s.id
                    UNION ALL
@@ -250,7 +250,7 @@ def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[
                             m.created_at AS last_answer,
                             0 AS answers, 0 AS correct
                      FROM aia_mindmaps m
-                     WHERE m.module_id = %s AND m.user_id = %s AND m.status = 'success'
+                     WHERE m.workspace_id = %s AND m.user_id = %s AND m.status = 'success'
                    UNION ALL
                      SELECT d.id AS set_id, 'data_table' AS tool, 'source' AS mode,
                             COALESCE(d.title, 'DataTable') AS title,
@@ -258,11 +258,11 @@ def get_recent_activities(module_id: int, user_id: int, limit: int = 5) -> list[
                             d.created_at AS last_answer,
                             0 AS answers, 0 AS correct
                      FROM aia_data_tables d
-                     WHERE d.module_id = %s AND d.user_id = %s AND d.status = 'success'
+                     WHERE d.workspace_id = %s AND d.user_id = %s AND d.status = 'success'
                    ) combined
                    ORDER BY COALESCE(last_answer, created_at) DESC
                    LIMIT %s""",
-                (user_id, module_id, user_id, module_id, user_id, module_id, user_id, limit),
+                (user_id, workspace_id, user_id, workspace_id, user_id, workspace_id, user_id, limit),
             )
             results = []
             for r in cur.fetchall():
@@ -293,7 +293,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                 mode_params = (mode,)
 
             # ── 1. Summary ──
-            cur.execute("SELECT COUNT(*) AS cnt FROM aia_modules")
+            cur.execute("SELECT COUNT(*) AS cnt FROM aia_workspaces")
             total_modules = cur.fetchone()["cnt"]
 
             cur.execute(
@@ -325,13 +325,13 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
             cur.execute(
                 """SELECT m.id, m.uuid, m.title, m.is_active, m.user_id AS owner_id,
                           u.display_name AS owner_name, u.ldap_username AS owner_username,
-                          (SELECT COUNT(*) FROM aia_enrollments e WHERE e.module_id = m.id) AS enrollment_count,
-                          (SELECT COUNT(DISTINCT src.id) FROM aia_sources src WHERE src.module_id = m.id) AS source_count
-                   FROM aia_modules m
+                          (SELECT COUNT(*) FROM aia_enrollments e WHERE e.workspace_id = m.id) AS enrollment_count,
+                          (SELECT COUNT(DISTINCT src.id) FROM aia_sources src WHERE src.workspace_id = m.id) AS source_count
+                   FROM aia_workspaces m
                    JOIN users u ON m.user_id = u.id
                    ORDER BY m.created_at DESC""",
             )
-            modules_raw = [dict(r) for r in cur.fetchall()]
+            workspaces_raw = [dict(r) for r in cur.fetchall()]
 
             module_stats = []
             for m in modules_raw:
@@ -339,10 +339,10 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                 owner_id = m["owner_id"]
                 owner = m["owner_name"] or m["owner_username"] or "Unbekannt"
 
-                # Lecturer activity: chat messages sent by owner in this module
+                # Lecturer activity: chat messages sent by owner in this workspace
                 cur.execute(
                     """SELECT COUNT(*) AS cnt FROM aia_messages
-                       WHERE module_id = %s AND user_id = %s AND role = 'user'
+                       WHERE workspace_id = %s AND user_id = %s AND role = 'user'
                          AND created_at >= NOW() - INTERVAL %s""",
                     (mid, owner_id, interval),
                 )
@@ -354,27 +354,27 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                                COUNT(p.id) FILTER (WHERE p.correct) AS correct_cnt
                         FROM aia_exercise_progress p
                         JOIN aia_exercise_sets s ON s.id = p.set_id
-                        WHERE s.module_id = %s AND p.user_id = %s
+                        WHERE s.workspace_id = %s AND p.user_id = %s
                           AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
                     (mid, owner_id, interval, *mode_params),
                 )
                 lecturer_ex = cur.fetchone()
 
-                # Total module exercise stats
+                # Total workspace exercise stats
                 cur.execute(
                     f"""SELECT COUNT(p.id) AS total_answers,
                                COUNT(p.id) FILTER (WHERE p.correct) AS total_correct
                         FROM aia_exercise_progress p
                         JOIN aia_exercise_sets s ON s.id = p.set_id
-                        WHERE s.module_id = %s AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
+                        WHERE s.workspace_id = %s AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
                     (mid, interval, *mode_params),
                 )
                 ex_row = cur.fetchone()
 
-                # Total chat in module
+                # Total chat in workspace
                 cur.execute(
                     """SELECT COUNT(*) AS cnt FROM aia_messages
-                       WHERE module_id = %s AND role = 'user'
+                       WHERE workspace_id = %s AND role = 'user'
                          AND created_at >= NOW() - INTERVAL %s""",
                     (mid, interval),
                 )
@@ -386,7 +386,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                               u.display_name, u.ldap_username
                        FROM aia_enrollments e
                        JOIN users u ON e.user_id = u.id
-                       WHERE e.module_id = %s
+                       WHERE e.workspace_id = %s
                        ORDER BY u.display_name""",
                     (mid,),
                 )
@@ -395,7 +395,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                 students = []
                 for st in enrolled:
                     sid = st["user_id"]
-                    # Student exercises in this module
+                    # Student exercises in this workspace
                     cur.execute(
                         f"""SELECT COUNT(p.id) AS answers,
                                    COUNT(p.id) FILTER (WHERE p.correct) AS correct_cnt,
@@ -403,16 +403,16 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                                    COUNT(p.id) FILTER (WHERE s.mode = 'glossary') AS language_training
                             FROM aia_exercise_progress p
                             JOIN aia_exercise_sets s ON s.id = p.set_id
-                            WHERE s.module_id = %s AND p.user_id = %s
+                            WHERE s.workspace_id = %s AND p.user_id = %s
                               AND p.answered_at >= NOW() - INTERVAL %s{mode_filter}""",
                         (mid, sid, interval, *mode_params),
                     )
                     st_ex = cur.fetchone()
 
-                    # Student chat messages in this module
+                    # Student chat messages in this workspace
                     cur.execute(
                         """SELECT COUNT(*) AS cnt FROM aia_messages
-                           WHERE module_id = %s AND user_id = %s AND role = 'user'
+                           WHERE workspace_id = %s AND user_id = %s AND role = 'user'
                              AND created_at >= NOW() - INTERVAL %s""",
                         (mid, sid, interval),
                     )
@@ -429,7 +429,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
                     })
 
                 module_stats.append({
-                    "module_uuid": m["uuid"],
+                    "workspace_uuid": m["uuid"],
                     "title": m["title"],
                     "owner": owner,
                     "is_active": m["is_active"],
@@ -460,34 +460,34 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 
 # ─── Lecturer: Module Statistics ──────────────────────────────────────────────
 
-def get_aia_module_stats(module_id: int) -> dict:
-    """Statistics for a single module – used by the module owner (Lecturer)."""
+def get_aia_workspace_stats(workspace_id: int) -> dict:
+    """Statistics for a single workspace – used by the workspace owner (Lecturer)."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT COUNT(DISTINCT user_id) AS cnt FROM aia_enrollments WHERE module_id = %s",
-                (module_id,),
+                "SELECT COUNT(DISTINCT user_id) AS cnt FROM aia_enrollments WHERE workspace_id = %s",
+                (workspace_id,),
             )
             total_enrolled = cur.fetchone()["cnt"]
 
             cur.execute(
                 """SELECT COUNT(DISTINCT user_id) AS cnt
                    FROM aia_messages
-                   WHERE module_id = %s AND role = 'user'
+                   WHERE workspace_id = %s AND role = 'user'
                      AND created_at >= NOW() - INTERVAL '30 days'""",
-                (module_id,),
+                (workspace_id,),
             )
             active_30d = cur.fetchone()["cnt"]
 
             cur.execute(
-                "SELECT COUNT(*) AS cnt FROM aia_messages WHERE module_id = %s AND role = 'user'",
-                (module_id,),
+                "SELECT COUNT(*) AS cnt FROM aia_messages WHERE workspace_id = %s AND role = 'user'",
+                (workspace_id,),
             )
             total_chat = cur.fetchone()["cnt"]
 
             cur.execute(
-                "SELECT COUNT(*) AS cnt FROM aia_exercise_sets WHERE module_id = %s",
-                (module_id,),
+                "SELECT COUNT(*) AS cnt FROM aia_exercise_sets WHERE workspace_id = %s",
+                (workspace_id,),
             )
             total_sets = cur.fetchone()["cnt"]
 

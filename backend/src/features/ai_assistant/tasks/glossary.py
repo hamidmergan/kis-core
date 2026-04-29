@@ -78,12 +78,12 @@ Rules:
 @celery_app.task(bind=True, name="kia.generate_glossary", queue="kia",
                  soft_time_limit=120, time_limit=180)
 @observe(name="kia-glossary")
-def run_generate_glossary(self, module_id: int, source_ids: list[int]):
+def run_generate_glossary(self, workspace_id: int, source_ids: list[int]):
     """Generate glossary entries from source chunks as a background job."""
     import json as _json
 
     try:
-        logger.info("KI Tutor: generating glossary for module {} sources {}", module_id, source_ids)
+        logger.info("KI Tutor: generating glossary for workspace {} sources {}", workspace_id, source_ids)
 
         # Gather chunks from all selected sources, track which source each chunk belongs to
         all_chunks: list[dict] = []
@@ -117,7 +117,7 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         context = "\n\n---\n\n".join(context_parts)
 
         # Tell LLM which terms already exist so it doesn't repeat them
-        existing = db.get_aia_glossary_by_module(module_id)
+        existing = db.get_aia_glossary_by_workspace(workspace_id)
         existing_terms_list = [e["term_de"] for e in existing]
         exclude_hint = ""
         if existing_terms_list:
@@ -145,14 +145,14 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
         entries_raw = [e for e in entries_raw if e.get("term_de", "").strip().lower() in context_lower]
 
         # Deduplicate: skip terms that already exist
-        existing = db.get_aia_glossary_by_module(module_id)
+        existing = db.get_aia_glossary_by_workspace(workspace_id)
         existing_terms = {e["term_de"].strip().lower() for e in existing}
         new_entries = [e for e in entries_raw if e.get("term_de", "").strip().lower() not in existing_terms]
 
         # Respect overall limit of 150 and cap at 5 new entries per run
         remaining_slots = 150 - len(existing)
         if remaining_slots <= 0:
-            logger.info("KI Tutor: glossary limit reached for module {}, skipping", module_id)
+            logger.info("KI Tutor: glossary limit reached for workspace {}, skipping", workspace_id)
             return
         new_entries = new_entries[:min(5, remaining_slots)]
 
@@ -166,11 +166,11 @@ def run_generate_glossary(self, module_id: int, source_ids: list[int]):
                 entries_by_source[sid].append(entry)
             for sid, entries in entries_by_source.items():
                 db.bulk_create_glossary_entries(sid, entries)
-        logger.info("KI Tutor: glossary added {} new entries (skipped {} duplicates) for module {}",
-                     len(new_entries), len(entries_raw) - len(new_entries), module_id)
+        logger.info("KI Tutor: glossary added {} new entries (skipped {} duplicates) for workspace {}",
+                     len(new_entries), len(entries_raw) - len(new_entries), workspace_id)
 
     except Exception as e:
-        logger.error("KI Tutor: glossary generation failed for module {}: {}", module_id, e)
+        logger.error("KI Tutor: glossary generation failed for workspace {}: {}", workspace_id, e)
 
 
 # ── Exercise Set generation (replaces threading.Thread) ──────────────────────

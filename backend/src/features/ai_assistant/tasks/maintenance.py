@@ -72,7 +72,7 @@ def run_reindex_all_sources(self):
     _set_progress("start")
     logger.info("KI Tutor reindex: starting over {} sources", total)
 
-    module_ids_seen: set[int] = set()
+    workspace_ids_seen: set[int] = set()
     failed = 0
 
     for source in sources:
@@ -94,7 +94,7 @@ def run_reindex_all_sources(self):
                 logger.info("KI Tutor reindex: source {} re-embedded ({} chunks)", source_uuid, len(chunks))
 
             db.update_aia_source_status(source_uuid, "ready", embedding_model=embedding_model)
-            module_ids_seen.add(source["module_id"])
+            workspace_ids_seen.add(source["workspace_id"])
         except Exception as e:
             failed += 1
             logger.error("KI Tutor reindex: source {} failed: {}", source_uuid, e)
@@ -103,12 +103,12 @@ def run_reindex_all_sources(self):
             done += 1
             _set_progress(filename, failed=failed)
 
-    # Bump fingerprint on every touched module so the new provider is recorded
-    for module_id in module_ids_seen:
-        module = db.get_aia_module_by_id(module_id)
-        if module:
-            db.update_aia_module_status(
-                module["uuid"], "ready",
+    # Bump fingerprint on every touched workspace so the new provider is recorded
+    for workspace_id in workspace_ids_seen:
+        workspace = db.get_aia_workspace_by_id(workspace_id)
+        if workspace:
+            db.update_aia_workspace_status(
+                workspace["uuid"], "ready",
                 embedding_model=embedding_model,
                 embedding_fingerprint=fingerprint,
             )

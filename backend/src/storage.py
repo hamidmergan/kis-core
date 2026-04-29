@@ -35,19 +35,19 @@ def job_prefix(user_id: int, job_uuid: str) -> str:
     return f"users/{user_id}/jobs/{job_uuid}"
 
 
-def aia_module_prefix(user_id: int, module_uuid: str) -> str:
-    """S3 prefix for an AIA module: 'users/{user_id}/aia/modules/{module_uuid}'. No trailing slash."""
-    return f"users/{user_id}/aia/modules/{module_uuid}"
+def aia_workspace_prefix(user_id: int, workspace_uuid: str) -> str:
+    """S3 prefix for an AIA workspace: 'users/{user_id}/aia/workspaces/{workspace_uuid}'. No trailing slash."""
+    return f"users/{user_id}/aia/workspaces/{workspace_uuid}"
 
 
-def aia_source_key(user_id: int, module_uuid: str, source_uuid: str, ext: str) -> str:
+def aia_source_key(user_id: int, workspace_uuid: str, source_uuid: str, ext: str) -> str:
     """S3 key for an AIA source file. ext must include the leading dot (or be empty)."""
-    return f"{aia_module_prefix(user_id, module_uuid)}/sources/{source_uuid}{ext}"
+    return f"{aia_workspace_prefix(user_id, workspace_uuid)}/sources/{source_uuid}{ext}"
 
 
-def aia_output_key(user_id: int, module_uuid: str, filename: str) -> str:
-    """S3 key for an AIA module output file."""
-    return f"{aia_module_prefix(user_id, module_uuid)}/outputs/{filename}"
+def aia_output_key(user_id: int, workspace_uuid: str, filename: str) -> str:
+    """S3 key for an AIA workspace output file."""
+    return f"{aia_workspace_prefix(user_id, workspace_uuid)}/outputs/{filename}"
 
 
 def tmp_pptx_key(file_id: str) -> str:

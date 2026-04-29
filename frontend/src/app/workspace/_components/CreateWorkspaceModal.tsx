@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import type { KiTutorModule } from "../_shared";
+import type { KiTutorWorkspace } from "../_shared";
 
-interface CreateModuleModalProps {
+interface CreateWorkspaceModalProps {
   onClose: () => void;
-  onCreated: (m: KiTutorModule) => void;
+  onCreated: (m: KiTutorWorkspace) => void;
 }
 
-export default function CreateModuleModal({ onClose, onCreated }: CreateModuleModalProps) {
+export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorkspaceModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -25,7 +25,7 @@ export default function CreateModuleModal({ onClose, onCreated }: CreateModuleMo
       form.append("title", title.trim());
       if (description.trim()) form.append("description", description.trim());
       if (expiresAt) form.append("expires_at", new Date(expiresAt).toISOString());
-      const res = await fetch("/api/ai-assistant/modules", {
+      const res = await fetch("/api/ai-assistant/workspaces", {
         method: "POST",
         credentials: "include",
         body: form,

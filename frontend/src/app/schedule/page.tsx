@@ -30,10 +30,10 @@ async function fetchPage(offset: number, showAll: boolean): Promise<{ items: Sch
   }
 }
 
-async function toggleChecked(moduleUuid: string, entryId: number, checked: boolean): Promise<boolean> {
+async function toggleChecked(workspaceUuid: string, entryId: number, checked: boolean): Promise<boolean> {
   try {
     const r = await fetch(
-      `/api/ai-assistant/modules/${moduleUuid}/schedule/entries/${entryId}`,
+      `/api/ai-assistant/workspaces/${workspaceUuid}/schedule/entries/${entryId}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -141,7 +141,7 @@ export default function SchedulePage() {
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 350);
     }
-    const ok = await toggleChecked(entry.module_uuid, entry.id, checked);
+    const ok = await toggleChecked(entry.workspace_uuid, entry.id, checked);
     if (!ok) {
       setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_checked: !checked } : e));
       return;
@@ -206,7 +206,7 @@ export default function SchedulePage() {
                   isToday={ctx.isToday}
                   isPast={ctx.isPast}
                   urgency={ctx.urgency}
-                  href={`/workspace/${entry.module_uuid}?tab=schedule`}
+                  href={`/workspace/${entry.workspace_uuid}?tab=schedule`}
                   onToggleChecked={(checked) => handleToggleChecked(entry, checked)}
                 />
               )}

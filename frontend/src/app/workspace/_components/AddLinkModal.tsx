@@ -4,12 +4,12 @@ import { useState } from "react";
 import type { AccessLink } from "../_shared";
 
 interface AddLinkModalProps {
-  moduleUuid: string;
+  workspaceUuid: string;
   onClose: () => void;
   onCreated: (link: AccessLink) => void;
 }
 
-export default function AddLinkModal({ moduleUuid, onClose, onCreated }: AddLinkModalProps) {
+export default function AddLinkModal({ workspaceUuid, onClose, onCreated }: AddLinkModalProps) {
   const [expiresAt, setExpiresAt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +20,7 @@ export default function AddLinkModal({ moduleUuid, onClose, onCreated }: AddLink
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${moduleUuid}/access-links`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/access-links`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

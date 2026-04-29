@@ -56,13 +56,13 @@ function fmtTs(sec: number): string {
 
 export function TranscriptPanel({
   mediaRef,
-  moduleUuid,
+  workspaceUuid,
   sourceUuid,
   canManage = false,
   onSaveNote,
 }: {
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
-  moduleUuid: string;
+  workspaceUuid: string;
   sourceUuid: string;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
@@ -88,7 +88,7 @@ export function TranscriptPanel({
     const fetchLang = async (lang: Lang): Promise<Cue[] | null> => {
       try {
         const res = await fetch(
-          `/api/ai-assistant/modules/${moduleUuid}/sources/${sourceUuid}/transcript?lang=${lang}`,
+          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript?lang=${lang}`,
           { credentials: "include" },
         );
         if (!res.ok) return null;
@@ -108,7 +108,7 @@ export function TranscriptPanel({
       else if (en) setMode("en");
     });
     return () => { cancelled = true; };
-  }, [moduleUuid, sourceUuid]);
+  }, [workspaceUuid, sourceUuid]);
 
   // Use the DE track as the timing master when available (identical timestamps
   // to EN because both come from Whisper on the same audio).
@@ -187,7 +187,7 @@ export function TranscriptPanel({
       }
       try {
         const res = await fetch(
-          `/api/ai-assistant/modules/${moduleUuid}/sources/${sourceUuid}/transcript?lang=en`,
+          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript?lang=en`,
           { credentials: "include" },
         );
         if (res.ok) {
@@ -202,7 +202,7 @@ export function TranscriptPanel({
       }
     }, INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [regenEn, moduleUuid, sourceUuid, deCues]);
+  }, [regenEn, workspaceUuid, sourceUuid, deCues]);
 
   const regenerateEnTranscript = async () => {
     if (regenEn === "running") return;
@@ -210,7 +210,7 @@ export function TranscriptPanel({
     setRegenError(null);
     try {
       const res = await fetch(
-        `/api/ai-assistant/modules/${moduleUuid}/sources/${sourceUuid}/regenerate-en-transcript`,
+        `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/regenerate-en-transcript`,
         { method: "POST", credentials: "include" },
       );
       if (!res.ok) {

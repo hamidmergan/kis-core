@@ -20,8 +20,8 @@ from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
-    KIA_MODULE_MAX_SOURCES,
-    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_WORKSPACE_MAX_SOURCES,
+    KIA_WORKSPACE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file
@@ -37,9 +37,9 @@ from src.features.ai_assistant.routes._helpers import (
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
-    _require_own_module,
+    _require_own_workspace,
     _save_source_file,
-    _delete_source_files_for_module,
+    _delete_source_files_for_workspace,
     _resolve_source_ids,
     _term_appears_in_text,
     _ALLOWED_EXTENSIONS,
@@ -50,45 +50,45 @@ from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: messages"])
 
-@router.delete("/ai-assistant/modules/{module_uuid}/messages")
+@router.delete("/ai-assistant/workspaces/{workspace_uuid}/messages")
 async def delete_messages(
-    module_uuid: str,
+    workspace_uuid: str,
     enrollment_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     eid = enrollment_id if not is_owner else None
-    db.delete_aia_messages(module["id"], user_id, enrollment_id=eid)
-    logger.info("KI Tutor: chat cleared for module {} by user {}", module_uuid, user_id)
+    db.delete_aia_messages(workspace["id"], user_id, enrollment_id=eid)
+    logger.info("KI Tutor: chat cleared for workspace {} by user {}", workspace_uuid, user_id)
     return {"cleared": True}
 
-@router.get("/ai-assistant/modules/{module_uuid}/messages")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/messages")
 async def get_messages(
-    module_uuid: str,
+    workspace_uuid: str,
     enrollment_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     eid = enrollment_id if not is_owner else None
-    messages = db.get_aia_messages(module["id"], user_id, enrollment_id=eid)
+    messages = db.get_aia_messages(workspace["id"], user_id, enrollment_id=eid)
     return [
         {
             "role": m["role"],
@@ -100,41 +100,41 @@ async def get_messages(
         for m in messages
     ]
 
-@router.get("/ai-assistant/modules/{module_uuid}/settings")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/settings")
 async def get_user_settings(
-    module_uuid: str,
+    workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    return db.get_aia_user_settings(module["id"], user_id)
+    return db.get_aia_user_settings(workspace["id"], user_id)
 
-@router.patch("/ai-assistant/modules/{module_uuid}/settings")
+@router.patch("/ai-assistant/workspaces/{workspace_uuid}/settings")
 async def update_user_settings(
-    module_uuid: str,
+    workspace_uuid: str,
     body: schemas.UserSettingsBody,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     db.upsert_aia_user_settings(
-        module["id"], user_id, body.chat_lang, body.studio_enabled, body.language_training_active
+        workspace["id"], user_id, body.chat_lang, body.studio_enabled, body.language_training_active
     )
     return {"ok": True}
 

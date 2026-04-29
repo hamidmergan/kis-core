@@ -11,34 +11,34 @@ import {
 } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import LinkRow from "./LinkRow";
-import ModuleModals from "./ModuleModals";
-import { MAX_ACCESS_LINKS, type AccessLink, type KiTutorModule } from "../_shared";
-import { useModuleActions } from "../_hooks/useModuleActions";
+import WorkspaceModals from "./WorkspaceModals";
+import { MAX_ACCESS_LINKS, type AccessLink, type KiTutorWorkspace } from "../_shared";
+import { useWorkspaceActions } from "../_hooks/useWorkspaceActions";
 
-interface ModuleTableRowProps {
-  module: KiTutorModule;
+interface WorkspaceTableRowProps {
+  workspace: KiTutorWorkspace;
   onToggleActive: (uuid: string, newVal: boolean) => Promise<void>;
   onDelete: (uuid: string) => Promise<void>;
   onEdit: (uuid: string, newTitle: string, newDescription: string) => Promise<boolean>;
   onLinksChanged: (uuid: string, links: AccessLink[]) => void;
 }
 
-export default function ModuleTableRow({
-  module,
+export default function WorkspaceTableRow({
+  workspace,
   onToggleActive,
   onDelete,
   onEdit,
   onLinksChanged,
-}: ModuleTableRowProps) {
-  const a = useModuleActions({ module, onToggleActive, onDelete, onLinksChanged });
+}: WorkspaceTableRowProps) {
+  const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
 
   return (
     <>
-      <ModuleModals
-        module={module}
+      <WorkspaceModals
+        workspace={workspace}
         showStats={a.showStats} onCloseStats={() => a.setShowStats(false)}
         editOpen={a.editOpen} onCloseEdit={() => a.setEditOpen(false)}
-        onSubmitEdit={(t, d) => onEdit(module.uuid, t, d)}
+        onSubmitEdit={(t, d) => onEdit(workspace.uuid, t, d)}
         showAddLink={a.showAddLink} onCloseAddLink={() => a.setShowAddLink(false)} onLinkCreated={a.handleLinkCreated}
         deleteConfirm={a.deleteConfirm} onCancelDelete={() => a.setDeleteConfirm(false)}
         onConfirmDelete={a.handleDeleteConfirm} deleting={a.deleting}
@@ -47,7 +47,7 @@ export default function ModuleTableRow({
       />
 
       <tr
-        className="module-row border-t transition-colors"
+        className="workspace-row border-t transition-colors"
         style={{
           borderColor: "var(--border)",
           backgroundColor: a.expanded ? "var(--surface)" : undefined,
@@ -74,7 +74,7 @@ export default function ModuleTableRow({
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="min-w-0">
-            <div className="text-[15px] font-semibold text-foreground truncate">{module.title}</div>
+            <div className="text-[15px] font-semibold text-foreground truncate">{workspace.title}</div>
           </div>
         </td>
         <td
@@ -84,7 +84,7 @@ export default function ModuleTableRow({
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
-          {module.source_count}
+          {workspace.source_count}
         </td>
         <td
           className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-foreground cursor-pointer"
@@ -97,7 +97,7 @@ export default function ModuleTableRow({
         </td>
         <td
           className="px-6 py-5 cursor-pointer"
-          onClick={() => !a.toggling && a.handleToggle(!module.is_active)}
+          onClick={() => !a.toggling && a.handleToggle(!workspace.is_active)}
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
@@ -105,27 +105,27 @@ export default function ModuleTableRow({
             <button
               type="button"
               role="switch"
-              aria-checked={module.is_active}
-              aria-label={module.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
-              onClick={(e) => { e.stopPropagation(); a.handleToggle(!module.is_active); }}
+              aria-checked={workspace.is_active}
+              aria-label={workspace.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
+              onClick={(e) => { e.stopPropagation(); a.handleToggle(!workspace.is_active); }}
               disabled={a.toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 hover:outline-2 hover:outline-kb"
               style={{
-                backgroundColor: module.is_active ? "var(--kb)" : "var(--border)",
-                ...(module.is_active && { boxShadow: "0 0 0 0 var(--kb)" }),
+                backgroundColor: workspace.is_active ? "var(--kb)" : "var(--border)",
+                ...(workspace.is_active && { boxShadow: "0 0 0 0 var(--kb)" }),
               }}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                  module.is_active ? "translate-x-[18px]" : "translate-x-0.5"
+                  workspace.is_active ? "translate-x-[18px]" : "translate-x-0.5"
                 }`}
               />
             </button>
             <span
               className="text-xs font-medium"
-              style={{ color: module.is_active ? "var(--kb)" : "var(--muted)" }}
+              style={{ color: workspace.is_active ? "var(--kb)" : "var(--muted)" }}
             >
-              {module.is_active ? "Aktiv" : "Inaktiv"}
+              {workspace.is_active ? "Aktiv" : "Inaktiv"}
             </span>
           </div>
         </td>
@@ -207,9 +207,9 @@ export default function ModuleTableRow({
         <tr style={{ backgroundColor: "var(--surface)" }}>
           <td colSpan={7} className="pl-11 pr-6 pb-5" style={{ borderTop: "none" }}>
             <div className="flex flex-col gap-3 max-w-full break-words">
-              {module.description && (
+              {workspace.description && (
                 <p className="text-[13px] leading-relaxed break-words" style={{ color: "var(--muted)" }}>
-                  {module.description}
+                  {workspace.description}
                 </p>
               )}
               {a.links.map((link) => (

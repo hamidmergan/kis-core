@@ -15,7 +15,7 @@ interface DayDetail {
   chat_count: number;
 }
 
-export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, language_trainingActive = true }: { stats: StudentStats | null; loading: boolean; moduleUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; language_trainingActive?: boolean }) {
+export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSet, language_trainingActive = true }: { stats: StudentStats | null; loading: boolean; workspaceUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; language_trainingActive?: boolean }) {
   const [period, setPeriod] = useState<StatsPeriod>("30");
 
   // Responsive heatmap: adjust cells to container width
@@ -53,12 +53,12 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
     setDayDetail(null);
     if (entry && entry.answers > 0) {
       setDayDetailLoading(true);
-      fetch(`/api/ai-assistant/modules/${moduleUuid}/stats/day?date=${entry.day}${dayCategoryParam}`, { credentials: "include" })
+      fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/stats/day?date=${entry.day}${dayCategoryParam}`, { credentials: "include" })
         .then(r => r.ok ? r.json() : null)
         .then(d => setDayDetail(d))
         .finally(() => setDayDetailLoading(false));
     }
-  }, [stats, moduleUuid, language_trainingActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stats, workspaceUuid, language_trainingActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Expand/collapse for day detail (limit to 10 entries) ──
   const DAY_DETAIL_LIMIT = 10;
@@ -133,7 +133,7 @@ export function StudentStatsView({ stats, loading, moduleUuid, onNavigateToSet, 
     if (d.answers > 0) {
       setDayDetailLoading(true);
       try {
-        const res = await fetch(`/api/ai-assistant/modules/${moduleUuid}/stats/day?date=${d.day}${dayCategoryParam}`, { credentials: "include" });
+        const res = await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/stats/day?date=${d.day}${dayCategoryParam}`, { credentials: "include" });
         if (res.ok) setDayDetail(await res.json());
       } catch { /* ignore */ }
       setDayDetailLoading(false);

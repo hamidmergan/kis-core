@@ -154,17 +154,17 @@ def _enrich_media_content(chunk: dict, segments: list[dict]) -> str:
         return content
     return " ".join(f"({_format_timestamp(s['start'])}) {s['text']}" for s in relevant)
 
-def _require_own_module(module_uuid: str, user_id: int) -> dict:
-    module = db.get_aia_module(module_uuid)
-    if not module:
+def _require_own_workspace(workspace_uuid: str, user_id: int) -> dict:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-    if module["user_id"] != user_id:
+    if workspace["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
-    return module
+    return workspace
 
-def _save_source_file(user_id: int, module_uuid: str, source_uuid: str, ext: str, data: bytes) -> str:
+def _save_source_file(user_id: int, workspace_uuid: str, source_uuid: str, ext: str, data: bytes) -> str:
     from src.storage import aia_source_key
-    key = aia_source_key(user_id, module_uuid, source_uuid, ext)
+    key = aia_source_key(user_id, workspace_uuid, source_uuid, ext)
     if USE_S3:
         from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
@@ -175,22 +175,22 @@ def _save_source_file(user_id: int, module_uuid: str, source_uuid: str, ext: str
     dest.write_bytes(data)
     return str(dest)
 
-def _delete_source_files_for_module(module: dict) -> None:
-    sources = db.get_aia_sources_by_module(module["id"])
+def _delete_source_files_for_workspace(workspace: dict) -> None:
+    sources = db.get_aia_sources_by_workspace(workspace["id"])
     for source in sources:
         try:
             delete_file(source["file_path"])
         except Exception as e:
             logger.warning("KI Tutor: could not delete file {}: {}", source["file_path"], e)
 
-def _resolve_source_ids(module: dict, source_uuids: list[str], max_count: int = 3) -> list[int]:
+def _resolve_source_ids(workspace: dict, source_uuids: list[str], max_count: int = 3) -> list[int]:
     """Resolve source UUIDs to DB IDs, enforce max count."""
     if len(source_uuids) > max_count:
         raise HTTPException(status_code=400, detail=f"Maximal {max_count} Sources erlaubt")
     ids = []
     for suuid in source_uuids:
         source = db.get_aia_source(suuid)
-        if source and source["module_id"] == module["id"] and source["status"] == "ready":
+        if source and source["workspace_id"] == workspace["id"] and source["status"] == "ready":
             ids.append(source["id"])
     if not ids:
         raise HTTPException(status_code=400, detail="Keine gültigen Sources ausgewählt")

@@ -5,7 +5,7 @@ export interface Source {
   error_message?: string | null;
 }
 
-export interface ModuleDetail {
+export interface WorkspaceDetail {
   uuid: string;
   title: string;
   description?: string | null;
@@ -152,7 +152,7 @@ export interface ExerciseItem {
 
 export interface ExerciseSet {
   id: number;
-  module_id: number;
+  workspace_id: number;
   user_id: number;
   tool: string;
   title: string;

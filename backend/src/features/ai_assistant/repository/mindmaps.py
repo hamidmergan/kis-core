@@ -18,15 +18,15 @@ from src.core.db.pool import get_connection
 from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
-def create_aia_mindmap(module_id: int, user_id: int, source_ids: list[int]) -> int:
+def create_aia_mindmap(workspace_id: int, user_id: int, source_ids: list[int]) -> int:
     """Create a pending mindmap record, return its id."""
     import json as _json
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """INSERT INTO aia_mindmaps (module_id, user_id, source_ids, status)
+                """INSERT INTO aia_mindmaps (workspace_id, user_id, source_ids, status)
                    VALUES (%s, %s, %s, 'pending') RETURNING id""",
-                (module_id, user_id, _json.dumps(source_ids)),
+                (workspace_id, user_id, _json.dumps(source_ids)),
             )
             row = cur.fetchone()
         conn.commit()
@@ -51,29 +51,29 @@ def get_aia_mindmap(mindmap_id: int) -> dict | None:
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_latest_aia_mindmap(module_id: int, user_id: int) -> dict | None:
-    """Get the most recent mindmap for a module/user."""
+def get_latest_aia_mindmap(workspace_id: int, user_id: int) -> dict | None:
+    """Get the most recent mindmap for a workspace/user."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT * FROM aia_mindmaps
-                   WHERE module_id = %s AND user_id = %s
+                   WHERE workspace_id = %s AND user_id = %s
                    ORDER BY created_at DESC LIMIT 1""",
-                (module_id, user_id),
+                (workspace_id, user_id),
             )
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_all_aia_mindmaps(module_id: int, user_id: int) -> list[dict]:
-    """Get all successful mindmaps for a module/user, newest first."""
+def get_all_aia_mindmaps(workspace_id: int, user_id: int) -> list[dict]:
+    """Get all successful mindmaps for a workspace/user, newest first."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT id, status, created_at, mindmap
                    FROM aia_mindmaps
-                   WHERE module_id = %s AND user_id = %s AND status = 'success'
+                   WHERE workspace_id = %s AND user_id = %s AND status = 'success'
                    ORDER BY created_at DESC""",
-                (module_id, user_id),
+                (workspace_id, user_id),
             )
             rows = cur.fetchall()
     return [dict(r) for r in rows]

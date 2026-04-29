@@ -41,7 +41,7 @@ interface StudioOverviewProps {
   language_trainingContent?: React.ReactNode;
   glossaryContent?: React.ReactNode;
   notesContent?: React.ReactNode;
-  moduleUuid: string;
+  workspaceUuid: string;
   statsVersion: number;
   onNavigateToSet?: (setId: number, tool: string, mode: string) => void;
   onSprachNavigate?: (view: LanguageTrainingView) => void;
@@ -63,7 +63,7 @@ export function StudioOverview({
   language_trainingContent,
   glossaryContent,
   notesContent,
-  moduleUuid,
+  workspaceUuid,
   statsVersion,
   onNavigateToSet,
   onSprachNavigate,
@@ -93,18 +93,18 @@ export function StudioOverview({
 
   const refreshStats = useCallback(() => {
     setStatsLoading(true);
-    fetch(`/api/ai-assistant/modules/${moduleUuid}/stats`, { credentials: "include" })
+    fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/stats`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) setStudentStats(data);
       })
       .catch(() => {})
       .finally(() => setStatsLoading(false));
-  }, [moduleUuid]);
+  }, [workspaceUuid]);
 
   useEffect(() => {
     if (studioTab === "statistik") refreshStats();
-  }, [studioTab, moduleUuid, refreshStats, statsVersion]);
+  }, [studioTab, workspaceUuid, refreshStats, statsVersion]);
 
   const lerntoolsTiles = [
     { key: "karteikarten" as const, Icon: Cards, label: "Karteikarten", iconBg: "rgba(220,252,231,0.7)", iconColor: "var(--success-strong)" },
@@ -197,7 +197,7 @@ export function StudioOverview({
             </>
           )}
 
-          <RecentActivities moduleUuid={moduleUuid} onNavigateToSet={onNavigateToSet} refreshKey={statsVersion} />
+          <RecentActivities workspaceUuid={workspaceUuid} onNavigateToSet={onNavigateToSet} refreshKey={statsVersion} />
         </div>
       )}
 
@@ -217,7 +217,7 @@ export function StudioOverview({
         <StudentStatsView
           stats={studentStats}
           loading={statsLoading}
-          moduleUuid={moduleUuid}
+          workspaceUuid={workspaceUuid}
           onNavigateToSet={onNavigateToSet}
           language_trainingActive={language_trainingActive}
         />
@@ -226,7 +226,7 @@ export function StudioOverview({
       {studioTab === "schedule" && (
         <div className="flex-1 overflow-hidden flex flex-col">
           <ScheduleView
-            moduleUuid={moduleUuid}
+            workspaceUuid={workspaceUuid}
             sources={sources}
             selectedSourceIds={selectedSourceIds}
             onPillClick={onPillClick}

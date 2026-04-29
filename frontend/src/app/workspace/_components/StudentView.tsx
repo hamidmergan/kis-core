@@ -7,11 +7,11 @@ import { CalendarBlank } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import ExpandableText from "@/components/ui/ExpandableText";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
-import type { StudentModule } from "../_shared";
+import type { StudentWorkspace } from "../_shared";
 
 export default function StudentView() {
   const searchParams = useSearchParams();
-  const [modules, setModules] = useState<StudentModule[]>([]);
+  const [workspaces, setModules] = useState<StudentWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrollCode, setEnrollCode] = useState("");
   const [enrolling, setEnrolling] = useState(false);
@@ -24,7 +24,7 @@ export default function StudentView() {
 
   const loadModules = useCallback(async () => {
     try {
-      const res = await fetch("/api/ai-assistant/my-modules", { credentials: "include" });
+      const res = await fetch("/api/ai-assistant/my-workspaces", { credentials: "include" });
       if (res.ok) setModules(await res.json());
     } catch {
       /* ignore */
@@ -36,11 +36,11 @@ export default function StudentView() {
   }, [loadModules]);
 
   useEffect(() => {
-    const needsPoll = modules.some((m) => m.status === "pending" || m.status === "indexing");
+    const needsPoll = workspaces.some((m) => m.status === "pending" || m.status === "indexing");
     if (!needsPoll) return;
     const id = setInterval(loadModules, 3000);
     return () => clearInterval(id);
-  }, [modules, loadModules]);
+  }, [workspaces, loadModules]);
 
   async function handleEnroll(e: React.FormEvent) {
     e.preventDefault();
@@ -120,13 +120,13 @@ export default function StudentView() {
         <div className="flex items-center justify-center min-h-[60vh]">
           <Spinner size="lg" />
         </div>
-      ) : modules.length === 0 ? (
+      ) : workspaces.length === 0 ? (
         <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
           Du bist noch in keinem Workspace eingeschrieben.
         </p>
       ) : (
         <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
-          {modules.map((m, i) => {
+          {workspaces.map((m, i) => {
             const href = m.enrollment_id ? `/workspace/${m.uuid}?eid=${m.enrollment_id}` : `/workspace/${m.uuid}`;
             const untilDate = m.enrolled_until
               ? new Date(m.enrolled_until).toLocaleDateString("de-DE", {

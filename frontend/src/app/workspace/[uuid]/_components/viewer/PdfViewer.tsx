@@ -13,11 +13,11 @@ import { copyTextFromPromise } from "@/lib/clipboard";
 
 
 export function PdfViewer({
-  source, onClose, moduleUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary,
+  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary,
 }: {
   source: ViewerState;
   onClose: () => void;
-  moduleUuid: string;
+  workspaceUuid: string;
   onAskWithSelection?: (text: string, sourceInfo: { uuid: string; filename: string; page: number; selectedText?: string }) => void;
   onCustomQuestion?: (selectedText: string) => void;
   popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
@@ -97,7 +97,7 @@ export function PdfViewer({
     const fetchSummaries = async () => {
       try {
         const res = await fetch(
-          `/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/summaries`,
+          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/summaries`,
           { credentials: "include" },
         );
         if (res.ok && !cancelled) {
@@ -118,7 +118,7 @@ export function PdfViewer({
     };
     if (!summariesLoaded) fetchSummaries();
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [showAnnotations, summariesLoaded, moduleUuid, source.uuid]);
+  }, [showAnnotations, summariesLoaded, workspaceUuid, source.uuid]);
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
   const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean } | null>(null);
@@ -470,7 +470,7 @@ export function PdfViewer({
         <PDFViewer
           ref={viewerRef}
           config={{
-            src: `/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/file`,
+            src: `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/file`,
             worker: true,
             search: { showAllResults: false },
             annotations: { locked: { type: LockModeType.All } },
@@ -511,7 +511,7 @@ export function PdfViewer({
                     setSummariesStatus("generating");
                     setSummariesLoaded(false);
                     try {
-                      await fetch(`/api/ai-assistant/modules/${moduleUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
+                      await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
                     } catch { /* ignore */ }
                   }}
                   style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-accent, #3b82f6)", background: "var(--color-accent, #3b82f6)", color: "var(--color-accent-fg, #fff)", cursor: "pointer", fontWeight: 500 }}

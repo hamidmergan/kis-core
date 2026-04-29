@@ -23,8 +23,8 @@ from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
     GLOSSARY_LIMIT,
     KIA_SOURCE_MAX_PAGES,
-    KIA_MODULE_MAX_SOURCES,
-    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_WORKSPACE_MAX_SOURCES,
+    KIA_WORKSPACE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file
@@ -40,9 +40,9 @@ from src.features.ai_assistant.routes._helpers import (
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
-    _require_own_module,
+    _require_own_workspace,
     _save_source_file,
-    _delete_source_files_for_module,
+    _delete_source_files_for_workspace,
     _resolve_source_ids,
     _term_appears_in_text,
     _ALLOWED_EXTENSIONS,
@@ -53,52 +53,52 @@ from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: glossary"])
 
-@router.get("/ai-assistant/modules/{module_uuid}/glossary")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/glossary")
 async def get_glossary(
-    module_uuid: str,
+    workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    entries = db.get_aia_glossary_by_module(module["id"])
+    entries = db.get_aia_glossary_by_workspace(workspace["id"])
     return {"entries": entries}
 
-@router.post("/ai-assistant/modules/{module_uuid}/glossary/generate")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/glossary/generate")
 async def generate_glossary(
-    module_uuid: str,
+    workspace_uuid: str,
     body: schemas.GlossaryGenerateBody,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
-    source_ids = _resolve_source_ids(module, body.active_source_ids)
+    source_ids = _resolve_source_ids(workspace, body.active_source_ids)
 
     from src.tasks.aia_tasks import run_generate_glossary
-    run_generate_glossary.delay(module["id"], source_ids)
+    run_generate_glossary.delay(workspace["id"], source_ids)
     return {"status": "generating"}
 
-@router.delete("/ai-assistant/modules/{module_uuid}/glossary/{entry_id}")
+@router.delete("/ai-assistant/workspaces/{workspace_uuid}/glossary/{entry_id}")
 async def delete_glossary_entry_endpoint(
-    module_uuid: str,
+    workspace_uuid: str,
     entry_id: int,
     current_user: dict = Depends(get_current_user),
 ):
@@ -106,15 +106,15 @@ async def delete_glossary_entry_endpoint(
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
     return {"ok": True}
 
-@router.delete("/ai-assistant/modules/{module_uuid}/glossary")
+@router.delete("/ai-assistant/workspaces/{workspace_uuid}/glossary")
 async def delete_all_glossary_endpoint(
-    module_uuid: str,
+    workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-    count = db.delete_all_glossary_entries(module["id"])
+    count = db.delete_all_glossary_entries(workspace["id"])
     return {"ok": True, "deleted": count}
 
 
@@ -150,21 +150,21 @@ Rules:
 - If the text really only contains function words / trivial vocabulary, respond with: []
 - Respond ONLY with the JSON array."""
 
-@router.post("/ai-assistant/modules/{module_uuid}/glossary/extract")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/glossary/extract")
 async def extract_glossary_from_selection(
-    module_uuid: str,
+    workspace_uuid: str,
     body: schemas.GlossaryExtractBody,
     current_user: dict = Depends(get_current_user),
     kisski=Depends(get_kisski_client),
 ):
     """Extract glossary terms from a PDF text selection."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
@@ -172,7 +172,7 @@ async def extract_glossary_from_selection(
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
     # Check glossary limit
-    current_count = db.get_glossary_count(module["id"])
+    current_count = db.get_glossary_count(workspace["id"])
     if current_count >= GLOSSARY_LIMIT:
         return {"added": 0, "message": "Glossary voll (150 / 150) — entferne Begriffe um neue hinzuzufügen."}
 
@@ -187,7 +187,7 @@ async def extract_glossary_from_selection(
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
     # Get existing terms to avoid duplicates
-    existing = db.get_aia_glossary_by_module(module["id"])
+    existing = db.get_aia_glossary_by_workspace(workspace["id"])
     existing_terms = {e["term_de"].lower() for e in existing}
 
     # Ask LLM to extract terms

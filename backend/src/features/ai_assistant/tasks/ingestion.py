@@ -45,7 +45,7 @@ def run_index_source(self, source_uuid: str):
             raise RuntimeError(f"Source not found: {source_uuid}")
 
         source_id = source["id"]
-        module_id = source["module_id"]
+        workspace_id = source["workspace_id"]
         file_path_stored = source["file_path"]
         file_type = source["file_type"]
         filename = source["filename"]
@@ -143,20 +143,20 @@ def run_index_source(self, source_uuid: str):
         )
         logger.info("KI Tutor: source {} indexed ({} chunks)", source_uuid, len(chunks))
 
-        # 9. Check if all non-failed sources for this module are ready → set module ready
-        sources = db.get_aia_sources_by_module(module_id)
+        # 9. Check if all non-failed sources for this workspace are ready → set workspace ready
+        sources = db.get_aia_sources_by_workspace(workspace_id)
         non_failed = [s for s in sources if s["status"] != "failed"]
         all_ready = len(non_failed) > 0 and all(s["status"] == "ready" for s in non_failed)
         if all_ready:
-            module = db.get_aia_module_by_id(module_id)
-            if module:
-                db.update_aia_module_status(
-                    module["uuid"],
+            workspace = db.get_aia_workspace_by_id(workspace_id)
+            if workspace:
+                db.update_aia_workspace_status(
+                    workspace["uuid"],
                     "ready",
                     embedding_model=embedding_model,
                     embedding_fingerprint=fingerprint,
                 )
-                logger.info("KI Tutor: module {} is now ready", module["uuid"])
+                logger.info("KI Tutor: workspace {} is now ready", workspace["uuid"])
 
         # 10. Dispatch non-critical follow-ups (EN translation runs relaxed in bg)
         if _en_translation_pending:

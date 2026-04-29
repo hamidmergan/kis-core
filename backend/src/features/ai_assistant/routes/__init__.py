@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from src.features.ai_assistant.routes import (
     popup,
-    modules,
+    workspaces,
     sources,
     chat,
     messages,
@@ -25,7 +25,7 @@ from src.features.ai_assistant.routes.language_training import (
 router = APIRouter()
 
 for m in [
-    popup, modules, sources, chat, messages, notes, glossary,
+    popup, workspaces, sources, chat, messages, notes, glossary,
     mindmap, flashcards, data_table, schedule, exercises, stats,
 ]:
     router.include_router(m.router)

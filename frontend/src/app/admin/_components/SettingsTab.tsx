@@ -376,7 +376,7 @@ function MaintenanceSection() {
       const d = await res.json();
       setEnabled(!!d.enabled);
       setProgress(d.reindex ?? null);
-      setStaleModules(Array.isArray(d.stale_modules) ? d.stale_modules : []);
+      setStaleModules(Array.isArray(d.stale_workspaces) ? d.stale_workspaces : []);
     } catch {
       /* ignore */
     }

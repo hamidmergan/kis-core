@@ -35,10 +35,10 @@ def _format_ts(seconds: float) -> str:
         return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
     return f"{s // 60:02d}:{s % 60:02d}"
 
-def _save_aia_output(user_id: int, module_uuid: str, filename: str, data: bytes) -> str:
+def _save_aia_output(user_id: int, workspace_uuid: str, filename: str, data: bytes) -> str:
     """Save an AIA output file (presentation, mindmap, etc.) under users/{user_id}/aia/."""
     from src.storage import USE_S3, aia_output_key
-    key = aia_output_key(user_id, module_uuid, filename)
+    key = aia_output_key(user_id, workspace_uuid, filename)
     if USE_S3:
         from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)

@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import StatsModal from "./StatsModal";
-import EditModuleModal from "./EditModuleModal";
+import EditWorkspaceModal from "./EditWorkspaceModal";
 import AddLinkModal from "./AddLinkModal";
-import type { AccessLink, KiTutorModule } from "../_shared";
+import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
-interface ModuleModalsProps {
-  module: KiTutorModule;
+interface WorkspaceModalsProps {
+  workspace: KiTutorWorkspace;
   showStats: boolean;
   onCloseStats: () => void;
   editOpen: boolean;
@@ -27,9 +27,9 @@ interface ModuleModalsProps {
   deletingLink: boolean;
 }
 
-export default function ModuleModals(props: ModuleModalsProps) {
+export default function WorkspaceModals(props: WorkspaceModalsProps) {
   const {
-    module,
+    workspace,
     showStats, onCloseStats,
     editOpen, onCloseEdit, onSubmitEdit,
     showAddLink, onCloseAddLink, onLinkCreated,
@@ -44,24 +44,24 @@ export default function ModuleModals(props: ModuleModalsProps) {
   return createPortal(
     <>
       {showStats && (
-        <StatsModal moduleUuid={module.uuid} moduleTitle={module.title} onClose={onCloseStats} />
+        <StatsModal workspaceUuid={workspace.uuid} moduleTitle={workspace.title} onClose={onCloseStats} />
       )}
       {editOpen && (
-        <EditModuleModal
-          currentTitle={module.title}
-          currentDescription={module.description ?? ""}
+        <EditWorkspaceModal
+          currentTitle={workspace.title}
+          currentDescription={workspace.description ?? ""}
           onClose={onCloseEdit}
           onSubmit={onSubmitEdit}
         />
       )}
       {showAddLink && (
-        <AddLinkModal moduleUuid={module.uuid} onClose={onCloseAddLink} onCreated={onLinkCreated} />
+        <AddLinkModal workspaceUuid={workspace.uuid} onClose={onCloseAddLink} onCreated={onLinkCreated} />
       )}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">Workspace löschen?</h3>
-            <p className="text-sm text-foreground-soft mb-1"><span className="font-medium">{module.title}</span></p>
+            <p className="text-sm text-foreground-soft mb-1"><span className="font-medium">{workspace.title}</span></p>
             <p className="text-sm text-error mb-6">Der Workspace und alle zugehörigen Daten werden unwiderruflich gelöscht.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={onCancelDelete} disabled={deleting} className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-lg hover:bg-surface disabled:opacity-50">Abbrechen</button>

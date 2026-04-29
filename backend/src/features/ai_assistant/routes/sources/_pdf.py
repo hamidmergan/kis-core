@@ -11,20 +11,20 @@ from src.security.rate_limit import enforce_aia_burst
 router = APIRouter(tags=["ki-assistent: sources"])
 
 
-@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/toc")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/toc")
 async def get_pdf_toc(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     """Return the stored table of contents from the DB."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
@@ -35,20 +35,20 @@ async def get_pdf_toc(
     return {"toc": source.get("toc") or []}
 
 
-@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/summaries")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/summaries")
 async def get_paragraph_summaries(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     """Return page-level summaries for the sidebar."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
@@ -65,18 +65,18 @@ async def get_paragraph_summaries(
     return {"status": status, "pages": by_page}
 
 
-@router.post("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/summaries/generate")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/summaries/generate")
 async def trigger_paragraph_summaries(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
     """Manually trigger paragraph summary generation for a source."""
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-    if module["user_id"] != user_id:
+    if workspace["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     source = db.get_aia_source(source_uuid)
@@ -100,20 +100,20 @@ async def trigger_paragraph_summaries(
     return {"status": "generating"}
 
 
-@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/search")
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/search")
 async def search_pdf(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     q: str,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 

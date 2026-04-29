@@ -94,7 +94,7 @@ KIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 5      # ollama: parallel single requests
 KIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 1      # cloud: sequential, more reliable
 KIA_SUMMARY_BATCH_SIZE              = 25     # pages per batch request (500 pages = 20 requests)
 KIA_SOURCE_MAX_PAGES                = 500     # max pages per PDF/DOCX/PPTX upload
-KIA_MODULE_MAX_SOURCES              = 30      # max sources per workspace
-KIA_MODULE_MAX_ACCESS_LINKS         = 10      # max enrollment links per module
+KIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
+KIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
 KIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace

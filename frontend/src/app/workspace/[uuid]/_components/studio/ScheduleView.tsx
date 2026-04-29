@@ -18,12 +18,12 @@ import { ScheduleEntryEditModal, type EditInput } from "./ScheduleEntryEditModal
 interface SourceLike { uuid: string; filename: string; }
 
 export function ScheduleView({
-  moduleUuid,
+  workspaceUuid,
   sources,
   selectedSourceIds,
   onPillClick,
 }: {
-  moduleUuid: string;
+  workspaceUuid: string;
   sources: SourceLike[];
   selectedSourceIds: string[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
@@ -51,7 +51,7 @@ export function ScheduleView({
     setLoading(true);
     setError(null);
     try {
-      const data: ScheduleData = await fetchSchedule(moduleUuid);
+      const data: ScheduleData = await fetchSchedule(workspaceUuid);
       setEntries(data.entries);
       setProcessedUuids(data.processed_source_uuids);
     } catch (e: any) {
@@ -59,7 +59,7 @@ export function ScheduleView({
     } finally {
       setLoading(false);
     }
-  }, [moduleUuid]);
+  }, [workspaceUuid]);
 
   useEffect(() => {
     if (!generateMsg || generateMsg.kind === "error") return;
@@ -71,7 +71,7 @@ export function ScheduleView({
     stopPolling();
     pollRef.current = setInterval(async () => {
       try {
-        const job = await fetchScheduleJob(moduleUuid, jobId);
+        const job = await fetchScheduleJob(workspaceUuid, jobId);
         if (job.status === "success") {
           stopPolling();
           setGenerating(false);
@@ -94,7 +94,7 @@ export function ScheduleView({
         setGenerateMsg({ kind: "error", text: e?.message || "Polling fehlgeschlagen" });
       }
     }, 2000);
-  }, [moduleUuid, load, stopPolling]);
+  }, [workspaceUuid, load, stopPolling]);
 
   // On mount: load entries, then check if a job is already running (from a prior session/tab)
   useEffect(() => {
@@ -103,7 +103,7 @@ export function ScheduleView({
       await load();
       if (cancelled) return;
       try {
-        const active = await fetchActiveScheduleJob(moduleUuid);
+        const active = await fetchActiveScheduleJob(workspaceUuid);
         if (cancelled || !active.active || !active.id) return;
         setGenerating(true);
         startPolling(active.id);
@@ -112,7 +112,7 @@ export function ScheduleView({
       }
     })();
     return () => { cancelled = true; stopPolling(); };
-  }, [moduleUuid, load, startPolling, stopPolling]);
+  }, [workspaceUuid, load, startPolling, stopPolling]);
 
   // Number sources by first appearance across all entries so chips like "[1] S. 23"
   // line up with the legend at the bottom of the timeline.
@@ -146,7 +146,7 @@ export function ScheduleView({
   const handleToggleChecked = async (id: number, checked: boolean) => {
     setEntries((prev) => prev.map((e) => e.id === id ? { ...e, is_checked: checked } : e));
     try {
-      const updated = await apiUpdateEntry(moduleUuid, id, { is_checked: checked });
+      const updated = await apiUpdateEntry(workspaceUuid, id, { is_checked: checked });
       setEntries((prev) => prev.map((e) => e.id === id ? updated : e));
     } catch {
       await load();
@@ -154,7 +154,7 @@ export function ScheduleView({
   };
 
   const handleCreateManual = async (input: EditInput) => {
-    const created = await apiCreateEntry(moduleUuid, {
+    const created = await apiCreateEntry(workspaceUuid, {
       type: input.type,
       title: input.title,
       description: input.description || null,
@@ -177,14 +177,14 @@ export function ScheduleView({
     if (input.due_date) patch.due_date = input.due_date; else patch.clear_date = true;
     if (input.due_time) patch.due_time = input.due_time; else patch.clear_time = true;
 
-    const updated = await apiUpdateEntry(moduleUuid, editing.id, patch);
+    const updated = await apiUpdateEntry(workspaceUuid, editing.id, patch);
     setEntries((prev) => prev.map((e) => e.id === editing.id ? updated : e));
     setEditing(null);
   };
 
   const handleDelete = async (id: number) => {
     if (!window.confirm("Eintrag wirklich löschen?")) return;
-    await apiDeleteEntry(moduleUuid, id);
+    await apiDeleteEntry(workspaceUuid, id);
     setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
@@ -193,7 +193,7 @@ export function ScheduleView({
     setGenerating(true);
     setGenerateMsg(null);
     try {
-      const { job_id } = await generateSchedule(moduleUuid, selectedPending);
+      const { job_id } = await generateSchedule(workspaceUuid, selectedPending);
       startPolling(job_id);
     } catch (e: any) {
       setGenerating(false);
@@ -202,7 +202,7 @@ export function ScheduleView({
   };
 
   const handleDeleteAll = async () => {
-    await apiDeleteAll(moduleUuid);
+    await apiDeleteAll(workspaceUuid);
     setEntries([]);
     setProcessedUuids([]);
     setConfirmDeleteAll(false);

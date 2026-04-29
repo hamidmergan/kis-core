@@ -21,7 +21,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
 
   const refreshList = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_tables`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_tables`, { credentials: "include" });
       if (res.ok) setDataTableList(await res.json());
     } catch { /* ignore */ }
   }, [uuid]);
@@ -31,7 +31,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
     setDataTableLoading(true);
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_table/${dtId}`, { credentials: "include" });
+        const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/${dtId}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "success" && data.table_data) {
@@ -52,7 +52,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_table`, { credentials: "include" });
+        const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           if (data && data.status === "success" && data.table_data) {
@@ -73,7 +73,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
     if (selectedSourceIds.length === 0) return;
     setDataTableLoading(true);
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_table/generate`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/generate`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -93,7 +93,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
 
   const select = useCallback(async (id: number) => {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/data_table/${id}`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/${id}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       if (data.status === "success" && data.table_data) {
@@ -105,7 +105,7 @@ export function useDataTable({ uuid, selectedSourceIds }: UseDataTableOptions) {
 
   const remove = useCallback(async (id: number) => {
     try {
-      await fetch(`/api/ai-assistant/modules/${uuid}/data_table/${id}`, { method: "DELETE", credentials: "include" });
+      await fetch(`/api/ai-assistant/workspaces/${uuid}/data_table/${id}`, { method: "DELETE", credentials: "include" });
       setDataTableList((prev) => prev.filter((d) => d.id !== id));
     } catch { /* ignore */ }
   }, [uuid]);

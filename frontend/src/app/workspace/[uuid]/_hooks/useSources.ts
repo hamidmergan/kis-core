@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ModuleDetail, Source } from "../_types";
+import type { WorkspaceDetail, Source } from "../_types";
 
 interface UseSourcesOptions {
   uuid: string;
-  onModuleUpdate?: (module: ModuleDetail) => void;
+  onModuleUpdate?: (workspace: WorkspaceDetail) => void;
 }
 
 export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
@@ -27,9 +27,9 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     const pendingIds = sources.filter((s) => s.status === "indexing" || s.status === "pending").map((s) => s.uuid);
     if (pendingIds.length === 0) return;
     const id = setInterval(async () => {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });
       if (!res.ok) return;
-      const mod: ModuleDetail = await res.json();
+      const mod: WorkspaceDetail = await res.json();
       const srcs: Source[] = mod.sources ?? [];
       setSources(srcs);
       onModuleUpdate?.(mod);
@@ -49,7 +49,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
 
   const deleteSource = useCallback(async (srcUuid: string) => {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/sources/${srcUuid}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${srcUuid}`, { method: "DELETE", credentials: "include" });
       if (res.ok) {
         setSources((prev) => prev.filter((s) => s.uuid !== srcUuid));
         setSelectedSourceIds((prev) => prev.filter((id) => id !== srcUuid));
@@ -59,7 +59,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
 
   const retrySource = useCallback(async (srcUuid: string) => {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/sources/${srcUuid}/retry`, { method: "POST", credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/sources/${srcUuid}/retry`, { method: "POST", credentials: "include" });
       if (res.ok) {
         setSources((prev) => prev.map((s) => s.uuid === srcUuid ? { ...s, status: "pending", error_message: null } : s));
       }
@@ -82,7 +82,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
       try {
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open("POST", `/api/ai-assistant/modules/${uuid}/sources`);
+          xhr.open("POST", `/api/ai-assistant/workspaces/${uuid}/sources`);
           xhr.withCredentials = true;
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) setUploadProgress({ current: i + 1, total: toUpload.length, percent: Math.round((e.loaded / e.total) * 100) });

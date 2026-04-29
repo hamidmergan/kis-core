@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkAuthStatus } from "@/lib/auth";
 import type { AuthStatus } from "@/types";
-import type { ModuleDetail, Source } from "../_types";
+import type { WorkspaceDetail, Source } from "../_types";
 import type { Note } from "../_components/studio/NotesStudio";
 
 interface WorkspaceSettings {
@@ -17,14 +17,14 @@ interface UseWorkspaceInitOptions {
   uuid: string;
   setSources: (srcs: Source[]) => void;
   setSelectedSourceIds: (ids: string[]) => void;
-  setModuleDetail: (m: ModuleDetail) => void;
+  setWorkspaceDetail: (m: WorkspaceDetail) => void;
   setNotes: (notes: Note[]) => void;
   loadMessages: () => Promise<void>;
   onSettingsLoaded: (s: WorkspaceSettings) => void;
 }
 
 export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
-  const { uuid, setSources, setSelectedSourceIds, setModuleDetail, setNotes, loadMessages, onSettingsLoaded } = opts;
+  const { uuid, setSources, setSelectedSourceIds, setWorkspaceDetail, setNotes, loadMessages, onSettingsLoaded } = opts;
   const router = useRouter();
 
   const [auth, setAuth] = useState<AuthStatus | null>(null);
@@ -40,11 +40,11 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
         if (!authData.authenticated) { router.push("/login"); return; }
         setAuth(authData);
 
-        const modRes = await fetch(`/api/ai-assistant/modules/${uuid}`, { credentials: "include" });
+        const modRes = await fetch(`/api/ai-assistant/workspaces/${uuid}`, { credentials: "include" });
         if (cancelled) return;
         if (!modRes.ok) { router.push("/"); return; }
-        const mod: ModuleDetail = await modRes.json();
-        setModuleDetail(mod);
+        const mod: WorkspaceDetail = await modRes.json();
+        setWorkspaceDetail(mod);
 
         const srcs: Source[] = mod.sources ?? [];
         setSources(srcs);
@@ -52,7 +52,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
 
         await loadMessages();
 
-        const settingsRes = await fetch(`/api/ai-assistant/modules/${uuid}/settings`, { credentials: "include" });
+        const settingsRes = await fetch(`/api/ai-assistant/workspaces/${uuid}/settings`, { credentials: "include" });
         if (!cancelled && settingsRes.ok) {
           const s: Partial<WorkspaceSettings> = await settingsRes.json();
           onSettingsLoaded({
@@ -62,7 +62,7 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
           });
         }
 
-        const notesRes = await fetch(`/api/ai-assistant/modules/${uuid}/notes`, { credentials: "include" });
+        const notesRes = await fetch(`/api/ai-assistant/workspaces/${uuid}/notes`, { credentials: "include" });
         if (!cancelled && notesRes.ok) setNotes(await notesRes.json());
 
         if (!cancelled) setInitialized(true);

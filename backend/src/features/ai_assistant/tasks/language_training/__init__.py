@@ -25,24 +25,24 @@ from src.features.ai_assistant.tasks.language_training._source_mc import generat
 @celery_app.task(bind=True, name="kia.generate_exercise_set", queue="kia",
                  soft_time_limit=120, time_limit=180)
 @observe(name="kia-exercise-set")
-def run_generate_exercise_set(self, set_id: int, module_id: int, tool: str,
+def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                               mode: str, count: int, source_uuid: str | None = None,
                               source_uuids: list[str] | None = None):
     """Generate items for an exercise set (flashcards/lueckentext/vokabeltest)."""
     try:
-        module = db.get_aia_module_by_id(module_id)
-        if not module:
+        workspace = db.get_aia_workspace_by_id(workspace_id)
+        if not workspace:
             db.fail_exercise_set(set_id)
             return
 
         client, model, _ = _get_llm_client()
-        existing_fronts = db.get_existing_exercise_fronts(module_id, tool)
+        existing_fronts = db.get_existing_exercise_fronts(workspace_id, tool)
 
         items: list[dict] = []
         title = "Wird generiert…"
 
         if mode == "glossary":
-            result = generate_from_glossary(client, model, module_id, tool, count)
+            result = generate_from_glossary(client, model, workspace_id, tool, count)
             if result is None:
                 db.fail_exercise_set(set_id)
                 return

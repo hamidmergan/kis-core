@@ -67,6 +67,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("kia_zeitplan_entries", "aia_schedule_entries"),
                 ("kia_zeitplan_jobs", "aia_schedule_jobs"),
                 ("kia_zeitplan_processed_sources", "aia_schedule_processed_sources"),
+                # Stage 4: rename aia_module* tables to aia_workspace* (consistency with frontend /workspace route).
+                ("aia_modules", "aia_workspaces"),
             ]:
                 cur.execute(
                     "SELECT to_regclass(%s) IS NOT NULL AND to_regclass(%s) IS NULL",
@@ -77,9 +79,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
 
             # Rename legacy zeitplan indices to schedule (idempotent).
             for old_idx, new_idx in [
-                ("idx_zeitplan_module_user", "idx_schedule_module_user"),
+                ("idx_zeitplan_module_user", "idx_schedule_workspace_user"),
                 ("idx_zeitplan_due_date", "idx_schedule_due_date"),
-                ("idx_zeitplan_jobs_module_user", "idx_schedule_jobs_module_user"),
+                ("idx_zeitplan_jobs_module_user", "idx_schedule_jobs_workspace_user"),
+                # Stage 4: schedule indices use workspace_user instead of module_user.
+                ("idx_schedule_module_user", "idx_schedule_workspace_user"),
+                ("idx_schedule_jobs_module_user", "idx_schedule_jobs_workspace_user"),
+                ("idx_exercise_sets_module_user", "idx_exercise_sets_workspace_user"),
             ]:
                 cur.execute(
                     "SELECT to_regclass(%s) IS NOT NULL AND to_regclass(%s) IS NULL",
@@ -87,6 +93,50 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
                 if cur.fetchone()[0]:
                     cur.execute(f"ALTER INDEX {old_idx} RENAME TO {new_idx}")
+
+            # Stage 4: rename module_id columns to workspace_id in dependent tables (idempotent).
+            for table in (
+                "aia_access_links",
+                "aia_enrollments",
+                "aia_sources",
+                "aia_mindmaps",
+                "aia_data_tables",
+                "aia_messages",
+                "aia_user_settings",
+                "aia_notes",
+                "aia_exercise_sets",
+                "aia_streaks",
+                "aia_schedule_entries",
+                "aia_schedule_processed_sources",
+                "aia_schedule_jobs",
+            ):
+                cur.execute(
+                    """
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = %s
+                      AND column_name = 'module_id'
+                    """,
+                    (table,),
+                )
+                if cur.fetchone():
+                    cur.execute(f"ALTER TABLE {table} RENAME COLUMN module_id TO workspace_id")
+
+            # Stage 4: rename unique constraints that referenced module_id (idempotent).
+            for table, old_constraint, new_constraint in [
+                ("aia_enrollments", "aia_enrollments_module_id_user_id_link_id_key",
+                 "aia_enrollments_workspace_id_user_id_link_id_key"),
+                ("aia_user_settings", "aia_user_settings_module_id_user_id_key",
+                 "aia_user_settings_workspace_id_user_id_key"),
+                ("aia_streaks", "aia_streaks_module_id_user_id_key",
+                 "aia_streaks_workspace_id_user_id_key"),
+            ]:
+                cur.execute(
+                    "SELECT 1 FROM pg_constraint WHERE conname = %s",
+                    (old_constraint,),
+                )
+                if cur.fetchone():
+                    cur.execute(f"ALTER TABLE {table} RENAME CONSTRAINT {old_constraint} TO {new_constraint}")
 
             # Rename legacy German column "sprachtraining_active" to "language_training_active" (idempotent).
             cur.execute(
@@ -190,7 +240,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     (admin_email.strip().lower(),),
                 )
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS aia_modules (
+                CREATE TABLE IF NOT EXISTS aia_workspaces (
                     id                   SERIAL PRIMARY KEY,
                     uuid                 TEXT NOT NULL UNIQUE,
                     user_id              INTEGER NOT NULL,
@@ -208,35 +258,35 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             # Migration: add last_visited_at; backfill existing rows from updated_at so initial sort is meaningful
-            cur.execute("ALTER TABLE aia_modules ADD COLUMN IF NOT EXISTS last_visited_at TIMESTAMP")
-            cur.execute("UPDATE aia_modules SET last_visited_at = COALESCE(updated_at, created_at, NOW()) WHERE last_visited_at IS NULL")
-            cur.execute("ALTER TABLE aia_modules ALTER COLUMN last_visited_at SET NOT NULL")
-            cur.execute("ALTER TABLE aia_modules ALTER COLUMN last_visited_at SET DEFAULT NOW()")
+            cur.execute("ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS last_visited_at TIMESTAMP")
+            cur.execute("UPDATE aia_workspaces SET last_visited_at = COALESCE(updated_at, created_at, NOW()) WHERE last_visited_at IS NULL")
+            cur.execute("ALTER TABLE aia_workspaces ALTER COLUMN last_visited_at SET NOT NULL")
+            cur.execute("ALTER TABLE aia_workspaces ALTER COLUMN last_visited_at SET DEFAULT NOW()")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
-                    id         SERIAL PRIMARY KEY,
-                    module_id  INTEGER NOT NULL
-                                 REFERENCES aia_modules(id) ON DELETE CASCADE,
-                    code       TEXT NOT NULL UNIQUE,
-                    expires_at TIMESTAMP,
-                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    id           SERIAL PRIMARY KEY,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    code         TEXT NOT NULL UNIQUE,
+                    expires_at   TIMESTAMP,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_enrollments (
                     id             SERIAL PRIMARY KEY,
-                    module_id      INTEGER NOT NULL
-                                     REFERENCES aia_modules(id) ON DELETE CASCADE,
+                    workspace_id   INTEGER NOT NULL
+                                     REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id        INTEGER NOT NULL,
                     link_id        INTEGER REFERENCES aia_access_links(id) ON DELETE SET NULL,
                     enrolled_until TIMESTAMP,
                     created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
-                    UNIQUE (module_id, user_id, link_id)
+                    UNIQUE (workspace_id, user_id, link_id)
                 )
             """)
             # Migration: add link_id column if table already existed without it
             cur.execute("ALTER TABLE aia_enrollments ADD COLUMN IF NOT EXISTS link_id INTEGER REFERENCES aia_access_links(id) ON DELETE SET NULL")
-            # Migration: drop old unique constraint and add new one with link_id
+            # Migration: drop legacy unique constraints (both pre-link_id and pre-workspace_id versions)
             cur.execute("""
                 DO $$ BEGIN
                     IF EXISTS (
@@ -252,24 +302,24 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 DO $$ BEGIN
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_constraint
-                        WHERE conname = 'aia_enrollments_module_id_user_id_link_id_key'
+                        WHERE conname = 'aia_enrollments_workspace_id_user_id_link_id_key'
                     ) THEN
                         ALTER TABLE aia_enrollments
-                            ADD CONSTRAINT aia_enrollments_module_id_user_id_link_id_key
-                            UNIQUE (module_id, user_id, link_id);
+                            ADD CONSTRAINT aia_enrollments_workspace_id_user_id_link_id_key
+                            UNIQUE (workspace_id, user_id, link_id);
                     END IF;
                 END $$
             """)
-            # Migration: migrate existing enroll_code from modules to access_links
+            # Migration: migrate existing enroll_code from workspaces to access_links
             cur.execute("""
-                INSERT INTO aia_access_links (module_id, code, expires_at)
+                INSERT INTO aia_access_links (workspace_id, code, expires_at)
                 SELECT id, enroll_code, enroll_code_expires
-                FROM aia_modules
+                FROM aia_workspaces
                 WHERE enroll_code IS NOT NULL
                   AND enroll_code_expires IS NOT NULL
                   AND NOT EXISTS (
                       SELECT 1 FROM aia_access_links al
-                      WHERE al.code = aia_modules.enroll_code
+                      WHERE al.code = aia_workspaces.enroll_code
                   )
             """)
             # Migration: link existing enrollments to their access_links
@@ -277,8 +327,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 UPDATE aia_enrollments e
                 SET link_id = al.id
                 FROM aia_access_links al
-                JOIN aia_modules m ON m.id = al.module_id
-                WHERE e.module_id = m.id
+                JOIN aia_workspaces m ON m.id = al.workspace_id
+                WHERE e.workspace_id = m.id
                   AND al.code = m.enroll_code
                   AND e.link_id IS NULL
             """)
@@ -288,8 +338,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 CREATE TABLE IF NOT EXISTS aia_sources (
                     id              SERIAL PRIMARY KEY,
                     uuid            TEXT NOT NULL UNIQUE,
-                    module_id       INTEGER NOT NULL
-                                      REFERENCES aia_modules(id) ON DELETE CASCADE,
+                    workspace_id    INTEGER NOT NULL
+                                      REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     filename        TEXT NOT NULL,
                     file_path       TEXT NOT NULL,
                     file_type       TEXT NOT NULL,
@@ -371,39 +421,39 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_mindmaps (
-                    id          SERIAL PRIMARY KEY,
-                    module_id   INTEGER NOT NULL
-                                  REFERENCES aia_modules(id) ON DELETE CASCADE,
-                    user_id     INTEGER NOT NULL,
-                    source_ids  JSONB NOT NULL,
-                    status      TEXT NOT NULL DEFAULT 'pending',
-                    mindmap     JSONB,
-                    error       TEXT,
-                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                    id           SERIAL PRIMARY KEY,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    user_id      INTEGER NOT NULL,
+                    source_ids   JSONB NOT NULL,
+                    status       TEXT NOT NULL DEFAULT 'pending',
+                    mindmap      JSONB,
+                    error        TEXT,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_data_tables (
-                    id          SERIAL PRIMARY KEY,
-                    module_id   INTEGER NOT NULL
-                                  REFERENCES aia_modules(id) ON DELETE CASCADE,
-                    user_id     INTEGER NOT NULL,
-                    source_ids  JSONB NOT NULL,
-                    status      TEXT NOT NULL DEFAULT 'pending',
-                    title       TEXT,
-                    table_data  JSONB,
-                    sources     JSONB,
-                    error       TEXT,
-                    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-                    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                    id           SERIAL PRIMARY KEY,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    user_id      INTEGER NOT NULL,
+                    source_ids   JSONB NOT NULL,
+                    status       TEXT NOT NULL DEFAULT 'pending',
+                    title        TEXT,
+                    table_data   JSONB,
+                    sources      JSONB,
+                    error        TEXT,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_messages (
                     id           SERIAL PRIMARY KEY,
-                    module_id    INTEGER NOT NULL
-                                   REFERENCES aia_modules(id) ON DELETE CASCADE,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id      INTEGER NOT NULL,
                     role         TEXT NOT NULL,
                     content      TEXT NOT NULL,
@@ -418,24 +468,24 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_user_settings (
                     id                   SERIAL PRIMARY KEY,
-                    module_id            INTEGER NOT NULL
-                                           REFERENCES aia_modules(id) ON DELETE CASCADE,
+                    workspace_id         INTEGER NOT NULL
+                                           REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id              INTEGER NOT NULL,
                     chat_lang            TEXT NOT NULL DEFAULT 'de',
                     studio_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
                     language_training_active BOOLEAN NOT NULL DEFAULT FALSE,
-                    UNIQUE (module_id, user_id)
+                    UNIQUE (workspace_id, user_id)
                 )
             """)
             cur.execute("ALTER TABLE aia_user_settings ADD COLUMN IF NOT EXISTS studio_enabled BOOLEAN NOT NULL DEFAULT TRUE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_notes (
-                    id         SERIAL PRIMARY KEY,
-                    module_id  INTEGER NOT NULL
-                                 REFERENCES aia_modules(id) ON DELETE CASCADE,
-                    user_id    INTEGER NOT NULL,
-                    content    TEXT NOT NULL,
-                    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    id           SERIAL PRIMARY KEY,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    user_id      INTEGER NOT NULL,
+                    content      TEXT NOT NULL,
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
             cur.execute("ALTER TABLE aia_notes ADD COLUMN IF NOT EXISTS title TEXT")
@@ -467,17 +517,17 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # ─── Exercise Sets ──────────────────────────────────
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_exercise_sets (
-                    id          SERIAL PRIMARY KEY,
-                    module_id   INTEGER NOT NULL
-                                  REFERENCES aia_modules(id) ON DELETE CASCADE,
-                    user_id     INTEGER NOT NULL,
-                    tool        TEXT NOT NULL,
-                    title       TEXT NOT NULL,
-                    mode        TEXT NOT NULL DEFAULT 'glossary',
-                    source_uuid TEXT,
-                    card_count  INTEGER NOT NULL DEFAULT 0,
-                    status      TEXT NOT NULL DEFAULT 'generating',
-                    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+                    id           SERIAL PRIMARY KEY,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
+                    user_id      INTEGER NOT NULL,
+                    tool         TEXT NOT NULL,
+                    title        TEXT NOT NULL,
+                    mode         TEXT NOT NULL DEFAULT 'glossary',
+                    source_uuid  TEXT,
+                    card_count   INTEGER NOT NULL DEFAULT 0,
+                    status       TEXT NOT NULL DEFAULT 'generating',
+                    created_at   TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
             cur.execute("""
@@ -515,18 +565,18 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_streaks (
                     id              SERIAL PRIMARY KEY,
-                    module_id       INTEGER NOT NULL
-                                      REFERENCES aia_modules(id) ON DELETE CASCADE,
+                    workspace_id    INTEGER NOT NULL
+                                      REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id         INTEGER NOT NULL,
                     current_streak  INTEGER NOT NULL DEFAULT 0,
                     max_streak      INTEGER NOT NULL DEFAULT 0,
                     last_active_date DATE,
-                    UNIQUE (module_id, user_id)
+                    UNIQUE (workspace_id, user_id)
                 )
             """)
             cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_exercise_sets_module_user
-                ON aia_exercise_sets(module_id, user_id)
+                CREATE INDEX IF NOT EXISTS idx_exercise_sets_workspace_user
+                ON aia_exercise_sets(workspace_id, user_id)
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_exercise_items_set
@@ -552,8 +602,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_schedule_entries (
                     id           SERIAL PRIMARY KEY,
-                    module_id    INTEGER NOT NULL
-                                   REFERENCES aia_modules(id) ON DELETE CASCADE,
+                    workspace_id INTEGER NOT NULL
+                                   REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id      INTEGER NOT NULL,
                     type         TEXT NOT NULL CHECK (type IN ('deadline', 'termin')),
                     title        TEXT NOT NULL,
@@ -576,29 +626,29 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS page_number")
             cur.execute("ALTER TABLE aia_schedule_entries DROP COLUMN IF EXISTS start_time")
             cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_schedule_module_user
-                ON aia_schedule_entries(module_id, user_id)
+                CREATE INDEX IF NOT EXISTS idx_schedule_workspace_user
+                ON aia_schedule_entries(workspace_id, user_id)
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_due_date
-                ON aia_schedule_entries(module_id, user_id, due_date)
+                ON aia_schedule_entries(workspace_id, user_id, due_date)
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_schedule_processed_sources (
-                    module_id     INTEGER NOT NULL
-                                    REFERENCES aia_modules(id) ON DELETE CASCADE,
+                    workspace_id  INTEGER NOT NULL
+                                    REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id       INTEGER NOT NULL,
                     source_id     INTEGER NOT NULL
                                     REFERENCES aia_sources(id) ON DELETE CASCADE,
                     processed_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-                    PRIMARY KEY (module_id, user_id, source_id)
+                    PRIMARY KEY (workspace_id, user_id, source_id)
                 )
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_schedule_jobs (
                     id            SERIAL PRIMARY KEY,
-                    module_id     INTEGER NOT NULL
-                                    REFERENCES aia_modules(id) ON DELETE CASCADE,
+                    workspace_id  INTEGER NOT NULL
+                                    REFERENCES aia_workspaces(id) ON DELETE CASCADE,
                     user_id       INTEGER NOT NULL,
                     source_uuids  JSONB NOT NULL DEFAULT '[]'::jsonb,
                     status        TEXT NOT NULL DEFAULT 'pending'
@@ -610,8 +660,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_schedule_jobs_module_user
-                ON aia_schedule_jobs(module_id, user_id)
+                CREATE INDEX IF NOT EXISTS idx_schedule_jobs_workspace_user
+                ON aia_schedule_jobs(workspace_id, user_id)
             """)
 
             # ─── LLM Usage Log ────────────────────────────────────────────────

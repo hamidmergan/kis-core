@@ -19,7 +19,7 @@ from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
 def create_exercise_set(
-    module_id: int, user_id: int, tool: str, title: str,
+    workspace_id: int, user_id: int, tool: str, title: str,
     mode: str, source_uuid: str | None, items: list[dict],
 ) -> dict:
     """Create an exercise set with its items. Returns the set with items."""
@@ -27,9 +27,9 @@ def create_exercise_set(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """INSERT INTO aia_exercise_sets
-                   (module_id, user_id, tool, title, mode, source_uuid, card_count, status)
+                   (workspace_id, user_id, tool, title, mode, source_uuid, card_count, status)
                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'ready') RETURNING *""",
-                (module_id, user_id, tool, title, mode, source_uuid, len(items)),
+                (workspace_id, user_id, tool, title, mode, source_uuid, len(items)),
             )
             ex_set = dict(cur.fetchone())
             created_items = []
@@ -58,7 +58,7 @@ def create_exercise_set(
     return ex_set
 
 def create_exercise_set_placeholder(
-    module_id: int, user_id: int, tool: str, title: str,
+    workspace_id: int, user_id: int, tool: str, title: str,
     mode: str, source_uuid: str | None,
 ) -> dict:
     """Create a placeholder set with status='generating'. Returns the set."""
@@ -66,9 +66,9 @@ def create_exercise_set_placeholder(
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """INSERT INTO aia_exercise_sets
-                   (module_id, user_id, tool, title, mode, source_uuid, card_count, status)
+                   (workspace_id, user_id, tool, title, mode, source_uuid, card_count, status)
                    VALUES (%s, %s, %s, %s, %s, %s, 0, 'generating') RETURNING *""",
-                (module_id, user_id, tool, title, mode, source_uuid),
+                (workspace_id, user_id, tool, title, mode, source_uuid),
             )
             ex_set = dict(cur.fetchone())
         conn.commit()
@@ -117,12 +117,12 @@ def fail_exercise_set(set_id: int) -> None:
             )
         conn.commit()
 
-def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> list[dict]:
-    """List exercise sets for a user in a module with mastery info."""
+def get_exercise_sets(workspace_id: int, user_id: int, tool: str | None = None) -> list[dict]:
+    """List exercise sets for a user in a workspace with mastery info."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            where = "s.module_id = %s AND s.user_id = %s"
-            params: list = [module_id, user_id]
+            where = "s.workspace_id = %s AND s.user_id = %s"
+            params: list = [workspace_id, user_id]
             if tool:
                 where += " AND s.tool = %s"
                 params.append(tool)
@@ -155,9 +155,9 @@ def get_exercise_sets(module_id: int, user_id: int, tool: str | None = None) -> 
             return [dict(r) for r in cur.fetchall()]
 
 def get_existing_exercise_fronts(
-    module_id: int, tool: str, limit: int = 150,
+    workspace_id: int, tool: str, limit: int = 150,
 ) -> list[str]:
-    """Return the `front` text of recent exercise items for this module+tool.
+    """Return the `front` text of recent exercise items for this workspace+tool.
     Used to give the LLM awareness of what already exists so it can create variations."""
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -165,10 +165,10 @@ def get_existing_exercise_fronts(
                 """SELECT i.front
                    FROM aia_exercise_items i
                    JOIN aia_exercise_sets s ON i.set_id = s.id
-                   WHERE s.module_id = %s AND s.tool = %s AND s.status = 'ready'
+                   WHERE s.workspace_id = %s AND s.tool = %s AND s.status = 'ready'
                    ORDER BY s.created_at DESC, i.position ASC
                    LIMIT %s""",
-                (module_id, tool, limit),
+                (workspace_id, tool, limit),
             )
             return [row[0] for row in cur.fetchall() if row[0]]
 
@@ -200,8 +200,8 @@ def get_exercise_set_with_items(set_id: int) -> dict | None:
 
             any_needs = any(_needs_top(it) or _needs_nested(it) for it in items)
             if any_needs:
-                module_id = ex_set["module_id"]
-                cur.execute("SELECT id, filename FROM aia_sources WHERE module_id = %s", (module_id,))
+                workspace_id = ex_set["workspace_id"]
+                cur.execute("SELECT id, filename FROM aia_sources WHERE workspace_id = %s", (workspace_id,))
                 src_map = {r["filename"]: r["id"] for r in cur.fetchall()}
                 source_ids = list(src_map.values())
                 if source_ids:
@@ -271,23 +271,23 @@ def bulk_record_exercise_progress(set_id: int, user_id: int, results: list[dict]
 
 # ─── Streak Tracking ──────────────────────────────────────────────────────────
 
-def update_streak(module_id: int, user_id: int) -> dict:
+def update_streak(workspace_id: int, user_id: int) -> dict:
     """Update streak for today (Berlin timezone). Returns current and max streak."""
     from datetime import timedelta, datetime
     today = datetime.now(_TZ_BERLIN).date()
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM aia_streaks WHERE module_id = %s AND user_id = %s",
-                (module_id, user_id),
+                "SELECT * FROM aia_streaks WHERE workspace_id = %s AND user_id = %s",
+                (workspace_id, user_id),
             )
             row = cur.fetchone()
             if not row:
                 cur.execute(
                     """INSERT INTO aia_streaks
-                       (module_id, user_id, current_streak, max_streak, last_active_date)
+                       (workspace_id, user_id, current_streak, max_streak, last_active_date)
                        VALUES (%s, %s, 1, 1, %s) RETURNING *""",
-                    (module_id, user_id, today),
+                    (workspace_id, user_id, today),
                 )
                 result = dict(cur.fetchone())
             else:
@@ -316,28 +316,28 @@ def update_streak(module_id: int, user_id: int) -> dict:
         conn.commit()
     return result
 
-def get_streak(module_id: int, user_id: int) -> dict:
+def get_streak(workspace_id: int, user_id: int) -> dict:
     """Get current streak info."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM aia_streaks WHERE module_id = %s AND user_id = %s",
-                (module_id, user_id),
+                "SELECT * FROM aia_streaks WHERE workspace_id = %s AND user_id = %s",
+                (workspace_id, user_id),
             )
             row = cur.fetchone()
             if not row:
                 return {"current_streak": 0, "max_streak": 0, "last_active_date": None}
             return dict(row)
 
-def get_glossary_count(module_id: int) -> int:
-    """Get total glossary entry count for a module."""
+def get_glossary_count(workspace_id: int) -> int:
+    """Get total glossary entry count for a workspace."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """SELECT COUNT(*) FROM aia_glossary_entries g
                    JOIN aia_sources s ON s.id = g.source_id
-                   WHERE s.module_id = %s""",
-                (module_id,),
+                   WHERE s.workspace_id = %s""",
+                (workspace_id,),
             )
             return cur.fetchone()[0]
 

@@ -3,28 +3,28 @@ import uuid
 
 from ._shared import (
     Path, APIRouter, Depends, File, HTTPException, UploadFile, logger, db,
-    get_current_user, KIA_SOURCE_MAX_PAGES, KIA_MODULE_MAX_SOURCES,
+    get_current_user, KIA_SOURCE_MAX_PAGES, KIA_WORKSPACE_MAX_SOURCES,
     delete_file, _convert_office_to_pdf, _mp4_faststart, _count_pages,
-    _require_own_module, _save_source_file,
+    _require_own_workspace, _save_source_file,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
 )
 
 router = APIRouter(tags=["ki-assistent: sources"])
 
 
-@router.post("/ai-assistant/modules/{module_uuid}/sources")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/sources")
 async def upload_source(
-    module_uuid: str,
+    workspace_uuid: str,
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
 ):
-    module = _require_own_module(module_uuid, current_user["user_id"])
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
 
-    existing_sources = db.get_aia_sources_by_module(module["id"])
-    if len(existing_sources) >= KIA_MODULE_MAX_SOURCES:
+    existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
+    if len(existing_sources) >= KIA_WORKSPACE_MAX_SOURCES:
         raise HTTPException(
             status_code=409,
-            detail=f"Maximal {KIA_MODULE_MAX_SOURCES} Sources pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Sources.",
+            detail=f"Maximal {KIA_WORKSPACE_MAX_SOURCES} Sources pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Sources.",
         )
 
     if not file.filename:
@@ -60,11 +60,11 @@ async def upload_source(
         )
 
     source_uuid = uuid.uuid4().hex
-    file_path = _save_source_file(current_user["user_id"], module_uuid, source_uuid, ext, data)
+    file_path = _save_source_file(current_user["user_id"], workspace_uuid, source_uuid, ext, data)
     file_type = ext.lstrip(".")
 
     db.create_aia_source(
-        module_id=module["id"],
+        workspace_id=workspace["id"],
         uuid=source_uuid,
         filename=stored_filename,
         file_path=file_path,
@@ -74,17 +74,17 @@ async def upload_source(
     from src.tasks.aia_tasks import run_index_source
     run_index_source.delay(source_uuid)
 
-    logger.info("KI Tutor: source {} ({}) uploaded to module {}", source_uuid, stored_filename, module_uuid)
+    logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", source_uuid, stored_filename, workspace_uuid)
     return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}
 
 
-@router.post("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/retry")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/retry")
 async def retry_source(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    _require_own_module(module_uuid, current_user["user_id"])
+    _require_own_workspace(workspace_uuid, current_user["user_id"])
     source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
@@ -101,13 +101,13 @@ async def retry_source(
     return {"uuid": source_uuid, "status": "pending"}
 
 
-@router.delete("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}")
+@router.delete("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}")
 async def delete_source(
-    module_uuid: str,
+    workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    _require_own_module(module_uuid, current_user["user_id"])
+    _require_own_workspace(workspace_uuid, current_user["user_id"])
     source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")

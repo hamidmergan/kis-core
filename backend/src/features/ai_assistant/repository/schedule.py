@@ -27,14 +27,14 @@ def get_schedule_entries_for_user(
     only_checked: bool = False,
     include_past_open: bool = False,
 ) -> list[dict]:
-    """Aggregate schedule entries across all modules the user has any relation to.
+    """Aggregate schedule entries across all workspaces the user has any relation to.
 
     Module scope: UNION of
-      - modules owned by the user (any is_active state), and
-      - modules the user is enrolled in (is_active=TRUE AND enrollment not expired).
-    A user who is both owner and enrolled sees the module once (UNION dedupes).
+      - workspaces owned by the user (any is_active state), and
+      - workspaces the user is enrolled in (is_active=TRUE AND enrollment not expired).
+    A user who is both owner and enrolled sees the workspace once (UNION dedupes).
 
-    Returns rows enriched with module_uuid, module_title, module_relation
+    Returns rows enriched with workspace_uuid, module_title, module_relation
     (owned | enrolled).
 
     Filter modes (priority: only_checked > include_past_open > default):
@@ -58,18 +58,18 @@ def get_schedule_entries_for_user(
                s.due_date, s.due_time,
                s.is_optional, s.is_checked, s.checked_at, s.origin,
                s.source_refs, s.created_at, s.updated_at,
-               m.uuid AS module_uuid,
+               m.uuid AS workspace_uuid,
                m.title AS module_title,
                CASE WHEN m.user_id = %(uid)s THEN 'owned' ELSE 'enrolled' END
                    AS module_relation
           FROM aia_schedule_entries s
-          JOIN aia_modules m ON m.id = s.module_id
-         WHERE s.module_id IN (
-                 SELECT id FROM aia_modules WHERE user_id = %(uid)s
+          JOIN aia_workspaces m ON m.id = s.workspace_id
+         WHERE s.workspace_id IN (
+                 SELECT id FROM aia_workspaces WHERE user_id = %(uid)s
                  UNION
                  SELECT m2.id
-                   FROM aia_modules m2
-                   JOIN aia_enrollments e ON e.module_id = m2.id
+                   FROM aia_workspaces m2
+                   JOIN aia_enrollments e ON e.workspace_id = m2.id
                   WHERE e.user_id = %(uid)s
                     AND m2.is_active = TRUE
                     AND (e.enrolled_until IS NULL OR e.enrolled_until > NOW())
@@ -91,17 +91,17 @@ def get_schedule_entries_for_user(
             return [dict(r) for r in cur.fetchall()]
 
 
-def get_schedule_entries(module_id: int, user_id: int) -> list[dict]:
+def get_schedule_entries(workspace_id: int, user_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 f"""
                 SELECT {_ENTRY_COLS}
                   FROM aia_schedule_entries
-                 WHERE module_id = %s AND user_id = %s
+                 WHERE workspace_id = %s AND user_id = %s
                  ORDER BY due_date NULLS LAST, due_time NULLS LAST, id
                 """,
-                (module_id, user_id),
+                (workspace_id, user_id),
             )
             return [dict(r) for r in cur.fetchall()]
 
@@ -111,7 +111,7 @@ def get_schedule_entry(entry_id: int, user_id: int) -> Optional[dict]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 f"""
-                SELECT {_ENTRY_COLS}, module_id, user_id
+                SELECT {_ENTRY_COLS}, workspace_id, user_id
                   FROM aia_schedule_entries
                  WHERE id = %s AND user_id = %s
                 """,
@@ -122,7 +122,7 @@ def get_schedule_entry(entry_id: int, user_id: int) -> Optional[dict]:
 
 
 def create_schedule_entry(
-    module_id: int,
+    workspace_id: int,
     user_id: int,
     *,
     type: str,
@@ -142,13 +142,13 @@ def create_schedule_entry(
             cur.execute(
                 f"""
                 INSERT INTO aia_schedule_entries
-                    (module_id, user_id, type, title, description,
+                    (workspace_id, user_id, type, title, description,
                      due_date, due_time, is_optional, origin, source_refs)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING {_ENTRY_COLS}
                 """,
                 (
-                    module_id, user_id, type, title, description,
+                    workspace_id, user_id, type, title, description,
                     due_date, due_time, is_optional, origin,
                     json.dumps(source_refs),
                 ),
@@ -261,17 +261,17 @@ def delete_schedule_entry(entry_id: int, user_id: int) -> bool:
         return deleted
 
 
-def delete_all_schedule_entries(module_id: int, user_id: int) -> int:
+def delete_all_schedule_entries(workspace_id: int, user_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM aia_schedule_entries WHERE module_id = %s AND user_id = %s",
-                (module_id, user_id),
+                "DELETE FROM aia_schedule_entries WHERE workspace_id = %s AND user_id = %s",
+                (workspace_id, user_id),
             )
             count = cur.rowcount
             cur.execute(
-                "DELETE FROM aia_schedule_processed_sources WHERE module_id = %s AND user_id = %s",
-                (module_id, user_id),
+                "DELETE FROM aia_schedule_processed_sources WHERE workspace_id = %s AND user_id = %s",
+                (workspace_id, user_id),
             )
         conn.commit()
         return count
@@ -298,68 +298,68 @@ def prune_old_entries(months: int = 1) -> int:
 
 # ─── Processed sources ──────────────────────────────────────────────────────
 
-def get_processed_source_ids(module_id: int, user_id: int) -> list[int]:
+def get_processed_source_ids(workspace_id: int, user_id: int) -> list[int]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """
                 SELECT source_id
                   FROM aia_schedule_processed_sources
-                 WHERE module_id = %s AND user_id = %s
+                 WHERE workspace_id = %s AND user_id = %s
                 """,
-                (module_id, user_id),
+                (workspace_id, user_id),
             )
             return [r["source_id"] for r in cur.fetchall()]
 
 
-def mark_source_processed(module_id: int, user_id: int, source_id: int) -> None:
+def mark_source_processed(workspace_id: int, user_id: int, source_id: int) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO aia_schedule_processed_sources (module_id, user_id, source_id)
+                INSERT INTO aia_schedule_processed_sources (workspace_id, user_id, source_id)
                 VALUES (%s, %s, %s)
                 ON CONFLICT DO NOTHING
                 """,
-                (module_id, user_id, source_id),
+                (workspace_id, user_id, source_id),
             )
         conn.commit()
 
 
 # ─── Generation Jobs ────────────────────────────────────────────────────────
 
-def create_schedule_job(module_id: int, user_id: int, source_uuids: list[str]) -> dict:
+def create_schedule_job(workspace_id: int, user_id: int, source_uuids: list[str]) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """
-                INSERT INTO aia_schedule_jobs (module_id, user_id, source_uuids, status)
+                INSERT INTO aia_schedule_jobs (workspace_id, user_id, source_uuids, status)
                 VALUES (%s, %s, %s, 'pending')
-                RETURNING id, module_id, user_id, source_uuids, status, error, added_count,
+                RETURNING id, workspace_id, user_id, source_uuids, status, error, added_count,
                           created_at, updated_at
                 """,
-                (module_id, user_id, json.dumps(source_uuids)),
+                (workspace_id, user_id, json.dumps(source_uuids)),
             )
             row = dict(cur.fetchone())
         conn.commit()
         return row
 
 
-def get_active_schedule_job(module_id: int, user_id: int) -> Optional[dict]:
-    """Return the newest pending/running schedule job for this module+user, if any."""
+def get_active_schedule_job(workspace_id: int, user_id: int) -> Optional[dict]:
+    """Return the newest pending/running schedule job for this workspace+user, if any."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT id, module_id, user_id, source_uuids, status, error, added_count,
+                SELECT id, workspace_id, user_id, source_uuids, status, error, added_count,
                        created_at, updated_at
                   FROM aia_schedule_jobs
-                 WHERE module_id = %s AND user_id = %s
+                 WHERE workspace_id = %s AND user_id = %s
                    AND status IN ('pending', 'running')
                  ORDER BY id DESC
                  LIMIT 1
                 """,
-                (module_id, user_id),
+                (workspace_id, user_id),
             )
             row = cur.fetchone()
             return dict(row) if row else None
@@ -370,7 +370,7 @@ def get_schedule_job(job_id: int, user_id: int) -> Optional[dict]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT id, module_id, user_id, source_uuids, status, error, added_count,
+                SELECT id, workspace_id, user_id, source_uuids, status, error, added_count,
                        created_at, updated_at
                   FROM aia_schedule_jobs
                  WHERE id = %s AND user_id = %s

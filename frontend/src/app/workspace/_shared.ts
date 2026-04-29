@@ -5,7 +5,7 @@ export interface AccessLink {
   created_at?: string | null;
 }
 
-export interface KiTutorModule {
+export interface KiTutorWorkspace {
   uuid: string;
   title: string;
   description?: string | null;
@@ -19,7 +19,7 @@ export interface KiTutorModule {
   created_at: string | null;
 }
 
-export interface StudentModule {
+export interface StudentWorkspace {
   uuid: string;
   title: string;
   description?: string | null;
@@ -29,7 +29,7 @@ export interface StudentModule {
   created_at: string | null;
 }
 
-export interface ModuleStats {
+export interface WorkspaceStats {
   overview: {
     total_enrolled: number;
     active_30d: number;

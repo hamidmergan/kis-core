@@ -34,7 +34,7 @@ def get_aia_glossary(source_id: int) -> list[dict]:
             )
             return [dict(r) for r in cur.fetchall()]
 
-def get_aia_glossary_by_module(module_id: int) -> list[dict]:
+def get_aia_glossary_by_workspace(workspace_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
@@ -46,10 +46,10 @@ def get_aia_glossary_by_module(module_id: int) -> list[dict]:
                    JOIN aia_sources s ON s.id = g.source_id
                    LEFT JOIN aia_chunks c
                      ON c.source_id = g.source_id AND c.page_number = g.page_number
-                   WHERE s.module_id = %s
+                   WHERE s.workspace_id = %s
                    GROUP BY g.id, s.filename
                    ORDER BY g.term_de""",
-                (module_id,),
+                (workspace_id,),
             )
             return [dict(r) for r in cur.fetchall()]
 
@@ -89,13 +89,13 @@ def delete_aia_glossary(source_id: int) -> None:
             cur.execute("DELETE FROM aia_glossary_entries WHERE source_id = %s", (source_id,))
         conn.commit()
 
-def delete_all_glossary_entries(module_id: int) -> int:
+def delete_all_glossary_entries(workspace_id: int) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """DELETE FROM aia_glossary_entries
-                   WHERE source_id IN (SELECT id FROM aia_sources WHERE module_id = %s)""",
-                (module_id,),
+                   WHERE source_id IN (SELECT id FROM aia_sources WHERE workspace_id = %s)""",
+                (workspace_id,),
             )
             count = cur.rowcount
         conn.commit()

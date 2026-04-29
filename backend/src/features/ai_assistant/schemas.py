@@ -4,13 +4,13 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-class CreateModuleForm(BaseModel):
+class CreateWorkspaceForm(BaseModel):
     title: str = Field(..., max_length=100)
     description: Optional[str] = Field(None, max_length=300)
     expires_at: Optional[str] = None  # ISO datetime string
 
 
-class PatchModuleBody(BaseModel):
+class PatchWorkspaceBody(BaseModel):
     title: Optional[str] = Field(None, max_length=100)
     description: Optional[str] = Field(None, max_length=300)
     is_active: Optional[bool] = None

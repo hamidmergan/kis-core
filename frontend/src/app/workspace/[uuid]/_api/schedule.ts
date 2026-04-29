@@ -1,18 +1,18 @@
 import type { ScheduleData, ScheduleEntry, ScheduleEntryType } from "../_types";
 
-const base = (moduleUuid: string) => `/api/ai-assistant/modules/${moduleUuid}/schedule`;
+const base = (workspaceUuid: string) => `/api/ai-assistant/workspaces/${workspaceUuid}/schedule`;
 
-export async function fetchSchedule(moduleUuid: string): Promise<ScheduleData> {
-  const r = await fetch(base(moduleUuid), { credentials: "include" });
+export async function fetchSchedule(workspaceUuid: string): Promise<ScheduleData> {
+  const r = await fetch(base(workspaceUuid), { credentials: "include" });
   if (!r.ok) throw new Error(`Zeitplan laden fehlgeschlagen: ${r.status}`);
   return r.json();
 }
 
 export async function generateSchedule(
-  moduleUuid: string,
+  workspaceUuid: string,
   sourceIds: string[]
 ): Promise<{ job_id: number; status: string }> {
-  const r = await fetch(`${base(moduleUuid)}/generate`, {
+  const r = await fetch(`${base(workspaceUuid)}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -33,10 +33,10 @@ export interface ScheduleJob {
 }
 
 export async function fetchScheduleJob(
-  moduleUuid: string,
+  workspaceUuid: string,
   jobId: number
 ): Promise<ScheduleJob> {
-  const r = await fetch(`${base(moduleUuid)}/jobs/${jobId}`, { credentials: "include" });
+  const r = await fetch(`${base(workspaceUuid)}/jobs/${jobId}`, { credentials: "include" });
   if (!r.ok) throw new Error(`Job-Status laden fehlgeschlagen: ${r.status}`);
   return r.json();
 }
@@ -48,13 +48,13 @@ export interface ActiveScheduleJob {
   created_at?: string | null;
 }
 
-export async function fetchActiveScheduleJob(moduleUuid: string): Promise<ActiveScheduleJob> {
-  const r = await fetch(`${base(moduleUuid)}/jobs/active`, { credentials: "include" });
+export async function fetchActiveScheduleJob(workspaceUuid: string): Promise<ActiveScheduleJob> {
+  const r = await fetch(`${base(workspaceUuid)}/jobs/active`, { credentials: "include" });
   if (!r.ok) throw new Error(`Active-Job-Status laden fehlgeschlagen: ${r.status}`);
   return r.json();
 }
 
-export async function createEntry(moduleUuid: string, input: {
+export async function createEntry(workspaceUuid: string, input: {
   type: ScheduleEntryType;
   title: string;
   description?: string | null;
@@ -62,7 +62,7 @@ export async function createEntry(moduleUuid: string, input: {
   due_time?: string | null;
   is_optional?: boolean;
 }): Promise<ScheduleEntry> {
-  const r = await fetch(`${base(moduleUuid)}/entries`, {
+  const r = await fetch(`${base(workspaceUuid)}/entries`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -72,8 +72,8 @@ export async function createEntry(moduleUuid: string, input: {
   return r.json();
 }
 
-export async function updateEntry(moduleUuid: string, entryId: number, patch: Partial<Omit<ScheduleEntry, "id" | "origin" | "source_ids" | "raw_quote" | "created_at" | "updated_at" | "checked_at">> & { clear_date?: boolean; clear_time?: boolean }): Promise<ScheduleEntry> {
-  const r = await fetch(`${base(moduleUuid)}/entries/${entryId}`, {
+export async function updateEntry(workspaceUuid: string, entryId: number, patch: Partial<Omit<ScheduleEntry, "id" | "origin" | "source_ids" | "raw_quote" | "created_at" | "updated_at" | "checked_at">> & { clear_date?: boolean; clear_time?: boolean }): Promise<ScheduleEntry> {
+  const r = await fetch(`${base(workspaceUuid)}/entries/${entryId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -83,16 +83,16 @@ export async function updateEntry(moduleUuid: string, entryId: number, patch: Pa
   return r.json();
 }
 
-export async function deleteEntry(moduleUuid: string, entryId: number): Promise<void> {
-  const r = await fetch(`${base(moduleUuid)}/entries/${entryId}`, {
+export async function deleteEntry(workspaceUuid: string, entryId: number): Promise<void> {
+  const r = await fetch(`${base(workspaceUuid)}/entries/${entryId}`, {
     method: "DELETE",
     credentials: "include",
   });
   if (!r.ok) throw new Error(`Löschen fehlgeschlagen: ${r.status}`);
 }
 
-export async function deleteAllEntries(moduleUuid: string): Promise<void> {
-  const r = await fetch(base(moduleUuid), {
+export async function deleteAllEntries(workspaceUuid: string): Promise<void> {
+  const r = await fetch(base(workspaceUuid), {
     method: "DELETE",
     credentials: "include",
   });

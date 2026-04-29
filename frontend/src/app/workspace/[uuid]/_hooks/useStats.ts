@@ -15,13 +15,13 @@ export function useStats({ uuid, initialized }: UseStatsOptions) {
 
   const loadStreak = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/streak`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/streak`, { credentials: "include" });
       if (res.ok) setStreakInfo(await res.json());
     } catch { /* ignore */ }
   }, [uuid]);
 
   const refreshPageStats = useCallback(() => {
-    fetch(`/api/ai-assistant/modules/${uuid}/stats`, { credentials: "include" })
+    fetch(`/api/ai-assistant/workspaces/${uuid}/stats`, { credentials: "include" })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data) setPageStats(data); })
       .catch(() => { /* ignore */ });

@@ -19,16 +19,16 @@ from src.core.db._common import _notify_job_update, _de_date_to_utc
 
 
 def create_aia_source(
-    module_id: int, uuid: str, filename: str, file_path: str, file_type: str
+    workspace_id: int, uuid: str, filename: str, file_path: str, file_type: str
 ) -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO aia_sources
-                   (module_id, uuid, filename, file_path, file_type)
+                   (workspace_id, uuid, filename, file_path, file_type)
                    VALUES (%s, %s, %s, %s, %s)
                    RETURNING id""",
-                (module_id, uuid, filename, file_path, file_type),
+                (workspace_id, uuid, filename, file_path, file_type),
             )
             source_id = cur.fetchone()[0]
         conn.commit()
@@ -48,18 +48,18 @@ def get_aia_source_by_id(source_id: int) -> dict | None:
             row = cur.fetchone()
     return dict(row) if row else None
 
-def get_aia_sources_by_module(module_id: int) -> list[dict]:
+def get_aia_sources_by_workspace(workspace_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT * FROM aia_sources WHERE module_id = %s ORDER BY created_at DESC",
-                (module_id,),
+                "SELECT * FROM aia_sources WHERE workspace_id = %s ORDER BY created_at DESC",
+                (workspace_id,),
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
-def list_aia_modules_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
-    """Return modules (with owner name) whose stored fingerprint differs from current.
+def list_aia_workspaces_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
+    """Return workspaces (with owner name) whose stored fingerprint differs from current.
 
     Modules without a fingerprint (never indexed) are ignored.
     """
@@ -67,8 +67,8 @@ def list_aia_modules_with_stale_fingerprint(current_fingerprint: str) -> list[di
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT DISTINCT m.id, m.uuid, m.title, u.display_name AS owner
-                   FROM aia_modules m
-                   JOIN aia_sources s ON s.module_id = m.id
+                   FROM aia_workspaces m
+                   JOIN aia_sources s ON s.workspace_id = m.id
                    LEFT JOIN users u ON u.id = m.user_id
                    WHERE m.embedding_fingerprint IS NOT NULL
                      AND m.embedding_fingerprint <> %s
@@ -78,7 +78,7 @@ def list_aia_modules_with_stale_fingerprint(current_fingerprint: str) -> list[di
             return [dict(row) for row in cur.fetchall()]
 
 def get_all_aia_sources() -> list[dict]:
-    """Return every KI-Assistent source across all modules — used for global re-indexing."""
+    """Return every KI-Assistent source across all workspaces — used for global re-indexing."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM aia_sources ORDER BY id ASC")

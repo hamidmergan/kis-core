@@ -9,7 +9,7 @@ from src.features.admin.repository.users import *  # noqa: F401,F403
 from src.features.admin.repository.settings import *  # noqa: F401,F403
 from src.features.jobs.repository import *  # noqa: F401,F403
 from src.features.quotas.repository import *  # noqa: F401,F403
-from src.features.ai_assistant.repository.modules import *  # noqa: F401,F403
+from src.features.ai_assistant.repository.workspaces import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.access_links import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.enrollments import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.sources import *  # noqa: F401,F403

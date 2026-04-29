@@ -25,7 +25,7 @@ export function SourcesPanel({
   onDismissUploadErrors,
   isLecturer,
   onMinimize,
-  moduleUuid,
+  workspaceUuid,
   hideHeader,
 }: {
   sources: Source[];
@@ -40,7 +40,7 @@ export function SourcesPanel({
   onDismissUploadErrors: () => void;
   isLecturer: boolean;
   onMinimize: () => void;
-  moduleUuid: string;
+  workspaceUuid: string;
   hideHeader?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);

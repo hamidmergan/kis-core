@@ -33,7 +33,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource }:
   const loadMessages = useCallback(async () => {
     try {
       const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/messages${eidParam}`, { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/messages${eidParam}`, { credentials: "include" });
       if (res.ok) setMessages(await res.json());
     } catch { /* ignore */ }
   }, [uuid, enrollmentId]);

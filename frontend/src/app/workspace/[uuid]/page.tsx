@@ -8,7 +8,7 @@ import Header from "@/components/layout/Header";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 import type {
-  ModuleDetail,
+  WorkspaceDetail,
   ViewerState,
   StudioView,
   LanguageTrainingView,
@@ -47,14 +47,14 @@ const NotesStudio = dynamic(() => import("./_components/studio/NotesStudio").the
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
-export default function KiTutorModulePage() {
+export default function KiTutorWorkspacePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const uuid = params.uuid as string;
   const enrollmentId = searchParams.get("eid") ? Number(searchParams.get("eid")) : null;
   const initialTab = searchParams.get("tab");
 
-  const [moduleDetail, setModuleDetail] = useState<ModuleDetail | null>(null);
+  const [moduleDetail, setWorkspaceDetail] = useState<WorkspaceDetail | null>(null);
   // auth + initialized come from useWorkspaceInit (after all source/chat hooks)
 
   // Layout state (panels, widths, mobile detection, drag): see usePanelLayout
@@ -70,7 +70,7 @@ export default function KiTutorModulePage() {
     deleteSource: handleDeleteSource,
     retrySource: handleRetrySource,
     uploadFiles: handleUpload,
-  } = useSources({ uuid, onModuleUpdate: (mod) => setModuleDetail(mod) });
+  } = useSources({ uuid, onModuleUpdate: (mod) => setWorkspaceDetail(mod) });
 
   const [viewerSource, setViewerSource] = useState<ViewerState | null>(null);
 
@@ -144,7 +144,7 @@ export default function KiTutorModulePage() {
     uuid,
     setSources,
     setSelectedSourceIds,
-    setModuleDetail,
+    setWorkspaceDetail,
     setNotes,
     loadMessages,
     onSettingsLoaded: (s) => {
@@ -180,7 +180,7 @@ export default function KiTutorModulePage() {
   // Persist settings to DB (only after init to avoid overwriting with defaults)
   useEffect(() => {
     if (!initialized) return;
-    fetch(`/api/ai-assistant/modules/${uuid}/settings`, {
+    fetch(`/api/ai-assistant/workspaces/${uuid}/settings`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -361,7 +361,7 @@ export default function KiTutorModulePage() {
       notes={{ notes, addNote, deleteNote, updateNoteTitle, pendingTitleIds }}
       mindmap={mm}
       data_table={dt}
-      moduleUuid={uuid}
+      workspaceUuid={uuid}
       statsVersion={statsVersion}
       sources={sources}
       selectedSourceIds={selectedSourceIds}
@@ -386,9 +386,9 @@ export default function KiTutorModulePage() {
   const renderQuellenContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => {
     if (viewerSource) {
       return _isMediaFile(viewerSource.filename) ? (
-        <MediaPlayer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onMinimize={onMinimize} canDownload={isLecturer || isAdmin} canManage={isLecturer || isAdmin} onSaveNote={addNote} />
+        <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canDownload={isLecturer || isAdmin} canManage={isLecturer || isAdmin} onSaveNote={addNote} />
       ) : (
-        <PdfViewer source={viewerSource} onClose={handleCloseViewer} moduleUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={onMinimize} />
+        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={onMinimize} />
       );
     }
     return (
@@ -405,7 +405,7 @@ export default function KiTutorModulePage() {
         onDismissUploadErrors={() => setUploadErrors([])}
         isLecturer={isLecturer}
         onMinimize={onMinimize}
-        moduleUuid={uuid}
+        workspaceUuid={uuid}
         {...(hh ? { hideHeader: true } : {})}
       />
     );
@@ -424,7 +424,7 @@ export default function KiTutorModulePage() {
       moduleReady={moduleDetail?.status === "ready"}
       onClear={() => {
         const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
-        fetch(`/api/ai-assistant/modules/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" });
+        fetch(`/api/ai-assistant/workspaces/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" });
         setMessages([]);
       }}
       externalTextareaRef={chatTextareaRef}

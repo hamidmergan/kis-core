@@ -2,19 +2,19 @@
 
 import { useState } from "react";
 
-interface EditModuleModalProps {
+interface EditWorkspaceModalProps {
   currentTitle: string;
   currentDescription: string;
   onClose: () => void;
   onSubmit: (newTitle: string, newDescription: string) => Promise<boolean>;
 }
 
-export default function EditModuleModal({
+export default function EditWorkspaceModal({
   currentTitle,
   currentDescription,
   onClose,
   onSubmit,
-}: EditModuleModalProps) {
+}: EditWorkspaceModalProps) {
   const [title, setTitle] = useState(currentTitle);
   const [description, setDescription] = useState(currentDescription);
   const [saving, setSaving] = useState(false);

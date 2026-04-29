@@ -35,7 +35,7 @@ from src.features.ai_assistant.tasks.studio.schedule._titles import _fuzzy_same
 @celery_app.task(bind=True, name="kia.generate_schedule", queue="kia",
                  soft_time_limit=600, time_limit=720)
 @observe(name="kia-schedule")
-def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
+def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                           source_uuids: list[str]):
     """Regex-first pipeline:
       1) find all date candidates per source via regex (100% recall)
@@ -49,10 +49,10 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
         sources: list[dict] = []
         for suuid in source_uuids:
             src = db.get_aia_source(suuid)
-            if src and src["module_id"] == module_id:
+            if src and src["workspace_id"] == workspace_id:
                 sources.append(src)
 
-        already_processed = set(db.get_processed_source_ids(module_id, user_id))
+        already_processed = set(db.get_processed_source_ids(workspace_id, user_id))
         pending = [s for s in sources if s["id"] not in already_processed]
 
         if not pending:
@@ -70,7 +70,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
 
         if not all_candidates:
             for src in pending:
-                db.mark_source_processed(module_id, user_id, src["id"])
+                db.mark_source_processed(workspace_id, user_id, src["id"])
             db.update_schedule_job(job_id, "success", added_count=0)
             logger.info("Schedule job {}: no candidates found", job_id)
             return
@@ -112,7 +112,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
 
         # Load existing entries now so the harmonize pass can align new
         # candidate titles with DB entries already present on the same date.
-        existing_entries: list[dict] = list(db.get_schedule_entries(module_id, user_id))
+        existing_entries: list[dict] = list(db.get_schedule_entries(workspace_id, user_id))
 
         # STAGE 2c: Cross-candidate title harmonization for events on the same date.
         # Aligns new candidates with each other AND with existing DB entries so
@@ -180,7 +180,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
 
             type_ = cls["type"] if cls["type"] in ("deadline", "termin") else "termin"
             new_row = db.create_schedule_entry(
-                module_id,
+                workspace_id,
                 user_id,
                 type=type_,
                 title=(cls["title"] or cand["date_iso"])[:200],
@@ -196,7 +196,7 @@ def run_generate_schedule(self, job_id: int, module_id: int, user_id: int,
 
         # STAGE 4: mark sources processed
         for src in pending:
-            db.mark_source_processed(module_id, user_id, src["id"])
+            db.mark_source_processed(workspace_id, user_id, src["id"])
 
         db.update_schedule_job(job_id, "success", added_count=added)
         logger.info("Schedule job {}: added {} new entries", job_id, added)

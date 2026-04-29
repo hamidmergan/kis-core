@@ -17,28 +17,28 @@ _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
 from src.core.db.pool import get_connection
 
 
-def create_access_link(module_id: int, code: str, expires_at: datetime | None) -> dict:
+def create_access_link(workspace_id: int, code: str, expires_at: datetime | None) -> dict:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """INSERT INTO aia_access_links (module_id, code, expires_at)
+                """INSERT INTO aia_access_links (workspace_id, code, expires_at)
                    VALUES (%s, %s, %s)
-                   RETURNING id, module_id, code, expires_at, created_at""",
-                (module_id, code, expires_at),
+                   RETURNING id, workspace_id, code, expires_at, created_at""",
+                (workspace_id, code, expires_at),
             )
             row = cur.fetchone()
         conn.commit()
     return dict(row)
 
-def get_access_links_by_module(module_id: int) -> list[dict]:
+def get_access_links_by_workspace(workspace_id: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT id, module_id, code, expires_at, created_at
+                """SELECT id, workspace_id, code, expires_at, created_at
                    FROM aia_access_links
-                   WHERE module_id = %s
+                   WHERE workspace_id = %s
                    ORDER BY created_at ASC""",
-                (module_id,),
+                (workspace_id,),
             )
             rows = cur.fetchall()
     return [dict(row) for row in rows]
@@ -49,14 +49,14 @@ def delete_access_link(link_id: int) -> None:
             cur.execute("DELETE FROM aia_access_links WHERE id = %s", (link_id,))
         conn.commit()
 
-def get_module_by_access_link_code(code: str) -> tuple[dict, dict] | None:
-    """Return (module, link) tuple if code is valid and not expired."""
+def get_workspace_by_access_link_code(code: str) -> tuple[dict, dict] | None:
+    """Return (workspace, link) tuple if code is valid and not expired."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
                 """SELECT m.*, al.id AS link_id, al.expires_at AS link_expires_at
                    FROM aia_access_links al
-                   JOIN aia_modules m ON m.id = al.module_id
+                   JOIN aia_workspaces m ON m.id = al.workspace_id
                    WHERE al.code = %s AND (al.expires_at IS NULL OR al.expires_at > NOW())""",
                 (code,),
             )

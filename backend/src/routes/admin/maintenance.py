@@ -25,15 +25,15 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
 
     # Read fingerprint from DB only — do NOT compute on demand (compute takes
     # 15-50s against KISSKI cold). If not cached yet, fire a background task
-    # to prime it; the user's next page refresh will see the stale_modules.
+    # to prime it; the user's next page refresh will see the stale_workspaces.
     key = f"fingerprint_{active_embedding_provider_key()}"
     current_fingerprint = db.get_setting(key, "") or None
-    stale_modules: list[dict] = []
+    stale_workspaces: list[dict] = []
     if current_fingerprint:
         try:
-            stale_modules = db.list_aia_modules_with_stale_fingerprint(current_fingerprint)
+            stale_workspaces = db.list_aia_workspaces_with_stale_fingerprint(current_fingerprint)
         except Exception as e:
-            logger.warning("Maintenance: stale-module query failed: {}", e)
+            logger.warning("Maintenance: stale-workspace query failed: {}", e)
     else:
         # Prime the cache in the background — endpoint stays fast.
         asyncio.create_task(asyncio.to_thread(get_cached_fingerprint))
@@ -41,7 +41,7 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
     return {
         "enabled": enabled,
         "reindex": progress,
-        "stale_modules": stale_modules,
+        "stale_workspaces": stale_workspaces,
         "fingerprint_check_ok": bool(current_fingerprint),
     }
 

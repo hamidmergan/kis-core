@@ -26,7 +26,7 @@ export function useNotes({ uuid }: UseNotesOptions) {
     for (const wait of delays) {
       await new Promise((r) => setTimeout(r, wait));
       try {
-        const r = await fetch(`/api/ai-assistant/modules/${uuid}/notes`, { credentials: "include" });
+        const r = await fetch(`/api/ai-assistant/workspaces/${uuid}/notes`, { credentials: "include" });
         if (!r.ok) continue;
         const fresh = await r.json();
         const updated = fresh.find((n: { id: number; title?: string | null }) => n.id === noteId);
@@ -43,7 +43,7 @@ export function useNotes({ uuid }: UseNotesOptions) {
   const addNote = useCallback(async (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => {
     const autoTitle = extras?.autoTitle ?? true;
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/notes`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/notes`, {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -67,7 +67,7 @@ export function useNotes({ uuid }: UseNotesOptions) {
 
   const deleteNote = useCallback(async (noteId: number) => {
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/notes/${noteId}`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/notes/${noteId}`, {
         method: "DELETE", credentials: "include",
       });
       if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
@@ -78,7 +78,7 @@ export function useNotes({ uuid }: UseNotesOptions) {
     const prev = notes;
     setNotes((cur) => cur.map((n) => n.id === noteId ? { ...n, title } : n));
     try {
-      const res = await fetch(`/api/ai-assistant/modules/${uuid}/notes/${noteId}/title`, {
+      const res = await fetch(`/api/ai-assistant/workspaces/${uuid}/notes/${noteId}/title`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title }),

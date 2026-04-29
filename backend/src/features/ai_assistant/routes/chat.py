@@ -20,8 +20,8 @@ from src import database as db
 from src.dependencies import get_current_user, get_kisski_client
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
-    KIA_MODULE_MAX_SOURCES,
-    KIA_MODULE_MAX_ACCESS_LINKS,
+    KIA_WORKSPACE_MAX_SOURCES,
+    KIA_WORKSPACE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
 from src.security.rate_limit import enforce_burst
@@ -77,9 +77,9 @@ from src.features.ai_assistant.routes._helpers import (
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
-    _require_own_module,
+    _require_own_workspace,
     _save_source_file,
-    _delete_source_files_for_module,
+    _delete_source_files_for_workspace,
     _resolve_source_ids,
     _term_appears_in_text,
     _load_transcript_segments,
@@ -92,10 +92,10 @@ from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: chat"])
 
-@router.post("/ai-assistant/modules/{module_uuid}/chat")
+@router.post("/ai-assistant/workspaces/{workspace_uuid}/chat")
 @observe(name="kia-chat")
 async def chat(
-    module_uuid: str,
+    workspace_uuid: str,
     body: schemas.ChatBody,
     current_user: dict = Depends(get_current_user),
     kisski=Depends(get_kisski_client),
@@ -109,26 +109,26 @@ async def chat(
     enforce_burst(user_id)
 
     _started_at = _time.monotonic()
-    module = db.get_aia_module(module_uuid)
-    if not module:
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
         raise HTTPException(status_code=404, detail="Modul nicht gefunden")
 
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
     enrollment_id = body.enrollment_id if not is_owner else None
 
-    # Sync module status: heal stale 'pending' if all sources are actually ready
-    if module["status"] != "ready":
-        sources_check = db.get_aia_sources_by_module(module["id"])
+    # Sync workspace status: heal stale 'pending' if all sources are actually ready
+    if workspace["status"] != "ready":
+        sources_check = db.get_aia_sources_by_workspace(workspace["id"])
         ready_sources = [s for s in sources_check if s["status"] == "ready"]
         if not ready_sources:
             raise HTTPException(status_code=409, detail="Keine indizierten Sources vorhanden")
         if all(s["status"] == "ready" for s in sources_check):
-            db.update_aia_module_status(module_uuid, "ready")
+            db.update_aia_workspace_status(workspace_uuid, "ready")
 
     # Resolve active_source_ids (UUIDs → DB int ids)
     source_ids: list[int] | None = None
@@ -136,7 +136,7 @@ async def chat(
         resolved = []
         for suuid in body.active_source_ids:
             source = db.get_aia_source(suuid)
-            if source and source["module_id"] == module["id"]:
+            if source and source["workspace_id"] == workspace["id"]:
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
 
@@ -176,7 +176,7 @@ async def chat(
     if _is_generic:
         # ── Generic summary: summaries + time-distributed media chunks ──
         logger.info("Generic summary detected for {} sources, skipping hybrid search", len(source_ids))
-        all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_module(module["id"])}
+        all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
         chunks: list[dict] = []
         char_budget_per_source = 200000 // len(source_ids)
 
@@ -240,7 +240,7 @@ async def chat(
         # Skip for popup (source_text) and first question (no history).
         if not body.source_text:
             history_for_rewrite = db.get_aia_messages(
-                module["id"], user_id, limit=4, enrollment_id=enrollment_id
+                workspace["id"], user_id, limit=4, enrollment_id=enrollment_id
             )
             if history_for_rewrite:
                 rewritten_question = _rewrite_query(
@@ -266,7 +266,7 @@ async def chat(
                 search_source_ids = [popup_source["id"]]
 
         chunks = db.hybrid_search_chunks(
-            module["id"], embed_text, query_vector,
+            workspace["id"], embed_text, query_vector,
             source_ids=search_source_ids, limit=20,
         )
         found_pages = sorted(set(c["page_number"] for c in chunks))
@@ -295,7 +295,7 @@ async def chat(
             chunks = diverse_chunks + remaining
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation
-    all_sources_list = {s["id"]: s for s in db.get_aia_sources_by_module(module["id"])}
+    all_sources_list = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
     source_id_to_qnum: dict[int, int] = {}
     source_qmap: list[dict] = []  # [{qnum, uuid, filename}, ...]
     qnum_counter = 0
@@ -381,7 +381,7 @@ async def chat(
             "is_popup_selection": True,
         })
     else:
-        all_sources = {s["id"]: s for s in db.get_aia_sources_by_module(module["id"])}
+        all_sources = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
         for chunk in chunks:
             source = all_sources.get(chunk["source_id"])
             if source:
@@ -440,8 +440,8 @@ async def chat(
             # Keywords in citations stay (used by frontend for highlighting)
 
             # Save messages
-            db.save_aia_message(module["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
-            db.save_aia_message(module["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
+            db.save_aia_message(workspace["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
+            db.save_aia_message(workspace["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
 
             # Send final metadata event — also send corrected answer
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"

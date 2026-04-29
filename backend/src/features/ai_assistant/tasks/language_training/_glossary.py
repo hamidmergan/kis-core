@@ -11,12 +11,12 @@ from src.features.ai_assistant.tasks.language_training._title import title_from_
 
 def generate_from_glossary(
     client, model,
-    module_id: int,
+    workspace_id: int,
     tool: str,
     count: int,
 ) -> tuple[list[dict], str] | None:
     """Returns (items, title) oder None wenn kein Glossary vorhanden."""
-    glossary = db.get_aia_glossary_by_module(module_id)
+    glossary = db.get_aia_glossary_by_workspace(workspace_id)
     if not glossary:
         return None
 
