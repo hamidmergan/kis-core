@@ -80,10 +80,8 @@ async def cancel_job(
     except Exception as e:
         logger.warning("Could not set cancel flag in Redis: {}", e)
 
-    # Delete all job files first — delete_job_folder reads created_at from DB
-    # to resolve the folder name (YYYY-MM-DD_HH-MM-SS_{uuid}). Deleting DB first
-    # would cause the lookup to fail and miss the real MinIO folder.
-    delete_job_folder(job_uuid)
+    # Delete all job files first, then the DB row.
+    delete_job_folder(job["user_id"], job_uuid)
     db.delete_job(job_uuid)
 
     # Notify SSE clients that job list changed (job was removed)

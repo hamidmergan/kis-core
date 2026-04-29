@@ -34,7 +34,7 @@ async def generate_image(
     enforce_tool_burst(user_id, "image_generate")
     enforce_quota(user_id, "image_generate", is_admin_user(current_user))
 
-    db.create_job(job_uuid, user_id, "image_generate", prompt[:100], username=current_user.get("username", "unknown"))
+    db.create_job(job_uuid, user_id, "image_generate", prompt[:100])
 
     from src.tasks.general_tasks import run_image_generate
     run_image_generate.delay(job_uuid, prompt, size, n)
@@ -70,8 +70,8 @@ async def edit_image(
     enforce_quota(user_id, "image_edit", is_admin_user(current_user))
 
     display_name = f"{image.filename}: {prompt[:80]}"
-    db.create_job(job_uuid, user_id, "image_edit", display_name, username=current_user.get("username", "unknown"))
-    input_path = save_queue_file(job_uuid, ext, content)
+    db.create_job(job_uuid, user_id, "image_edit", display_name)
+    input_path = save_queue_file(user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_image_edit
@@ -106,8 +106,8 @@ async def analyze_image(
     enforce_quota(user_id, "image_analyze", is_admin_user(current_user))
 
     display_name = f"{image.filename}: {prompt[:80]}" if prompt.strip() else image.filename
-    db.create_job(job_uuid, user_id, "image_analyze", display_name, username=current_user.get("username", "unknown"))
-    input_path = save_queue_file(job_uuid, ext, content)
+    db.create_job(job_uuid, user_id, "image_analyze", display_name)
+    input_path = save_queue_file(user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_image_analyze

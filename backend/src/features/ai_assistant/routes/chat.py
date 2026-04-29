@@ -26,7 +26,7 @@ from src.limits import (
 )
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
-from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
+from src.storage import USE_S3, delete_file, file_exists, get_file
 from src.tool_prompts import (
     KIA_SYSTEM_DIRECT,
     KIA_SYSTEM_DIRECT_WITH_CONTEXT,

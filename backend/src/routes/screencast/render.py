@@ -8,7 +8,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
-from src.storage import clear_tts_audio_cache, delete_job_folder, job_file_exists, save_job_file
+from src.storage import clear_render_cache, delete_job_folder, job_file_exists, save_job_file
 from src.utils.file_validation import MAX_SCREENCAST_SLIDES, SCREENCAST_MAX_CHARS
 
 from src.routes.screencast._models import PrerenderRequest, RenderRequest
@@ -63,20 +63,20 @@ async def screencast_render(
         raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
     if translate_job["status"] not in ("awaiting_user", "failed", "success"):
         raise HTTPException(status_code=409, detail="Job ist nicht bereit zum Rendern")
-    if not job_file_exists(body.translate_job_uuid, "translated.pptx"):
-        delete_job_folder(body.translate_job_uuid)
+    if not job_file_exists(user_id, body.translate_job_uuid, "translated.pptx"):
+        delete_job_folder(user_id, body.translate_job_uuid)
         db.delete_job(body.translate_job_uuid)
         raise HTTPException(status_code=404, detail="Job-Dateien nicht mehr vorhanden. Bitte neue Übersetzung starten.")
 
     # If re-rendering a previously completed job, clear stale TTS audio so the
     # crash-recovery mechanism doesn't reuse old audio for the new scripts.
     if translate_job["status"] == "success":
-        clear_tts_audio_cache(body.translate_job_uuid)
-        logger.info("Re-render: cleared TTS audio cache for job={}", body.translate_job_uuid)
+        clear_render_cache(user_id, body.translate_job_uuid)
+        logger.info("Re-render: cleared render cache for job={}", body.translate_job_uuid)
 
     # Save scripts and render params for queue dispatch (used by dispatch_next)
-    save_job_file(body.translate_job_uuid, "render_scripts.json", json.dumps(body.scripts, ensure_ascii=False).encode())
-    save_job_file(body.translate_job_uuid, "queue_params.json", json.dumps({
+    save_job_file(user_id, body.translate_job_uuid, "render_scripts.json", json.dumps(body.scripts, ensure_ascii=False).encode())
+    save_job_file(user_id, body.translate_job_uuid, "queue_params.json", json.dumps({
         "dispatch_as": "render",
         "voice_id": body.voice_id,
         "speed": body.speed,

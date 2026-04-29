@@ -40,7 +40,7 @@ async def get_job_slide_images(job_uuid: str, current_user: dict = Depends(get_c
     pptx_bytes: bytes | None = None
     for filename in ("corrected.pptx", "translated.pptx"):
         try:
-            pptx_bytes = get_job_file(job_uuid, filename)
+            pptx_bytes = get_job_file(job["user_id"], job_uuid, filename)
             break
         except Exception:
             pass
@@ -75,7 +75,7 @@ async def download_pptx_file(translate_job_uuid: str, current_user: dict = Depen
     data: bytes | None = None
     for filename in ("corrected.pptx", "translated.pptx"):
         try:
-            data = get_job_file(translate_job_uuid, filename)
+            data = get_job_file(job["user_id"], translate_job_uuid, filename)
             break
         except Exception:
             pass

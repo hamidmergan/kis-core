@@ -15,6 +15,14 @@ from src.utils.heartbeat import job_heartbeat
 
 # -- Helpers ------------------------------------------------------------------
 
+def _resolve_user_id(job_uuid: str) -> int:
+    """Look up the owning user_id for a job (raises if the row vanished)."""
+    row = db.get_job(job_uuid)
+    if not row:
+        raise RuntimeError(f"Job {job_uuid} not found")
+    return row["user_id"]
+
+
 def _get_kisski_client():
     from src.services.kisski_client import KisskiClient
     from src.dependencies import _resolve_llm_provider
@@ -73,6 +81,7 @@ def run_translate(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        user_id = _resolve_user_id(job_uuid)
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
@@ -143,8 +152,8 @@ def run_translate(
             else:
                 raise ValueError(f"Unsupported format: {ext}")
 
-        result_path = save_result_file(job_uuid, ext, result_bytes)
-        save_result_and_evict(job_uuid, result_path, translated_filename)
+        result_path = save_result_file(user_id, job_uuid, ext, result_bytes)
+        save_result_and_evict(user_id, job_uuid, result_path, translated_filename)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Translate task {} completed: {}", job_uuid, translated_filename)
@@ -171,6 +180,7 @@ def run_transcribe(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        user_id = _resolve_user_id(job_uuid)
 
         from src.dependencies import resolve_whisper_client
         client = resolve_whisper_client()
@@ -189,8 +199,8 @@ def run_transcribe(
         else:
             output_name = f"{Path(filename).stem}{out_ext}"
 
-        result_path = save_result_file(job_uuid, out_ext, result_text.encode("utf-8"))
-        save_result_and_evict(job_uuid, result_path, output_name)
+        result_path = save_result_file(user_id, job_uuid, out_ext, result_text.encode("utf-8"))
+        save_result_and_evict(user_id, job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Transcribe task {} completed: {}", job_uuid, output_name)
@@ -213,6 +223,7 @@ def run_image_generate(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        user_id = _resolve_user_id(job_uuid)
 
         provider = _image_provider("gen")
         if provider == "mylab":
@@ -238,7 +249,7 @@ def run_image_generate(
         if len(images) == 1:
             img_bytes = base64.b64decode(images[0]["b64_json"])
             result_filename = f"image_{label}.png"
-            result_path = save_result_file(job_uuid, ".png", img_bytes)
+            result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
         else:
             images_data = [
                 {"b64_json": img["b64_json"], "filename": f"image_{label}_{i + 1}.png"}
@@ -246,8 +257,8 @@ def run_image_generate(
             ]
             result_json = json.dumps({"images": images_data})
             result_filename = f"images_{label}.json"
-            result_path = save_result_file(job_uuid, ".json", result_json.encode("utf-8"))
-        save_result_and_evict(job_uuid, result_path, result_filename)
+            result_path = save_result_file(user_id, job_uuid, ".json", result_json.encode("utf-8"))
+        save_result_and_evict(user_id, job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
         logger.info("Image generate task {} completed ({} images)", job_uuid, len(images))
 
@@ -269,6 +280,7 @@ def run_image_edit(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        user_id = _resolve_user_id(job_uuid)
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
@@ -325,8 +337,8 @@ def run_image_edit(
             img_bytes = base64.b64decode(b64)
 
         result_filename = f"{Path(filename).stem}.png"
-        result_path = save_result_file(job_uuid, ".png", img_bytes)
-        save_result_and_evict(job_uuid, result_path, result_filename)
+        result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
+        save_result_and_evict(user_id, job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image edit task {} completed", job_uuid)
@@ -352,6 +364,7 @@ def run_image_analyze(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        user_id = _resolve_user_id(job_uuid)
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
@@ -391,8 +404,8 @@ def run_image_analyze(
         text: str = resp_data["choices"][0]["message"]["content"]
 
         result_filename = f"{Path(filename).stem}.txt"
-        result_path = save_result_file(job_uuid, ".txt", text.encode("utf-8"))
-        save_result_and_evict(job_uuid, result_path, result_filename)
+        result_path = save_result_file(user_id, job_uuid, ".txt", text.encode("utf-8"))
+        save_result_and_evict(user_id, job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Image analyze task {} completed", job_uuid)
@@ -420,6 +433,7 @@ def run_summary(
 ):
     try:
         db.update_job_status(job_uuid, "running")
+        user_id = _resolve_user_id(job_uuid)
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
@@ -453,8 +467,8 @@ def run_summary(
 
         out_ext = _SUMMARY_OUTPUT_EXT[output_format]
         output_name = f"{Path(filename).stem}{out_ext}"
-        result_path = save_result_file(job_uuid, out_ext, summary.encode("utf-8"))
-        save_result_and_evict(job_uuid, result_path, output_name)
+        result_path = save_result_file(user_id, job_uuid, out_ext, summary.encode("utf-8"))
+        save_result_and_evict(user_id, job_uuid, result_path, output_name)
         db.update_job_status(job_uuid, "success")
         delete_file(input_path)
         logger.info("Summary task {} completed: {}", job_uuid, output_name)

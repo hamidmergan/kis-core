@@ -6,15 +6,25 @@ from io import BytesIO
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from src.features.jobs.repository import get_job
 from src.storage import get_all_audio_slides, get_audio_slide, get_audio_slide_count
 
 router = APIRouter(tags=["screencast: audio"])
 
 
+def _resolve_user_id(audio_id: str) -> int:
+    """Resolve the owning user_id for an audio_id (which is a job_uuid)."""
+    job = get_job(audio_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
+    return job["user_id"]
+
+
 @router.get("/screencast/audio/{audio_id}/zip")
 async def download_all_slide_audio_zip(audio_id: str):
     """Download all per-slide MP3s as a single ZIP archive."""
-    slides = get_all_audio_slides(audio_id)
+    user_id = _resolve_user_id(audio_id)
+    slides = get_all_audio_slides(user_id, audio_id)
     if not slides:
         raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
 
@@ -38,13 +48,14 @@ async def download_all_slide_audio_zip(audio_id: str):
 @router.get("/screencast/audio/{audio_id}/{slide_index}")
 async def download_slide_audio(audio_id: str, slide_index: int):
     """Download a single per-slide MP3 from the render audio cache (file-based)."""
-    count = get_audio_slide_count(audio_id)
+    user_id = _resolve_user_id(audio_id)
+    count = get_audio_slide_count(user_id, audio_id)
     if count == 0:
         raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
     if slide_index < 0 or slide_index >= count:
         raise HTTPException(status_code=404, detail=f"Folie {slide_index + 1} nicht gefunden")
 
-    audio_bytes = get_audio_slide(audio_id, slide_index)
+    audio_bytes = get_audio_slide(user_id, audio_id, slide_index)
     if audio_bytes is None:
         raise HTTPException(status_code=404, detail=f"Folie {slide_index + 1} nicht gefunden")
 

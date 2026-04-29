@@ -76,10 +76,10 @@ def _get_tts_client(provider: str = "elevenlabs"):
         return ElevenLabsClient(api_key)
 
 
-def _get_pptx_for_render(save_uuid: str) -> bytes:
+def _get_pptx_for_render(user_id: int, save_uuid: str) -> bytes:
     """Get PPTX for rendering: corrected version if available, else translated."""
     try:
-        return get_job_file(save_uuid, "corrected.pptx")
+        return get_job_file(user_id, save_uuid, "corrected.pptx")
     except Exception:
         pass
-    return get_job_file(save_uuid, "translated.pptx")
+    return get_job_file(user_id, save_uuid, "translated.pptx")

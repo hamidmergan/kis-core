@@ -23,7 +23,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
         from src.tasks.screencast_tasks._render import run_screencast_render
         from src.tasks.screencast_tasks._demo import run_screencast_demo_render
 
-        params = json.loads(get_job_file(job_uuid, "queue_params.json"))
+        params = json.loads(get_job_file(user_id, job_uuid, "queue_params.json"))
         dispatch_as = params.get("dispatch_as", "")
         if dispatch_as == "translate":
             task = run_screencast_translate.apply_async(args=[
@@ -32,7 +32,7 @@ def dispatch_next_screencast_job_for_user(user_id: int) -> None:
                 params["source_lang"], params["target_lang"],
             ])
         elif dispatch_as == "render":
-            scripts = json.loads(get_job_file(job_uuid, "render_scripts.json"))
+            scripts = json.loads(get_job_file(user_id, job_uuid, "render_scripts.json"))
             try:
                 import redis as _redis
                 _r = _redis.from_url(os.environ.get("REDIS_URL", "redis://kis-redis:6379/0"))

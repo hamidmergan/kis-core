@@ -7,7 +7,7 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 from src.limits import SCREENCAST_SOFT_TIME_LIMIT, SCREENCAST_TIME_LIMIT
-from src.storage import clear_tts_audio_cache, save_result_and_evict
+from src.storage import clear_render_cache, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 
 from src.tasks.screencast_tasks._pipeline import _run_render_pipeline
@@ -47,6 +47,10 @@ def run_screencast_render(
         db.update_job_status(translate_job_uuid, "running", progress={
             "step": "render", "voice_id": voice_id, "voice_label": voice_label, "provider": provider,
         })
+        job_row = db.get_job(translate_job_uuid)
+        if not job_row:
+            raise RuntimeError(f"Job {translate_job_uuid} not found")
+        user_id = job_row["user_id"]
         with job_heartbeat(translate_job_uuid):
             result = _run_render_pipeline(
                 job_uuid=translate_job_uuid,
@@ -61,9 +65,9 @@ def run_screencast_render(
 
         result_filename = f"{Path(original_filename).stem if original_filename else 'screencast'}.mp4"
         with job_heartbeat(translate_job_uuid):
-            save_result_and_evict(translate_job_uuid, result["result_path"], result_filename)
+            save_result_and_evict(user_id, translate_job_uuid, result["result_path"], result_filename)
         db.update_job_status(translate_job_uuid, "success")
-        clear_tts_audio_cache(translate_job_uuid)
+        clear_render_cache(user_id, translate_job_uuid)
 
         logger.info("Screencast render task {} completed", translate_job_uuid)
         _maybe_dispatch_next(translate_job_uuid)

@@ -147,7 +147,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 )
             """)
             cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS render_queued_at TIMESTAMP")
-            cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS username TEXT NOT NULL DEFAULT 'unknown'")
+            cur.execute("ALTER TABLE jobs DROP COLUMN IF EXISTS username")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
                     id         SERIAL PRIMARY KEY,

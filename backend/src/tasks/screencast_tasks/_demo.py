@@ -31,8 +31,13 @@ def run_screencast_demo_render(
 ):
     """Demo render: FFmpeg pipeline with pre-existing demo audio files."""
     try:
+        job_row = db.get_job(job_uuid)
+        if not job_row:
+            raise RuntimeError(f"Job {job_uuid} not found")
+        user_id = job_row["user_id"]
+
         # Save params for crash recovery (retry button)
-        save_job_file(job_uuid, "demo_params.json", json.dumps({"dpi": dpi}).encode())
+        save_job_file(user_id, job_uuid, "demo_params.json", json.dumps({"dpi": dpi}).encode())
 
         db.update_job_status(job_uuid, "running", progress={"step": "images"})
 
@@ -59,7 +64,7 @@ def run_screencast_demo_render(
         else:
             pptx_data_job = None
             try:
-                pptx_data_job = _get_pptx_for_render(job_uuid)
+                pptx_data_job = _get_pptx_for_render(user_id, job_uuid)
             except Exception:
                 pass
             if pptx_data_job is not None:
@@ -131,17 +136,17 @@ def run_screencast_demo_render(
             output_bytes = _apply_faststart(concat_path, final_path)
 
             audio_bytes_list = [ap.read_bytes() for ap in audio_paths[:num_slides]]
-            save_audio_cache(job_uuid, audio_bytes_list)
+            save_audio_cache(user_id, job_uuid, audio_bytes_list)
 
-            result_path = save_result_file(job_uuid, ".mp4", output_bytes)
+            result_path = save_result_file(user_id, job_uuid, ".mp4", output_bytes)
 
             meta = {
                 "audio_id": job_uuid,
                 "audio_count": num_slides,
             }
-            save_result_meta(job_uuid, meta)
+            save_result_meta(user_id, job_uuid, meta)
 
-        save_result_and_evict(job_uuid, result_path, "demo_screencast.mp4")
+        save_result_and_evict(user_id, job_uuid, result_path, "demo_screencast.mp4")
         db.update_job_status(job_uuid, "success")
 
         logger.info("Demo render task {} completed", job_uuid)

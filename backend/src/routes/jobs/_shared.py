@@ -104,7 +104,7 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
 
         meta = None
         if job["status"] == "success" and tool in _META_TOOLS:
-            meta = load_result_meta(job["job_uuid"])
+            meta = load_result_meta(job["user_id"], job["job_uuid"])
 
         result.append({
             "job_uuid": job["job_uuid"],

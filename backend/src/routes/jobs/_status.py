@@ -57,7 +57,7 @@ async def get_job_status(
             response["download_url"] = f"/jobs/{job_uuid}/download"
 
             # For render jobs: load subtitle + audio metadata
-            meta = load_result_meta(job_uuid)
+            meta = load_result_meta(job["user_id"], job_uuid)
             if meta is not None:
                 response["meta"] = meta
 

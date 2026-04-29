@@ -12,17 +12,16 @@ def create_job(
     tool: str,
     original_filename: str,
     input_path: str | None = None,
-    username: str = "unknown",
 ) -> None:
     expires_at = datetime.now(timezone.utc) + timedelta(hours=JOB_RETENTION_HOURS)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, expires_at, username)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, expires_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (job_uuid, user_id, tool, original_filename, input_path, expires_at, username),
+                (job_uuid, user_id, tool, original_filename, input_path, expires_at),
             )
         conn.commit()
 
@@ -57,11 +56,11 @@ def get_job(job_uuid: str):
 
 
 def delete_job(job_uuid: str) -> dict | None:
-    """Delete a job record and return its file paths for cleanup."""
+    """Delete a job record and return its user_id + file paths for cleanup."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT input_path, result_path, celery_task_id FROM jobs WHERE job_uuid = %s",
+                "SELECT user_id, input_path, result_path, celery_task_id FROM jobs WHERE job_uuid = %s",
                 (job_uuid,),
             )
             row = cur.fetchone()
@@ -135,9 +134,8 @@ def update_job_result(
 ) -> list[str]:
     """Save job result. Returns job_uuids that exceed MAX_RESULT_FILES and must be evicted.
 
-    Callers must delete each returned UUID from storage BEFORE calling delete_job()
-    so that _job_folder_name() can still resolve the folder name from the DB.
-    Use storage.save_result_and_evict() which handles this automatically.
+    Use storage.save_result_and_evict() which fetches user_id via delete_job() before
+    deleting the storage folder.
     """
     from ._queries import get_all_results_for_user  # avoid circular import
 

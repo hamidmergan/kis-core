@@ -24,7 +24,7 @@ from src.limits import (
     KIA_MODULE_MAX_ACCESS_LINKS,
     KIA_NOTES_MAX_PER_USER,
 )
-from src.storage import USE_S3, delete_file, file_exists, get_file, save_file
+from src.storage import USE_S3, delete_file, file_exists, get_file
 from src.tool_prompts import (
     KIA_SYSTEM_DIRECT,
     KIA_SYSTEM_DIRECT_WITH_CONTEXT,

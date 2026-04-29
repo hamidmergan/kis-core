@@ -19,11 +19,11 @@ _SCRIPT_FILES = (
 )
 
 
-def _load_scripts_from_job(translate_job_uuid: str) -> tuple[list[str], str | None]:
+def _load_scripts_from_job(user_id: int, translate_job_uuid: str) -> tuple[list[str], str | None]:
     """Return (scripts, step) from the first existing script file."""
     for filename, resolved_step in _SCRIPT_FILES:
         try:
-            scripts = json.loads(get_job_file(translate_job_uuid, filename))
+            scripts = json.loads(get_job_file(user_id, translate_job_uuid, filename))
             return scripts, resolved_step
         except Exception:
             continue
@@ -54,26 +54,27 @@ async def get_resume_data(translate_job_uuid: str, current_user: dict = Depends(
         raise HTTPException(status_code=409, detail="Job ist nicht im Eingabe-Status")
 
     tool = job["tool"]
+    user_id = job["user_id"]
     slide_texts: list[str] = []
 
     try:
-        user_prompt = get_job_file(translate_job_uuid, "prompt.txt").decode()
+        user_prompt = get_job_file(user_id, translate_job_uuid, "prompt.txt").decode()
     except Exception:
         user_prompt = ""
 
     if tool == "screencast_translate":
         try:
-            slide_texts = json.loads(get_job_file(translate_job_uuid, "scripts.txt"))
+            slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
         except Exception:
             raise HTTPException(status_code=404, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
     elif tool == "screencast_demo_render":
         try:
-            slide_texts = json.loads(get_job_file(translate_job_uuid, "scripts.txt"))
+            slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
         except Exception:
             pass
 
     slide_images = _load_slide_images(job.get("result_path"))
-    scripts, resolved_step = _load_scripts_from_job(translate_job_uuid)
+    scripts, resolved_step = _load_scripts_from_job(user_id, translate_job_uuid)
 
     if scripts:
         step = resolved_step
@@ -100,7 +101,7 @@ async def check_folder_exists(translate_job_uuid: str, current_user: dict = Depe
     if not job or job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=404, detail="Job nicht gefunden")
     try:
-        get_job_file(translate_job_uuid, "scripts.txt")
+        get_job_file(job["user_id"], translate_job_uuid, "scripts.txt")
         return {"exists": True}
     except Exception:
         return {"exists": False}

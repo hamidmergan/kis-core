@@ -40,14 +40,14 @@ async def retry_job(
 
     elif job["tool"] in ("screencast_translate", "screencast_render"):
         try:
-            render_params = json.loads(get_job_file(job_uuid, "render_params.json"))
-            scripts = json.loads(get_job_file(job_uuid, "render_scripts.json"))
+            render_params = json.loads(get_job_file(job["user_id"], job_uuid, "render_params.json"))
+            scripts = json.loads(get_job_file(job["user_id"], job_uuid, "render_scripts.json"))
         except Exception:
             raise HTTPException(status_code=400, detail="Render-Parameter nicht mehr vorhanden — bitte neuen Screencast starten")
 
     else:  # screencast_demo_render
         try:
-            demo_params = json.loads(get_job_file(job_uuid, "demo_params.json"))
+            demo_params = json.loads(get_job_file(job["user_id"], job_uuid, "demo_params.json"))
         except Exception:
             raise HTTPException(status_code=400, detail="Demo-Parameter nicht mehr vorhanden (abgelaufen)")
 
@@ -78,7 +78,7 @@ async def retry_job(
         db.set_job_celery_task_id(job_uuid, task.id)
 
     elif job["tool"] in ("screencast_translate", "screencast_render"):
-        save_job_file(job_uuid, "queue_params.json", json.dumps({
+        save_job_file(job["user_id"], job_uuid, "queue_params.json", json.dumps({
             "dispatch_as": "render",
             "voice_id": render_params["voice_id"],
             "speed": render_params["speed"],
@@ -94,7 +94,7 @@ async def retry_job(
         dispatch_next_screencast_job_for_user(job["user_id"])
 
     else:  # screencast_demo_render
-        save_job_file(job_uuid, "queue_params.json", json.dumps({
+        save_job_file(job["user_id"], job_uuid, "queue_params.json", json.dumps({
             "dispatch_as": "demo_render",
             "dpi": demo_params["dpi"],
         }).encode())

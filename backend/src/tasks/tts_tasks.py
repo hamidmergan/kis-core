@@ -51,6 +51,10 @@ def run_tts(
             "pause_preset": pause_preset, "provider": provider,
         }
         db.update_job_status(job_uuid, "running", progress={"step": "extract", "tts_params": tts_params})
+        job_row = db.get_job(job_uuid)
+        if not job_row:
+            raise RuntimeError(f"Job {job_uuid} not found")
+        user_id = job_row["user_id"]
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
@@ -106,7 +110,7 @@ def run_tts(
 
             # Resume: skip chunks already synthesized in a previous (crashed) run
             try:
-                existing = get_job_file(job_uuid, chunk_filename)
+                existing = get_job_file(user_id, job_uuid, chunk_filename)
                 audio_parts.append(existing)
                 prev_text = chunk
                 logger.info("TTS {}: chunk {}/{} already saved, skipping", job_uuid, i + 1, n)
@@ -128,14 +132,14 @@ def run_tts(
                     previous_text=prev_text,
                 )
 
-            save_job_file(job_uuid, chunk_filename, mp3)
+            save_job_file(user_id, job_uuid, chunk_filename, mp3)
             audio_parts.append(mp3)
             prev_text = chunk
 
         # Combine all chunks and save final result
-        result_path = save_result_file(job_uuid, ".mp3", b"".join(audio_parts))
+        result_path = save_result_file(user_id, job_uuid, ".mp3", b"".join(audio_parts))
         result_filename = f"{Path(filename).stem}.mp3"
-        save_result_and_evict(job_uuid, result_path, result_filename)
+        save_result_and_evict(user_id, job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
 
         delete_file(input_path)

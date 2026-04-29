@@ -64,11 +64,11 @@ async def screencast_translate(
 
     job_uuid = uuid.uuid4().hex
     filename = file.filename or "screencast.pptx"
-    db.create_job(job_uuid, user_id, "screencast_translate", filename, username=current_user.get("username", "unknown"))
-    input_path = save_queue_file(job_uuid, ".pptx", pptx_bytes)
+    db.create_job(job_uuid, user_id, "screencast_translate", filename)
+    input_path = save_queue_file(user_id, job_uuid, ".pptx", pptx_bytes)
     db.set_job_input_path(job_uuid, input_path)
 
-    save_job_file(job_uuid, "queue_params.json", json.dumps({
+    save_job_file(user_id, job_uuid, "queue_params.json", json.dumps({
         "dispatch_as": "translate",
         "input_path": input_path,
         "filename": filename,
@@ -175,16 +175,16 @@ async def screencast_upload_corrected(
 
     if translate_job_uuid:
         # Existing job: save as corrected.pptx (user re-uploaded after translation)
-        save_job_file(translate_job_uuid, "corrected.pptx", pptx_bytes)
+        save_job_file(job["user_id"], translate_job_uuid, "corrected.pptx", pptx_bytes)
         logger.info("Saved corrected.pptx to job folder {}", translate_job_uuid)
     else:
         # No job yet (EN path): create a new translate job and save PPTX as translated.pptx
         user_id = current_user.get("user_id", 0)
         _enforce_queue_and_quota(user_id, current_user)
         translate_job_uuid = uuid.uuid4().hex
-        db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", username=current_user.get("username", "unknown"))
-        save_job_file(translate_job_uuid, "translated.pptx", pptx_bytes)
-        save_job_file(translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
+        db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
+        save_job_file(user_id, translate_job_uuid, "translated.pptx", pptx_bytes)
+        save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
         db.update_job_status(translate_job_uuid, "awaiting_user")
         db.update_job_expiry(translate_job_uuid, 168)
         logger.info("Created translate job {} for EN upload ({})", translate_job_uuid, file.filename)

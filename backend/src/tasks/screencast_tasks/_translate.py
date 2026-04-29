@@ -34,11 +34,15 @@ def run_screencast_translate(
     """Translate PPTX DE→EN, extract slide texts, save artifacts, set awaiting_user."""
     try:
         db.update_job_status(job_uuid, "running", progress={"step": "translate"})
+        job_row = db.get_job(job_uuid)
+        if not job_row:
+            raise RuntimeError(f"Job {job_uuid} not found")
+        user_id = job_row["user_id"]
 
         pptx_bytes = get_file(input_path)
 
         # Save original DE PPTX immediately
-        save_job_file(job_uuid, "original.pptx", pptx_bytes)
+        save_job_file(user_id, job_uuid, "original.pptx", pptx_bytes)
 
         from src.routes.translate import translate_pptx_content
         translated_bytes = translate_pptx_content(
@@ -58,8 +62,8 @@ def run_screencast_translate(
             raise ValueError("Keine Slides in der Präsentation gefunden")
 
         # Save translated PPTX + scripts to job folder immediately
-        save_job_file(job_uuid, "translated.pptx", translated_bytes)
-        save_job_file(job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
+        save_job_file(user_id, job_uuid, "translated.pptx", translated_bytes)
+        save_job_file(user_id, job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
 
         db.update_job_status(job_uuid, "running", progress={"step": "images"})
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -78,8 +82,8 @@ def run_screencast_translate(
             "slide_images": slide_images_b64,
         }
 
-        result_path = save_result_json(job_uuid, result)
-        save_result_and_evict(job_uuid, result_path, f"{Path(filename).stem}_translate.json")
+        result_path = save_result_json(user_id, job_uuid, result)
+        save_result_and_evict(user_id, job_uuid, result_path, f"{Path(filename).stem}_translate.json")
 
         # awaiting_user: user must review scripts before render starts
         db.update_job_status(job_uuid, "awaiting_user")

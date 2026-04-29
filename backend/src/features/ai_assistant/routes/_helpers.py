@@ -162,17 +162,18 @@ def _require_own_module(module_uuid: str, user_id: int) -> dict:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
     return module
 
-def _save_source_file(username: str, module_uuid: str, source_uuid: str, ext: str, data: bytes) -> str:
-    key = f"kia/{username}/{module_uuid}/sources/{source_uuid}{ext}"
+def _save_source_file(user_id: int, module_uuid: str, source_uuid: str, ext: str, data: bytes) -> str:
+    from src.storage import aia_source_key
+    key = aia_source_key(user_id, module_uuid, source_uuid, ext)
     if USE_S3:
         from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
         return key
     from src.storage import STORAGE_ROOT
-    dest = STORAGE_ROOT / "kia" / username / module_uuid / "sources"
-    dest.mkdir(parents=True, exist_ok=True)
-    (dest / f"{source_uuid}{ext}").write_bytes(data)
-    return str(dest / f"{source_uuid}{ext}")
+    dest = STORAGE_ROOT / key
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(data)
+    return str(dest)
 
 def _delete_source_files_for_module(module: dict) -> None:
     sources = db.get_aia_sources_by_module(module["id"])

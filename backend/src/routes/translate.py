@@ -138,8 +138,8 @@ async def translate(
     enforce_tool_burst(user_id, "translate")
     enforce_quota(user_id, "translate", is_admin_user(current_user))
 
-    db.create_job(job_uuid, user_id, "translation", file.filename, username=current_user.get("username", "unknown"))
-    input_path = save_queue_file(job_uuid, ext, content)
+    db.create_job(job_uuid, user_id, "translation", file.filename)
+    input_path = save_queue_file(user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 
     from src.tasks.general_tasks import run_translate

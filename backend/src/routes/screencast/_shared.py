@@ -11,6 +11,7 @@ from loguru import logger
 
 from src.dependencies import get_deepl_client
 from src.services.glossary import GlossaryService
+from src.features.jobs.repository import get_job
 from src.services.screencast import IMAGE_TMP_DIR, pptx_to_images
 from src.services.translation import TranslationService
 from src.storage import get_job_file
@@ -61,11 +62,17 @@ async def prerender_images_task(translate_job_uuid: str) -> None:
     out_dir = IMAGE_TMP_DIR / translate_job_uuid
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    job = get_job(translate_job_uuid)
+    if job is None:
+        logger.warning("Pre-render: job not found for job={}", translate_job_uuid)
+        return
+    user_id = job["user_id"]
+
     # Read PPTX from job folder (corrected if available, else translated)
     pptx_data: bytes | None = None
     for filename in ("corrected.pptx", "translated.pptx"):
         try:
-            pptx_data = get_job_file(translate_job_uuid, filename)
+            pptx_data = get_job_file(user_id, translate_job_uuid, filename)
             break
         except Exception:
             pass

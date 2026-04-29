@@ -60,8 +60,7 @@ async def upload_source(
         )
 
     source_uuid = uuid.uuid4().hex
-    username = current_user.get("username", "unknown")
-    file_path = _save_source_file(username, module_uuid, source_uuid, ext, data)
+    file_path = _save_source_file(current_user["user_id"], module_uuid, source_uuid, ext, data)
     file_type = ext.lstrip(".")
 
     db.create_aia_source(

@@ -14,7 +14,6 @@ from src import database as db
 from src.dependencies import get_current_user
 from src.limits import BUNDLE_INCLUDE_AUDIO
 from src.storage import (
-    _job_folder_name,
     get_file,
     get_job_file,
     job_file_exists,
@@ -108,11 +107,10 @@ async def download_job_pptx(
     if not job:
         raise HTTPException(status_code=404, detail="Job nicht gefunden")
 
-    # Use get_job_file so the folder name (YYYY-MM-DD_HH-MM-SS_{uuid}) is resolved
-    # correctly from the DB — works for both screencast_translate (has result_path)
+    # Works for both screencast_translate (has result_path)
     # and screencast_demo_render (result_path is NULL, but translated.pptx is in folder).
     try:
-        data = get_job_file(job_uuid, "translated.pptx")
+        data = get_job_file(job["user_id"], job_uuid, "translated.pptx")
     except Exception as e:
         logger.error("PPTX download failed for job {}: {}", job_uuid, e)
         raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
@@ -155,7 +153,7 @@ class _ZipStreamWriter:
         pass
 
 
-def _streaming_zip_bundle(job_uuid: str, folder_name: str, audio_count: int):
+def _streaming_zip_bundle(user_id: int, job_uuid: str, folder_name: str, audio_count: int):
     """Generator that yields ZIP data file-by-file without buffering everything first."""
     stream = _ZipStreamWriter()
     zf = zipfile.ZipFile(stream, mode="w", compression=zipfile.ZIP_STORED)
@@ -170,7 +168,7 @@ def _streaming_zip_bundle(job_uuid: str, folder_name: str, audio_count: int):
 
     # MP4
     try:
-        mp4_data = get_job_file(job_uuid, "output.mp4")
+        mp4_data = get_job_file(user_id, job_uuid, "output.mp4")
         yield _add_and_yield(f"{folder_name}.mp4", mp4_data)
         del mp4_data
     except Exception:
@@ -180,15 +178,15 @@ def _streaming_zip_bundle(job_uuid: str, folder_name: str, audio_count: int):
     if BUNDLE_INCLUDE_AUDIO:
         for i in range(audio_count):
             try:
-                audio_data = get_job_file(job_uuid, f"audio/slide_{i:03d}.mp3")
+                audio_data = get_job_file(user_id, job_uuid, f"audio/slide_{i:03d}.mp3")
                 yield _add_and_yield(f"Audios/slide_{i + 1:03d}.mp3", audio_data)
             except Exception:
                 pass
 
     # PPTX
-    pptx_name = "corrected.pptx" if job_file_exists(job_uuid, "corrected.pptx") else "translated.pptx"
+    pptx_name = "corrected.pptx" if job_file_exists(user_id, job_uuid, "corrected.pptx") else "translated.pptx"
     try:
-        pptx_data = get_job_file(job_uuid, pptx_name)
+        pptx_data = get_job_file(user_id, job_uuid, pptx_name)
         yield _add_and_yield(f"{folder_name}.pptx", pptx_data)
     except Exception:
         pass
@@ -196,7 +194,7 @@ def _streaming_zip_bundle(job_uuid: str, folder_name: str, audio_count: int):
     # Script
     for script_file in ("accepted_scripts.json", "user_scripts.json", "scripts.txt"):
         try:
-            script_data = get_job_file(job_uuid, script_file)
+            script_data = get_job_file(user_id, job_uuid, script_file)
             yield _add_and_yield(script_file, script_data)
             break
         except Exception:
@@ -222,13 +220,15 @@ async def download_job_bundle(
     if job.get("user_id") != current_user.get("user_id"):
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
-    folder_name = _job_folder_name(job_uuid)
-    meta = load_result_meta(job_uuid) or {}
+    user_id = job["user_id"]
+    original = job.get("original_filename") or "bundle"
+    folder_name = f"{Path(original).stem}_{job_uuid[:8]}"
+    meta = load_result_meta(user_id, job_uuid) or {}
     audio_count = int(meta.get("audio_count", 0))
     zip_filename = f"{folder_name}.zip"
 
     return StreamingResponse(
-        _streaming_zip_bundle(job_uuid, folder_name, audio_count),
+        _streaming_zip_bundle(user_id, job_uuid, folder_name, audio_count),
         media_type="application/zip",
         headers={
             "Content-Disposition": f'attachment; filename="{zip_filename}"',

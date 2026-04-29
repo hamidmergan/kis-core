@@ -1,8 +1,8 @@
 import json
+import logging
 import os
 import shutil
 import tempfile
-import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -23,6 +23,99 @@ _S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "")
 _S3_PUBLIC_ENDPOINT = os.environ.get("S3_PUBLIC_ENDPOINT", "") or _S3_ENDPOINT
 _S3_BUCKET = os.environ.get("S3_BUCKET", "kis")
 USE_S3 = bool(_S3_ENDPOINT)
+
+
+# --- Object-key prefix helpers (pure, no DB) ---
+
+TMP_PPTX_PREFIX = "tmp/pptx"
+
+
+def job_prefix(user_id: int, job_uuid: str) -> str:
+    """S3 prefix for a job: 'users/{user_id}/jobs/{job_uuid}'. No trailing slash."""
+    return f"users/{user_id}/jobs/{job_uuid}"
+
+
+def aia_module_prefix(user_id: int, module_uuid: str) -> str:
+    """S3 prefix for an AIA module: 'users/{user_id}/aia/modules/{module_uuid}'. No trailing slash."""
+    return f"users/{user_id}/aia/modules/{module_uuid}"
+
+
+def aia_source_key(user_id: int, module_uuid: str, source_uuid: str, ext: str) -> str:
+    """S3 key for an AIA source file. ext must include the leading dot (or be empty)."""
+    return f"{aia_module_prefix(user_id, module_uuid)}/sources/{source_uuid}{ext}"
+
+
+def aia_output_key(user_id: int, module_uuid: str, filename: str) -> str:
+    """S3 key for an AIA module output file."""
+    return f"{aia_module_prefix(user_id, module_uuid)}/outputs/{filename}"
+
+
+def tmp_pptx_key(file_id: str) -> str:
+    """S3 key for a temporary PPTX (translate -> render handoff). Lifecycle: 24h."""
+    return f"{TMP_PPTX_PREFIX}/{file_id}.pptx"
+
+
+def delete_prefix(prefix: str) -> int:
+    """Delete every object under a prefix. Batches via delete_objects (1000 keys/call).
+
+    Returns the number of objects deleted. For local mode: shutil.rmtree on the
+    matching directory under STORAGE_ROOT.
+    """
+    if USE_S3:
+        deleted = 0
+        paginator = _s3().get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=_S3_BUCKET, Prefix=prefix):
+            contents = page.get("Contents", [])
+            if not contents:
+                continue
+            # delete_objects accepts up to 1000 keys per call; pages are already <=1000
+            _s3().delete_objects(
+                Bucket=_S3_BUCKET,
+                Delete={"Objects": [{"Key": obj["Key"]} for obj in contents], "Quiet": True},
+            )
+            deleted += len(contents)
+        return deleted
+    # Local mode: prefix maps to a directory under STORAGE_ROOT
+    target = STORAGE_ROOT / prefix
+    if target.exists():
+        count = sum(1 for _ in target.rglob("*") if _.is_file())
+        shutil.rmtree(target, ignore_errors=True)
+        return count
+    return 0
+
+
+def _local_path(key: str) -> Path:
+    """Map an S3 key to a local filesystem path under STORAGE_ROOT."""
+    return STORAGE_ROOT / key
+
+
+def init_lifecycle_policy() -> None:
+    """Configure MinIO lifecycle: tmp/ objects expire after 1 day.
+
+    Logged-and-swallowed if the service user lacks s3:PutLifecycleConfiguration;
+    cleanup falls back to manual code paths in that case.
+    """
+    if not USE_S3:
+        return
+    from botocore.exceptions import ClientError
+    try:
+        _s3().put_bucket_lifecycle_configuration(
+            Bucket=_S3_BUCKET,
+            LifecycleConfiguration={
+                "Rules": [
+                    {
+                        "ID": "tmp-expire-1d",
+                        "Filter": {"Prefix": "tmp/"},
+                        "Expiration": {"Days": 1},
+                        "Status": "Enabled",
+                    }
+                ]
+            },
+        )
+    except ClientError as e:
+        logging.getLogger(__name__).warning(
+            "Could not set bucket lifecycle policy (continuing without): %s", e
+        )
 
 
 def _make_s3_client(endpoint: str):
@@ -49,31 +142,19 @@ def _s3_public():
 
 
 def init_storage() -> None:
-    """Ensure storage is ready. For S3: create bucket if missing. For local: create dirs."""
+    """Ensure storage is ready. For S3: create bucket + lifecycle. For local: create dirs."""
     if USE_S3:
         from botocore.exceptions import ClientError
         try:
             _s3().head_bucket(Bucket=_S3_BUCKET)
         except ClientError:
             _s3().create_bucket(Bucket=_S3_BUCKET)
+        init_lifecycle_policy()
     else:
         JOBS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # --- Generic file operations ---
-
-def save_file(user_id: int, filename: str, data: bytes) -> str:
-    stored_filename = f"{uuid.uuid4()}_{filename}"
-    if USE_S3:
-        key = f"users/{user_id}/{stored_filename}"
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
-        return key
-    dest_dir = STORAGE_ROOT / str(user_id)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    file_path = dest_dir / stored_filename
-    file_path.write_bytes(data)
-    return str(file_path)
-
 
 def get_file(file_path: str) -> bytes:
     if USE_S3:
@@ -142,9 +223,9 @@ def file_exists(file_path: str) -> bool:
     return Path(file_path).exists()
 
 
-def job_file_exists(job_uuid: str, filename: str) -> bool:
+def job_file_exists(user_id: int, job_uuid: str, filename: str) -> bool:
     """Check whether a specific file inside a job's folder still exists."""
-    return file_exists(_job_key(job_uuid, filename))
+    return file_exists(f"{job_prefix(user_id, job_uuid)}/{filename}")
 
 
 def delete_file(file_path: str) -> None:
@@ -158,114 +239,80 @@ def delete_file(file_path: str) -> None:
 
 # --- Job folder helpers ---
 #
-# Layout:
-#   jobs/YYYY-MM-DD_HH-MM-SS_{uuid}/input{ext}
-#   jobs/YYYY-MM-DD_HH-MM-SS_{uuid}/output{ext}
-#   jobs/YYYY-MM-DD_HH-MM-SS_{uuid}/result.json
-#   jobs/YYYY-MM-DD_HH-MM-SS_{uuid}/meta.json
-#   jobs/YYYY-MM-DD_HH-MM-SS_{uuid}/audio/slide_000.mp3
-
-def _job_folder_name(job_uuid: str) -> str:
-    """Return the structured folder path for a job: '{username}/{tool}/{YYYY-MM-DD_HH-MM-SS}_{uuid}'."""
-    import psycopg2.extras
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT created_at, username, tool FROM jobs WHERE job_uuid = %s", (job_uuid,))
-            row = cur.fetchone()
-    if row and row["created_at"]:
-        ts = row["created_at"]
-        iso = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
-        date_part = iso[:10]
-        time_part = iso[11:19].replace(":", "-")
-        username = row.get("username") or "unknown"
-        tool = row.get("tool") or "misc"
-        return f"{username}/{tool}/{date_part}_{time_part}_{job_uuid}"
-    return f"unknown/misc/{job_uuid}"  # fallback if job not yet in DB
-
-
-def _job_key(job_uuid: str, filename: str) -> str:
-    """S3 key for a file inside a job's folder."""
-    return f"jobs/{_job_folder_name(job_uuid)}/{filename}"
-
-
-def _job_dir(job_uuid: str) -> Path:
-    """Local filesystem directory for a job."""
-    return JOBS_DIR / _job_folder_name(job_uuid)
-
+# Layout: users/{user_id}/jobs/{job_uuid}/...
+#   input{ext}, output{ext}, result.json, meta.json, audio/slide_000.mp3, ...
 
 # --- Job file I/O ---
 
-def save_queue_file(job_uuid: str, ext: str, data: bytes) -> str:
-    key = _job_key(job_uuid, f"input{ext}")
+def save_queue_file(user_id: int, job_uuid: str, ext: str, data: bytes) -> str:
+    key = f"{job_prefix(user_id, job_uuid)}/input{ext}"
     if USE_S3:
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
         return key
-    job_dir = _job_dir(job_uuid)
-    job_dir.mkdir(parents=True, exist_ok=True)
-    path = job_dir / f"input{ext}"
+    path = _local_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return str(path)
 
 
-def save_job_file(job_uuid: str, filename: str, data: bytes) -> str:
+def save_job_file(user_id: int, job_uuid: str, filename: str, data: bytes) -> str:
     """Save an arbitrary named file into the job's folder."""
-    key = _job_key(job_uuid, filename)
+    key = f"{job_prefix(user_id, job_uuid)}/{filename}"
     if USE_S3:
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
         return key
-    job_dir = _job_dir(job_uuid)
-    job_dir.mkdir(parents=True, exist_ok=True)
-    (job_dir / filename).write_bytes(data)
-    return str(job_dir / filename)
-
-
-def get_job_file(job_uuid: str, filename: str) -> bytes:
-    """Read an arbitrary named file from a job's folder."""
-    if USE_S3:
-        return get_file(_job_key(job_uuid, filename))
-    return (_job_dir(job_uuid) / filename).read_bytes()
-
-
-def save_result_file(job_uuid: str, ext: str, data: bytes) -> str:
-    key = _job_key(job_uuid, f"output{ext}")
-    if USE_S3:
-        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
-        return key
-    job_dir = _job_dir(job_uuid)
-    job_dir.mkdir(parents=True, exist_ok=True)
-    path = job_dir / f"output{ext}"
+    path = _local_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return str(path)
 
 
-def save_result_json(job_uuid: str, data: dict) -> str:
+def get_job_file(user_id: int, job_uuid: str, filename: str) -> bytes:
+    """Read an arbitrary named file from a job's folder."""
+    key = f"{job_prefix(user_id, job_uuid)}/{filename}"
+    if USE_S3:
+        return get_file(key)
+    return _local_path(key).read_bytes()
+
+
+def save_result_file(user_id: int, job_uuid: str, ext: str, data: bytes) -> str:
+    key = f"{job_prefix(user_id, job_uuid)}/output{ext}"
+    if USE_S3:
+        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
+        return key
+    path = _local_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return str(path)
+
+
+def save_result_json(user_id: int, job_uuid: str, data: dict) -> str:
     content = json.dumps(data).encode()
-    key = _job_key(job_uuid, "result.json")
+    key = f"{job_prefix(user_id, job_uuid)}/result.json"
     if USE_S3:
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=content)
         return key
-    job_dir = _job_dir(job_uuid)
-    job_dir.mkdir(parents=True, exist_ok=True)
-    path = job_dir / "result.json"
+    path = _local_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
     return str(path)
 
 
-def save_result_meta(job_uuid: str, data: dict) -> None:
+def save_result_meta(user_id: int, job_uuid: str, data: dict) -> None:
     """Save a meta.json file for a job (subtitles, audio info, etc.)."""
     content = json.dumps(data).encode()
-    key = _job_key(job_uuid, "meta.json")
+    key = f"{job_prefix(user_id, job_uuid)}/meta.json"
     if USE_S3:
         _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=content)
         return
-    job_dir = _job_dir(job_uuid)
-    job_dir.mkdir(parents=True, exist_ok=True)
-    (job_dir / "meta.json").write_bytes(content)
+    path = _local_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
 
 
-def load_result_meta(job_uuid: str) -> dict | None:
+def load_result_meta(user_id: int, job_uuid: str) -> dict | None:
     """Load the meta.json for a job. Returns None if not found."""
-    key = _job_key(job_uuid, "meta.json")
+    key = f"{job_prefix(user_id, job_uuid)}/meta.json"
     if USE_S3:
         from botocore.exceptions import ClientError
         try:
@@ -273,7 +320,7 @@ def load_result_meta(job_uuid: str) -> dict | None:
             return json.loads(resp["Body"].read())
         except ClientError:
             return None
-    meta_path = _job_dir(job_uuid) / "meta.json"
+    meta_path = _local_path(key)
     if not meta_path.exists():
         return None
     return json.loads(meta_path.read_text(encoding="utf-8"))
@@ -306,53 +353,59 @@ def load_result_json(result_path: str) -> dict:
 
 # --- Per-slide audio cache ---
 
-def save_audio_cache(job_uuid: str, audio_files: list[bytes]) -> None:
-    """Save per-slide MP3 files under the job's folder."""
+def save_audio_cache(user_id: int, job_uuid: str, audio_files: list[bytes]) -> None:
+    """Save per-slide MP3 files under the job's audio/ folder. S3 writes parallel."""
+    base = f"{job_prefix(user_id, job_uuid)}/audio"
     if USE_S3:
-        for i, data in enumerate(audio_files):
-            key = _job_key(job_uuid, f"audio/slide_{i:03d}.mp3")
-            _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _put(i_data: tuple[int, bytes]) -> None:
+            i, data = i_data
+            _s3().put_object(Bucket=_S3_BUCKET, Key=f"{base}/slide_{i:03d}.mp3", Body=data)
+
+        if not audio_files:
+            return
+        with ThreadPoolExecutor(max_workers=min(len(audio_files), 10)) as pool:
+            list(pool.map(_put, enumerate(audio_files)))
         return
-    audio_dir = _job_dir(job_uuid) / "audio"
+    audio_dir = _local_path(base)
     audio_dir.mkdir(parents=True, exist_ok=True)
     for i, data in enumerate(audio_files):
         (audio_dir / f"slide_{i:03d}.mp3").write_bytes(data)
 
 
-def get_audio_slide(job_uuid: str, slide_index: int) -> bytes | None:
+def get_audio_slide(user_id: int, job_uuid: str, slide_index: int) -> bytes | None:
+    key = f"{job_prefix(user_id, job_uuid)}/audio/slide_{slide_index:03d}.mp3"
     if USE_S3:
         from botocore.exceptions import ClientError
-        key = _job_key(job_uuid, f"audio/slide_{slide_index:03d}.mp3")
         try:
             resp = _s3().get_object(Bucket=_S3_BUCKET, Key=key)
             return resp["Body"].read()
         except ClientError:
             return None
-    path = _job_dir(job_uuid) / "audio" / f"slide_{slide_index:03d}.mp3"
-    if path.exists():
-        return path.read_bytes()
-    return None
+    path = _local_path(key)
+    return path.read_bytes() if path.exists() else None
 
 
-def get_audio_slide_count(job_uuid: str) -> int:
+def get_audio_slide_count(user_id: int, job_uuid: str) -> int:
+    prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
     if USE_S3:
-        prefix = _job_key(job_uuid, "audio/")
         resp = _s3().list_objects_v2(Bucket=_S3_BUCKET, Prefix=prefix)
         return resp.get("KeyCount", 0)
-    audio_dir = _job_dir(job_uuid) / "audio"
+    audio_dir = _local_path(prefix)
     if not audio_dir.exists():
         return 0
     return len(list(audio_dir.glob("slide_*.mp3")))
 
 
-def get_all_audio_slides(job_uuid: str) -> list[tuple[str, bytes]]:
+def get_all_audio_slides(user_id: int, job_uuid: str) -> list[tuple[str, bytes]]:
     """Fetch all per-slide MP3s in parallel (S3) or sequentially (local).
 
     Returns a sorted list of (filename, data) tuples.
     """
+    prefix = f"{job_prefix(user_id, job_uuid)}/audio/"
     if USE_S3:
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        prefix = _job_key(job_uuid, "audio/")
         resp = _s3().list_objects_v2(Bucket=_S3_BUCKET, Prefix=prefix)
         keys = sorted(obj["Key"] for obj in resp.get("Contents", []) if obj["Key"].endswith(".mp3"))
         if not keys:
@@ -369,113 +422,91 @@ def get_all_audio_slides(job_uuid: str) -> list[tuple[str, bytes]]:
                 results.append(future.result())
         return sorted(results, key=lambda x: x[0])
 
-    audio_dir = _job_dir(job_uuid) / "audio"
+    audio_dir = _local_path(prefix)
     if not audio_dir.exists():
         return []
     return [(f.name, f.read_bytes()) for f in sorted(audio_dir.glob("slide_*.mp3"))]
 
 
-# --- PPTX temp storage (translate → render handoff) ---
+# --- PPTX temp storage (translate -> render handoff) ---
 #
 # Keyed by a random file_id UUID (not a job UUID).
-# S3: pptx_tmp/{file_id}.pptx  |  local: /app/storage/screencast_tmp/{file_id}.pptx
-
-_PPTX_TMP_DIR = STORAGE_ROOT / "screencast_tmp"
-_PPTX_TMP_PREFIX = "pptx_tmp"
+# Layout: tmp/pptx/{file_id}.pptx (lifecycle: 24h via init_lifecycle_policy).
 
 
 def save_pptx_tmp(file_id: str, data: bytes) -> None:
-    """Save a temporary PPTX for the translate→render handoff."""
+    """Save a temporary PPTX for the translate -> render handoff."""
+    key = tmp_pptx_key(file_id)
     if USE_S3:
-        _s3().put_object(Bucket=_S3_BUCKET, Key=f"{_PPTX_TMP_PREFIX}/{file_id}.pptx", Body=data)
-    else:
-        _PPTX_TMP_DIR.mkdir(parents=True, exist_ok=True)
-        (_PPTX_TMP_DIR / f"{file_id}.pptx").write_bytes(data)
+        _s3().put_object(Bucket=_S3_BUCKET, Key=key, Body=data)
+        return
+    path = _local_path(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
 
 
 def get_pptx_tmp(file_id: str) -> bytes | None:
     """Load a temporary PPTX. Returns None if not found or expired."""
+    key = tmp_pptx_key(file_id)
     if USE_S3:
         from botocore.exceptions import ClientError
         try:
-            resp = _s3().get_object(Bucket=_S3_BUCKET, Key=f"{_PPTX_TMP_PREFIX}/{file_id}.pptx")
+            resp = _s3().get_object(Bucket=_S3_BUCKET, Key=key)
             return resp["Body"].read()
         except ClientError:
             return None
-    path = _PPTX_TMP_DIR / f"{file_id}.pptx"
+    path = _local_path(key)
     return path.read_bytes() if path.exists() else None
 
 
 def delete_pptx_tmp(file_id: str) -> None:
     """Delete a temporary PPTX after render is complete."""
+    key = tmp_pptx_key(file_id)
     if USE_S3:
-        _s3().delete_object(Bucket=_S3_BUCKET, Key=f"{_PPTX_TMP_PREFIX}/{file_id}.pptx")
+        _s3().delete_object(Bucket=_S3_BUCKET, Key=key)
     else:
-        (_PPTX_TMP_DIR / f"{file_id}.pptx").unlink(missing_ok=True)
+        _local_path(key).unlink(missing_ok=True)
 
 
 # --- Per-job folder deletion ---
 
-def delete_job_folder(job_uuid: str) -> None:
-    """Delete all files for a job."""
-    if USE_S3:
-        prefix = f"jobs/{_job_folder_name(job_uuid)}/"
-        paginator = _s3().get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=_S3_BUCKET, Prefix=prefix):
-            for obj in page.get("Contents", []):
-                _s3().delete_object(Bucket=_S3_BUCKET, Key=obj["Key"])
-    else:
-        shutil.rmtree(_job_dir(job_uuid), ignore_errors=True)
+def delete_job_folder(user_id: int, job_uuid: str) -> int:
+    """Delete all files for a job. Returns number of objects deleted."""
+    return delete_prefix(job_prefix(user_id, job_uuid))
 
 
-def clear_tts_audio_cache(job_uuid: str) -> None:
-    """Delete all cached TTS audio files for a job (tts_audio/ subfolder).
-
-    Called before re-rendering so the crash-recovery mechanism does not reuse
-    stale audio from a previous render when the user has changed the scripts.
-    """
-    if USE_S3:
-        prefix = f"jobs/{_job_folder_name(job_uuid)}/tts_audio/"
-        paginator = _s3().get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=_S3_BUCKET, Prefix=prefix):
-            for obj in page.get("Contents", []):
-                _s3().delete_object(Bucket=_S3_BUCKET, Key=obj["Key"])
-    else:
-        tts_dir = _job_dir(job_uuid) / "tts_audio"
-        shutil.rmtree(tts_dir, ignore_errors=True)
+def clear_render_cache(user_id: int, job_uuid: str) -> int:
+    """Delete render-cache (TTS audio + alignments). Called before re-render."""
+    return delete_prefix(f"{job_prefix(user_id, job_uuid)}/render_cache/")
 
 
 # --- Result saving with eviction ---
 
-def save_result_and_evict(job_uuid: str, result_path: str, result_filename: str) -> None:
-    """Save job result and delete the oldest jobs that exceed MAX_RESULT_FILES.
-
-    Evicted jobs are fully removed — storage folder first (while DB record still
-    exists so _job_folder_name can resolve the path), then the DB record.
-    """
+def save_result_and_evict(user_id: int, job_uuid: str, result_path: str, result_filename: str) -> None:
+    """Save job result + delete oldest jobs that exceed MAX_RESULT_FILES."""
     evicted_uuids = update_job_result(job_uuid, result_path, result_filename)
-    for uuid in evicted_uuids:
-        delete_job_folder(uuid)
-        delete_job(uuid)
+    for uid_evicted in evicted_uuids:
+        # update_job_result returns uuids; delete_job (after Task 4) returns the row including user_id.
+        deleted = delete_job(uid_evicted)
+        if deleted:
+            delete_job_folder(deleted["user_id"], uid_evicted)
 
 
 # --- Cleanup ---
 
 def cleanup_expired_files() -> int:
-    """Delete storage folders and DB records for all expired jobs."""
+    """Delete storage folders + DB records for all expired jobs."""
     import psycopg2.extras
     affected = 0
-
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT job_uuid FROM jobs WHERE expires_at IS NOT NULL AND expires_at <= NOW()",
+                "SELECT job_uuid, user_id FROM jobs WHERE expires_at IS NOT NULL AND expires_at <= NOW()",
             )
             rows = cur.fetchall()
             for row in rows:
-                delete_job_folder(row["job_uuid"])
+                delete_job_folder(row["user_id"], row["job_uuid"])
                 cur.execute("DELETE FROM jobs WHERE job_uuid = %s", (row["job_uuid"],))
                 affected += 1
         conn.commit()
-
     return affected

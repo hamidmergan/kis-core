@@ -48,6 +48,7 @@ async def generate_all_tts(
     voice_id: str = "",
     on_slide_done: Callable[[int, int], None] | None = None,
     job_uuid: str | None = None,
+    user_id: int | None = None,
 ) -> list[tuple[Path, dict | None]]:
     """Generate TTS audio for all slides in parallel via ElevenLabs.
 
@@ -71,12 +72,12 @@ async def generate_all_tts(
             logger.info("Slide {}/{}: empty script, audio_path set to None", i + 1, total)
         else:
             # Recovery: check if this slide was already synthesized in a previous (crashed) run
-            if job_uuid:
+            if job_uuid and user_id is not None:
                 try:
-                    audio_data = get_job_file(job_uuid, f"tts_audio/slide_{i:03d}.mp3")
+                    audio_data = get_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3")
                     audio_paths[i].write_bytes(audio_data)
                     try:
-                        align_data = get_job_file(job_uuid, f"tts_audio/slide_{i:03d}_align.json")
+                        align_data = get_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}_align.json")
                         alignments[i] = json.loads(align_data)
                     except Exception:
                         pass
@@ -106,10 +107,10 @@ async def generate_all_tts(
                         alignments[i] = alignment
 
                         # Save immediately to persistent storage for crash recovery
-                        if job_uuid:
-                            save_job_file(job_uuid, f"tts_audio/slide_{i:03d}.mp3", audio_bytes)
+                        if job_uuid and user_id is not None:
+                            save_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}.mp3", audio_bytes)
                             if alignment:
-                                save_job_file(job_uuid, f"tts_audio/slide_{i:03d}_align.json",
+                                save_job_file(user_id, job_uuid, f"render_cache/slide_{i:03d}_align.json",
                                               json.dumps(alignment).encode())
 
                         logger.info("TTS for slide {}/{} done (attempt {})", i + 1, total, attempt + 1)

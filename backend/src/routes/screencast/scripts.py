@@ -38,9 +38,9 @@ async def save_scripts(
     if job["status"] not in ("awaiting_user", "success"):
         raise HTTPException(status_code=409, detail="Job ist nicht im Eingabe-Status")
     filename = "accepted_scripts.json" if body.accepted else "user_scripts.json"
-    save_job_file(translate_job_uuid, filename, json.dumps(body.scripts, ensure_ascii=False).encode())
+    save_job_file(job["user_id"], translate_job_uuid, filename, json.dumps(body.scripts, ensure_ascii=False).encode())
     if body.user_prompt is not None:
-        save_job_file(translate_job_uuid, "prompt.txt", body.user_prompt.encode())
+        save_job_file(job["user_id"], translate_job_uuid, "prompt.txt", body.user_prompt.encode())
     return {"ok": True}
 
 
@@ -71,10 +71,18 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
 
     uuid_key = body.translate_job_uuid if (body.translate_job_uuid and re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid)) else None
 
-    # Verify job folder still exists before burning LLM tokens
+    # Resolve user_id from DB (no auth dependency on this endpoint, but the job row owns the file).
+    uuid_user_id: int | None = None
     if uuid_key:
+        job_row = db.get_job(uuid_key)
+        if not job_row:
+            raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar, bitte neuen Screencast starten")
+        uuid_user_id = job_row["user_id"]
+
+    # Verify job folder still exists before burning LLM tokens
+    if uuid_key and uuid_user_id is not None:
         try:
-            get_job_file(uuid_key, "scripts.txt")
+            get_job_file(uuid_user_id, uuid_key, "scripts.txt")
         except Exception:
             raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
 
@@ -98,7 +106,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         async with lock:
             # The other request just finished; read what it saved
             try:
-                data = get_job_file(uuid_key, "suggested_scripts.json")
+                data = get_job_file(uuid_user_id, uuid_key, "suggested_scripts.json")
                 return {"scripts": json.loads(data)}
             except Exception:
                 pass
@@ -112,7 +120,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         finally:
             db.set_generating_scripts_flag(uuid_key, False)
         try:
-            save_job_file(uuid_key, "suggested_scripts.json", json.dumps(scripts, ensure_ascii=False).encode())
+            save_job_file(uuid_user_id, uuid_key, "suggested_scripts.json", json.dumps(scripts, ensure_ascii=False).encode())
         except Exception:
             pass
 

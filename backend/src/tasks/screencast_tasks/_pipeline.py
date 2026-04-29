@@ -54,13 +54,19 @@ def _run_render_pipeline(
 
     tts_client = _get_tts_client(provider)
 
+    # Resolve user_id once for storage keying
+    job_row = db.get_job(job_uuid)
+    if not job_row:
+        raise RuntimeError(f"Job {job_uuid} not found")
+    user_id = job_row["user_id"]
+
     # Save render params + scripts for crash recovery (retry button)
-    save_job_file(job_uuid, "render_params.json", json.dumps({
+    save_job_file(user_id, job_uuid, "render_params.json", json.dumps({
         "voice_id": voice_id, "speed": speed,
         "slide_pause": slide_pause, "dpi": dpi,
         "provider": provider,
     }).encode())
-    save_job_file(job_uuid, "render_scripts.json", json.dumps(scripts).encode())
+    save_job_file(user_id, job_uuid, "render_scripts.json", json.dumps(scripts).encode())
 
     # Check cancel flag before starting — catches cancels that arrived while
     # the task was queued or being restarted after a SIGTERM (acks_late requeue).
@@ -105,7 +111,7 @@ def _run_render_pipeline(
                 logger.info("Render {}: using {} pre-rendered images (100 DPI)", job_uuid, len(prerendered_images))
                 slide_images = prerendered_images
             else:
-                pptx_data = _get_pptx_for_render(job_uuid)
+                pptx_data = _get_pptx_for_render(user_id, job_uuid)
                 pptx_path = tmp / "render.pptx"
                 pptx_path.write_bytes(pptx_data)
                 img_dir = tmp / "images"
@@ -125,7 +131,7 @@ def _run_render_pipeline(
             _assert_not_cancelled(job_uuid)
             db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": current, "total": total})
 
-        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid))
+        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
 
@@ -178,16 +184,16 @@ def _run_render_pipeline(
         # ── Save audio cache ──────────────────────────────────────────────
         db.update_job_status(job_uuid, "running", progress={"step": "saving"})
         audio_bytes_list = [ap.read_bytes() if ap is not None and ap.exists() else b"" for ap in audio_paths[:num_slides]]
-        save_audio_cache(job_uuid, audio_bytes_list)
+        save_audio_cache(user_id, job_uuid, audio_bytes_list)
 
         # ── Save result ───────────────────────────────────────────────────
-        result_path = save_result_file(job_uuid, ".mp4", output_bytes)
+        result_path = save_result_file(user_id, job_uuid, ".mp4", output_bytes)
 
         meta = {
             "audio_id": job_uuid,
             "audio_count": num_slides,
         }
-        save_result_meta(job_uuid, meta)
+        save_result_meta(user_id, job_uuid, meta)
 
     finally:
         _stop_watcher.set()
@@ -197,7 +203,7 @@ def _run_render_pipeline(
     if is_admin and prerendered_dir.exists():
         img_paths = sorted(prerendered_dir.glob("slide-*.png"))
         for img_path in img_paths:
-            save_job_file(job_uuid, f"images/{img_path.name}", img_path.read_bytes())
+            save_job_file(user_id, job_uuid, f"images/{img_path.name}", img_path.read_bytes())
         logger.info("Screencast render {}: saved {} slide images to bucket/images/", job_uuid, len(img_paths))
 
     # Clean up pre-rendered images after successful render

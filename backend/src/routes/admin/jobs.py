@@ -76,7 +76,7 @@ async def admin_cancel_job(job_uuid: str, _admin=Depends(get_admin_user)):
             logger.warning("Could not revoke Celery task {}: {}", job["celery_task_id"], e)
 
     db.delete_job(job_uuid)
-    delete_job_folder(job_uuid)
+    delete_job_folder(job["user_id"], job_uuid)
 
     logger.info("Admin cancelled job: {}", job_uuid)
     return {"ok": True}
