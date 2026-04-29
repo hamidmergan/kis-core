@@ -1,26 +1,49 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Click-based help tooltip — click to open, click outside to close.
- * Uses theme CSS variables for consistent styling across the app.
+ * Renders into a portal with fixed positioning to avoid being clipped
+ * by ancestors with `overflow` (e.g. horizontally scrollable tables).
  */
 export default function HelpTooltip({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (wrapperRef.current?.contains(target)) return;
+      if (tooltipRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open) return;
+    function update() {
+      const btn = wrapperRef.current?.getBoundingClientRect();
+      if (!btn) return;
+      setPos({ top: btn.bottom + 6, left: btn.left + btn.width / 2 });
+    }
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
+
   return (
-    <span ref={ref} className="relative inline-flex">
+    <span ref={wrapperRef} className="relative inline-flex">
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -38,18 +61,23 @@ export default function HelpTooltip({ text }: { text: string }) {
           <circle cx="8.25" cy="11.5" r="0.5" fill="currentColor" stroke="none" />
         </svg>
       </button>
-      {open && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 w-56 rounded-lg p-2.5 text-xs leading-relaxed shadow-lg text-center whitespace-normal break-words"
-          style={{
-            backgroundColor: "var(--surface)",
-            color: "var(--foreground)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          {text}
-        </div>
-      )}
+      {open && pos && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={tooltipRef}
+            className="fixed z-50 w-56 -translate-x-1/2 rounded-lg p-2.5 text-xs leading-relaxed shadow-lg text-center whitespace-normal break-words"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              backgroundColor: "var(--surface)",
+              color: "var(--foreground)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {text}
+          </div>,
+          document.body,
+        )}
     </span>
   );
 }
