@@ -51,15 +51,17 @@ from src.features.ai_assistant import schemas
 router = APIRouter(tags=["ki-assistent: popup"])
 
 @router.get("/ai-assistant/popup-actions")
-async def get_popup_actions():
+async def get_popup_actions(lang: str = "de"):
     """Liefert die konfigurierten Popup-Aktionen für den PDF-Viewer."""
+    label_key = "label_en" if lang == "en" else "label_de"
+    prompt_key = "prompt_en" if lang == "en" else "prompt_de"
     return {
         "actions": [
             {
                 "key": a["key"],
-                "label": a["label"],
+                "label": a[label_key],
                 "icon": a["icon"],
-                "prompt": a["prompt"],
+                "prompt": a[prompt_key],
                 "min_words": a["min_words"],
             }
             for a in KIA_POPUP_ACTIONS

@@ -16,9 +16,10 @@ interface UseChatOptions {
   enrollmentId: number | null;
   selectedSourceIds: string[];
   viewerSource: ViewerState | null;
+  chatLang: "de" | "en";
 }
 
-export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource }: UseChatOptions) {
+export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [popupActions, setPopupActions] = useState<PopupAction[]>([]);
@@ -40,13 +41,13 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource }:
 
   const loadPopupActions = useCallback(async () => {
     try {
-      const res = await fetch("/api/ai-assistant/popup-actions", { credentials: "include" });
+      const res = await fetch(`/api/ai-assistant/popup-actions?lang=${chatLang}`, { credentials: "include" });
       if (res.ok) {
         const d = await res.json();
         setPopupActions(d.actions ?? []);
       }
     } catch { /* ignore */ }
-  }, []);
+  }, [chatLang]);
 
   const sendChatMessage = useCallback(async (
     content: string,

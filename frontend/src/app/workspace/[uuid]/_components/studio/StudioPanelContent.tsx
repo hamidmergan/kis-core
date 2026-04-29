@@ -85,6 +85,7 @@ interface StudioPanelContentProps {
   // Panel-Kontext
   onMinimize: () => void;
   hideHeader: boolean;
+  chatLang: "de" | "en";
 }
 
 export function StudioPanelContent(props: StudioPanelContentProps) {
@@ -94,7 +95,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
     exercises: ex, notes: nt, mindmap: mm, data_table: dt,
     workspaceUuid, statsVersion, sources, selectedSourceIds, isAdmin, pageStats,
     onStudioSelect, onNavigateToSet, onSprachNavigate, onAskChat, onPillClick,
-    refreshProgress, onMinimize, hideHeader,
+    refreshProgress, onMinimize, hideHeader, chatLang,
     openMindmapInViewer, consumeMindmapViewerOpen,
     openDataTableInViewer, consumeDataTableViewerOpen,
   } = props;
@@ -141,6 +142,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onAskChat={(text) => onAskChat(text, hideHeader)}
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", toolKey: "Flashcards", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+        chatLang={chatLang}
       />
     );
   }
@@ -155,6 +157,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onAskChat={(text) => onAskChat(text, true)}
         onSourceClick={onSourceClick}
         breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", toolKey: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+        chatLang={chatLang}
       />
     );
   }

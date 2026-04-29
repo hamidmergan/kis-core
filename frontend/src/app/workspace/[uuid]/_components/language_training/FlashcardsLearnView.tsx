@@ -7,7 +7,7 @@ import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export function FlashcardsLearnView({
-  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation,
+  exerciseSet, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, showTranslation, chatLang = "de",
 }: {
   exerciseSet: ExerciseSet;
   onBack: () => void;
@@ -16,7 +16,18 @@ export function FlashcardsLearnView({
   onSourceClick?: (filename: string, page: number, startTime?: number, highlightText?: string) => void;
   breadcrumbs?: BreadcrumbItem[];
   showTranslation?: boolean;
+  chatLang?: "de" | "en";
 }) {
+  const t = (de: string, en: string) => (chatLang === "en" ? en : de);
+  const promptTip = (term: string) => chatLang === "en"
+    ? `Give me a brief hint for the following question, WITHOUT revealing the answer: “${term}”`
+    : `Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${term}“`;
+  const promptTermDeep = (term: string) => chatLang === "en"
+    ? `Explain the term “${term}” in detail. What does it mean, in which contexts is it used, and what are the important relationships?`
+    : `Erkläre mir den Begriff „${term}“ genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`;
+  const promptTopicDeep = (term: string) => chatLang === "en"
+    ? `Explain the following topic in more detail: “${term}”. What are important details, examples, and connections?`
+    : `Erkläre mir folgendes Thema genauer: „${term}“. Was sind wichtige Details, Beispiele und Zusammenhänge?`;
   const minimize = useContext(MinimizeContext);
   const [shuffledItems, setShuffledItems] = useState<ExerciseItem[]>([]);
   const shuffledRef = useRef(false);
@@ -310,9 +321,9 @@ export function FlashcardsLearnView({
                     })()}
                     <div className="flex items-center justify-end">
                       {onAskChat && (
-                        <button type="button" onClick={() => onAskChat(`Erkläre mir den Begriff \u201E${card.front}\u201C genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`)}
+                        <button type="button" onClick={() => onAskChat(promptTermDeep(card.front))}
                           className="btn-soft-accent inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full transition-colors">
-                          <Chat size={10} weight="bold" /> Mehr erfahren
+                          <Chat size={10} weight="bold" /> {t("Mehr erfahren", "Learn more")}
                         </button>
                       )}
                     </div>
@@ -353,9 +364,9 @@ export function FlashcardsLearnView({
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                     <span />
                     {onAskChat && (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: \u201E${card.front}\u201C`); }}
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(promptTip(card.front)); }}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-colors">
-                        <Lightbulb size={13} weight="bold" /> Tipp
+                        <Lightbulb size={13} weight="bold" /> {t("Tipp", "Hint")}
                       </button>
                     )}
                   </div>
@@ -374,10 +385,10 @@ export function FlashcardsLearnView({
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-end">
                     {onAskChat && (
                       <button type="button" onClick={(e) => {
-                        e.stopPropagation(); onAskChat(`Erkläre mir folgendes Thema genauer: \u201E${card.front}\u201C. Was sind wichtige Details, Beispiele und Zusammenhänge?`);
+                        e.stopPropagation(); onAskChat(promptTopicDeep(card.front));
                       }}
                         className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
-                        <Chat size={13} weight="bold" /> Mehr erfahren
+                        <Chat size={13} weight="bold" /> {t("Mehr erfahren", "Learn more")}
                       </button>
                     )}
                   </div>

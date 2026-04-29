@@ -54,6 +54,7 @@ interface LanguageTrainingContentProps {
   refreshProgress: () => void;
   handleAskChat: (text: string) => void;
   handlePillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
+  chatLang: "de" | "en";
 }
 
 const TITLE_PREFIX_RE = /^(Lernkarten|Lückentext|Vokabeltest|Begriffe-Quiz|Quiz)\s*(aus|von)\s*/i;
@@ -67,7 +68,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
     loadExerciseSet, loadExerciseSets, deleteExerciseSet, downloadExerciseSet,
     setCreateSetTool, setShowCreateModal, submitSingleAnswer,
     selectedSourceIds, pageStats, isAdmin, sources,
-    refreshProgress, handleAskChat, handlePillClick,
+    refreshProgress, handleAskChat, handlePillClick, chatLang,
   } = props;
 
   const onSourceClick = (filename: string, page: number, startTime?: number, highlightText?: string) => {
@@ -136,6 +137,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onSourceClick={onSourceClick}
             breadcrumbs={[toOverviewWithReset, { label: "Lernkarten", toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
             showTranslation
+            chatLang={chatLang}
           />
         ) : null;
       case "lk-complete":
@@ -179,6 +181,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
             breadcrumbs={[toOverviewWithReset, { label: "Lückentext", toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            chatLang={chatLang}
           />
         ) : null;
       case "cl-complete":
@@ -222,6 +225,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
             breadcrumbs={[toOverviewWithReset, { label: "Begriffe-Quiz", toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            chatLang={chatLang}
           />
         ) : null;
       case "vt-complete":

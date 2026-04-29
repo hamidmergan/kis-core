@@ -84,7 +84,9 @@ export default function KiTutorWorkspacePage() {
     togglePanel, startDrag,
   } = usePanelLayout({ uuid, viewerSource });
 
-  const chat = useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource });
+  const [chatLang, setChatLang] = useState<"de" | "en">("de");
+
+  const chat = useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang });
   const {
     messages, setMessages,
     chatLoading, popupActions,
@@ -105,7 +107,6 @@ export default function KiTutorWorkspacePage() {
     return () => document.removeEventListener("mousedown", handle);
   }, [showSettings]);
 
-  const [chatLang, setChatLang] = useState<"de" | "en">("de");
   const [studioEnabled, setStudioEnabled] = useState(true);
   const [language_trainingActive, setLanguageTrainingActive] = useState(false);
   // popupActions from useChat
@@ -282,6 +283,7 @@ export default function KiTutorWorkspacePage() {
       refreshProgress={refreshProgress}
       handleAskChat={handleAskChat}
       handlePillClick={handlePillClick}
+      chatLang={chatLang}
     />
   );
 
@@ -379,6 +381,7 @@ export default function KiTutorWorkspacePage() {
       consumeDataTableViewerOpen={consumeDataTableViewerOpen}
       onMinimize={onMinimize}
       hideHeader={hideHeader}
+      chatLang={chatLang}
     />
   );
 
@@ -507,7 +510,7 @@ export default function KiTutorWorkspacePage() {
             }
             await createExerciseSet(
               createSetTool, mode, count,
-              mode === "quelle" ? selectedSourceIds[0] : undefined,
+              mode === "source" ? selectedSourceIds[0] : undefined,
             );
             const poll = setInterval(() => loadExerciseSets(createSetTool), 3000);
             setTimeout(() => clearInterval(poll), 120000);

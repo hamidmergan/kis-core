@@ -35,8 +35,11 @@ from src.tool_prompts import (
     KIA_POPUP_ACTIONS,
 )
 
+# Accept both ASCII [] and CJK lenticular 【】 — some LLMs emit the latter
+# despite the prompt, and unstripped citations in history reinforce the
+# wrong format on the next turn.
 _CITATION_RE = re.compile(
-    r"\s*\[(?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]]+)?\]"
+    r"\s*[\[【](?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]】]+)?[\]】]"
 )
 
 
@@ -349,8 +352,9 @@ async def chat(
     if body.source_text:
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
         # "Elaborate" needs RAG context, the others work only with the selected text
-        elaborate_prompt = KIA_POPUP_ACTIONS[0]["prompt"]
-        if body.question.startswith(str(elaborate_prompt)):
+        elaborate = KIA_POPUP_ACTIONS[0]
+        elaborate_prefixes = (str(elaborate["prompt_de"]), str(elaborate["prompt_en"]))
+        if body.question.startswith(elaborate_prefixes):
             system_prompt = KIA_SYSTEM_DIRECT_WITH_CONTEXT
             user_message = f"{body.question}\n\nMarkierter Text (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}\n\nWeiterer Kontext aus dem Dokument:\n{context}"
         else:

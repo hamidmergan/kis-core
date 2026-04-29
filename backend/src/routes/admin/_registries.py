@@ -88,10 +88,10 @@ PROMPT_REGISTRY = [
     *[
         {
             "key": f"prompt_tutor_popup_{action['key']}",
-            "label": f"KI-Assistent Popup: {action['label']}",
-            "description": f"Prompt fuer die Popup-Aktion '{action['label']}' im KI-Assistent PDF-Viewer.",
+            "label": f"KI-Assistent Popup: {action['label_de']}",
+            "description": f"Prompt fuer die Popup-Aktion '{action['label_de']}' im KI-Assistent PDF-Viewer.",
             "editable": False,
-            "default": action["prompt"],
+            "default": action["prompt_de"],
         }
         for action in _TUTOR_POPUP_ACTIONS
     ],

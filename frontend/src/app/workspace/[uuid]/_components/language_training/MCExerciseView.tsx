@@ -7,7 +7,7 @@ import { MinimizeContext } from "../../_context";
 import { _getToolBadge, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export function MCExerciseView({
-  exerciseSet, tool, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs,
+  exerciseSet, tool, onBack, onAnswer, onAskChat, onSourceClick, breadcrumbs, chatLang = "de",
 }: {
   exerciseSet: ExerciseSet;
   tool: "lueckentext" | "vokabeltest" | "quiz";
@@ -16,7 +16,18 @@ export function MCExerciseView({
   onAskChat: (text: string) => void;
   onSourceClick?: (filename: string, page: number, startTime?: number, highlightText?: string) => void;
   breadcrumbs?: BreadcrumbItem[];
+  chatLang?: "de" | "en";
 }) {
+  const t = (de: string, en: string) => (chatLang === "en" ? en : de);
+  const promptTip = (term: string) => chatLang === "en"
+    ? `Give me a brief hint for the following question, WITHOUT revealing the answer: "${term}"`
+    : `Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${term}"`;
+  const promptTermDeep = (term: string) => chatLang === "en"
+    ? `Explain the term "${term}" in detail. What does it mean, in which contexts is it used, and what are the important relationships?`
+    : `Erkläre mir den Begriff „${term}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`;
+  const promptTopicDeep = (term: string) => chatLang === "en"
+    ? `Explain the following topic in more detail: "${term}". What are important details, examples, and connections?`
+    : `Erkläre mir folgendes Thema genauer: „${term}". Was sind wichtige Details, Beispiele und Zusammenhänge?`;
   const minimize = useContext(MinimizeContext);
   const [shuffledItems, setShuffledItems] = useState<ExerciseItem[]>([]);
   const shuffledRef = useRef(false);
@@ -82,7 +93,7 @@ export function MCExerciseView({
     if (!card || hintLoading) return;
     setHintLoading(true);
     try {
-      onAskChat(`Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${card.front}"`);
+      onAskChat(promptTip(card.front));
     } catch { /* ignore */ }
     setHintLoading(false);
   }
@@ -228,7 +239,7 @@ export function MCExerciseView({
                         disabled={hintLoading}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
                         <Lightbulb size={13} weight="bold" />
-                        {hintLoading ? "Wird geladen…" : "Tipp"}
+                        {hintLoading ? t("Wird geladen…", "Loading…") : t("Tipp", "Hint")}
                       </button>
                     )}
                   </div>
@@ -236,10 +247,10 @@ export function MCExerciseView({
                   {answered && (
                     <div className="flex items-center justify-between mt-2">
                       <button type="button" onClick={() => onAskChat(tool === "vokabeltest" || tool === "lueckentext"
-                        ? `Erkläre mir den Begriff „${tool === "lueckentext" ? card.back : card.front}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`
-                        : `Erkläre mir folgendes Thema genauer: „${card.front}". Was sind wichtige Details, Beispiele und Zusammenhänge?`)}
+                        ? promptTermDeep(tool === "lueckentext" ? card.back : card.front)
+                        : promptTopicDeep(card.front))}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all">
-                        <Chat size={13} weight="bold" /> Mehr erfahren
+                        <Chat size={13} weight="bold" /> {t("Mehr erfahren", "Learn more")}
                       </button>
                       <button type="button" onClick={advance}
                         className="btn-fill-accent flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold transition-all">

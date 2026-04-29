@@ -332,9 +332,9 @@ KIA_KARTEIKARTEN_PROMPT = (
     '      "front": "Comprehension question (in source language)",\n'
     '      "source_label": "Filename.pdf",\n'
     '      "answer_parts": [\n'
-    '        {"statement": "First sentence of the answer expressing a fact (in source language).", "page_number": 5, "evidence": "Verbatim quote from page 5 supporting this fact (in source language)."},\n'
-    '        {"statement": "Second sentence of the answer with a different fact.", "page_number": 7, "evidence": "Verbatim quote from page 7."},\n'
-    '        {"statement": "Third sentence.", "page_number": 11, "evidence": "Verbatim quote from page 11."}\n'
+    '        {"statement": "First sentence of the answer expressing a fact (in source language).", "page_number": 5, "evidence": "Verbatim quote from page 5 supporting this fact (in source language).", "highlight": "key term"},\n'
+    '        {"statement": "Second sentence of the answer with a different fact.", "page_number": 7, "evidence": "Verbatim quote from page 7.", "highlight": "another term"},\n'
+    '        {"statement": "Third sentence.", "page_number": 11, "evidence": "Verbatim quote from page 11.", "highlight": "third term"}\n'
     "      ]\n"
     "    }\n"
     "  ]\n"
@@ -354,6 +354,10 @@ KIA_KARTEIKARTEN_PROMPT = (
     "DO NOT paraphrase, DO NOT rephrase. Exactly as in the source text. "
     "At least 8 words, at most 2 sentences. "
     "Must appear exactly in the [SourceName, S. X] block.\n"
+    "- highlight: a short key term (1-3 words) from the evidence that appears VERBATIM and UNCHANGED in the source text. "
+    "Used for searching/highlighting in the PDF. Must be findable there exactly. "
+    "Pick a distinctive term, NOT generic words like 'der', 'ist', 'und'. "
+    "Example: if evidence contains 'der intelligente Assistent', use highlight: 'intelligente Assistent'.\n"
     "- page_number: the page number from the [SourceName, S. X] tags.\n"
     "- Answer length: 2-5 answer_parts per card, as many as needed to answer the question precisely. "
     "No digressions, no additional aspects that were not asked.\n"
@@ -603,30 +607,38 @@ KIA_SCHEDULE_PROMPT = (
 KIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
     {
         "key": "elaborate",
-        "label": "Genauer ausführen",
+        "label_de": "Genauer ausführen",
+        "label_en": "Elaborate",
         "icon": "Binoculars",
-        "prompt": "Elaborate on this passage. Explain the concepts in depth and give concrete examples. Respond in the source-text language:",
+        "prompt_de": "Erläutere diese Passage. Erkläre die Konzepte ausführlich und gib konkrete Beispiele. Antworte in der Sprache des Originaltexts:",
+        "prompt_en": "Elaborate on this passage. Explain the concepts in depth and give concrete examples. Respond in the source-text language:",
         "min_words": 1,
     },
     {
         "key": "summarize",
-        "label": "Zusammenfassung",
+        "label_de": "Zusammenfassung",
+        "label_en": "Summarize",
         "icon": "FunnelSimple",
-        "prompt": "Summarize this passage in at most 2-3 sentences. Use at most half as many words as the original. Flowing text, no bullet points. Respond in the source-text language:",
+        "prompt_de": "Fasse diese Passage in höchstens 2-3 Sätzen zusammen. Verwende höchstens halb so viele Wörter wie das Original. Fließtext, keine Stichpunkte. Antworte in der Sprache des Originaltexts:",
+        "prompt_en": "Summarize this passage in at most 2-3 sentences. Use at most half as many words as the original. Flowing text, no bullet points. Respond in the source-text language:",
         "min_words": 10,
     },
     {
         "key": "bullets",
-        "label": "Stichpunkte",
+        "label_de": "Stichpunkte",
+        "label_en": "Bullet points",
         "icon": "ListBullets",
-        "prompt": "Convert this passage into concise bullet points. Respond in the source-text language:",
+        "prompt_de": "Wandle diese Passage in kompakte Stichpunkte um. Antworte in der Sprache des Originaltexts:",
+        "prompt_en": "Convert this passage into concise bullet points. Respond in the source-text language:",
         "min_words": 5,
     },
     {
         "key": "simplify",
-        "label": "Erklären",
+        "label_de": "Erklären",
+        "label_en": "Explain",
         "icon": "Lightbulb",
-        "prompt": "Explain this passage at a simple language level (B1). Use short sentences, simple words, and avoid complex jargon where possible. Respond in the source-text language:",
+        "prompt_de": "Erkläre diese Passage in einfacher Sprache (B1). Nutze kurze Sätze, einfache Wörter und vermeide komplexe Fachbegriffe wo möglich. Antworte in der Sprache des Originaltexts:",
+        "prompt_en": "Explain this passage at a simple language level (B1). Use short sentences, simple words, and avoid complex jargon where possible. Respond in the source-text language:",
         "min_words": 3,
     },
 ]
