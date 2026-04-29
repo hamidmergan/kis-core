@@ -3,10 +3,10 @@ import {
   SidebarSimple,
   Plus,
   FilePdf,
-  Eye,
   ArrowCounterClockwise,
   Trash,
   Check,
+  DotsThreeVertical,
 } from "@phosphor-icons/react";
 import type { Source } from "../../_types";
 import { FileIcon, SourceStatus } from "./FileIcon";
@@ -46,6 +46,7 @@ export function SourcesPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
 
   useEffect(() => {
@@ -187,100 +188,127 @@ export function SourcesPanel({
             </p>
           </div>
         ) : (
-          sources.map((src) => (
-            <div
-              key={src.uuid}
-              className="relative flex items-center transition-colors hover:bg-[var(--surface-dim)]"
-              style={{ borderBottom: "1px solid var(--border)" }}
-            >
-              <label
-                className={`flex-1 flex items-center gap-3 px-4 py-2.5 min-w-0 ${src.status === "ready" ? "cursor-pointer" : "cursor-default"}`}
+          sources.map((src) => {
+            const checked = selectedSourceIds.includes(src.uuid);
+            const ready = src.status === "ready";
+            return (
+              <div
+                key={src.uuid}
+                className="group relative flex items-center transition-colors hover:bg-[var(--surface-dim)]"
+                style={{ borderBottom: "1px solid var(--border)" }}
               >
-                {(() => {
-                  const checked = selectedSourceIds.includes(src.uuid);
-                  const ready = src.status === "ready";
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => { if (ready) onToggleSource(src.uuid); }}
-                      disabled={!ready}
-                      aria-label={checked ? "Quelle abwählen" : "Quelle auswählen"}
-                      title={!ready ? "Quelle wird noch verarbeitet" : undefined}
-                      className={`source-checkbox flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
-                        checked
-                          ? "border-[var(--kb)] bg-[var(--kb)]"
-                          : ready
-                          ? "border-[var(--border)] bg-white hover:border-[var(--kb)]"
-                          : "border-[var(--border)] bg-white"
-                      }`}
-                      style={{ color: "#fff" }}
-                    >
-                      {checked && <Check size={11} weight="bold" />}
-                    </button>
-                  );
-                })()}
-                <FileIcon filename={src.filename} />
-                <span
-                  className="flex-1 text-xs leading-snug truncate min-w-0 font-medium"
-                  style={{ color: "var(--foreground)" }}
-                  title={src.filename}
-                >
-                  {src.filename}
-                </span>
-                <SourceStatus status={src.status} />
-              </label>
-
-              {src.status === "failed" && src.error_message && (
-                <div
-                  className="absolute left-4 right-4 top-full z-10 mt-1 rounded-lg px-3 py-2 text-[11px] leading-snug shadow-lg"
-                  style={{ backgroundColor: "#FEF2F2", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}
-                >
-                  {src.error_message}
+                <div className="flex-shrink-0 pl-4 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => { if (ready) onToggleSource(src.uuid); }}
+                    disabled={!ready}
+                    aria-label={checked ? "Quelle abwählen" : "Quelle auswählen"}
+                    title={!ready ? "Quelle wird noch verarbeitet" : undefined}
+                    className={`source-checkbox flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
+                      checked
+                        ? "border-[var(--kb)] bg-[var(--kb)]"
+                        : ready
+                        ? "border-[var(--border)] bg-white hover:border-[var(--kb)]"
+                        : "border-[var(--border)] bg-white"
+                    }`}
+                    style={{ color: "#fff" }}
+                  >
+                    {checked && <Check size={11} weight="bold" />}
+                  </button>
                 </div>
-              )}
 
-              {!compact && (
-                <>
-                  <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
-                    {isLecturer && src.status === "failed" ? (
-                      <button
-                        type="button"
-                        onClick={() => onRetrySource(src.uuid)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-                        style={{ backgroundColor: "var(--surface-dim)" }}
-                        title="Erneut versuchen"
-                      >
-                        <ArrowCounterClockwise size={13} weight="regular" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => onOpenViewer(src)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-                        style={{ backgroundColor: "var(--surface-dim)" }}
-                        title="Im Viewer öffnen"
-                      >
-                        <Eye size={13} />
-                      </button>
-                    )}
+                <div
+                  onClick={() => { if (ready) onOpenViewer(src); }}
+                  onKeyDown={(e) => {
+                    if (ready && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      onOpenViewer(src);
+                    }
+                  }}
+                  role={ready ? "button" : undefined}
+                  tabIndex={ready ? 0 : undefined}
+                  title={ready ? "Im Viewer öffnen" : undefined}
+                  className={`flex-1 flex items-center gap-3 pl-3 pr-4 py-2.5 min-w-0 ${ready ? "cursor-pointer" : "cursor-default"}`}
+                >
+                  <FileIcon filename={src.filename} />
+                  <span
+                    className="flex-1 text-xs leading-snug truncate min-w-0 font-medium"
+                    style={{ color: "var(--foreground)" }}
+                    title={src.filename}
+                  >
+                    {src.filename}
+                  </span>
+                  <SourceStatus status={src.status} />
+                </div>
+
+                {src.status === "failed" && src.error_message && (
+                  <div
+                    className="absolute left-4 right-4 top-full z-10 mt-1 rounded-lg px-3 py-2 text-[11px] leading-snug shadow-lg"
+                    style={{ backgroundColor: "#FEF2F2", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}
+                  >
+                    {src.error_message}
                   </div>
-                  {isLecturer && (
-                    <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setDeleteSourceId(src.uuid)}
-                        className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-                        style={{ backgroundColor: "var(--surface-dim)" }}
-                        title="Quelle löschen"
-                      >
-                        <Trash size={13} weight="regular" />
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ))
+                )}
+
+                {!compact && (
+                  <>
+                    {isLecturer && src.status === "failed" && (
+                      <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
+                        <button
+                          type="button"
+                          onClick={() => onRetrySource(src.uuid)}
+                          className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+                          style={{ backgroundColor: "var(--surface-dim)" }}
+                          title="Erneut versuchen"
+                        >
+                          <ArrowCounterClockwise size={13} weight="regular" />
+                        </button>
+                      </div>
+                    )}
+                    {isLecturer && (
+                      <div className="flex-shrink-0 flex items-center justify-center px-1 py-2.5">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setMenuOpenId(menuOpenId === src.uuid ? null : src.uuid)}
+                            className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
+                            style={{ backgroundColor: "var(--surface-dim)" }}
+                            title="Optionen"
+                          >
+                            <DotsThreeVertical size={16} weight="bold" />
+                          </button>
+                          {menuOpenId === src.uuid && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)} />
+                              <div
+                                className="absolute right-0 top-9 z-50 rounded-xl py-1"
+                                style={{
+                                  backgroundColor: "var(--surface)",
+                                  border: "1px solid var(--border)",
+                                  minWidth: 180,
+                                  boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => { setMenuOpenId(null); setDeleteSourceId(src.uuid); }}
+                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+                                  style={{ color: "rgb(185, 28, 28)" }}
+                                >
+                                  <Trash size={16} weight="bold" />
+                                  Löschen
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 

@@ -315,9 +315,9 @@ export function ScheduleView({
           <p className="text-xs py-6 text-center" style={{ color: "var(--error-strong)" }}>{error}</p>
         )}
         {!loading && !error && entries.length === 0 && (
-          <div className="flex flex-col items-center gap-3 py-10 text-center">
-            <CalendarBlank size={40} weight="light"  />
-            <p className="text-xs" >
+          <div className="flex flex-col items-center gap-3 py-10 text-center text-muted">
+            <CalendarBlank size={40} weight="light" />
+            <p className="text-xs">
               Noch keine Einträge. Wähle Quellen links aus und generiere, oder erstelle manuelle Einträge.
             </p>
           </div>

@@ -11,11 +11,18 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 export const metadata: Metadata = {
   title: "KIS",
   description: "KIS – Services der TH Lübeck",
+  authors: [{ name: "Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck" }],
+  other: {
+    copyright: "© 2026 Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de">
+      <head>
+        <link rel="license" href="https://www.apache.org/licenses/LICENSE-2.0" />
+      </head>
       <body className={`${geist.variable} min-h-screen flex flex-col`}>
         <NextTopLoader color="#668DA0" showSpinner={false} height={3} />
         <MaintenanceGuard />

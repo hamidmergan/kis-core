@@ -14,9 +14,16 @@ export default function ImpressumPage() {
           </p>
 
           <p className="font-semibold text-foreground-soft mb-2">Kontakt:</p>
-          <p className="text-foreground-soft">
+          <p className="text-foreground-soft mb-4">
             Telefon: +49 451 160818 81<br />
             E-Mail: hamid.mergan@th-luebeck.de
+          </p>
+
+          <p className="font-semibold text-foreground-soft mb-2">Projekt:</p>
+          <p className="text-foreground-soft">
+            Entwicklung am Institut für Interaktive Systeme (ISy),<br />
+            Technische Hochschule Lübeck.<br />
+            Quellcode lizenziert unter Apache-2.0.
           </p>
         </div>
     </div>

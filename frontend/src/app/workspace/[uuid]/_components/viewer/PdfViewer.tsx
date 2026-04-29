@@ -9,6 +9,7 @@ import { FileIcon } from "../sources/FileIcon";
 import { EMBEDPDF_ICON_MAP } from "./_icons";
 import { wrapEngineGeometry } from "./_geometry";
 import { doHighlightSearch, type HighlightRefs } from "./_highlight";
+import { SummaryPanel } from "./_summary_panel";
 import { copyTextFromPromise } from "@/lib/clipboard";
 
 
@@ -490,40 +491,25 @@ export function PdfViewer({
       </div>
       {/* Summary content portaled into EmbedPDF's sidebar (shadow DOM) */}
       {sidebarTarget && createPortal(
-        <div style={{ height: "100%", display: "flex", flexDirection: "column", fontFamily: "inherit" }}>
-          <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--color-border-default, var(--border-soft))", fontWeight: 600, fontSize: 12, color: "var(--color-fg-primary, #1f2937)" }}>
-            Seite {page} – Zusammenfassung
-          </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: 12, fontSize: 12, lineHeight: 1.6, color: "var(--color-fg-primary, #1f2937)" }}>
-            {summariesStatus === "generating" && !pageSummaries[page] ? (
-              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Wird generiert...</span>
-            ) : pageSummaries[page] ? (
-              <div dangerouslySetInnerHTML={{ __html: pageSummaries[page].replace(/\n/g, "<br/>") }} />
-            ) : (summariesStatus === "none" || summariesStatus === "failed" || summariesStatus === "rate_limited") ? (
-              <div style={{ textAlign: "center", padding: "16px 12px" }}>
-                <span style={{ color: "var(--muted)", display: "block", marginBottom: 10, fontSize: 12 }}>
-                  {summariesStatus === "rate_limited" ? "API-Limit erreicht. Bitte spaeter erneut versuchen."
-                    : summariesStatus === "failed" ? "Generierung fehlgeschlagen."
-                    : "Noch keine Zusammenfassungen vorhanden."}
-                </span>
-                <button
-                  onClick={async () => {
-                    setSummariesStatus("generating");
-                    setSummariesLoaded(false);
-                    try {
-                      await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
-                    } catch { /* ignore */ }
-                  }}
-                  style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-accent, #3b82f6)", background: "var(--color-accent, #3b82f6)", color: "var(--color-accent-fg, #fff)", cursor: "pointer", fontWeight: 500 }}
-                >
-                  Zusammenfassungen generieren
-                </button>
-              </div>
-            ) : (
-              <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Keine Zusammenfassung fuer diese Seite.</span>
-            )}
-          </div>
-        </div>,
+        <SummaryPanel
+          page={page}
+          summaryText={pageSummaries[page]}
+          summariesStatus={summariesStatus}
+          onGenerate={async () => {
+            setSummariesStatus("generating");
+            setSummariesLoaded(false);
+            try {
+              await fetch(`/api/ai-assistant/workspaces/${workspaceUuid}/sources/${source.uuid}/summaries/generate`, { method: "POST", credentials: "include" });
+            } catch { /* ignore */ }
+          }}
+          onScrollPdf={(deltaY) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const viewport = (registryRef.current as any)?.getPlugin?.("viewport")?.provides?.();
+            const m = viewport?.getMetrics?.();
+            if (!viewport || !m) return;
+            viewport.scrollTo({ x: m.scrollLeft, y: m.scrollTop + deltaY, behavior: "instant" });
+          }}
+        />,
         sidebarTarget,
       )}
     </div>
