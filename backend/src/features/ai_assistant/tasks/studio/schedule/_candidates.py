@@ -3,6 +3,7 @@
 from src import database as db
 
 from src.features.ai_assistant.tasks.studio.schedule._regex import (
+    _MULTI_YEAR_SHORTHAND,
     _TBD_PATTERNS,
     _date_candidates_in_text,
 )
@@ -36,8 +37,45 @@ def _build_candidates_for_source(src: dict) -> list[dict]:
         page = c.get("page_number")
         st = c.get("start_time")
 
+        # German shorthand "DD.MM.YYYY/YYYY/..." -> one candidate per year.
+        # Tracked so the standard scanner below skips matches inside these spans.
+        # Hard cap to keep adversarial input from generating a flood of candidates.
+        _MAX_SHORTHAND_YEARS = 20
+        shorthand_spans: list[tuple[int, int]] = []
+        for m in _MULTI_YEAR_SHORTHAND.finditer(content):
+            dm = m.group("dm")
+            years = [y.strip() for y in m.group("years").split("/")][:_MAX_SHORTHAND_YEARS]
+            shorthand_spans.append((m.start(), m.end()))
+            ctx_start = max(0, m.start() - 450)
+            ctx_end = min(len(content), m.end() + 450)
+            ctx = content[ctx_start:ctx_end].replace("\n", " ").strip()
+            nl_pos = content.find("\n", m.end())
+            hl_end = min(len(content), m.start() + 200)
+            if nl_pos != -1 and nl_pos < hl_end:
+                hl_end = nl_pos
+            quote = content[m.start():hl_end].replace("\n", " ").strip()
+            for y in years:
+                raw = f"{dm}{y}"
+                norm = _normalize_date(raw)
+                if not norm:
+                    continue
+                candidates.append({
+                    "date_raw": raw,
+                    "date_iso": norm,
+                    "partial_date": None,
+                    "is_tbd": False,
+                    "context": ctx,
+                    "raw_quote": quote,
+                    "page_number": page,
+                    "start_time": st,
+                    "source_uuid": src["uuid"],
+                    "source_filename": src.get("filename") or "",
+                })
+
         # Date-based candidates
         for s, e, raw_date, has_year in _date_candidates_in_text(content):
+            if any(cs <= s < ce for cs, ce in shorthand_spans):
+                continue
             if has_year:
                 norm = _normalize_date(raw_date)
                 if not norm:

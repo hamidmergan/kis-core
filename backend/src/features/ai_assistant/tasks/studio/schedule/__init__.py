@@ -7,7 +7,6 @@ Pipeline:
   4) Merge by fuzzy-title + date (_titles) into existing entries or create new ones
 """
 
-from collections import defaultdict
 from datetime import date as _date_cls
 
 from langfuse.decorators import observe
@@ -84,31 +83,6 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             logger.error("Schedule job {}: classify failed: {}", job_id, e)
             db.update_schedule_job(job_id, "failed", error=f"Klassifikation fehlgeschlagen: {e}")
             return
-
-        # STAGE 2b: Deterministic slide-footer override.
-        # A date that appears 4+ times in the same single source is almost certainly
-        # a slide-deck footer (date printed on every slide), not a real event. Force
-        # drop ALL candidates sharing (source_uuid, date). We trust this over the LLM
-        # because the LLM only sees +/-250 chars of context per candidate and can't see
-        # how often the same date repeats across the whole document.
-        _SLIDE_FOOTER_THRESHOLD = 4
-        grp: dict[tuple[str, str], list[int]] = defaultdict(list)
-        for idx, cand in enumerate(all_candidates):
-            date_key = cand.get("date_iso") or (
-                f"partial:{cand['partial_date']}" if cand.get("partial_date") else None
-            )
-            if date_key is None:
-                continue
-            grp[(cand["source_uuid"], date_key)].append(idx)
-        for (suuid, date_key), indices in grp.items():
-            if len(indices) >= _SLIDE_FOOTER_THRESHOLD:
-                logger.info(
-                    "Schedule job {}: slide-footer override - date {} repeats {}x in source {}, dropping all",
-                    job_id, date_key, len(indices), suuid,
-                )
-                for idx in indices:
-                    classifications[idx]["keep"] = False
-                    classifications[idx]["is_footer"] = True
 
         # Load existing entries now so the harmonize pass can align new
         # candidate titles with DB entries already present on the same date.

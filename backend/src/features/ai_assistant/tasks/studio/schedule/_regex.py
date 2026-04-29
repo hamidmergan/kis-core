@@ -16,6 +16,14 @@ _MONTH_EN = (
     "jun|jul|aug|sep|sept|oct|nov|dec"
 )
 
+# German shorthand: same DD.MM., multiple years, slash-separated.
+# E.g. "Zwischenberichte: 30.04.2026/2027/2028/2029" -> 4 separate dates.
+# Whitespace around the slashes is tolerated ("30.06.2030 / 2031 / 2032").
+# Expanded into one candidate per year by the candidate scanner.
+_MULTI_YEAR_SHORTHAND = re.compile(
+    r"\b(?P<dm>\d{1,2}\.\d{1,2}\.)(?P<years>\d{4}(?:\s*/\s*\d{4})+)\b"
+)
+
 _DATE_PATTERNS_WITH_YEAR = [
     # DD.MM.YYYY
     re.compile(r"\b(?P<date>\d{1,2}\.\d{1,2}\.\d{4})\b"),
