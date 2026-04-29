@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 
 from src.storage import get_all_audio_slides, get_audio_slide, get_audio_slide_count
 
-router = APIRouter(tags=["screencast"])
+router = APIRouter(tags=["screencast: audio"])
 
 
 @router.get("/screencast/audio/{audio_id}/zip")

@@ -8,7 +8,7 @@ from src.limits import QUOTA_DEFAULTS
 
 from src.routes.admin._models import SetQuotaOverrideRequest
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin: quota"])
 
 
 def _iso_z(ts) -> str | None:

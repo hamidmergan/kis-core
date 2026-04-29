@@ -29,6 +29,9 @@ from src.limits import (
     RATE_LIMIT_BURST_REQUESTS,
     RATE_LIMIT_BURST_WINDOW_SECONDS,
     RATE_LIMIT_BLOCK_MINUTES,
+    TOOL_BURST_REQUESTS,
+    TOOL_BURST_WINDOW_SECONDS,
+    TOOL_BURST_BLOCK_MINUTES,
 )
 
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -141,3 +144,78 @@ def enforce_burst(user_id: int) -> None:
         },
         headers={"Retry-After": str(RATE_LIMIT_BLOCK_MINUTES * 60)},
     )
+
+
+def enforce_tool_burst(user_id: int, tool_key: str) -> None:
+    """Raise HTTP 429 if the user fires too many requests against a tool in a
+    short window. Redis-only (no DB persistence): the 10-min block is short
+    enough that surviving a backend restart isn't worth a schema change. On
+    Redis outage: fail-open, the 4h-quota still applies as the second line of
+    defense.
+
+    ``tool_key`` is namespaced into the Redis key so each tool has its own
+    counter and block (e.g. burst on TTS does not block screencast).
+    """
+    if user_id <= 0:
+        return
+
+    now = datetime.now(timezone.utc)
+    block_key = f"rl:burst:{tool_key}:block:{user_id}"
+    counter_key = f"rl:burst:{tool_key}:count:{user_id}"
+
+    try:
+        r = _redis()
+        blocked_ts = r.get(block_key)
+        if blocked_ts:
+            blocked_until = datetime.fromisoformat(blocked_ts.decode())
+            if blocked_until > now:
+                r.close()
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "message": _format_block_message(blocked_until),
+                        "kind": "tool_blocked",
+                        "tool_key": tool_key,
+                        "blocked_until": blocked_until.isoformat(),
+                    },
+                    headers={"Retry-After": str(int((blocked_until - now).total_seconds()))},
+                )
+
+        pipe = r.pipeline()
+        pipe.incr(counter_key)
+        pipe.expire(counter_key, TOOL_BURST_WINDOW_SECONDS, nx=True)
+        count, _ = pipe.execute()
+
+        if count <= TOOL_BURST_REQUESTS:
+            r.close()
+            return
+
+        new_block_until = now + timedelta(minutes=TOOL_BURST_BLOCK_MINUTES)
+        r.set(block_key, new_block_until.isoformat(), ex=TOOL_BURST_BLOCK_MINUTES * 60)
+        r.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("Tool burst rate-limit Redis error (tool={} user={}): {}", tool_key, user_id, e)
+        return  # fail-open
+
+    logger.warning(
+        "Tool burst triggered: tool={} user={} count={}/{} -> blocked until {}",
+        tool_key, user_id, count, TOOL_BURST_REQUESTS,
+        new_block_until.astimezone(_TZ_BERLIN).strftime("%H:%M:%S"),
+    )
+    raise HTTPException(
+        status_code=429,
+        detail={
+            "message": _format_block_message(new_block_until),
+            "kind": "tool_blocked",
+            "tool_key": tool_key,
+            "blocked_until": new_block_until.isoformat(),
+        },
+        headers={"Retry-After": str(TOOL_BURST_BLOCK_MINUTES * 60)},
+    )
+
+
+def enforce_aia_burst(user_id: int) -> None:
+    """Backward-compatible alias for the AI tutor burst gate."""
+    enforce_tool_burst(user_id, "aia")

@@ -80,8 +80,6 @@ from src.features.ai_assistant.routes._helpers import (
     _require_own_module,
     _save_source_file,
     _delete_source_files_for_module,
-    _strip_image_text_layer,
-    _markdown_fallback,
     _resolve_source_ids,
     _term_appears_in_text,
     _load_transcript_segments,
@@ -92,7 +90,7 @@ from src.features.ai_assistant.routes._helpers import (
 )
 from src.features.ai_assistant import schemas
 
-router = APIRouter(tags=["ki-assistent"])
+router = APIRouter(tags=["ki-assistent: chat"])
 
 @router.post("/ai-assistant/modules/{module_uuid}/chat")
 @observe(name="kia-chat")

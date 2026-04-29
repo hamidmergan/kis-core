@@ -74,9 +74,9 @@ def _count_pages(ext: str, data: bytes) -> int | None:
     """Return page/slide count for PDF/PPTX, None for formats without a meaningful page count."""
     try:
         if ext == ".pdf":
-            import fitz
-            doc = fitz.open(stream=data, filetype="pdf")
-            count = doc.page_count
+            import pypdfium2 as pdfium
+            doc = pdfium.PdfDocument(data)
+            count = len(doc)
             doc.close()
             return count
         if ext == ".pptx":
@@ -181,50 +181,6 @@ def _delete_source_files_for_module(module: dict) -> None:
             delete_file(source["file_path"])
         except Exception as e:
             logger.warning("KI Tutor: could not delete file {}: {}", source["file_path"], e)
-
-def _strip_image_text_layer(pdf_bytes: bytes) -> bytes:
-    """Remove invisible OCR text layers that lie on top of rasterised image blocks.
-
-    PDFs processed by OCR tools often contain a text layer positioned directly
-    over image regions.  This text is technically selectable but visually hidden
-    beneath the image.  Docling reads it as regular document text.
-
-    We identify image block regions (type=1 in PyMuPDF's page dict), add a redaction
-    annotation over each one, and apply redactions with text removal only — the image
-    pixels are preserved.  The cleaned PDF bytes are returned for sending to Docling.
-    """
-    import fitz
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    redacted = False
-    for page_num, page in enumerate(doc, start=1):
-        page_dict = page.get_text("dict")
-        image_rects = [
-            fitz.Rect(block["bbox"])
-            for block in page_dict["blocks"]
-            if block["type"] == 1
-        ]
-        for rect in image_rects:
-            page.add_redact_annot(rect)
-            redacted = True
-        if image_rects:
-            # images=PDF_REDACT_IMAGE_NONE keeps the image pixels, only text is removed
-            page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
-    result_bytes = doc.tobytes() if redacted else pdf_bytes
-    doc.close()
-    return result_bytes
-
-def _markdown_fallback(pdf_bytes: bytes) -> dict:
-    """Fallback: extract plain text from PDF via PyMuPDF, skipping image regions."""
-    import fitz
-    clean = _strip_image_text_layer(pdf_bytes)
-    doc = fitz.open(stream=clean, filetype="pdf")
-    pages = []
-    for i, page in enumerate(doc, start=1):
-        text = page.get_text().strip()
-        if text:
-            pages.append(f"## Seite {i}\n\n{text}")
-    doc.close()
-    return {"markdown": "\n\n---\n\n".join(pages) or "_Kein lesbarer Text gefunden._"}
 
 def _resolve_source_ids(module: dict, source_uuids: list[str], max_count: int = 3) -> list[int]:
     """Resolve source UUIDs to DB IDs, enforce max count."""

@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { Sparkle } from "@phosphor-icons/react";
-import Spinner from "@/components/ui/Spinner";
 
 export function CreateSetModal({
-  tool, glossaryCount, selectedSource, creating,
+  tool, glossaryCount, selectedSource,
   onClose, onCreate,
 }: {
   tool: string; glossaryCount: number; selectedSource?: { uuid: string; filename: string } | null;
-  creating: boolean;
   onClose: () => void;
   onCreate: (mode: string, count: number) => void;
 }) {
@@ -85,10 +83,10 @@ export function CreateSetModal({
             style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
             Abbrechen
           </button>
-          <button type="button" onClick={() => onCreate(mode, count)} disabled={creating}
-            className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-50">
-            {creating ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
-            {creating ? "Generieren…" : "Erstellen"}
+          <button type="button" onClick={() => onCreate(mode, count)}
+            className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-all">
+            <Sparkle size={12} weight="bold" />
+            Erstellen
           </button>
         </div>
       </div>

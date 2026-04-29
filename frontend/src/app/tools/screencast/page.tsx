@@ -29,7 +29,7 @@ import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
 import { notifyJobsChanged } from "@/lib/jobs-events";
-import { wordCount, estimateDuration } from "@/lib/text";
+import { wordCount } from "@/lib/text";
 import { useFileDropzone } from "@/hooks/useFileDropzone";
 import { useVoices } from "@/hooks/useVoices";
 import { useScriptEditing, useScriptAutosave } from "@/hooks/useScriptEditing";
@@ -345,7 +345,6 @@ function ScreencastPageInner() {
     (sum, s) => sum + wordCount(s.script),
     0,
   );
-  const totalDuration = estimateDuration(totalWords);
   const totalChars = slides.reduce((sum, s) => sum + (s.script?.length ?? 0), 0);
   const scriptOverLimit = totalChars > SCREENCAST_MAX_CHARS;
 

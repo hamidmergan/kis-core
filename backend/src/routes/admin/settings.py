@@ -18,7 +18,7 @@ from src.services.admin.health import (
 from src.routes.admin._embedding import invalidate_fingerprint_cache
 from src.routes.admin._models import UpdateSettingsRequest
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin: settings"])
 
 
 @router.get("/settings/ping")

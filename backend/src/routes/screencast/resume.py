@@ -9,7 +9,7 @@ from src import database as db
 from src.dependencies import get_current_user
 from src.storage import get_job_file, load_result_json
 
-router = APIRouter(tags=["screencast"])
+router = APIRouter(tags=["screencast: resume"])
 
 # Order defines the step detection on resume
 _SCRIPT_FILES = (

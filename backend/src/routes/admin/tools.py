@@ -10,7 +10,7 @@ from src.dependencies import get_admin_user, get_current_user
 from src.routes.admin._models import ToggleToolRequest
 from src.routes.admin._registries import DEFAULT_DISABLED_TOOLS, TOOLS_CONFIG
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin: tools"])
 
 
 @router.get("/tools")

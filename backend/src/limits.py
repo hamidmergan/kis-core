@@ -14,19 +14,28 @@ RATE_LIMIT_BURST_REQUESTS       = 50   # max chat requests per burst window
 RATE_LIMIT_BURST_WINDOW_SECONDS = 60   # burst window
 RATE_LIMIT_BLOCK_MINUTES        = 10   # block duration when burst limit triggers
 
+# --- Rate limiting: burst block for tools (AI assistant + classic) ----------
+# Unified across all tools so users see consistent behavior. The threshold is
+# generous (parallel studio use, multi-job submissions) and only catches
+# scripts/bugs firing dozens of requests per second.
+TOOL_BURST_REQUESTS             = 50   # max requests per burst window per tool
+TOOL_BURST_WINDOW_SECONDS       = 60
+TOOL_BURST_BLOCK_MINUTES        = 10
+
 # --- Quota: per-user tool limits ---------------------------------------------
 # limit:        max requests per time window
 # window_hours: hours until reset (starts when the limit is first hit)
 # label:        display name for admin UI and error messages
 QUOTA_DEFAULTS: dict[str, dict] = {
-    "tts":            {"limit": 20, "window_hours": 4, "label": "Text in Sprache"},
-    "summary":        {"limit": 30, "window_hours": 4, "label": "Zusammenfassung"},
-    "translate":      {"limit": 30, "window_hours": 4, "label": "Dokumentenübersetzung"},
-    "transcription":  {"limit": 30, "window_hours": 4, "label": "Transkription"},
-    "image_generate": {"limit": 30, "window_hours": 4, "label": "Bild-Generierung"},
-    "image_edit":     {"limit": 30, "window_hours": 4, "label": "Bild-Bearbeitung"},
-    "image_analyze":  {"limit": 30, "window_hours": 4, "label": "Bild-Analyse"},
-    "screencast":     {"limit": 20, "window_hours": 4, "label": "Screencast"},
+    "tts":            {"limit": 100, "window_hours": 4, "label": "Text in Sprache"},
+    "summary":        {"limit": 100, "window_hours": 4, "label": "Zusammenfassung"},
+    "translate":      {"limit": 100, "window_hours": 4, "label": "Dokumentenübersetzung"},
+    "transcription":  {"limit": 100, "window_hours": 4, "label": "Transkription"},
+    "image_generate": {"limit": 100, "window_hours": 4, "label": "Bild-Generierung"},
+    "image_edit":     {"limit": 100, "window_hours": 4, "label": "Bild-Bearbeitung"},
+    "image_analyze":  {"limit": 100, "window_hours": 4, "label": "Bild-Analyse"},
+    "screencast":     {"limit": 100, "window_hours": 4, "label": "Screencast"},
+    "aia_generate":   {"limit": 300, "window_hours": 4, "label": "KI-Tutor: Generierung"},
 }
 
 # --- Job management ---------------------------------------------------------

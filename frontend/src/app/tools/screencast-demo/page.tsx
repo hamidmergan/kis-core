@@ -75,7 +75,6 @@ function ScreencastDemoPageInner() {
   const [mylabEnabled, setMylabEnabled] = useState(false);
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [audioId, setAudioId] = useState<string>("");
-  const [, setAudioCount] = useState(0);
   const [maxReachedIdx, setMaxReachedIdx] = useState(0);
   const [scriptInputMode, setScriptInputMode] = useState<"generate" | "manual" | "import">("generate");
   const [importedScripts, setImportedScripts] = useState<string[] | null>(null);
@@ -134,7 +133,6 @@ function ScreencastDemoPageInner() {
     resetScriptEditing();
     setLightboxIndex(null);
     setAudioId("");
-    setAudioCount(0);
     setRenderProgressLabel("");
     setMaxReachedIdx(0);
     setScriptInputMode("generate");
@@ -224,9 +222,7 @@ function ScreencastDemoPageInner() {
     }
     const blob = await response.blob();
     const aId = response.headers.get("X-Audio-Id");
-    const aCount = response.headers.get("X-Audio-Count");
     if (aId) setAudioId(aId);
-    if (aCount) setAudioCount(parseInt(aCount, 10) || 0);
     setDownloadBlob(blob);
     const url = URL.createObjectURL(blob);
     setVideoUrl(url);

@@ -7,7 +7,7 @@ from src.dependencies import get_admin_user
 
 from src.routes.admin._models import AddWhitelistRequest
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin: users"])
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────

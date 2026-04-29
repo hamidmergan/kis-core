@@ -1,12 +1,14 @@
-"""PDF-specific operations: TOC, paragraph summaries, text search, Markdown conversion."""
+"""PDF-specific operations: TOC, paragraph summaries, text search."""
 from ._shared import (
     Path, APIRouter, Depends, HTTPException, logger, db,
     get_current_user,
-    USE_S3, file_exists, get_file,
-    _strip_image_text_layer, _markdown_fallback,
+    get_file,
 )
+from src.dependencies import is_admin_user
+from src.quotas import enforce_quota
+from src.security.rate_limit import enforce_aia_burst
 
-router = APIRouter(tags=["ki-assistent"])
+router = APIRouter(tags=["ki-assistent: sources"])
 
 
 @router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/toc")
@@ -87,6 +89,9 @@ async def trigger_paragraph_summaries(
     if status == "generating":
         return {"status": "generating"}
 
+    enforce_aia_burst(user_id)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
+
     # Keep existing summaries — task resumes where it left off
     db.update_aia_source_summaries_status(source_uuid, "generating")
 
@@ -120,7 +125,7 @@ async def search_pdf(
     if ext != ".pdf":
         return {"matches": [], "page_width": 0, "page_height": 0}
 
-    import fitz  # pymupdf
+    import pypdfium2 as pdfium
     import re
     import unicodedata
 
@@ -133,120 +138,74 @@ async def search_pdf(
         return {"matches": [], "page_width": 0, "page_height": 0}
 
     data = get_file(source["file_path"])
-    doc = fitz.open(stream=data, filetype="pdf")
+    doc = pdfium.PdfDocument(data)
 
-    matches = []
+    matches: list[dict] = []
     page_width = 0.0
     page_height = 0.0
 
-    for page_num in range(doc.page_count):
+    for page_num in range(len(doc)):
         pg = doc[page_num]
+        pw, ph = pg.get_size()
         if page_width == 0:
-            page_width = pg.rect.width
-            page_height = pg.rect.height
+            page_width = pw
+            page_height = ph
 
-        found = pg.search_for(q_clean, flags=fitz.TEXT_DEHYPHENATE)
-        if not found:
-            continue
+        textpage = pg.get_textpage()
+        searcher = textpage.search(q_clean, match_case=False)
 
-        # Group rects that belong to the same multi-line match occurrence.
-        # pymupdf returns one rect per matched line — consecutive rects
-        # within 1.5x line height belong to the same match.
-        sorted_found = sorted(found, key=lambda r: (r.y0, r.x0))
-        groups: list[list] = [[sorted_found[0]]]
-        for rect in sorted_found[1:]:
-            prev = groups[-1][-1]
-            line_h = max(prev.height, rect.height, 10)
-            if rect.y0 - prev.y1 < line_h * 1.5:
-                groups[-1].append(rect)
-            else:
-                groups.append([rect])
+        try:
+            while True:
+                m = searcher.get_next()
+                if m is None:
+                    break
+                start, count = m
+                if count <= 0:
+                    continue
 
-        for group in groups:
-            matches.append({
-                "page": page_num + 1,
-                "rects": [{"x0": r.x0, "y0": r.y0, "x1": r.x1, "y1": r.y1} for r in group],
-            })
+                # Walk the matched chars, grouping into per-line rects.
+                # pdfium uses bottom-up coords (origin bottom-left); convert to
+                # display orientation (top-left origin, y0=top, y1=bottom) so
+                # the frontend overlay math matches fitz's old output shape.
+                line_rects: list[tuple[float, float, float, float]] = []
+                cur: list[tuple[float, float, float, float]] = []
+                last_bottom: float | None = None
+                for i in range(start, start + count):
+                    cl, cb, cr, ct = textpage.get_charbox(i, loose=True)
+                    if ct <= cb:  # skip degenerate/zero-height (e.g. spaces)
+                        continue
+                    line_h = ct - cb
+                    if last_bottom is not None and abs(cb - last_bottom) > line_h * 0.5:
+                        if cur:
+                            line_rects.append((
+                                min(c[0] for c in cur),
+                                min(c[1] for c in cur),
+                                max(c[2] for c in cur),
+                                max(c[3] for c in cur),
+                            ))
+                            cur = []
+                    cur.append((cl, cb, cr, ct))
+                    last_bottom = cb
+                if cur:
+                    line_rects.append((
+                        min(c[0] for c in cur),
+                        min(c[1] for c in cur),
+                        max(c[2] for c in cur),
+                        max(c[3] for c in cur),
+                    ))
+
+                if not line_rects:
+                    continue
+
+                rects_display = [
+                    {"x0": l, "y0": ph - t, "x1": r, "y1": ph - b}
+                    for (l, b, r, t) in line_rects
+                ]
+                matches.append({"page": page_num + 1, "rects": rects_display})
+        finally:
+            searcher.close()
+            textpage.close()
+            pg.close()
 
     doc.close()
     return {"matches": matches, "page_width": page_width, "page_height": page_height}
-
-
-@router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/markdown")
-async def convert_source_to_markdown(
-    module_uuid: str,
-    source_uuid: str,
-    force: bool = False,
-    current_user: dict = Depends(get_current_user),
-):
-    """Convert a PDF source to Markdown via KISSKI Docling API.
-
-    Before sending to Docling the PDF is pre-processed with PyMuPDF: any invisible
-    OCR text layer that lies on top of rasterised image blocks is redacted so that
-    Docling never sees it.  Images from the Docling response are saved to storage
-    and referenced as proper URLs in the returned Markdown.
-    """
-    import httpx
-    from src.config import Settings
-
-    user_id = current_user["user_id"]
-    module = db.get_aia_module(module_uuid)
-    if not module:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
-
-    is_owner = module["user_id"] == user_id
-    is_enrolled = db.is_student_enrolled(module["id"], user_id)
-    if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
-
-    source = db.get_aia_source(source_uuid)
-    if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
-
-    ext = Path(source["filename"]).suffix.lower()
-    if ext != ".pdf":
-        raise HTTPException(status_code=400, detail="Nur für PDF-Dateien verfügbar")
-
-    md_path = str(Path(source["file_path"]).with_suffix(".md"))
-
-    if not force and file_exists(md_path):
-        cached = get_file(md_path).decode("utf-8")
-        return {"markdown": cached}
-
-    data = get_file(source["file_path"])
-
-    # Strip OCR text layers that lie inside image regions before sending to Docling
-    clean_pdf = _strip_image_text_layer(data)
-
-    s = Settings()
-    if not s.kisski_api_key:
-        raise HTTPException(status_code=500, detail="KISSKI API Key nicht konfiguriert")
-
-    base_url = s.kisski_base_url.rstrip("/")
-    convert_url = f"{base_url}/documents/convert?do_ocr=false&extract_tables_as_images=false"
-
-    try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                convert_url,
-                headers={"Authorization": f"Bearer {s.kisski_api_key}", "accept": "application/json"},
-                files={"document": (source["filename"], clean_pdf, "application/pdf")},
-            )
-        response.raise_for_status()
-        result = response.json()
-    except httpx.HTTPStatusError as e:
-        logger.warning("KISSKI Docling API Fehler {}: {} — Fallback auf PyMuPDF", e.response.status_code, e.response.text)
-        return _markdown_fallback(data)
-    except Exception as e:
-        logger.warning("KISSKI Docling API nicht erreichbar: {} — Fallback auf PyMuPDF", e)
-        return _markdown_fallback(data)
-
-    markdown: str = result.get("markdown", "")
-
-    if USE_S3:
-        from src.storage import _s3, _S3_BUCKET  # type: ignore[attr-defined]
-        _s3().put_object(Bucket=_S3_BUCKET, Key=md_path, Body=markdown.encode("utf-8"))
-    else:
-        Path(md_path).write_text(markdown, encoding="utf-8")
-
-    return {"markdown": markdown}

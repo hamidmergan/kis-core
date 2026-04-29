@@ -10,7 +10,7 @@ from src.storage import delete_job_folder
 
 from src.routes.admin._registries import TOOL_LABELS, tools_matching_query
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin: jobs"])
 
 # Screencast tools have a separate render_started_at timestamp,
 # which measures the pure ffmpeg runtime (excluding queue wait time).

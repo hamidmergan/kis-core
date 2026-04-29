@@ -9,6 +9,7 @@ from src.dependencies import get_current_user, is_admin_user
 from src.storage import save_queue_file
 from src.limits import MAX_IMAGE_BYTES
 from src.quotas import enforce_quota
+from src.security.rate_limit import enforce_tool_burst
 
 router = APIRouter(tags=["image"])
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
@@ -30,6 +31,7 @@ async def generate_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_tool_burst(user_id, "image_generate")
     enforce_quota(user_id, "image_generate", is_admin_user(current_user))
 
     db.create_job(job_uuid, user_id, "image_generate", prompt[:100], username=current_user.get("username", "unknown"))
@@ -64,6 +66,7 @@ async def edit_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_tool_burst(user_id, "image_edit")
     enforce_quota(user_id, "image_edit", is_admin_user(current_user))
 
     display_name = f"{image.filename}: {prompt[:80]}"
@@ -99,6 +102,7 @@ async def analyze_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_tool_burst(user_id, "image_analyze")
     enforce_quota(user_id, "image_analyze", is_admin_user(current_user))
 
     display_name = f"{image.filename}: {prompt[:80]}" if prompt.strip() else image.filename

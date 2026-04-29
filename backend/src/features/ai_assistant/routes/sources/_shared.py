@@ -20,8 +20,6 @@ from src.features.ai_assistant.routes._helpers import (
     _count_pages,
     _require_own_module,
     _save_source_file,
-    _strip_image_text_layer,
-    _markdown_fallback,
     _ALLOWED_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
@@ -36,6 +34,5 @@ __all__ = [
     "USE_S3", "delete_file", "file_exists", "get_file", "stream_s3_object",
     "_convert_office_to_pdf", "_mp4_faststart", "_count_pages",
     "_require_own_module", "_save_source_file",
-    "_strip_image_text_layer", "_markdown_fallback",
     "_ALLOWED_EXTENSIONS", "_MAX_UPLOAD_BYTES",
 ]

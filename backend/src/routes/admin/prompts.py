@@ -8,7 +8,7 @@ from src.dependencies import get_admin_user
 from src.routes.admin._models import UpdatePromptRequest
 from src.routes.admin._registries import PROMPT_REGISTRY
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin: prompts"])
 
 
 def _find_prompt(key: str) -> dict | None:

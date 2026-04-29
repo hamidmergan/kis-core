@@ -20,7 +20,7 @@ from src.routes.screencast._models import (
 )
 from src.routes.screencast._shared import get_script_gen_lock
 
-router = APIRouter(tags=["screencast"])
+router = APIRouter(tags=["screencast: scripts"])
 
 
 @router.patch("/screencast/scripts/{translate_job_uuid}")

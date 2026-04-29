@@ -14,7 +14,7 @@ from src.dependencies import get_current_user
 from src.services.screencast import convert_slides_to_images_async
 from src.storage import get_job_file, load_result_json
 
-router = APIRouter(tags=["screencast"])
+router = APIRouter(tags=["screencast: media"])
 
 
 @router.get("/screencast/{job_uuid}/images")

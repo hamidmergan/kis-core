@@ -6,10 +6,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
-from src.dependencies import get_current_user
+from src.dependencies import get_current_user, is_admin_user
+from src.quotas import enforce_quota
+from src.security.rate_limit import enforce_aia_burst
 from src.features.ai_assistant import schemas
 
-router = APIRouter(tags=["ki-assistent"])
+router = APIRouter(tags=["ki-assistent: studio"])
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -148,6 +150,9 @@ async def generate_schedule(
 
     if not body.source_ids:
         raise HTTPException(status_code=400, detail="Keine Sources ausgewählt")
+
+    enforce_aia_burst(user_id)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
     # Filter: skip already-processed sources client-side already knows this,
     # but we also store the full selection for traceability. The task will

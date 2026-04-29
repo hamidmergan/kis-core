@@ -131,7 +131,7 @@ export default function KiTutorModulePage() {
   // ─── Exercise sets state ─────────────────────────────────────────────────
   const ex = useExercises({ uuid });
   const {
-    exerciseSets, activeSet, setActiveSet, setCreating, setSetCreating,
+    exerciseSets, activeSet, setActiveSet,
     createSetTool, setCreateSetTool, showCreateModal, setShowCreateModal,
     loadExerciseSets, loadExerciseSet, createExerciseSet, deleteExerciseSet,
     downloadExerciseSet, submitSingleAnswer,
@@ -226,7 +226,6 @@ export default function KiTutorModulePage() {
     glossary, glossaryLoading, glossaryCount, glossaryExtracting, glossaryFeedback,
     clozeExercises, clozeLoading,
     vocabQuestions, vocabLoading,
-    langTrainingSourceUuid, setSprachSourceUuid,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
     generateGlossary, generateCloze, generateVocabTest,
     loadGlossary, loadGlossaryCount,
@@ -496,7 +495,6 @@ export default function KiTutorModulePage() {
           tool={createSetTool}
           glossaryCount={glossaryCount || glossary.length}
           selectedSource={selectedSourceForSet}
-          creating={setCreating}
           onClose={() => setShowCreateModal(false)}
           onCreate={async (mode, count) => {
             setShowCreateModal(false);

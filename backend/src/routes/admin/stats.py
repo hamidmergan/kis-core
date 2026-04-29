@@ -7,7 +7,7 @@ from src.dependencies import get_admin_user
 
 from src.routes.admin._registries import TOOL_LABELS
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin: stats"])
 
 
 @router.get("/stats")

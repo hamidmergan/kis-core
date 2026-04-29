@@ -96,7 +96,7 @@ export default function TtsPage() {
   const [pausePreset, setPausePreset] = useState("medium");
 
   useEffect(() => {
-    api.getJson<{ elevenlabs_enabled: boolean; fish_speech_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
+    api.getJson<{ elevenlabs_enabled: boolean; kokoro_enabled: boolean; mylab_enabled: boolean }>("/api/tts/providers").then((data) => {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setKokoroEnabled(data.kokoro_enabled ?? false);
       setMylabEnabled(data.mylab_enabled ?? false);

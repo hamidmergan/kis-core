@@ -15,7 +15,7 @@ from src.routes.admin.stats import router as _stats_router
 from src.routes.admin.tools import router as _tools_router
 from src.routes.admin.users import router as _users_router
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin")
 router.include_router(_settings_router)
 router.include_router(_maintenance_router)
 router.include_router(_tools_router)

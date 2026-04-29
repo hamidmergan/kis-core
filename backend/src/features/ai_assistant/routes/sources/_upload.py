@@ -9,7 +9,7 @@ from ._shared import (
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
 )
 
-router = APIRouter(tags=["ki-assistent"])
+router = APIRouter(tags=["ki-assistent: sources"])
 
 
 @router.post("/ai-assistant/modules/{module_uuid}/sources")

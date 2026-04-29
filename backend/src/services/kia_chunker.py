@@ -98,15 +98,14 @@ def _page_has_significant_image(page) -> bool:
     """True if the page contains a raster image covering ≥ _OCR_IMAGE_AREA_FRAC
     of the page area. Filters out small logos/icons.
     """
+    import pypdfium2.raw as pdfium_c
     try:
-        rect = page.rect
-        page_area = max(rect.width * rect.height, 1.0)
-        for block in page.get_text("dict")["blocks"]:
-            if block.get("type") != 1:  # 1 = image block
-                continue
-            bbox = block.get("bbox") or [0, 0, 0, 0]
-            w = max(bbox[2] - bbox[0], 0)
-            h = max(bbox[3] - bbox[1], 0)
+        page_w, page_h = page.get_size()
+        page_area = max(page_w * page_h, 1.0)
+        for obj in page.get_objects(filter=[pdfium_c.FPDF_PAGEOBJ_IMAGE]):
+            l, b, r, t = obj.get_pos()
+            w = max(r - l, 0)
+            h = max(t - b, 0)
             if (w * h) / page_area >= _OCR_IMAGE_AREA_FRAC:
                 return True
     except Exception:
@@ -115,17 +114,21 @@ def _page_has_significant_image(page) -> bool:
 
 
 def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
-    import fitz  # PyMuPDF
+    import io
+    import pypdfium2 as pdfium
     chunks: list[dict] = []
-    doc = fitz.open(file_path)
+    doc = pdfium.PdfDocument(file_path)
 
     # Lazy-init OCR provider once per PDF. None means OCR toggle is off or
     # the configured provider couldn't be constructed — either way, skip OCR.
     ocr_provider = None
     ocr_checked = False
 
-    for page_num, page in enumerate(doc, start=1):
-        text = _clean(page.get_text()).strip()
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        textpage = page.get_textpage()
+        raw_text = textpage.get_text_range() or ""
+        text = _clean(raw_text).strip()
 
         # Trigger OCR on (a) near-empty pages (scanned docs) or (b) mixed pages
         # where a large image likely carries text the text-layer doesn't have.
@@ -145,21 +148,27 @@ def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
 
             if ocr_provider is not None:
                 try:
-                    pix = page.get_pixmap(dpi=200)
-                    png_bytes = pix.tobytes("png")
+                    # 200 DPI = scale factor 200/72 since pdfium native resolution is 72 DPI
+                    bitmap = page.render(scale=200 / 72)
+                    pil = bitmap.to_pil()
+                    buf = io.BytesIO()
+                    pil.save(buf, format="PNG")
+                    png_bytes = buf.getvalue()
                     ocr_text = _clean(ocr_provider.ocr_image(png_bytes, "image/png")).strip()
                     if ocr_text:
                         logger.info(
                             "PDF page {}: OCR extracted {} chars (text-layer had {})",
-                            page_num, len(ocr_text), len(text),
+                            page_num + 1, len(ocr_text), len(text),
                         )
                         # Merge text-layer remnants + OCR output; OCR wins if empty layer
                         text = (text + "\n" + ocr_text).strip() if text else ocr_text
                 except Exception as e:
-                    logger.warning("OCR failed on page {}: {}", page_num, e)
+                    logger.warning("OCR failed on page {}: {}", page_num + 1, e)
 
         for sub in _split_text(text, chunk_size, overlap):
-            chunks.append({"page_number": page_num, "content": sub})
+            chunks.append({"page_number": page_num + 1, "content": sub})
+        textpage.close()
+        page.close()
     doc.close()
     if not chunks:
         raise ValueError(
@@ -248,25 +257,28 @@ def extract_page_texts(file_path: str) -> list[dict]:
       - page_number (int, 1-indexed)
       - content     (str)
     """
-    import fitz
-    doc = fitz.open(file_path)
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument(file_path)
     pages: list[dict] = []
 
-    for page_num, page in enumerate(doc, start=1):
-        page_dict = page.get_text("dict")
+    for page_idx in range(len(doc)):
+        page_num = page_idx + 1
+        page = doc[page_idx]
+        textpage = page.get_textpage()
+        raw_text = textpage.get_text_range() or ""
+        textpage.close()
+        page.close()
 
-        # Collect all text blocks
-        page_blocks = []
-        for block in page_dict["blocks"]:
-            if block["type"] != 0:  # skip images
-                continue
-            lines_text = []
-            for line in block["lines"]:
-                spans_text = "".join(span["text"] for span in line["spans"])
-                lines_text.append(_clean(spans_text).strip())
-            content = " ".join(ln for ln in lines_text if ln).strip()
-            if content:
-                page_blocks.append({"content": content, "bbox": block["bbox"]})
+        # pdfium gives us a single text stream per page rather than typed
+        # blocks/lines/spans like PyMuPDF.  Treating each non-empty newline-
+        # delimited line as a "block" preserves the structural-page heuristic
+        # (TOC keyword on first line, dotted "...12" pattern per line) without
+        # needing a layout-aware grouping pass.
+        page_blocks = [
+            {"content": ln}
+            for ln in (_clean(line).strip() for line in raw_text.splitlines())
+            if ln
+        ]
 
         if not page_blocks:
             continue

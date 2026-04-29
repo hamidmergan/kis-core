@@ -14,7 +14,7 @@ from src.utils.file_validation import MAX_SCREENCAST_SLIDES, SCREENCAST_MAX_CHAR
 from src.routes.screencast._models import PrerenderRequest, RenderRequest
 from src.routes.screencast._shared import prerender_images_task
 
-router = APIRouter(tags=["screencast"])
+router = APIRouter(tags=["screencast: render"])
 
 
 @router.post("/screencast/prerender-images")

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Header from "./Header";
 import ToolsSidebar from "./ToolsSidebar";
 
-const NO_HEADER_PATHS = new Set(["/login", "/wartung", "/pending", "/embedpdf-test"]);
+const NO_HEADER_PATHS = new Set(["/login", "/wartung", "/pending"]);
 const NO_HEADER_PREFIXES = ["/workspace/"];
 
 const NO_SIDEBAR_PATHS = new Set([
@@ -13,7 +13,6 @@ const NO_SIDEBAR_PATHS = new Set([
   "/privacy",
   "/pending",
   "/wartung",
-  "/embedpdf-test",
 ]);
 const NO_SIDEBAR_PREFIXES = ["/workspace/"];
 

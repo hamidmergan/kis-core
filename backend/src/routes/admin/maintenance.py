@@ -12,7 +12,7 @@ from src.dependencies import get_admin_user
 from src.routes.admin._embedding import active_embedding_provider_key, get_cached_fingerprint
 from src.routes.admin._models import MaintenanceToggleRequest
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin: maintenance"])
 
 
 @router.get("/maintenance")

@@ -17,7 +17,9 @@ from pydantic import BaseModel, Field
 from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client
+from src.dependencies import get_current_user, get_kisski_client, is_admin_user
+from src.quotas import enforce_quota
+from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
     GLOSSARY_LIMIT,
     KIA_SOURCE_MAX_PAGES,
@@ -41,8 +43,6 @@ from src.features.ai_assistant.routes._helpers import (
     _require_own_module,
     _save_source_file,
     _delete_source_files_for_module,
-    _strip_image_text_layer,
-    _markdown_fallback,
     _resolve_source_ids,
     _term_appears_in_text,
     _ALLOWED_EXTENSIONS,
@@ -51,7 +51,7 @@ from src.features.ai_assistant.routes._helpers import (
 )
 from src.features.ai_assistant import schemas
 
-router = APIRouter(tags=["ki-assistent"])
+router = APIRouter(tags=["ki-assistent: language-training"])
 
 @router.post("/ai-assistant/modules/{module_uuid}/exercises/cloze")
 async def generate_cloze(
@@ -69,6 +69,9 @@ async def generate_cloze(
     is_enrolled = db.is_student_enrolled(module["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    enforce_aia_burst(user_id)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
     entries = db.get_aia_glossary_by_module(module["id"])
     if not entries:
@@ -98,6 +101,9 @@ async def generate_vocab_test(
     is_enrolled = db.is_student_enrolled(module["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    enforce_aia_burst(user_id)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
     entries = db.get_aia_glossary_by_module(module["id"])
     if not entries:
@@ -130,6 +136,9 @@ async def create_exercise_set(
     is_enrolled = db.is_student_enrolled(module["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    enforce_aia_burst(user_id)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
     if body.mode == "source" and not body.source_uuid:
         raise HTTPException(status_code=400, detail="Keine Source angegeben")

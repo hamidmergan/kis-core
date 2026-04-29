@@ -9,7 +9,7 @@ from ._shared import (
     _require_own_module,
 )
 
-router = APIRouter(tags=["ki-assistent"])
+router = APIRouter(tags=["ki-assistent: sources"])
 
 
 @router.get("/ai-assistant/modules/{module_uuid}/sources/{source_uuid}/file")

@@ -22,7 +22,7 @@ from src.features.ai_assistant.routes.language_training import (
     stats,
 )
 
-router = APIRouter(tags=["ki-assistent"])
+router = APIRouter()
 
 for m in [
     popup, modules, sources, chat, messages, notes, glossary,

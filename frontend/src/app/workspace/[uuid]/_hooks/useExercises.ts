@@ -11,7 +11,6 @@ interface UseExercisesOptions {
 export function useExercises({ uuid }: UseExercisesOptions) {
   const [exerciseSets, setExerciseSets] = useState<ExerciseSet[]>([]);
   const [activeSet, setActiveSet] = useState<ExerciseSet | null>(null);
-  const [setCreating, setSetCreating] = useState(false);
   const [createSetTool, setCreateSetTool] = useState<string>("flashcards");
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -140,7 +139,6 @@ export function useExercises({ uuid }: UseExercisesOptions) {
   return {
     exerciseSets, setExerciseSets,
     activeSet, setActiveSet,
-    setCreating, setSetCreating,
     createSetTool, setCreateSetTool,
     showCreateModal, setShowCreateModal,
     loadExerciseSets, loadExerciseSet,

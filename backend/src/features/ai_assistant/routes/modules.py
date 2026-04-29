@@ -40,8 +40,6 @@ from src.features.ai_assistant.routes._helpers import (
     _require_own_module,
     _save_source_file,
     _delete_source_files_for_module,
-    _strip_image_text_layer,
-    _markdown_fallback,
     _resolve_source_ids,
     _term_appears_in_text,
     _ALLOWED_EXTENSIONS,
@@ -50,7 +48,7 @@ from src.features.ai_assistant.routes._helpers import (
 )
 from src.features.ai_assistant import schemas
 
-router = APIRouter(tags=["ki-assistent"])
+router = APIRouter(tags=["ki-assistent: modules"])
 
 @router.post("/ai-assistant/modules")
 async def create_module(

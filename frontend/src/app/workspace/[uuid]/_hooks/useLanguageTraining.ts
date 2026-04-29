@@ -18,7 +18,6 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
   const [clozeLoading, setClozeLoading] = useState(false);
   const [vocabQuestions, setVocabQuestions] = useState<VocabTestQuestion[]>([]);
   const [vocabLoading, setVocabLoading] = useState(false);
-  const [langTrainingSourceUuid, setSprachSourceUuid] = useState("");
   const [glossaryCount, setGlossaryCount] = useState(0);
   const [glossaryExtracting, setGlossaryExtracting] = useState(false);
   const [glossaryFeedback, setGlossaryFeedback] = useState<{ kind: "success" | "info" | "error"; message: string } | null>(null);
@@ -195,7 +194,6 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
     glossary, glossaryLoading, glossaryCount, glossaryExtracting, glossaryFeedback,
     clozeExercises, clozeLoading,
     vocabQuestions, vocabLoading,
-    langTrainingSourceUuid, setSprachSourceUuid,
     deleteGlossaryEntry, deleteAllGlossaryEntries,
     generateGlossary, generateCloze, generateVocabTest,
     loadGlossary, loadGlossaryCount,

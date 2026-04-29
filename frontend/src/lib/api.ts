@@ -32,6 +32,11 @@ function _parseErrorResponse(errorBody: { detail?: unknown }, fallbackStatus: nu
   if (detail && typeof detail === "object" && "quota_type" in (detail as object)) {
     return new QuotaError(detail as Record<string, unknown>);
   }
+  // Burst-Sperren (kind: "tool_blocked" | "chat_blocked") liefern die konkrete
+  // Sperrnachricht in detail.message — sonst ginge sie als generisches "Fehler: 429" verloren.
+  if (detail && typeof detail === "object" && "message" in (detail as object)) {
+    return new Error(String((detail as Record<string, unknown>).message));
+  }
   const msg = typeof detail === "string" ? detail : `Fehler: ${fallbackStatus}`;
   return new Error(msg);
 }

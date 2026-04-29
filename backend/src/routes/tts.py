@@ -8,6 +8,7 @@ from loguru import logger
 
 from src.dependencies import get_elevenlabs_client, get_current_user, is_admin_user
 from src.quotas import enforce_quota
+from src.security.rate_limit import enforce_tool_burst
 from src import database as db
 from src.storage import save_queue_file
 from src.services.elevenlabs_client import DEFAULT_VOICE_ID
@@ -254,6 +255,7 @@ async def text_to_speech(
         get_elevenlabs_client()
 
     user_id = current_user.get("user_id", 0)
+    enforce_tool_burst(user_id, "tts")
     enforce_quota(user_id, "tts", is_admin_user(current_user))
 
     job_uuid = uuid.uuid4().hex

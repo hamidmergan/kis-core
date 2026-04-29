@@ -13,6 +13,7 @@ from src import database as db
 from src.dependencies import get_current_user, is_admin_user
 from src.limits import MAX_QUEUED_SCREENCAST_JOBS
 from src.quotas import enforce_quota
+from src.security.rate_limit import enforce_tool_burst
 from src.services.screencast import (
     convert_slides_to_images_async,
     extract_text_per_slide,
@@ -24,7 +25,7 @@ from src.utils.file_validation import MAX_SCREENCAST_SLIDES, MAX_UPLOAD_BYTES
 from src.routes.screencast._models import ExtractTextsRequest, PrepareRequest
 from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload
 
-router = APIRouter(tags=["screencast"])
+router = APIRouter(tags=["screencast: translate"])
 
 
 def _enforce_queue_and_quota(user_id: int, current_user: dict) -> None:
@@ -33,6 +34,7 @@ def _enforce_queue_and_quota(user_id: int, current_user: dict) -> None:
             status_code=409,
             detail=f"Du hast bereits {MAX_QUEUED_SCREENCAST_JOBS} Screencast-Jobs in der Warteschlange.",
         )
+    enforce_tool_burst(user_id, "screencast")
     enforce_quota(user_id, "screencast", is_admin_user(current_user))
 
 

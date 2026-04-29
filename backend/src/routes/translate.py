@@ -7,6 +7,7 @@ from loguru import logger
 from src import database as db
 from src.dependencies import get_current_user, get_settings, is_admin_user
 from src.quotas import enforce_quota
+from src.security.rate_limit import enforce_tool_burst
 from src.storage import save_queue_file
 from src.utils.file_validation import (
     ALLOWED_EXTENSIONS,
@@ -134,6 +135,7 @@ async def translate(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
+    enforce_tool_burst(user_id, "translate")
     enforce_quota(user_id, "translate", is_admin_user(current_user))
 
     db.create_job(job_uuid, user_id, "translation", file.filename, username=current_user.get("username", "unknown"))
