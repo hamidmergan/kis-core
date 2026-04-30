@@ -80,51 +80,51 @@ export function ScheduleEntryEditModal({
           </button>
         </div>
 
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3 text-base">
           <label className="block">
-            <span className="text-xs font-medium block mb-1" style={{ color: "var(--muted)" }}>Titel</span>
+            <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>Titel</span>
             <input
               type="text"
               required
               maxLength={200}
               value={titleVal}
               onChange={(e) => setTitleVal(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+              className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
               style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
             />
           </label>
 
           <div className="grid grid-cols-2 gap-2">
             <label className="block">
-              <span className="text-xs font-medium block mb-1" style={{ color: "var(--muted)" }}>Datum</span>
+              <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>Datum</span>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+                className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
                 style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
               />
             </label>
             <label className="block">
-              <span className="text-xs font-medium block mb-1" style={{ color: "var(--muted)" }}>Uhrzeit</span>
+              <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>Uhrzeit</span>
               <input
                 type="time"
                 value={dueTime}
                 onChange={(e) => setDueTime(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+                className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
                 style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
               />
             </label>
           </div>
 
           <label className="block">
-            <span className="text-xs font-medium block mb-1" style={{ color: "var(--muted)" }}>Beschreibung (optional)</span>
+            <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>Beschreibung (optional)</span>
             <textarea
               rows={3}
               maxLength={2000}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm resize-none border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
+              className="w-full px-3 py-2 rounded-lg text-base resize-none border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
               style={{ backgroundColor: "var(--surface)", color: "var(--foreground)" }}
             />
           </label>
@@ -143,7 +143,7 @@ export function ScheduleEntryEditModal({
             >
               {isOptional && <Check size={11} weight="bold" />}
             </button>
-            <span className="text-xs" style={{ color: "var(--foreground)" }}>Optional (freiwillig)</span>
+            <span className="text-sm" style={{ color: "var(--foreground)" }}>Optional (freiwillig)</span>
           </label>
         </div>
 

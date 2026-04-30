@@ -10,7 +10,7 @@ export function UploadErrorsBlock({
   const [expanded, setExpanded] = useState(false);
   return (
     <div
-      className="mt-2 px-3 py-2 rounded-lg text-[12px]"
+      className="mt-2 px-3 py-2 rounded-lg text-sm"
       style={{ backgroundColor: "rgba(220,38,38,0.08)", color: "var(--error-strong)", border: "1px solid rgba(220,38,38,0.25)" }}
     >
       <div className="flex items-start gap-2">
@@ -36,7 +36,7 @@ export function UploadErrorsBlock({
       {expanded && (
         <ul className="mt-2 space-y-1 list-none">
           {errors.map((e, i) => (
-            <li key={i} className="text-[11px] leading-snug">
+            <li key={i} className="text-xs leading-snug">
               <span className="font-medium break-all">{e.filename}</span>
               <span className="opacity-80">: {e.message}</span>
             </li>

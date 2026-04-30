@@ -30,10 +30,10 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
           <Chat size={22} style={{ color: "var(--kb)" }} />
         </div>
       )}
-      <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+      <p className="text-base font-medium" style={{ color: "var(--foreground)" }}>
         {hildeEnabled ? "Hallo, ich bin Hilde." : "Dein KI-Assistent"}
       </p>
-      <p className="text-xs text-center max-w-xs" style={{ color: "var(--muted)" }}>
+      <p className="text-sm text-center max-w-xs" style={{ color: "var(--muted)" }}>
         {hildeEnabled
           ? "Frag mich was zu deinen Quellen — ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen."
           : "Wähle Quellen links aus – stell Fragen, lass dir Inhalte erklären oder gib Anweisungen."}
@@ -44,7 +44,7 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
             key={prompt}
             disabled={disabled}
             onClick={() => onSendPrompt?.(prompt)}
-            className="text-left text-xs px-4 rounded-xl border transition-all"
+            className="text-left text-sm px-4 rounded-xl border transition-all"
             style={{
               height: 50,
               borderColor: disabled ? "var(--border)" : "rgba(var(--kb-rgb),0.25)",

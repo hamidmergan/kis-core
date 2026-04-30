@@ -18,7 +18,9 @@ const MINT = "#A8D5BA";
 const SAND = "#E8DCC4";
 
 export default function Hilde({ size = 120, state = "idle", className }: HildeProps) {
-  const reactId = useId();
+  // Strip non-alphanumeric chars from useId output. React's default IDs
+  // contain ":" which some browsers refuse to resolve in url(#...) SVG refs.
+  const reactId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const eyeLId = `hilde-eye-l-${reactId}`;
   const eyeRId = `hilde-eye-r-${reactId}`;
 
@@ -32,7 +34,8 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
       height={size}
       viewBox="0 0 120 120"
       className={className}
-      style={{ overflow: "visible" }}
+      shapeRendering="geometricPrecision"
+      style={{ overflow: "visible", display: "block" }}
     >
       {/* Shadow — pulses lightly with each hop */}
       <ellipse
@@ -100,7 +103,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
               animation: isWave
                 ? "hilde-wing-r 30s ease-in-out infinite"
                 : state === "found"
-                  ? "hilde-wing-found 30s ease-in-out infinite"
+                  ? "hilde-wing-found 10s ease-in-out infinite"
                   : "none",
             }}
           >
@@ -167,7 +170,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       fill={KB}
                       style={{
                         transformOrigin: "48px 45px",
-                        animation: "hilde-confused-top 30s ease-in-out infinite",
+                        animation: "hilde-confused-top 10s ease-in-out infinite",
                       }}
                     />
                     <rect
@@ -178,7 +181,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       fill={KB}
                       style={{
                         transformOrigin: "48px 71px",
-                        animation: "hilde-confused-bottom 30s ease-in-out infinite",
+                        animation: "hilde-confused-bottom 10s ease-in-out infinite",
                       }}
                     />
                   </g>
@@ -191,7 +194,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       fill={KB}
                       style={{
                         transformOrigin: "72px 45px",
-                        animation: "hilde-confused-top 30s ease-in-out infinite",
+                        animation: "hilde-confused-top 10s ease-in-out infinite",
                       }}
                     />
                     <rect
@@ -202,7 +205,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       fill={KB}
                       style={{
                         transformOrigin: "72px 71px",
-                        animation: "hilde-confused-bottom 30s ease-in-out infinite",
+                        animation: "hilde-confused-bottom 10s ease-in-out infinite",
                       }}
                     />
                   </g>
@@ -279,7 +282,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
           {/* Found: magnifier — rests in default pose, moves up to the eye every 30s */}
           {state === "found" && (
             <g transform="translate(82 70) rotate(15)">
-              <g style={{ animation: "hilde-magnify 30s ease-in-out infinite" }}>
+              <g style={{ animation: "hilde-magnify 10s ease-in-out infinite" }}>
                 <circle cx="0" cy="0" r="6" fill="none" stroke={KB_DARK} strokeWidth="1.8" />
                 <circle cx="0" cy="0" r="6" fill={MINT} opacity="0.4" />
                 <line

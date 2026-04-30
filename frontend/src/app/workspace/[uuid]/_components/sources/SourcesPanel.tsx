@@ -81,7 +81,7 @@ export function SourcesPanel({
           className="flex items-center justify-between px-4 py-3 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <span className="text-sm font-semibold tracking-wide" style={{ color: "var(--foreground)" }}>
+          <span className="text-base font-semibold tracking-wide" style={{ color: "var(--foreground)" }}>
             Quellen
           </span>
           <button
@@ -124,7 +124,7 @@ export function SourcesPanel({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90"
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-base font-medium transition-colors hover:opacity-90"
             style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", border: "2px dashed rgba(var(--kb-rgb),0.3)" }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--kb)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.3)"; }}
@@ -140,7 +140,7 @@ export function SourcesPanel({
                   style={{ width: `${uploadProgress.percent}%`, backgroundColor: "var(--kb)" }}
                 />
               </div>
-              <p className="text-[11px] mt-1" >
+              <p className="text-xs mt-1" >
                 {uploadProgress.total > 1
                   ? `Datei ${uploadProgress.current}/${uploadProgress.total} – ${uploadProgress.percent}%`
                   : `Hochladen… ${uploadProgress.percent}%`}
@@ -172,7 +172,7 @@ export function SourcesPanel({
           >
             {allSelected && <Check size={11} weight="bold" />}
           </button>
-          <span className="text-xs" >
+          <span className="text-sm" >
             Alle auswählen
           </span>
         </label>
@@ -183,7 +183,7 @@ export function SourcesPanel({
         {sources.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4 gap-2">
             <FilePdf size={32} color="var(--border)" />
-            <p className="text-xs text-center" >
+            <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
               Lade eine Quelle hoch.
             </p>
           </div>
@@ -232,7 +232,7 @@ export function SourcesPanel({
                 >
                   <FileIcon filename={src.filename} />
                   <span
-                    className="flex-1 text-xs leading-snug truncate min-w-0 font-medium"
+                    className="flex-1 text-sm leading-snug truncate min-w-0 font-medium"
                     style={{ color: "var(--foreground)" }}
                     title={src.filename}
                   >
@@ -243,7 +243,7 @@ export function SourcesPanel({
 
                 {src.status === "failed" && src.error_message && (
                   <div
-                    className="absolute left-4 right-4 top-full z-10 mt-1 rounded-lg px-3 py-2 text-[11px] leading-snug shadow-lg"
+                    className="absolute left-4 right-4 top-full z-10 mt-1 rounded-lg px-3 py-2 text-xs leading-snug shadow-lg"
                     style={{ backgroundColor: "#FEF2F2", border: "1px solid var(--error-border)", color: "var(--error-strong)" }}
                   >
                     {src.error_message}
@@ -292,7 +292,7 @@ export function SourcesPanel({
                                 <button
                                   type="button"
                                   onClick={() => { setMenuOpenId(null); setDeleteSourceId(src.uuid); }}
-                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-base text-left hover:bg-[var(--surface-dim)] transition-colors"
                                   style={{ color: "rgb(185, 28, 28)" }}
                                 >
                                   <Trash size={16} weight="bold" />

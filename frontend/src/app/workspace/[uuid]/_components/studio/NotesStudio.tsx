@@ -100,11 +100,11 @@ export function NotesStudio({
               placeholder="Neue Notiz…"
               maxLength={2000}
               rows={1}
-              className="flex-1 text-sm resize-none focus:outline-none bg-transparent"
+              className="flex-1 text-base resize-none focus:outline-none bg-transparent"
               style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}
             />
             {draft.length > 1800 && (
-              <span className="text-[10px] flex-shrink-0" style={{ color: draft.length >= 2000 ? "var(--error)" : "var(--muted)" }}>
+              <span className="text-xs flex-shrink-0" style={{ color: draft.length >= 2000 ? "var(--error)" : "var(--muted)" }}>
                 {draft.length}/2000
               </span>
             )}
@@ -133,7 +133,7 @@ export function NotesStudio({
           {notes.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-2 py-8" >
               <NotePencil size={32} weight="light" />
-              <span className="text-xs text-center">Noch keine Notes. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.</span>
+              <span className="text-sm text-center">Noch keine Notes. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.</span>
             </div>
           )}
 
@@ -182,13 +182,13 @@ export function NotesStudio({
                       style={{ minHeight: 48, color: "var(--foreground)" }}
                     >
                       <span
-                        className="flex-1 text-sm truncate flex items-center gap-2"
+                        className="flex-1 text-base truncate flex items-center gap-2"
                         style={hasCustomTitle ? { fontWeight: 500 } : { fontStyle: "italic" }}
                       >
                         {isTitlePending && <Spinner size="xs" color="current" />}
                         <span className="truncate">{rowLabel}</span>
                       </span>
-                      <span className="flex-shrink-0 text-[10px] text-[var(--muted)]">
+                      <span className="flex-shrink-0 text-xs text-[var(--muted)]">
                         {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <span className="row-caret flex-shrink-0 transition-colors">
@@ -217,7 +217,7 @@ export function NotesStudio({
                               }}
                               placeholder="Titel vergeben…"
                               maxLength={200}
-                              className="w-full text-sm font-medium mb-2 px-2 py-1 rounded-md focus:outline-none"
+                              className="w-full text-base font-medium mb-2 px-2 py-1 rounded-md focus:outline-none"
                               style={{ backgroundColor: "var(--surface-dim)", color: "var(--foreground)", border: "1px solid var(--border)" }}
                             />
                           ) : (
@@ -225,7 +225,7 @@ export function NotesStudio({
                               type="button"
                               disabled={isTitlePending}
                               onClick={() => { setTitleDraft(note.title ?? ""); setEditingTitleId(note.id); }}
-                              className="group w-full text-left text-sm font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2 disabled:cursor-wait"
+                              className="group w-full text-left text-base font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2 disabled:cursor-wait"
                               style={hasCustomTitle ? { color: "var(--foreground)" } : { fontStyle: "italic", fontWeight: 400 }}
                               title={isTitlePending ? "Titel wird generiert…" : hasCustomTitle ? "Titel ändern" : "Titel vergeben"}
                             >
@@ -239,7 +239,7 @@ export function NotesStudio({
                           )
                         )}
 
-                        <div className="text-sm ki-note-content" style={{ color: "var(--foreground)" }}>
+                        <div className="text-base ki-note-content" style={{ color: "var(--foreground)" }}>
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
@@ -251,7 +251,7 @@ export function NotesStudio({
                               h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                               h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                               h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,
-                              table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                              table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-sm border-collapse">{children}</table></div>,
                               th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
                               td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitations(children)}</td>,
                               hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,
@@ -272,7 +272,7 @@ export function NotesStudio({
                                   tabIndex={0}
                                   onClick={(e) => { e.stopPropagation(); onChipClick(s.uuid, 0, s.filename); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                                  className="inline-flex items-center gap-1 text-[10px] cursor-pointer text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
+                                  className="inline-flex items-center gap-1 text-xs cursor-pointer text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
                                   title={s.filename}
                                 >
                                   <ChipIcon size={10} weight="bold" />
@@ -285,7 +285,7 @@ export function NotesStudio({
                         )}
 
                         <div className="flex items-center justify-between mt-3">
-                          <span className="text-[10px]" >
+                          <span className="text-xs" >
                             {note.created_at ? new Date(note.created_at).toLocaleString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                           </span>
                           <button

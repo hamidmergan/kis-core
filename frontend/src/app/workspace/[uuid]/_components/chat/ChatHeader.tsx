@@ -26,7 +26,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize, hildeEnabled, on
 
   return (
     <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
-      <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Chat</span>
+      <span className="text-base font-semibold" style={{ color: "var(--foreground)" }}>Chat</span>
       <div className="flex items-center gap-1.5">
         <div className="relative" ref={chatMenuRef}>
           <button
@@ -47,7 +47,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize, hildeEnabled, on
                 <button
                   type="button"
                   onClick={() => { onToggleHilde(); setChatMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-base text-left hover:bg-[var(--surface-dim)] transition-colors"
                   style={{ color: "var(--foreground)" }}
                 >
                   {hildeEnabled ? <EyeSlash size={16} /> : <Eye size={16} />}
@@ -58,7 +58,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize, hildeEnabled, on
                 type="button"
                 onClick={() => { onClear(); setChatMenuOpen(false); }}
                 disabled={messageCount === 0}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] disabled:opacity-40 transition-colors"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-base text-left hover:bg-[var(--surface-dim)] disabled:opacity-40 transition-colors"
                 style={{ color: "var(--error-strong)" }}
               >
                 <Trash size={16} />

@@ -116,7 +116,7 @@ export function GlossaryView({
           {entries.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center gap-2 py-8" >
               <Book size={32} weight="light" />
-              <span className="text-xs text-center">Noch kein Glossary generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.</span>
+              <span className="text-xs text-center" style={{ color: "var(--muted)" }}>Noch kein Glossary generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.</span>
             </div>
           )}
         </div>

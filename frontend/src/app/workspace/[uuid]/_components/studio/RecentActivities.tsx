@@ -74,14 +74,14 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
     return (
       <div className="flex flex-col items-center justify-center gap-2 pt-16 pb-8 px-4" style={{ color: "var(--muted)" }}>
         <ClockCounterClockwise size={32} weight="light" />
-        <span className="text-xs text-center">Noch keine Aktivitäten.</span>
+        <span className="text-sm text-center">Noch keine Aktivitäten.</span>
       </div>
     );
   }
 
   return (
     <div className="px-3 pb-3">
-      <span className="text-[10px] font-semibold uppercase tracking-wider my-2 block" style={{ color: "var(--muted)" }}>
+      <span className="text-xs font-semibold uppercase tracking-wider my-2 block" style={{ color: "var(--muted)" }}>
         Letzte Aktivitäten
       </span>
       <div className="flex flex-col gap-1">
@@ -103,10 +103,10 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
                 <Icon size={16} color={iconColor} weight="bold" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>
+                <div className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
                   {displayTitle}
                 </div>
-                <div className="text-[10px]" style={{ color: "var(--muted)" }}>
+                <div className="text-xs" style={{ color: "var(--muted)" }}>
                   {TOOL_LABELS[a.tool] ?? a.tool} · {a.last_answer ? formatTime(a.last_answer) : ""}
                 </div>
               </div>

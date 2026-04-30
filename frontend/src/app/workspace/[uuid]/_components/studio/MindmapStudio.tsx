@@ -331,7 +331,7 @@ export function MindmapStudio({
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
         <SubviewHeader title="Mindmap" toolKey="Mindmap" onBack={onBack} breadcrumbs={breadcrumbs} />
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-          <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
+          <div className="rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2"
             style={{
               color: noSources ? "var(--error-strong)" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
             }}>
@@ -348,7 +348,7 @@ export function MindmapStudio({
           {savedList.length === 0 && !loading ? (
             <div className="flex flex-col items-center gap-3 pt-[15%]">
               <TreeStructure size={48} weight="duotone" style={{ color: "var(--border)" }} />
-              <p className="text-sm text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
+              <p className="text-base text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
               <button type="button" onClick={() => onGenerate()}
                 disabled={noSources || loading || atLimit}
                 className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40">
@@ -365,7 +365,7 @@ export function MindmapStudio({
                 </button>
               </div>
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? "Mindmap" : "Mindmaps"}</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? "Mindmap" : "Mindmaps"}</span>
               </div>
               <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                 {loading && (
@@ -373,7 +373,7 @@ export function MindmapStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Spinner size="sm" />
-                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>Wird generiert…</span>
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>Wird generiert…</span>
                     </div>
                   </div>
                 )}
@@ -384,12 +384,12 @@ export function MindmapStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <TreeStructure size={16} weight="duotone" style={{ color: "var(--kb)", flexShrink: 0 }} />
-                      <span className="text-[12px] font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }} data-tip={item.topic}>
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }} data-tip={item.topic}>
                         {item.topic}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-1">
-                      <span className="text-[10px] font-medium" >
+                      <span className="text-xs font-medium" >
                         {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
@@ -468,7 +468,7 @@ export function MindmapStudio({
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
                 <Spinner size="lg" />
-                <p className="text-xs" >Mindmap wird generiert…</p>
+                <p className="text-sm" >Mindmap wird generiert…</p>
               </div>
             </div>
           )}
@@ -482,7 +482,7 @@ export function MindmapStudio({
               {sourceIndexRef.current.size > 0 && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 flex-shrink-0" style={{ borderTop: "1px solid var(--border)" }}>
                   {Array.from(sourceIndexRef.current.entries()).map(([filename, num]) => (
-                    <span key={num} className="text-[11px] leading-snug text-[var(--muted)]">
+                    <span key={num} className="text-xs leading-snug text-[var(--muted)]">
                       [{num}] {filename}
                     </span>
                   ))}

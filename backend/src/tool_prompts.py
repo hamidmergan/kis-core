@@ -118,7 +118,7 @@ KIA_SYSTEM_RAG = (
     "If the sources contain contact details for a person or organization, include them.\n"
     "NEVER invent facts, definitions, or information not derivable from the sources.\n"
     "No conversation history is provided. The question is standalone — answer it using ONLY the <documents> below.\n"
-    "If the <documents> do not contain enough information to answer, respond with a single sentence stating that the information is not in the provided sources (in the user's question language). Do NOT speculate, do NOT use general knowledge.\n"
+    "If the <documents> do not contain enough information to answer, respond with EXACTLY this German sentence (verbatim, no translation, no additions): \"Diese Information ist nicht in den bereitgestellten Quellen enthalten.\" Do NOT speculate, do NOT use general knowledge.\n"
     "Do NOT add disclaimers, comments about missing information, or limitations.\n"
     "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
     "Answer in the same language as the user's question.\n\n"

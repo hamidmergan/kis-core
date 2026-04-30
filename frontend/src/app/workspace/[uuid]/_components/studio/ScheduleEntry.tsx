@@ -149,7 +149,7 @@ export function ScheduleEntryCard({
                       onPillClick?.(ref.source_uuid, page, filename, ref.raw_quote ?? undefined, startTime, false);
                     }}
                     onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLElement).click(); }}
-                    className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"
+                    className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium chip-cite whitespace-nowrap cursor-pointer"
                     style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                     title={label ? `${filename}, ${label}` : filename}
                   >

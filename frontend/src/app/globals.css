@@ -642,7 +642,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
 /* Idle breathing: body drifts up and down minimally, 4s loop */
 @keyframes hilde-breathe {
   0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-0.8px); }
+  50%      { transform: translateY(-1.6px); }
 }
 
 /* Idle eye drift: pupils move (±3px) with long pauses in the centre so
@@ -690,16 +690,16 @@ body.is-phone-landscape [title="Panel minimieren"] {
   27%, 100% { transform: scaleY(0); }
 }
 
-/* Found: magnifier drifts up-and-in toward the eye every 30s, then back */
+/* Found: magnifier drifts up-and-in toward the eye every ~10s, slow motion */
 @keyframes hilde-magnify {
   0%, 10%   { transform: translate(0, 0); }
-  20%, 30%  { transform: translate(-15px, -8px); }
-  40%, 100% { transform: translate(0, 0); }
+  35%, 55%  { transform: translate(-15px, -8px); }
+  80%, 100% { transform: translate(0, 0); }
 }
 
-/* Found: right wing swings to the magnifier every 30s */
+/* Found: right wing swings to the magnifier every ~10s, slow motion */
 @keyframes hilde-wing-found {
   0%, 10%   { transform: rotate(0deg); }
-  20%, 30%  { transform: rotate(35deg) translate(-2px, -2px); }
-  40%, 100% { transform: rotate(0deg); }
+  35%, 55%  { transform: rotate(35deg) translate(-2px, -2px); }
+  80%, 100% { transform: rotate(0deg); }
 }

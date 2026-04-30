@@ -3,7 +3,6 @@ import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import type { ChatMessage as ChatMessageType, Source } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { useHildePref } from "../../_hooks/useHildePref";
-import { useHildeState } from "../../_hooks/useHildeState";
 import { ChatHeader } from "./ChatHeader";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ChatMessage } from "./ChatMessage";
@@ -41,7 +40,6 @@ export function ChatPanel({
   hideHeader?: boolean;
 }) {
   const { enabled: hildeEnabled, toggle: toggleHilde } = useHildePref();
-  const { foundTrigger } = useHildeState({ messages, loading });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -177,7 +175,6 @@ export function ChatPanel({
               loading={loading}
               hildeEnabled={hildeEnabled}
               isLatest={i === messages.length - 1}
-              foundTrigger={foundTrigger}
             />
           ))}
         </div>
@@ -190,10 +187,10 @@ export function ChatPanel({
         externalTextareaRef={externalTextareaRef}
         registerSetInput={registerSetInput}
       />
-      <p className="hide-on-short w-full text-center mt-3 pb-0 text-[10px]" style={{ color: "var(--muted)" }}>
+      <p className="hide-on-short w-full text-center mt-3 pb-0 text-xs" style={{ color: "var(--muted)" }}>
         Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.
       </p>
-      <p className="hide-on-short w-full text-center mt-1 pb-2 text-[10px]" style={{ color: "var(--muted)" }}>
+      <p className="hide-on-short w-full text-center mt-1 pb-2 text-xs" style={{ color: "var(--muted)" }}>
         Feedback oder Probleme?{" "}
         <a href="mailto:hamid.mergan@th-luebeck.de" className="hover:underline hover:text-[var(--kb)] transition-colors">
           hamid.mergan@th-luebeck.de

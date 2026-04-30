@@ -10,7 +10,10 @@ import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { copyMessageText, withCitations, type CitationChipClickHandler } from "./_citations";
 
 
-const SORRY_PATTERN = /nichts gefunden|keine information|in den quellen nicht enthalten/i;
+const SORRY_PATTERN = /nichts gefunden|keine information|in den quellen nicht enthalten|nicht in den (?:bereitgestellten |angegebenen )?quellen|kann ich nicht beantworten|steht nicht in den|not in the (?:provided |given )?sources?|no information (?:found|available|in)|could(?:n['']t| not) find|cannot find|is not (?:in|available in|contained in) (?:the )?sources?/i;
+
+// How long to keep "found" before settling into idle.
+const FOUND_DURATION_MS = 5 * 60 * 1000;
 
 
 interface ChatMessageProps {
@@ -22,44 +25,46 @@ interface ChatMessageProps {
   loading: boolean;
   hildeEnabled?: boolean;
   isLatest?: boolean;
-  foundTrigger?: number;
 }
 
 
 function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, loading,
-  hildeEnabled = false, isLatest = false, foundTrigger = 0,
+  hildeEnabled = false, isLatest = false,
 }: ChatMessageProps) {
   const [expandUserContent, setExpandUserContent] = useState(false);
   const [expandSources, setExpandSources] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
-  const [foundActive, setFoundActive] = useState(false);
+  const [foundExpired, setFoundExpired] = useState(false);
 
   const msgQmap = msg.source_qmap ?? [];
   const isUserLong = msg.content.split("\n").length > 5 || msg.content.length > 300;
   const wrapCitations = (children: React.ReactNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick);
 
-  // Flash the avatar to "found" for 1.5s when the latest assistant message
-  // attaches its first citations. Driven from outside via foundTrigger so the
-  // signal stays scoped to the actually-newest message.
+  // Reset and re-arm the found→idle timer whenever this message gains
+  // citations as the latest answer. After FOUND_DURATION_MS Hilde settles
+  // back into idle so she does not stare at the same magnifier forever.
   useEffect(() => {
-    if (!isLatest || !hildeEnabled || foundTrigger === 0) return;
-    setFoundActive(true);
-    const t = setTimeout(() => setFoundActive(false), 1500);
+    if (!isLatest || msgQmap.length === 0) {
+      setFoundExpired(false);
+      return;
+    }
+    setFoundExpired(false);
+    const t = setTimeout(() => setFoundExpired(true), FOUND_DURATION_MS);
     return () => clearTimeout(t);
-  }, [foundTrigger, isLatest, hildeEnabled]);
+  }, [isLatest, msg.id, msgQmap.length]);
 
   let avatarState: HildeState = "idle";
   if (msg.role === "assistant") {
-    if (foundActive && isLatest) {
-      avatarState = "found";
-    } else if (!msg.content && loading) {
+    if (!msg.content && loading) {
       avatarState = "thinking";
-    } else if (msgQmap.length === 0 && SORRY_PATTERN.test(msg.content)) {
+    } else if (SORRY_PATTERN.test(msg.content)) {
       avatarState = "confused";
+    } else if (isLatest && msgQmap.length > 0 && !foundExpired) {
+      avatarState = "found";
     }
   }
 
@@ -119,25 +124,28 @@ function ChatMessageImpl({
   return (
     <div className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}>
       {msg.role === "assistant" && (
-        <div className="flex items-center gap-2 mb-0.5">
-          {hildeEnabled ? (
-            <Hilde size={36} state={avatarState} />
-          ) : (
+        hildeEnabled ? (
+          isLatest && (
+            <div className="flex items-center gap-2 mb-0.5">
+              <Hilde size={80} state={avatarState} />
+              <span className="text-lg font-medium">Hilde</span>
+            </div>
+          )
+        ) : (
+          <div className="flex items-center gap-2 mb-0.5">
             <div
               className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
               style={{ backgroundColor: "var(--kb)" }}
             >
               KI
             </div>
-          )}
-          <span className="text-[11px] font-medium" >
-            {hildeEnabled ? "Hilde" : "KI-Assistent"}
-          </span>
-        </div>
+            <span className="text-lg font-medium">KI-Assistent</span>
+          </div>
+        )
       )}
       <div className="flex flex-col max-w-[96%] w-fit">
         <div
-          className="px-4 py-3 rounded-2xl text-sm leading-relaxed break-words"
+          className="px-4 py-3 rounded-2xl text-base leading-relaxed break-words"
           style={
             msg.role === "user"
               ? { backgroundColor: "var(--kb)", color: "white", borderBottomRightRadius: 6, whiteSpace: "pre-wrap", overflowWrap: "break-word" }
@@ -168,7 +176,7 @@ function ChatMessageImpl({
                 h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                 h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                 h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,
-                table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-sm border-collapse">{children}</table></div>,
                 thead: ({ children }) => <thead className="border-b border-current/20">{children}</thead>,
                 th: ({ children }) => <th className="text-left px-2 py-1 font-semibold">{children}</th>,
                 td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{wrapCitations(children)}</td>,
@@ -190,7 +198,7 @@ function ChatMessageImpl({
                 <button
                   type="button"
                   onClick={() => setExpandUserContent(v => !v)}
-                  className="flex items-center gap-1 mt-1.5 text-[11px] opacity-70 hover:opacity-100 transition-opacity"
+                  className="flex items-center gap-1 mt-1.5 text-xs opacity-70 hover:opacity-100 transition-opacity"
                   style={{ color: "white" }}
                 >
                   {expandUserContent ? (
@@ -210,7 +218,7 @@ function ChatMessageImpl({
               <button
                 type="button"
                 onClick={() => setExpandSources(v => !v)}
-                className="flex items-center gap-1 text-[10px] text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
+                className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
               >
                 {expandSources ? <CaretUp size={10} /> : <CaretDown size={10} />}
                 {msgQmap.length} {msgQmap.length === 1 ? "Quelle" : "Quellen"}
@@ -228,7 +236,7 @@ function ChatMessageImpl({
                       tabIndex={0}
                       onClick={() => onChipClick(q.uuid, 0, q.filename)}
                       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.click(); }}
-                      className="inline-flex items-center gap-1 text-[10px] cursor-pointer text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
+                      className="inline-flex items-center gap-1 text-xs cursor-pointer text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
                       title={q.filename}
                     >
                       <ChipIcon size={10} weight="bold" />

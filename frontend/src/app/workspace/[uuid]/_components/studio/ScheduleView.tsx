@@ -224,7 +224,7 @@ export function ScheduleView({
       {/* Header: Quellen-Hint links, Edit-Icon rechts */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2 gap-2">
         <div
-          className="rounded-xl px-3 py-1.5 text-xs font-medium flex items-center gap-2"
+          className="rounded-xl px-3 py-1.5 text-sm font-medium flex items-center gap-2"
           style={{
             color: !hasSources || !hasSelection ? "var(--error-strong)" : "var(--kb)",
           }}
@@ -260,7 +260,7 @@ export function ScheduleView({
         </button>
         {generateMsg && (
           <div
-            className="mt-1 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2"
+            className="mt-1 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2"
             style={{
               backgroundColor: generateMsg.kind === "success" ? "rgba(22,163,74,0.08)"
                 : generateMsg.kind === "error" ? "rgba(185,28,28,0.08)"
@@ -308,15 +308,15 @@ export function ScheduleView({
       {/* Content */}
       <div className="px-3 py-2">
         {loading && (
-          <p className="text-xs py-6 text-center" >Lade Zeitplan...</p>
+          <p className="text-sm py-6 text-center" >Lade Zeitplan...</p>
         )}
         {error && (
-          <p className="text-xs py-6 text-center" style={{ color: "var(--error-strong)" }}>{error}</p>
+          <p className="text-sm py-6 text-center" style={{ color: "var(--error-strong)" }}>{error}</p>
         )}
         {!loading && !error && entries.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-10 text-center text-muted">
             <CalendarBlank size={40} weight="light" />
-            <p className="text-xs">
+            <p className="text-sm">
               Noch keine Einträge. Wähle Quellen links aus und generiere, oder erstelle manuelle Einträge.
             </p>
           </div>
@@ -336,7 +336,7 @@ export function ScheduleView({
             {sourceLegend.length > 0 && (
               <div className="flex flex-col gap-1 pt-4 mt-4 border-t border-dashed" style={{ borderColor: "var(--border)" }}>
                 {sourceLegend.map((s) => (
-                  <p key={s.number} className="text-[11px] leading-snug text-[var(--muted)]">
+                  <p key={s.number} className="text-xs leading-snug text-[var(--muted)]">
                     [{s.number}] {s.filename}
                   </p>
                 ))}
@@ -376,7 +376,7 @@ export function ScheduleView({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold mb-2" style={{ color: "var(--foreground)" }}>Zeitplan komplett löschen?</h3>
-            <p className="text-xs" >
+            <p className="text-sm" >
               Alle Einträge werden gelöscht und alle Quellen werden wieder generierbar. Diese Aktion kann nicht rückgängig gemacht werden.
             </p>
             <div className="mt-4 flex justify-end gap-2">

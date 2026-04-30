@@ -142,7 +142,7 @@ export function StudioOverview({
           className="flex items-center justify-between px-4 py-3 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+          <span className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
             Studio
           </span>
           <button
@@ -172,7 +172,7 @@ export function StudioOverview({
       {studioTab === "tools" && (
         <div className="flex-1 overflow-y-auto flex flex-col">
           <div className="px-3 pt-3 pb-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider" >
+            <span className="text-xs font-semibold uppercase tracking-wider" >
               Lerntools
             </span>
           </div>
@@ -181,7 +181,7 @@ export function StudioOverview({
           {language_trainingActive && (
             <>
               <div className="px-3 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider" >
+                <span className="text-xs font-semibold uppercase tracking-wider" >
                   Fachsprachentraining
                 </span>
               </div>

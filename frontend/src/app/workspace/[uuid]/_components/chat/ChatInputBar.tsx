@@ -47,7 +47,7 @@ export function ChatInputBar({
     >
       <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
         <div className="flex justify-end px-1 mb-1">
-          <span className="text-[10px] leading-none" style={{ color: "var(--muted)" }}>
+          <span className="text-xs leading-none" style={{ color: "var(--muted)" }}>
             {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
           </span>
         </div>
@@ -65,7 +65,7 @@ export function ChatInputBar({
             placeholder="Text eingeben…"
             rows={1}
             disabled={loading}
-            className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 bg-transparent"
+            className="flex-1 text-base resize-none focus:outline-none disabled:opacity-50 bg-transparent"
             style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}
           />
           {input && (
