@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { DotsThreeVertical, SidebarSimple, Trash } from "@phosphor-icons/react";
+import { DotsThreeVertical, Eye, EyeSlash, SidebarSimple, Trash } from "@phosphor-icons/react";
 
 
 interface ChatHeaderProps {
   messageCount: number;
   onClear: () => void;
   onMinimize?: () => void;
+  hildeEnabled?: boolean;
+  onToggleHilde?: () => void;
 }
 
 
-export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProps) {
+export function ChatHeader({ messageCount, onClear, onMinimize, hildeEnabled, onToggleHilde }: ChatHeaderProps) {
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const chatMenuRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +43,17 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
               className="absolute right-0 top-8 z-50 rounded-xl py-1"
               style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 220, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
             >
+              {onToggleHilde && (
+                <button
+                  type="button"
+                  onClick={() => { onToggleHilde(); setChatMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  {hildeEnabled ? <EyeSlash size={16} /> : <Eye size={16} />}
+                  {hildeEnabled ? "Hilde verstecken" : "Hilde anzeigen"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => { onClear(); setChatMenuOpen(false); }}

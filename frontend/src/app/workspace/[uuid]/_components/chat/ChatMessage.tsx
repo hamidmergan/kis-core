@@ -1,12 +1,16 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CaretDown, CaretUp, Check, Copy, NotePencil } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import Hilde, { type HildeState } from "@/components/ui/Hilde";
 import { _embedQmapIntoCitations, _getChipIcon } from "../../_utils";
 import type { ChatMessage as ChatMessageType } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { copyMessageText, withCitations, type CitationChipClickHandler } from "./_citations";
+
+
+const SORRY_PATTERN = /nichts gefunden|keine information|in den quellen nicht enthalten/i;
 
 
 interface ChatMessageProps {
@@ -16,22 +20,48 @@ interface ChatMessageProps {
   onChipClick: CitationChipClickHandler;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
   loading: boolean;
+  hildeEnabled?: boolean;
+  isLatest?: boolean;
+  foundTrigger?: number;
 }
 
 
 function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, loading,
+  hildeEnabled = false, isLatest = false, foundTrigger = 0,
 }: ChatMessageProps) {
   const [expandUserContent, setExpandUserContent] = useState(false);
   const [expandSources, setExpandSources] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  const [foundActive, setFoundActive] = useState(false);
 
   const msgQmap = msg.source_qmap ?? [];
   const isUserLong = msg.content.split("\n").length > 5 || msg.content.length > 300;
   const wrapCitations = (children: React.ReactNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick);
+
+  // Flash the avatar to "found" for 1.5s when the latest assistant message
+  // attaches its first citations. Driven from outside via foundTrigger so the
+  // signal stays scoped to the actually-newest message.
+  useEffect(() => {
+    if (!isLatest || !hildeEnabled || foundTrigger === 0) return;
+    setFoundActive(true);
+    const t = setTimeout(() => setFoundActive(false), 1500);
+    return () => clearTimeout(t);
+  }, [foundTrigger, isLatest, hildeEnabled]);
+
+  let avatarState: HildeState = "idle";
+  if (msg.role === "assistant") {
+    if (foundActive && isLatest) {
+      avatarState = "found";
+    } else if (!msg.content && loading) {
+      avatarState = "thinking";
+    } else if (msgQmap.length === 0 && SORRY_PATTERN.test(msg.content)) {
+      avatarState = "confused";
+    }
+  }
 
   async function handleCopy() {
     try {
@@ -90,14 +120,18 @@ function ChatMessageImpl({
     <div className={`flex flex-col gap-1.5 group ${msg.role === "user" ? "items-end" : "items-start"}`}>
       {msg.role === "assistant" && (
         <div className="flex items-center gap-2 mb-0.5">
-          <div
-            className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-            style={{ backgroundColor: "var(--kb)" }}
-          >
-            KI
-          </div>
+          {hildeEnabled ? (
+            <Hilde size={36} state={avatarState} />
+          ) : (
+            <div
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+              style={{ backgroundColor: "var(--kb)" }}
+            >
+              KI
+            </div>
+          )}
           <span className="text-[11px] font-medium" >
-            KI-Assistent
+            {hildeEnabled ? "Hilde" : "KI-Assistent"}
           </span>
         </div>
       )}

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import type { ChatMessage as ChatMessageType, Source } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
+import { useHildePref } from "../../_hooks/useHildePref";
+import { useHildeState } from "../../_hooks/useHildeState";
 import { ChatHeader } from "./ChatHeader";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ChatMessage } from "./ChatMessage";
@@ -38,6 +40,9 @@ export function ChatPanel({
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
   hideHeader?: boolean;
 }) {
+  const { enabled: hildeEnabled, toggle: toggleHilde } = useHildePref();
+  const { foundTrigger } = useHildeState({ messages, loading });
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
   const stickBottomRef = useRef(true);
@@ -145,6 +150,8 @@ export function ChatPanel({
           messageCount={messages.length}
           onClear={onClear}
           onMinimize={onMinimize}
+          hildeEnabled={hildeEnabled}
+          onToggleHilde={toggleHilde}
         />
       )}
 
@@ -152,7 +159,11 @@ export function ChatPanel({
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full p-3 flex flex-col gap-5" style={{ maxWidth: 720 }}>
           {messages.length === 0 && !loading && (
-            <ChatEmptyState activeSourceIds={activeSourceIds} onSendPrompt={onSendPrompt} />
+            <ChatEmptyState
+              activeSourceIds={activeSourceIds}
+              onSendPrompt={onSendPrompt}
+              hildeEnabled={hildeEnabled}
+            />
           )}
 
           {messages.map((msg, i) => (
@@ -164,6 +175,9 @@ export function ChatPanel({
               onChipClick={handleChipClick}
               onSaveNote={onSaveNote}
               loading={loading}
+              hildeEnabled={hildeEnabled}
+              isLatest={i === messages.length - 1}
+              foundTrigger={foundTrigger}
             />
           ))}
         </div>
