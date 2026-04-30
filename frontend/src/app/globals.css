@@ -595,12 +595,12 @@ body.is-phone-landscape [title="Panel minimieren"] {
 }
 
 /* ─── Hilde Mascot Animations ────────────────────────────────────────
-   Keyframes für die Hilde-Eule (Komponente: src/components/ui/Hilde.tsx).
-   1:1 aus /Avatar/Hilde.html übernommen — bitte nicht inhaltlich
-   anpassen, die Timings sind final getunt. */
+   Keyframes for the Hilde owl (component: src/components/ui/Hilde.tsx).
+   Ported 1:1 from the standalone reference — do not retune, the timings
+   are final. */
 
-/* Hilde Wave: zwei kurze Hops in den ersten ~1.3s, dann Pause bis 30s.
-   Aktive Phase = 1.3s von 30s ≈ 4.3% des Loops */
+/* Hilde wave: two short hops in the first ~1.3s, then pause until 30s.
+   Active phase = 1.3s of 30s ≈ 4.3% of the loop. */
 @keyframes hilde-bounce {
   0%   { transform: translateY(0); }
   1%   { transform: translateY(-5px); }
@@ -609,7 +609,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
   4.3% { transform: translateY(0); }
   100% { transform: translateY(0); }
 }
-/* Schatten wird beim Hops kleiner (weil Eule abhebt) */
+/* Shadow shrinks during each hop (owl lifts off) */
 @keyframes hilde-shadow {
   0%   { transform: scaleX(1);    opacity: 0.12; }
   1%   { transform: scaleX(0.85); opacity: 0.08; }
@@ -619,7 +619,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
   100% { transform: scaleX(1);    opacity: 0.12; }
 }
 
-/* Flügelschlag bei Wave — nur während der Hops aktiv (0–4.7% des 30s-Loops) */
+/* Wing flap on wave — only active during the hops (0–4.7% of the 30s loop) */
 @keyframes hilde-wing-l {
   0%   { transform: rotate(0deg); }
   0.5% { transform: rotate(35deg); }
@@ -639,14 +639,14 @@ body.is-phone-landscape [title="Panel minimieren"] {
   100% { transform: rotate(0deg); }
 }
 
-/* Atmen im Idle: Körper minimal hoch & runter, 4s Loop */
+/* Idle breathing: body drifts up and down minimally, 4s loop */
 @keyframes hilde-breathe {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-0.8px); }
 }
 
-/* Augen-Umschauen im Idle: Pupillen wandern (±3px), längere Pausen
-   in Mittelposition damit's nicht nervös wirkt */
+/* Idle eye drift: pupils move (±3px) with long pauses in the centre so
+   it does not look nervous. */
 @keyframes hilde-eyes-look {
   0%, 18%   { transform: translateX(0); }
   25%, 38%  { transform: translateX(3px); }
@@ -655,7 +655,7 @@ body.is-phone-landscape [title="Panel minimieren"] {
   85%, 100% { transform: translateX(0); }
 }
 
-/* Blinzeln: oberes & unteres Lid klappen zusammen (~150ms zu) */
+/* Blink: top + bottom lid close together (~150ms shut) */
 @keyframes hilde-blink-top {
   0%, 92%, 100% { transform: scaleY(0); transform-origin: top; }
   94%, 96%      { transform: scaleY(1); transform-origin: top; }
@@ -665,20 +665,20 @@ body.is-phone-landscape [title="Panel minimieren"] {
   94%, 96%      { transform: scaleY(1); transform-origin: bottom; }
 }
 
-/* Thinking: Augen schauen nach oben links und wandern */
+/* Thinking: eyes look up-left and drift sideways */
 @keyframes hilde-think-eyes {
   0%, 100% { transform: translate(-2px, -3px); }
   50%      { transform: translate(2px, -3px); }
 }
 
-/* Thinking-Bubble: drei Punkte ploppen nacheinander auf */
+/* Thinking bubble: three dots pop in sequentially */
 @keyframes hilde-think-dot {
   0%, 100% { transform: scale(0.7); opacity: 0.4; }
   20%      { transform: scale(1.1); opacity: 1; }
   40%      { transform: scale(0.7); opacity: 0.4; }
 }
 
-/* Verwirrt: Augen normal offen, alle 30s für 5s skeptisches Zukneifen */
+/* Confused: eyes normally open, every 30s a 5s sceptical squint */
 @keyframes hilde-confused-top {
   0%, 8%    { transform: scaleY(0); }
   10%, 25%  { transform: scaleY(0.55); }
@@ -690,14 +690,14 @@ body.is-phone-landscape [title="Panel minimieren"] {
   27%, 100% { transform: scaleY(0); }
 }
 
-/* Found: Lupe wandert alle 30s nach innen-oben Richtung Auge, dann zurück */
+/* Found: magnifier drifts up-and-in toward the eye every 30s, then back */
 @keyframes hilde-magnify {
   0%, 10%   { transform: translate(0, 0); }
   20%, 30%  { transform: translate(-15px, -8px); }
   40%, 100% { transform: translate(0, 0); }
 }
 
-/* Found: rechter Flügel schwenkt alle 30s zur Lupe */
+/* Found: right wing swings to the magnifier every 30s */
 @keyframes hilde-wing-found {
   0%, 10%   { transform: rotate(0deg); }
   20%, 30%  { transform: rotate(35deg) translate(-2px, -2px); }
