@@ -32,9 +32,9 @@ export default function GlossarySelector({ values, onChange }: Props) {
     return (
       <div className="mb-4">
         <p className="text-sm text-muted-soft">
-          Noch kein Glossary erstellt →{" "}
+          Noch kein Glossar erstellt →{" "}
           <Link href="/tools/glossary" className="text-kb hover:underline">
-            Glossaries verwalten
+            Glossare verwalten
           </Link>
         </p>
       </div>
@@ -81,10 +81,10 @@ export default function GlossarySelector({ values, onChange }: Props) {
 
   const buttonLabel =
     selectedIds.length === 0
-      ? "Kein Glossary gewählt"
+      ? "Kein Glossar gewählt"
       : selectedIds.length === 1
-        ? "1 Glossary gewählt"
-        : `${selectedIds.length} Glossaries gewählt`;
+        ? "1 Glossar gewählt"
+        : `${selectedIds.length} Glossare gewählt`;
 
   return (
     <div className="mb-4 mt-6">
@@ -188,7 +188,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
 
       {/* Info text */}
       <p className="mt-2 text-xs text-muted-soft">
-        Bei gleichen Begriffen hat das oben stehende Glossary Vorrang
+        Bei gleichen Begriffen hat das oben stehende Glossar Vorrang
         {" · "}Max. {MAX_SELECTED} gleichzeitig wählbar
       </p>
     </div>

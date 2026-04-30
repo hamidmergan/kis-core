@@ -22,7 +22,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
   const handleAddEntry = () => {
     if (!newSource.trim() || !newTarget.trim()) return;
     if (entries.some((e) => e.source.toLowerCase() === newSource.trim().toLowerCase())) {
-      setError(`"${newSource.trim()}" existiert bereits im Glossary`);
+      setError(`"${newSource.trim()}" existiert bereits im Glossar`);
       return;
     }
     onChange([...entries, { source: newSource.trim(), target: newTarget.trim() }]);
@@ -105,7 +105,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
         <EmptyState
           size="lg"
           icon={<Book size={32} weight="bold" />}
-          text="Noch keine Glossary-Einträge vorhanden."
+          text="Noch keine Glossar-Einträge vorhanden."
         />
       ) : (
         <div className="bg-white rounded-lg border border-border-soft overflow-hidden">

@@ -1,8 +1,6 @@
 import { Cards, DownloadSimple, Files, Sparkle, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import Hilde from "@/components/ui/Hilde";
-import { useHildePref } from "@/hooks/useHildePref";
 import type { ExerciseSet, StudentStats } from "../../_types";
 import { TOOL_LABELS } from "../../_constants";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
@@ -19,7 +17,6 @@ export function ExerciseSetsOverview({
   category?: ToolCategory;
 }) {
 
-  const { enabled: hildeEnabled } = useHildePref();
   const noSources = sourceCount === 0;
   const atLimit = sets.length >= 20;
   const isGenerating = sets.some((s) => s.status === "generating");
@@ -45,10 +42,8 @@ export function ExerciseSetsOverview({
           <EmptyState
             className="pt-[15%]"
             size="lg"
-            icon={hildeEnabled ? <Hilde size={120} state="wave" /> : <Cards size={48} weight="bold" />}
-            text={hildeEnabled
-              ? "Wähle Quellen aus und ich erstelle dir passende Übungen."
-              : "Wähle Quellen aus und drücke auf Erstellen."}
+            icon={<Cards size={48} weight="bold" />}
+            text="Wähle Quellen aus und drücke auf Erstellen."
             action={
               <button type="button" onClick={onCreate}
                 disabled={noSources || atLimit || isGenerating}
@@ -109,7 +104,7 @@ export function ExerciseSetsOverview({
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
                         {generating ? (s.mode === "glossary" ? "Glossar" : s.mode === "quiz" ? "Quiz" : s.mode === "lueckentext" ? "Lückentext" : s.mode === "vokabeltest" ? "Vokabeltest" : "Lernkarten") : failed ? "Fehlgeschlagen" : `${s.card_count} Karten`}
-                        {!generating && s.mode === "glossary" && " · Glossary"}
+                        {!generating && s.mode === "glossary" && " · Glossar"}
                         {!generating && ` · ${new Date(s.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" })}`}
                       </span>
                       <div className="flex items-center gap-1.5">

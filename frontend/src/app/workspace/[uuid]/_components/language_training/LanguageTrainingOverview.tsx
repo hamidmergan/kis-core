@@ -22,7 +22,7 @@ export function LanguageTrainingOverview({
         {/* Glossary counter */}
         {glossaryCount > 0 && (
           <span className="text-xs font-medium px-1" style={{ color: "var(--muted)" }}>
-            {glossaryCount}/150 Glossary
+            {glossaryCount}/150 Glossar
           </span>
         )}
 

@@ -118,7 +118,7 @@ export function GlossaryView({
             <EmptyState
               size="sm"
               icon={<Book size={32} weight="bold" />}
-              text={'Noch kein Glossary generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.'}
+              text={'Noch kein Glossar generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.'}
             />
           )}
         </div>

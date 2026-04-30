@@ -71,7 +71,7 @@ export function DataTableStudio({
               action={
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40">
+                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                   <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
                 </button>
               }
@@ -81,7 +81,7 @@ export function DataTableStudio({
               <div className="flex justify-center">
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40">
+                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                   <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
                 </button>
               </div>

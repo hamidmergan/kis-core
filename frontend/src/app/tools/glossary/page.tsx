@@ -173,7 +173,7 @@ export default function GlossaryPage() {
               >
                 {glossaries.length >= MAX_GLOSSARIES
                   ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})`
-                  : "+ Neues Glossary"}
+                  : "+ Neues Glossar"}
               </button>
             </div>
           </div>
@@ -216,7 +216,7 @@ export default function GlossaryPage() {
           {confirmDeleteId && (
             <div className="mb-4 p-4 bg-error-bg border border-error-border rounded-lg flex items-center justify-between gap-4">
               <p className="text-sm text-error-strong">
-                Glossary &ldquo;{glossaries.find(g => g.id === confirmDeleteId)?.name}&rdquo; wirklich löschen?
+                Glossar &ldquo;{glossaries.find(g => g.id === confirmDeleteId)?.name}&rdquo; wirklich löschen?
               </p>
               <div className="flex gap-2 shrink-0">
                 <button
@@ -241,7 +241,7 @@ export default function GlossaryPage() {
               <EmptyState
                 size="lg"
                 icon={<BookOpen size={32} weight="bold" />}
-                text="Noch keine Glossaries vorhanden. Erstellen Sie Ihr erstes Glossary."
+                text="Noch keine Glossare vorhanden. Erstellen Sie Ihr erstes Glossar."
               />
             </div>
           ) : (

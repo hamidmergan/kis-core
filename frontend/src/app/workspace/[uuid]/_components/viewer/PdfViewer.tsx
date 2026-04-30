@@ -381,10 +381,10 @@ export function PdfViewer({
     // Register glossary extract command
     commands.registerCommand({
       id: "kis.add-to-glossary",
-      label: "Zum Glossary",
-      description: "Fachbegriffe zum Glossary hinzufügen",
+      label: "Zum Glossar",
+      description: "Fachbegriffe zum Glossar hinzufügen",
       icon: "ph-book",
-      iconProps: { title: "Zum Glossary hinzufügen" },
+      iconProps: { title: "Zum Glossar hinzufügen" },
       categories: ["kis-actions"],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       visible: ({ state, documentId }: any) => {

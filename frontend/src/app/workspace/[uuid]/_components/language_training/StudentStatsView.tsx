@@ -190,7 +190,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
               const labelsMarginRight = 8;
               const padding = 8;
               const numWeeks = heatmapWeeks.length || 1;
-              const maxCellSize = 32;
+              const maxCellSize = 48;
               const minCellSize = 14;
               const availableWidth = heatmapContainerWidth - labelsColWidth - labelsMarginRight - padding;
               const fitSize = numWeeks > 0

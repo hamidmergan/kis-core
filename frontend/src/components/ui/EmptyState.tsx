@@ -16,7 +16,7 @@ export function EmptyState({
   size?: "sm" | "md" | "lg";
 }) {
   const padY = size === "sm" ? "py-6" : size === "lg" ? "py-12" : "py-8";
-  const textSize = size === "sm" ? "text-xs" : "text-sm";
+  const textSize = "text-sm";
 
   return (
     <div

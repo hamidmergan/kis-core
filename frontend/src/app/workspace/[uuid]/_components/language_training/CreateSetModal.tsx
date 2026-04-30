@@ -36,7 +36,7 @@ export function CreateSetModal({
                 style={{ borderColor: mode === "glossary" ? "var(--kb)" : "var(--border)" }}>
                 {mode === "glossary" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
               </div>
-              Aus Glossary <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
+              Aus Glossar <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
             </button>
           )}
           <button type="button" onClick={() => selectedSource && setMode("source")}
