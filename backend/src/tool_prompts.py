@@ -321,51 +321,26 @@ KIA_LERNKARTEN_PROMPT = (
     "- Respond ONLY with the JSON object, no other text."
 )
 
-KIA_KARTEIKARTEN_PROMPT = (
-    "You are an expert in learning materials. Create study cards with comprehension questions from the given text. "
-    "Write the front, statements, and evidence in the SAME language as the source text (German source -> German content).\n\n"
+KIA_KARTEIKARTEN_QUESTIONS_PROMPT = (
+    "You are an expert in learning materials. Generate {count} comprehension questions from the given documents. "
+    "Each question must be answerable using ONLY the documents (no general knowledge). "
+    "Write the questions in the SAME language as the source text.\n\n"
     "Respond ONLY with a JSON object in exactly this format:\n"
     "{\n"
-    '  "title": "Short title summarizing the topic (in source language)",\n'
-    '  "cards": [\n'
-    "    {\n"
-    '      "front": "Comprehension question (in source language)",\n'
-    '      "source_label": "Filename.pdf",\n'
-    '      "answer_parts": [\n'
-    '        {"statement": "First sentence of the answer expressing a fact (in source language).", "page_number": 5, "evidence": "Verbatim quote from page 5 supporting this fact (in source language).", "highlight": "key term"},\n'
-    '        {"statement": "Second sentence of the answer with a different fact.", "page_number": 7, "evidence": "Verbatim quote from page 7.", "highlight": "another term"},\n'
-    '        {"statement": "Third sentence.", "page_number": 11, "evidence": "Verbatim quote from page 11.", "highlight": "third term"}\n'
-    "      ]\n"
-    "    }\n"
-    "  ]\n"
+    '  "title": "Short title summarizing the overall topic (in source language)",\n'
+    '  "questions": ["Question 1?", "Question 2?", "Question 3?"]\n'
     "}\n\n"
-    "CRITICAL RULES:\n"
-    "- Create exactly {count} cards\n"
-    "- Each card has EXACTLY ONE source (source_label). NEVER mix multiple files per card. "
-    "Question and answer must come from ONE document only.\n"
-    "- Front: comprehension question (e.g. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied zwischen...?')\n"
-    "- answer_parts: structure the answer as a list of sentences. "
-    "EACH sentence must be backed by a verbatim quote from the source text. "
-    "Concatenating all statements yields the complete answer.\n"
-    "- statement: a single precise sentence expressing one aspect of the answer. "
-    "Max 15-20 words. No rambling, no digression, no introduction. "
-    "Phrase statements naturally so they combine into a flowing answer.\n"
-    "- evidence: a VERBATIM quote from the source text on the given page that supports the statement. "
-    "DO NOT paraphrase, DO NOT rephrase. Exactly as in the source text. "
-    "At least 8 words, at most 2 sentences. "
-    "Must appear exactly in the [SourceName, S. X] block.\n"
-    "- highlight: a short key term (1-3 words) from the evidence that appears VERBATIM and UNCHANGED in the source text. "
-    "Used for searching/highlighting in the PDF. Must be findable there exactly. "
-    "Pick a distinctive term, NOT generic words like 'der', 'ist', 'und'. "
-    "Example: if evidence contains 'der intelligente Assistent', use highlight: 'intelligente Assistent'.\n"
-    "- page_number: the page number from the [SourceName, S. X] tags.\n"
-    "- Answer length: 2-5 answer_parts per card, as many as needed to answer the question precisely. "
-    "No digressions, no additional aspects that were not asked.\n"
-    "- Every aspect of the answer needs its own answer_part with its own evidence. "
-    "If you list multiple things (e.g. 'Assistent, Self-Assessments, Microcredentials'), you need at least 3 answer_parts.\n"
-    "- Only use information from the given text, no hallucinations\n"
-    "- Mix comprehension questions, comparison questions, and application questions\n"
-    "- NO pure definition questions. The goal is understanding and connections.\n"
+    "Rules:\n"
+    "- Exactly {count} questions\n"
+    "- Comprehension/comparison/application questions (e.g. 'Warum...?', 'Erkläre...', 'Was ist der Unterschied...?')\n"
+    "- NO pure definition questions — the goal is understanding and connections\n"
+    "- Each question targets a different aspect of the documents\n"
+    "- SINGLE-ASPECT questions only: ONE focused angle per question. NEVER combine multiple aspects "
+    "with 'und', 'sowie', or list-enumerations like '(A, B, C, D)'. "
+    "Bad: 'Welche Maßnahmen, Risiken und Kennzahlen sind vorgesehen?' (3 aspects). "
+    "Bad: 'Inwiefern erfüllt das Projekt die Kriterien (Neuheit, Transformativität, Adaptivität, Umsetzbarkeit, Wirksamkeit)?' (5 aspects). "
+    "Good: 'Welche Innovationskriterien wertet das Projekt am höchsten?' or 'Was bedeutet Transformativität im Projekt?'\n"
+    "- Each question must be answerable in 2-3 short sentences\n"
     "- Respond ONLY with the JSON object, no other text."
 )
 

@@ -55,10 +55,6 @@ export default function Footer({ loggedIn }: { loggedIn?: boolean }) {
           <Link href="/privacy" className="link-footer">
             Datenschutz
           </Link>
-          <span className="mx-2 opacity-40">|</span>
-          <Link href="/licenses" className="link-footer">
-            Lizenzen
-          </Link>
         </div>
       </div>
     </footer>

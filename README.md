@@ -189,3 +189,18 @@ These are installed automatically inside the Docker image.
 Apache License 2.0, Copyright 2026 Technische Hochschule Lübeck
 
 Full text: see [LICENSE](LICENSE). Attribution: see [NOTICE](NOTICE). Lead developer and contributors: see [AUTHORS](AUTHORS).
+
+### Third-party licenses
+
+All third-party dependencies (Backend Python + Frontend npm) are aggregated
+with full license texts in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+
+Regenerate after dependency changes (requires running `kis-backend` container
+and frontend `node_modules` installed):
+
+```bash
+python scripts/generate-licenses.py
+```
+
+The generator fails on any AGPL or strong-copyleft GPL dependency. LGPL is
+allowed (dynamic-linking via PyPI/npm). Drift check via `--check` flag.
