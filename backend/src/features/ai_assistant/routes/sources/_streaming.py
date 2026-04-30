@@ -96,6 +96,9 @@ async def regenerate_en_transcript(
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
+    if db.get_setting("transcript_translation_mode", "manual") == "off":
+        raise HTTPException(status_code=403, detail="EN-Übersetzung ist deaktiviert")
+
     effective_provider = provider or db.get_setting("transcript_translation_provider", "llm")
     if effective_provider not in ("deepl", "llm"):
         raise HTTPException(status_code=400, detail="Ungültiger Provider")

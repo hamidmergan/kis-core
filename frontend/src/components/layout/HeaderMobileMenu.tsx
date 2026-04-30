@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { List, Sidebar, SignOut, Stack, UserCircleGear, X } from "@phosphor-icons/react";
+import { Globe, List, Moon, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 
 interface HeaderMobileMenuProps {
   isAdmin: boolean;
@@ -10,9 +10,15 @@ interface HeaderMobileMenuProps {
   onLogout: () => void;
 }
 
+type Lang = "de" | "en";
+type Theme = "light" | "dark";
+
 export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
   const [open, setOpen] = useState(false);
+  const [lang, setLang] = useState<Lang>("de");
+  const [theme, setTheme] = useState<Theme>("light");
   const ref = useRef<HTMLDivElement>(null);
+  const isDark = theme === "dark";
 
   useEffect(() => {
     if (!open) return;
@@ -43,6 +49,27 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
           className="absolute right-0 top-full mt-2 z-50 w-56 rounded-xl shadow-xl overflow-hidden"
           style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
         >
+          <button
+            type="button"
+            onClick={() => setLang(lang === "de" ? "en" : "de")}
+            className={rowClass}
+            style={{ color: "var(--foreground)" }}
+            aria-label="Sprache wechseln"
+          >
+            <Globe size={20} weight="bold" />
+            <span className="flex-1">Sprache</span>
+            <span className="text-xs font-mono uppercase" style={{ color: "var(--muted)" }}>{lang}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className={rowClass}
+            style={{ color: "var(--foreground)", borderBottom: "1px solid var(--border)" }}
+            aria-label={isDark ? "Heller Modus" : "Dunkler Modus"}
+          >
+            {isDark ? <Moon size={20} weight="bold" /> : <Sun size={20} weight="bold" />}
+            <span className="flex-1">{isDark ? "Dunkel" : "Hell"}</span>
+          </button>
           {showToolsToggle && (
             <button
               type="button"

@@ -69,7 +69,7 @@ export default function WorkspaceTableRow({
         <td
           className="row-main pr-6 py-5 cursor-pointer"
           onClick={a.handleOpen}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
+          onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
@@ -80,7 +80,7 @@ export default function WorkspaceTableRow({
         <td
           className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-foreground cursor-pointer"
           onClick={a.handleOpen}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
+          onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
@@ -89,7 +89,7 @@ export default function WorkspaceTableRow({
         <td
           className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-foreground cursor-pointer"
           onClick={a.handleOpen}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
+          onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
@@ -186,7 +186,7 @@ export default function WorkspaceTableRow({
         <td
           className="pr-2 py-5 cursor-pointer"
           onClick={a.handleOpen}
-          onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
+          onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
           onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
           onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >

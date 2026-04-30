@@ -131,6 +131,7 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "ollama_llm_configured": ollama_configured,
         # ── Transcript translation (EN) ──
         "transcript_translation_provider": db.get_setting("transcript_translation_provider", "llm"),
+        "transcript_translation_mode": db.get_setting("transcript_translation_mode", "manual"),
         # ── Provider model names (editable in the admin panel) ──
         "models": _current_models(),
     }
@@ -213,6 +214,13 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         if body.transcript_translation_provider not in ("deepl", "llm"):
             raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
         db.set_setting("transcript_translation_provider", body.transcript_translation_provider)
+
+    # Transcript translation mode: "off" (no EN translation), "auto" (run at ingest),
+    # "manual" (default — user triggers via button in transcript panel)
+    if body.transcript_translation_mode is not None:
+        if body.transcript_translation_mode not in ("off", "auto", "manual"):
+            raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Modus")
+        db.set_setting("transcript_translation_mode", body.transcript_translation_mode)
 
     # Provider model names
     if body.models:

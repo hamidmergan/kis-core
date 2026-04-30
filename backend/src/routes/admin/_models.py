@@ -38,6 +38,7 @@ class UpdateSettingsRequest(BaseModel):
     ollama_llm_enabled: bool | None = None
     # Transcript translation (EN)
     transcript_translation_provider: str | None = None
+    transcript_translation_mode: str | None = None
     # Provider model names (DB setting). Allowed keys: see runtime_models.MODEL_KEYS.
     models: dict[str, str] | None = None
 

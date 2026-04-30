@@ -107,6 +107,7 @@ export default function KiTutorWorkspacePage() {
     return () => document.removeEventListener("mousedown", handle);
   }, [showSettings]);
 
+
   const [studioEnabled, setStudioEnabled] = useState(true);
   const [language_trainingActive, setLanguageTrainingActive] = useState(false);
   // popupActions from useChat
@@ -462,7 +463,6 @@ export default function KiTutorWorkspacePage() {
           showSettings={showSettings}
           onToggleSettings={() => setShowSettings((v) => !v)}
           settingsRef={settingsRef}
-          chatLang={chatLang}
           studioEnabled={studioEnabled}
           onToggleStudio={() => setStudioEnabled((v) => !v)}
           language_trainingActive={language_trainingActive}

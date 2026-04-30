@@ -655,14 +655,14 @@ body.is-phone-landscape [title="Panel minimieren"] {
   85%, 100% { transform: translateX(0); }
 }
 
-/* Blink: top + bottom lid close together (~150ms shut) */
+/* Blink: top + bottom lid close together (~500ms total at 7s cycle) */
 @keyframes hilde-blink-top {
-  0%, 92%, 100% { transform: scaleY(0); transform-origin: top; }
-  94%, 96%      { transform: scaleY(1); transform-origin: top; }
+  0%, 93%, 100% { transform: scaleY(0); }
+  96%, 97%      { transform: scaleY(1); }
 }
 @keyframes hilde-blink-bottom {
-  0%, 92%, 100% { transform: scaleY(0); transform-origin: bottom; }
-  94%, 96%      { transform: scaleY(1); transform-origin: bottom; }
+  0%, 93%, 100% { transform: scaleY(0); }
+  96%, 97%      { transform: scaleY(1); }
 }
 
 /* Thinking: eyes look up-left and drift sideways */
@@ -678,16 +678,20 @@ body.is-phone-landscape [title="Panel minimieren"] {
   40%      { transform: scale(0.7); opacity: 0.4; }
 }
 
-/* Confused: eyes normally open, every 30s a 5s sceptical squint */
+/* Confused: eyes normally open, every 15s a quick blink + sceptical squint */
 @keyframes hilde-confused-top {
-  0%, 8%    { transform: scaleY(0); }
-  10%, 25%  { transform: scaleY(0.55); }
-  27%, 100% { transform: scaleY(0); }
+  0%, 3%    { transform: scaleY(0); }
+  6%, 7%    { transform: scaleY(1); }
+  10%, 18%  { transform: scaleY(0); }
+  20%, 38%  { transform: scaleY(0.55); }
+  40%, 100% { transform: scaleY(0); }
 }
 @keyframes hilde-confused-bottom {
-  0%, 8%    { transform: scaleY(0); }
-  10%, 25%  { transform: scaleY(0.55); }
-  27%, 100% { transform: scaleY(0); }
+  0%, 3%    { transform: scaleY(0); }
+  6%, 7%    { transform: scaleY(1); }
+  10%, 18%  { transform: scaleY(0); }
+  20%, 38%  { transform: scaleY(0.55); }
+  40%, 100% { transform: scaleY(0); }
 }
 
 /* Found: magnifier drifts up-and-in toward the eye every ~10s, slow motion */

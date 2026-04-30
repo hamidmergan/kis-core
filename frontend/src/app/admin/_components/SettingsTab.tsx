@@ -266,8 +266,30 @@ function GeneralSettingsSection() {
         <P label="Ollama (lokal)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_llm_model" />
       </ProviderSection>
 
-      <ProviderSection title="Transkript-Übersetzung (EN)" hint="Automatische Übersetzung deutscher Video-/Audio-Transkripte ins Englische nach dem Indexieren. Betrifft aktuell nur den KI-Assistenten.">
+      <ProviderSection title="Transkript-Übersetzung (EN)" hint="Übersetzung deutscher Video-/Audio-Transkripte ins Englische. Betrifft aktuell nur den KI-Assistenten.">
         <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Modus</p>
+            <p className="text-xs text-muted mt-1">
+              Aus: keine EN-Übersetzung. Auto: direkt beim Indexieren. Manuell: nur über den Button im Transkript-Panel (Default).
+            </p>
+          </div>
+          <select
+            value={s.transcript_translation_mode ?? "manual"}
+            onChange={(e) => {
+              const v = e.target.value;
+              setS((prev) => ({ ...prev, transcript_translation_mode: v }));
+              patch({ transcript_translation_mode: v });
+            }}
+            disabled={saving}
+            className="shrink-0 border border-border rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
+          >
+            <option value="off">Aus</option>
+            <option value="auto">Auto (bei Ingest)</option>
+            <option value="manual">Manuell (Button)</option>
+          </select>
+        </div>
+        <div className="flex items-center justify-between gap-4" style={{ opacity: (s.transcript_translation_mode ?? "manual") === "off" ? 0.5 : 1 }}>
           <div>
             <p className="text-sm font-medium text-foreground">Anbieter</p>
             <p className="text-xs text-muted mt-1">
@@ -281,7 +303,7 @@ function GeneralSettingsSection() {
               setS((prev) => ({ ...prev, transcript_translation_provider: v }));
               patch({ transcript_translation_provider: v });
             }}
-            disabled={saving}
+            disabled={saving || (s.transcript_translation_mode ?? "manual") === "off"}
             className="shrink-0 border border-border rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
           >
             <option value="deepl">DeepL</option>

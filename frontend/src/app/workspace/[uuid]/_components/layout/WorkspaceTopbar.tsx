@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { GearSix } from "@phosphor-icons/react";
+import { GearSix, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { SettingsMenu } from "./SettingsMenu";
 import type { PanelKey } from "../../_types";
 
@@ -13,7 +13,6 @@ interface WorkspaceTopbarProps {
   showSettings: boolean;
   onToggleSettings: () => void;
   settingsRef: React.RefObject<HTMLDivElement | null>;
-  chatLang: "de" | "en";
   studioEnabled: boolean;
   onToggleStudio: () => void;
   language_trainingActive: boolean;
@@ -36,7 +35,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   const {
     isMobile, title,
     showSettings, onToggleSettings, settingsRef,
-    chatLang, studioEnabled, onToggleStudio,
+    studioEnabled, onToggleStudio,
     language_trainingActive, onToggleLanguageTraining,
     isLecturer, hideHeader, onToggleHideHeader,
     activeTab, setActiveTab,
@@ -44,14 +43,10 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
 
   const settingsDropdown = showSettings && (
     <SettingsMenu
-      chatLang={chatLang}
       studioEnabled={studioEnabled}
       onToggleStudio={onToggleStudio}
       language_trainingActive={language_trainingActive}
       onToggleLanguageTraining={onToggleLanguageTraining}
-      isLecturer={isLecturer}
-      hideHeader={hideHeader}
-      onToggleHideHeader={onToggleHideHeader}
     />
   );
 
@@ -66,6 +61,20 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
     </button>
   );
+
+  const headerToggleButton = isLecturer ? (
+    <button
+      type="button"
+      onClick={onToggleHideHeader}
+      className={`w-7 h-7 flex items-center justify-center rounded-full ${hideHeader ? "text-white" : "btn-icon"}`}
+      style={{ backgroundColor: hideHeader ? "var(--kb)" : "var(--surface-dim)" }}
+      title={hideHeader ? "Header anzeigen" : "Header ausblenden"}
+      aria-label={hideHeader ? "Header anzeigen" : "Header ausblenden"}
+      aria-pressed={hideHeader}
+    >
+      {hideHeader ? <CaretDown size={16} weight="bold" /> : <CaretUp size={16} weight="bold" />}
+    </button>
+  ) : null;
 
   if (!isMobile) {
     return (
@@ -83,9 +92,12 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
             {title}
           </span>
         </span>
-        <div ref={settingsRef} className="relative flex-shrink-0 ml-auto">
-          {settingsButton}
-          {settingsDropdown}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {headerToggleButton}
+          <div ref={settingsRef} className="relative flex-shrink-0">
+            {settingsButton}
+            {settingsDropdown}
+          </div>
         </div>
       </div>
     );
@@ -107,9 +119,12 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
             {title}
           </span>
         </span>
-        <div ref={settingsRef} className="relative flex-shrink-0 ml-auto">
-          {settingsButton}
-          {settingsDropdown}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {headerToggleButton}
+          <div ref={settingsRef} className="relative flex-shrink-0">
+            {settingsButton}
+            {settingsDropdown}
+          </div>
         </div>
       </div>
       <div className="flex" style={{ borderBottom: "1px solid var(--border)" }}>

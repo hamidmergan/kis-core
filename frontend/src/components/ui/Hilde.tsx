@@ -170,7 +170,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       fill={KB}
                       style={{
                         transformOrigin: "48px 45px",
-                        animation: "hilde-confused-top 10s ease-in-out infinite",
+                        animation: "hilde-confused-top 7s ease-in-out infinite",
                       }}
                     />
                     <rect
@@ -181,7 +181,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       fill={KB}
                       style={{
                         transformOrigin: "48px 71px",
-                        animation: "hilde-confused-bottom 10s ease-in-out infinite",
+                        animation: "hilde-confused-bottom 7s ease-in-out infinite",
                       }}
                     />
                   </g>
@@ -194,7 +194,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       fill={KB}
                       style={{
                         transformOrigin: "72px 45px",
-                        animation: "hilde-confused-top 10s ease-in-out infinite",
+                        animation: "hilde-confused-top 7s ease-in-out infinite",
                       }}
                     />
                     <rect
@@ -205,7 +205,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       fill={KB}
                       style={{
                         transformOrigin: "72px 71px",
-                        animation: "hilde-confused-bottom 10s ease-in-out infinite",
+                        animation: "hilde-confused-bottom 7s ease-in-out infinite",
                       }}
                     />
                   </g>
@@ -220,7 +220,10 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       width="26"
                       height="13"
                       fill={KB}
-                      style={{ animation: "hilde-blink-top 20s ease-in-out infinite" }}
+                      style={{
+                        transformOrigin: "48px 45px",
+                        animation: "hilde-blink-top 7s ease-in-out infinite",
+                      }}
                     />
                     <rect
                       x="35"
@@ -228,7 +231,10 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       width="26"
                       height="13"
                       fill={KB}
-                      style={{ animation: "hilde-blink-bottom 20s ease-in-out infinite" }}
+                      style={{
+                        transformOrigin: "48px 71px",
+                        animation: "hilde-blink-bottom 7s ease-in-out infinite",
+                      }}
                     />
                   </g>
                   {/* Right eye: top + bottom lid */}
@@ -239,7 +245,10 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       width="26"
                       height="13"
                       fill={KB}
-                      style={{ animation: "hilde-blink-top 20s ease-in-out infinite" }}
+                      style={{
+                        transformOrigin: "72px 45px",
+                        animation: "hilde-blink-top 7s ease-in-out infinite",
+                      }}
                     />
                     <rect
                       x="59"
@@ -247,7 +256,10 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
                       width="26"
                       height="13"
                       fill={KB}
-                      style={{ animation: "hilde-blink-bottom 20s ease-in-out infinite" }}
+                      style={{
+                        transformOrigin: "72px 71px",
+                        animation: "hilde-blink-bottom 7s ease-in-out infinite",
+                      }}
                     />
                   </g>
                 </>

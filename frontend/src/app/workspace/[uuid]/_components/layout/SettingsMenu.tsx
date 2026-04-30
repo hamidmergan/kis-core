@@ -1,28 +1,23 @@
 "use client";
 
 import React from "react";
+import { useHildePref } from "@/hooks/useHildePref";
 
 interface SettingsMenuProps {
-  chatLang: "de" | "en";
   studioEnabled: boolean;
   onToggleStudio: () => void;
   language_trainingActive: boolean;
   onToggleLanguageTraining: () => void;
-  isLecturer: boolean;
-  hideHeader: boolean;
-  onToggleHideHeader: () => void;
 }
 
 export function SettingsMenu({
-  chatLang,
   studioEnabled,
   onToggleStudio,
   language_trainingActive,
   onToggleLanguageTraining,
-  isLecturer,
-  hideHeader,
-  onToggleHideHeader,
 }: SettingsMenuProps) {
+  const { enabled: hildeEnabled, toggle: toggleHilde } = useHildePref();
+
   return (
     <div
       className="absolute right-0 top-10 z-50 rounded-xl shadow-lg"
@@ -31,28 +26,25 @@ export function SettingsMenu({
       <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
         <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>Meine Einstellungen</p>
       </div>
-      {/* Chat-Sprache (disabled – requires full UI + tool language support) */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)", opacity: 0.4 }}>
+      {/* Hilde-Maskottchen (global, alle Workspaces) */}
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
         <div>
-          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Chat-Sprache</p>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>Sprache der KI-Antworten</p>
+          <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Hilde-Maskottchen</p>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>Eulen-Begleiterin im Chat anzeigen</p>
         </div>
-        <div className="flex gap-1">
-          {(["de", "en"] as const).map((lang) => (
-            <button
-              key={lang}
-              type="button"
-              disabled
-              className="text-xs font-semibold px-2.5 py-1 rounded-lg cursor-not-allowed"
-              style={{
-                backgroundColor: chatLang === lang ? "var(--kb)" : "var(--border)",
-                color: chatLang === lang ? "white" : "var(--muted)",
-              }}
-            >
-              {lang.toUpperCase()}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={hildeEnabled}
+          onClick={toggleHilde}
+          className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] transition-colors duration-200"
+          style={{ backgroundColor: hildeEnabled ? "var(--kb)" : "var(--border)" }}
+        >
+          <span
+            className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
+            style={{ transform: hildeEnabled ? "translateX(16px)" : "translateX(0)" }}
+          />
+        </button>
       </div>
       {/* Studio-Panel */}
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -95,28 +87,6 @@ export function SettingsMenu({
           />
         </button>
       </div>
-      {/* Header ausblenden (nur Ersteller/Lecturer) */}
-      {isLecturer && (
-        <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-          <div>
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>Header ausblenden</p>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>Nur auf dieser Workspace-Seite</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={hideHeader}
-            onClick={onToggleHideHeader}
-            className="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent hover:border-[var(--kb)] disabled:hover:border-transparent transition-colors duration-200"
-            style={{ backgroundColor: hideHeader ? "var(--kb)" : "var(--border)" }}
-          >
-            <span
-              className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200"
-              style={{ transform: hideHeader ? "translateX(16px)" : "translateX(0)" }}
-            />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

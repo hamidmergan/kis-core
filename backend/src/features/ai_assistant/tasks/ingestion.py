@@ -158,16 +158,25 @@ def run_index_source(self, source_uuid: str):
                 )
                 logger.info("KI Tutor: workspace {} is now ready", workspace["uuid"])
 
-        # 10. Dispatch non-critical follow-ups (EN translation runs relaxed in bg)
+        # 10. Dispatch non-critical follow-ups (EN translation runs relaxed in bg).
+        # Only auto-dispatch when admin set mode=auto. "manual" (default) leaves it
+        # to the user-facing button; "off" disables EN translation entirely.
         if _en_translation_pending:
-            translation_provider = db.get_setting(
-                "transcript_translation_provider", "llm"
-            )
-            run_translate_transcript_en.delay(source_uuid, translation_provider)
-            logger.info(
-                "KI Tutor: dispatched EN translation for {} (provider={})",
-                source_uuid, translation_provider,
-            )
+            translation_mode = db.get_setting("transcript_translation_mode", "manual")
+            if translation_mode == "auto":
+                translation_provider = db.get_setting(
+                    "transcript_translation_provider", "llm"
+                )
+                run_translate_transcript_en.delay(source_uuid, translation_provider)
+                logger.info(
+                    "KI Tutor: dispatched EN translation for {} (provider={})",
+                    source_uuid, translation_provider,
+                )
+            else:
+                logger.info(
+                    "KI Tutor: skipping EN auto-translation for {} (mode={})",
+                    source_uuid, translation_mode,
+                )
 
         # 11. Summaries are generated on-demand via button in PDF viewer
 
