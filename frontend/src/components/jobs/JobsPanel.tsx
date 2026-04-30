@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Stack } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface MyJob {
   job_uuid: string;
@@ -330,7 +331,10 @@ export default function JobsPanel() {
 
           <div>
             {jobs.length === 0 ? (
-              <p className="text-sm text-muted-soft text-center py-8">Keine Jobs vorhanden</p>
+              <EmptyState
+                icon={<Stack size={32} weight="bold" />}
+                text="Keine Jobs vorhanden"
+              />
             ) : (
               <ul className="divide-y divide-border-soft">
                 {jobs.slice(0, 3).map((job) => {

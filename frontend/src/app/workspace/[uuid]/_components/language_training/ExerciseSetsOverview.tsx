@@ -1,5 +1,8 @@
 import { Cards, DownloadSimple, Files, Sparkle, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
+import Hilde from "@/components/ui/Hilde";
+import { useHildePref } from "@/hooks/useHildePref";
 import type { ExerciseSet, StudentStats } from "../../_types";
 import { TOOL_LABELS } from "../../_constants";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
@@ -16,6 +19,7 @@ export function ExerciseSetsOverview({
   category?: ToolCategory;
 }) {
 
+  const { enabled: hildeEnabled } = useHildePref();
   const noSources = sourceCount === 0;
   const atLimit = sets.length >= 20;
   const isGenerating = sets.some((s) => s.status === "generating");
@@ -38,15 +42,21 @@ export function ExerciseSetsOverview({
         </div>
 
         {sets.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 pt-[15%]">
-            <Cards size={48} weight="duotone" style={{ color: "var(--border)" }} />
-            <p className="text-sm text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
-            <button type="button" onClick={onCreate}
-              disabled={noSources || atLimit || isGenerating}
-              className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-              <Sparkle size={12} weight="bold" /> {isGenerating ? "Wird generiert…" : `Erstellen (${sets.length}/20)`}
-            </button>
-          </div>
+          <EmptyState
+            className="pt-[15%]"
+            size="lg"
+            icon={hildeEnabled ? <Hilde size={120} state="wave" /> : <Cards size={48} weight="bold" />}
+            text={hildeEnabled
+              ? "Wähle Quellen aus und ich erstelle dir passende Übungen."
+              : "Wähle Quellen aus und drücke auf Erstellen."}
+            action={
+              <button type="button" onClick={onCreate}
+                disabled={noSources || atLimit || isGenerating}
+                className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
+                <Sparkle size={12} weight="bold" /> {isGenerating ? "Wird generiert…" : `Erstellen (${sets.length}/20)`}
+              </button>
+            }
+          />
         ) : (
           <>
             <div className="flex justify-center">

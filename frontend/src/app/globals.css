@@ -599,43 +599,43 @@ body.is-phone-landscape [title="Panel minimieren"] {
    Ported 1:1 from the standalone reference — do not retune, the timings
    are final. */
 
-/* Hilde wave: two short hops in the first ~1.3s, then pause until 30s.
-   Active phase = 1.3s of 30s ≈ 4.3% of the loop. */
+/* Hilde wave: two short hops in the first ~1.3s, then pause until 15s.
+   Active phase = 1.3s of 15s ≈ 8.6% of the loop. */
 @keyframes hilde-bounce {
   0%   { transform: translateY(0); }
-  1%   { transform: translateY(-5px); }
-  2%   { transform: translateY(0); }
-  3.3% { transform: translateY(-4px); }
-  4.3% { transform: translateY(0); }
+  2%   { transform: translateY(-5px); }
+  4%   { transform: translateY(0); }
+  6.6% { transform: translateY(-4px); }
+  8.6% { transform: translateY(0); }
   100% { transform: translateY(0); }
 }
 /* Shadow shrinks during each hop (owl lifts off) */
 @keyframes hilde-shadow {
   0%   { transform: scaleX(1);    opacity: 0.12; }
-  1%   { transform: scaleX(0.85); opacity: 0.08; }
-  2%   { transform: scaleX(1);    opacity: 0.12; }
-  3.3% { transform: scaleX(0.88); opacity: 0.09; }
-  4.3% { transform: scaleX(1);    opacity: 0.12; }
+  2%   { transform: scaleX(0.85); opacity: 0.08; }
+  4%   { transform: scaleX(1);    opacity: 0.12; }
+  6.6% { transform: scaleX(0.88); opacity: 0.09; }
+  8.6% { transform: scaleX(1);    opacity: 0.12; }
   100% { transform: scaleX(1);    opacity: 0.12; }
 }
 
-/* Wing flap on wave — only active during the hops (0–4.7% of the 30s loop) */
+/* Wing flap on wave — only active during the hops (0–9.4% of the 15s loop) */
 @keyframes hilde-wing-l {
   0%   { transform: rotate(0deg); }
-  0.5% { transform: rotate(35deg); }
-  1.7% { transform: rotate(7deg); }
-  2.7% { transform: rotate(35deg); }
-  3.7% { transform: rotate(7deg); }
-  4.7% { transform: rotate(0deg); }
+  1%   { transform: rotate(35deg); }
+  3.4% { transform: rotate(7deg); }
+  5.4% { transform: rotate(35deg); }
+  7.4% { transform: rotate(7deg); }
+  9.4% { transform: rotate(0deg); }
   100% { transform: rotate(0deg); }
 }
 @keyframes hilde-wing-r {
   0%   { transform: rotate(0deg); }
-  0.5% { transform: rotate(-35deg); }
-  1.7% { transform: rotate(-7deg); }
-  2.7% { transform: rotate(-35deg); }
-  3.7% { transform: rotate(-7deg); }
-  4.7% { transform: rotate(0deg); }
+  1%   { transform: rotate(-35deg); }
+  3.4% { transform: rotate(-7deg); }
+  5.4% { transform: rotate(-35deg); }
+  7.4% { transform: rotate(-7deg); }
+  9.4% { transform: rotate(0deg); }
   100% { transform: rotate(0deg); }
 }
 

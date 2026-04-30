@@ -11,6 +11,7 @@ import {
 import type { Source } from "../../_types";
 import { FileIcon, SourceStatus } from "./FileIcon";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export function SourcesPanel({
   sources,
@@ -181,12 +182,11 @@ export function SourcesPanel({
       {/* Source list */}
       <div className="flex-1 overflow-y-auto">
         {sources.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 px-4 gap-2">
-            <FilePdf size={32} color="var(--border)" />
-            <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
-              Lade eine Quelle hoch.
-            </p>
-          </div>
+          <EmptyState
+            size="lg"
+            icon={<FilePdf size={32} weight="bold" />}
+            text="Lade eine Quelle hoch."
+          />
         ) : (
           sources.map((src) => {
             const checked = selectedSourceIds.includes(src.uuid);

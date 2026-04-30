@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import type { ChatMessage as ChatMessageType, Source } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
-import { useHildePref } from "../../_hooks/useHildePref";
+import { useHildePref } from "@/hooks/useHildePref";
 import { ChatHeader } from "./ChatHeader";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ChatMessage } from "./ChatMessage";
@@ -39,7 +39,7 @@ export function ChatPanel({
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
   hideHeader?: boolean;
 }) {
-  const { enabled: hildeEnabled, toggle: toggleHilde } = useHildePref();
+  const { enabled: hildeEnabled } = useHildePref();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -148,8 +148,6 @@ export function ChatPanel({
           messageCount={messages.length}
           onClear={onClear}
           onMinimize={onMinimize}
-          hildeEnabled={hildeEnabled}
-          onToggleHilde={toggleHilde}
         />
       )}
 

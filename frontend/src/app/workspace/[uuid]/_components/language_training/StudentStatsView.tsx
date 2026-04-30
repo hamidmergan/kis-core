@@ -3,6 +3,7 @@ import { ChartBar, ClockCounterClockwise } from "@phosphor-icons/react";
 import type { HeatmapDay, StudentStats } from "../../_types";
 import { TOOL_COLORS, TOOL_LABELS } from "../../_constants";
 import { RecentActivities } from "../studio/RecentActivities";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type StatsPeriod = "30" | "180";
 
@@ -72,7 +73,10 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
   );
   if (!stats) return (
     <div className="flex-1 flex items-center justify-center p-4">
-      <p className="text-sm" style={{ color: "var(--muted)" }}>Noch keine Daten vorhanden. Starte Übungen, um deine Statistik zu sehen.</p>
+      <EmptyState
+        icon={<ChartBar size={32} weight="bold" />}
+        text="Noch keine Daten vorhanden. Starte Übungen, um deine Statistik zu sehen."
+      />
     </div>
   );
 
@@ -165,10 +169,11 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
         </div>
 
         {periodAnswers === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-8" style={{ color: "var(--muted)" }}>
-            <ChartBar size={32} weight="light" />
-            <span className="text-xs text-center">Noch keine Aktivitäten in diesem Zeitraum.</span>
-          </div>
+          <EmptyState
+            size="sm"
+            icon={<ChartBar size={32} weight="bold" />}
+            text="Noch keine Aktivitäten in diesem Zeitraum."
+          />
         ) : (
           <>
             {/* Period summary line */}

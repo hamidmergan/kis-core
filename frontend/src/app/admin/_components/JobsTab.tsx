@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Stack } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatDuration } from "@/lib/format";
 import { JobStatusBadge, type AdminJob } from "../_shared";
 
@@ -100,7 +102,11 @@ export default function JobsTab() {
       {loading ? (
         <Spinner className="flex justify-center py-12" />
       ) : jobs.length === 0 ? (
-        <p className="text-sm text-muted-soft text-center py-12">Keine Jobs gefunden</p>
+        <EmptyState
+          size="lg"
+          icon={<Stack size={32} weight="bold" />}
+          text="Keine Jobs gefunden"
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">

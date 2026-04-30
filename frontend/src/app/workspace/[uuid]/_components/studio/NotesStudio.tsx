@@ -7,6 +7,7 @@ import { _getChipIcon } from "../../_utils";
 import { withCitations, type CitationChipClickHandler } from "../chat/_citations";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export interface Note {
   id: number;
@@ -131,10 +132,10 @@ export function NotesStudio({
 
           {/* Empty state */}
           {notes.length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-2 py-8" >
-              <NotePencil size={32} weight="light" />
-              <span className="text-sm text-center">Noch keine Notes. Erstelle eine oben oder speichere eine KI-Antwort als Notiz.</span>
-            </div>
+            <EmptyState
+              icon={<NotePencil size={32} weight="bold" />}
+              text="Noch keine Notes. Erstelle eine oben oder speichere eine KI-Antwort als Notiz."
+            />
           )}
 
           {/* Notes table (accordion rows) */}

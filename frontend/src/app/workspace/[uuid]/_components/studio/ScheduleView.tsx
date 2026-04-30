@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarBlank, CheckCircle, Files, PencilSimple, Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { ScheduleEntry, ScheduleData } from "../../_types";
 import {
   fetchSchedule,
@@ -314,12 +315,11 @@ export function ScheduleView({
           <p className="text-sm py-6 text-center" style={{ color: "var(--error-strong)" }}>{error}</p>
         )}
         {!loading && !error && entries.length === 0 && (
-          <div className="flex flex-col items-center gap-3 py-10 text-center text-muted">
-            <CalendarBlank size={40} weight="light" />
-            <p className="text-sm">
-              Noch keine Einträge. Wähle Quellen links aus und generiere, oder erstelle manuelle Einträge.
-            </p>
-          </div>
+          <EmptyState
+            size="lg"
+            icon={<CalendarBlank size={40} weight="bold" />}
+            text="Noch keine Einträge. Wähle Quellen links aus und generiere, oder erstelle manuelle Einträge."
+          />
         )}
         {!loading && entries.length > 0 && (
           <>

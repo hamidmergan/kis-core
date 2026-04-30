@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Users } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 import type { AdminUser } from "../_shared";
 
@@ -84,7 +86,11 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
       {loading ? (
         <Spinner className="flex justify-center py-12" />
       ) : users.length === 0 ? (
-        <p className="text-sm text-muted-soft text-center py-12">Keine User gefunden</p>
+        <EmptyState
+          size="lg"
+          icon={<Users size={32} weight="bold" />}
+          text="Keine User gefunden"
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">

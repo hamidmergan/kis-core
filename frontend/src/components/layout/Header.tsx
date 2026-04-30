@@ -7,6 +7,7 @@ import { SignOut, UserCircleGear } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
+import HeaderSettings from "@/components/layout/HeaderSettings";
 
 interface HeaderProps {
   showLogout?: boolean;
@@ -48,9 +49,13 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
         </h1>
 
         {showLogout && (
-          <>
+          <div className="flex items-center gap-1.5">
+            <div className="sm:hidden">
+              <HeaderSettings />
+            </div>
             <div className="hidden sm:flex items-center gap-1.5">
               <JobsPanel />
+              <HeaderSettings />
 
               {isAdmin && (
                 <Link
@@ -76,7 +81,7 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
             </div>
 
             <HeaderMobileMenu isAdmin={isAdmin} showToolsToggle={showToolsToggle} onLogout={handleLogout} />
-          </>
+          </div>
         )}
       </div>
     </header>

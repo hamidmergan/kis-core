@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import Header from "@/components/layout/Header";
+import Hilde from "@/components/ui/Hilde";
+import { useHildePref } from "@/hooks/useHildePref";
 
 export default function TestphasePage() {
+  const { enabled: hildeEnabled } = useHildePref();
+
   return (
     <>
       <Header />
@@ -9,22 +15,26 @@ export default function TestphasePage() {
         <div className="w-full max-w-lg">
           <div className="bg-white rounded-xl shadow-sm border border-border-soft p-8 text-center">
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-warn-bg rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-warn"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                  />
-                </svg>
-              </div>
+              {hildeEnabled ? (
+                <Hilde size={140} state="wave" />
+              ) : (
+                <div className="w-16 h-16 bg-warn-bg rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-warn"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                    />
+                  </svg>
+                </div>
+              )}
             </div>
 
             <h1 className="text-xl font-bold mb-2">

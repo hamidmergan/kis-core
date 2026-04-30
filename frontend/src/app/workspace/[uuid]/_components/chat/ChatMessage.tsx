@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CaretDown, CaretUp, Check, Copy, NotePencil } from "@phosphor-icons/react";
@@ -11,9 +11,6 @@ import { copyMessageText, withCitations, type CitationChipClickHandler } from ".
 
 
 const SORRY_PATTERN = /nichts gefunden|keine information|in den quellen nicht enthalten|nicht in den (?:bereitgestellten |angegebenen )?quellen|kann ich nicht beantworten|steht nicht in den|not in the (?:provided |given )?sources?|no information (?:found|available|in)|could(?:n['']t| not) find|cannot find|is not (?:in|available in|contained in) (?:the )?sources?/i;
-
-// How long to keep "found" before settling into idle.
-const FOUND_DURATION_MS = 5 * 60 * 1000;
 
 
 interface ChatMessageProps {
@@ -37,25 +34,11 @@ function ChatMessageImpl({
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
-  const [foundExpired, setFoundExpired] = useState(false);
 
   const msgQmap = msg.source_qmap ?? [];
   const isUserLong = msg.content.split("\n").length > 5 || msg.content.length > 300;
   const wrapCitations = (children: React.ReactNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick);
-
-  // Reset and re-arm the found→idle timer whenever this message gains
-  // citations as the latest answer. After FOUND_DURATION_MS Hilde settles
-  // back into idle so she does not stare at the same magnifier forever.
-  useEffect(() => {
-    if (!isLatest || msgQmap.length === 0) {
-      setFoundExpired(false);
-      return;
-    }
-    setFoundExpired(false);
-    const t = setTimeout(() => setFoundExpired(true), FOUND_DURATION_MS);
-    return () => clearTimeout(t);
-  }, [isLatest, msg.id, msgQmap.length]);
 
   let avatarState: HildeState = "idle";
   if (msg.role === "assistant") {
@@ -63,7 +46,7 @@ function ChatMessageImpl({
       avatarState = "thinking";
     } else if (SORRY_PATTERN.test(msg.content)) {
       avatarState = "confused";
-    } else if (isLatest && msgQmap.length > 0 && !foundExpired) {
+    } else if (isLatest && msgQmap.length > 0) {
       avatarState = "found";
     }
   }

@@ -5,6 +5,7 @@ import { BookOpen, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/r
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries, MAX_GLOSSARIES, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
 import BackLink from "@/components/ui/BackLink";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function GlossaryPage() {
   const { glossaries, createGlossary, updateGlossary, deleteGlossary } = useGlossaries();
@@ -236,8 +237,12 @@ export default function GlossaryPage() {
 
           {/* Glossary list with inline accordion */}
           {glossaries.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-soft border border-dashed border-border-soft rounded-lg">
-              Noch keine Glossaries vorhanden. Erstellen Sie Ihr erstes Glossary.
+            <div className="border border-dashed border-border-soft rounded-lg">
+              <EmptyState
+                size="lg"
+                icon={<BookOpen size={32} weight="bold" />}
+                text="Noch keine Glossaries vorhanden. Erstellen Sie Ihr erstes Glossary."
+              />
             </div>
           ) : (
             <div className="border border-border-soft rounded-lg overflow-hidden">
@@ -337,8 +342,11 @@ export default function GlossaryPage() {
                       )}
 
                       {Object.keys(g.entries).length === 0 ? (
-                        <div className="text-center py-6 text-sm text-muted-soft border border-dashed border-border-soft rounded-lg bg-white">
-                          Noch keine Einträge vorhanden.
+                        <div className="border border-dashed border-border-soft rounded-lg bg-white">
+                          <EmptyState
+                            size="sm"
+                            text="Noch keine Einträge vorhanden."
+                          />
                         </div>
                       ) : (
                         <div className="border border-border-soft rounded-lg overflow-hidden">

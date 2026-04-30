@@ -46,7 +46,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
         fill={KB}
         opacity="0.12"
         style={{
-          animation: isWave ? "hilde-shadow 30s ease-in-out infinite" : "none",
+          animation: isWave ? "hilde-shadow 15s ease-in-out infinite" : "none",
           transformOrigin: "60px 112px",
         }}
       />
@@ -54,7 +54,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
       {/* Body group (hop animation) — wave: two short hops, then ~28.7s pause */}
       <g
         style={{
-          animation: isWave ? "hilde-bounce 30s ease-in-out infinite" : "none",
+          animation: isWave ? "hilde-bounce 15s ease-in-out infinite" : "none",
           transformOrigin: "60px 108px",
         }}
       >
@@ -88,7 +88,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
           <g
             style={{
               transformOrigin: "32px 60px",
-              animation: isWave ? "hilde-wing-l 30s ease-in-out infinite" : "none",
+              animation: isWave ? "hilde-wing-l 15s ease-in-out infinite" : "none",
             }}
           >
             <ellipse cx="28" cy="74" rx="8" ry="18" fill={KB_DARK} />
@@ -101,7 +101,7 @@ export default function Hilde({ size = 120, state = "idle", className }: HildePr
               transform: "rotate(0deg)",
               transition: "transform .3s ease",
               animation: isWave
-                ? "hilde-wing-r 30s ease-in-out infinite"
+                ? "hilde-wing-r 15s ease-in-out infinite"
                 : state === "found"
                   ? "hilde-wing-found 10s ease-in-out infinite"
                   : "none",

@@ -3,9 +3,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Wrench } from "@phosphor-icons/react";
+import Hilde from "@/components/ui/Hilde";
+import { useHildePref } from "@/hooks/useHildePref";
 
 export default function MaintenancePage() {
   const router = useRouter();
+  const { enabled: hildeEnabled } = useHildePref();
 
   useEffect(() => {
     const check = async () => {
@@ -25,7 +28,13 @@ export default function MaintenancePage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center space-y-4">
-        <Wrench size={56} weight="duotone" className="mx-auto text-muted" />
+        {hildeEnabled ? (
+          <div className="flex justify-center">
+            <Hilde size={140} state="idle" />
+          </div>
+        ) : (
+          <Wrench size={56} weight="duotone" className="mx-auto text-muted" />
+        )}
         <h1 className="text-2xl font-semibold text-foreground">Wartungsarbeiten</h1>
         <p className="text-sm text-foreground-soft">
           Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.

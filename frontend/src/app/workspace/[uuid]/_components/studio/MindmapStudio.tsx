@@ -17,6 +17,7 @@ import {
   TreeStructure,
 } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Source, StudentStats } from "../../_types";
 import { _getChipIcon, _isMediaFile } from "../../_utils";
 import { MinimizeContext } from "../../_context";
@@ -346,15 +347,19 @@ export function MindmapStudio({
           </div>
 
           {savedList.length === 0 && !loading ? (
-            <div className="flex flex-col items-center gap-3 pt-[15%]">
-              <TreeStructure size={48} weight="duotone" style={{ color: "var(--border)" }} />
-              <p className="text-base text-center" >Wähle Quellen aus und drücke auf Erstellen.</p>
-              <button type="button" onClick={() => onGenerate()}
-                disabled={noSources || loading || atLimit}
-                className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40">
-                <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
-              </button>
-            </div>
+            <EmptyState
+              className="pt-[15%]"
+              size="lg"
+              icon={<TreeStructure size={48} weight="bold" />}
+              text="Wähle Quellen aus und drücke auf Erstellen."
+              action={
+                <button type="button" onClick={() => onGenerate()}
+                  disabled={noSources || loading || atLimit}
+                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40">
+                  <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+                </button>
+              }
+            />
           ) : (
             <>
               <div className="flex justify-center">

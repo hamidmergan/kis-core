@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarBlank } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ScheduleTimeline } from "@/components/schedule/ScheduleTimeline";
 import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/schedule/ScheduleEntryCardGlobal";
 
@@ -190,10 +191,11 @@ export default function SchedulePage() {
         )}
 
         {!initialLoading && !error && entries.length === 0 && (
-          <div className="flex flex-col items-center gap-3 py-20 text-center">
-            <CalendarBlank size={40} weight="light" style={{ color: "var(--muted)" }} />
-            <p className="text-sm" style={{ color: "var(--muted)" }}>Keine Termine vorhanden</p>
-          </div>
+          <EmptyState
+            size="lg"
+            icon={<CalendarBlank size={40} weight="bold" />}
+            text="Keine Termine vorhanden"
+          />
         )}
 
         {entries.length > 0 && (

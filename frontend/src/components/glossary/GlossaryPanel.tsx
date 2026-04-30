@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Book } from "@phosphor-icons/react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export interface GlossaryEntry {
   source: string;
@@ -100,9 +102,11 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
 
       {/* Entries table */}
       {entries.length === 0 ? (
-        <div className="text-center py-12 text-sm text-muted-soft">
-          Noch keine Glossary-Einträge vorhanden.
-        </div>
+        <EmptyState
+          size="lg"
+          icon={<Book size={32} weight="bold" />}
+          text="Noch keine Glossary-Einträge vorhanden."
+        />
       ) : (
         <div className="bg-white rounded-lg border border-border-soft overflow-hidden">
           <table className="w-full">

@@ -96,10 +96,11 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       <div className="hide-on-short flex items-center gap-2 px-3 pt-2 pb-1 relative">
         <Link
           href="/"
-          className="inline-flex items-center justify-center w-7 h-7 flex-shrink-0 transition-colors group"
+          className="inline-flex items-center gap-1 text-xs font-medium flex-shrink-0 transition-colors group"
           style={{ color: "var(--kb)" }}
         >
-          <BackArrow size={14} />
+          <BackArrow size={12} />
+          Zurück
         </Link>
         <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-sm font-bold truncate px-12 pointer-events-auto select-text cursor-text" style={{ color: "var(--foreground)" }}>

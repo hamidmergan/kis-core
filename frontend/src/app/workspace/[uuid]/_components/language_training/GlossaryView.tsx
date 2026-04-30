@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Book, CaretDown, CaretUp, DotsThreeVertical, FilePdf, Files, Sparkle, Trash } from "@phosphor-icons/react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { GlossaryEntry, StudentStats } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
@@ -114,10 +115,11 @@ export function GlossaryView({
             </div>
           )}
           {entries.length === 0 && !loading && (
-            <div className="flex flex-col items-center justify-center gap-2 py-8" >
-              <Book size={32} weight="light" />
-              <span className="text-xs text-center" style={{ color: "var(--muted)" }}>Noch kein Glossary generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.</span>
-            </div>
+            <EmptyState
+              size="sm"
+              icon={<Book size={32} weight="bold" />}
+              text={'Noch kein Glossary generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.'}
+            />
           )}
         </div>
 

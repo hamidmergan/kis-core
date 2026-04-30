@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Files } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
+import { EmptyState } from "@/components/ui/EmptyState";
 import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import WorkspaceTable from "./WorkspaceTable";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
@@ -114,11 +115,12 @@ export default function LecturerView() {
               <Spinner size="lg" />
             </div>
           ) : workspaces.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20" style={{ color: "var(--muted)" }}>
-              <Files size={40} weight="duotone" className="mb-3 opacity-40" />
-              <p className="text-base">Noch keine Workspaces vorhanden.</p>
-              <p className="text-sm mt-1">Erstelle deinen ersten Workspace mit dem Button oben.</p>
-            </div>
+            <EmptyState
+              size="lg"
+              icon={<Files size={40} weight="bold" />}
+              title="Noch keine Workspaces vorhanden."
+              text="Erstelle deinen ersten Workspace mit dem Button oben."
+            />
           ) : (
             <div className="mt-3 md:mt-10">
               <WorkspaceTable

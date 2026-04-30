@@ -10,6 +10,7 @@ import {
   TreeStructure,
 } from "@phosphor-icons/react";
 import { TOOL_LABELS } from "../../_constants";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface RecentActivity {
   set_id: number;
@@ -72,10 +73,11 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
 
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 pt-16 pb-8 px-4" style={{ color: "var(--muted)" }}>
-        <ClockCounterClockwise size={32} weight="light" />
-        <span className="text-sm text-center">Noch keine Aktivitäten.</span>
-      </div>
+      <EmptyState
+        className="pt-16"
+        icon={<ClockCounterClockwise size={32} weight="bold" />}
+        text="Noch keine Aktivitäten."
+      />
     );
   }
 
