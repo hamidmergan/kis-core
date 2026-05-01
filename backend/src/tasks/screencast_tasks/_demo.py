@@ -18,6 +18,7 @@ from src.storage import (
     save_result_file,
     save_result_meta,
 )
+from src.services.screencast.naming import build_artifact_stem
 
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
 from src.tasks.screencast_tasks._shared import _get_pptx_for_render
@@ -140,13 +141,16 @@ def run_screencast_demo_render(
 
             result_path = save_result_file(user_id, job_uuid, ".mp4", output_bytes)
 
+            result_stem = build_artifact_stem("Demo_Screencast")
             meta = {
                 "audio_id": job_uuid,
                 "audio_count": num_slides,
+                "translated_stem": "Demo_Screencast",
+                "result_stem": result_stem,
             }
             save_result_meta(user_id, job_uuid, meta)
 
-        save_result_and_evict(user_id, job_uuid, result_path, "demo_screencast.mp4")
+        save_result_and_evict(user_id, job_uuid, result_path, f"{result_stem}.mp4")
         db.update_job_status(job_uuid, "success")
 
         logger.info("Demo render task {} completed", job_uuid)

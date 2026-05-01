@@ -12,6 +12,7 @@ from loguru import logger
 from src import database as db
 from src.limits import RENDER_MAX_WORKERS
 from src.storage import (
+    load_result_meta,
     save_audio_cache,
     save_job_file,
     save_result_file,
@@ -189,7 +190,9 @@ def _run_render_pipeline(
         # ── Save result ───────────────────────────────────────────────────
         result_path = save_result_file(user_id, job_uuid, ".mp4", output_bytes)
 
+        existing_meta = load_result_meta(user_id, job_uuid) or {}
         meta = {
+            **existing_meta,
             "audio_id": job_uuid,
             "audio_count": num_slides,
         }

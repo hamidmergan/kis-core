@@ -18,11 +18,13 @@ from src.services.screencast.generation import (
     generate_all_scripts,
     generate_all_tts,
 )
+from src.services.screencast.naming import build_artifact_stem, translate_stem
 
 __all__ = [
     "IMAGE_TMP_DIR",
     "PPTX_TMP_DIR",
     "apply_faststart",
+    "build_artifact_stem",
     "concatenate_videos",
     "convert_slides_to_images_async",
     "create_slide_video",
@@ -34,4 +36,5 @@ __all__ = [
     "maybe_start_cleanup_task",
     "pptx_to_images",
     "run_proc",
+    "translate_stem",
 ]

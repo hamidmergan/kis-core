@@ -77,7 +77,7 @@ function ScreencastPageInner() {
 
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
   const renderResult = useRenderResult();
-  const { downloadBlob, videoUrl, audioId, audioCount, apply: applyRenderResult, clear: clearRenderResult } = renderResult;
+  const { downloadBlob, videoUrl, audioId, audioCount, resultStem, apply: applyRenderResult, clear: clearRenderResult } = renderResult;
 
   const autosaveScripts = useScriptAutosave({ jobUuid: translateJobUuid });
   const {
@@ -303,8 +303,10 @@ function ScreencastPageInner() {
 
   const handleDownload = () => {
     if (!downloadBlob) return;
-    const stem = file?.name?.replace(/\.pptx$/i, "") || "screencast";
-    triggerBlobDownload(downloadBlob, `${stem}_screencast_EN.mp4`);
+    // Backend computes the canonical filename (translated stem + timestamp). Fall back
+    // to the original PPTX stem only if meta is missing (e.g. legacy job restored from cache).
+    const stem = resultStem || file?.name?.replace(/\.pptx$/i, "") || "screencast";
+    triggerBlobDownload(downloadBlob, `${stem}.mp4`);
   };
 
   const openRegen = regen.open;

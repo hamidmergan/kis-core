@@ -7,8 +7,9 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 from src.limits import SCREENCAST_SOFT_TIME_LIMIT, SCREENCAST_TIME_LIMIT
-from src.storage import clear_render_cache, save_result_and_evict
+from src.storage import clear_render_cache, load_result_meta, save_result_and_evict, save_result_meta
 from src.utils.heartbeat import job_heartbeat
+from src.services.screencast.naming import build_artifact_stem
 
 from src.tasks.screencast_tasks._pipeline import _run_render_pipeline
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
@@ -63,7 +64,17 @@ def run_screencast_render(
                 is_admin=is_admin,
             )
 
-        result_filename = f"{Path(original_filename).stem if original_filename else 'screencast'}.mp4"
+        meta_existing = load_result_meta(user_id, translate_job_uuid) or {}
+        translated_stem = meta_existing.get("translated_stem") or (
+            Path(original_filename).stem if original_filename else "screencast"
+        )
+        result_stem = build_artifact_stem(translated_stem)
+        result_filename = f"{result_stem}.mp4"
+        save_result_meta(
+            user_id,
+            translate_job_uuid,
+            {**meta_existing, "result_stem": result_stem},
+        )
         with job_heartbeat(translate_job_uuid):
             save_result_and_evict(user_id, translate_job_uuid, result["result_path"], result_filename)
         db.update_job_status(translate_job_uuid, "success")

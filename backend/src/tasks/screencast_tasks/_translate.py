@@ -15,7 +15,9 @@ from src.storage import (
     save_job_file,
     save_result_and_evict,
     save_result_json,
+    save_result_meta,
 )
+from src.services.screencast.naming import translate_stem
 
 from src.tasks.screencast_tasks._queue import _maybe_dispatch_next
 from src.tasks.screencast_tasks._shared import _get_screencast_helpers
@@ -84,6 +86,10 @@ def run_screencast_translate(
 
         result_path = save_result_json(user_id, job_uuid, result)
         save_result_and_evict(user_id, job_uuid, result_path, f"{Path(filename).stem}_translate.json")
+
+        # Translate filename stem via DeepL once, reuse for all later artifacts (MP4, PPTX, ZIP).
+        translated = translate_stem(filename, source_lang, target_lang)
+        save_result_meta(user_id, job_uuid, {"translated_stem": translated})
 
         # awaiting_user: user must review scripts before render starts
         db.update_job_status(job_uuid, "awaiting_user")

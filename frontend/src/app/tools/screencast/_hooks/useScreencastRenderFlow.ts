@@ -86,6 +86,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       renderResult.apply(blob, {
         audioId: meta.audio_id as string | undefined,
         audioCount: meta.audio_count as number | undefined,
+        resultStem: meta.result_stem as string | undefined,
       });
       dispatch({ type: "SET_LOADING", loading: false });
       dispatch({ type: "SET_STEP", step: "done" });

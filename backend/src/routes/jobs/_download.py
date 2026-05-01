@@ -115,8 +115,7 @@ async def download_job_pptx(
         logger.error("PPTX download failed for job {}: {}", job_uuid, e)
         raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
 
-    original = job["original_filename"] or "screencast.pptx"
-    pptx_filename = f"{Path(original).stem}.pptx"
+    pptx_filename = _resolve_artifact_filename(job, ext="pptx")
 
     return StreamingResponse(
         iter([data]),
@@ -126,6 +125,22 @@ async def download_job_pptx(
             "Content-Disposition": f'attachment; filename="{pptx_filename}"',
         },
     )
+
+
+def _resolve_artifact_filename(job: dict, ext: str) -> str:
+    """Resolve the user-facing filename for a job artifact (mp4/pptx/zip).
+
+    Prefers result_stem from meta (translated stem + timestamp); falls back to
+    the translated_stem alone, then to the original filename's stem.
+    """
+    meta = load_result_meta(job["user_id"], job["job_uuid"]) or {}
+    stem = (
+        meta.get("result_stem")
+        or meta.get("translated_stem")
+        or Path(job.get("original_filename") or "screencast").stem
+        or "screencast"
+    )
+    return f"{stem}.{ext.lstrip('.')}"
 
 
 class _ZipStreamWriter:
@@ -153,7 +168,7 @@ class _ZipStreamWriter:
         pass
 
 
-def _streaming_zip_bundle(user_id: int, job_uuid: str, folder_name: str, audio_count: int):
+def _streaming_zip_bundle(user_id: int, job_uuid: str, stem: str, audio_count: int):
     """Generator that yields ZIP data file-by-file without buffering everything first."""
     stream = _ZipStreamWriter()
     zf = zipfile.ZipFile(stream, mode="w", compression=zipfile.ZIP_STORED)
@@ -169,7 +184,7 @@ def _streaming_zip_bundle(user_id: int, job_uuid: str, folder_name: str, audio_c
     # MP4
     try:
         mp4_data = get_job_file(user_id, job_uuid, "output.mp4")
-        yield _add_and_yield(f"{folder_name}.mp4", mp4_data)
+        yield _add_and_yield(f"{stem}.mp4", mp4_data)
         del mp4_data
     except Exception:
         pass
@@ -187,7 +202,7 @@ def _streaming_zip_bundle(user_id: int, job_uuid: str, folder_name: str, audio_c
     pptx_name = "corrected.pptx" if job_file_exists(user_id, job_uuid, "corrected.pptx") else "translated.pptx"
     try:
         pptx_data = get_job_file(user_id, job_uuid, pptx_name)
-        yield _add_and_yield(f"{folder_name}.pptx", pptx_data)
+        yield _add_and_yield(f"{stem}.pptx", pptx_data)
     except Exception:
         pass
 
@@ -221,14 +236,18 @@ async def download_job_bundle(
         raise HTTPException(status_code=403, detail="Kein Zugriff")
 
     user_id = job["user_id"]
-    original = job.get("original_filename") or "bundle"
-    folder_name = f"{Path(original).stem}_{job_uuid[:8]}"
     meta = load_result_meta(user_id, job_uuid) or {}
     audio_count = int(meta.get("audio_count", 0))
-    zip_filename = f"{folder_name}.zip"
+    stem = (
+        meta.get("result_stem")
+        or meta.get("translated_stem")
+        or Path(job.get("original_filename") or "screencast").stem
+        or "screencast"
+    )
+    zip_filename = f"{stem}.zip"
 
     return StreamingResponse(
-        _streaming_zip_bundle(user_id, job_uuid, folder_name, audio_count),
+        _streaming_zip_bundle(user_id, job_uuid, stem, audio_count),
         media_type="application/zip",
         headers={
             "Content-Disposition": f'attachment; filename="{zip_filename}"',
