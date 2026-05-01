@@ -79,7 +79,7 @@ export function CreateSetModal({
         {/* Actions */}
         <div className="flex gap-2">
           <button type="button" onClick={onClose}
-            className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:outline-2 hover:outline-[var(--kb)]"
+            className="btn-cancel px-4 py-2 rounded-full text-xs font-semibold"
             style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
             Abbrechen
           </button>

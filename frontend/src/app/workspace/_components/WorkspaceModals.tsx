@@ -66,7 +66,7 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
             <p className="text-sm text-foreground-soft mb-1"><span className="font-medium">{workspace.title}</span></p>
             <p className="text-sm text-error mb-6">Wird mit allen zugehörigen Daten unwiderruflich gelöscht.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={onCancelDelete} disabled={deleting} className="px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">Abbrechen</button>
+              <button onClick={onCancelDelete} disabled={deleting} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">Abbrechen</button>
               <button onClick={onConfirmDelete} disabled={deleting} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
             </div>
           </div>
@@ -81,7 +81,7 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
             </p>
             <p className="text-sm text-error mb-6">Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={onCancelDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">Abbrechen</button>
+              <button onClick={onCancelDeleteLink} disabled={deletingLink} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">Abbrechen</button>
               <button onClick={onConfirmDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deletingLink ? "..." : "Löschen"}</button>
             </div>
           </div>

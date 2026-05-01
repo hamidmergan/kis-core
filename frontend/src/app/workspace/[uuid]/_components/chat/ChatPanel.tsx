@@ -164,19 +164,28 @@ export function ChatPanel({
             />
           )}
 
-          {messages.map((msg, i) => (
-            <ChatMessage
-              key={msg.id ?? i}
-              msg={msg}
-              activeSourceIds={activeSourceIds}
-              getFilename={getFilename}
-              onChipClick={handleChipClick}
-              onSaveNote={onSaveNote}
-              loading={loading}
-              hildeEnabled={hildeEnabled}
-              isLatest={i === messages.length - 1}
-            />
-          ))}
+          {(() => {
+            const recentAssistantIdx = new Set(
+              messages
+                .map((m, idx) => (m.role === "assistant" ? idx : -1))
+                .filter((idx) => idx >= 0)
+                .slice(-2)
+            );
+            return messages.map((msg, i) => (
+              <ChatMessage
+                key={msg.id ?? i}
+                msg={msg}
+                activeSourceIds={activeSourceIds}
+                getFilename={getFilename}
+                onChipClick={handleChipClick}
+                onSaveNote={onSaveNote}
+                loading={loading}
+                hildeEnabled={hildeEnabled}
+                isLatest={i === messages.length - 1}
+                collapseByDefault={msg.role === "assistant" && !recentAssistantIdx.has(i)}
+              />
+            ));
+          })()}
         </div>
       </div>
 

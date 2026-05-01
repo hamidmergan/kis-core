@@ -42,7 +42,12 @@ export default function EditWorkspaceModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) onClose();
+      }}
+    >
       <div className="bg-background shadow-xl rounded-xl w-full max-h-[90vh] sm:max-w-xl lg:max-w-3xl p-6 flex flex-col">
         <h3 className="text-base font-semibold mb-4">{labels.singular} bearbeiten</h3>
         <div className="mb-4">
@@ -83,7 +88,7 @@ export default function EditWorkspaceModal({
           <button
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50"
+            className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50"
           >
             Abbrechen
           </button>

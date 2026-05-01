@@ -110,7 +110,7 @@ export default function ScriptReviewStep({
                             <div className="flex gap-2">
                               <button
                                 onClick={onCancelEdit}
-                                className="px-3 py-1 text-xs text-foreground-soft border border-border rounded hover:bg-surface transition-colors"
+                                className="btn-cancel px-3 py-1 text-xs text-foreground-soft border border-border rounded transition-colors"
                               >
                                 Abbrechen
                               </button>

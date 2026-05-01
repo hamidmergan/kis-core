@@ -74,7 +74,7 @@ export function ScriptReviewStep({
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-xs text-muted-soft">ca. {wc} Wörter · ~{dur} Sek</span>
                             <div className="flex gap-2">
-                              <button onClick={onCancelEdit} className="px-3 py-1 text-xs text-foreground-soft border border-border rounded hover:bg-surface transition-colors">Abbrechen</button>
+                              <button onClick={onCancelEdit} className="btn-cancel px-3 py-1 text-xs text-foreground-soft border border-border rounded transition-colors">Abbrechen</button>
                               <button onClick={() => onSaveEdit(i)} className="px-3 py-1 text-xs btn-primary rounded  transition-colors">Speichern</button>
                             </div>
                           </div>

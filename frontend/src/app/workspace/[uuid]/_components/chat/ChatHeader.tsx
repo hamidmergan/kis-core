@@ -46,7 +46,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
                 onClick={() => { onClear(); setChatMenuOpen(false); }}
                 disabled={messageCount === 0}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-base text-left hover:bg-[var(--surface-dim)] disabled:opacity-40 transition-colors"
-                style={{ color: "var(--error-strong)" }}
+                style={{ color: "rgb(185, 28, 28)" }}
               >
                 <Trash size={16} />
                 Chatprotokoll löschen

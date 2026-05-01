@@ -125,7 +125,7 @@ export function SourcesPanel({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-base font-medium border-2 border-dashed transition-colors text-[var(--kb)] bg-[rgba(var(--kb-rgb),0.08)] border-[rgba(var(--kb-rgb),0.3)] hover:bg-[rgba(var(--kb-rgb),0.16)] hover:border-[var(--kb)]"
+            className="add-source-btn w-full flex items-center justify-center gap-2 py-2 rounded-lg text-base font-medium border-2 border-dashed transition-colors text-[var(--kb)] bg-[rgba(var(--kb-rgb),0.08)] border-[rgba(var(--kb-rgb),0.3)] hover:bg-[rgba(var(--kb-rgb),0.16)] hover:border-[var(--kb)]"
           >
             <Plus size={15} weight="bold" />
             Quellen hinzufügen
@@ -323,7 +323,7 @@ export function SourcesPanel({
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteSourceId(null)}
-                className="px-4 py-2 text-sm btn-secondary rounded-lg"
+                className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg"
               >
                 Abbrechen
               </button>

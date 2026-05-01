@@ -8,7 +8,7 @@ export function TranslatingStep({ onCancel }: { onCancel: () => void }) {
       <p className="text-sm text-foreground-soft animate-pulse">Demo wird geladen...</p>
       <p className="text-xs text-muted-soft mt-2">Das kann je nach Dateigröße einige Sekunden dauern.</p>
       <button onClick={onCancel}
-        className="mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md hover:bg-error-bg transition-colors inline-flex items-center gap-2"
+        className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -27,7 +27,7 @@ export function GeneratingScriptsStep({ slideCount, onCancel }: { slideCount: nu
       <p className="text-sm text-foreground-soft animate-pulse">Sprechskripte werden generiert...</p>
       <p className="text-xs text-muted-soft mt-2">Die KI erstellt Skripte für {slideCount} Folien.</p>
       <button onClick={onCancel}
-        className="mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md hover:bg-error-bg transition-colors inline-flex items-center gap-2"
+        className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -46,7 +46,7 @@ export function RenderingStep({ renderProgressLabel, onCancel }: { renderProgres
       <p className="text-sm text-foreground-soft">{renderProgressLabel || "Video wird erstellt..."}</p>
       {!renderProgressLabel && <p className="text-xs text-muted-soft mt-2">Vertonung und Videoproduktion, das kann ein paar Minuten dauern.</p>}
       <button onClick={onCancel}
-        className="mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md hover:bg-error-bg transition-colors inline-flex items-center gap-2"
+        className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

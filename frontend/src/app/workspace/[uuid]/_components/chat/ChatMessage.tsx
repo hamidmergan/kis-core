@@ -22,14 +22,16 @@ interface ChatMessageProps {
   loading: boolean;
   hildeEnabled?: boolean;
   isLatest?: boolean;
+  collapseByDefault?: boolean;
 }
 
 
 function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, loading,
-  hildeEnabled = false, isLatest = false,
+  hildeEnabled = false, isLatest = false, collapseByDefault = false,
 }: ChatMessageProps) {
   const [expandUserContent, setExpandUserContent] = useState(false);
+  const [expandAssistantContent, setExpandAssistantContent] = useState(false);
   const [expandSources, setExpandSources] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -37,6 +39,8 @@ function ChatMessageImpl({
 
   const msgQmap = msg.source_qmap ?? [];
   const isUserLong = msg.content.split("\n").length > 5 || msg.content.length > 300;
+  const isAssistantLong = msg.content.split("\n").length > 5 || msg.content.length > 300;
+  const collapseAssistant = collapseByDefault && msg.role === "assistant" && isAssistantLong && !expandAssistantContent;
   const wrapCitations = (children: React.ReactNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick);
 
@@ -152,25 +156,45 @@ function ChatMessageImpl({
               (keine Antwort)
             </span>
           ) : msg.role === "assistant" ? (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                p: ({ children }) => <p className="mb-2 last:mb-0">{wrapCitations(children)}</p>,
-                ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
-                li: ({ children }) => <li className="leading-relaxed">{wrapCitations(children)}</li>,
-                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
-                h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
-                h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,
-                table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-sm border-collapse">{children}</table></div>,
-                thead: ({ children }) => <thead className="border-b border-current/20">{children}</thead>,
-                th: ({ children }) => <th className="text-left px-2 py-1 font-semibold">{children}</th>,
-                td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{wrapCitations(children)}</td>,
-              }}
-            >
-              {msg.content.replace(/[[【]([^\]】]*\|[^\]】]*)[\]】]/g, (m) => m.replace(/\|/g, "❘"))}
-            </ReactMarkdown>
+            <>
+              <div
+                style={collapseAssistant ? { maxHeight: "8em", overflow: "hidden" } : undefined}
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p className="mb-2 last:mb-0">{wrapCitations(children)}</p>,
+                    ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-0.5">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
+                    li: ({ children }) => <li className="leading-relaxed">{wrapCitations(children)}</li>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
+                    h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
+                    h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,
+                    table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-sm border-collapse">{children}</table></div>,
+                    thead: ({ children }) => <thead className="border-b border-current/20">{children}</thead>,
+                    th: ({ children }) => <th className="text-left px-2 py-1 font-semibold">{children}</th>,
+                    td: ({ children }) => <td className="px-2 py-1 border-t border-current/10">{wrapCitations(children)}</td>,
+                  }}
+                >
+                  {msg.content.replace(/[[【]([^\]】]*\|[^\]】]*)[\]】]/g, (m) => m.replace(/\|/g, "❘"))}
+                </ReactMarkdown>
+              </div>
+              {collapseByDefault && isAssistantLong && (
+                <button
+                  type="button"
+                  onClick={() => setExpandAssistantContent(v => !v)}
+                  className="flex items-center gap-1 mt-1.5 text-xs opacity-70 hover:opacity-100 transition-opacity"
+                  style={{ color: "var(--muted)" }}
+                >
+                  {expandAssistantContent ? (
+                    <><CaretUp size={12} /> Einklappen</>
+                  ) : (
+                    <><CaretDown size={12} /> Mehr anzeigen</>
+                  )}
+                </button>
+              )}
+            </>
           ) : (
             <>
               <div

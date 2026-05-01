@@ -173,9 +173,12 @@
    Aktiviert ueber <html data-theme="dark"> (gesetzt durch useTheme +
    FOUC-Inline-Script in layout.tsx). Ueberschreibt alle :root-Werte. */
 :root[data-theme="dark"] {
-  /* Brand — kb aufgehellt fuer Kontrast auf Dunkel */
-  --kb:           #5BA3CE;
-  --kb-rgb:       91, 163, 206;
+  /* Native UI (date-picker icon, scrollbars etc.) im Dark Mode rendern */
+  color-scheme: dark;
+
+  /* Brand — identisch zu Light (THL-Original), keine Aufhellung */
+  --kb:           #004261;
+  --kb-rgb:       0, 66, 97;
   --kb-dark:      #7BBDE5;
   --kb-darker:    #9BD2F0;
   --kb60:         #4F7A91;
@@ -253,6 +256,34 @@
 :root[data-theme="dark"] .chip-cite {
   background-color: rgba(91, 163, 206, 0.18) !important;
   color: #7BBDE5 !important;
+}
+
+/* Dark Mode only: Quellen-hinzufuegen-Button — weisse Schrift, neutrale Border. */
+:root[data-theme="dark"] .add-source-btn {
+  color: #FFFFFF !important;
+  border-color: var(--border) !important;
+}
+
+/* Unified Abbrechen-Button: Outline permanent 2px (Layout-stabil), default transparent → Hover #004261 + weisse Schrift. BG bleibt unveraendert. */
+.btn-cancel {
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition-property: color, outline-color;
+  transition-duration: 150ms;
+}
+.btn-cancel:hover:not(:disabled, [aria-disabled="true"]) {
+  outline-color: #004261 !important;
+  color: #FFFFFF !important;
+}
+:root[data-theme="dark"] .btn-cancel {
+  color: #FFFFFF !important;
+}
+
+/* Dark Mode: btn-primary/btn-fill-accent Hover BG transparent + Schrift weiss (statt --background = fast schwarz und --kb = unlesbar). */
+:root[data-theme="dark"] .btn-primary:hover:not(:disabled, [aria-disabled="true"]),
+:root[data-theme="dark"] .btn-fill-accent:hover:not(:disabled, [aria-disabled="true"]) {
+  background-color: transparent !important;
+  color: #FFFFFF !important;
 }
 
 /* ─── Base ─── */
@@ -480,6 +511,18 @@ me-tpc:hover .mm-src-chip {
     color: var(--kb);
     border: 2px solid var(--kb);
   }
+  :root[data-theme="dark"] .btn-outline-accent {
+    color: var(--on-accent);
+  }
+
+  /* Dark Mode: hover:text-[var(--kb)] wuerde auf dunklem BG unsichtbar werden,
+     daher Hover-Text auf weiss zwingen (z.B. Abbrechen-Buttons in Modals). */
+  :root[data-theme="dark"] .hover\:text-\[var\(--kb\)\]:hover {
+    color: #ffffff;
+  }
+  :root[data-theme="dark"] .hover\:text-\[var\(--kb\)\]:hover svg {
+    color: #ffffff;
+  }
   .btn-outline-accent:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: var(--kb);
     color: var(--on-accent);
@@ -548,9 +591,22 @@ me-tpc:hover .mm-src-chip {
 
 /* Heatmap-Cell (Sprachtraining-Stats): Accent-Outline auf Hover.
    !important noetig, weil das selected-Outline inline gesetzt wird. */
+/* outline-color permanent setzen + outline aus transition-all ausschliessen, damit Hover-Border sofort 2px snappt */
+.heatmap-cell {
+  outline-color: var(--kb);
+  transition-property: background-color, color !important;
+}
 .heatmap-cell:hover {
   outline: 2px solid var(--kb) !important;
   outline-offset: 1px !important;
+}
+:root[data-theme="dark"] .heatmap-cell:hover span,
+:root[data-theme="dark"] .heatmap-cell.is-selected span {
+  color: #FFFFFF !important;
+}
+:root:not([data-theme="dark"]) .heatmap-cell:hover span,
+:root:not([data-theme="dark"]) .heatmap-cell.is-selected span {
+  color: var(--kb) !important;
 }
 
 /* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */

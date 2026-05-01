@@ -205,7 +205,7 @@ export default function GlossaryPage() {
               </button>
               <button
                 onClick={() => { setCreatingNew(false); setNewName(""); }}
-                className="px-3 py-2 text-sm border border-border rounded-md text-foreground-soft hover:bg-surface transition-colors"
+                className="btn-cancel px-3 py-2 text-sm border border-border rounded-md text-foreground-soft transition-colors"
               >
                 Abbrechen
               </button>
@@ -227,7 +227,7 @@ export default function GlossaryPage() {
                 </button>
                 <button
                   onClick={() => setConfirmDeleteId(null)}
-                  className="px-3 py-1.5 text-sm border border-border rounded-md text-foreground-soft hover:bg-surface transition-colors"
+                  className="btn-cancel px-3 py-1.5 text-sm border border-border rounded-md text-foreground-soft transition-colors"
                 >
                   Abbrechen
                 </button>

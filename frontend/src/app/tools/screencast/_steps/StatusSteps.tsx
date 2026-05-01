@@ -26,7 +26,7 @@ export function TranslatingStep({
       <p className="text-xs text-muted-soft mt-2">Das kann je nach Dateigröße einige Sekunden dauern.</p>
       <button
         onClick={onCancel}
-        className="mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md hover:bg-error-bg transition-colors inline-flex items-center gap-2"
+        className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
       >
         {cancelIcon}
         Abbrechen
@@ -49,7 +49,7 @@ export function GeneratingScriptsStep({
       <p className="text-xs text-muted-soft mt-2">Die KI erstellt Skripte für {slideCount} Folien.</p>
       <button
         onClick={onCancel}
-        className="mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md hover:bg-error-bg transition-colors inline-flex items-center gap-2"
+        className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
       >
         {cancelIcon}
         Abbrechen
@@ -74,7 +74,7 @@ export function RenderingStep({
       )}
       <button
         onClick={onCancel}
-        className="mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md hover:bg-error-bg transition-colors inline-flex items-center gap-2"
+        className="btn-cancel mt-6 px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors inline-flex items-center gap-2"
       >
         {cancelIcon}
         Abbrechen

@@ -80,7 +80,7 @@ export default function AddLinkModal({ workspaceUuid, onClose, onCreated }: AddL
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium"
+              className="btn-cancel px-4 py-2 rounded-lg text-sm font-medium"
               style={{ backgroundColor: "var(--border)", color: "var(--foreground)" }}
             >
               Abbrechen

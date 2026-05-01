@@ -406,7 +406,7 @@ export default function TtsPage() {
                     if (uuid) { fetch(`/api/jobs/${uuid}`, { method: "DELETE", credentials: "include" }).catch(() => {}); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }
                     setTtsState("idle");
                   }}
-                  className="px-4 py-2 text-sm text-error border border-error-border rounded-md hover:bg-error-bg transition-colors flex items-center gap-2"
+                  className="btn-cancel px-4 py-2 text-sm text-error border border-error-border rounded-md transition-colors flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

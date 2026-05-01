@@ -190,8 +190,8 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
               const labelsMarginRight = 8;
               const padding = 8;
               const numWeeks = heatmapWeeks.length || 1;
-              const maxCellSize = 48;
-              const minCellSize = 14;
+              const maxCellSize = 56;
+              const minCellSize = 36;
               const availableWidth = heatmapContainerWidth - labelsColWidth - labelsMarginRight - padding;
               const fitSize = numWeeks > 0
                 ? Math.floor((availableWidth - (numWeeks - 1) * gap) / numWeeks)
@@ -214,8 +214,8 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                 }
               }
               return (
-                <div ref={heatmapContainerRef} className="p-1 w-full">
-                  <div className="flex mx-auto" style={{ width: "fit-content", maxWidth: "100%" }}>
+                <div ref={heatmapContainerRef} className="p-1 w-full overflow-x-auto">
+                  <div className="flex mx-auto" style={{ width: "fit-content" }}>
                     {/* Row labels — fixed */}
                     <div className="flex flex-col flex-shrink-0" style={{ paddingTop: cellSize + gap + 2, width: labelsColWidth, marginRight: labelsMarginRight }}>
                       {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(d => (
@@ -251,12 +251,12 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                                   key={d.day}
                                   type="button"
                                   onClick={() => selectDay(d)}
-                                  className="heatmap-cell rounded-[4px] transition-all flex items-center justify-center"
+                                  className={`heatmap-cell rounded-[4px] transition-all flex items-center justify-center${isSelected ? " is-selected" : ""}`}
                                   style={{
                                     width: cellSize,
                                     height: cellSize,
                                     backgroundColor: heatColor(d.answers),
-                                    outline: isSelected ? `2px solid ${accent}` : "none",
+                                    outline: isSelected ? `2px solid ${accent}` : `0 solid var(--kb)`,
                                     outlineOffset: 1,
                                     borderBottom: isToday && !isSelected ? "2.5px solid var(--muted)" : "none",
                                   }}

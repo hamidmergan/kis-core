@@ -151,8 +151,7 @@ export function ScheduleEntryEditModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-xs font-semibold transition-all text-[var(--muted)] hover:text-[var(--kb)] hover:outline-2 hover:outline-[var(--kb)]"
-            style={{ backgroundColor: "var(--surface-dim)" }}
+            className="btn-cancel px-4 py-2 rounded-lg text-xs font-semibold text-[var(--muted)] bg-[var(--surface-dim)]"
           >
             Abbrechen
           </button>
