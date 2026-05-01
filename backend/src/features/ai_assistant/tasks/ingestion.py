@@ -159,10 +159,11 @@ def run_index_source(self, source_uuid: str):
                 logger.info("KI Tutor: workspace {} is now ready", workspace["uuid"])
 
         # 10. Dispatch non-critical follow-ups (EN translation runs relaxed in bg).
-        # Only auto-dispatch when admin set mode=auto. "manual" (default) leaves it
-        # to the user-facing button; "off" disables EN translation entirely.
+        # Mode is owner-controlled per workspace (default "manual"): only "auto"
+        # triggers at ingest; "manual" waits for the button; "off" disables it.
         if _en_translation_pending:
-            translation_mode = db.get_setting("transcript_translation_mode", "manual")
+            workspace = db.get_aia_workspace_by_id(workspace_id)
+            translation_mode = (workspace or {}).get("transcript_translation_mode", "manual")
             if translation_mode == "auto":
                 translation_provider = db.get_setting(
                     "transcript_translation_provider", "llm"

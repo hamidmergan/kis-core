@@ -12,6 +12,7 @@ import type {
   ViewerState,
   StudioView,
   LanguageTrainingView,
+  TranscriptTranslationMode,
 } from "./_types";
 import { _isMediaFile } from "./_utils";
 import { usePanelLayout } from "./_hooks/usePanelLayout";
@@ -97,19 +98,25 @@ export default function KiTutorWorkspacePage() {
   } = chat;
 
   const [showSettings, setShowSettings] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!showSettings) return;
-    function handle(e: MouseEvent) {
-      if (!settingsRef.current?.contains(e.target as Node)) setShowSettings(false);
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [showSettings]);
 
 
   const [studioEnabled, setStudioEnabled] = useState(true);
   const [language_trainingActive, setLanguageTrainingActive] = useState(false);
+  const [translationMode, setTranslationMode] = useState<TranscriptTranslationMode>("manual");
+  useEffect(() => {
+    if (moduleDetail?.transcript_translation_mode) {
+      setTranslationMode(moduleDetail.transcript_translation_mode);
+    }
+  }, [moduleDetail?.transcript_translation_mode]);
+  const handleChangeTranslationMode = (mode: TranscriptTranslationMode) => {
+    setTranslationMode(mode);
+    fetch(`/api/ai-assistant/workspaces/${uuid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcript_translation_mode: mode }),
+    }).catch(() => { /* ignore */ });
+  };
   // popupActions from useChat
 
   const [studioView, setStudioView] = useState<StudioView>("overview");
@@ -392,7 +399,7 @@ export default function KiTutorWorkspacePage() {
       return _isMediaFile(viewerSource.filename) ? (
         <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canDownload={isLecturer || isAdmin} canManage={isLecturer || isAdmin} onSaveNote={addNote} />
       ) : (
-        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={onMinimize} />
+        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={onMinimize} isOwner={moduleDetail?.is_owner ?? false} />
       );
     }
     return (
@@ -460,16 +467,20 @@ export default function KiTutorWorkspacePage() {
         <WorkspaceTopbar
           isMobile={isMobile}
           title={moduleDetail?.title ?? ""}
+          workspaceUuid={uuid}
           showSettings={showSettings}
           onToggleSettings={() => setShowSettings((v) => !v)}
-          settingsRef={settingsRef}
+          onCloseSettings={() => setShowSettings(false)}
           studioEnabled={studioEnabled}
           onToggleStudio={() => setStudioEnabled((v) => !v)}
           language_trainingActive={language_trainingActive}
           onToggleLanguageTraining={() => setLanguageTrainingActive((v) => !v)}
           isLecturer={isLecturer}
+          isOwner={moduleDetail?.is_owner ?? false}
           hideHeader={hideHeader}
           onToggleHideHeader={() => setHideHeader((v) => !v)}
+          translationMode={translationMode}
+          onChangeTranslationMode={handleChangeTranslationMode}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
         />

@@ -262,6 +262,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("UPDATE aia_workspaces SET last_visited_at = COALESCE(updated_at, created_at, NOW()) WHERE last_visited_at IS NULL")
             cur.execute("ALTER TABLE aia_workspaces ALTER COLUMN last_visited_at SET NOT NULL")
             cur.execute("ALTER TABLE aia_workspaces ALTER COLUMN last_visited_at SET DEFAULT NOW()")
+            # Per-workspace setting: EN transcript translation mode (off/auto/manual). Owner-controlled.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_translation_mode TEXT NOT NULL DEFAULT 'manual'"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
                     id           SERIAL PRIMARY KEY,

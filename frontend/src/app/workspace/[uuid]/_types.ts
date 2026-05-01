@@ -5,12 +5,16 @@ export interface Source {
   error_message?: string | null;
 }
 
+export type TranscriptTranslationMode = "off" | "auto" | "manual";
+
 export interface WorkspaceDetail {
   uuid: string;
   title: string;
   description?: string | null;
   status: string;
   is_active: boolean;
+  is_owner?: boolean;
+  transcript_translation_mode?: TranscriptTranslationMode;
   sources: Source[];
 }
 

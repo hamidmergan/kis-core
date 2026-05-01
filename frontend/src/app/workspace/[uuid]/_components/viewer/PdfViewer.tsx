@@ -14,7 +14,7 @@ import { copyTextFromPromise } from "@/lib/clipboard";
 
 
 export function PdfViewer({
-  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary,
+  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary, isOwner = false,
 }: {
   source: ViewerState;
   onClose: () => void;
@@ -24,6 +24,7 @@ export function PdfViewer({
   popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
   onMinimize?: () => void;
   onAddToGlossary?: (text: string, sourceUuid: string, page: number) => void;
+  isOwner?: boolean;
 }) {
   const [page, setPage] = useState(source.page);
   const [showAnnotations, setShowAnnotations] = useState(false);
@@ -91,9 +92,22 @@ export function PdfViewer({
     return () => obs.disconnect();
   }, [registryReady]);
 
-  // Lazy-fetch summaries when toggle is activated, poll while generating
+  // Hide the summary toolbar button for non-owners when no summaries exist.
+  // Owner always sees the icon (it carries the manual generate button).
   useEffect(() => {
-    if (!showAnnotations) return;
+    if (!registryReady) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ui = (registryRef.current as any)?.getPlugin?.("ui")?.provides?.();
+    if (!ui) return;
+    const hasSummaries = Object.keys(pageSummaries).length > 0;
+    const shouldShow = isOwner || hasSummaries;
+    if (shouldShow) ui.enableCategory?.("panel-summaries");
+    else ui.disableCategory?.("panel-summaries");
+  }, [registryReady, isOwner, pageSummaries]);
+
+  // Eager-fetch summaries on mount (not gated on sidebar) so we know if any
+  // exist — required to decide whether to show the toolbar icon for non-owners.
+  useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const fetchSummaries = async () => {
@@ -120,7 +134,7 @@ export function PdfViewer({
     };
     if (!summariesLoaded) fetchSummaries();
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [showAnnotations, summariesLoaded, workspaceUuid, source.uuid]);
+  }, [summariesLoaded, workspaceUuid, source.uuid]);
 
   // Scroll to page + highlight text when nonce changes (pill click on same document)
   const pendingHighlightRef = useRef<{ page: number; text: string; exact?: boolean } | null>(null);
@@ -137,6 +151,10 @@ export function PdfViewer({
       loadedUuidRef.current = source.uuid;
       registryRef.current = null;
       setRegistryReady(false);
+      // Drop summary state from previous document so eager-fetch re-runs for the new one
+      setPageSummaries({});
+      setSummariesStatus("none");
+      setSummariesLoaded(false);
     }
   }, [source.uuid]);
 

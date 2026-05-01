@@ -7,6 +7,10 @@ from loguru import logger
 from openai import OpenAI
 
 
+_CHUNK_SIZE = 40
+_BATCH_PARALLELISM = 4
+
+
 _SYSTEM_PROMPT = (
     "You are a professional translator specializing in academic and university content.\n"
     "Translate the given text {instruction}.\n"
@@ -90,10 +94,8 @@ class LLMTranslationClient:
         )
         return response.choices[0].message.content or ""
 
-    def translate_batch(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
-        if not texts:
-            return []
-
+    def _translate_chunk(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
+        """Translate a single chunk in one API call. Falls back to per-item calls on parse mismatch."""
         if source_lang:
             instruction = f"from {source_lang} to {target_lang}"
         else:
@@ -103,22 +105,6 @@ class LLMTranslationClient:
         system = _BATCH_SYSTEM_PROMPT.format(
             instruction=instruction,
             glossary=_format_glossary(self._glossary),
-        )
-
-        if self._provider == "ollama":
-            # Small models don't reliably follow numbered list format — translate in parallel
-            max_workers = min(len(texts), 4)
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(self.translate_text, t, source_lang, target_lang): i
-                           for i, t in enumerate(texts)}
-                results: list[str | None] = [None] * len(texts)
-                for future in as_completed(futures):
-                    results[futures[future]] = future.result()
-            return results  # type: ignore[return-value]
-
-        logger.info(
-            "LLM batch call: {} texts ({} → {})",
-            len(texts), source_lang, target_lang,
         )
 
         response = self._client.chat.completions.create(
@@ -133,24 +119,56 @@ class LLMTranslationClient:
         )
         raw = response.choices[0].message.content or ""
 
-        # Parse "N. text" lines
         parts = re.split(r"^\d+\.\s+", raw, flags=re.MULTILINE)
-        # First split element is empty string before "1. "
         results = [p.rstrip("\n") for p in parts if p]
 
-        if len(results) != len(texts):
-            logger.warning(
-                "LLM batch parse mismatch: expected {}, got {}. Falling back to individual calls.",
-                len(texts), len(results),
-            )
-            max_workers = min(len(texts), 4)
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(self.translate_text, t, source_lang, target_lang): i
-                           for i, t in enumerate(texts)}
-                fallback: list[str | None] = [None] * len(texts)
-                for future in as_completed(futures):
-                    fallback[futures[future]] = future.result()
-            return fallback  # type: ignore[return-value]
+        if len(results) == len(texts):
+            return results
 
-        return results
+        logger.warning(
+            "LLM chunk parse mismatch: expected {}, got {}. Falling back to per-item calls.",
+            len(texts), len(results),
+        )
+        return self._translate_each(texts, source_lang, target_lang)
+
+    def _translate_each(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
+        """Translate each text with an individual API call, in parallel."""
+        max_workers = min(len(texts), _BATCH_PARALLELISM)
+        results: list[str | None] = [None] * len(texts)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(self.translate_text, t, source_lang, target_lang): i
+                       for i, t in enumerate(texts)}
+            for future in as_completed(futures):
+                results[futures[future]] = future.result()
+        return results  # type: ignore[return-value]
+
+    def translate_batch(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
+        if not texts:
+            return []
+
+        if self._provider == "ollama":
+            # Small models don't reliably follow numbered list format — go straight to per-item.
+            logger.info(
+                "LLM per-item (ollama): {} texts ({} → {})",
+                len(texts), source_lang, target_lang,
+            )
+            return self._translate_each(texts, source_lang, target_lang)
+
+        chunks = [texts[i:i + _CHUNK_SIZE] for i in range(0, len(texts), _CHUNK_SIZE)]
+        logger.info(
+            "LLM batch: {} texts in {} chunk(s) of up to {}, {} parallel ({} → {})",
+            len(texts), len(chunks), _CHUNK_SIZE, _BATCH_PARALLELISM, source_lang, target_lang,
+        )
+
+        chunk_results: list[list[str] | None] = [None] * len(chunks)
+        max_workers = min(len(chunks), _BATCH_PARALLELISM)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(self._translate_chunk, c, source_lang, target_lang): i
+                for i, c in enumerate(chunks)
+            }
+            for future in as_completed(futures):
+                chunk_results[futures[future]] = future.result()
+
+        return [t for chunk in chunk_results for t in chunk]  # type: ignore[union-attr]
 

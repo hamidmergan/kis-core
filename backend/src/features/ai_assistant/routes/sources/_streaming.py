@@ -91,13 +91,13 @@ async def regenerate_en_transcript(
     If ``provider`` is omitted, falls back to the admin-configured default
     (``transcript_translation_provider`` setting; defaults to ``llm``).
     """
-    _require_own_workspace(workspace_uuid, current_user["user_id"])
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
     source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail="Source nicht gefunden")
 
-    if db.get_setting("transcript_translation_mode", "manual") == "off":
-        raise HTTPException(status_code=403, detail="EN-Übersetzung ist deaktiviert")
+    if workspace.get("transcript_translation_mode", "manual") == "off":
+        raise HTTPException(status_code=403, detail="EN-Übersetzung ist für diesen Workspace deaktiviert")
 
     effective_provider = provider or db.get_setting("transcript_translation_provider", "llm")
     if effective_provider not in ("deepl", "llm"):

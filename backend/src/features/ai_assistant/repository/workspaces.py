@@ -94,6 +94,18 @@ def update_aia_workspace(
             )
         conn.commit()
 
+def set_aia_workspace_translation_mode(uuid: str, mode: str) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE aia_workspaces
+                   SET transcript_translation_mode = %s, updated_at = NOW()
+                   WHERE uuid = %s""",
+                (mode, uuid),
+            )
+        conn.commit()
+
+
 def update_aia_workspace_status(
     uuid: str,
     status: str,
