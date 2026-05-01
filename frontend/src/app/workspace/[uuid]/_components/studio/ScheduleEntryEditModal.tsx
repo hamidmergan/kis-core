@@ -137,7 +137,7 @@ export function ScheduleEntryEditModal({
               className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
                 isOptional
                   ? "border-[var(--kb)] bg-[var(--kb)]"
-                  : "border-[var(--border)] bg-white hover:border-[var(--kb)]"
+                  : "border-[var(--border)] bg-background hover:border-[var(--kb)]"
               }`}
               style={{ color: "#fff" }}
             >

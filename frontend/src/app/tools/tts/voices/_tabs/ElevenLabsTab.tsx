@@ -32,7 +32,7 @@ export default function ElevenLabsTab({ enabled }: { enabled: boolean }) {
         if (desc) labelParts.push(desc);
 
         return (
-          <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-surface">
+          <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-background hover:bg-surface">
             <div>
               <p className="text-sm font-medium text-foreground">{voice.label.split(" - ")[0]}</p>
               {labelParts.length > 0 && (

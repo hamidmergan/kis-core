@@ -120,7 +120,7 @@ function ProviderSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border border-border-soft rounded-xl bg-white p-5">
+    <div className="border border-border-soft rounded-xl bg-background p-5">
       <p className="text-sm font-medium text-foreground mb-1">{title}</p>
       {hint && <p className="text-xs text-muted-soft mb-4">{hint}</p>}
       {!hint && <div className="mb-3" />}
@@ -370,7 +370,7 @@ function WhitelistCard() {
   if (enabled === null) return null;
 
   return (
-    <div className="border border-border-soft rounded-xl bg-white p-5">
+    <div className="border border-border-soft rounded-xl bg-background p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-foreground">Whitelist-Modus</p>
@@ -446,7 +446,7 @@ function MaintenanceCard() {
   if (enabled === null) return null;
 
   return (
-    <div className="border border-border-soft rounded-xl bg-white p-5">
+    <div className="border border-border-soft rounded-xl bg-background p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-foreground">Wartungsmodus</p>
@@ -538,7 +538,7 @@ function ReindexCard() {
   const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="border border-border-soft rounded-xl bg-white p-5 space-y-4">
+    <div className="border border-border-soft rounded-xl bg-background p-5 space-y-4">
       {staleModules.length > 0 && !progress?.running && (
         <div className="bg-warn-bg border border-warn-border rounded-md px-3 py-2 text-xs text-warn-strong space-y-2">
           <div>
@@ -631,7 +631,7 @@ function MascotCard() {
   if (enabled === null) return null;
 
   return (
-    <div className="border border-border-soft rounded-xl bg-white p-5">
+    <div className="border border-border-soft rounded-xl bg-background p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-foreground">Hilde-Maskottchen</p>

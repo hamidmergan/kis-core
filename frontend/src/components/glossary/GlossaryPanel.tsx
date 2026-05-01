@@ -53,7 +53,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
       </div>
 
       {/* Add new entry */}
-      <div className="bg-white rounded-lg border border-border-soft p-4 mb-6">
+      <div className="bg-background rounded-lg border border-border-soft p-4 mb-6">
         <div className="flex gap-3 items-end">
           <div className="flex-1">
             <label htmlFor="glossary-source" className="block text-xs font-medium text-foreground-soft mb-1">
@@ -108,7 +108,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
           text="Noch keine Glossar-Einträge vorhanden."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-border-soft overflow-hidden">
+        <div className="bg-background rounded-lg border border-border-soft overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="bg-surface border-b border-border-soft">

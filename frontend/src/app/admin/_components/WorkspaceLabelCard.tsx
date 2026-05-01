@@ -80,7 +80,7 @@ export default function WorkspaceLabelCard() {
   const justSaved = savedAt && Date.now() - savedAt < 3000;
 
   return (
-    <div className="border border-border-soft rounded-xl bg-white p-5">
+    <div className="border border-border-soft rounded-xl bg-background p-5">
       <p className="text-sm font-medium text-foreground">Bezeichnung &quot;Workspace&quot;</p>
       <p className="text-xs text-muted mt-1 mb-4">
         Wie der Begriff im Frontend angezeigt wird (z. B. &quot;Modul&quot; / &quot;Module&quot; oder &quot;Kurs&quot; / &quot;Kurse&quot;). Default: Workspace / Workspaces.

@@ -72,8 +72,8 @@ export function ScheduleEntryCardGlobal({
           entry.is_checked
             ? "border-[var(--success)] bg-[var(--success)]"
             : !isPast && onToggleChecked
-            ? "border-[var(--border)] bg-white hover:border-[var(--success)]"
-            : "border-[var(--border)] bg-white"
+            ? "border-[var(--border)] bg-background hover:border-[var(--success)]"
+            : "border-[var(--border)] bg-background"
         }`}
         style={{
           color: "#fff",

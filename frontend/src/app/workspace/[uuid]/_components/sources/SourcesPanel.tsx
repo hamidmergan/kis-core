@@ -164,7 +164,7 @@ export function SourcesPanel({
             className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
               allSelected
                 ? "border-[var(--kb)] bg-[var(--kb)]"
-                : "border-[var(--border)] bg-white hover:border-[var(--kb)]"
+                : "border-[var(--border)] bg-background hover:border-[var(--kb)]"
             }`}
             style={{ color: "#fff" }}
           >
@@ -205,8 +205,8 @@ export function SourcesPanel({
                       checked
                         ? "border-[var(--kb)] bg-[var(--kb)]"
                         : ready
-                        ? "border-[var(--border)] bg-white hover:border-[var(--kb)]"
-                        : "border-[var(--border)] bg-white"
+                        ? "border-[var(--border)] bg-background hover:border-[var(--kb)]"
+                        : "border-[var(--border)] bg-background"
                     }`}
                     style={{ color: "#fff" }}
                   >
@@ -312,7 +312,7 @@ export function SourcesPanel({
       {/* Delete confirmation modal */}
       {deleteSourceId && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+          <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">Quelle löschen?</h3>
             <p className="text-sm text-foreground-soft mb-1">
               <span className="font-medium">{sources.find((s) => s.uuid === deleteSourceId)?.filename || "Quelle"}</span>
@@ -323,13 +323,13 @@ export function SourcesPanel({
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteSourceId(null)}
-                className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-lg hover:bg-surface"
+                className="px-4 py-2 text-sm btn-secondary rounded-lg"
               >
                 Abbrechen
               </button>
               <button
                 onClick={() => { onDeleteSource(deleteSourceId); setDeleteSourceId(null); }}
-                className="px-4 py-2 text-sm text-white bg-error hover:bg-error-strong rounded-lg"
+                className="px-4 py-2 text-sm btn-danger rounded-lg"
               >
                 Löschen
               </button>

@@ -32,7 +32,7 @@ export default function WorkspaceTable({
 
   return (
     <>
-      <div className="bg-white border border-border-soft rounded-lg overflow-hidden">
+      <div className="bg-background border border-border-soft rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>

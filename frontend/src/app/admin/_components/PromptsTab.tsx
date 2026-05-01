@@ -70,7 +70,7 @@ export default function PromptsTab() {
       {prompts.map((p) => (
         <div
           key={p.key}
-          className={`rounded-xl border p-5 space-y-3 ${p.editable ? "border-border-soft bg-white" : "border-border-soft bg-surface"}`}
+          className={`rounded-xl border p-5 space-y-3 ${p.editable ? "border-border-soft bg-background" : "border-border-soft bg-surface"}`}
         >
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
@@ -96,7 +96,7 @@ export default function PromptsTab() {
             spellCheck={false}
             className={`w-full text-xs font-mono rounded-lg border px-3 py-2.5 resize-y leading-relaxed focus:outline-none ${
               p.editable
-                ? "border-border bg-white text-foreground focus:ring-2 focus:ring-kb"
+                ? "border-border bg-background text-foreground focus:ring-2 focus:ring-kb"
                 : "border-border-soft bg-surface text-muted-soft cursor-not-allowed select-none"
             }`}
           />

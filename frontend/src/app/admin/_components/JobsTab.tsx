@@ -125,7 +125,7 @@ export default function JobsTab() {
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-soft bg-white">
+            <tbody className="divide-y divide-border-soft bg-background">
               {jobs.map((j) => {
                 const isActive = j.status === "pending" || j.status === "running";
                 return (

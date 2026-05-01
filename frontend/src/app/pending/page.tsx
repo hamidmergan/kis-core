@@ -13,7 +13,7 @@ export default function TestphasePage() {
       <Header />
       <div className="flex items-center justify-center min-h-[70vh] px-4">
         <div className="w-full max-w-lg">
-          <div className="bg-white rounded-xl shadow-sm border border-border-soft p-8 text-center">
+          <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8 text-center">
             <div className="flex justify-center mb-4">
               {hildeEnabled ? (
                 <Hilde size={140} state="wave" />

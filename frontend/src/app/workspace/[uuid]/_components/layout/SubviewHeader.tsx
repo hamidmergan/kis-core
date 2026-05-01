@@ -4,25 +4,24 @@ import { MinimizeContext } from "../../_context";
 
 type BadgeStyle = { bg: string; color: string };
 
-// Learning tools: distinct tool colors
+// Werte sind CSS-Variablen aus globals.css (Token-Block "Generisches Badge-Palette-System").
 const LEARNING_TOOLS_BADGE: Record<string, BadgeStyle> = {
-  Flashcards: { bg: "rgba(220,252,231,0.7)", color: "var(--success-strong)" },
-  Quiz: { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
-  DataTable: { bg: "rgba(255,237,213,0.7)", color: "#C2410C" },
-  Mindmap: { bg: "rgba(236,254,255,0.7)", color: "#0E7490" },
-  Infographic: { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
-  Presentation: { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
+  Flashcards:   { bg: "var(--badge-emerald-bg)", color: "var(--badge-emerald-fg)" },
+  Quiz:         { bg: "var(--badge-yellow-bg)",  color: "var(--badge-yellow-fg)" },
+  DataTable:    { bg: "var(--badge-orange-bg)",  color: "var(--badge-orange-fg)" },
+  Mindmap:      { bg: "var(--badge-teal-bg)",    color: "var(--badge-teal-fg)" },
+  Infographic:  { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
+  Presentation: { bg: "var(--badge-rose-bg)",    color: "var(--badge-rose-fg)" },
 };
-// Language training: distinct tool colors (each unique)
 const LANGUAGE_TRAINING_BADGE: Record<string, BadgeStyle> = {
-  Flashcards: { bg: "rgba(245,235,220,0.7)", color: "#78350F" },
-  Glossary: { bg: "rgba(220,252,231,0.7)", color: "var(--success-strong)" },
-  Cloze: { bg: "rgba(255,228,230,0.7)", color: "#BE123C" },
-  TermQuiz: { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+  Flashcards: { bg: "var(--badge-amber-bg)",   color: "var(--badge-amber-fg)" },
+  Glossary:   { bg: "var(--badge-emerald-bg)", color: "var(--badge-emerald-fg)" },
+  Cloze:      { bg: "var(--badge-rose-bg)",    color: "var(--badge-rose-fg)" },
+  TermQuiz:   { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
 };
 const SHARED_BADGE: Record<string, BadgeStyle> = {
-  Notes: { bg: "rgba(241,245,249,0.7)", color: "#475569" },
-  Statistics: { bg: "rgba(241,245,249,0.7)", color: "#475569" },
+  Notes:      { bg: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" },
+  Statistics: { bg: "var(--badge-slate-bg)", color: "var(--badge-slate-fg)" },
 };
 
 export type ToolCategory = "learning_tools" | "language_training";

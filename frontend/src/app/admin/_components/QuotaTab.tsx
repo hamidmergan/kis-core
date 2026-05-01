@@ -150,7 +150,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
           </div>
         )}
 
-        <div className="border border-border-soft rounded-xl bg-white overflow-x-auto">
+        <div className="border border-border-soft rounded-xl bg-background overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-surface border-b border-border-soft">
               <tr>
@@ -231,7 +231,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
           </table>
         </div>
 
-        <div className="border border-border-soft rounded-xl bg-white p-4">
+        <div className="border border-border-soft rounded-xl bg-background p-4">
           <p className="text-xs font-medium text-muted mb-3">Standard-Limits (global)</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {Object.entries(defaults).map(([type, def]) => (

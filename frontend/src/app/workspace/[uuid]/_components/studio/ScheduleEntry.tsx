@@ -75,8 +75,8 @@ export function ScheduleEntryCard({
             entry.is_checked
               ? "border-[var(--success)] bg-[var(--success)]"
               : !isPast
-              ? "border-[var(--border)] bg-white hover:border-[var(--success)]"
-              : "border-[var(--border)] bg-white"
+              ? "border-[var(--border)] bg-background hover:border-[var(--success)]"
+              : "border-[var(--border)] bg-background"
           }`}
           style={{
             color: "#fff",

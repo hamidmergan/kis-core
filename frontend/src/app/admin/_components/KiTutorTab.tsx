@@ -122,21 +122,21 @@ export default function KiTutorTab() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white border border-border-soft rounded-lg p-4">
+            <div className="bg-background border border-border-soft rounded-lg p-4">
               <p className="text-xs text-muted uppercase tracking-wide">{labels.plural}</p>
               <p className="text-2xl font-bold text-foreground mt-1">{data.summary.total_workspaces}</p>
             </div>
-            <div className="bg-white border border-border-soft rounded-lg p-4">
+            <div className="bg-background border border-border-soft rounded-lg p-4">
               <p className="text-xs text-muted uppercase tracking-wide">Aktive Teilnehmer ({days}T)</p>
               <p className="text-2xl font-bold text-foreground mt-1">{data.summary.active_students}</p>
             </div>
-            <div className="bg-white border border-border-soft rounded-lg p-4">
+            <div className="bg-background border border-border-soft rounded-lg p-4">
               <p className="text-xs text-muted uppercase tracking-wide">Übungen ({days}T)</p>
               <p className="text-2xl font-bold text-foreground mt-1">
                 {data.summary.total_answers.toLocaleString("de-DE")}
               </p>
             </div>
-            <div className="bg-white border border-border-soft rounded-lg p-4">
+            <div className="bg-background border border-border-soft rounded-lg p-4">
               <p className="text-xs text-muted uppercase tracking-wide">Chat ({days}T)</p>
               <p className="text-2xl font-bold text-foreground mt-1">
                 {data.summary.total_chat_messages.toLocaleString("de-DE")}
@@ -144,7 +144,7 @@ export default function KiTutorTab() {
             </div>
           </div>
 
-          <div className="bg-white border border-border-soft rounded-lg overflow-hidden">
+          <div className="bg-background border border-border-soft rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

@@ -90,7 +90,7 @@ export function DataTableStudio({
               </div>
               <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                 {loading && (
-                  <div className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
+                  <div className="bg-background rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden opacity-70"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Spinner size="sm" />
@@ -101,7 +101,7 @@ export function DataTableStudio({
                 {savedList.map((item) => (
                   <div key={item.id}
                     onClick={() => { onSelect(item.id); setView("viewer"); }}
-                    className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:outline-2 hover:outline-[var(--kb)] -outline-offset-2 transition"
+                    className="bg-background rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:outline-2 hover:outline-[var(--kb)] -outline-offset-2 transition"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Table size={16} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />

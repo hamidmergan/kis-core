@@ -34,7 +34,7 @@ export default function StatsModal({ workspaceUuid, onClose }: StatsModalProps) 
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-80" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-background rounded-xl shadow-xl w-80" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-soft">
           <h2 className="text-sm font-semibold">Statistik</h2>
           <IconButton onClick={onClose}>

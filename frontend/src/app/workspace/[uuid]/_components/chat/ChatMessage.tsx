@@ -82,7 +82,7 @@ function ChatMessageImpl({
       <button
         type="button"
         onClick={handleCopy}
-        className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full btn-icon"
+        className="mt-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full btn-icon"
         title="Kopieren"
       >
         {copied ? <Check size={13} weight="bold" /> : <Copy size={13} />}

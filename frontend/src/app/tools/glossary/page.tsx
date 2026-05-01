@@ -251,7 +251,7 @@ export default function GlossaryPage() {
                   {/* Glossary row */}
                   <div
                     className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                      selectedId === g.id ? "bg-[var(--kb20)]" : "bg-white hover:bg-surface"
+                      selectedId === g.id ? "bg-[var(--kb20)]" : "bg-background hover:bg-surface"
                     } ${i > 0 ? "border-t border-border-soft" : ""}`}
                     onClick={() => setSelectedId(g.id === selectedId ? null : g.id)}
                   >
@@ -315,7 +315,7 @@ export default function GlossaryPage() {
                           onChange={(e) => { setNewEntryDe(e.target.value); setEntryError(""); }}
                           onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}
                           placeholder="Deutsch"
-                          className="flex-1 rounded-md border border-border px-3 py-2 text-sm bg-white focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
+                          className="flex-1 rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
                         />
                         <input
                           type="text"
@@ -323,7 +323,7 @@ export default function GlossaryPage() {
                           onChange={(e) => { setNewEntryEn(e.target.value); setEntryError(""); }}
                           onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}
                           placeholder="Englisch"
-                          className="flex-1 rounded-md border border-border px-3 py-2 text-sm bg-white focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
+                          className="flex-1 rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
                         />
                         <button
                           onClick={handleAddEntry}
@@ -342,7 +342,7 @@ export default function GlossaryPage() {
                       )}
 
                       {Object.keys(g.entries).length === 0 ? (
-                        <div className="border border-dashed border-border-soft rounded-lg bg-white">
+                        <div className="border border-dashed border-border-soft rounded-lg bg-background">
                           <EmptyState
                             size="sm"
                             text="Noch keine Einträge vorhanden."
@@ -352,7 +352,7 @@ export default function GlossaryPage() {
                         <div className="border border-border-soft rounded-lg overflow-hidden">
                           <table className="w-full">
                             <thead>
-                              <tr className="bg-white border-b border-border-soft">
+                              <tr className="bg-background border-b border-border-soft">
                                 <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-4 py-2.5">
                                   Deutsch
                                 </th>
@@ -364,7 +364,7 @@ export default function GlossaryPage() {
                             </thead>
                             <tbody className="divide-y divide-border-soft">
                               {Object.entries(g.entries).map(([de, en]) => (
-                                <tr key={de} className="bg-white hover:bg-surface transition-colors">
+                                <tr key={de} className="bg-background hover:bg-surface transition-colors">
                                   <td className="px-4 py-2.5 text-sm text-foreground">{de}</td>
                                   <td className="px-4 py-2.5 text-sm text-foreground-soft">{en}</td>
                                   <td className="px-4 py-2.5 text-right">
@@ -382,7 +382,7 @@ export default function GlossaryPage() {
                               ))}
                             </tbody>
                           </table>
-                          <div className="px-4 py-2.5 bg-white border-t border-border-soft text-xs text-muted-soft">
+                          <div className="px-4 py-2.5 bg-background border-t border-border-soft text-xs text-muted-soft">
                             {Object.keys(g.entries).length} / {MAX_ENTRIES_PER_GLOSSARY} Einträge
                           </div>
                         </div>

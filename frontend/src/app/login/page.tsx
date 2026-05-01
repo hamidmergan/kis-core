@@ -50,7 +50,7 @@ export default function LoginPage() {
     <main className="flex items-center justify-center min-h-[80vh] px-4">
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-bold text-center mb-6">Willkommen bei KIS</h1>
-        <div className="bg-white rounded-xl shadow-sm border border-border-soft p-8">
+        <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
           <h2 className="text-lg font-semibold mb-4">Anmelden</h2>
 
           <form onSubmit={handleSubmit} aria-label="Anmeldeformular" className="space-y-4">

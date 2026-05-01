@@ -43,7 +43,7 @@ export default function EditWorkspaceModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white shadow-xl rounded-xl w-full max-h-[90vh] sm:max-w-xl lg:max-w-3xl p-6 flex flex-col">
+      <div className="bg-background shadow-xl rounded-xl w-full max-h-[90vh] sm:max-w-xl lg:max-w-3xl p-6 flex flex-col">
         <h3 className="text-base font-semibold mb-4">{labels.singular} bearbeiten</h3>
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
@@ -83,14 +83,14 @@ export default function EditWorkspaceModal({
           <button
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-lg hover:bg-surface disabled:opacity-50"
+            className="px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50"
           >
             Abbrechen
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm text-white bg-kb rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-sm btn-primary rounded-lg disabled:opacity-50"
           >
             {saving ? "..." : "Speichern"}
           </button>

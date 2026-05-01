@@ -39,7 +39,7 @@ export default function PendingTab() {
   return (
     <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
       {users.map((u) => (
-        <li key={u.id} className="px-5 py-4 bg-white flex items-start justify-between gap-4">
+        <li key={u.id} className="px-5 py-4 bg-background flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-foreground">{u.display_name}</p>
             <p className="text-xs text-muted mt-0.5">

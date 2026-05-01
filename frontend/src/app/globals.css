@@ -53,6 +53,13 @@
   --color-info-strong: var(--info-strong);
   --color-info-bg:     var(--info-bg);
   --color-info-border: var(--info-border);
+
+  /* Cross-mode utilities (mode-stable for header/accent text) */
+  --color-header-bg: var(--header-bg);
+  --color-header-fg: var(--header-fg);
+  --color-on-accent: var(--on-accent);
+  --color-tooltip-bg: var(--tooltip-bg);
+  --color-tooltip-fg: var(--tooltip-fg);
 }
 
 /* PDF Text Layer — undo Tailwind Preflight damage */
@@ -79,7 +86,7 @@
   user-select: text;
 }
 .textLayer ::selection {
-  background: rgba(0, 66, 97, 0.25);
+  background: rgba(var(--kb-rgb), 0.25);
 }
 
 
@@ -131,6 +138,121 @@
 
   --shadow:       0 1px 4px rgba(0,66,97,.10);
   --shadow-hover: 0 6px 20px rgba(0,66,97,.15);
+
+  /* Cross-mode tokens (mode-stable in light, see [data-theme="dark"] for overrides) */
+  --scrollbar-color: #d8d8d8;
+  --tooltip-bg:      #1a1a1a;
+  --tooltip-fg:      #ffffff;
+  --header-bg:       #004261;   /* Brand-Header bleibt Blau in beiden Modi */
+  --header-fg:       #ffffff;
+  --on-accent:       #ffffff;   /* Text/Icon auf --kb-Hintergrund */
+
+  /* Generisches Badge-Palette-System (Light)
+     Konsumiert in workspace/_constants.ts und SubviewHeader.tsx.
+     Hellpastell-BG + saturierte dunkle Schrift. */
+  --badge-amber-bg:   rgba(245,235,220,0.7);  --badge-amber-fg:   #78350F;
+  --badge-emerald-bg: rgba(220,252,231,0.7);  --badge-emerald-fg: #166534;
+  --badge-yellow-bg:  rgba(254,249,195,0.7);  --badge-yellow-fg:  #A16207;
+  --badge-rose-bg:    rgba(255,228,230,0.7);  --badge-rose-fg:    #BE123C;
+  --badge-red-bg:     rgba(254,226,226,0.7);  --badge-red-fg:     #B91C1C;
+  --badge-violet-bg:  rgba(237,233,254,0.7);  --badge-violet-fg:  #534AB7;
+  --badge-teal-bg:    rgba(236,254,255,0.7);  --badge-teal-fg:    #0E7490;
+  --badge-orange-bg:  rgba(255,237,213,0.7);  --badge-orange-fg:  #C2410C;
+  --badge-slate-bg:   rgba(241,245,249,0.7);  --badge-slate-fg:   #475569;
+
+  /* Mind-Elixir node palette */
+  --mm-c1: var(--kb);
+  --mm-c2: #0E7490;
+  --mm-c3: var(--success-strong);
+  --mm-c4: #A16207;
+  --mm-c5: #534AB7;
+  --mm-c6: var(--error-strong);
+}
+
+/* ─── Dark Mode ("Deep Slate") ───────────────────────────────────────
+   Aktiviert ueber <html data-theme="dark"> (gesetzt durch useTheme +
+   FOUC-Inline-Script in layout.tsx). Ueberschreibt alle :root-Werte. */
+:root[data-theme="dark"] {
+  /* Brand — kb aufgehellt fuer Kontrast auf Dunkel */
+  --kb:           #5BA3CE;
+  --kb-rgb:       91, 163, 206;
+  --kb-dark:      #7BBDE5;
+  --kb-darker:    #9BD2F0;
+  --kb60:         #4F7A91;
+  --kb20:         #1C2A33;
+
+  /* Neutrals — Deep Slate (fast schwarz, minimaler Blau-Tint) */
+  --background:      #0A0B0D;
+  --surface:         #141519;
+  --surface-dim:     #1C1D22;
+  --border-soft:     #23252B;
+  --border:          #2A2C32;
+  --muted-soft:      #6E7079;
+  --muted:           #8B8E97;
+  --foreground-soft: #ffffff;
+  --foreground:      #ffffff;
+
+  /* Semantic — aufgehellt fuer Kontrast auf Dunkel */
+  --error:         #F87171;
+  --error-strong:  #FCA5A5;
+  --error-bg:      #2A1414;
+  --error-border:  #5C2222;
+
+  --success:        #4ADE80;
+  --success-strong: #86EFAC;
+  --success-bg:     #0F2818;
+  --success-border: #1F5535;
+
+  --warn:         #FBBF24;
+  --warn-strong:  #FCD34D;
+  --warn-bg:      #2A1F0A;
+  --warn-border:  #5C401A;
+
+  --info:         #60A5FA;
+  --info-strong:  #93C5FD;
+  --info-bg:      #0F1A2E;
+  --info-border:  #1E3A5F;
+
+  --shadow:       0 1px 4px rgba(0,0,0,.4);
+  --shadow-hover: 0 6px 20px rgba(0,0,0,.55);
+
+  /* Cross-mode overrides */
+  --scrollbar-color: #3A3C42;
+  --tooltip-bg:      #F5F5F7;
+  --tooltip-fg:      #0A0B0D;
+  --header-bg:       #141519;   /* Dark Mode: Header = --surface (leicht abgesetzt vom Content-BG) */
+  /* --header-fg / --on-accent bleiben weiss */
+
+  /* Badge-Palette (Dark) — gedaempfte BG (~30% alpha auf saturem Ton), heller Text */
+  --badge-amber-bg:   rgba(120,53,15,0.30);   --badge-amber-fg:   #FCD9B0;
+  --badge-emerald-bg: rgba(22,101,52,0.30);   --badge-emerald-fg: #A8E6BC;
+  --badge-yellow-bg:  rgba(161,98,7,0.30);    --badge-yellow-fg:  #FDE68A;
+  --badge-rose-bg:    rgba(190,18,60,0.30);   --badge-rose-fg:    #FECDD3;
+  --badge-red-bg:     rgba(185,28,28,0.30);   --badge-red-fg:     #FECACA;
+  --badge-violet-bg:  rgba(83,74,183,0.30);   --badge-violet-fg:  #D6D2F5;
+  --badge-teal-bg:    rgba(14,116,144,0.30);  --badge-teal-fg:    #A5F3FC;
+  --badge-orange-bg:  rgba(194,65,12,0.30);   --badge-orange-fg:  #FED7AA;
+  --badge-slate-bg:   rgba(71,85,105,0.30);   --badge-slate-fg:   #CBD5E1;
+
+  /* Mind-Elixir Palette — auf Dunkel optimiert */
+  --mm-c1: var(--kb);
+  --mm-c2: #5DD5E5;
+  --mm-c3: var(--success-strong);
+  --mm-c4: #FBBF24;
+  --mm-c5: #A299F0;
+  --mm-c6: var(--error-strong);
+}
+
+/* Dark Mode: alle inline color: var(--kb) Elemente (Titles, Links, Labels) auf weiss.
+   Chips ausgeschlossen, die behalten ihren Brand-getoenten Look. */
+:root[data-theme="dark"] [style*="color: var(--kb)"]:not(.chip-cite) {
+  color: var(--foreground) !important;
+}
+
+/* Dark Mode: Citation-Chips kraeftiger machen (Default-Inline-rgba ist zu dezent auf Dunkel). */
+:root[data-theme="dark"] .chip-cite {
+  background-color: rgba(91, 163, 206, 0.18) !important;
+  color: #7BBDE5 !important;
 }
 
 /* ─── Base ─── */
@@ -179,7 +301,7 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
 /* ─── Global scrollbar styling ─── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #d8d8d8 transparent;
+  scrollbar-color: var(--scrollbar-color) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -192,7 +314,7 @@ td, th, p, span, li, h1, h2, h3, h4, h5, h6, div {
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: #d8d8d8;
+  background-color: var(--scrollbar-color);
   border-radius: 999px;
 }
 
@@ -245,8 +367,8 @@ me-tpc:hover .mm-src-chip {
   left: 50%;
   bottom: calc(100% + 6px);
   transform: translateX(-50%);
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-fg);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
@@ -280,16 +402,38 @@ me-tpc:hover .mm-src-chip {
     outline-color: var(--kb);
   }
 
-  /* Solid Primary CTA: invert on hover (bg-white + text-kb + outline) */
+  /* Solid Primary CTA: invert on hover (bg + text-kb + outline) */
   .btn-primary {
     background-color: var(--kb);
-    color: #ffffff;
+    color: var(--on-accent);
     outline: 2px solid transparent;
   }
   .btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
-    background-color: #ffffff;
+    background-color: var(--background);
     color: var(--kb);
     outline-color: var(--kb);
+  }
+
+  /* Secondary CTA: bordered, soft text. Hover: subtle surface tint. */
+  .btn-secondary {
+    color: var(--foreground-soft);
+    border: 1px solid var(--border);
+    background-color: transparent;
+  }
+  .btn-secondary:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: var(--surface);
+  }
+
+  /* Solid Danger CTA: invert on hover (background + error text + outline) */
+  .btn-danger {
+    background-color: var(--error);
+    color: var(--on-accent);
+    outline: 2px solid transparent;
+  }
+  .btn-danger:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: var(--background);
+    color: var(--error);
+    outline-color: var(--error);
   }
 
   /* Ghost / outlined button: outline on hover */
@@ -302,7 +446,7 @@ me-tpc:hover .mm-src-chip {
 
   /* Button on dark blue header: full white default, opacity fade on hover (matches logo-link). */
   .btn-on-dark {
-    color: #ffffff;
+    color: var(--header-fg);
   }
   .btn-on-dark:hover:not(:disabled, [aria-disabled="true"]) {
     opacity: 0.8;
@@ -330,7 +474,7 @@ me-tpc:hover .mm-src-chip {
     outline-color: var(--kb);
   }
 
-  /* Outlined Accent CTA: white bg, accent border + text. Hover: invert (fill accent + white text). */
+  /* Outlined Accent CTA: bg, accent border + text. Hover: invert (fill accent + on-accent text). */
   .btn-outline-accent {
     background-color: var(--background);
     color: var(--kb);
@@ -338,17 +482,17 @@ me-tpc:hover .mm-src-chip {
   }
   .btn-outline-accent:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: var(--kb);
-    color: #ffffff;
+    color: var(--on-accent);
   }
 
-  /* Solid Accent CTA: accent bg + white text. Hover: invert (white bg, accent border + text). */
+  /* Solid Accent CTA: accent bg + on-accent text. Hover: invert (bg, accent border + text). */
   .btn-fill-accent {
     background-color: var(--kb);
-    color: #ffffff;
+    color: var(--on-accent);
     border: 2px solid var(--kb);
   }
   .btn-fill-accent:hover:not(:disabled, [aria-disabled="true"]) {
-    background-color: #ffffff;
+    background-color: var(--background);
     color: var(--kb);
   }
 

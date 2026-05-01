@@ -61,28 +61,28 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
       )}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+          <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">{labels.singular} löschen?</h3>
             <p className="text-sm text-foreground-soft mb-1"><span className="font-medium">{workspace.title}</span></p>
             <p className="text-sm text-error mb-6">Wird mit allen zugehörigen Daten unwiderruflich gelöscht.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={onCancelDelete} disabled={deleting} className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-lg hover:bg-surface disabled:opacity-50">Abbrechen</button>
-              <button onClick={onConfirmDelete} disabled={deleting} className="px-4 py-2 text-sm text-white bg-error hover:bg-error-strong rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
+              <button onClick={onCancelDelete} disabled={deleting} className="px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">Abbrechen</button>
+              <button onClick={onConfirmDelete} disabled={deleting} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
             </div>
           </div>
         </div>
       )}
       {deleteLinkConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+          <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">Einschreibelink löschen?</h3>
             <p className="text-sm text-foreground-soft mb-1">
               <span className="font-medium">...{deleteLinkConfirm.code}</span> - {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
             </p>
             <p className="text-sm text-error mb-6">Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={onCancelDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-lg hover:bg-surface disabled:opacity-50">Abbrechen</button>
-              <button onClick={onConfirmDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm text-white bg-error hover:bg-error-strong rounded-lg disabled:opacity-50">{deletingLink ? "..." : "Löschen"}</button>
+              <button onClick={onCancelDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">Abbrechen</button>
+              <button onClick={onConfirmDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deletingLink ? "..." : "Löschen"}</button>
             </div>
           </div>
         </div>

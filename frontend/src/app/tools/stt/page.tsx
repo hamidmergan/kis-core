@@ -143,7 +143,7 @@ export default function TranscriptionPage() {
           )}
 
           {doneJobUuid && (
-            <div className="mt-6 rounded-lg border border-border-soft bg-white p-6" role="status" aria-live="polite">
+            <div className="mt-6 rounded-lg border border-border-soft bg-background p-6" role="status" aria-live="polite">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">

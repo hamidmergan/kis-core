@@ -1,18 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { Moon, Sun } from "@phosphor-icons/react";
-
-type Theme = "light" | "dark";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function HeaderThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
 
   return (
     <button
       type="button"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={toggle}
       aria-label={isDark ? "Heller Modus" : "Dunkler Modus"}
       title={isDark ? "Heller Modus" : "Dunkler Modus"}
       className="flex items-center justify-center w-9 h-9 rounded-full btn-on-dark"

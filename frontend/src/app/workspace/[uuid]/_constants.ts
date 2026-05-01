@@ -6,10 +6,12 @@ export const TOOL_LABELS: Record<string, string> = {
   quiz: "Quiz",
 };
 
+// Werte sind CSS-Variablen — Light/Dark-Definitionen liegen in app/globals.css
+// (Token-Block "Generisches Badge-Palette-System").
 export const TOOL_COLORS: Record<string, { bg: string; color: string }> = {
-  flashcards: { bg: "rgba(245,235,220,0.7)", color: "#78350F" },
-  karteikarten: { bg: "rgba(220,252,231,0.7)", color: "#166534" },
-  quiz: { bg: "rgba(254,249,195,0.7)", color: "#A16207" },
-  lueckentext: { bg: "rgba(254,226,226,0.7)", color: "#B91C1C" },
-  vokabeltest: { bg: "rgba(237,233,254,0.7)", color: "#534AB7" },
+  flashcards:   { bg: "var(--badge-amber-bg)",   color: "var(--badge-amber-fg)" },
+  karteikarten: { bg: "var(--badge-emerald-bg)", color: "var(--badge-emerald-fg)" },
+  quiz:         { bg: "var(--badge-yellow-bg)",  color: "var(--badge-yellow-fg)" },
+  lueckentext:  { bg: "var(--badge-red-bg)",     color: "var(--badge-red-fg)" },
+  vokabeltest:  { bg: "var(--badge-violet-bg)",  color: "var(--badge-violet-fg)" },
 };

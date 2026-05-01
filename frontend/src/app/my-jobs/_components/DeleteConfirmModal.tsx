@@ -12,7 +12,7 @@ interface DeleteConfirmModalProps {
 export function DeleteConfirmModal({ job, deleting, onCancel, onConfirm }: DeleteConfirmModalProps) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+      <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
         <h3 className="text-base font-semibold mb-2">Job löschen?</h3>
         <p className="text-sm text-foreground-soft mb-1">
           <span className="font-medium">{job.tool_label}</span> - {job.original_filename}
@@ -24,14 +24,14 @@ export function DeleteConfirmModal({ job, deleting, onCancel, onConfirm }: Delet
           <button
             onClick={onCancel}
             disabled={deleting}
-            className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-lg hover:bg-surface disabled:opacity-50"
+            className="px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50"
           >
             Abbrechen
           </button>
           <button
             onClick={onConfirm}
             disabled={deleting}
-            className="px-4 py-2 text-sm text-white bg-error hover:bg-error-strong rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50"
           >
             {deleting ? "..." : "Löschen"}
           </button>

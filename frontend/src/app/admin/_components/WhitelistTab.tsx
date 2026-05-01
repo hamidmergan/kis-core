@@ -95,7 +95,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
             return (
               <li
                 key={email}
-                className={`px-5 py-3 flex items-center justify-between gap-4 ${isAdmin ? "bg-surface" : "bg-white"}`}
+                className={`px-5 py-3 flex items-center justify-between gap-4 ${isAdmin ? "bg-surface" : "bg-background"}`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   {isAdmin && (

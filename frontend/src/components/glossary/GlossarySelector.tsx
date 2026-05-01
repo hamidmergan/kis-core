@@ -93,7 +93,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
         <button
           type="button"
           onClick={() => setOpen(prev => !prev)}
-          className="group w-full flex items-center justify-between rounded-md border-2 border-border bg-white px-3 py-2 text-sm shadow-sm transition-colors hover:border-kb focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
+          className="group w-full flex items-center justify-between rounded-md border-2 border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors hover:border-kb focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
         >
           <span className={selectedIds.length === 0 ? "text-muted-soft" : "text-foreground-soft"}>
             {buttonLabel}

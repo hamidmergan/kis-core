@@ -157,7 +157,7 @@ export default function AdminPage() {
   return (
     <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
       {/* Mobile menu button + crumb bar */}
-      <div className="md:hidden flex items-center gap-3 px-4 h-12 border-b border-border-soft bg-white sticky top-0 z-20">
+      <div className="md:hidden flex items-center gap-3 px-4 h-12 border-b border-border-soft bg-background sticky top-0 z-20">
         <button
           onClick={() => setMobileNavOpen(true)}
           className="w-9 h-9 rounded-lg bg-surface border-2 border-transparent flex items-center justify-center text-muted transition-colors hover:border-kb hover:text-kb"

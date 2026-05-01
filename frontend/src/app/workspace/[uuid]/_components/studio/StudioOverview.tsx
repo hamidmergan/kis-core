@@ -107,16 +107,16 @@ export function StudioOverview({
   }, [studioTab, workspaceUuid, refreshStats, statsVersion]);
 
   const lerntoolsTiles = [
-    { key: "karteikarten" as const, Icon: Cards, label: "Karteikarten", iconBg: "rgba(220,252,231,0.7)", iconColor: "var(--success-strong)" },
-    { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "rgba(254,249,195,0.7)", iconColor: "#A16207" },
-    { key: "data_table" as const, Icon: Table, label: "Datentabelle", iconBg: "rgba(255,237,213,0.7)", iconColor: "#C2410C" },
-    { key: "mindmap" as const, Icon: TreeStructure, label: "Mindmap", iconBg: "rgba(236,254,255,0.7)", iconColor: "#0E7490" },
+    { key: "karteikarten" as const, Icon: Cards, label: "Karteikarten", iconBg: "var(--badge-emerald-bg)", iconColor: "var(--badge-emerald-fg)" },
+    { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "var(--badge-yellow-bg)", iconColor: "var(--badge-yellow-fg)" },
+    { key: "data_table" as const, Icon: Table, label: "Datentabelle", iconBg: "var(--badge-orange-bg)", iconColor: "var(--badge-orange-fg)" },
+    { key: "mindmap" as const, Icon: TreeStructure, label: "Mindmap", iconBg: "var(--badge-teal-bg)", iconColor: "var(--badge-teal-fg)" },
   ];
 
   const langTrainingTiles = [
-    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", iconBg: "rgba(245,235,220,0.7)", iconColor: "#78350F" },
-    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", iconBg: "rgba(254,226,226,0.7)", iconColor: "var(--error-strong)" },
-    { key: "vt-sets" as const, Icon: Exam, label: "Begriffe-Quiz", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
+    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
+    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", iconBg: "var(--badge-red-bg)", iconColor: "var(--badge-red-fg)" },
+    { key: "vt-sets" as const, Icon: Exam, label: "Begriffe-Quiz", iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
   ];
 
   void activeSourceCount;

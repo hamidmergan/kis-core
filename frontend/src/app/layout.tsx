@@ -17,11 +17,15 @@ export const metadata: Metadata = {
   },
 };
 
+// Set data-theme synchronously before React hydrates to prevent FOUC.
+const themeBootScript = `(function(){try{var t=localStorage.getItem('kis.theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de">
       <head>
         <link rel="license" href="https://www.apache.org/licenses/LICENSE-2.0" />
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className={`${geist.variable} min-h-screen flex flex-col`}>
         <NextTopLoader color="#668DA0" showSpinner={false} height={3} />

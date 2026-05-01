@@ -37,7 +37,7 @@ export default function ToolsTab() {
   if (!tools) return <Spinner className="flex justify-center py-12" />;
 
   return (
-    <div className="border border-border-soft rounded-xl bg-white p-5">
+    <div className="border border-border-soft rounded-xl bg-background p-5">
       <p className="text-sm font-medium text-foreground mb-1">Tools ein-/ausschalten</p>
       <p className="text-xs text-muted mb-4">Deaktivierte Tools werden auf der Startseite ausgeblendet.</p>
       <div className="space-y-3">

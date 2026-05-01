@@ -11,6 +11,7 @@ import { wrapEngineGeometry } from "./_geometry";
 import { doHighlightSearch, type HighlightRefs } from "./_highlight";
 import { SummaryPanel } from "./_summary_panel";
 import { copyTextFromPromise } from "@/lib/clipboard";
+import { useTheme } from "@/hooks/useTheme";
 
 
 export function PdfViewer({
@@ -35,9 +36,11 @@ export function PdfViewer({
   const [registryReady, setRegistryReady] = useState(false);
   const viewerRef = useRef<PDFViewerRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const themeModeRef = useRef<"light" | "dark">(
-    (typeof window !== "undefined" && window.localStorage?.getItem("kis.pdf-theme") === "dark") ? "dark" : "light",
-  );
+  // Theme drives EmbedPDF's internal light/dark — change forces a remount via key on the viewer
+  // (EmbedPDF has no hot-swap API for theme).
+  const { theme } = useTheme();
+  const themeModeRef = useRef<"light" | "dark">(theme);
+  themeModeRef.current = theme;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const registryRef = useRef<any>(null);
   const sourcePageRef = useRef(source.page);
@@ -525,8 +528,8 @@ export function PdfViewer({
       </div>
 
 
-      {/* PDF Viewer */}
-      <div key={source.uuid} style={{ flex: 1, position: "relative", minHeight: 0 }}>
+      {/* PDF Viewer — key includes theme so a Light/Dark switch remounts EmbedPDF cleanly */}
+      <div key={`${source.uuid}-${theme}`} style={{ flex: 1, position: "relative", minHeight: 0 }}>
         <PDFViewer
           ref={viewerRef}
           config={{
@@ -580,7 +583,45 @@ export function PdfViewer({
                 scrollbar: { track: "transparent", thumb: "#d8d8d8", thumbHover: "#bbb" },
               },
               dark: {
-                scrollbar: { track: "transparent", thumb: "#d8d8d8", thumbHover: "#bbb" },
+                accent: {
+                  primary:           "#5BA3CE", // --kb (dark)
+                  primaryHover:      "#7BBDE5", // --kb-dark (dark)
+                  primaryActive:     "#9BD2F0", // --kb-darker (dark)
+                  primaryLight:      "#1C2A33", // --kb20 (dark)
+                  primaryForeground: "#0A0B0D", // text on lifted accent
+                },
+                background: {
+                  app:        "#0A0B0D", // --background (dark)
+                  surface:    "#141519", // --surface (dark)
+                  surfaceAlt: "#1C1D22", // --surface-dim (dark)
+                  elevated:   "#141519",
+                  input:      "#1C1D22",
+                },
+                foreground: {
+                  primary:   "#F5F5F7", // --foreground (dark)
+                  secondary: "#C8CACF", // --foreground-soft (dark)
+                  muted:     "#8B8E97", // --muted (dark)
+                  disabled:  "#6E7079", // --muted-soft (dark)
+                  onAccent:  "#0A0B0D",
+                },
+                border: {
+                  default: "#2A2C32", // --border (dark)
+                  subtle:  "#23252B", // --border-soft (dark)
+                  strong:  "#3A3C42",
+                },
+                interactive: {
+                  hover:    "#1C1D22", // --surface-dim (dark)
+                  active:   "#23252B",
+                  selected: "#23252B",
+                  focus:    "#5BA3CE", // --kb (dark)
+                },
+                state: {
+                  error:        "#F87171", errorLight:   "#2A1414",
+                  warning:      "#FBBF24", warningLight: "#2A1F0A",
+                  success:      "#4ADE80", successLight: "#0F2818",
+                  info:         "#60A5FA", infoLight:    "#0F1A2E",
+                },
+                scrollbar: { track: "transparent", thumb: "#3A3C42", thumbHover: "#52545C" },
               },
             },
           }}

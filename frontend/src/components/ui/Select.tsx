@@ -126,7 +126,7 @@ export default function Select<T extends string>({
         aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className="group block w-full rounded-md border-2 border-border bg-white px-3 py-2 text-sm text-foreground shadow-sm hover:border-kb focus:border-kb focus:outline-none focus:ring-1 focus:ring-kb disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border transition-colors flex items-center justify-between gap-2 text-left"
+        className="group block w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm hover:border-kb focus:border-kb focus:outline-none focus:ring-1 focus:ring-kb disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border transition-colors flex items-center justify-between gap-2 text-left"
       >
         <span className={`flex-1 truncate ${selected ? "" : "text-muted-soft"}`}>
           {selected ? selected.label : placeholder}

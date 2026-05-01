@@ -11,9 +11,9 @@ export function LanguageTrainingOverview({
   const noSources = activeSourceCount === 0;
 
   const tiles = [
-    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", desc: "Übungen", iconBg: "rgba(245,235,220,0.7)", iconColor: "#78350F" },
-    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Übungen", iconBg: "rgba(254,226,226,0.7)", iconColor: "var(--error-strong)" },
-    { key: "vt-sets" as const, Icon: Exam, label: "Begriffe-Quiz", desc: "Übungen", iconBg: "rgba(237,233,254,0.7)", iconColor: "#534AB7" },
+    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", desc: "Übungen", iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
+    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Übungen", iconBg: "var(--badge-red-bg)", iconColor: "var(--badge-red-fg)" },
+    { key: "vt-sets" as const, Icon: Exam, label: "Begriffe-Quiz", desc: "Übungen", iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
   ];
 
   return (

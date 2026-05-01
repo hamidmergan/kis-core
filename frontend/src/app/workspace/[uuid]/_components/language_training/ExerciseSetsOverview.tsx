@@ -73,7 +73,7 @@ export function ExerciseSetsOverview({
                 const hasRun = (s.total_attempts ?? 0) > 0;
                 return (
                   <div key={s.id} onClick={() => !generating && !failed && onSelect(s)}
-                    className={`bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group border-2 border-transparent transition-colors ${generating ? "opacity-70" : "cursor-pointer hover:border-[var(--kb)]"}`}
+                    className={`bg-background rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group border-2 border-transparent transition-colors ${generating ? "opacity-70" : "cursor-pointer hover:border-[var(--kb)]"}`}
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     {/* Title + Score */}
                     <div className="flex items-start gap-2.5 flex-1 min-w-0">

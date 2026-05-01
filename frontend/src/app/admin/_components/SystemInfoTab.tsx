@@ -84,7 +84,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-white border border-border-soft rounded-xl p-5">
+    <section className="bg-background border border-border-soft rounded-xl p-5">
       <div className="flex items-start gap-3 mb-4">
         <span className="mt-0.5 w-8 h-8 rounded-lg bg-kb/8 text-kb flex items-center justify-center shrink-0"
               style={{ backgroundColor: "rgba(var(--kb-rgb), 0.08)" }}>

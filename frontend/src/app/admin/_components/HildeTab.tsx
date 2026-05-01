@@ -60,7 +60,7 @@ function Hero({
                 className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition-all whitespace-nowrap ${
                   state === s
                     ? "bg-kb text-white border-kb"
-                    : "bg-white text-foreground-soft border-border hover:border-kb"
+                    : "bg-background text-foreground-soft border-border hover:border-kb"
                 }`}
               >
                 {STATE_LABELS[s]}
@@ -136,7 +136,7 @@ function ChatMockup() {
         Im Chat-Kontext (so würde sie im KI-Assistenten erscheinen)
       </div>
 
-      <div className="bg-white rounded-xl border border-border p-4 sm:p-6 flex flex-col gap-4">
+      <div className="bg-background rounded-xl border border-border p-4 sm:p-6 flex flex-col gap-4">
         <div className="flex justify-end">
           <div
             className="bg-kb text-white px-3.5 py-2.5 rounded-[20px] text-sm leading-relaxed max-w-[85%] sm:max-w-[70%]"
@@ -173,7 +173,7 @@ function ChatMockup() {
               className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
                 bubbleState === s
                   ? "bg-kb text-white border-kb"
-                  : "bg-white text-muted border-border hover:border-kb"
+                  : "bg-background text-muted border-border hover:border-kb"
               }`}
             >
               {STATE_LABELS[s]}

@@ -21,7 +21,7 @@ export default function TtsStatus({
   if (state === "idle") return null;
 
   return (
-    <div className="mt-6 rounded-lg border border-border-soft bg-white p-6" role="status" aria-live="polite">
+    <div className="mt-6 rounded-lg border border-border-soft bg-background p-6" role="status" aria-live="polite">
       {(state === "uploading" || state === "processing") && (
         <div className="flex items-center gap-3">
           <Spinner />

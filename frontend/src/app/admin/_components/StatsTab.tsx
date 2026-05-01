@@ -74,15 +74,15 @@ export default function StatsTab() {
         />
       ) : (
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white border border-border-soft rounded-lg p-4">
+          <div className="bg-background border border-border-soft rounded-lg p-4">
             <p className="text-xs text-muted uppercase tracking-wide">Gesamt</p>
             <p className="text-2xl font-bold text-foreground mt-1">{totalJobs}</p>
           </div>
-          <div className="bg-white border border-border-soft rounded-lg p-4">
+          <div className="bg-background border border-border-soft rounded-lg p-4">
             <p className="text-xs text-muted uppercase tracking-wide">Erfolgreich</p>
             <p className="text-2xl font-bold text-success mt-1">{totalSuccess}</p>
           </div>
-          <div className="bg-white border border-border-soft rounded-lg p-4">
+          <div className="bg-background border border-border-soft rounded-lg p-4">
             <p className="text-xs text-muted uppercase tracking-wide">Fehlgeschlagen</p>
             <p className="text-2xl font-bold text-error mt-1">{totalFailed}</p>
           </div>
@@ -92,7 +92,7 @@ export default function StatsTab() {
       {data.by_tool.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {data.by_tool.map((t) => (
-            <div key={t.tool} className="bg-white border border-border-soft rounded-lg p-4">
+            <div key={t.tool} className="bg-background border border-border-soft rounded-lg p-4">
               <p className="text-xs font-medium text-muted truncate">{t.label}</p>
               <p className="text-xl font-bold text-foreground mt-1">{t.total}</p>
               <div className="flex items-center gap-3 mt-2 text-xs">
@@ -108,7 +108,7 @@ export default function StatsTab() {
       )}
 
       {data.activity.length > 0 && (
-        <div className="bg-white border border-border-soft rounded-lg overflow-hidden">
+        <div className="bg-background border border-border-soft rounded-lg overflow-hidden">
           <h3 className="text-sm font-medium p-4 pb-2">Letzte Aktivität</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

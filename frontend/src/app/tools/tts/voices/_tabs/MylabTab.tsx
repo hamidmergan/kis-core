@@ -29,7 +29,7 @@ export default function MylabTab({ active }: { active: boolean }) {
   return (
     <div className="divide-y divide-border-soft border border-border-soft rounded-lg overflow-hidden">
       {voices.map((voice) => (
-        <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-surface">
+        <div key={voice.voice_id} className="flex items-center justify-between px-4 py-3 bg-background hover:bg-surface">
           <div>
             <p className="text-sm font-medium text-foreground">{voice.name}</p>
             <p className="text-xs text-muted-soft mt-0.5">{voice.description}</p>

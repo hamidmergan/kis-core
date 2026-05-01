@@ -107,7 +107,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                 <th className="px-4 py-3 text-left">Kontingente</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-soft bg-white">
+            <tbody className="divide-y divide-border-soft bg-background">
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className="px-4 py-3">

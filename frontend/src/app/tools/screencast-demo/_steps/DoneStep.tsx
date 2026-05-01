@@ -47,7 +47,7 @@ export function DoneStep({ videoUrl, audioId, onDownloadMp4, onReset }: DoneStep
           MP4
         </button>
         <button onClick={handleZipDownload} aria-label="Alles herunterladen (ZIP)"
-          className="px-6 py-2 bg-white text-kb border-2 border-kb text-sm font-medium rounded-md hover:border-kb-dark transition-colors flex items-center gap-2"
+          className="px-6 py-2 bg-background text-kb border-2 border-kb text-sm font-medium rounded-md hover:border-kb-dark transition-colors flex items-center gap-2"
         >
           <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
