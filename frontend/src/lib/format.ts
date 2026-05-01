@@ -10,7 +10,7 @@ export function formatDate(dateStr: string): string {
 }
 
 export function formatDuration(seconds: number | null | undefined): string {
-  if (seconds == null) return "–";
+  if (seconds == null) return "-";
   if (seconds >= 60) return `${Math.round(seconds / 60)} min`;
   return `${Math.round(seconds)} s`;
 }

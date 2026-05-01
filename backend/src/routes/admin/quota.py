@@ -42,7 +42,7 @@ async def get_quota_overview(_admin=Depends(get_admin_user)):
                 "global_reset_at": row.get("global_reset_at"),
             }
         if row["quota_type"] is None:
-            # User exists but has no quota entries yet — fill from QUOTA_DEFAULTS
+            # User exists but has no quota entries yet - fill from QUOTA_DEFAULTS
             for cfg_type, cfg in QUOTA_DEFAULTS.items():
                 effective_limit = cfg["limit"]
                 users[uid]["quotas"].append({

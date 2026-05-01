@@ -119,7 +119,7 @@ export default function RegenChatModal({
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
+            className="w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:bg-[var(--surface-dim)] hover:text-kb"
             style={{ backgroundColor: "var(--border)", color: "var(--muted)" }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

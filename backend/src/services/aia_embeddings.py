@@ -1,4 +1,11 @@
-"""Embedding providers for AI assistant - abstraction layer over KISSKI and future local models."""
+"""Embedding providers for AI assistant - abstraction over OpenAI-compatible HTTP endpoints and Ollama.
+
+The OpenAI-compatible adapter is one class with two configured instances (today:
+KISSKI and THL myLab); the Ollama adapter is separate because it uses Ollama's
+native /api/embed endpoint to set ``options.num_ctx`` (which the OpenAI-compat
+shim drops). The active provider is chosen at runtime via the admin panel
+(DB settings, see get_embedding_provider).
+"""
 
 import json
 import time
@@ -22,18 +29,20 @@ class EmbeddingProvider(ABC):
         return getattr(self, "_model", "")
 
 
-class KisskiEmbeddingProvider(EmbeddingProvider):
-    """OpenAI-compatible embedding client pointing at KISSKI /v1/embeddings."""
+class OpenAICompatEmbeddingProvider(EmbeddingProvider):
+    """Embedding client for any OpenAI-compatible /v1/embeddings endpoint.
+
+    A single instance is parameterised by ``base_url`` / ``api_key`` / ``model``;
+    multiple deployments (KISSKI, THL myLab, etc.) are different instances of
+    this same class.
+    """
 
     _BATCH_SIZE = 100
 
-    def __init__(self) -> None:
+    def __init__(self, base_url: str, api_key: str, model: str) -> None:
         from langfuse.openai import OpenAI
-        from src.config import Settings
-        from src.services.runtime_models import get_model
-        s = Settings()
-        self._client = OpenAI(api_key=s.kisski_api_key, base_url=s.kisski_base_url)
-        self._model = get_model("kisski_embedding_model")
+        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        self._model = model
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         results: list[list[float]] = []
@@ -49,7 +58,7 @@ class KisskiEmbeddingProvider(EmbeddingProvider):
                     break
                 except Exception as e:
                     if attempt == 0:
-                        logger.warning("Embedding batch {}/{} failed (attempt 1): {} – retrying in 3s", i, len(texts), e)
+                        logger.warning("Embedding batch {}/{} failed (attempt 1): {} - retrying in 3s", i, len(texts), e)
                         time.sleep(3)
                     else:
                         raise RuntimeError(f"Embedding request failed: {e}") from e
@@ -60,7 +69,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     """Embedding client using Ollama's native /api/embed API.
 
     Uses the native endpoint (not OpenAI-compat) so we can pass options.num_ctx
-    — the OpenAI-compat /v1/embeddings endpoint ignores Modelfile parameters.
+    - the OpenAI-compat /v1/embeddings endpoint ignores Modelfile parameters.
     """
 
     # 600-char chunks ~ 240 tokens each; batch of 5 ~ 1200 tokens < 2048 limit -> safe
@@ -74,11 +83,11 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         from src.services.runtime_models import get_model
         from langfuse import Langfuse
         s = Settings()
-        base = s.ollama_base_url.rstrip("/")
+        base = s.local_provider_base_url.rstrip("/")
         if base.endswith("/v1"):
             base = base[:-3]
         self._embed_url = base + "/api/embed"
-        self._model = get_model("ollama_embedding_model")
+        self._model = get_model("local_embedding_model")
         self._langfuse = Langfuse()
 
     # Safety net only - chunker now produces <=600 char chunks, this should never trigger
@@ -134,10 +143,10 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
                         time.sleep(3)
                     else:
                         generation.end(level="ERROR", status_message=f"HTTP {e.code}: {body}")
-                        raise RuntimeError(f"Ollama embedding request failed: {e} – {body}") from e
+                        raise RuntimeError(f"Ollama embedding request failed: {e} - {body}") from e
                 except Exception as e:
                     if attempt == 0:
-                        logger.warning("Ollama embed batch {}/{} failed: {} – retrying in 3s", i, len(texts), e)
+                        logger.warning("Ollama embed batch {}/{} failed: {} - retrying in 3s", i, len(texts), e)
                         time.sleep(3)
                     else:
                         generation.end(level="ERROR", status_message=str(e))
@@ -146,39 +155,36 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         return results
 
 
-class MyLabEmbeddingProvider(EmbeddingProvider):
-    """OpenAI-compatible embedding client pointing at THL myLab /v1/embeddings."""
+# ── Factory functions per admin-panel slot ─────────────────────────────────
 
-    _BATCH_SIZE = 100
+def _make_primary_embedding_provider() -> OpenAICompatEmbeddingProvider:
+    """Build an OpenAI-compat embedding provider against the primary slot
+    (today: KISSKI/GWDG)."""
+    from src.config import Settings
+    from src.services.runtime_models import get_model
+    s = Settings()
+    return OpenAICompatEmbeddingProvider(
+        base_url=s.primary_provider_base_url,
+        api_key=s.primary_provider_api_key,
+        model=get_model("primary_embedding_model"),
+    )
 
-    def __init__(self) -> None:
-        from langfuse.openai import OpenAI
-        from src.config import Settings
-        from src.services.runtime_models import get_model
-        s = Settings()
-        base = (s.mylab_base_url or "").rstrip("/")
-        if not base:
-            raise RuntimeError("MYLAB_BASE_URL nicht konfiguriert")
-        # myLab is open/unauthenticated within the TH network — any non-empty key works
-        self._client = OpenAI(api_key="ignored", base_url=f"{base}/v1")
-        self._model = get_model("mylab_embedding_model")
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        results: list[list[float]] = []
-        for i in range(0, len(texts), self._BATCH_SIZE):
-            batch = texts[i: i + self._BATCH_SIZE]
-            for attempt in range(2):
-                try:
-                    response = self._client.embeddings.create(model=self._model, input=batch)
-                    results.extend(item.embedding for item in response.data)
-                    break
-                except Exception as e:
-                    if attempt == 0:
-                        logger.warning("myLab embedding batch {}/{} failed: {} – retry in 3s", i, len(texts), e)
-                        time.sleep(3)
-                    else:
-                        raise RuntimeError(f"myLab embedding request failed: {e}") from e
-        return results
+def _make_fallback_embedding_provider() -> OpenAICompatEmbeddingProvider:
+    """Build an OpenAI-compat embedding provider against the fallback slot
+    (today: THL myLab)."""
+    from src.config import Settings
+    from src.services.runtime_models import get_model
+    s = Settings()
+    base = (s.fallback_provider_base_url or "").rstrip("/")
+    if not base:
+        raise RuntimeError("Fallback embedding base URL not configured")
+    # The fallback endpoint is open/unauthenticated within the TH network — any non-empty key works.
+    return OpenAICompatEmbeddingProvider(
+        base_url=f"{base}/v1",
+        api_key="ignored",
+        model=get_model("fallback_embedding_model"),
+    )
 
 
 def get_embedding_provider() -> EmbeddingProvider:
@@ -189,11 +195,11 @@ def get_embedding_provider() -> EmbeddingProvider:
     so a silent fallback would corrupt the index.
     """
     from src import database as db
-    if db.get_setting("kisski_embedding_enabled", "").lower() == "true":
-        return KisskiEmbeddingProvider()
-    if db.get_setting("mylab_embedding_enabled", "").lower() == "true":
-        return MyLabEmbeddingProvider()
-    if db.get_setting("ollama_embedding_enabled", "").lower() == "true":
+    if db.get_setting("primary_embedding_enabled", "").lower() == "true":
+        return _make_primary_embedding_provider()
+    if db.get_setting("fallback_embedding_enabled", "").lower() == "true":
+        return _make_fallback_embedding_provider()
+    if db.get_setting("local_embedding_enabled", "").lower() == "true":
         return OllamaEmbeddingProvider()
     raise RuntimeError(
         "Kein Embedding-Anbieter aktiv. Bitte im Admin-Bereich unter 'Embeddings (KI-Assistent)' "

@@ -1,15 +1,16 @@
 """AI assistant routes - chat + RAG."""
 
+import asyncio
 import io
 import json
 import re
 import uuid
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -17,7 +18,7 @@ from pydantic import BaseModel, Field
 from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client
+from src.dependencies import get_current_user, get_llm_client
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -35,7 +36,7 @@ from src.tool_prompts import (
     KIA_POPUP_ACTIONS,
 )
 
-# Accept both ASCII [] and CJK lenticular 【】 — some LLMs emit the latter
+# Accept both ASCII [] and CJK lenticular 【】 - some LLMs emit the latter
 # despite the prompt, and unstripped citations in history reinforce the
 # wrong format on the next turn.
 _CITATION_RE = re.compile(
@@ -43,7 +44,7 @@ _CITATION_RE = re.compile(
 )
 
 
-def _rewrite_query(kisski, history: list[dict], question: str) -> str:
+def _rewrite_query(llm, history: list[dict], question: str) -> str:
     """Condense follow-up question to standalone using conversation history.
 
     Returns original question if rewrite fails, output is empty, or result is
@@ -60,12 +61,12 @@ def _rewrite_query(kisski, history: list[dict], question: str) -> str:
         },
     ]
     try:
-        response = kisski._client.chat.completions.create(
-            model=kisski._model,
+        response = llm._client.chat.completions.create(
+            model=llm._model,
             messages=messages,
             temperature=0.0,
             max_tokens=300,
-            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
         rewritten = (response.choices[0].message.content or "").strip()
     except Exception as e:
@@ -76,7 +77,7 @@ def _rewrite_query(kisski, history: list[dict], question: str) -> str:
     return rewritten
 
 from src.features.ai_assistant.routes._helpers import (
-    _trace_kisski,
+    _trace_llm,
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
@@ -100,11 +101,12 @@ router = APIRouter(tags=["ki-assistent: chat"])
 async def chat(
     workspace_uuid: str,
     body: schemas.ChatBody,
+    request: Request,
     current_user: dict = Depends(get_current_user),
-    kisski=Depends(get_kisski_client),
+    llm=Depends(get_llm_client),
 ):
     import time as _time
-    _trace_kisski(kisski, "kia-chat")
+    _trace_llm(llm, "kia-chat")
     user_id = current_user["user_id"]
 
     # Burst block: at >50 chat requests in 60s the user is blocked for 10 min.
@@ -243,11 +245,12 @@ async def chat(
         # Skip for popup (source_text) and first question (no history).
         if not body.source_text:
             history_for_rewrite = db.get_aia_messages(
-                workspace["id"], user_id, limit=4, enrollment_id=enrollment_id
+                workspace["id"], user_id, limit=4, enrollment_id=enrollment_id,
+                include_aborted=False,
             )
             if history_for_rewrite:
                 rewritten_question = _rewrite_query(
-                    kisski, history_for_rewrite, body.question
+                    llm, history_for_rewrite, body.question
                 )
                 if rewritten_question != body.question:
                     logger.info(
@@ -317,7 +320,7 @@ async def chat(
                 })
 
     # Pre-load Whisper segments for media sources so we can inject inline
-    # (MM:SS) markers into each media chunk's context — lets the LLM cite
+    # (MM:SS) markers into each media chunk's context - lets the LLM cite
     # a precise timestamp within the chunk, not just the chunk start.
     transcript_by_source: dict[int, list[dict]] = {}
     for chunk in chunks:
@@ -408,23 +411,29 @@ async def chat(
                 source_pages.append(entry)
         source_pages.sort(key=lambda x: x["page_number"])
 
-    def _stream() -> Generator[str, None, None]:
-        # Status is set to "error" on LLM failure - default is "ok".
+    async def _stream() -> AsyncGenerator[str, None]:
+        # Status is set to "error" on LLM failure, "aborted" when the client
+        # disconnects mid-stream - default is "ok".
         _log_status = "ok"
+        stream = None
         try:
             # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
             # during streaming instead of falling back to activeSourceIds[0].
             yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
             answer_parts: list[str] = []
+            aborted = False
             try:
-                stream = kisski._client.chat.completions.create(
-                    model=kisski._model,
+                stream = await llm._async_client.chat.completions.create(
+                    model=llm._model,
                     messages=messages,
                     temperature=0.2,
                     stream=True,
-                    **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+                    **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
                 )
-                for chunk_resp in stream:
+                async for chunk_resp in stream:
+                    if await request.is_disconnected():
+                        aborted = True
+                        break
                     delta = chunk_resp.choices[0].delta if chunk_resp.choices else None
                     if delta and delta.content:
                         answer_parts.append(delta.content)
@@ -434,8 +443,41 @@ async def chat(
                 logger.error("LLM stream error: {}", e)
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
                 return
+            finally:
+                if stream is not None:
+                    try:
+                        await stream.close()
+                    except Exception:
+                        pass
 
             answer = "".join(answer_parts).strip()
+
+            if aborted:
+                _log_status = "aborted"
+                try:
+                    langfuse_context.update_current_observation(
+                        level="WARNING", status_message="client aborted stream"
+                    )
+                except Exception:
+                    pass
+                # Persist user question + partial answer flagged as aborted so
+                # the rewriter can filter them out and the UI can render a marker.
+                try:
+                    await asyncio.to_thread(
+                        db.save_aia_message,
+                        workspace["id"], user_id, "user", body.question,
+                        enrollment_id=enrollment_id,
+                    )
+                    await asyncio.to_thread(
+                        db.save_aia_message,
+                        workspace["id"], user_id, "assistant", answer,
+                        source_pages=source_pages, enrollment_id=enrollment_id,
+                        source_qmap=source_qmap, aborted=True,
+                    )
+                except Exception as e:
+                    logger.warning("Failed to persist aborted chat message: {}", e)
+                return
+
             if is_popup:
                 suffix = f" [S. {body.source_page}]"
                 answer += suffix
@@ -444,17 +486,26 @@ async def chat(
             # Keywords in citations stay (used by frontend for highlighting)
 
             # Save messages
-            db.save_aia_message(workspace["id"], user_id, "user", body.question, enrollment_id=enrollment_id)
-            db.save_aia_message(workspace["id"], user_id, "assistant", answer, source_pages=source_pages, enrollment_id=enrollment_id, source_qmap=source_qmap)
+            await asyncio.to_thread(
+                db.save_aia_message,
+                workspace["id"], user_id, "user", body.question,
+                enrollment_id=enrollment_id,
+            )
+            await asyncio.to_thread(
+                db.save_aia_message,
+                workspace["id"], user_id, "assistant", answer,
+                source_pages=source_pages, enrollment_id=enrollment_id,
+                source_qmap=source_qmap,
+            )
 
-            # Send final metadata event — also send corrected answer
+            # Send final metadata event - also send corrected answer
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
         finally:
             _log_usage(
                 user_id=user_id,
                 endpoint="chat",
-                provider=getattr(kisski, "_provider", None),
-                model=getattr(kisski, "_model", None),
+                provider=getattr(llm, "_provider", None),
+                model=getattr(llm, "_model", None),
                 duration_ms=int((_time.monotonic() - _started_at) * 1000),
                 status=_log_status,
             )

@@ -92,7 +92,7 @@ async def trigger_paragraph_summaries(
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
-    # Keep existing summaries — task resumes where it left off
+    # Keep existing summaries - task resumes where it left off
     db.update_aia_source_summaries_status(source_uuid, "generating")
 
     from src.tasks.aia_tasks import run_generate_summaries

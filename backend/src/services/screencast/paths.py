@@ -7,7 +7,7 @@ from pathlib import Path
 
 from loguru import logger
 
-# Shared volume — accessible by celery-worker (mounted at /app/storage)
+# Shared volume - accessible by celery-worker (mounted at /app/storage)
 PPTX_TMP_DIR = Path("/app/storage/screencast_tmp")
 IMAGE_TMP_DIR = Path("/app/storage/screencast_tmp/images")
 

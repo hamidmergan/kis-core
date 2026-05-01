@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client, is_admin_user
+from src.dependencies import get_current_user, get_llm_client, is_admin_user
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
@@ -35,7 +35,7 @@ from src.tool_prompts import (
 )
 
 from src.features.ai_assistant.routes._helpers import (
-    _trace_kisski,
+    _trace_llm,
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,

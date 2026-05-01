@@ -91,10 +91,10 @@ export function TtsSettingsStep({
                       return { value: v.voice_id, label: `${flag} ${v.name}`.trim() };
                     })
                   : ttsProvider === "mylab"
-                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} – ${v.description}` }))
+                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} - ${v.description}` }))
                   : voices.map((v) => {
                       const desc = translateDesc(v.description);
-                      return { value: v.voice_id, label: desc ? `${v.label} – ${desc}` : v.label };
+                      return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };
                     })
               }
             />
@@ -135,7 +135,7 @@ export function TtsSettingsStep({
         <div className="flex flex-col gap-2">
           {[{ val: 96, label: "Geringe Qualität", desc: "Schnellere Verarbeitung, geringere Bildschärfe" },
             { val: 144, label: "Standard", desc: "Empfohlen, gute Bildqualität" },
-            { val: 300, label: "Maximale Qualität", desc: "Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit" }
+            { val: 300, label: "Maximale Qualität", desc: "Höchste Bildschärfe, ca. 4-5× längere Bearbeitungszeit" }
           ].map(({ val, label, desc }) => (
             <label key={val} className="flex items-start gap-3 cursor-pointer">
               <input type="radio" name="dpi" value={val} checked={dpi === val} onChange={() => onDpiChange(val)}

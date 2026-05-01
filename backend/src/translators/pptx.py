@@ -25,7 +25,7 @@ def _iter_pptx_paragraphs(shape):
 def translate_pptx(
     content: bytes, source_lang: str, target_lang: str, service: TranslationService
 ) -> bytes:
-    """Translate text in a PPTX file preserving layout — single batch DeepL call."""
+    """Translate text in a PPTX file preserving layout - single batch DeepL call."""
     try:
         presentation = Presentation(BytesIO(content))
         refs: list[_RunRef] = []

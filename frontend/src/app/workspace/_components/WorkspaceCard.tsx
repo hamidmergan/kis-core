@@ -59,7 +59,7 @@ export default function WorkspaceCard({
             type="button"
             onClick={() => a.setExpanded(!a.expanded)}
             title={a.expanded ? "Zuklappen" : "Aufklappen"}
-            className="w-7 h-7 flex items-center justify-center hover:opacity-60 transition-opacity flex-shrink-0"
+            className="w-7 h-7 flex items-center justify-center rounded-full transition-colors flex-shrink-0 hover:bg-[var(--surface-dim)] hover:text-kb"
             style={{ color: "var(--muted)" }}
           >
             <CaretRight size={13} weight="bold" className={`transition-transform ${a.expanded ? "rotate-90" : ""}`} />

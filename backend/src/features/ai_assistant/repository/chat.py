@@ -26,13 +26,14 @@ def save_aia_message(
     source_pages: list | dict | None = None,
     enrollment_id: int | None = None,
     source_qmap: list | None = None,
+    aborted: bool = False,
 ) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO aia_messages
-                   (workspace_id, user_id, role, content, source_pages, enrollment_id, source_qmap)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                   (workspace_id, user_id, role, content, source_pages, enrollment_id, source_qmap, aborted)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                 (
                     workspace_id,
                     user_id,
@@ -41,6 +42,7 @@ def save_aia_message(
                     json.dumps(source_pages) if source_pages is not None else None,
                     enrollment_id,
                     json.dumps(source_qmap) if source_qmap is not None else None,
+                    aborted,
                 ),
             )
         conn.commit()
@@ -61,22 +63,29 @@ def delete_aia_messages(workspace_id: int, user_id: int, enrollment_id: int | No
         conn.commit()
 
 def get_aia_messages(
-    workspace_id: int, user_id: int, limit: int = 20, enrollment_id: int | None = None
+    workspace_id: int,
+    user_id: int,
+    limit: int = 20,
+    enrollment_id: int | None = None,
+    include_aborted: bool = True,
 ) -> list[dict]:
+    """Fetch chat history. Pass include_aborted=False on the query-rewriter path
+    so cancelled half-answers cannot poison the standalone-question rewrite."""
+    aborted_filter = "" if include_aborted else " AND aborted = FALSE"
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             if enrollment_id is not None:
                 cur.execute(
-                    """SELECT * FROM aia_messages
-                       WHERE workspace_id = %s AND user_id = %s AND enrollment_id = %s
+                    f"""SELECT * FROM aia_messages
+                       WHERE workspace_id = %s AND user_id = %s AND enrollment_id = %s{aborted_filter}
                        ORDER BY created_at DESC
                        LIMIT %s""",
                     (workspace_id, user_id, enrollment_id, limit),
                 )
             else:
                 cur.execute(
-                    """SELECT * FROM aia_messages
-                       WHERE workspace_id = %s AND user_id = %s AND enrollment_id IS NULL
+                    f"""SELECT * FROM aia_messages
+                       WHERE workspace_id = %s AND user_id = %s AND enrollment_id IS NULL{aborted_filter}
                        ORDER BY created_at DESC
                        LIMIT %s""",
                     (workspace_id, user_id, limit),

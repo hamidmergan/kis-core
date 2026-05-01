@@ -51,7 +51,7 @@ export default function AnalyzeTab() {
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setSpinnerLabel("Läuft noch – Bildanalyse kann etwas länger dauern…"),
+        () => setSpinnerLabel("Läuft noch - Bildanalyse kann etwas länger dauern…"),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
@@ -93,7 +93,7 @@ export default function AnalyzeTab() {
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         rows={3}
-        placeholder="Spezifische Frage stellen (optional) – sonst wird das Bild automatisch vollständig beschrieben."
+        placeholder="Spezifische Frage stellen (optional) - sonst wird das Bild automatisch vollständig beschrieben."
         className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none mb-4"
       />
 

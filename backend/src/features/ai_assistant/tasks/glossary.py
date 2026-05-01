@@ -1,4 +1,4 @@
-"""KI-Assistent Celery tasks — glossary generation."""
+"""KI-Assistent Celery tasks - glossary generation."""
 
 import concurrent.futures
 import os
@@ -93,7 +93,7 @@ def run_generate_glossary(self, workspace_id: int, source_ids: list[int]):
                 c["_source_id"] = sid
             all_chunks.extend(chunks)
         if not all_chunks:
-            logger.warning("KI Tutor: glossary generation — no chunks found")
+            logger.warning("KI Tutor: glossary generation - no chunks found")
             return
 
         # Build source label map: source_id → "Q1", "Q2", ...
@@ -121,7 +121,7 @@ def run_generate_glossary(self, workspace_id: int, source_ids: list[int]):
         existing_terms_list = [e["term_de"] for e in existing]
         exclude_hint = ""
         if existing_terms_list:
-            exclude_hint = f"\n\nFolgende Begriffe existieren bereits — überspringe diese: {', '.join(existing_terms_list)}"
+            exclude_hint = f"\n\nFolgende Begriffe existieren bereits - überspringe diese: {', '.join(existing_terms_list)}"
 
         client, model, _ = _get_llm_client()
         messages = [
@@ -132,12 +132,12 @@ def run_generate_glossary(self, workspace_id: int, source_ids: list[int]):
         response = client.chat.completions.create(model=model, messages=messages, temperature=0.1)
         raw = response.choices[0].message.content
         if not raw:
-            logger.error("KI Tutor: glossary generation — LLM returned empty content")
+            logger.error("KI Tutor: glossary generation - LLM returned empty content")
             return
 
         entries_raw = _json.loads(_clean_llm_json(raw))
         if not isinstance(entries_raw, list):
-            logger.error("KI Tutor: glossary generation — expected JSON array")
+            logger.error("KI Tutor: glossary generation - expected JSON array")
             return
 
         # Validate: term must appear verbatim in source text

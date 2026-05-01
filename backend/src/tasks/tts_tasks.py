@@ -90,9 +90,9 @@ def run_tts(
             client = KokoroClient(settings.kokoro_base_url)
             chunks = _split_text(text)
         elif requested_provider == "mylab" and bool(settings.mylab_tts_base_url):
-            from src.services.mylab_client import MyLabClient, _split_text
+            from src.services.openai_compat_tts import OpenAICompatTTSClient, _split_text
             from src.services.runtime_models import get_model
-            client = MyLabClient(settings.mylab_tts_base_url, model=get_model("mylab_tts_model"))
+            client = OpenAICompatTTSClient(settings.mylab_tts_base_url, model=get_model("mylab_tts_model"))
             chunks = _split_text(text)
         else:
             from src.services.elevenlabs_client import ElevenLabsClient, _split_text, _insert_pauses

@@ -2,8 +2,8 @@
 
 The fingerprint is the embedding of a fixed sentinel string. It is
 deterministic per provider/model and is persisted in the settings table,
-so it survives backend restarts (the first cold call against KISSKI takes
-15-50s, all subsequent calls are instant).
+so it survives backend restarts (the first cold call against a remote
+provider takes 15-50s, all subsequent calls are instant).
 """
 
 from loguru import logger
@@ -12,12 +12,12 @@ from src import database as db
 
 
 def active_embedding_provider_key() -> str:
-    if db.get_setting("mylab_embedding_enabled", "false").lower() == "true":
-        return "mylab"
-    if db.get_setting("kisski_embedding_enabled", "false").lower() == "true":
-        return "kisski"
-    if db.get_setting("ollama_embedding_enabled", "false").lower() == "true":
-        return "ollama"
+    if db.get_setting("fallback_embedding_enabled", "false").lower() == "true":
+        return "fallback"
+    if db.get_setting("primary_embedding_enabled", "false").lower() == "true":
+        return "primary"
+    if db.get_setting("local_embedding_enabled", "false").lower() == "true":
+        return "local"
     return "default"
 
 
@@ -39,7 +39,9 @@ def get_cached_fingerprint() -> str | None:
 
 def invalidate_fingerprint_cache() -> None:
     """Called when the embedding provider toggle changes."""
-    for provider in ("mylab", "kisski", "ollama", "default"):
+    # Includes legacy provider names so that fingerprints persisted by older
+    # backend versions get cleared on the next admin toggle as well.
+    for provider in ("primary", "fallback", "local", "default", "kisski", "mylab", "ollama"):
         try:
             db.set_setting(f"fingerprint_{provider}", "")
         except Exception:

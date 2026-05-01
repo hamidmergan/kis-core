@@ -39,7 +39,7 @@ async def login(body: LoginRequest, response: Response):
     if whitelist_enabled:
         active = 1 if (email and database.is_email_whitelisted(email)) else 0
     else:
-        active = 1  # whitelist disabled — all LDAP-authenticated users are allowed
+        active = 1  # whitelist disabled - all LDAP-authenticated users are allowed
 
     # Step 3: Sync user with database (create or update)
     db_user = database.get_user_by_username(ldap_username)

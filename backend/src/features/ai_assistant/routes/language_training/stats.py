@@ -1,4 +1,4 @@
-"""KI-Assistent routes — language_training stats + streak + activities."""
+"""KI-Assistent routes - language_training stats + streak + activities."""
 
 import io
 import json
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client
+from src.dependencies import get_current_user, get_llm_client
 from src.limits import (
     GLOSSARY_LIMIT,
     KIA_SOURCE_MAX_PAGES,
@@ -34,7 +34,7 @@ from src.tool_prompts import (
 )
 
 from src.features.ai_assistant.routes._helpers import (
-    _trace_kisski,
+    _trace_llm,
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,

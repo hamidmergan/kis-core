@@ -1,4 +1,4 @@
-"""GET /jobs/check/{tool_group} — prüft aktive Jobs + Storage-Limit."""
+"""GET /jobs/check/{tool_group} - prüft aktive Jobs + Storage-Limit."""
 
 from fastapi import APIRouter, Depends
 

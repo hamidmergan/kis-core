@@ -135,10 +135,10 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
                       return { value: v.voice_id, label: `${flag} ${v.name}`.trim() };
                     })
                   : ttsProvider === "mylab"
-                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} – ${v.description}` }))
+                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} - ${v.description}` }))
                   : voices.map((v) => {
                       const desc = translateDesc(v.description);
-                      return { value: v.voice_id, label: desc ? `${v.label} – ${desc}` : v.label };
+                      return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };
                     })
               }
             />
@@ -241,7 +241,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
             />
             <div>
               <span className="text-sm font-medium text-foreground-soft">Maximale Qualität</span>
-              <p className="text-xs text-muted-soft mt-0.5">Höchste Bildschärfe, ca. 4–5× längere Bearbeitungszeit</p>
+              <p className="text-xs text-muted-soft mt-0.5">Höchste Bildschärfe, ca. 4-5× längere Bearbeitungszeit</p>
             </div>
           </label>
         </div>

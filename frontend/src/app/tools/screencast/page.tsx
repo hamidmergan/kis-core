@@ -225,7 +225,7 @@ function ScreencastPageInner() {
     if (!translateJobUuid) return true;
     const exists = await checkJobFolderExists(translateJobUuid);
     if (!exists) {
-      goError("Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten");
+      goError("Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten");
       return false;
     }
     return true;

@@ -106,7 +106,7 @@ export default function StudentView() {
           <button
             type="submit"
             disabled={enrolling || !enrollCode.trim()}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 whitespace-nowrap bg-kb"
+            className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
           >
             {enrolling ? "…" : "Einschreiben"}
           </button>

@@ -11,7 +11,7 @@ import { computeVoiceLabel, renderProgressLabel as renderProgressLabelFn } from 
 import type { FlowAction } from "../_reducer";
 
 const RENDER_SESSION_KEY = "kis_screencast_active_render";
-const STUCK_LABEL = "Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…";
+const STUCK_LABEL = "Kein Fortschritt seit 60 Sek. - falls der Job hängt, bitte Wiederholen klicken…";
 
 interface UseScreencastRenderFlowOptions {
   // Flow state

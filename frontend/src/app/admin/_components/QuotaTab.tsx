@@ -137,7 +137,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
         {selectedUser.global_reset_at && (
           <div className="flex items-center gap-2 text-xs text-warn-strong bg-warn-bg border border-warn-border rounded-lg px-4 py-2.5">
             <span>
-              Globaler Reset aktiv — alle Tools werden zurückgesetzt ab{" "}
+              Globaler Reset aktiv - alle Tools werden zurückgesetzt ab{" "}
               {new Date(selectedUser.global_reset_at).toLocaleString("de-DE", {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -191,7 +191,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                       )}
                     </td>
                     <td className="px-4 py-3 text-muted">
-                      {def ? `${def.limit} / ${def.window_hours}h` : "–"}
+                      {def ? `${def.limit} / ${def.window_hours}h` : "-"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

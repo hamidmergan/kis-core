@@ -66,7 +66,7 @@ async def get_resume_data(translate_job_uuid: str, current_user: dict = Depends(
         try:
             slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
         except Exception:
-            raise HTTPException(status_code=404, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
+            raise HTTPException(status_code=404, detail="Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten")
     elif tool == "screencast_demo_render":
         try:
             slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))

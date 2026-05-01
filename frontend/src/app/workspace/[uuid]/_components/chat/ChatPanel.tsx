@@ -15,6 +15,7 @@ export function ChatPanel({
   sources,
   loading,
   onSend,
+  onStop,
   onPillClick,
   onClear,
   externalTextareaRef,
@@ -29,6 +30,7 @@ export function ChatPanel({
   sources: Source[];
   loading: boolean;
   onSend: (value: string) => void;
+  onStop?: () => void;
   onPillClick: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
   moduleReady: boolean;
   onClear: () => void;
@@ -182,6 +184,7 @@ export function ChatPanel({
         loading={loading}
         activeSourceIds={activeSourceIds}
         onSend={onSend}
+        onStop={onStop}
         externalTextareaRef={externalTextareaRef}
         registerSetInput={registerSetInput}
       />

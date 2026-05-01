@@ -119,7 +119,7 @@ export default function UpcomingDeadlinesWidget() {
           href="/schedule"
           onClick={(ev) => ev.stopPropagation()}
           onPointerDown={(ev) => ev.stopPropagation()}
-          className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70 transition-opacity -my-2 px-3 py-2"
+          className="inline-flex items-center gap-1 text-xs font-medium rounded-md transition-colors hover:bg-[var(--surface-dim)] -my-2 px-3 py-2"
           style={{ color: "var(--kb)" }}
         >
           Alle anzeigen
@@ -128,20 +128,22 @@ export default function UpcomingDeadlinesWidget() {
       </header>
 
       {!collapsed && (
-        <div className="p-8">
-          <ScheduleTimeline
-            entries={entries}
-            renderCard={(entry, ctx) => (
-              <ScheduleEntryCardGlobal
-                entry={entry}
-                isToday={ctx.isToday}
-                isPast={ctx.isPast}
-                urgency={ctx.urgency}
-                href={`/workspace/${entry.workspace_uuid}?tab=schedule`}
-                onToggleChecked={(checked) => handleToggleChecked(entry, checked)}
-              />
-            )}
-          />
+        <div className="p-8 overflow-x-auto">
+          <div className="min-w-[600px]">
+            <ScheduleTimeline
+              entries={entries}
+              renderCard={(entry, ctx) => (
+                <ScheduleEntryCardGlobal
+                  entry={entry}
+                  isToday={ctx.isToday}
+                  isPast={ctx.isPast}
+                  urgency={ctx.urgency}
+                  href={`/workspace/${entry.workspace_uuid}?tab=schedule`}
+                  onToggleChecked={(checked) => handleToggleChecked(entry, checked)}
+                />
+              )}
+            />
+          </div>
         </div>
       )}
     </section>

@@ -73,7 +73,7 @@ export default function ZusammenfassungPage() {
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setStallMessage("Läuft noch – umfangreiche Inhalte können einige Minuten dauern…"),
+        () => setStallMessage("Läuft noch - umfangreiche Inhalte können einige Minuten dauern…"),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));

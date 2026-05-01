@@ -23,7 +23,7 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
     except Exception:
         progress = None
 
-    # Read fingerprint from DB only — do NOT compute on demand (compute takes
+    # Read fingerprint from DB only - do NOT compute on demand (compute takes
     # 15-50s against KISSKI cold). If not cached yet, fire a background task
     # to prime it; the user's next page refresh will see the stale_workspaces.
     key = f"fingerprint_{active_embedding_provider_key()}"
@@ -35,7 +35,7 @@ async def get_maintenance(_admin=Depends(get_admin_user)):
         except Exception as e:
             logger.warning("Maintenance: stale-workspace query failed: {}", e)
     else:
-        # Prime the cache in the background — endpoint stays fast.
+        # Prime the cache in the background - endpoint stays fast.
         asyncio.create_task(asyncio.to_thread(get_cached_fingerprint))
 
     return {

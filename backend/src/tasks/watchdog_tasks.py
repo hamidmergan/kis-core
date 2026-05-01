@@ -6,10 +6,10 @@ from src.celery_app import celery_app
 from src import database as db
 
 # Jobs with no progress update for longer than this are considered stuck.
-STUCK_THRESHOLD_MINUTES = 5  # 5 minutes — the heartbeat fires every 10 s, so this is a generous safety net
+STUCK_THRESHOLD_MINUTES = 5  # 5 minutes - the heartbeat fires every 10 s, so this is a generous safety net
 
-# awaiting_user jobs older than this are considered abandoned — cleaned up for storage.
-AWAITING_USER_TIMEOUT_HOURS = 168  # 7 days — matches file retention, no slot blocked
+# awaiting_user jobs older than this are considered abandoned - cleaned up for storage.
+AWAITING_USER_TIMEOUT_HOURS = 168  # 7 days - matches file retention, no slot blocked
 
 
 @celery_app.task(name="watchdog.check")
@@ -22,7 +22,7 @@ def check_stuck_jobs() -> None:
             tool = job.get("tool", "?")
             celery_task_id = job.get("celery_task_id")
             logger.warning(
-                "Watchdog: job {} ({}) stuck since {} — terminating and marking as failed",
+                "Watchdog: job {} ({}) stuck since {} - terminating and marking as failed",
                 job_uuid, tool, last_update,
             )
             db.update_job_status(
@@ -43,7 +43,7 @@ def check_stuck_jobs() -> None:
             job_uuid = job["job_uuid"]
             tool = job.get("tool", "?")
             logger.warning(
-                "Watchdog: awaiting_user job {} ({}) timed out — marking as failed",
+                "Watchdog: awaiting_user job {} ({}) timed out - marking as failed",
                 job_uuid, tool,
             )
             db.update_job_status(

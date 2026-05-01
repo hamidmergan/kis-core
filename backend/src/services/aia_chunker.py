@@ -1,4 +1,4 @@
-"""Document chunker for KI Tutor – extracts text chunks from PDF, DOCX, PPTX, TXT, and MD files."""
+"""Document chunker for KI Tutor - extracts text chunks from PDF, DOCX, PPTX, TXT, and MD files."""
 
 import re
 
@@ -24,7 +24,7 @@ def _get_chunk_params() -> tuple[int, int]:
 
 
 def _clean(text: str) -> str:
-    """Strip NUL bytes — Postgres TEXT columns reject them."""
+    """Strip NUL bytes - Postgres TEXT columns reject them."""
     return text.replace("\x00", "") if text else text
 
 
@@ -77,7 +77,7 @@ def extract_chunks(file_path: str, file_type: str) -> list[dict]:
         return _extract_text(file_path, chunk_size, overlap)
     if ft in ("mp3", "mp4", "wav", "flac", "m4a", "webm"):
         raise ValueError(
-            "Audio/Video files must be transcribed first – use segments_to_chunks() instead."
+            "Audio/Video files must be transcribed first - use segments_to_chunks() instead."
         )
     raise ValueError(f"Unsupported file_type: {file_type!r}")
 
@@ -120,7 +120,7 @@ def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
     doc = pdfium.PdfDocument(file_path)
 
     # Lazy-init OCR provider once per PDF. None means OCR toggle is off or
-    # the configured provider couldn't be constructed — either way, skip OCR.
+    # the configured provider couldn't be constructed - either way, skip OCR.
     ocr_provider = None
     ocr_checked = False
 

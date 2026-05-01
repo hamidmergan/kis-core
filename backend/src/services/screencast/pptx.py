@@ -75,13 +75,13 @@ def _apply_autofit_for_rendering(pptx_path: Path) -> Path:
             )
             if not has_autofit:
                 continue
-            # Work directly on XML — shrink sz on all <a:rPr> elements
+            # Work directly on XML - shrink sz on all <a:rPr> elements
             for r_pr in tf._txBody.iter(qn('a:rPr')):
                 sz = r_pr.get('sz')
                 if sz:
                     r_pr.set('sz', str(int(int(sz) * 0.80)))
                 else:
-                    # No explicit size — set one based on default 1800 (18pt)
+                    # No explicit size - set one based on default 1800 (18pt)
                     r_pr.set('sz', str(int(1800 * 0.80)))
                 changed = True
             # Also shrink defRPr inside <a:pPr> (paragraph-level default)
@@ -123,11 +123,11 @@ def pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[Pa
 
     pdf_path = output_dir / f"{render_pptx.stem}.pdf"
     if not pdf_path.exists():
-        # PDF was not created — this is a real failure regardless of exit code
+        # PDF was not created - this is a real failure regardless of exit code
         logger.error("LibreOffice conversion failed (rc={}): {}", result.returncode, result.stderr[:300])
         raise RuntimeError(f"LibreOffice Konvertierung fehlgeschlagen: {result.stderr[:200]}")
     if result.returncode != 0:
-        # PDF exists despite non-zero exit — treat javaldx / Java warnings as non-fatal
+        # PDF exists despite non-zero exit - treat javaldx / Java warnings as non-fatal
         logger.warning("LibreOffice exited with rc={} but PDF was created (non-fatal): {}", result.returncode, result.stderr[:200])
 
     # Get page count via pdfinfo
@@ -141,7 +141,7 @@ def pptx_to_images(pptx_path: Path, output_dir: Path, dpi: int = 100) -> list[Pa
             break
     logger.info("PDF has {} pages, rendering in parallel", page_count)
 
-    # Convert PDF pages to PNG in parallel — one pdftoppm process per page.
+    # Convert PDF pages to PNG in parallel - one pdftoppm process per page.
     slide_prefix = str(output_dir / "slide")
 
     def _render_page(page: int) -> None:

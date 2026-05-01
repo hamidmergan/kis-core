@@ -1,14 +1,18 @@
-"""LLM-based translation client — same interface as DeepLClient."""
+"""LLM-based translation client - same interface as DeepLClient."""
 
+import random
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
-from openai import OpenAI
+from openai import APIError, OpenAI, RateLimitError
 
 
 _CHUNK_SIZE = 40
 _BATCH_PARALLELISM = 4
+_RETRY_ATTEMPTS = 3
+_RETRY_BASE_DELAY = 2.0  # seconds, exponential: 2, 4, 8 plus jitter
 
 
 _SYSTEM_PROMPT = (
@@ -72,6 +76,43 @@ class LLMTranslationClient:
     def _extra_body(self) -> dict:
         return {}
 
+    def _completion_with_retry(self, system: str, user: str) -> str:
+        """Chat completion with exponential backoff on 429 / transient API errors."""
+        last_exc: Exception | None = None
+        for attempt in range(_RETRY_ATTEMPTS):
+            try:
+                response = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    temperature=0.1,
+                    max_tokens=4096,
+                    extra_body=self._extra_body() or None,
+                )
+                return response.choices[0].message.content or ""
+            except RateLimitError as e:
+                last_exc = e
+                if attempt == _RETRY_ATTEMPTS - 1:
+                    break
+                delay = _RETRY_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1)
+                logger.warning("LLM 429 rate limit, retry {}/{} in {:.1f}s", attempt + 1, _RETRY_ATTEMPTS, delay)
+                time.sleep(delay)
+            except APIError as e:
+                # 5xx and other transient API errors
+                last_exc = e
+                status = getattr(e, "status_code", None)
+                if status is None or status < 500:
+                    raise
+                if attempt == _RETRY_ATTEMPTS - 1:
+                    break
+                delay = _RETRY_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1)
+                logger.warning("LLM {} error, retry {}/{} in {:.1f}s", status, attempt + 1, _RETRY_ATTEMPTS, delay)
+                time.sleep(delay)
+        assert last_exc is not None
+        raise last_exc
+
     def translate_text(self, text: str, source_lang: str, target_lang: str) -> str:
         if source_lang:
             instruction = f"from {source_lang} to {target_lang}"
@@ -82,17 +123,7 @@ class LLMTranslationClient:
             instruction=instruction,
             glossary=_format_glossary(self._glossary),
         )
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": text},
-            ],
-            temperature=0.1,
-            max_tokens=4096,
-            extra_body=self._extra_body() or None,
-        )
-        return response.choices[0].message.content or ""
+        return self._completion_with_retry(system, text)
 
     def _translate_chunk(self, texts: list[str], source_lang: str, target_lang: str) -> list[str]:
         """Translate a single chunk in one API call. Falls back to per-item calls on parse mismatch."""
@@ -107,17 +138,7 @@ class LLMTranslationClient:
             glossary=_format_glossary(self._glossary),
         )
 
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": numbered},
-            ],
-            temperature=0.1,
-            max_tokens=4096,
-            extra_body=self._extra_body() or None,
-        )
-        raw = response.choices[0].message.content or ""
+        raw = self._completion_with_retry(system, numbered)
 
         parts = re.split(r"^\d+\.\s+", raw, flags=re.MULTILINE)
         results = [p.rstrip("\n") for p in parts if p]
@@ -146,10 +167,10 @@ class LLMTranslationClient:
         if not texts:
             return []
 
-        if self._provider == "ollama":
-            # Small models don't reliably follow numbered list format — go straight to per-item.
+        if self._provider == "local":
+            # Small local models don't reliably follow numbered list format - go straight to per-item.
             logger.info(
-                "LLM per-item (ollama): {} texts ({} → {})",
+                "LLM per-item (local): {} texts ({} → {})",
                 len(texts), source_lang, target_lang,
             )
             return self._translate_each(texts, source_lang, target_lang)

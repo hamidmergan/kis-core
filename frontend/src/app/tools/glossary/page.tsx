@@ -255,7 +255,7 @@ export default function GlossaryPage() {
                     } ${i > 0 ? "border-t border-border-soft" : ""}`}
                     onClick={() => setSelectedId(g.id === selectedId ? null : g.id)}
                   >
-                    <BookOpen size={16} weight="regular" className="text-muted-soft shrink-0" />
+                    <BookOpen size={16} weight="bold" className="text-muted-soft shrink-0" />
                     {renamingId === g.id ? (
                       <input
                         type="text"
@@ -285,21 +285,21 @@ export default function GlossaryPage() {
                         className="p-1.5 text-muted-soft hover:text-foreground-soft transition-colors"
                         title="Umbenennen"
                       >
-                        <PencilSimple size={15} weight="regular" />
+                        <PencilSimple size={15} weight="bold" />
                       </button>
                       <button
                         onClick={() => handleExport(g.id)}
                         className="p-1.5 text-muted-soft hover:text-foreground-soft transition-colors"
                         title="Als JSON exportieren"
                       >
-                        <DownloadSimple size={15} weight="regular" />
+                        <DownloadSimple size={15} weight="bold" />
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(g.id)}
                         className="p-1.5 text-muted-soft hover:text-error transition-colors"
                         title="Löschen"
                       >
-                        <Trash size={15} weight="regular" />
+                        <Trash size={15} weight="bold" />
                       </button>
                     </div>
                   </div>

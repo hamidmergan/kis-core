@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { CaretDown, Check } from "@phosphor-icons/react";
 
 export interface SelectOption<T extends string> {
@@ -30,6 +31,7 @@ export default function Select<T extends string>({
 }: SelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState<number>(-1);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -40,10 +42,29 @@ export default function Select<T extends string>({
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (listRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    function update() {
+      const r = buttonRef.current?.getBoundingClientRect();
+      if (!r) return;
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -116,12 +137,15 @@ export default function Select<T extends string>({
           className={`flex-shrink-0 transition-transform text-muted group-hover:text-kb group-focus:text-kb ${open ? "rotate-180 text-kb" : ""}`}
         />
       </button>
-      {open && (
+      {open && pos && typeof document !== "undefined" && createPortal(
         <ul
           ref={listRef}
           role="listbox"
-          className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md py-1 text-sm"
+          className="fixed z-[100] max-h-60 overflow-y-auto rounded-md py-1 text-sm"
           style={{
+            top: pos.top,
+            left: pos.left,
+            width: pos.width,
             backgroundColor: "#fff",
             border: "1px solid var(--border)",
             boxShadow: "0 8px 24px rgba(0,40,60,0.12)",
@@ -150,7 +174,8 @@ export default function Select<T extends string>({
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

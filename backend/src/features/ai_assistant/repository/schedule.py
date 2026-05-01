@@ -1,4 +1,4 @@
-"""KI-Assistent repository — schedule entries + processed sources."""
+"""KI-Assistent repository - schedule entries + processed sources."""
 
 import json
 from datetime import date, datetime, time
@@ -280,7 +280,7 @@ def delete_all_schedule_entries(workspace_id: int, user_id: int) -> int:
 def prune_old_entries(months: int = 1) -> int:
     """System-wide cleanup: delete schedule entries (checked or not) whose
     due_date is older than N months. Future entries are never touched, even
-    if they are already checked. Idempotent — safe to call repeatedly.
+    if they are already checked. Idempotent - safe to call repeatedly.
     """
     with get_connection() as conn:
         with conn.cursor() as cur:

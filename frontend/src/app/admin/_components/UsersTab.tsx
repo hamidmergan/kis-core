@@ -115,7 +115,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                     <p className="text-xs text-muted-soft">{u.ldap_username}</p>
                   </td>
                   <td className="px-4 py-3 text-foreground-soft">
-                    {u.email ?? <span className="text-border">—</span>}
+                    {u.email ?? <span className="text-border">-</span>}
                   </td>
                   <td className="px-4 py-3">
                     {u.active ? (

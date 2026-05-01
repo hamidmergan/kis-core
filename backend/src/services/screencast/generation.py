@@ -1,4 +1,4 @@
-"""Async-Generierung: Skripte (KISSKI-Batch), TTS (ElevenLabs parallel), Bildkonvertierung."""
+"""Async generation: scripts (LLM batch), TTS (ElevenLabs parallel), image conversion."""
 
 import asyncio
 import json
@@ -9,14 +9,14 @@ from fastapi import HTTPException
 from loguru import logger
 
 from src.services.elevenlabs_client import ElevenLabsClient
-from src.services.kisski_client import KisskiClient
+from src.services.openai_compat_llm import OpenAICompatLLMClient
 from src.services.screencast.pptx import pptx_to_images
 from src.storage import get_job_file, save_job_file
 
 
 async def generate_all_scripts(
     slide_texts: list[str],
-    kisski_client: KisskiClient,
+    llm_client: OpenAICompatLLMClient,
     glossary: dict | None = None,
     add_greeting: bool = True,
     add_closing: bool = True,
@@ -27,7 +27,7 @@ async def generate_all_scripts(
 ) -> list[str]:
     try:
         scripts = await asyncio.to_thread(
-            kisski_client.generate_scripts_batch, slide_texts, glossary, add_greeting, add_closing,
+            llm_client.generate_scripts_batch, slide_texts, glossary, add_greeting, add_closing,
             min_chars=min_chars, max_chars=max_chars, source_lang=source_lang, target_lang=target_lang,
         )
         logger.info("Batch script generation completed for {} slides", len(slide_texts))
@@ -67,7 +67,7 @@ async def generate_all_tts(
     async def _tts(i: int, script_text: str) -> None:
         nonlocal counter
         if not script_text.strip():
-            # Empty slide: no audio file — create_slide_video handles None as video-only
+            # Empty slide: no audio file - create_slide_video handles None as video-only
             audio_paths[i] = None
             logger.info("Slide {}/{}: empty script, audio_path set to None", i + 1, total)
         else:
@@ -88,7 +88,7 @@ async def generate_all_tts(
                             on_slide_done(counter, total)
                     return
                 except Exception:
-                    pass  # Not saved yet — synthesize normally
+                    pass  # Not saved yet - synthesize normally
 
             async with sem:
                 # Retry transient server errors (5xx) with exponential backoff.
@@ -123,7 +123,7 @@ async def generate_all_tts(
                         if attempt < len(retry_delays) and is_transient:
                             delay = retry_delays[attempt]
                             logger.warning(
-                                "TTS failed for slide {} (attempt {}/{}): {} — retrying in {}s",
+                                "TTS failed for slide {} (attempt {}/{}): {} - retrying in {}s",
                                 i + 1, attempt + 1, len(retry_delays) + 1, e, delay,
                             )
                             await asyncio.sleep(delay)

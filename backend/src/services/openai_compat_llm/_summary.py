@@ -1,8 +1,8 @@
-"""Zusammenfassungs-Generierung (Summary-Tool) via KISSKI LLM."""
+"""Zusammenfassungs-Generierung (Summary-Tool) via the configured LLM."""
 
 from src.tool_prompts import SUMMARY_DEFAULT as _SUMMARY_DEFAULT
 
-from src.services.kisski.base import load_prompt
+from src.services.openai_compat_llm.base import load_prompt
 
 
 class _SummaryMixin:
@@ -13,7 +13,7 @@ class _SummaryMixin:
         text: str,
         output_format: str = "txt",
     ) -> str:
-        """Generate a summary of the given text using KISSKI LLM.
+        """Generate a summary of the given text using the configured LLM.
 
         Args:
             text: The extracted text to summarize.
@@ -54,4 +54,4 @@ class _SummaryMixin:
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
-            raise RuntimeError(f"KISSKI API Fehler: {e}") from e
+            raise RuntimeError(f"LLM API error: {e}") from e

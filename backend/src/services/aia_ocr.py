@@ -1,8 +1,9 @@
-"""OCR providers for KI Tutor – Vision-LLM based.
+"""OCR providers for KI Tutor - Vision-LLM based.
 
-Both KISSKI and THL myLab expose OCR via their OpenAI-compatible
-/v1/chat/completions endpoint using a Vision-LLM (e.g. nanonets-ocr2-3b on
-myLab, qwen2.5-vl on KISSKI). Image input is passed as a base64 data URL.
+OCR is delegated to an OpenAI-compatible /v1/chat/completions endpoint with a
+Vision-LLM. The same adapter works against any OpenAI-compatible vision model;
+the active deployment (model + base_url + key) is picked at runtime via the
+admin panel. Image input is passed as a base64 data URL.
 """
 
 import base64
@@ -17,7 +18,7 @@ _OCR_SYSTEM_PROMPT = (
     "appears. Preserve line breaks, headings, lists, table structure (use | for "
     "columns), and formulas. Do NOT translate, summarize, rephrase, or add "
     "commentary. If the image contains no readable text, reply with the single "
-    "word: NONE. Output plain text only — no markdown fences, no 'Here is' intro."
+    "word: NONE. Output plain text only - no markdown fences, no 'Here is' intro."
 )
 
 
@@ -55,56 +56,68 @@ def _call_vlm(client, model: str, image_bytes: bytes, mime_type: str) -> str:
     return text
 
 
-class KisskiOcrProvider(OcrProvider):
-    """OCR via KISSKI Vision-LLM (academiccloud.de)."""
+class OpenAICompatOcrProvider(OcrProvider):
+    """OCR via any OpenAI-compatible Vision-LLM endpoint.
 
-    def __init__(self) -> None:
+    Multiple deployments (KISSKI, THL myLab, etc.) are different instances of
+    this same class with their own ``base_url`` / ``api_key`` / ``model``.
+    """
+
+    def __init__(self, base_url: str, api_key: str, model: str) -> None:
         from langfuse.openai import OpenAI
-        from src.config import Settings
-        from src.services.runtime_models import get_model
-        s = Settings()
-        self._client = OpenAI(api_key=s.kisski_api_key, base_url=s.kisski_base_url)
-        self._model = get_model("kisski_ocr_model")
+        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        self._model = model
 
     def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
         return _call_vlm(self._client, self._model, image_bytes, mime_type)
 
 
-class MyLabOcrProvider(OcrProvider):
-    """OCR via THL myLab Vision-LLM (nanonets-ocr2-3b by default)."""
+# ── Factory functions per admin-panel slot ─────────────────────────────────
 
-    def __init__(self) -> None:
-        from langfuse.openai import OpenAI
-        from src.config import Settings
-        from src.services.runtime_models import get_model
-        s = Settings()
-        base = (s.mylab_base_url or "").rstrip("/")
-        if not base:
-            raise RuntimeError("MYLAB_BASE_URL nicht konfiguriert")
-        self._client = OpenAI(api_key="ignored", base_url=f"{base}/v1")
-        self._model = get_model("mylab_ocr_model")
+def _make_primary_ocr_provider() -> OpenAICompatOcrProvider:
+    """Build an OCR provider against the primary slot (today: KISSKI Vision-LLM)."""
+    from src.config import Settings
+    from src.services.runtime_models import get_model
+    s = Settings()
+    return OpenAICompatOcrProvider(
+        base_url=s.primary_provider_base_url,
+        api_key=s.primary_provider_api_key,
+        model=get_model("primary_ocr_model"),
+    )
 
-    def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
-        return _call_vlm(self._client, self._model, image_bytes, mime_type)
+
+def _make_fallback_ocr_provider() -> OpenAICompatOcrProvider:
+    """Build an OCR provider against the fallback slot (today: THL myLab Vision-LLM)."""
+    from src.config import Settings
+    from src.services.runtime_models import get_model
+    s = Settings()
+    base = (s.fallback_provider_base_url or "").rstrip("/")
+    if not base:
+        raise RuntimeError("Fallback OCR base URL not configured")
+    return OpenAICompatOcrProvider(
+        base_url=f"{base}/v1",
+        api_key="ignored",
+        model=get_model("fallback_ocr_model"),
+    )
 
 
 def get_ocr_provider() -> Optional[OcrProvider]:
     """Return the currently-active OCR provider, or None if OCR is disabled.
 
-    Priority (matches the admin UI label 'KISSKI = primär, THL myLab = Fallback'):
-      1. kisski_ocr_enabled (default true)  → KisskiOcrProvider
-      2. mylab_ocr_enabled  (default false) → MyLabOcrProvider (fallback)
+    Priority order is configured via the admin panel:
+      1. ``primary_ocr_enabled``  (default true)  → primary OCR provider
+      2. ``fallback_ocr_enabled`` (default false) → fallback OCR provider
       otherwise → None
     """
     from src import database as db
-    if db.get_setting("kisski_ocr_enabled", "true").lower() == "true":
+    if db.get_setting("primary_ocr_enabled", "true").lower() == "true":
         try:
-            return KisskiOcrProvider()
+            return _make_primary_ocr_provider()
         except Exception as e:
-            logger.warning("KISSKI OCR init failed: {}", e)
-    if db.get_setting("mylab_ocr_enabled", "false").lower() == "true":
+            logger.warning("Primary OCR init failed: {}", e)
+    if db.get_setting("fallback_ocr_enabled", "false").lower() == "true":
         try:
-            return MyLabOcrProvider()
+            return _make_fallback_ocr_provider()
         except Exception as e:
-            logger.warning("MyLab OCR init failed: {}", e)
+            logger.warning("Fallback OCR init failed: {}", e)
     return None

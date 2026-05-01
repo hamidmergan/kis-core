@@ -27,7 +27,7 @@ export function UploadErrorsBlock({
         <button
           type="button"
           onClick={onDismiss}
-          className="hover:opacity-70 flex-shrink-0"
+          className="hover:text-kb transition-colors flex-shrink-0"
           aria-label="Schließen"
         >
           ×

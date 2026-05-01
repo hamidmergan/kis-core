@@ -32,13 +32,10 @@ _LANG_LABELS = {
 async def get_translate_config(current_user: dict = Depends(get_current_user)):
     settings = get_settings()
 
-    from src.dependencies import _resolve_llm_provider
-    _, _, _llm_model, _ = _resolve_llm_provider()
     providers = [
-        {"id": "deepl", "label": "DeepL Übersetzer (schnell)"},
+        {"id": "deepl", "label": "DeepL (schnell)"},
+        {"id": "llm", "label": "LLM (langsam)"},
     ]
-    if is_admin_user(current_user):
-        providers.append({"id": "llm", "label": f"LLM {_llm_model} (langsam, experimentell)"})
 
     raw_langs = [lang.strip() for lang in settings.translation_languages.split(",") if lang.strip()]
     languages = [{"id": lang, "label": _LANG_LABELS.get(lang, lang)} for lang in raw_langs]
@@ -59,7 +56,7 @@ def translate_pptx_content(
     source_lang: str = "",
     target_lang: str = "",
 ) -> bytes:
-    """Synchronous PPTX translation helper — used by screencast.py."""
+    """Synchronous PPTX translation helper - used by screencast.py."""
     import json
     from src.services.deepl_client import DeepLClient
     from src.services.glossary import GlossaryService
@@ -103,9 +100,6 @@ async def translate(
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Dateiname fehlt")
-
-    if translation_provider == "llm" and not is_admin_user(current_user):
-        raise HTTPException(status_code=403, detail="LLM-Provider ist nur für Admins verfügbar")
 
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:

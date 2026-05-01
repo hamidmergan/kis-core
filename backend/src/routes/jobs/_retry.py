@@ -1,4 +1,4 @@
-"""POST /jobs/{job_uuid}/retry — failed TTS/Screencast-Jobs wieder einreihen (ohne Doppelkosten)."""
+"""POST /jobs/{job_uuid}/retry - failed TTS/Screencast-Jobs wieder einreihen (ohne Doppelkosten)."""
 
 import json
 
@@ -18,7 +18,7 @@ async def retry_job(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
 ):
-    """Re-queue a failed TTS job. Resumes from already-saved chunks — no double payment."""
+    """Re-queue a failed TTS job. Resumes from already-saved chunks - no double payment."""
     job = db.get_job(job_uuid)
     if not job:
         raise HTTPException(status_code=404, detail="Job nicht gefunden")
@@ -36,14 +36,14 @@ async def retry_job(
             raise HTTPException(status_code=400, detail="Eingabedatei nicht mehr vorhanden (abgelaufen)")
         params = progress.get("tts_params")
         if not params:
-            raise HTTPException(status_code=400, detail="Job-Parameter nicht gespeichert — bitte neuen Job starten")
+            raise HTTPException(status_code=400, detail="Job-Parameter nicht gespeichert - bitte neuen Job starten")
 
     elif job["tool"] in ("screencast_translate", "screencast_render"):
         try:
             render_params = json.loads(get_job_file(job["user_id"], job_uuid, "render_params.json"))
             scripts = json.loads(get_job_file(job["user_id"], job_uuid, "render_scripts.json"))
         except Exception:
-            raise HTTPException(status_code=400, detail="Render-Parameter nicht mehr vorhanden — bitte neuen Screencast starten")
+            raise HTTPException(status_code=400, detail="Render-Parameter nicht mehr vorhanden - bitte neuen Screencast starten")
 
     else:  # screencast_demo_render
         try:
@@ -52,7 +52,7 @@ async def retry_job(
             raise HTTPException(status_code=400, detail="Demo-Parameter nicht mehr vorhanden (abgelaufen)")
 
     if job["tool"] == "tts":
-        # Atomically claim the job — blocks parallel retries
+        # Atomically claim the job - blocks parallel retries
         if not db.claim_job_for_retry(job_uuid):
             raise HTTPException(status_code=409, detail="Job läuft bereits (parallel gestartet)")
 

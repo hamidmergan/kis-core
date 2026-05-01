@@ -1,7 +1,7 @@
 """Per-user rate limiting / quota enforcement.
 
 Each tool has its own independent counter. Counters reset 4 hours after
-the limit is first hit (staggered reset — no thundering herd).
+the limit is first hit (staggered reset - no thundering herd).
 
 Admin users bypass all checks entirely.
 """
@@ -138,7 +138,7 @@ def enforce_quota(user_id: int, quota_type: str, is_admin: bool) -> None:
     """Check quota and raise HTTP 429 if the limit is exceeded.
 
     Call this before create_job() in each route handler.
-    Retry jobs do NOT call this — quota was consumed at original submission.
+    Retry jobs do NOT call this - quota was consumed at original submission.
     """
     result = check_and_consume_quota(user_id, quota_type, is_admin)
     if not result["allowed"]:

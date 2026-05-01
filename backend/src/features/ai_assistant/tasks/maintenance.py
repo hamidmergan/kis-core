@@ -1,4 +1,4 @@
-"""KI-Assistent Celery tasks — reindex all sources."""
+"""KI-Assistent Celery tasks - reindex all sources."""
 
 import concurrent.futures
 import os
@@ -48,7 +48,7 @@ def run_reindex_all_sources(self):
     """Re-embed all existing KI-Assistent chunks with the current embedding provider.
 
     Triggered by admin after an embedding-model change. Preserves source UUIDs,
-    file paths, chunk IDs and page numbers — so chips/notes/tools stay intact.
+    file paths, chunk IDs and page numbers - so chips/notes/tools stay intact.
     Only the embedding vectors are replaced. Paragraph summaries are untouched
     (LLM-generated, not embedding-dependent).
     """

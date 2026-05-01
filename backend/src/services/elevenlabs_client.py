@@ -5,7 +5,7 @@ import re
 import httpx
 
 # Default voice
-DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb"  # Brian – EN, deep, professional narration
+DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb"  # Brian - EN, deep, professional narration
 
 # TTS model - alternatives:
 # "eleven_turbo_v2_5"     -> Turbo, fast, slightly lower quality (currently used)
@@ -25,7 +25,7 @@ _DEFAULT_SPEED = 0.90
 _DEFAULT_SPEAKER_BOOST = True
 
 # Pause presets: paragraph break durations only.
-# ElevenLabs handles sentence pauses naturally — adding explicit
+# ElevenLabs handles sentence pauses naturally - adding explicit
 # sentence <break> tags causes progressive volume reduction.
 PAUSE_PRESETS = {
     "short": 0.5,
@@ -62,7 +62,7 @@ def _split_text(text: str, max_chars: int = _CHUNK_SIZE) -> list[str]:
                 break
 
         if split_at == -1:
-            # No sentence end in window — hard cut at 5200
+            # No sentence end in window - hard cut at 5200
             split_at = _CHUNK_MAX
 
         chunks.append(remaining[:split_at])
@@ -114,10 +114,10 @@ class ElevenLabsClient:
         Args:
             text: The text to synthesize.
             language: 'EN' (only English supported).
-            speed: Speech speed (0.7 – 1.2, default 0.9).
-            stability: Voice stability (0 – 1, default 0.70).
-            similarity_boost: Clarity / similarity (0 – 1, default 0.60).
-            style: Style exaggeration (0 – 1, default 0.20).
+            speed: Speech speed (0.7 - 1.2, default 0.9).
+            stability: Voice stability (0 - 1, default 0.70).
+            similarity_boost: Clarity / similarity (0 - 1, default 0.60).
+            style: Style exaggeration (0 - 1, default 0.20).
             use_speaker_boost: Boost speaker similarity (default True).
             pause_preset: 'short', 'medium', 'long', or 'very_long'.
 

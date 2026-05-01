@@ -1,4 +1,4 @@
-"""KI-Assistent routes — messages + user settings."""
+"""KI-Assistent routes - messages + user settings."""
 
 import io
 import json
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client
+from src.dependencies import get_current_user, get_llm_client
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -33,7 +33,7 @@ from src.tool_prompts import (
 )
 
 from src.features.ai_assistant.routes._helpers import (
-    _trace_kisski,
+    _trace_llm,
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
@@ -95,6 +95,7 @@ async def get_messages(
             "content": m["content"],
             "source_pages": m["source_pages"],
             "source_qmap": m.get("source_qmap"),
+            "aborted": bool(m.get("aborted")),
             "created_at": m["created_at"].isoformat() + "Z" if m["created_at"] else None,
         }
         for m in messages

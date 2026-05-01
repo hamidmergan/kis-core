@@ -51,10 +51,10 @@ function ProviderToggle({
   const statusText = !configured
     ? "Nicht konfiguriert."
     : !enabled
-      ? "Deaktiviert — wird nicht angezeigt."
+      ? "Deaktiviert - wird nicht angezeigt."
       : available === false
-        ? "Aktiviert — Server nicht erreichbar."
-        : "Aktiv — als Anbieter wählbar.";
+        ? "Aktiviert - Server nicht erreichbar."
+        : "Aktiv - als Anbieter wählbar.";
   const [draft, setDraft] = React.useState(modelValue ?? "");
   React.useEffect(() => { setDraft(modelValue ?? ""); }, [modelValue]);
   const commit = () => {
@@ -158,8 +158,8 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
     }
   };
 
-  const EMBEDDING_KEYS = ["kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled"];
-  const LLM_KEYS = ["kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled"];
+  const EMBEDDING_KEYS = ["primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled"];
+  const LLM_KEYS = ["primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled"];
   const RADIO_GROUPS: Record<string, string[]> = {
     embedding: EMBEDDING_KEYS,
     llm: LLM_KEYS,
@@ -213,8 +213,8 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
           </ProviderSection>
 
           <ProviderSection title="Transkription (Sprache in Text)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
-            <P label="KISSKI (Whisper)" settingKey="kisski_whisper_enabled" enabled={s.kisski_whisper_enabled ?? true} configured={s.kisski_whisper_configured ?? false} envHint="KISSKI_API_KEY" />
-            <P label="THL myLab (Whisper-3-large)" settingKey="mylab_whisper_enabled" enabled={s.mylab_whisper_enabled ?? false} configured={s.mylab_whisper_configured ?? false} available={s.mylab_whisper_available} envHint="MYLAB_BASE_URL" />
+            <P label="KISSKI (Whisper)" settingKey="primary_whisper_enabled" enabled={s.primary_whisper_enabled ?? true} configured={s.primary_whisper_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
+            <P label="THL myLab (Whisper-3-large)" settingKey="fallback_whisper_enabled" enabled={s.fallback_whisper_enabled ?? false} configured={s.fallback_whisper_configured ?? false} available={s.fallback_whisper_available} envHint="FALLBACK_PROVIDER_BASE_URL" />
           </ProviderSection>
 
           <ProviderSection title="Transkript-Übersetzung (EN)" hint="Übersetzung deutscher Video-/Audio-Transkripte ins Englische. Betrifft aktuell nur den KI-Assistenten.">
@@ -261,32 +261,32 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
       {section === "images" && (
         <>
           <ProviderSection title="Bild-Generierung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
-            <P label="KISSKI (Flux)" settingKey="kisski_image_gen_enabled" enabled={s.kisski_image_gen_enabled ?? true} configured={s.kisski_image_gen_configured ?? false} envHint="KISSKI_API_KEY" />
-            <P label="THL myLab" settingKey="mylab_image_gen_enabled" enabled={s.mylab_image_gen_enabled ?? false} configured={s.mylab_image_gen_configured ?? false} available={s.mylab_image_gen_available} envHint="MYLAB_BASE_URL" modelKey="mylab_image_gen_model" />
+            <P label="KISSKI (Flux)" settingKey="primary_image_gen_enabled" enabled={s.primary_image_gen_enabled ?? true} configured={s.primary_image_gen_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
+            <P label="THL myLab" settingKey="fallback_image_gen_enabled" enabled={s.fallback_image_gen_enabled ?? false} configured={s.fallback_image_gen_configured ?? false} available={s.fallback_image_gen_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_gen_model" />
           </ProviderSection>
 
           <ProviderSection title="Bild-Analyse" hint="Nur KISSKI verfuegbar (THL myLab hat kein Vision-Modell).">
-            <P label="KISSKI (qwen3-omni)" settingKey="kisski_image_analyze_enabled" enabled={s.kisski_image_analyze_enabled ?? true} configured={s.kisski_image_analyze_configured ?? false} envHint="KISSKI_API_KEY" />
+            <P label="KISSKI (qwen3-omni)" settingKey="primary_image_analyze_enabled" enabled={s.primary_image_analyze_enabled ?? true} configured={s.primary_image_analyze_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
           </ProviderSection>
 
           <ProviderSection title="Bild-Bearbeitung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
-            <P label="KISSKI (Flux)" settingKey="kisski_image_edit_enabled" enabled={s.kisski_image_edit_enabled ?? true} configured={s.kisski_image_edit_configured ?? false} envHint="KISSKI_API_KEY" />
-            <P label="THL myLab" settingKey="mylab_image_edit_enabled" enabled={s.mylab_image_edit_enabled ?? false} configured={s.mylab_image_edit_configured ?? false} available={s.mylab_image_edit_available} envHint="MYLAB_BASE_URL" modelKey="mylab_image_edit_model" />
+            <P label="KISSKI (Flux)" settingKey="primary_image_edit_enabled" enabled={s.primary_image_edit_enabled ?? true} configured={s.primary_image_edit_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
+            <P label="THL myLab" settingKey="fallback_image_edit_enabled" enabled={s.fallback_image_edit_enabled ?? false} configured={s.fallback_image_edit_configured ?? false} available={s.fallback_image_edit_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_edit_model" />
           </ProviderSection>
 
           <ProviderSection title="OCR (Texterkennung)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
-            <P label="KISSKI" settingKey="kisski_ocr_enabled" enabled={s.kisski_ocr_enabled ?? true} configured={s.kisski_ocr_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_ocr_model" />
-            <P label="THL myLab" settingKey="mylab_ocr_enabled" enabled={s.mylab_ocr_enabled ?? false} configured={s.mylab_ocr_configured ?? false} available={s.mylab_ocr_available} envHint="MYLAB_BASE_URL" modelKey="mylab_ocr_model" />
+            <P label="KISSKI" settingKey="primary_ocr_enabled" enabled={s.primary_ocr_enabled ?? true} configured={s.primary_ocr_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_ocr_model" />
+            <P label="THL myLab" settingKey="fallback_ocr_enabled" enabled={s.fallback_ocr_enabled ?? false} configured={s.fallback_ocr_configured ?? false} available={s.fallback_ocr_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_ocr_model" />
           </ProviderSection>
         </>
       )}
 
       {section === "embedding" && (
         <>
-          <ProviderSection title="Embeddings (KI-Assistent)" hint="Nur ein Anbieter gleichzeitig — Wechsel erfordert Reindex (siehe unten).">
-            <P label="KISSKI" settingKey="kisski_embedding_enabled" enabled={s.kisski_embedding_enabled ?? true} configured={s.kisski_embedding_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_embedding_model" />
-            <P label="THL myLab" settingKey="mylab_embedding_enabled" enabled={s.mylab_embedding_enabled ?? false} configured={s.mylab_embedding_configured ?? false} available={s.mylab_embedding_available} envHint="MYLAB_BASE_URL" modelKey="mylab_embedding_model" />
-            <P label="Ollama (lokal)" settingKey="ollama_embedding_enabled" enabled={s.ollama_embedding_enabled ?? false} configured={s.ollama_embedding_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_embedding_model" />
+          <ProviderSection title="Embeddings (KI-Assistent)" hint="Nur ein Anbieter gleichzeitig - Wechsel erfordert Reindex (siehe unten).">
+            <P label="KISSKI" settingKey="primary_embedding_enabled" enabled={s.primary_embedding_enabled ?? true} configured={s.primary_embedding_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_embedding_model" />
+            <P label="THL myLab" settingKey="fallback_embedding_enabled" enabled={s.fallback_embedding_enabled ?? false} configured={s.fallback_embedding_configured ?? false} available={s.fallback_embedding_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_embedding_model" />
+            <P label="Ollama (lokal)" settingKey="local_embedding_enabled" enabled={s.local_embedding_enabled ?? false} configured={s.local_embedding_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_embedding_model" />
           </ProviderSection>
 
           <ReindexCard />
@@ -294,11 +294,47 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
       )}
 
       {section === "llm" && (
-        <ProviderSection title="LLM Chat" hint="Nur ein Anbieter gleichzeitig. Wechsel wirkt sofort fuer alle LLM-Calls (Chat, Mindmap, Summary, Skript).">
-          <P label="KISSKI" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_llm_model" />
-          <P label="THL myLab" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" modelKey="mylab_llm_model" />
-          <P label="Ollama (lokal)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_llm_model" />
-        </ProviderSection>
+        <>
+          <ProviderSection title="LLM Chat" hint="Nur ein Anbieter gleichzeitig. Wechsel wirkt sofort fuer alle LLM-Calls (Chat, Mindmap, Summary, Skript).">
+            <P label="KISSKI" settingKey="primary_llm_enabled" enabled={s.primary_llm_enabled ?? true} configured={s.primary_llm_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_llm_model" />
+            <P label="THL myLab" settingKey="fallback_llm_enabled" enabled={s.fallback_llm_enabled ?? false} configured={s.fallback_llm_configured ?? false} available={s.fallback_llm_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_llm_model" />
+            <P label="Ollama (lokal)" settingKey="local_llm_enabled" enabled={s.local_llm_enabled ?? false} configured={s.local_llm_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_llm_model" />
+          </ProviderSection>
+
+          <ProviderSection title="LLM-Übersetzung (/translate)" hint="Optionaler Provider+Modell-Override nur für Datei-Übersetzung. Keiner aktiv = nutzt das aktive LLM oben.">
+            {(() => {
+              const tProvider: string = s.translation_llm_provider ?? "";
+              const toggleProvider = async (target: "primary" | "fallback" | "local", on: boolean) => {
+                const next = on ? target : "";
+                setS((prev) => (prev ? { ...prev, translation_llm_provider: next } : prev));
+                await patch({ translation_llm_provider: next });
+              };
+              const T = ({ label, target, configured, modelKey, envHint }: {
+                label: string; target: "primary" | "fallback" | "local"; configured: boolean; modelKey: string; envHint: string;
+              }) => (
+                <ProviderToggle
+                  label={label}
+                  enabled={tProvider === target}
+                  configured={configured}
+                  envHint={envHint}
+                  saving={saving}
+                  settingKey={`translation_llm_provider:${target}`}
+                  onToggle={(_k, val) => toggleProvider(target, val)}
+                  modelKey={modelKey}
+                  modelValue={models[modelKey]}
+                  onModelChange={setModel}
+                />
+              );
+              return (
+                <>
+                  <T label="KISSKI" target="primary" configured={s.primary_llm_configured ?? false} modelKey="translation_primary_model" envHint="PRIMARY_PROVIDER_API_KEY" />
+                  <T label="THL myLab" target="fallback" configured={s.fallback_llm_configured ?? false} modelKey="translation_fallback_model" envHint="FALLBACK_PROVIDER_BASE_URL" />
+                  <T label="Ollama (lokal)" target="local" configured={s.local_llm_configured ?? false} modelKey="translation_local_model" envHint="LOCAL_PROVIDER_BASE_URL" />
+                </>
+              );
+            })()}
+          </ProviderSection>
+        </>
       )}
     </div>
   );
@@ -340,8 +376,8 @@ function WhitelistCard() {
           <p className="text-sm font-medium text-foreground">Whitelist-Modus</p>
           <p className="text-xs text-muted mt-1">
             {enabled
-              ? "Aktiv — nur freigeschaltete E-Mail-Adressen dürfen sich einloggen."
-              : "Deaktiviert — alle authentifizierten TH-Accounts haben Zugang."}
+              ? "Aktiv - nur freigeschaltete E-Mail-Adressen dürfen sich einloggen."
+              : "Deaktiviert - alle authentifizierten TH-Accounts haben Zugang."}
           </p>
         </div>
         <button
@@ -416,8 +452,8 @@ function MaintenanceCard() {
           <p className="text-sm font-medium text-foreground">Wartungsmodus</p>
           <p className="text-xs text-muted mt-1">
             {enabled
-              ? "Aktiv — alle Nicht-Admin-Anfragen erhalten eine Wartungsseite."
-              : "Deaktiviert — App ist normal nutzbar."}
+              ? "Aktiv - alle Nicht-Admin-Anfragen erhalten eine Wartungsseite."
+              : "Deaktiviert - App ist normal nutzbar."}
           </p>
         </div>
         <button
@@ -512,7 +548,7 @@ function ReindexCard() {
             {staleModules.map((m) => (
               <li key={m.uuid}>
                 <span className="font-medium">{m.title}</span>
-                {m.owner && <span className="text-warn-strong"> — {m.owner}</span>}
+                {m.owner && <span className="text-warn-strong"> - {m.owner}</span>}
               </li>
             ))}
           </ul>
@@ -536,7 +572,7 @@ function ReindexCard() {
             <div className="h-full bg-kb transition-all" style={{ width: `${pct}%` }} />
           </div>
           {progress.failed > 0 && (
-            <p className="text-xs text-error">{progress.failed} Fehler — siehe Backend-Logs.</p>
+            <p className="text-xs text-error">{progress.failed} Fehler - siehe Backend-Logs.</p>
           )}
         </div>
       ) : (
@@ -601,8 +637,8 @@ function MascotCard() {
           <p className="text-sm font-medium text-foreground">Hilde-Maskottchen</p>
           <p className="text-xs text-muted mt-1">
             {enabled
-              ? "Aktiv — die Eulen-Begleiterin wird systemweit angezeigt; jeder Nutzer kann sie für sich abschalten."
-              : "Deaktiviert — Hilde wird nirgendwo angezeigt, der Nutzer-Toggle in den KI-Assistent-Einstellungen ist ausgeblendet."}
+              ? "Aktiv - die Eulen-Begleiterin wird systemweit angezeigt; jeder Nutzer kann sie für sich abschalten."
+              : "Deaktiviert - Hilde wird nirgendwo angezeigt, der Nutzer-Toggle in den KI-Assistent-Einstellungen ist ausgeblendet."}
           </p>
         </div>
         <button

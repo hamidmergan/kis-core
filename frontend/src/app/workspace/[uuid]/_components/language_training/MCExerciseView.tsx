@@ -192,10 +192,8 @@ export function MCExerciseView({
                       return (
                         <button key={oi} type="button" onClick={() => select(oi)}
                           disabled={answered}
-                          className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${!answered ? "active:scale-[0.98] cursor-pointer" : ""}`}
-                          style={{ border: `2px solid ${borderColor}`, backgroundColor: bg, color: "var(--foreground)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}
-                          onMouseEnter={(e) => { if (!answered) { e.currentTarget.style.borderColor = "var(--kb)"; } }}
-                          onMouseLeave={(e) => { if (!answered) { e.currentTarget.style.borderColor = borderColor; } }}>
+                          className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border-2 transition-colors enabled:hover:border-kb ${!answered ? "active:scale-[0.98] cursor-pointer" : ""}`}
+                          style={{ borderColor, backgroundColor: bg, color: "var(--foreground)", opacity: answered && !isThis && !isRight ? 0.45 : 1 }}>
                           <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                             style={{ backgroundColor: dotBg, color: dotColor }}>
                             {String.fromCharCode(65 + oi)}

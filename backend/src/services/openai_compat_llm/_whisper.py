@@ -6,7 +6,7 @@ import time
 from langfuse.decorators import langfuse_context, observe
 from loguru import logger
 
-from src.services.kisski.base import clean_whisper_response, is_transient_error
+from src.services.openai_compat_llm.base import clean_whisper_response, is_transient_error
 
 
 class _WhisperMixin:
@@ -14,7 +14,7 @@ class _WhisperMixin:
 
     @observe(name="whisper-transcribe")
     def transcribe(self, file_path: str, response_format: str = "text") -> str:
-        """Transcribe audio in its original language using KISSKI Whisper."""
+        """Transcribe audio in its original language via the OpenAI-compat Whisper endpoint."""
         langfuse_context.update_current_observation(
             metadata={"provider": self._provider, "base_url": self._base_url, "model": self._whisper_model},
         )
@@ -35,7 +35,7 @@ class _WhisperMixin:
 
     @observe(name="whisper-translate")
     def transcribe_and_translate(self, file_path: str, response_format: str = "text") -> str:
-        """Transcribe audio and translate to English using KISSKI Whisper."""
+        """Transcribe audio and translate to English via the OpenAI-compat Whisper endpoint."""
         langfuse_context.update_current_observation(
             metadata={"provider": self._provider, "base_url": self._base_url, "model": self._whisper_model},
         )
@@ -89,13 +89,13 @@ class _WhisperMixin:
                     wait = backoffs[attempt]
                     mode = "translate" if translate else "transcribe"
                     logger.warning(
-                        "KISSKI Whisper {} verbose_json error (attempt {}/{}): {} – retrying in {}s",
+                        "Whisper {} verbose_json error (attempt {}/{}): {} - retrying in {}s",
                         mode, attempt + 1, len(backoffs) + 1, e, wait,
                     )
                     time.sleep(wait)
                     continue
                 break
-        raise RuntimeError(f"KISSKI Whisper verbose_json error: {last_err}") from last_err
+        raise RuntimeError(f"Whisper verbose_json error: {last_err}") from last_err
 
     def transcribe_verbose(self, file_path: str) -> tuple[list[dict], str]:
         """Transcribe audio in source language. Returns ``(segments, language)``."""

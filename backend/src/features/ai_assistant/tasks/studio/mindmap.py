@@ -169,7 +169,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
 # NotebookLM-inspired slide prompt: clean, statement-driven, icon-aware layouts
 _PRES_PROMPT = (
     "Du erstellst eine professionelle Präsentation im Stil von Google NotebookLM: clean, modern, viel Whitespace, "
-    "große fette Aussagesätze als Titel (KEINE generischen Titel wie 'Überblick' — stattdessen 'Warum dieses Projekt den Unterschied macht.').\n\n"
+    "große fette Aussagesätze als Titel (KEINE generischen Titel wie 'Überblick' - stattdessen 'Warum dieses Projekt den Unterschied macht.').\n\n"
     "Antworte NUR mit JSON:\n"
     "{\n"
     '  "title": "Präsentationstitel",\n'
@@ -209,8 +209,8 @@ _PRES_PROMPT = (
     "Regeln:\n"
     "- {slide_count} Folien (inkl. Deckblatt + Abschluss)\n"
     "- Titel sind IMMER vollständige Aussagesätze mit Punkt am Ende.\n"
-    "- Mische die Layouts — NICHT nur 'content' Folien!\n"
-    "- STICHPUNKTE statt Fließtext — max 6-8 Wörter pro Bullet. Keine ganzen Sätze in Bullets.\n"
+    "- Mische die Layouts - NICHT nur 'content' Folien!\n"
+    "- STICHPUNKTE statt Fließtext - max 6-8 Wörter pro Bullet. Keine ganzen Sätze in Bullets.\n"
     "- Max 5-6 Bullets pro Content-Folie. Lieber eine Folie mehr als zu viele Punkte.\n"
     "- Verwende kapitel-Folien um größere Abschnitte zu markieren.\n"
     "- icon_grid für Übersichten mit 4 gleichwertigen Punkten.\n"
@@ -221,7 +221,7 @@ _PRES_PROMPT = (
     "- zweispalten für Gegenüberstellungen oder parallele Informationen.\n"
     "- Erste Folie IMMER 'deckblatt', letzte IMMER 'abschluss'.\n"
     "- image_prompt: Nur bei deckblatt und content. Englisch. Stil: 'flat vector illustration, people in modern setting, warm muted colors, white background, no text'. Max 3 Bilder total.\n"
-    "- Texte EXAKT aus der Source — keine Umformulierungen, keine Rechtschreibfehler.\n"
+    "- Texte EXAKT aus der Source - keine Umformulierungen, keine Rechtschreibfehler.\n"
     "- Sprache = Sprache der Source.\n"
     "- Antworte NUR mit JSON."
 )

@@ -18,7 +18,7 @@ PROMPT_REGISTRY = [
     {
         "key": "prompt_script_batch",
         "label": "Screencast-Skripte (Batch-Modus)",
-        "description": "Wird im Auto-Modus für parallele Batch-Verarbeitung genutzt. Enthält strukturelle Trennzeichen (|||) die der Parser erwartet – nicht editierbar.",
+        "description": "Wird im Auto-Modus für parallele Batch-Verarbeitung genutzt. Enthält strukturelle Trennzeichen (|||) die der Parser erwartet - nicht editierbar.",
         "editable": False,
         "default": _PROMPT_SCRIPT_BATCH_PREVIEW,
     },
@@ -32,7 +32,7 @@ PROMPT_REGISTRY = [
     {
         "key": "prompt_summary",
         "label": "Zusammenfassung",
-        "description": "Wird vom Zusammenfassungs-Tool verwendet. Platzhalter {format} wird zur Laufzeit durch die gewählte Ausgabeformat-Anweisung ersetzt – nicht entfernen.",
+        "description": "Wird vom Zusammenfassungs-Tool verwendet. Platzhalter {format} wird zur Laufzeit durch die gewählte Ausgabeformat-Anweisung ersetzt - nicht entfernen.",
         "editable": False,
         "default": _PROMPT_SUMMARY_DEFAULT,
     },

@@ -28,6 +28,11 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
 
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
   const chatSetInputRef = useRef<((v: string) => void) | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const stopChat = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   const registerChatSetInput = useCallback((setter: ((v: string) => void) | null) => {
     chatSetInputRef.current = setter;
@@ -76,11 +81,15 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         return updated;
       });
 
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
+
     try {
       const res = await fetch(`/api/ai-assistant-stream/${uuid}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        signal: ac.signal,
         body: JSON.stringify({
           question: content.trim(),
           active_source_ids: directText ? [] : effectiveSourceIds,
@@ -163,8 +172,15 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
       }
     } catch {
-      updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
+      // AbortController-triggered cancel: keep partial text + flag aborted.
+      // Other errors (network drop, parse fail) overwrite with generic error text.
+      if (ac.signal.aborted) {
+        updateLast({ aborted: true });
+      } else {
+        updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
+      }
     } finally {
+      if (abortControllerRef.current === ac) abortControllerRef.current = null;
       setChatLoading(false);
     }
   }, [uuid, enrollmentId, selectedSourceIds, viewerSource]);
@@ -179,6 +195,6 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
     popupActions, setPopupActions,
     chatTextareaRef, chatSetInputRef,
     registerChatSetInput,
-    loadMessages, sendChatMessage,
+    loadMessages, sendChatMessage, stopChat,
   };
 }

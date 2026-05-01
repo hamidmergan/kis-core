@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CaretDown, CaretUp, Check, Copy, NotePencil } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, Check, Copy, NotePencil, Stop } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Hilde, { type HildeState } from "@/components/ui/Hilde";
 import { _embedQmapIntoCitations, _getChipIcon } from "../../_utils";
@@ -135,7 +135,7 @@ function ChatMessageImpl({
               : { backgroundColor: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)", borderTopLeftRadius: 6, overflowWrap: "break-word" }
           }
         >
-          {msg.role === "assistant" && !msg.content ? (
+          {msg.role === "assistant" && !msg.content && !msg.aborted ? (
             <span className="inline-flex items-center gap-2">
               <span className="inline-flex gap-1">
                 {[0, 1, 2].map((n) => (
@@ -146,6 +146,10 @@ function ChatMessageImpl({
                   />
                 ))}
               </span>
+            </span>
+          ) : msg.role === "assistant" && !msg.content && msg.aborted ? (
+            <span className="text-xs italic" style={{ color: "var(--muted)" }}>
+              (keine Antwort)
             </span>
           ) : msg.role === "assistant" ? (
             <ReactMarkdown
@@ -194,6 +198,13 @@ function ChatMessageImpl({
             </>
           )}
         </div>
+
+        {msg.role === "assistant" && msg.aborted && (
+          <div className="flex items-center gap-1 mt-1 text-xs" style={{ color: "var(--muted)" }}>
+            <Stop size={11} weight="bold" />
+            <span>Abgebrochen</span>
+          </div>
+        )}
 
         {msg.role === "assistant" && msgQmap.length > 0 ? (
           <div className="mt-1 self-stretch">

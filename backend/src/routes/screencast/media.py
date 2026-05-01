@@ -19,7 +19,7 @@ router = APIRouter(tags=["screencast: media"])
 
 @router.get("/screencast/{job_uuid}/images")
 async def get_job_slide_images(job_uuid: str, current_user: dict = Depends(get_current_user)):
-    """Return slide images (base64) for a translate/demo job — rendered from saved PPTX."""
+    """Return slide images (base64) for a translate/demo job - rendered from saved PPTX."""
     if not re.match(r"^[a-f0-9]{32}$", job_uuid):
         raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
     job = db.get_job(job_uuid)

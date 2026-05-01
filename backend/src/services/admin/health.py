@@ -77,15 +77,15 @@ def check_mylab_available(settings) -> bool:
         return False
 
     def _do():
-        from src.services.mylab_client import MyLabClient
-        return MyLabClient(settings.mylab_tts_base_url).is_available()
+        from src.services.openai_compat_tts import OpenAICompatTTSClient
+        return OpenAICompatTTSClient(settings.mylab_tts_base_url).is_available()
 
     return _cached_check(f"mylab_tts:{settings.mylab_tts_base_url}", _do)
 
 
 def check_mylab_base_available(settings) -> bool:
     """Prüft ob die myLab-Plattform erreichbar ist (für Whisper, Image, Embeddings, OCR)."""
-    url = settings.mylab_base_url or settings.mylab_tts_base_url
+    url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
     if not url:
         return False
 

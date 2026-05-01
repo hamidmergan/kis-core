@@ -177,7 +177,7 @@ export function ErrorStep({
       {errorMessage && <p className="text-sm text-error mb-3">{errorMessage}</p>}
       {failedRenderJobUuid && (
         <p className="text-xs text-muted mb-5">
-          Klicke auf <strong>Wiederholen</strong> — bereits fertige Clips und Audio werden nicht wiederholt.
+          Klicke auf <strong>Wiederholen</strong> - bereits fertige Clips und Audio werden nicht wiederholt.
         </p>
       )}
       <div className="flex gap-3 justify-center">

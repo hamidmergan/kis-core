@@ -1,4 +1,4 @@
-"""GET /jobs/my und /jobs/stream — Jobliste + SSE-Stream."""
+"""GET /jobs/my und /jobs/stream - Jobliste + SSE-Stream."""
 
 import json as json_lib
 

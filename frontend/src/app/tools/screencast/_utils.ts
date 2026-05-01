@@ -96,7 +96,7 @@ export function parseScriptJsonFile(file: File): Promise<ScriptJsonParseResult> 
         }
         resolve({ scripts: parsed });
       } catch {
-        resolve({ error: "Ungültige JSON-Datei – Parsing fehlgeschlagen." });
+        resolve({ error: "Ungültige JSON-Datei - Parsing fehlgeschlagen." });
       }
     };
     reader.readAsText(file);

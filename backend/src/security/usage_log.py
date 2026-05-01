@@ -2,7 +2,7 @@
 
 Pro LLM-Request 1 Zeile mit User, Endpoint, Provider, Tokens (best effort),
 Dauer und Status. Wird vom Tagesalarm gegen rolling 7d-Average geprüft, um
-plötzliche Verbrauchssprünge zu erkennen — ohne dass eine fixe Schwelle
+plötzliche Verbrauchssprünge zu erkennen - ohne dass eine fixe Schwelle
 gesetzt werden muss (Plattform skaliert sich selbst ein).
 
 Langfuse hat die exakte Wahrheit für Token-Tracing. Diese Tabelle ist die

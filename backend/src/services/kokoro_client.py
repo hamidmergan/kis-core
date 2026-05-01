@@ -96,7 +96,7 @@ class KokoroClient:
         voice_id: str = "default",
         speed: float = 1.0,
     ) -> bytes:
-        # Normalize to single line — prevents phonemizer line-count mismatch.
+        # Normalize to single line - prevents phonemizer line-count mismatch.
         text = " ".join(line.strip() for line in text.splitlines() if line.strip())
         voice = _DEFAULT_VOICE if voice_id in ("default", "") else voice_id
         payload = {

@@ -33,7 +33,7 @@ export default function MaintenancePage() {
             <Hilde size={140} state="idle" />
           </div>
         ) : (
-          <Wrench size={56} weight="duotone" className="mx-auto text-muted" />
+          <Wrench size={56} weight="bold" className="mx-auto text-muted" />
         )}
         <h1 className="text-2xl font-semibold text-foreground">Wartungsarbeiten</h1>
         <p className="text-sm text-foreground-soft">

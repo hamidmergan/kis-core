@@ -44,7 +44,7 @@ async def ping_service(service: str, _admin=Depends(get_admin_user)):
         "fish_speech": app_settings.fish_speech_base_url,
         "kokoro": app_settings.kokoro_base_url,
         "mylab_tts": app_settings.mylab_tts_base_url,
-        "mylab_base": app_settings.mylab_base_url or app_settings.mylab_tts_base_url,
+        "mylab_base": app_settings.fallback_provider_base_url or app_settings.mylab_tts_base_url,
     }
     if not await dns_ok(urls[service]):
         return {"service": service, "available": False, "reason": "dns_unreachable"}
@@ -57,24 +57,24 @@ async def get_settings(_admin=Depends(get_admin_user)):
     from src.dependencies import get_settings as _get_settings
     app_settings = _get_settings()
 
-    kisski_configured = bool(app_settings.kisski_api_key)
-    ollama_configured = bool(app_settings.ollama_base_url)
-    mylab_base_configured = bool(app_settings.mylab_base_url or app_settings.mylab_tts_base_url)
+    primary_configured = bool(app_settings.primary_provider_api_key)
+    local_configured = bool(app_settings.local_provider_base_url)
+    fallback_configured = bool(app_settings.fallback_provider_base_url or app_settings.mylab_tts_base_url)
 
-    # Reachability is NOT probed here — doing external HTTP calls on every
+    # Reachability is NOT probed here - doing external HTTP calls on every
     # settings load makes the endpoint slow (8s DNS timeout per offline host).
     # The UI uses a separate /admin/settings/ping?service=... endpoint on demand.
     fish_available = None
     kokoro_available = None
     mylab_tts_available = None
-    mylab_base_available = None
+    fallback_available = None
 
     def _enabled(key: str, default: str = "true") -> bool:
         return db.get_setting(key, default).lower() == "true"
 
     return {
         "whitelist_enabled": _enabled("whitelist_enabled"),
-        # ── TTS ──
+        # ── TTS (flat list of products, not a primary/fallback/local hierarchy) ──
         "elevenlabs_enabled": _enabled("elevenlabs_enabled"),
         "elevenlabs_configured": bool(app_settings.elevenlabs_api_key),
         "fish_speech_enabled": _enabled("fish_speech_enabled"),
@@ -87,50 +87,52 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "mylab_configured": bool(app_settings.mylab_tts_base_url),
         "mylab_available": mylab_tts_available,
         # ── Transcription ──
-        "kisski_whisper_enabled": _enabled("kisski_whisper_enabled"),
-        "kisski_whisper_configured": kisski_configured,
-        "mylab_whisper_enabled": _enabled("mylab_whisper_enabled"),
-        "mylab_whisper_configured": mylab_base_configured,
-        "mylab_whisper_available": mylab_base_available,
+        "primary_whisper_enabled": _enabled("primary_whisper_enabled"),
+        "primary_whisper_configured": primary_configured,
+        "fallback_whisper_enabled": _enabled("fallback_whisper_enabled"),
+        "fallback_whisper_configured": fallback_configured,
+        "fallback_whisper_available": fallback_available,
         # ── Embeddings ──
-        "kisski_embedding_enabled": _enabled("kisski_embedding_enabled"),
-        "kisski_embedding_configured": kisski_configured,
-        "mylab_embedding_enabled": _enabled("mylab_embedding_enabled"),
-        "mylab_embedding_configured": mylab_base_configured,
-        "mylab_embedding_available": mylab_base_available,
-        "ollama_embedding_enabled": _enabled("ollama_embedding_enabled", "false"),
-        "ollama_embedding_configured": ollama_configured,
+        "primary_embedding_enabled": _enabled("primary_embedding_enabled"),
+        "primary_embedding_configured": primary_configured,
+        "fallback_embedding_enabled": _enabled("fallback_embedding_enabled"),
+        "fallback_embedding_configured": fallback_configured,
+        "fallback_embedding_available": fallback_available,
+        "local_embedding_enabled": _enabled("local_embedding_enabled", "false"),
+        "local_embedding_configured": local_configured,
         # ── Image generation ──
-        "kisski_image_gen_enabled": _enabled("kisski_image_gen_enabled"),
-        "kisski_image_gen_configured": kisski_configured,
-        "mylab_image_gen_enabled": _enabled("mylab_image_gen_enabled"),
-        "mylab_image_gen_configured": mylab_base_configured,
-        "mylab_image_gen_available": mylab_base_available,
-        # ── Image analysis ── (KISSKI only, no myLab alternative available)
-        "kisski_image_analyze_enabled": _enabled("kisski_image_analyze_enabled"),
-        "kisski_image_analyze_configured": kisski_configured,
+        "primary_image_gen_enabled": _enabled("primary_image_gen_enabled"),
+        "primary_image_gen_configured": primary_configured,
+        "fallback_image_gen_enabled": _enabled("fallback_image_gen_enabled"),
+        "fallback_image_gen_configured": fallback_configured,
+        "fallback_image_gen_available": fallback_available,
+        # ── Image analysis ── (primary slot only, no fallback equivalent today)
+        "primary_image_analyze_enabled": _enabled("primary_image_analyze_enabled"),
+        "primary_image_analyze_configured": primary_configured,
         # ── Image editing ──
-        "kisski_image_edit_enabled": _enabled("kisski_image_edit_enabled"),
-        "kisski_image_edit_configured": kisski_configured,
-        "mylab_image_edit_enabled": _enabled("mylab_image_edit_enabled"),
-        "mylab_image_edit_configured": mylab_base_configured,
-        "mylab_image_edit_available": mylab_base_available,
+        "primary_image_edit_enabled": _enabled("primary_image_edit_enabled"),
+        "primary_image_edit_configured": primary_configured,
+        "fallback_image_edit_enabled": _enabled("fallback_image_edit_enabled"),
+        "fallback_image_edit_configured": fallback_configured,
+        "fallback_image_edit_available": fallback_available,
         # ── OCR ──
-        "kisski_ocr_enabled": _enabled("kisski_ocr_enabled"),
-        "kisski_ocr_configured": kisski_configured,
-        "mylab_ocr_enabled": _enabled("mylab_ocr_enabled", "false"),
-        "mylab_ocr_configured": mylab_base_configured,
-        "mylab_ocr_available": mylab_base_available,
+        "primary_ocr_enabled": _enabled("primary_ocr_enabled"),
+        "primary_ocr_configured": primary_configured,
+        "fallback_ocr_enabled": _enabled("fallback_ocr_enabled", "false"),
+        "fallback_ocr_configured": fallback_configured,
+        "fallback_ocr_available": fallback_available,
         # ── LLM Chat ──
-        "kisski_llm_enabled": _enabled("kisski_llm_enabled"),
-        "kisski_llm_configured": kisski_configured,
-        "mylab_llm_enabled": _enabled("mylab_llm_enabled", "false"),
-        "mylab_llm_configured": mylab_base_configured,
-        "mylab_llm_available": mylab_base_available,
-        "ollama_llm_enabled": _enabled("ollama_llm_enabled", "false"),
-        "ollama_llm_configured": ollama_configured,
+        "primary_llm_enabled": _enabled("primary_llm_enabled"),
+        "primary_llm_configured": primary_configured,
+        "fallback_llm_enabled": _enabled("fallback_llm_enabled", "false"),
+        "fallback_llm_configured": fallback_configured,
+        "fallback_llm_available": fallback_available,
+        "local_llm_enabled": _enabled("local_llm_enabled", "false"),
+        "local_llm_configured": local_configured,
         # ── Transcript translation (EN) ──
         "transcript_translation_provider": db.get_setting("transcript_translation_provider", "llm"),
+        # ── /translate LLM provider override (empty = no override; per-provider models live in `models` dict) ──
+        "translation_llm_provider": db.get_setting("translation_llm_provider", ""),
         # ── Provider model names (editable in the admin panel) ──
         "models": _current_models(),
         # ── UI labels ──
@@ -151,19 +153,19 @@ def _current_models() -> dict[str, str]:
 _SIMPLE_BOOL_FIELDS = (
     "whitelist_enabled",
     "elevenlabs_enabled", "fish_speech_enabled", "kokoro_enabled", "mylab_enabled",
-    "kisski_whisper_enabled", "mylab_whisper_enabled",
-    "kisski_image_gen_enabled", "mylab_image_gen_enabled",
-    "kisski_image_analyze_enabled",
-    "kisski_image_edit_enabled", "mylab_image_edit_enabled",
-    "kisski_ocr_enabled", "mylab_ocr_enabled",
+    "primary_whisper_enabled", "fallback_whisper_enabled",
+    "primary_image_gen_enabled", "fallback_image_gen_enabled",
+    "primary_image_analyze_enabled",
+    "primary_image_edit_enabled", "fallback_image_edit_enabled",
+    "primary_ocr_enabled", "fallback_ocr_enabled",
     "mascot_enabled",
 )
 
 # Radio fields: exactly one provider may be active at a time.
 # - Embedding: vector dimension would be inconsistent under parallel operation.
 # - LLM: system-wide selection, no fallback (see _resolve_llm_provider).
-_EMBEDDING_KEYS = ("kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled")
-_LLM_KEYS = ("kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled")
+_EMBEDDING_KEYS = ("primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled")
+_LLM_KEYS = ("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled")
 
 
 def _apply_radio_group(body_dict: dict, keys: tuple[str, ...], group_label: str) -> bool:
@@ -204,7 +206,7 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         if val is not None:
             db.set_setting(field, "true" if val else "false")
 
-    # Embeddings — exactly one must be enabled at any time.
+    # Embeddings - exactly one must be enabled at any time.
     # Different embedding models have different vector dimensions, so parallel
     # operation or silent fallback would corrupt the index.
     if _apply_radio_group(body_dict, _EMBEDDING_KEYS, "Embedding"):
@@ -230,6 +232,13 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         if body.transcript_translation_provider not in ("deepl", "llm"):
             raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
         db.set_setting("transcript_translation_provider", body.transcript_translation_provider)
+
+    # /translate LLM provider override (model values flow through the generic `models` dict)
+    if body.translation_llm_provider is not None:
+        prov = body.translation_llm_provider.strip()
+        if prov and prov not in ("primary", "fallback", "local"):
+            raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
+        db.set_setting("translation_llm_provider", prov)
 
     # Provider model names
     if body.models:

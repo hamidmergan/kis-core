@@ -31,16 +31,16 @@ def _active_provider(group: tuple[str, ...]) -> str | None:
 
 
 # Provider selection groups (mirrors settings.py).
-_LLM_GROUP = ("kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled")
+_LLM_GROUP = ("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled")
 _EMBED_GROUP = (
-    "kisski_embedding_enabled",
-    "mylab_embedding_enabled",
-    "ollama_embedding_enabled",
+    "primary_embedding_enabled",
+    "fallback_embedding_enabled",
+    "local_embedding_enabled",
 )
-_OCR_GROUP = ("kisski_ocr_enabled", "mylab_ocr_enabled")
-_IMAGE_GEN_GROUP = ("kisski_image_gen_enabled", "mylab_image_gen_enabled")
-_IMAGE_EDIT_GROUP = ("kisski_image_edit_enabled", "mylab_image_edit_enabled")
-_WHISPER_GROUP = ("kisski_whisper_enabled", "mylab_whisper_enabled")
+_OCR_GROUP = ("primary_ocr_enabled", "fallback_ocr_enabled")
+_IMAGE_GEN_GROUP = ("primary_image_gen_enabled", "fallback_image_gen_enabled")
+_IMAGE_EDIT_GROUP = ("primary_image_edit_enabled", "fallback_image_edit_enabled")
+_WHISPER_GROUP = ("primary_whisper_enabled", "fallback_whisper_enabled")
 
 
 def _model_for(provider: str | None, key_suffix: str) -> str | None:

@@ -34,7 +34,7 @@ export default function WorkspaceTable({
     <>
       <div className="bg-white border border-border-soft rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
                 <th className="px-4 py-2 w-6"></th>

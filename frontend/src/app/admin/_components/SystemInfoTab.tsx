@@ -87,7 +87,7 @@ function Section({
     <section className="bg-white border border-border-soft rounded-xl p-5">
       <div className="flex items-start gap-3 mb-4">
         <span className="mt-0.5 w-8 h-8 rounded-lg bg-kb/8 text-kb flex items-center justify-center shrink-0"
-              style={{ backgroundColor: "rgba(0, 66, 97, 0.08)" }}>
+              style={{ backgroundColor: "rgba(var(--kb-rgb), 0.08)" }}>
           {icon}
         </span>
         <div className="min-w-0">
@@ -122,7 +122,7 @@ function Row({
 
 function ModelRow({ label, info }: { label: string; info: ModelInfo }) {
   if (!info.provider) {
-    return <Row label={label} value={<span className="text-muted">–</span>} />;
+    return <Row label={label} value={<span className="text-muted">-</span>} />;
   }
   const provider = PROVIDER_LABEL[info.provider] ?? info.provider;
   return (
@@ -130,7 +130,7 @@ function ModelRow({ label, info }: { label: string; info: ModelInfo }) {
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm text-foreground-soft">{label}</p>
         <span className="text-xs font-medium text-kb bg-kb/8 px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: "rgba(0, 66, 97, 0.08)" }}>
+              style={{ backgroundColor: "rgba(var(--kb-rgb), 0.08)" }}>
           {provider}
         </span>
       </div>
@@ -163,7 +163,7 @@ export default function SystemInfoTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted -mt-2 mb-4">
-        Übersicht der aktuell konfigurierten Werte. Nur lesbar – Änderungen erfolgen im Code (
+        Übersicht der aktuell konfigurierten Werte. Nur lesbar - Änderungen erfolgen im Code (
         <code className="text-[11px] bg-surface-dim px-1.5 py-0.5 rounded">backend/src/limits.py</code>
         ) bzw. unter „KI" und „System".
       </p>
@@ -185,7 +185,7 @@ export default function SystemInfoTab() {
             label="TTS-Provider aktiv"
             value={
               models.tts_active.length === 0 ? (
-                <span className="text-muted">–</span>
+                <span className="text-muted">-</span>
               ) : (
                 <span className="text-xs">{models.tts_active.join(", ")}</span>
               )

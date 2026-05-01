@@ -1,4 +1,4 @@
-"""KI-Assistent Celery tasks — source indexing + paragraph summaries."""
+"""KI-Assistent Celery tasks - source indexing + paragraph summaries."""
 
 import concurrent.futures
 import os
@@ -244,7 +244,7 @@ def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl")
         client = LLMTranslationClient(
             api_key=api_key, base_url=base_url, model=model, provider=prov,
         )
-        # Chunk to keep each batch below the client's 4096 output-token cap —
+        # Chunk to keep each batch below the client's 4096 output-token cap -
         # larger batches truncate and trigger slow one-by-one fallback.
         _LLM_CHUNK = 30
         translated: list[str] = []

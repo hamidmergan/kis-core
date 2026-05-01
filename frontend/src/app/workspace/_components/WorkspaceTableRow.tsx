@@ -60,11 +60,11 @@ export default function WorkspaceTableRow({
           </button>
         </td>
         <td
-          className="px-4 py-3 cursor-pointer"
+          className="px-4 py-3 cursor-pointer w-full max-w-0"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
         >
-          <span className="font-medium text-foreground-soft truncate block max-w-[280px]">{workspace.title}</span>
+          <span className="font-medium text-foreground-soft truncate block" title={workspace.title}>{workspace.title}</span>
         </td>
         <td
           className="px-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
@@ -92,7 +92,7 @@ export default function WorkspaceTableRow({
               aria-label={workspace.is_active ? `${labels.singular} deaktivieren` : `${labels.singular} aktivieren`}
               onClick={(e) => { e.stopPropagation(); a.handleToggle(!workspace.is_active); }}
               disabled={a.toggling}
-              className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 hover:outline-2 hover:outline-kb"
+              className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full border-2 border-transparent transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 enabled:hover:border-kb"
               style={{ backgroundColor: workspace.is_active ? "var(--kb)" : "var(--border)" }}
             >
               <span

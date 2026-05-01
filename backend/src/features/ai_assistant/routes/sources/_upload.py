@@ -56,7 +56,7 @@ async def upload_source(
     if page_count is not None and page_count > KIA_SOURCE_MAX_PAGES:
         raise HTTPException(
             status_code=413,
-            detail=f"Dokument hat {page_count} Seiten — max. {KIA_SOURCE_MAX_PAGES} Seiten erlaubt. Bitte teile das Dokument in kleinere Abschnitte auf.",
+            detail=f"Dokument hat {page_count} Seiten - max. {KIA_SOURCE_MAX_PAGES} Seiten erlaubt. Bitte teile das Dokument in kleinere Abschnitte auf.",
         )
 
     source_uuid = uuid.uuid4().hex

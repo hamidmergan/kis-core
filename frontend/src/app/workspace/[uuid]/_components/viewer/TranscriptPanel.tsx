@@ -377,7 +377,7 @@ export function TranscriptPanel({
                   className="text-[10px] font-mono mb-1"
                   style={{ color: "var(--muted)" }}
                 >
-                  {fmtTs(c.start)} – {fmtTs(c.end)}
+                  {fmtTs(c.start)} - {fmtTs(c.end)}
                 </div>
                 {showDe && deText && (
                   <div

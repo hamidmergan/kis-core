@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
 
-from src.services.kisski._chunking import (
+from src.services.openai_compat_llm._chunking import (
     CHUNK_MAX_SEC,
     MAX_AUDIO_SEC,
     compute_split_points,
@@ -14,7 +14,7 @@ from src.services.kisski._chunking import (
     get_audio_duration,
     split_audio,
 )
-from src.services.kisski._subtitles import merge_srt, merge_vtt
+from src.services.openai_compat_llm._subtitles import merge_srt, merge_vtt
 
 
 def _reject_if_too_long(duration: float) -> None:
@@ -34,7 +34,7 @@ class _WhisperChunkedMixin:
         if duration <= CHUNK_MAX_SEC:
             return self.transcribe(file_path, response_format=response_format)
 
-        logger.info("Audio {:.1f}s exceeds limit – splitting into chunks", duration)
+        logger.info("Audio {:.1f}s exceeds limit - splitting into chunks", duration)
         silence_starts = find_silence_starts(file_path)
         split_points = compute_split_points(duration, silence_starts)
 
@@ -68,7 +68,7 @@ class _WhisperChunkedMixin:
         if duration <= CHUNK_MAX_SEC:
             return self.transcribe_and_translate(file_path, response_format=response_format)
 
-        logger.info("Audio {:.1f}s exceeds limit – splitting into chunks (translate mode)", duration)
+        logger.info("Audio {:.1f}s exceeds limit - splitting into chunks (translate mode)", duration)
         silence_starts = find_silence_starts(file_path)
         split_points = compute_split_points(duration, silence_starts)
 
@@ -108,7 +108,7 @@ class _WhisperChunkedMixin:
             segs, lang = self.transcribe_verbose(file_path)
             return segs, duration, lang
 
-        logger.info("Audio {:.1f}s exceeds limit – splitting for verbose transcription", duration)
+        logger.info("Audio {:.1f}s exceeds limit - splitting for verbose transcription", duration)
         silence_starts = find_silence_starts(file_path)
         split_points = compute_split_points(duration, silence_starts)
 
@@ -154,7 +154,7 @@ class _WhisperChunkedMixin:
         if duration <= CHUNK_MAX_SEC:
             return self.translate_verbose(file_path)
 
-        logger.info("Audio {:.1f}s exceeds limit – splitting for verbose translation", duration)
+        logger.info("Audio {:.1f}s exceeds limit - splitting for verbose translation", duration)
         silence_starts = find_silence_starts(file_path)
         split_points = compute_split_points(duration, silence_starts)
 

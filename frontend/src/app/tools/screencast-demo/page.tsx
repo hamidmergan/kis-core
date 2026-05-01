@@ -271,7 +271,7 @@ function ScreencastDemoPageInner() {
         }
         setImportedScripts(parsed);
       } catch {
-        setImportError("Ungültige JSON-Datei – Parsing fehlgeschlagen.");
+        setImportError("Ungültige JSON-Datei - Parsing fehlgeschlagen.");
       }
     };
     reader.readAsText(file);

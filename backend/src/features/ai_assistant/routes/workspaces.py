@@ -1,4 +1,4 @@
-"""KI-Assistent routes — workspace CRUD, access links, enrollment."""
+"""KI-Assistent routes - workspace CRUD, access links, enrollment."""
 
 import io
 import json
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client
+from src.dependencies import get_current_user, get_llm_client
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -33,7 +33,7 @@ from src.tool_prompts import (
 )
 
 from src.features.ai_assistant.routes._helpers import (
-    _trace_kisski,
+    _trace_llm,
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
@@ -278,7 +278,7 @@ async def enroll(body: schemas.EnrollBody, current_user: dict = Depends(get_curr
             return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": existing["id"]}
         enrollment_id = db.enroll_student(workspace["id"], user_id, link["expires_at"], link_id=link["id"])
         if not enrollment_id:
-            # Already enrolled (race condition) – fetch existing
+            # Already enrolled (race condition) - fetch existing
             existing = db.get_enrollment(workspace["id"], user_id, link["id"])
             return {"workspace_uuid": workspace["uuid"], "title": workspace["title"], "enrollment_id": existing["id"] if existing else None}
         logger.info("KI Tutor: user {} enrolled in workspace {} via link {}", user_id, workspace["uuid"], link["id"])

@@ -144,7 +144,7 @@ def reset_stuck_jobs() -> int:
             cur.execute(
                 """UPDATE jobs
                    SET status = 'failed',
-                       error_message = 'Server wurde neugestartet — bitte Wiederholen klicken.',
+                       error_message = 'Server wurde neugestartet - bitte Wiederholen klicken.',
                        completed_at = %s
                    WHERE status IN ('pending', 'running')""",
                 (now,),
@@ -155,7 +155,7 @@ def reset_stuck_jobs() -> int:
 
 
 def set_render_started_at(job_uuid: str) -> None:
-    """Setzt render_started_at einmalig (COALESCE — nicht überschreiben bei Retry)."""
+    """Setzt render_started_at einmalig (COALESCE - nicht überschreiben bei Retry)."""
     now = datetime.now(timezone.utc)
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -167,7 +167,7 @@ def set_render_started_at(job_uuid: str) -> None:
 
 
 def set_render_queued_at(job_uuid: str) -> None:
-    """Setzt render_queued_at einmalig — Zeitpunkt wenn Render-Job in Celery Queue eingereiht wird."""
+    """Setzt render_queued_at einmalig - Zeitpunkt wenn Render-Job in Celery Queue eingereiht wird."""
     now = datetime.now(timezone.utc)
     with get_connection() as conn:
         with conn.cursor() as cur:

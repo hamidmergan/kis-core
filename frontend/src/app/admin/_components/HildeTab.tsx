@@ -10,7 +10,7 @@ const STATE_LABELS: Record<HildeState, string> = {
   thinking: "Denkt nach",
   found: "Hat's gefunden",
   confused: "Verwirrt",
-  wave: "Winkt",
+  wave: "Begrüßt",
 };
 
 function Hero({
@@ -52,12 +52,12 @@ function Hero({
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted mb-2.5">
             State
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap md:flex-nowrap gap-2">
             {STATES.map((s) => (
               <button
                 key={s}
                 onClick={() => setState(s)}
-                className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition-all ${
+                className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition-all whitespace-nowrap ${
                   state === s
                     ? "bg-kb text-white border-kb"
                     : "bg-white text-foreground-soft border-border hover:border-kb"
@@ -117,8 +117,8 @@ function StatesGrid() {
             className="flex flex-col items-center gap-3 py-6 px-3 bg-surface rounded-xl border border-border"
           >
             <Hilde size={120} state={s} />
-            <div className="text-[11px] font-semibold text-foreground-soft uppercase tracking-[0.1em] text-center">
-              {STATE_LABELS[s]}
+            <div className="text-[11px] font-semibold text-foreground-soft tracking-[0.1em] text-center">
+              {STATE_LABELS[s].replace(/ß/g, "ẞ").toUpperCase()}
             </div>
           </div>
         ))}

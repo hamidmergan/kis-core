@@ -36,14 +36,13 @@ export function LanguageTrainingOverview({
                 type="button"
                 onClick={() => !disabled && onNavigate(tile.key)}
                 disabled={disabled}
-                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl text-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl text-center border-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-[var(--tile-border)] enabled:hover:border-[var(--tile-color)]"
                 style={{
                   minHeight: 85,
                   backgroundColor: tile.iconBg,
-                  border: `2px solid ${tile.iconColor}22`,
+                  ["--tile-color" as string]: tile.iconColor,
+                  ["--tile-border" as string]: `${tile.iconColor}22`,
                 }}
-                onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.borderColor = tile.iconColor; }}
-                onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.borderColor = `${tile.iconColor}22`; }}
               >
                 <tile.Icon size={20} color={tile.iconColor} weight="bold" />
                 <span className="text-xs font-semibold leading-tight" style={{ color: tile.iconColor }}>

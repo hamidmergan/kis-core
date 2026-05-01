@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import PlayButton from "../_components/PlayButton";
 import { useVoicePlayer } from "../_hooks/useVoicePlayer";
-import type { MylabVoice } from "../_utils";
+import type { OpenAITtsVoice } from "../_utils";
 
 
 export default function MylabTab({ active }: { active: boolean }) {
-  const [voices, setVoices] = useState<MylabVoice[]>([]);
+  const [voices, setVoices] = useState<OpenAITtsVoice[]>([]);
   const [loading, setLoading] = useState(false);
   const { playingId, loadingId, playFromApi } = useVoicePlayer();
 

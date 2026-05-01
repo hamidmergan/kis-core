@@ -83,7 +83,7 @@ export function VocabFlashcards({
                 <button
                   type="button"
                   onClick={() => { setIndex(0); setResults([]); setFinished(false); }}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all hover:outline-2 hover:outline-[var(--error-strong)]"
                   style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "var(--error-strong)", border: "1px solid rgba(239,68,68,0.2)" }}
                 >
                   <ArrowCounterClockwise size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
@@ -93,7 +93,7 @@ export function VocabFlashcards({
               <button
                 type="button"
                 onClick={onBack}
-                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--surface-dim)]"
                 style={{ backgroundColor: "var(--border)", color: "var(--foreground)" }}
               >
                 Zurück
@@ -172,7 +172,7 @@ export function VocabFlashcards({
               <button
                 type="button"
                 onClick={() => handleAnswer(true)}
-                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all hover:outline-2 hover:outline-[var(--success-strong)]"
                 style={{ backgroundColor: "rgba(34,197,94,0.1)", color: "var(--success-strong)", border: "1px solid rgba(34,197,94,0.2)" }}
               >
                 <Check size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />

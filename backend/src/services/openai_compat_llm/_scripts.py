@@ -1,4 +1,4 @@
-"""Screencast-Skript-Generierung (refine + Batch) via KISSKI LLM."""
+"""Screencast-Skript-Generierung (refine + Batch) via the configured LLM."""
 
 import re
 import time
@@ -8,7 +8,7 @@ from loguru import logger
 
 from src.tool_prompts import SCRIPT_REFINE_DEFAULT as _SCRIPT_REFINE_DEFAULT
 
-from src.services.kisski.base import load_prompt
+from src.services.openai_compat_llm.base import load_prompt
 
 
 class _ScriptsMixin:
@@ -28,7 +28,7 @@ class _ScriptsMixin:
 
         Uses the current script as the base if provided, otherwise falls back to slide_text.
         If selected_text is given, the instruction applies only to that excerpt.
-        No length or format constraints — follows the user instruction freely.
+        No length or format constraints - follows the user instruction freely.
         """
         current_script_content = current_script.strip() or slide_text.strip()
         is_followup = messages is not None and len(messages) > 1
@@ -66,7 +66,7 @@ class _ScriptsMixin:
         # Build message history: system + prior turns + final user message
         chat_messages: list[dict] = [{"role": "system", "content": system_prompt}]
         if messages and len(messages) > 1:
-            # All messages except the last (current) user message — already included via user_prompt in prompt
+            # All messages except the last (current) user message - already included via user_prompt in prompt
             for m in messages[:-1]:
                 chat_messages.append({"role": m["role"], "content": m["content"]})
         chat_messages.append({"role": "user", "content": user_prompt.strip() or "Generate the script."})
@@ -86,7 +86,7 @@ class _ScriptsMixin:
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
-            raise RuntimeError(f"KISSKI API Fehler: {e}") from e
+            raise RuntimeError(f"LLM API error: {e}") from e
 
     def _generate_scripts_single_batch(
         self,
@@ -141,9 +141,9 @@ class _ScriptsMixin:
             "- Keep all facts, numbers, names, dates, and links exactly as they are.\n"
             "- Convert bullet points, tables, and lists into flowing text.\n"
             "- Remove citations, footnotes, and formatting artifacts.\n"
-            "- NO semicolons, NO dashes – use only periods, commas, exclamation marks, and question marks.\n"
+            "- NO semicolons, NO dashes - use only periods, commas, exclamation marks, and question marks.\n"
             "- Address the audience directly as 'you'.\n"
-            "- Natural, conversational tone – like a university lecturer speaking.\n"
+            "- Natural, conversational tone - like a university lecturer speaking.\n"
             + greeting_rule
             + closing_rule
             + f"- Keep each script between {min_chars} and {max_chars} characters.\n"
@@ -174,9 +174,9 @@ class _ScriptsMixin:
             if not content:
                 raise RuntimeError(f"Batch {batch_index + 1}/{batch_count}: LLM returned empty response")
 
-            # Parse separator-delimited output – truncation just means a shorter last script
+            # Parse separator-delimited output - truncation just means a shorter last script
             content_clean = content.strip()
-            # LLMs sometimes prepend ||| before the first script – remove it
+            # LLMs sometimes prepend ||| before the first script - remove it
             if content_clean.startswith("|||"):
                 content_clean = content_clean[3:].lstrip("\n ")
             parts = re.split(r"\|\|\|", content_clean)
@@ -184,7 +184,7 @@ class _ScriptsMixin:
 
             if len(scripts) != batch_size:
                 logger.warning(
-                    "Batch {}/{}: expected {} scripts, got {} – padding/trimming",
+                    "Batch {}/{}: expected {} scripts, got {} - padding/trimming",
                     batch_index + 1, batch_count, batch_size, len(scripts),
                 )
                 scripts = (scripts + [""] * batch_size)[:batch_size]
@@ -194,7 +194,7 @@ class _ScriptsMixin:
         except Exception as e:
             if isinstance(e, RuntimeError):
                 raise
-            raise RuntimeError(f"KISSKI API Fehler (Batch {batch_index + 1}): {e}") from e
+            raise RuntimeError(f"LLM API error (batch {batch_index + 1}): {e}") from e
 
     def generate_scripts_batch(
         self,
@@ -240,11 +240,11 @@ class _ScriptsMixin:
                     return idx, scripts
                 except RuntimeError as e:
                     if attempt == 0:
-                        logger.warning("Batch {}/{} failed (attempt 1): {} – retrying in 5s", idx + 1, batch_count, e)
+                        logger.warning("Batch {}/{} failed (attempt 1): {} - retrying in 5s", idx + 1, batch_count, e)
                         time.sleep(5)
                     else:
                         logger.warning(
-                            "Batch {}/{} failed (attempt 2): {} – returning empty strings for {} slide(s)",
+                            "Batch {}/{} failed (attempt 2): {} - returning empty strings for {} slide(s)",
                             idx + 1, batch_count, e, n,
                         )
                         return idx, [""] * n

@@ -1,4 +1,4 @@
-"""Card generation from source (mode='source'): 2-pass — generate questions, then
+"""Card generation from source (mode='source'): 2-pass - generate questions, then
 answer each question via the SAME chat pipeline (KIA_SYSTEM_RAG + chat citation
 format) so chip behaviour is identical to chat citations."""
 
@@ -18,7 +18,7 @@ from src.features.ai_assistant.tasks.language_training._card_base import with_av
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
 
 
-# Same regex shape used by chat — see backend/src/features/ai_assistant/routes/chat.py
+# Same regex shape used by chat - see backend/src/features/ai_assistant/routes/chat.py
 # and frontend/src/app/workspace/[uuid]/_components/chat/_citations.tsx.
 # Captures: 1=doc index N, 2=page number (or None), 3=timestamp (or None), 4=keywords.
 _CITATION_RE = re.compile(
@@ -40,7 +40,7 @@ def generate_cards_from_source(
         return [], title or ctx.multi_label
 
     # Pass 2: answer each question via the chat pipeline.
-    # Cap parallelism at 2 — KISSKI returns 429 for higher concurrency on a single
+    # Cap parallelism at 2 - KISSKI returns 429 for higher concurrency on a single
     # user, and we don't want to lose questions to rate limits.
     chat_ctx, qmap = _build_chat_context(ctx)
     with ThreadPoolExecutor(max_workers=min(2, len(questions))) as pool:
@@ -166,7 +166,7 @@ def _parse_citations_to_chips(answer: str, qmap: list[dict]) -> list[dict]:
     qmap_by_idx = {q["qnum"]: q for q in qmap}
     chips: list[dict] = []
     # Dedup by (filename, page): an answer with N sentences citing the same page
-    # produces N citations — for the card view we collapse to one chip per page,
+    # produces N citations - for the card view we collapse to one chip per page,
     # keeping the FIRST keyword (a representative term for that page).
     seen: set[tuple[str, int]] = set()
     for m in _CITATION_RE.finditer(answer):

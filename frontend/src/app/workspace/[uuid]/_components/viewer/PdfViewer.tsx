@@ -234,7 +234,7 @@ export function PdfViewer({
           :host [class*="command-button"]:focus-visible,
           :host [class*="-button"]:hover,
           :host [class*="-button"]:focus-visible {
-            outline-color: #004261 !important; /* --kb */
+            outline-color: var(--kb) !important;
             /* Suppress EmbedPDFs hover ring (Tailwind ring + box-shadow) so only our outline shows */
             box-shadow: none !important;
             --tw-ring-shadow: 0 0 transparent !important;
@@ -250,7 +250,7 @@ export function PdfViewer({
           :host [data-epdf-i="mode-tabs"] button[class*="text-accent"]:hover,
           :host [data-epdf-i="mode-tabs"] button[class*="text-accent"]:focus-visible {
             outline: none !important;
-            border-bottom: 2px solid #004261 !important;
+            border-bottom: 2px solid var(--kb) !important;
             border-radius: 0 !important;
           }
         `;

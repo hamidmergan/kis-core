@@ -1,4 +1,4 @@
-"""Skript-Endpoints: Auto-Save, Batch-Generierung (KISSKI), Einzel-Folien-Refinement."""
+"""Skript-Endpoints: Auto-Save, Batch-Generierung, Einzel-Folien-Refinement."""
 
 import asyncio
 import json
@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client
+from src.dependencies import get_current_user, get_llm_client
 from src.services.screencast import generate_all_scripts
 from src.storage import get_job_file, save_job_file
 from src.utils.file_validation import MAX_SCREENCAST_SLIDES
@@ -46,7 +46,7 @@ async def save_scripts(
 
 @router.post("/screencast/generate-scripts")
 async def screencast_generate_scripts(body: GenerateScriptsRequest):
-    """Generate spoken scripts for each slide via KISSKI LLM."""
+    """Generate spoken scripts for each slide via the configured LLM."""
     if not body.slide_texts:
         raise HTTPException(status_code=400, detail="Keine Folientexte übergeben")
 
@@ -61,7 +61,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         len(body.slide_texts), body.add_greeting, body.add_closing,
     )
 
-    kisski_client = get_kisski_client()
+    llm_client = get_llm_client()
     glossary_dict: dict | None = None
     if body.glossary_json:
         try:
@@ -84,11 +84,11 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         try:
             get_job_file(uuid_user_id, uuid_key, "scripts.txt")
         except Exception:
-            raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar — bitte neuen Screencast starten")
+            raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten")
 
     async def _do_generate() -> list[str]:
         return await generate_all_scripts(
-            body.slide_texts, kisski_client,
+            body.slide_texts, llm_client,
             glossary=glossary_dict,
             add_greeting=body.add_greeting, add_closing=body.add_closing,
             min_chars=body.min_chars, max_chars=body.max_chars,
@@ -101,7 +101,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
     lock = get_script_gen_lock(uuid_key)
 
     if lock.locked():
-        # Another request is already generating for this job — wait, then return its result
+        # Another request is already generating for this job - wait, then return its result
         logger.info("generate-scripts: waiting for concurrent generation of {}", uuid_key)
         async with lock:
             # The other request just finished; read what it saved
@@ -110,7 +110,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
                 return {"scripts": json.loads(data)}
             except Exception:
                 pass
-        # File missing after wait (other request failed) — fall through to regenerate.
+        # File missing after wait (other request failed) - fall through to regenerate.
         # The lock is now FREE (we released it above), so the acquire below is safe.
 
     async with lock:
@@ -129,7 +129,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
 
 @router.post("/screencast/regenerate-slide-script")
 async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest):
-    """Regenerate the narration script for a single slide via KISSKI LLM.
+    """Regenerate the narration script for a single slide via the configured LLM.
 
     Called from Step 5 when the user clicks the AI icon next to a slide.
     Uses a single LLM call (no batching) so user_prompt is fully reliable.
@@ -143,11 +143,11 @@ async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest)
     if not has_content:
         return {"script": ""}
 
-    kisski_client = get_kisski_client()
+    llm_client = get_llm_client()
 
     try:
         script = await asyncio.to_thread(
-            kisski_client.refine_script,
+            llm_client.refine_script,
             user_prompt,
             body.current_script or "",
             body.slide_text,

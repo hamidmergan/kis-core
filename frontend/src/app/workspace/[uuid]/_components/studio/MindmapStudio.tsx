@@ -388,7 +388,7 @@ export function MindmapStudio({
                     className="bg-white rounded-xl p-3.5 flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:outline-2 hover:outline-[var(--kb)] -outline-offset-2 transition"
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <TreeStructure size={16} weight="duotone" style={{ color: "var(--kb)", flexShrink: 0 }} />
+                      <TreeStructure size={16} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
                       <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }} data-tip={item.topic}>
                         {item.topic}
                       </span>
@@ -428,7 +428,7 @@ export function MindmapStudio({
               <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
                 {breadcrumbs.map((b, i) => (
                   <React.Fragment key={i}>
-                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 transition-colors"  onMouseEnter={(e) => e.currentTarget.style.color = "var(--kb)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--muted)"}>{b.label}</button>
+                    <button type="button" onClick={b.onClick} className="font-medium shrink-0 text-muted hover:text-kb transition-colors">{b.label}</button>
                     <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}

@@ -23,47 +23,49 @@ def _resolve_user_id(job_uuid: str) -> int:
     return row["user_id"]
 
 
-def _get_kisski_client():
-    from src.services.kisski_client import KisskiClient
+def _get_llm_client():
+    from src.services.openai_compat_llm import OpenAICompatLLMClient
     from src.dependencies import _resolve_llm_provider
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:
         raise RuntimeError("Kein LLM-Provider konfiguriert")
-    return KisskiClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
+    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
 
 
-def _kisski_http_client(extra_headers: dict | None = None, timeout: float = 120.0):
+def _primary_http_client(extra_headers: dict | None = None, timeout: float = 120.0):
+    """HTTP client for the primary OpenAI-compat endpoint (today: KISSKI/GWDG)."""
     import httpx
     from src.config import Settings
     s = Settings()
-    if not s.kisski_api_key:
-        raise RuntimeError("KISSKI API Key nicht konfiguriert")
-    base_url = s.kisski_base_url.rstrip("/")
-    headers = {"Authorization": f"Bearer {s.kisski_api_key}"}
+    if not s.primary_provider_api_key:
+        raise RuntimeError("Primary provider API key not configured")
+    base_url = s.primary_provider_base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {s.primary_provider_api_key}"}
     if extra_headers:
         headers.update(extra_headers)
     return base_url, httpx.Client(headers=headers, timeout=timeout)
 
 
-def _mylab_http_client(timeout: float = 120.0):
+def _fallback_http_client(timeout: float = 120.0):
+    """HTTP client for the fallback OpenAI-compat endpoint (today: THL myLab)."""
     import httpx
     from src.config import Settings
     s = Settings()
-    base_url = (s.mylab_base_url or "").rstrip("/")
+    base_url = (s.fallback_provider_base_url or "").rstrip("/")
     if not base_url:
-        raise RuntimeError("THL myLab Base-URL nicht konfiguriert")
+        raise RuntimeError("Fallback provider base URL not configured")
     return f"{base_url}/v1", httpx.Client(timeout=timeout)
 
 
 def _image_provider(task: str) -> str:
-    """Choose provider for image tasks via admin settings.
+    """Choose provider slot for image tasks via admin settings.
 
-    task: "gen" | "edit". If ``mylab_image_<task>_enabled`` is true, use myLab,
-    otherwise fall back to KISSKI (the default primary).
+    task: "gen" | "edit". If ``fallback_image_<task>_enabled`` is set, route to
+    the fallback endpoint; otherwise use the primary (default).
     """
-    if db.get_setting(f"mylab_image_{task}_enabled", "false") == "true":
-        return "mylab"
-    return "kisski"
+    if db.get_setting(f"fallback_image_{task}_enabled", "false") == "true":
+        return "fallback"
+    return "primary"
 
 
 # -- Translation --------------------------------------------------------------
@@ -105,8 +107,8 @@ def run_translate(
 
         if effective_provider == "llm":
             from src.services.llm_translation_client import LLMTranslationClient
-            from src.dependencies import _resolve_llm_provider
-            _api_key, _base_url, _model, _provider = _resolve_llm_provider()
+            from src.dependencies import _resolve_translation_llm_provider
+            _api_key, _base_url, _model, _provider = _resolve_translation_llm_provider()
             # LLM gets glossary directly in the prompt for context-aware translation
             translation_client = LLMTranslationClient(
                 api_key=_api_key,
@@ -226,12 +228,12 @@ def run_image_generate(
         user_id = _resolve_user_id(job_uuid)
 
         provider = _image_provider("gen")
-        if provider == "mylab":
+        if provider == "fallback":
             from src.services.runtime_models import get_model
-            base_url, client = _mylab_http_client(timeout=120.0)
-            body: dict = {"model": get_model("mylab_image_gen_model"), "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
+            base_url, client = _fallback_http_client(timeout=120.0)
+            body: dict = {"model": get_model("fallback_image_gen_model"), "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
         else:
-            base_url, client = _kisski_http_client(timeout=120.0)
+            base_url, client = _primary_http_client(timeout=120.0)
             body = {"model": "flux", "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
 
         with job_heartbeat(job_uuid), client:
@@ -287,20 +289,21 @@ def run_image_edit(
         mime = "image/png" if ext == ".png" else "image/jpeg"
 
         provider = _image_provider("edit")
-        if provider == "mylab":
+        if provider == "fallback":
             from src.services.runtime_models import get_model
-            base_url, client = _mylab_http_client(timeout=120.0)
-            # myLab "standard" quality bug: quality param isn't applied; send guidance_scale/num_inference_steps explicitly.
+            base_url, client = _fallback_http_client(timeout=120.0)
+            # Fallback image-edit endpoint quirk: the "quality" param isn't honoured;
+            # send guidance_scale / num_inference_steps explicitly instead.
             form_data = {
                 "prompt": prompt,
-                "model": get_model("mylab_image_edit_model"),
+                "model": get_model("fallback_image_edit_model"),
                 "response_format": "b64_json",
                 "guidance_scale": "2.5",
                 "num_inference_steps": "25",
             }
             edits_url = f"{base_url}/images/edits"
         else:
-            base_url, client = _kisski_http_client(
+            base_url, client = _primary_http_client(
                 extra_headers={"inference-service": "image-edit-2511"},
                 timeout=120.0,
             )
@@ -379,7 +382,7 @@ def run_image_analyze(
         system_prompt = db.get_setting("prompt_image_analyze", _IMAGE_ANALYZE_SYSTEM_PROMPT)
         user_content = f"{system_prompt}\n\n{user_text}"
 
-        base_url, client = _kisski_http_client(timeout=60.0)
+        base_url, client = _primary_http_client(timeout=60.0)
         with job_heartbeat(job_uuid), client:
             response = client.post(
                 f"{base_url}/chat/completions",
@@ -437,7 +440,7 @@ def run_summary(
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
-        client = _get_kisski_client()
+        client = _get_llm_client()
 
         with job_heartbeat(job_uuid):
             from src.utils.text_extraction import EXTRACTORS

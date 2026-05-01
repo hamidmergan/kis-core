@@ -61,7 +61,7 @@ export function SummaryPanel({
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", fontFamily: "inherit", userSelect: "text", WebkitUserSelect: "text", cursor: "text" }}>
       <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--color-border-default, var(--border-soft))", fontWeight: 600, fontSize: 12, color: "var(--color-fg-primary, #1f2937)" }}>
-        Seite {page} – Zusammenfassung
+        Seite {page} - Zusammenfassung
       </div>
       <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: 12, fontSize: 12, lineHeight: 1.6, color: "var(--color-fg-primary, #1f2937)" }}>
         {renderContent()}

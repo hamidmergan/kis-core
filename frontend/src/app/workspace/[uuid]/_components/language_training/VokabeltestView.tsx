@@ -56,13 +56,12 @@ export function VokabeltestView({
             <div className="flex gap-2 w-full">
               <button type="button"
                 onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
-                className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: "var(--kb)" }}
+                className="btn-primary flex-1 py-2.5 rounded-xl text-xs font-semibold"
               >
                 Neuer Test
               </button>
               <button type="button" onClick={onBack}
-                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90"
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--surface-dim)]"
                 style={{ backgroundColor: "var(--border)", color: "var(--foreground)" }}
               >
                 Zurück
@@ -83,8 +82,7 @@ export function VokabeltestView({
             type="button"
             onClick={() => { onGenerate(); setCurrent(0); setAnswers({}); setFinished(false); }}
             disabled={loading}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--kb)" }}
+            className="btn-primary w-full py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
           >
             <span className="flex items-center justify-center gap-2">
               <Exam size={16} weight="bold" />
@@ -130,8 +128,7 @@ export function VokabeltestView({
                 </div>
                 {answers[current] !== undefined && (
                   <button type="button" onClick={handleAdvance}
-                    className="mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:opacity-90"
-                    style={{ backgroundColor: "var(--kb)" }}>
+                    className="btn-primary mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold">
                     {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
                   </button>
                 )}

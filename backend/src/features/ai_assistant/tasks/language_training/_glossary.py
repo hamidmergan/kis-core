@@ -27,7 +27,7 @@ def generate_from_glossary(
         items = [
             {
                 "front": e["term_de"],
-                "back": f"{e['term_de']} — {e['definition']}",
+                "back": f"{e['term_de']} - {e['definition']}",
                 "back_en": e["term_en"],
                 "source_label": e.get("filename", ""),
                 "page_number": e.get("page_number"),
@@ -38,7 +38,7 @@ def generate_from_glossary(
         items = [
             {
                 "front": e["term_de"],
-                "back": f"{e['term_en']} — {e['definition']}",
+                "back": f"{e['term_en']} - {e['definition']}",
                 "source_label": e.get("filename", ""),
                 "page_number": e.get("page_number"),
             }

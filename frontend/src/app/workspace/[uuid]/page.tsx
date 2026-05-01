@@ -93,7 +93,7 @@ export default function KiTutorWorkspacePage() {
     chatLoading, popupActions,
     chatTextareaRef,
     registerChatSetInput,
-    loadMessages, sendChatMessage,
+    loadMessages, sendChatMessage, stopChat,
     chatSetInputRef,
   } = chat;
 
@@ -430,6 +430,7 @@ export default function KiTutorWorkspacePage() {
       sources={sources}
       loading={chatLoading}
       onSend={(v) => sendChatMessage(v)}
+      onStop={stopChat}
       onSendPrompt={(text) => sendChatMessage(text)}
       onPillClick={handlePillClick}
       moduleReady={moduleDetail?.status === "ready"}

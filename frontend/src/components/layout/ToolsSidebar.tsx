@@ -108,7 +108,7 @@ export default function ToolsSidebar() {
             type="button"
             onClick={toggle}
             aria-label={effectiveCollapsed ? "Tools-Sidebar ausklappen" : "Tools-Sidebar einklappen"}
-            className="flex items-center justify-center rounded-md w-7 h-7 hover:outline-2 hover:outline-kb transition"
+            className="flex items-center justify-center rounded-md w-7 h-7 transition-colors hover:bg-[var(--surface-dim)]"
             style={{ color: "var(--kb)" }}
           >
             <Sidebar size={18} weight="bold" />

@@ -35,8 +35,8 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
       </p>
       <p className="text-sm text-center max-w-xs" style={{ color: "var(--muted)" }}>
         {hildeEnabled
-          ? "Frag mich was zu deinen Quellen — ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen."
-          : "Wähle Quellen links aus – stell Fragen, lass dir Inhalte erklären oder gib Anweisungen."}
+          ? "Frag mich was zu deinen Quellen - ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen."
+          : "Wähle Quellen links aus - stell Fragen, lass dir Inhalte erklären oder gib Anweisungen."}
       </p>
       <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
         {EMPTY_PROMPTS.map((prompt) => (
@@ -44,7 +44,7 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
             key={prompt}
             disabled={disabled}
             onClick={() => onSendPrompt?.(prompt)}
-            className="text-left text-sm px-4 rounded-xl border transition-all"
+            className="text-left text-sm px-4 rounded-xl border transition-colors enabled:hover:bg-[rgba(var(--kb-rgb),0.10)] enabled:hover:border-[rgba(var(--kb-rgb),0.4)]"
             style={{
               height: 50,
               borderColor: disabled ? "var(--border)" : "rgba(var(--kb-rgb),0.25)",
@@ -52,18 +52,6 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
               backgroundColor: "transparent",
               cursor: disabled ? "default" : "pointer",
               opacity: disabled ? 0.5 : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (!disabled) {
-                e.currentTarget.style.backgroundColor = "rgba(var(--kb-rgb),0.10)";
-                e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.4)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!disabled) {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.25)";
-              }
             }}
           >
             {prompt}

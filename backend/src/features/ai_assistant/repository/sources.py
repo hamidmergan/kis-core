@@ -78,7 +78,7 @@ def list_aia_workspaces_with_stale_fingerprint(current_fingerprint: str) -> list
             return [dict(row) for row in cur.fetchall()]
 
 def get_all_aia_sources() -> list[dict]:
-    """Return every KI-Assistent source across all workspaces — used for global re-indexing."""
+    """Return every KI-Assistent source across all workspaces - used for global re-indexing."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM aia_sources ORDER BY id ASC")

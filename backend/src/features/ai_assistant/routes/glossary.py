@@ -1,4 +1,4 @@
-"""KI-Assistent routes — glossary + extraction."""
+"""KI-Assistent routes - glossary + extraction."""
 
 import io
 import json
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client, is_admin_user
+from src.dependencies import get_current_user, get_llm_client, is_admin_user
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
@@ -36,7 +36,7 @@ from src.tool_prompts import (
 )
 
 from src.features.ai_assistant.routes._helpers import (
-    _trace_kisski,
+    _trace_llm,
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
@@ -155,7 +155,7 @@ async def extract_glossary_from_selection(
     workspace_uuid: str,
     body: schemas.GlossaryExtractBody,
     current_user: dict = Depends(get_current_user),
-    kisski=Depends(get_kisski_client),
+    llm=Depends(get_llm_client),
 ):
     """Extract glossary terms from a PDF text selection."""
     user_id = current_user["user_id"]
@@ -174,7 +174,7 @@ async def extract_glossary_from_selection(
     # Check glossary limit
     current_count = db.get_glossary_count(workspace["id"])
     if current_count >= GLOSSARY_LIMIT:
-        return {"added": 0, "message": "Glossary voll (150 / 150) — entferne Begriffe um neue hinzuzufügen."}
+        return {"added": 0, "message": "Glossary voll (150 / 150) - entferne Begriffe um neue hinzuzufügen."}
 
     # Truncate to 300 chars
     text = body.text[:300].strip()
@@ -196,9 +196,9 @@ async def extract_glossary_from_selection(
             {"role": "system", "content": _GLOSSARY_EXTRACT_PROMPT},
             {"role": "user", "content": f"Markierter Text:\n\n{text}"},
         ]
-        response = kisski._client.chat.completions.create(
-            model=kisski._model, messages=messages, temperature=0.2,
-            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+        response = llm._client.chat.completions.create(
+            model=llm._model, messages=messages, temperature=0.2,
+            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
         answer = response.choices[0].message.content.strip()
         if answer.startswith("```"):

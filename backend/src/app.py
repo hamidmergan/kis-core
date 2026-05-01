@@ -122,7 +122,7 @@ def create_app() -> FastAPI:
                     return await call_next(request)
         return JSONResponse(
             status_code=503,
-            content={"maintenance": True, "detail": "Wartungsarbeiten — bitte später erneut versuchen."},
+            content={"maintenance": True, "detail": "Wartungsarbeiten - bitte später erneut versuchen."},
             headers={"Retry-After": "60"},
         )
 

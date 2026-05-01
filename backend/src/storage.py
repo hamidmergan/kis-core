@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import shutil
 import tempfile
@@ -7,6 +6,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
+
+from loguru import logger
 
 from src.database import get_connection, update_job_result, delete_job
 
@@ -113,8 +114,8 @@ def init_lifecycle_policy() -> None:
             },
         )
     except ClientError as e:
-        logging.getLogger(__name__).warning(
-            "Could not set bucket lifecycle policy (continuing without): %s", e
+        logger.warning(
+            "Could not set bucket lifecycle policy (continuing without): {}", e
         )
 
 
@@ -215,10 +216,10 @@ def file_exists(file_path: str) -> bool:
             code = e.response.get("Error", {}).get("Code", "")
             if code in ("404", "NoSuchKey"):
                 return False
-            # Server error, permission error, network issue — assume file exists
+            # Server error, permission error, network issue - assume file exists
             return True
         except Exception:
-            # Connection error, timeout, etc. — assume file exists
+            # Connection error, timeout, etc. - assume file exists
             return True
     return Path(file_path).exists()
 

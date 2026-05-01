@@ -19,7 +19,7 @@ celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
-    result_expires=86400,  # 24h — matches file retention
+    result_expires=86400,  # 24h - matches file retention
     worker_max_tasks_per_child=10,  # restart worker every 10 tasks (prevent memory leaks)
     task_acks_late=True,  # only ack after task completes (no lost jobs on worker crash)
     worker_prefetch_multiplier=1,  # one task at a time per worker process
@@ -78,7 +78,7 @@ def _mark_task_failed(task_id: str, reason: str) -> None:
         job = db.get_job_by_celery_task_id(task_id)
         if job:
             db.update_job_status(job["job_uuid"], "failed", error_message=reason)
-            logger.warning("Signal: job {} marked failed — {}", job["job_uuid"][:8], reason)
+            logger.warning("Signal: job {} marked failed - {}", job["job_uuid"][:8], reason)
     except Exception as e:
         logger.error("Signal handler error: {}", e)
 
@@ -88,7 +88,7 @@ def on_task_failure(task_id, exception, **kwargs):
     from celery.exceptions import SoftTimeLimitExceeded
     if isinstance(exception, SoftTimeLimitExceeded):
         # Task body should have caught this and updated the DB already.
-        # If it reaches here, the soft limit fired in an unguarded spot — still
+        # If it reaches here, the soft limit fired in an unguarded spot - still
         # give a friendly message rather than a raw exception string.
         _mark_task_failed(task_id, "Zeitlimit überschritten. Bitte 'Wiederholen' klicken.")
     else:

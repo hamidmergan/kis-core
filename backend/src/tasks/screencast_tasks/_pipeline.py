@@ -69,7 +69,7 @@ def _run_render_pipeline(
     }).encode())
     save_job_file(user_id, job_uuid, "render_scripts.json", json.dumps(scripts).encode())
 
-    # Check cancel flag before starting — catches cancels that arrived while
+    # Check cancel flag before starting - catches cancels that arrived while
     # the task was queued or being restarted after a SIGTERM (acks_late requeue).
     _assert_not_cancelled(job_uuid)
 

@@ -65,7 +65,7 @@ def _parse_numbered_summaries(text: str, expected_count: int) -> list[str]:
     """
     # Split into numbered sections: "1. ...", "2. ...", etc.
     parts = re.split(r"(?m)^\s*\d+[\.)]\s*", text.strip())
-    # First element is empty (text before first number) — drop it
+    # First element is empty (text before first number) - drop it
     parts = [p.strip().replace("\n", " ") for p in parts if p.strip()]
     result = parts[:expected_count]
     while len(result) < expected_count:
@@ -75,7 +75,7 @@ def _parse_numbered_summaries(text: str, expected_count: int) -> list[str]:
 def _clean_summary(text: str) -> str:
     """Strip <think> blocks and leading number prefix."""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-    # Unclosed <think> — model hit max_tokens while still reasoning
+    # Unclosed <think> - model hit max_tokens while still reasoning
     if "<think>" in text:
         text = text[:text.index("<think>")].strip()
     text = re.sub(r"^\s*\d+[\.)]\s*", "", text).strip()

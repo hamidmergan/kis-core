@@ -1,4 +1,4 @@
-"""GET /jobs/{job_uuid} — Status-Poll (Progress while running, Ergebnis bei fertig)."""
+"""GET /jobs/{job_uuid} - Status-Poll (Progress while running, Ergebnis bei fertig)."""
 
 import json
 from pathlib import Path
@@ -53,7 +53,7 @@ async def get_job_status(
                 logger.error("Failed to load result JSON for {}: {}", job_uuid, e)
                 raise HTTPException(status_code=500, detail="Ergebnis konnte nicht geladen werden")
         else:
-            # Binary result (MP4, MP3) — provide download URL
+            # Binary result (MP4, MP3) - provide download URL
             response["download_url"] = f"/jobs/{job_uuid}/download"
 
             # For render jobs: load subtitle + audio metadata

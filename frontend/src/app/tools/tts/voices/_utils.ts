@@ -100,7 +100,7 @@ export interface KokoroVoice {
   gender: string;
 }
 
-export interface MylabVoice {
+export interface OpenAITtsVoice {
   voice_id: string;
   name: string;
   description: string;

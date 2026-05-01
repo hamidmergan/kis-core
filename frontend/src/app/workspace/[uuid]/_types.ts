@@ -43,6 +43,7 @@ export interface ChatMessage {
   source_qmap?: SourceQmap[];
   sourceCount?: number;
   popup_selection?: { uuid: string; page: number; text: string };
+  aborted?: boolean;
 }
 
 export interface LernKarte {

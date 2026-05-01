@@ -469,6 +469,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS enrollment_id INTEGER REFERENCES aia_enrollments(id) ON DELETE SET NULL")
             # Migration: add source_qmap (Q-number → source UUID mapping) to messages
             cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS source_qmap JSONB")
+            # Migration: mark assistant messages whose stream was cancelled by the user
+            cur.execute("ALTER TABLE aia_messages ADD COLUMN IF NOT EXISTS aborted BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_user_settings (
                     id                   SERIAL PRIMARY KEY,
@@ -713,30 +715,78 @@ def init_db(admin_email: Optional[str] = None) -> None:
             else:
                 _log.info("search_vector: all chunks already populated.")
 
+            # Stage 5: rename provider-specific settings keys to generic slot names
+            # (kisski_* → primary_*, mylab_* → fallback_*, ollama_* → local_*).
+            # Idempotent: if the new key already exists, the legacy row is dropped.
+            # TTS keys (mylab_enabled, mylab_tts_model, elevenlabs_*, kokoro_*, fish_*)
+            # are intentionally NOT renamed - TTS providers are a flat list, not
+            # a primary/fallback/local hierarchy.
+            for old_key, new_key in (
+                ("kisski_llm_enabled",            "primary_llm_enabled"),
+                ("kisski_llm_model",              "primary_llm_model"),
+                ("kisski_embedding_enabled",      "primary_embedding_enabled"),
+                ("kisski_embedding_model",        "primary_embedding_model"),
+                ("kisski_whisper_enabled",        "primary_whisper_enabled"),
+                ("kisski_ocr_enabled",            "primary_ocr_enabled"),
+                ("kisski_ocr_model",              "primary_ocr_model"),
+                ("kisski_image_gen_enabled",      "primary_image_gen_enabled"),
+                ("kisski_image_analyze_enabled",  "primary_image_analyze_enabled"),
+                ("kisski_image_edit_enabled",     "primary_image_edit_enabled"),
+                ("mylab_llm_enabled",             "fallback_llm_enabled"),
+                ("mylab_llm_model",               "fallback_llm_model"),
+                ("mylab_embedding_enabled",       "fallback_embedding_enabled"),
+                ("mylab_embedding_model",         "fallback_embedding_model"),
+                ("mylab_whisper_enabled",         "fallback_whisper_enabled"),
+                ("mylab_ocr_enabled",             "fallback_ocr_enabled"),
+                ("mylab_ocr_model",               "fallback_ocr_model"),
+                ("mylab_image_gen_enabled",       "fallback_image_gen_enabled"),
+                ("mylab_image_gen_model",         "fallback_image_gen_model"),
+                ("mylab_image_edit_enabled",      "fallback_image_edit_enabled"),
+                ("mylab_image_edit_model",        "fallback_image_edit_model"),
+                ("ollama_llm_enabled",            "local_llm_enabled"),
+                ("ollama_llm_model",              "local_llm_model"),
+                ("ollama_embedding_enabled",      "local_embedding_enabled"),
+                ("ollama_embedding_model",        "local_embedding_model"),
+            ):
+                # Insert under the new key only if it does not already exist
+                # (otherwise the new key wins, keeping the most recent admin edit).
+                cur.execute(
+                    """
+                    INSERT INTO settings (key, value, updated_at)
+                    SELECT %s, value, updated_at FROM settings WHERE key = %s
+                    ON CONFLICT (key) DO NOTHING
+                    """,
+                    (new_key, old_key),
+                )
+                cur.execute("DELETE FROM settings WHERE key = %s", (old_key,))
+
             # Provider radio groups: exactly one provider per group may be active.
             # - Embedding: different models have different vector dimensions.
             # - LLM: system-wide selection, provider selection via DB instead of env since 2026-04-25.
             _enforce_radio_group(
                 cur, _log,
-                keys=("kisski_embedding_enabled", "mylab_embedding_enabled", "ollama_embedding_enabled"),
-                default="kisski_embedding_enabled",
+                keys=("primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled"),
+                default="primary_embedding_enabled",
                 label="Embedding",
             )
             _enforce_radio_group(
                 cur, _log,
-                keys=("kisski_llm_enabled", "mylab_llm_enabled", "ollama_llm_enabled"),
-                default="kisski_llm_enabled",
+                keys=("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled"),
+                default="primary_llm_enabled",
                 label="LLM",
             )
 
-            # Runtime-tunable model names: seed with defaults on first start.
-            # Existing values are NEVER overwritten - admin edits are preserved.
-            from src.services.runtime_models import MODEL_DEFAULTS
-            for key, default in MODEL_DEFAULTS.items():
+            # Runtime-tunable model names: seed only the explicitly-listed keys
+            # (SEEDED_MODEL_KEYS). Other keys live as pure code-side defaults so
+            # bumping a default in code rolls out to every install automatically;
+            # DB stores user overrides only. Existing seeded values are never
+            # overwritten — admin edits are preserved.
+            from src.services.runtime_models import MODEL_DEFAULTS, SEEDED_MODEL_KEYS
+            for key in SEEDED_MODEL_KEYS:
                 cur.execute("""
                     INSERT INTO settings (key, value) VALUES (%s, %s)
                     ON CONFLICT (key) DO NOTHING
-                """, (key, default))
+                """, (key, MODEL_DEFAULTS[key]))
         conn.commit()
 
 
@@ -755,7 +805,7 @@ def _enforce_radio_group(cur, _log, *, keys: tuple[str, ...], default: str, labe
             INSERT INTO settings (key, value) VALUES (%s, 'true')
             ON CONFLICT (key) DO UPDATE SET value = 'true', updated_at = NOW()
         """, (default,))
-        _log.info("{} radio group: no provider active — seeded default {}", label, default)
+        _log.info("{} radio group: no provider active - seeded default {}", label, default)
         return
 
     # Multiple active: keep the highest-priority one (order in keys)
@@ -767,7 +817,7 @@ def _enforce_radio_group(cur, _log, *, keys: tuple[str, ...], default: str, labe
             INSERT INTO settings (key, value) VALUES (%s, 'false')
             ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = NOW()
         """, (k,))
-    _log.warning("{} radio group violated — kept {} active, disabled others.", label, winner)
+    _log.warning("{} radio group violated - kept {} active, disabled others.", label, winner)
 
 
 # --- Users ---

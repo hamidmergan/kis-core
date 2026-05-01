@@ -1,4 +1,4 @@
-"""KI-Assistent routes — schedule."""
+"""KI-Assistent routes - schedule."""
 
 from datetime import date, time
 from typing import Optional

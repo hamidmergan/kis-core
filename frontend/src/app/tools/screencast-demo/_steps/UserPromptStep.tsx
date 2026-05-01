@@ -38,7 +38,7 @@ export function UserPromptStep({
             onChange={() => setMode("manual")} className="mt-0.5 accent-kb" />
           <div>
             <span className="text-sm font-medium text-foreground">Manuell eingeben</span>
-            <p className="text-xs text-muted mt-0.5">Alle Textfelder bleiben leer – Sie tippen die Skripte selbst ein.</p>
+            <p className="text-xs text-muted mt-0.5">Alle Textfelder bleiben leer - Sie tippen die Skripte selbst ein.</p>
           </div>
         </label>
         <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${scriptInputMode === "import" ? "border-kb bg-kb/5" : "border-border-soft hover:border-border"}`}>
@@ -46,7 +46,7 @@ export function UserPromptStep({
             onChange={() => onScriptInputModeChange("import")} className="mt-0.5 accent-kb" />
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium text-foreground">Skript importieren</span>
-            <p className="text-xs text-muted mt-0.5">JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.</p>
+            <p className="text-xs text-muted mt-0.5">JSON-Datei hochladen - Array von Strings, ein Eintrag pro Folie.</p>
             {scriptInputMode === "import" && (
               <div className="mt-2">
                 <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-kb border border-kb rounded-md hover:bg-kb/5 cursor-pointer transition-colors">

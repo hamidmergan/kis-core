@@ -1,8 +1,8 @@
-"""Base class of the KISSKI client mixins + internal helpers."""
+"""Base class of the OpenAI-compat LLM client mixins + internal helpers."""
 
 import json
 
-from langfuse.openai import OpenAI
+from langfuse.openai import AsyncOpenAI, OpenAI
 
 
 def is_transient_error(e: Exception) -> bool:
@@ -39,11 +39,13 @@ def clean_whisper_response(raw: str) -> str:
     return text.strip()
 
 
-class _KisskiBase:
-    """Shared attributes of all KISSKI client mixins.
+class _OpenAICompatBase:
+    """Shared attributes of all OpenAI-compat LLM client mixins.
 
     Mixins (`_ScriptsMixin`, `_SummaryMixin`, `_WhisperMixin`, `_WhisperChunkedMixin`)
-    expect these instance variables. The concrete client class sets them here."""
+    expect these instance variables. The concrete client class sets them here.
+    The ``provider`` field is a free-form tag for telemetry / logging only and
+    has no effect on request shape (the API surface is the same OpenAI spec)."""
 
     def __init__(
         self,
@@ -54,6 +56,8 @@ class _KisskiBase:
         whisper_model: str = "whisper-large-v2",
     ):
         self._client = OpenAI(api_key=api_key, base_url=base_url)
+        # Async twin for streaming endpoints that need cancel-on-disconnect.
+        self._async_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self._model = model
         self._provider = provider
         self._base_url = base_url
@@ -61,11 +65,6 @@ class _KisskiBase:
         self._extra_body: dict = {}
         # Batch settings (used in _ScriptsMixin.generate_scripts_batch).
         # Defaults are provider-independent; placeholders for future provider profiles.
-        if provider == "ollama":
-            self._batch_max_workers: int = 3
-            self._batch_timeout: float = 180.0
-            self._batch_size: int = 3
-        else:
-            self._batch_max_workers = 3
-            self._batch_timeout = 180.0
-            self._batch_size = 3
+        self._batch_max_workers: int = 3
+        self._batch_timeout: float = 180.0
+        self._batch_size: int = 3

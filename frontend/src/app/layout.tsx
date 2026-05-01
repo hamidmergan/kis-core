@@ -10,7 +10,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
 export const metadata: Metadata = {
   title: "KIS",
-  description: "KIS – Services der TH Lübeck",
+  description: "KIS - Services der TH Lübeck",
   authors: [{ name: "Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck" }],
   other: {
     copyright: "© 2026 Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck",

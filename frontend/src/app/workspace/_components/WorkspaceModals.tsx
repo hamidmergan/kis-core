@@ -77,7 +77,7 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">Einschreibelink löschen?</h3>
             <p className="text-sm text-foreground-soft mb-1">
-              <span className="font-medium">...{deleteLinkConfirm.code}</span> – {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
+              <span className="font-medium">...{deleteLinkConfirm.code}</span> - {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
             </p>
             <p className="text-sm text-error mb-6">Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.</p>
             <div className="flex gap-3 justify-end">

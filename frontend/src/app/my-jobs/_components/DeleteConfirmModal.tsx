@@ -15,7 +15,7 @@ export function DeleteConfirmModal({ job, deleting, onCancel, onConfirm }: Delet
       <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
         <h3 className="text-base font-semibold mb-2">Job löschen?</h3>
         <p className="text-sm text-foreground-soft mb-1">
-          <span className="font-medium">{job.tool_label}</span> – {job.original_filename}
+          <span className="font-medium">{job.tool_label}</span> - {job.original_filename}
         </p>
         <p className="text-sm text-error mb-6">
           Der Job wird vollständig entfernt und ist nicht mehr herunterladbar.

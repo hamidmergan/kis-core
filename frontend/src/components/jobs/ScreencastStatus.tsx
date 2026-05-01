@@ -100,7 +100,7 @@ export default function ScreencastStatus({
           {errorMessage && <p className="text-xs text-error">{errorMessage}</p>}
           {onRetry && (
             <p className="text-xs text-muted">
-              Klicke auf <strong>Wiederholen</strong> — bereits fertige Schritte werden nicht wiederholt.
+              Klicke auf <strong>Wiederholen</strong> - bereits fertige Schritte werden nicht wiederholt.
             </p>
           )}
           <div className="flex gap-3">

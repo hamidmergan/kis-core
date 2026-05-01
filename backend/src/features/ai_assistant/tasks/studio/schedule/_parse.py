@@ -103,7 +103,7 @@ def _normalize_partial_date(raw: str) -> Optional[tuple[int, int]]:
 
 def _resolve_current_year(today_d: date, month: int, day: int) -> Optional[date]:
     """Year-less dates ALWAYS resolve to the current year. If the resulting date
-    is in the past, it's shown dimmed by the UI — we do NOT hallucinate a future
+    is in the past, it's shown dimmed by the UI - we do NOT hallucinate a future
     year. Returns None on invalid MD."""
     try:
         return date(today_d.year, month, day)

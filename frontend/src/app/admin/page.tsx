@@ -214,7 +214,7 @@ export default function AdminPage() {
                         ? "bg-kb/8 text-kb font-semibold"
                         : "text-foreground-soft hover:bg-surface-dim hover:text-kb"
                     }`}
-                    style={active ? { backgroundColor: "rgba(0, 66, 97, 0.08)" } : undefined}
+                    style={active ? { backgroundColor: "rgba(var(--kb-rgb), 0.08)" } : undefined}
                   >
                     <span
                       className={`transition-colors ${
@@ -250,7 +250,7 @@ export default function AdminPage() {
                                 ? "text-kb font-semibold"
                                 : "text-muted hover:text-foreground-soft hover:bg-surface-dim"
                             }`}
-                            style={subActive ? { backgroundColor: "rgba(0, 66, 97, 0.08)" } : undefined}
+                            style={subActive ? { backgroundColor: "rgba(var(--kb-rgb), 0.08)" } : undefined}
                           >
                             {sub.label}
                           </button>

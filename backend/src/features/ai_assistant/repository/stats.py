@@ -76,7 +76,7 @@ def get_student_stats(workspace_id: int, user_id: int) -> dict:
             overview_lerntools = _summarise(lerntools_sets)
             overview_language_training = _summarise(lang_sets)
 
-            # (by_tool removed — not displayed anymore)
+            # (by_tool removed - not displayed anymore)
 
             # ── Heatmap: activity per day per category (last 6 months, Berlin tz) ──
             from datetime import date, timedelta, datetime
@@ -461,7 +461,7 @@ def get_aia_admin_stats(days: int = 30, mode: str | None = None) -> dict:
 # ─── Lecturer: Module Statistics ──────────────────────────────────────────────
 
 def get_aia_workspace_stats(workspace_id: int) -> dict:
-    """Statistics for a single workspace – used by the workspace owner (Lecturer)."""
+    """Statistics for a single workspace - used by the workspace owner (Lecturer)."""
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(

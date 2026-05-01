@@ -25,14 +25,13 @@ export function LerntoolsGrid({ tiles, onSelect }: {
             key={tile.key}
             type="button"
             onClick={() => onSelect(tile.key)}
-            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl text-center transition-colors"
+            className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl text-center border-2 transition-colors border-[var(--tile-border)] hover:border-[var(--tile-color)]"
             style={{
               minHeight: compact ? 50 : 90,
               backgroundColor: tile.iconBg,
-              border: `2px solid color-mix(in srgb, ${tile.iconColor} 20%, transparent)`,
+              ["--tile-color" as string]: tile.iconColor,
+              ["--tile-border" as string]: `color-mix(in srgb, ${tile.iconColor} 20%, transparent)`,
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = tile.iconColor; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = `color-mix(in srgb, ${tile.iconColor} 20%, transparent)`; }}
             title={tile.label}
           >
             <tile.Icon size={compact ? 18 : 20} color={tile.iconColor} weight="bold" />

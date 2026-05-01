@@ -5,7 +5,7 @@ from loguru import logger
 
 from src.config import Settings
 from src.services.elevenlabs_client import ElevenLabsClient
-from src.services.kisski_client import KisskiClient
+from src.services.openai_compat_llm import OpenAICompatLLMClient
 
 
 @lru_cache
@@ -56,6 +56,31 @@ def get_session_store():
     )
 
 
+def _llm_provider_config(provider: str) -> tuple[str, str, str]:
+    """Return (api_key, base_url, default_model) for a named provider.
+
+    Raises RuntimeError if the provider is not configured (missing API key / base URL).
+    Used by both `_resolve_llm_provider` (active provider) and the translation override.
+    """
+    settings = get_settings()
+    from src.services.runtime_models import get_model
+
+    if provider == "primary":
+        if not settings.primary_provider_api_key:
+            raise RuntimeError("Primary LLM nicht konfiguriert (PRIMARY_PROVIDER_API_KEY fehlt).")
+        return settings.primary_provider_api_key, settings.primary_provider_base_url, get_model("primary_llm_model")
+    if provider == "fallback":
+        fallback_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
+        if not fallback_url:
+            raise RuntimeError("Fallback LLM nicht konfiguriert (FALLBACK_PROVIDER_BASE_URL fehlt).")
+        return "ignored", f"{fallback_url.rstrip('/')}/v1", get_model("fallback_llm_model")
+    if provider == "local":
+        if not settings.local_provider_base_url:
+            raise RuntimeError("Local LLM nicht konfiguriert (OLLAMA_BASE_URL fehlt).")
+        return "ignored", settings.local_provider_base_url, get_model("local_llm_model")
+    raise ValueError(f"Unbekannter LLM-Provider: {provider!r}")
+
+
 def _resolve_llm_provider() -> tuple[str, str, str, str]:
     """Resolve LLM provider based on admin toggles -> (api_key, base_url, model, provider_name).
 
@@ -63,25 +88,15 @@ def _resolve_llm_provider() -> tuple[str, str, str, str]:
     If none is active, raises RuntimeError with a clear instruction.
     """
     from src import database as db
-    settings = get_settings()
 
-    from src.services.runtime_models import get_model
-
-    if db.get_setting("kisski_llm_enabled", "false").lower() == "true":
-        if not settings.kisski_api_key:
-            raise RuntimeError("KISSKI LLM aktiv, aber KISSKI_API_KEY nicht gesetzt.")
-        return settings.kisski_api_key, settings.kisski_base_url, get_model("kisski_llm_model"), "kisski"
-
-    if db.get_setting("mylab_llm_enabled", "false").lower() == "true":
-        mylab_url = settings.mylab_base_url or settings.mylab_tts_base_url
-        if not mylab_url:
-            raise RuntimeError("THL myLab LLM aktiv, aber MYLAB_BASE_URL nicht gesetzt.")
-        return "ignored", f"{mylab_url.rstrip('/')}/v1", get_model("mylab_llm_model"), "thl"
-
-    if db.get_setting("ollama_llm_enabled", "false").lower() == "true":
-        if not settings.ollama_base_url:
-            raise RuntimeError("Ollama LLM aktiv, aber OLLAMA_BASE_URL nicht gesetzt.")
-        return "ignored", settings.ollama_base_url, get_model("ollama_llm_model"), "ollama"
+    for key, name in (
+        ("primary_llm_enabled", "primary"),
+        ("fallback_llm_enabled", "fallback"),
+        ("local_llm_enabled", "local"),
+    ):
+        if db.get_setting(key, "false").lower() == "true":
+            api_key, base_url, model = _llm_provider_config(name)
+            return api_key, base_url, model, name
 
     raise RuntimeError(
         "Kein LLM-Provider aktiv. Bitte im Admin-Bereich unter 'LLM Chat' "
@@ -89,38 +104,60 @@ def _resolve_llm_provider() -> tuple[str, str, str, str]:
     )
 
 
-def resolve_whisper_client() -> KisskiClient:
+def _resolve_translation_llm_provider() -> tuple[str, str, str, str]:
+    """Like _resolve_llm_provider, but with optional provider+model override for /translate.
+
+    DB-backed (no env). Mirrors the LLM Chat pattern with per-provider model slots:
+      - `translation_llm_provider`: "" | "primary" | "fallback" | "local"
+      - `translation_primary_model`, `translation_fallback_model`, `translation_local_model`
+
+    Empty provider → identical to _resolve_llm_provider.
+    Set provider + empty per-provider model → that provider's default LLM model.
+    Set provider + non-empty per-provider model → that exact model.
+    """
+    from src import database as db
+    provider = db.get_setting("translation_llm_provider", "").strip()
+    if not provider:
+        return _resolve_llm_provider()
+
+    from src.services.runtime_models import get_model
+    api_key, base_url, _ = _llm_provider_config(provider)
+    return api_key, base_url, get_model(f"translation_{provider}_model"), provider
+
+
+def resolve_whisper_client() -> OpenAICompatLLMClient:
     """Resolve a Whisper client based on admin toggles.
 
-    Uses KISSKI (whisper-large-v2) by default, switches to THL myLab
-    (whisper-3-large) when ``mylab_whisper_enabled`` is true.
+    Default whisper provider follows the active LLM provider's transcription
+    endpoint; if ``fallback_whisper_enabled`` is set the fallback provider's
+    whisper-3-large instance is used instead. Both endpoints are OpenAI-compatible.
     """
     from src import database as db
     settings = get_settings()
 
-    if db.get_setting("mylab_whisper_enabled", "false").lower() == "true":
-        mylab_url = settings.mylab_base_url or settings.mylab_tts_base_url
-        if not mylab_url:
-            raise RuntimeError("THL myLab Base-URL nicht konfiguriert")
+    if db.get_setting("fallback_whisper_enabled", "false").lower() == "true":
+        fallback_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
+        if not fallback_url:
+            raise RuntimeError("Fallback Whisper aktiv, aber FALLBACK_PROVIDER_BASE_URL nicht konfiguriert")
         from src.services.runtime_models import get_model
-        return KisskiClient(
+        return OpenAICompatLLMClient(
             api_key="not-needed",
-            base_url=f"{mylab_url.rstrip('/')}/v1",
-            model=get_model("mylab_llm_model"),
-            provider="mylab",
+            base_url=f"{fallback_url.rstrip('/')}/v1",
+            model=get_model("fallback_llm_model"),
+            provider="fallback",
             whisper_model="whisper-3-large",
         )
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:
         raise RuntimeError("Kein LLM-Provider konfiguriert (für Whisper-Transkription)")
-    return KisskiClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
+    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
 
 
-def get_kisski_client() -> KisskiClient:
+def get_llm_client() -> OpenAICompatLLMClient:
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:
         raise HTTPException(status_code=500, detail="Kein LLM-Provider konfiguriert")
-    return KisskiClient(
+    return OpenAICompatLLMClient(
         api_key=api_key,
         base_url=base_url,
         model=model,
@@ -170,12 +207,12 @@ def is_kokoro_enabled() -> bool:
 
 
 def get_mylab_client():
-    from src.services.mylab_client import MyLabClient
+    from src.services.openai_compat_tts import OpenAICompatTTSClient
     from src.services.runtime_models import get_model
     settings = get_settings()
     if not settings.mylab_tts_base_url:
         return None
-    return MyLabClient(settings.mylab_tts_base_url, model=get_model("mylab_tts_model"))
+    return OpenAICompatTTSClient(settings.mylab_tts_base_url, model=get_model("mylab_tts_model"))
 
 
 def is_mylab_enabled() -> bool:

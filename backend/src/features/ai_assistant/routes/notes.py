@@ -1,4 +1,4 @@
-"""KI-Assistent routes — notes."""
+"""KI-Assistent routes - notes."""
 
 import io
 import json
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
-from src.dependencies import get_current_user, get_kisski_client
+from src.dependencies import get_current_user, get_llm_client
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -36,8 +36,8 @@ from src.tool_prompts import (
 _NOTE_TITLE_SAFETY_CAP = 200
 
 
-def _generate_and_store_note_title(kisski, note_id: int, user_id: int, content: str) -> None:
-    title = _generate_note_title(kisski, content)
+def _generate_and_store_note_title(llm, note_id: int, user_id: int, content: str) -> None:
+    title = _generate_note_title(llm, content)
     if not title:
         logger.warning("Notiz-Titel: LLM lieferte keinen Titel (note_id={})", note_id)
         return
@@ -48,22 +48,22 @@ def _generate_and_store_note_title(kisski, note_id: int, user_id: int, content: 
         logger.warning("Notiz-Titel konnte nicht gespeichert werden (note_id={}): {}", note_id, e)
 
 
-def _generate_note_title(kisski, content: str) -> Optional[str]:
+def _generate_note_title(llm, content: str) -> Optional[str]:
     snippet = content.strip()
     if not snippet:
         return None
     if len(snippet) > 4000:
         snippet = snippet[:4000]
     try:
-        response = kisski._client.with_options(timeout=30.0).chat.completions.create(
-            model=kisski._model,
+        response = llm._client.with_options(timeout=30.0).chat.completions.create(
+            model=llm._model,
             messages=[
                 {"role": "system", "content": KIA_NOTE_TITLE},
                 {"role": "user", "content": snippet},
             ],
             temperature=0.2,
             max_tokens=120,
-            **(kisski._extra_body and {"extra_body": kisski._extra_body} or {}),
+            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
         title = (response.choices[0].message.content or "").strip().strip('"\'').rstrip(".")
     except Exception as e:
@@ -77,7 +77,7 @@ def _generate_note_title(kisski, content: str) -> Optional[str]:
     return title
 
 from src.features.ai_assistant.routes._helpers import (
-    _trace_kisski,
+    _trace_llm,
     _convert_office_to_pdf,
     _count_pages,
     _format_timestamp,
@@ -129,7 +129,7 @@ async def create_note(
     body: schemas.NoteBody,
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
-    kisski=Depends(get_kisski_client),
+    llm=Depends(get_llm_client),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
@@ -153,7 +153,7 @@ async def create_note(
         body.source_uuids, body.source_pages, body.popup_selection,
     )
     if body.auto_title:
-        background_tasks.add_task(_generate_and_store_note_title, kisski, note["id"], user_id, content)
+        background_tasks.add_task(_generate_and_store_note_title, llm, note["id"], user_id, content)
     return {
         "id": note["id"],
         "title": note.get("title"),

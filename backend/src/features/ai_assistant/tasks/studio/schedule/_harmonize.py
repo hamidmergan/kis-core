@@ -20,7 +20,7 @@ def _harmonize_same_date_titles(
     client, model, all_candidates: list[dict], classifications: list[dict],
     today_d: date, existing_entries: list[dict],
 ) -> None:
-    """Cross-candidate dedup pass. Shows the LLM ALL events on one date —
+    """Cross-candidate dedup pass. Shows the LLM ALL events on one date -
     both new candidates (title can be rewritten) and existing DB entries
     (title is fixed). The LLM groups same-events; any new candidate whose
     group contains an existing entry gets rewritten to that existing title,
@@ -108,7 +108,7 @@ def _harmonize_same_date_titles(
                     if 0 <= i < len(classifications):
                         classifications[i]["title"] = canonical
                 logger.info(
-                    "Schedule harmonize: date {} — candidates {} aligned to '{}'",
+                    "Schedule harmonize: date {} - candidates {} aligned to '{}'",
                     d.isoformat(), cand_ids, canonical,
                 )
         except Exception as e:

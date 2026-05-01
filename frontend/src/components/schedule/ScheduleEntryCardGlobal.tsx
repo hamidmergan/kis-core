@@ -50,7 +50,7 @@ export function ScheduleEntryCardGlobal({
   const description = cleanScheduleDescription(entry.description, entry.due_time);
 
   return (
-    <div className="hover:outline-2 hover:outline-kb transition" style={containerStyle}>
+    <div className="border-2 border-transparent hover:border-kb transition-colors" style={containerStyle}>
       <button
         type="button"
         aria-label={

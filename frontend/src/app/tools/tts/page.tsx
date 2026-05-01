@@ -209,7 +209,7 @@ export default function TtsPage() {
         },
         3000,
         signal,
-        () => setTtsProgressLabel("Kein Fortschritt seit 60 Sek. — falls der Job hängt, bitte Wiederholen klicken…"),
+        () => setTtsProgressLabel("Kein Fortschritt seit 60 Sek. - falls der Job hängt, bitte Wiederholen klicken…"),
         60_000,
       );
 
@@ -269,7 +269,7 @@ export default function TtsPage() {
             selectedFilename={ttsSelectedFile || undefined}
           />
           {noProvider && (
-            <p className="mt-3 text-sm text-muted-soft">Kein TTS-Anbieter aktiv — bitte im Admin-Bereich einen Anbieter freischalten.</p>
+            <p className="mt-3 text-sm text-muted-soft">Kein TTS-Anbieter aktiv - bitte im Admin-Bereich einen Anbieter freischalten.</p>
           )}
 
           {/* Provider */}
@@ -308,10 +308,10 @@ export default function TtsPage() {
                   provider === "kokoro"
                     ? kokoroVoices.map((v) => ({ value: v.voice_id, label: `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() }))
                     : provider === "mylab"
-                    ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} – ${v.description}` }))
+                    ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} - ${v.description}` }))
                     : voices.map((v) => {
                         const desc = translateDesc(v.description);
-                        return { value: v.voice_id, label: desc ? `${v.label} – ${desc}` : v.label };
+                        return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };
                       })
                 }
               />

@@ -17,7 +17,7 @@ export interface KokoroVoice {
   gender: string;
 }
 
-export interface MylabVoice {
+export interface OpenAITtsVoice {
   voice_id: string;
   name: string;
   description: string;
@@ -39,7 +39,7 @@ export interface UseVoicesResult {
   defaultVoiceId: string;
   elevenlabs: ElevenLabsVoice[];
   kokoro: KokoroVoice[];
-  mylab: MylabVoice[];
+  mylab: OpenAITtsVoice[];
 }
 
 const EMPTY_FLAGS: ProviderFlags = {
@@ -65,7 +65,7 @@ export function useVoices(): UseVoicesResult {
   const [defaultVoiceId, setDefaultVoiceId] = useState("");
   const [elevenlabs, setElevenlabs] = useState<ElevenLabsVoice[]>([]);
   const [kokoro, setKokoro] = useState<KokoroVoice[]>([]);
-  const [mylab, setMylab] = useState<MylabVoice[]>([]);
+  const [mylab, setMylab] = useState<OpenAITtsVoice[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,7 +117,7 @@ export function useVoices(): UseVoicesResult {
         if (flags.mylab) {
           tasks.push(
             api
-              .getJson<{ voices: MylabVoice[] }>("/api/mylab/voices")
+              .getJson<{ voices: OpenAITtsVoice[] }>("/api/mylab/voices")
               .then((v) => {
                 if (cancelled) return;
                 setMylab(v.voices ?? []);

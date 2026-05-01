@@ -21,7 +21,7 @@ def _assert_not_cancelled(job_uuid: str) -> None:
     except Exception as e:
         logger.warning("Cancel check Redis error: {}", e)
     if cancelled:
-        logger.info("Job {} cancelled — killing active procs", job_uuid[:8])
+        logger.info("Job {} cancelled - killing active procs", job_uuid[:8])
         try:
             from src.services.screencast import kill_job_procs
             kill_job_procs(job_uuid)

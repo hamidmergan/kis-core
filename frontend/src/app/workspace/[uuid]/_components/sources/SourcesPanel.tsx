@@ -125,10 +125,7 @@ export function SourcesPanel({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-base font-medium transition-colors hover:opacity-90"
-            style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", border: "2px dashed rgba(var(--kb-rgb),0.3)" }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--kb)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(var(--kb-rgb),0.3)"; }}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-base font-medium border-2 border-dashed transition-colors text-[var(--kb)] bg-[rgba(var(--kb-rgb),0.08)] border-[rgba(var(--kb-rgb),0.3)] hover:bg-[rgba(var(--kb-rgb),0.16)] hover:border-[var(--kb)]"
           >
             <Plus size={15} weight="bold" />
             Quellen hinzufügen
@@ -261,7 +258,7 @@ export function SourcesPanel({
                           style={{ backgroundColor: "var(--surface-dim)" }}
                           title="Erneut versuchen"
                         >
-                          <ArrowCounterClockwise size={13} weight="regular" />
+                          <ArrowCounterClockwise size={13} weight="bold" />
                         </button>
                       </div>
                     )}

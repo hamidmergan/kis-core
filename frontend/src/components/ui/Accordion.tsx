@@ -29,7 +29,7 @@ export function AccordionItem({ header, open, onToggle, children, className = ""
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:opacity-80 transition-opacity"
+        className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-[var(--surface-dim)] transition-colors"
         style={{ color: "var(--foreground)" }}
       >
         <div className="flex-1 min-w-0">{header}</div>

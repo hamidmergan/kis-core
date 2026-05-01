@@ -1,4 +1,4 @@
-"""KI-Assistent Celery tasks — data_table generation."""
+"""KI-Assistent Celery tasks - data_table generation."""
 
 import concurrent.futures
 import os

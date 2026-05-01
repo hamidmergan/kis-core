@@ -1,19 +1,17 @@
-"""myLab TTS client - OpenAI-compatible API of TH Luebeck (Coqui XTTS-v2).
+"""OpenAI-compatible TTS client.
 
-Endpoints (OpenAI-compatible):
+Endpoints used (OpenAI Audio spec):
     POST /v1/audio/speech   -> audio bytes (mp3)
+    GET  /v1/models         -> health probe
 
-Base URL: https://models.mylab.th-luebeck.dev
-Models: tts-1-hd (= xtts-v2), xtts-v2
-
-XTTS-v2 is multilingual - supports German, English and others.
-No API key required (campus-wide open).
+Currently configured against TH Luebeck's myLab deployment of Coqui XTTS-v2
+(``models.mylab.th-luebeck.dev``); any other openedai-speech / OpenAI-compat
+TTS server with the same surface area works as a drop-in replacement.
 """
 from __future__ import annotations
 
 import httpx
 
-DEFAULT_BASE_URL = "https://models.mylab.th-luebeck.dev"
 _DEFAULT_VOICE = "alloy"
 _DEFAULT_MODEL = "tts-1-hd"
 
@@ -58,8 +56,10 @@ _BUILTIN_VOICES = [
 ]
 
 
-class MyLabClient:
-    def __init__(self, base_url: str = DEFAULT_BASE_URL, model: str = _DEFAULT_MODEL):
+class OpenAICompatTTSClient:
+    """Client for any OpenAI-compatible TTS endpoint (POST /v1/audio/speech)."""
+
+    def __init__(self, base_url: str, model: str = _DEFAULT_MODEL):
         self._base_url = base_url.rstrip("/")
         self._model = model
 
@@ -121,7 +121,7 @@ class MyLabClient:
         )
         if response.status_code != 200:
             raise RuntimeError(
-                f"myLab TTS API Fehler ({response.status_code}): {response.text[:300]}"
+                f"TTS API error ({response.status_code}): {response.text[:300]}"
             )
         return response.content
 
@@ -147,13 +147,13 @@ class MyLabClient:
         return {"audio_bytes": audio_bytes, "alignment": None}
 
     def is_available(self) -> bool:
-        """Check if the myLab TTS server is reachable."""
+        """Check if the TTS server is reachable (via /v1/models probe)."""
         from loguru import logger
         try:
             with httpx.Client(timeout=5.0) as client:
                 resp = client.get(f"{self._base_url}/v1/models", headers=self._headers())
-            logger.debug("myLab TTS is_available: /v1/models -> HTTP {}", resp.status_code)
+            logger.debug("TTS is_available: {} /v1/models -> HTTP {}", self._base_url, resp.status_code)
             return resp.status_code < 500
         except Exception as e:
-            logger.warning("myLab TTS is_available: {}: {}", type(e).__name__, e)
+            logger.warning("TTS is_available probe failed: {}: {}", type(e).__name__, e)
             return False

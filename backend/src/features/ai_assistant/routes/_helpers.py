@@ -13,10 +13,10 @@ from langfuse.decorators import langfuse_context
 from src import database as db
 from src.storage import USE_S3
 
-def _trace_kisski(kisski, name: str) -> None:
+def _trace_llm(llm, name: str) -> None:
     """Update current Langfuse observation with provider metadata."""
     langfuse_context.update_current_observation(
-        metadata={"provider": kisski._provider, "base_url": kisski._base_url, "model": kisski._model},
+        metadata={"provider": llm._provider, "base_url": llm._base_url, "model": llm._model},
         name=name,
     )
 
@@ -47,7 +47,7 @@ def _mp4_faststart(data: bytes) -> bytes:
     """Remux MP4 so the moov atom sits at the file start (progressive playback).
 
     Without this, browsers must download to near end-of-file before playback
-    starts — painful for multi-hour recordings. ffmpeg -c copy avoids re-encoding.
+    starts - painful for multi-hour recordings. ffmpeg -c copy avoids re-encoding.
     Falls back to the original bytes on any failure.
     """
     with tempfile.TemporaryDirectory() as tmpdir:

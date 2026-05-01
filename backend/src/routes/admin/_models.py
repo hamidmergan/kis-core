@@ -15,29 +15,32 @@ class UpdateSettingsRequest(BaseModel):
     kokoro_enabled: bool | None = None
     mylab_enabled: bool | None = None
     # Transcription
-    kisski_whisper_enabled: bool | None = None
-    mylab_whisper_enabled: bool | None = None
+    primary_whisper_enabled: bool | None = None
+    fallback_whisper_enabled: bool | None = None
     # Embeddings
-    kisski_embedding_enabled: bool | None = None
-    mylab_embedding_enabled: bool | None = None
-    ollama_embedding_enabled: bool | None = None
+    primary_embedding_enabled: bool | None = None
+    fallback_embedding_enabled: bool | None = None
+    local_embedding_enabled: bool | None = None
     # Image generation
-    kisski_image_gen_enabled: bool | None = None
-    mylab_image_gen_enabled: bool | None = None
-    # Image analysis (KISSKI only)
-    kisski_image_analyze_enabled: bool | None = None
+    primary_image_gen_enabled: bool | None = None
+    fallback_image_gen_enabled: bool | None = None
+    # Image analysis (primary slot only - no fallback equivalent today)
+    primary_image_analyze_enabled: bool | None = None
     # Image editing
-    kisski_image_edit_enabled: bool | None = None
-    mylab_image_edit_enabled: bool | None = None
+    primary_image_edit_enabled: bool | None = None
+    fallback_image_edit_enabled: bool | None = None
     # OCR
-    kisski_ocr_enabled: bool | None = None
-    mylab_ocr_enabled: bool | None = None
+    primary_ocr_enabled: bool | None = None
+    fallback_ocr_enabled: bool | None = None
     # LLM Chat
-    kisski_llm_enabled: bool | None = None
-    mylab_llm_enabled: bool | None = None
-    ollama_llm_enabled: bool | None = None
+    primary_llm_enabled: bool | None = None
+    fallback_llm_enabled: bool | None = None
+    local_llm_enabled: bool | None = None
     # Transcript translation (EN)
     transcript_translation_provider: str | None = None
+    # /translate LLM provider override (empty = use active LLM)
+    # Model values flow through the generic `models` dict (see MODEL_KEYS).
+    translation_llm_provider: str | None = None  # "" | "primary" | "fallback" | "local"
     # Provider model names (DB setting). Allowed keys: see runtime_models.MODEL_KEYS.
     models: dict[str, str] | None = None
     # UI label for "Workspace" (singular + plural), shown in the frontend.

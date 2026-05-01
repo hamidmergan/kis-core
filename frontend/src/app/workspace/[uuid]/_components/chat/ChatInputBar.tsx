@@ -1,18 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { PaperPlaneRight, X } from "@phosphor-icons/react";
+import { PaperPlaneRight, Stop, X } from "@phosphor-icons/react";
 
 
 interface ChatInputBarProps {
   loading: boolean;
   activeSourceIds: string[];
   onSend: (value: string) => void;
+  onStop?: () => void;
   externalTextareaRef?: React.RefObject<HTMLTextAreaElement | null>;
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
 }
 
 
 export function ChatInputBar({
-  loading, activeSourceIds, onSend, externalTextareaRef, registerSetInput,
+  loading, activeSourceIds, onSend, onStop, externalTextareaRef, registerSetInput,
 }: ChatInputBarProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -60,11 +61,10 @@ export function ChatInputBar({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading) submit(); }
             }}
             placeholder="Text eingeben…"
             rows={1}
-            disabled={loading}
             className="flex-1 text-base resize-none focus:outline-none disabled:opacity-50 bg-transparent"
             style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}
           />
@@ -79,15 +79,26 @@ export function ChatInputBar({
               <X size={14} weight="bold" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={submit}
-            disabled={loading || !input.trim() || activeSourceIds.length === 0}
-            className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl disabled:opacity-40 transition-colors"
-            title="Senden"
-          >
-            <PaperPlaneRight size={16} weight="bold" />
-          </button>
+          {loading && onStop ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition-colors"
+              title="Stoppen"
+            >
+              <Stop size={16} weight="bold" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={loading || !input.trim() || activeSourceIds.length === 0}
+              className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl disabled:opacity-40 transition-colors"
+              title="Senden"
+            >
+              <PaperPlaneRight size={16} weight="bold" />
+            </button>
+          )}
         </div>
       </div>
     </div>

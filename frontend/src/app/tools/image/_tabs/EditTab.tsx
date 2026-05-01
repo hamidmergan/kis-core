@@ -54,7 +54,7 @@ export default function EditTab() {
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setSpinnerLabel("Läuft noch – Bildbearbeitung kann etwas länger dauern…"),
+        () => setSpinnerLabel("Läuft noch - Bildbearbeitung kann etwas länger dauern…"),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));

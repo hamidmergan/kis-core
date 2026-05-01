@@ -1,4 +1,4 @@
-"""POST /jobs/{job_uuid}/cancel + DELETE /jobs/{job_uuid} — Soft-Cancel und Hard-Delete."""
+"""POST /jobs/{job_uuid}/cancel + DELETE /jobs/{job_uuid} - Soft-Cancel und Hard-Delete."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger

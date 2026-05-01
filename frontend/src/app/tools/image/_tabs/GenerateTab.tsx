@@ -36,7 +36,7 @@ export default function GenerateTab() {
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       const jobStatus = await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setSpinnerLabel("Läuft noch – Bildgenerierung kann etwas länger dauern…"),
+        () => setSpinnerLabel("Läuft noch - Bildgenerierung kann etwas länger dauern…"),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));

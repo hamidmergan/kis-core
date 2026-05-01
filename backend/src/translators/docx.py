@@ -28,7 +28,7 @@ def _iter_docx_paragraphs_with_header_footer(doc):
 def translate_docx(
     content: bytes, source_lang: str, target_lang: str, service: TranslationService
 ) -> bytes:
-    """Translate text in a DOCX file preserving layout — single batch DeepL call."""
+    """Translate text in a DOCX file preserving layout - single batch DeepL call."""
     try:
         doc = Document(BytesIO(content))
         refs: list[_RunRef] = []
