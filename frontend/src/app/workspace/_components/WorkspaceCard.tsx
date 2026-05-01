@@ -3,17 +3,15 @@
 import {
   ArrowRight,
   CaretRight,
-  ChartBar,
-  DotsThreeVertical,
-  PencilSimple,
   Plus,
-  Trash,
 } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import LinkRow from "./LinkRow";
+import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
 import { MAX_ACCESS_LINKS, type AccessLink, type KiTutorWorkspace } from "../_shared";
 import { useWorkspaceActions } from "../_hooks/useWorkspaceActions";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface WorkspaceCardProps {
   workspace: KiTutorWorkspace;
@@ -31,6 +29,7 @@ export default function WorkspaceCard({
   onLinksChanged,
 }: WorkspaceCardProps) {
   const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
+  const labels = useWorkspaceLabel();
 
   return (
     <>
@@ -82,7 +81,7 @@ export default function WorkspaceCard({
               type="button"
               role="switch"
               aria-checked={workspace.is_active}
-              aria-label={workspace.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
+              aria-label={workspace.is_active ? `${labels.singular} deaktivieren` : `${labels.singular} aktivieren`}
               onClick={() => a.handleToggle(!workspace.is_active)}
               disabled={a.toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
@@ -101,45 +100,12 @@ export default function WorkspaceCard({
           <span className="text-xs" style={{ color: "var(--muted)" }}>{workspace.source_count} Quellen</span>
           <span className="text-xs" style={{ color: "var(--muted)" }}>{a.links.length} Links</span>
           <div className="ml-auto flex items-center gap-2">
-            <div className="relative">
-              <IconButton onClick={() => a.setShowMenu(!a.showMenu)} title="Mehr">
-                <DotsThreeVertical size={13} weight="bold" />
-              </IconButton>
-              {a.showMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => a.setShowMenu(false)} />
-                  <div
-                    className="absolute right-0 top-9 z-50 rounded-xl py-1"
-                    style={{
-                      backgroundColor: "var(--surface)",
-                      border: "1px solid var(--border)",
-                      minWidth: 220,
-                      boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
-                    }}
-                  >
-                    <button type="button" onClick={() => { a.setShowMenu(false); a.setShowStats(true); }}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-                      style={{ color: "var(--foreground)" }}>
-                      <ChartBar size={16} />
-                      Statistik
-                    </button>
-                    <button type="button" onClick={() => { a.setShowMenu(false); a.setEditOpen(true); }}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-                      style={{ color: "var(--foreground)" }}>
-                      <PencilSimple size={16} />
-                      Bearbeiten
-                    </button>
-                    <button type="button" onClick={() => { a.setShowMenu(false); a.setDeleteConfirm(true); }}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-                      style={{ color: "rgb(185, 28, 28)" }}>
-                      <Trash size={16} />
-                      Löschen
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-            <IconButton onClick={a.handleOpen} title="Workspace öffnen">
+            <WorkspaceMenu
+              onStats={() => a.setShowStats(true)}
+              onEdit={() => a.setEditOpen(true)}
+              onDelete={() => a.setDeleteConfirm(true)}
+            />
+            <IconButton onClick={a.handleOpen} title={`${labels.singular} öffnen`}>
               <ArrowRight size={13} weight="bold" />
             </IconButton>
           </div>

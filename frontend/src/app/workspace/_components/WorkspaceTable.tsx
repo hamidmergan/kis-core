@@ -3,6 +3,7 @@
 import { useState } from "react";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import WorkspaceTableRow from "./WorkspaceTableRow";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
 const MODULES_PER_PAGE = 20;
@@ -22,6 +23,7 @@ export default function WorkspaceTable({
   onEdit,
   onLinksChanged,
 }: WorkspaceTableProps) {
+  const labels = useWorkspaceLabel();
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(workspaces.length / MODULES_PER_PAGE));
   const safePage = Math.min(page, totalPages);
@@ -30,53 +32,46 @@ export default function WorkspaceTable({
 
   return (
     <>
-      <div className="w-full overflow-x-auto">
-        <table className="w-full" style={{ tableLayout: "fixed", minWidth: "760px" }}>
-          <colgroup>
-            <col style={{ width: "44px" }} />
-            <col />
-            <col style={{ width: "100px" }} />
-            <col style={{ width: "100px" }} />
-            <col style={{ width: "140px" }} />
-            <col style={{ width: "52px" }} />
-            <col style={{ width: "44px" }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th className="pb-3"></th>
-              <th className="text-left pr-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Workspace</th>
-              <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Quellen</th>
-              <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>Links</th>
-              <th className="text-left px-6 pb-3 font-medium text-xs" style={{ color: "var(--muted)" }}>
-                <span className="inline-flex items-center gap-1.5">
-                  Status
-                  <HelpTooltip text="Aktiv: Studierende können sich über Zugangslinks in den Workspace einschreiben und die Inhalte nutzen. Inaktiv: Der Workspace ist für Studierende gesperrt. Bestehende Einschreibungen bleiben erhalten." />
-                </span>
-              </th>
-              <th className="pb-3"></th>
-              <th className="pr-2 pb-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleModules.map((m) => (
-              <WorkspaceTableRow
-                key={m.uuid}
-                workspace={m}
-                onToggleActive={onToggleActive}
-                onDelete={onDelete}
-                onEdit={onEdit}
-                onLinksChanged={onLinksChanged}
-              />
-            ))}
-          </tbody>
-        </table>
+      <div className="bg-white border border-border-soft rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
+                <th className="px-4 py-2 w-6"></th>
+                <th className="px-4 py-2">{labels.singular}</th>
+                <th className="px-4 py-2 text-right">Quellen</th>
+                <th className="px-4 py-2 text-right">Links</th>
+                <th className="px-4 py-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    Status
+                    <HelpTooltip text="Aktiv: Studierende können sich über Zugangslinks einschreiben und die Inhalte nutzen. Inaktiv: für Studierende gesperrt. Bestehende Einschreibungen bleiben erhalten." />
+                  </span>
+                </th>
+                <th className="px-4 py-2"></th>
+                <th className="px-4 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleModules.map((m) => (
+                <WorkspaceTableRow
+                  key={m.uuid}
+                  workspace={m}
+                  onToggleActive={onToggleActive}
+                  onDelete={onDelete}
+                  onEdit={onEdit}
+                  onLinksChanged={onLinksChanged}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Zeige {startIdx + 1} bis {Math.min(startIdx + MODULES_PER_PAGE, workspaces.length)} von {workspaces.length} Workspaces
+            Zeige {startIdx + 1} bis {Math.min(startIdx + MODULES_PER_PAGE, workspaces.length)} von {workspaces.length} {labels.plural}
           </p>
           <div className="flex items-center gap-1">
             <button

@@ -7,9 +7,11 @@ import { CalendarBlank } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import ExpandableText from "@/components/ui/ExpandableText";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { StudentWorkspace } from "../_shared";
 
 export default function StudentView() {
+  const labels = useWorkspaceLabel();
   const searchParams = useSearchParams();
   const [workspaces, setModules] = useState<StudentWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export default function StudentView() {
         <UpcomingDeadlinesWidget />
       </div>
 
-      <h2 className="text-xl font-semibold mb-8">Meine Workspaces</h2>
+      <h2 className="text-xl font-semibold mb-8">Meine {labels.plural}</h2>
 
       <section
         className="rounded-xl p-5 mb-8"
@@ -122,7 +124,7 @@ export default function StudentView() {
         </div>
       ) : workspaces.length === 0 ? (
         <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
-          Du bist noch in keinem Workspace eingeschrieben.
+          Noch keine Einschreibung vorhanden.
         </p>
       ) : (
         <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">

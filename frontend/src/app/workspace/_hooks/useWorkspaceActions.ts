@@ -20,7 +20,6 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
   const [expanded, setExpanded] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showAddLink, setShowAddLink] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteLinkConfirm, setDeleteLinkConfirm] = useState<AccessLink | null>(null);
@@ -72,7 +71,6 @@ export function useWorkspaceActions({ workspace, onToggleActive, onDelete, onLin
     toggling, expanded, setExpanded,
     showStats, setShowStats,
     showAddLink, setShowAddLink,
-    showMenu, setShowMenu,
     deleteConfirm, setDeleteConfirm, deleting,
     deleteLinkConfirm, setDeleteLinkConfirm, deletingLink,
     editOpen, setEditOpen,

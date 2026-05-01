@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessage, ViewerState } from "../_types";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface PopupAction {
   key: string;
@@ -20,6 +21,7 @@ interface UseChatOptions {
 }
 
 export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang }: UseChatOptions) {
+  const labels = useWorkspaceLabel();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [popupActions, setPopupActions] = useState<PopupAction[]>([]);
@@ -147,7 +149,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
         flushTokens();
       } else if (res.status === 409) {
-        updateLast({ content: "Der Workspace wird noch indiziert. Bitte warte einen Moment und versuche es erneut." });
+        updateLast({ content: `${labels.singular} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.` });
       } else if (res.status === 429) {
         // Burst lock: too many chat requests in a short time. Backend returns
         // the concrete lock time in detail.message ("Chat ist bis HH:MM Uhr gesperrt").

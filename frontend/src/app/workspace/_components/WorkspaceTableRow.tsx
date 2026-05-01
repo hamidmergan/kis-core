@@ -3,17 +3,15 @@
 import {
   ArrowRight,
   CaretRight,
-  ChartBar,
-  DotsThreeVertical,
-  PencilSimple,
   Plus,
-  Trash,
 } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import LinkRow from "./LinkRow";
+import WorkspaceMenu from "./WorkspaceMenu";
 import WorkspaceModals from "./WorkspaceModals";
 import { MAX_ACCESS_LINKS, type AccessLink, type KiTutorWorkspace } from "../_shared";
 import { useWorkspaceActions } from "../_hooks/useWorkspaceActions";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface WorkspaceTableRowProps {
   workspace: KiTutorWorkspace;
@@ -31,6 +29,7 @@ export default function WorkspaceTableRow({
   onLinksChanged,
 }: WorkspaceTableRowProps) {
   const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
+  const labels = useWorkspaceLabel();
 
   return (
     <>
@@ -47,73 +46,54 @@ export default function WorkspaceTableRow({
       />
 
       <tr
-        className="workspace-row border-t transition-colors"
-        style={{
-          borderColor: "var(--border)",
-          backgroundColor: a.expanded ? "var(--surface)" : undefined,
-        }}
+        className={`border-b border-border-soft transition-colors ${a.expanded ? "bg-surface" : "hover:bg-surface"}`}
         onMouseEnter={a.handlePrefetch}
       >
-        <td className="py-5 cursor-pointer" onClick={() => a.setExpanded(!a.expanded)}>
-          <div className="flex justify-center">
-            <button
-              type="button"
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setExpanded(!a.expanded); }}
-              title={a.expanded ? "Zuklappen" : "Aufklappen"}
-              className="w-7 h-7 flex items-center justify-center text-[var(--muted)] hover:text-kb transition flex-shrink-0"
-            >
-              <CaretRight size={13} weight="bold" className={`transition-transform ${a.expanded ? "rotate-90" : ""}`} />
-            </button>
-          </div>
+        <td className="px-4 py-3 cursor-pointer" onClick={() => a.setExpanded(!a.expanded)}>
+          <button
+            type="button"
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setExpanded(!a.expanded); }}
+            title={a.expanded ? "Zuklappen" : "Aufklappen"}
+            className="w-6 h-6 flex items-center justify-center text-[var(--muted)] hover:text-kb transition"
+          >
+            <CaretRight size={12} weight="bold" className={`transition-transform ${a.expanded ? "rotate-90" : ""}`} />
+          </button>
         </td>
         <td
-          className="row-main pr-6 py-5 cursor-pointer"
+          className="px-4 py-3 cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
-          onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
-          <div className="min-w-0">
-            <div className="text-[15px] font-semibold text-foreground truncate">{workspace.title}</div>
-          </div>
+          <span className="font-medium text-foreground-soft truncate block max-w-[280px]">{workspace.title}</span>
         </td>
         <td
-          className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-foreground cursor-pointer"
+          className="px-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
-          onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           {workspace.source_count}
         </td>
         <td
-          className="row-main px-6 py-5 text-[15px] font-medium tabular-nums text-foreground cursor-pointer"
+          className="px-4 py-3 text-right tabular-nums text-foreground-soft cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
-          onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           {a.links.length}
         </td>
         <td
-          className="px-6 py-5 cursor-pointer"
+          className="px-4 py-3 cursor-pointer"
           onClick={() => !a.toggling && a.handleToggle(!workspace.is_active)}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
-          onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               role="switch"
               aria-checked={workspace.is_active}
-              aria-label={workspace.is_active ? "Workspace deaktivieren" : "Workspace aktivieren"}
+              aria-label={workspace.is_active ? `${labels.singular} deaktivieren` : `${labels.singular} aktivieren`}
               onClick={(e) => { e.stopPropagation(); a.handleToggle(!workspace.is_active); }}
               disabled={a.toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 hover:outline-2 hover:outline-kb"
-              style={{
-                backgroundColor: workspace.is_active ? "var(--kb)" : "var(--border)",
-                ...(workspace.is_active && { boxShadow: "0 0 0 0 var(--kb)" }),
-              }}
+              style={{ backgroundColor: workspace.is_active ? "var(--kb)" : "var(--border)" }}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
@@ -129,72 +109,24 @@ export default function WorkspaceTableRow({
             </span>
           </div>
         </td>
-        <td
-          className="py-5 text-center relative cursor-pointer"
-          onClick={() => a.setShowMenu(!a.showMenu)}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
-          onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
-        >
+        <td className="px-4 py-3">
           <div className="flex justify-center">
-            <IconButton onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setShowMenu(!a.showMenu); }} title="Mehr">
-              <DotsThreeVertical size={13} weight="bold" />
-            </IconButton>
+            <WorkspaceMenu
+              onStats={() => a.setShowStats(true)}
+              onEdit={() => a.setEditOpen(true)}
+              onDelete={() => a.setDeleteConfirm(true)}
+            />
           </div>
-          {a.showMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => a.setShowMenu(false)} />
-              <div
-                className="absolute right-2 top-12 z-50 rounded-xl py-1"
-                style={{
-                  backgroundColor: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  minWidth: 220,
-                  boxShadow: "rgba(0, 0, 0, 0.12) 0px 4px 16px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => { a.setShowMenu(false); a.setShowStats(true); }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-                  style={{ color: "var(--foreground)" }}
-                >
-                  <ChartBar size={16} />
-                  Statistik
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { a.setShowMenu(false); a.setEditOpen(true); }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-                  style={{ color: "var(--foreground)" }}
-                >
-                  <PencilSimple size={16} />
-                  Bearbeiten
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { a.setShowMenu(false); a.setDeleteConfirm(true); }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-dim)] transition-colors"
-                  style={{ color: "rgb(185, 28, 28)" }}
-                >
-                  <Trash size={16} />
-                  Löschen
-                </button>
-              </div>
-            </>
-          )}
         </td>
         <td
-          className="pr-2 py-5 cursor-pointer"
+          className="px-4 py-3 cursor-pointer"
           onClick={a.handleOpen}
           onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open(a.moduleHref, "_blank"); } }}
-          onMouseEnter={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = "var(--surface)"; }}
-          onMouseLeave={(e) => { if (!a.expanded) (e.currentTarget.parentElement as HTMLElement).style.backgroundColor = ""; }}
         >
           <div className="flex justify-end">
             <IconButton
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.handleOpen(); }}
-              title="Workspace öffnen"
-              className="row-arrow"
+              title={`${labels.singular} öffnen`}
             >
               <ArrowRight size={13} weight="bold" />
             </IconButton>
@@ -204,8 +136,8 @@ export default function WorkspaceTableRow({
 
       {/* Expanded row */}
       {a.expanded && (
-        <tr style={{ backgroundColor: "var(--surface)" }}>
-          <td colSpan={7} className="pl-11 pr-6 pb-5" style={{ borderTop: "none" }}>
+        <tr className="bg-surface">
+          <td colSpan={7} className="px-4 pb-4 pt-0 pl-11">
             <div className="flex flex-col gap-3 max-w-full break-words">
               {workspace.description && (
                 <p className="text-[13px] leading-relaxed break-words" style={{ color: "var(--muted)" }}>

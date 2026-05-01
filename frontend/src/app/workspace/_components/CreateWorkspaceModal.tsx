@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { KiTutorWorkspace } from "../_shared";
 
 interface CreateWorkspaceModalProps {
@@ -9,6 +10,7 @@ interface CreateWorkspaceModalProps {
 }
 
 export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorkspaceModalProps) {
+  const labels = useWorkspaceLabel();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -67,7 +69,7 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
         className="w-full max-w-md rounded-xl p-4 sm:p-6 shadow-xl"
         style={{ backgroundColor: "var(--surface)" }}
       >
-        <h2 className="text-lg font-semibold mb-5">Neuen Workspace erstellen</h2>
+        <h2 className="text-lg font-semibold mb-5">{labels.singular} erstellen</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>

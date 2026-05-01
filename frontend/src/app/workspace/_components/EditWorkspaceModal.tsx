@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface EditWorkspaceModalProps {
   currentTitle: string;
@@ -15,6 +16,7 @@ export default function EditWorkspaceModal({
   onClose,
   onSubmit,
 }: EditWorkspaceModalProps) {
+  const labels = useWorkspaceLabel();
   const [title, setTitle] = useState(currentTitle);
   const [description, setDescription] = useState(currentDescription);
   const [saving, setSaving] = useState(false);
@@ -42,7 +44,7 @@ export default function EditWorkspaceModal({
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white shadow-xl rounded-xl w-full max-h-[90vh] sm:max-w-xl lg:max-w-3xl p-6 flex flex-col">
-        <h3 className="text-base font-semibold mb-4">Workspace bearbeiten</h3>
+        <h3 className="text-base font-semibold mb-4">{labels.singular} bearbeiten</h3>
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
             Titel <span style={{ color: "var(--error)" }}>*</span>

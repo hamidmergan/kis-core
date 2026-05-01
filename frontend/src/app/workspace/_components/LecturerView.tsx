@@ -7,9 +7,11 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import WorkspaceTable from "./WorkspaceTable";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
 export default function LecturerView() {
+  const labels = useWorkspaceLabel();
   const [workspaces, setModules] = useState<KiTutorWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -98,15 +100,15 @@ export default function LecturerView() {
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg md:text-xl font-semibold">Meine Workspaces</h2>
+            <h2 className="text-lg md:text-xl font-semibold">Meine {labels.plural}</h2>
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              aria-label="Neuer Workspace"
+              aria-label={`${labels.singular} erstellen`}
               className="whitespace-nowrap rounded-lg text-sm font-medium btn-primary w-9 h-9 flex items-center justify-center text-lg md:w-auto md:h-auto md:px-4 md:py-2 md:text-sm"
             >
               <span className="md:hidden">+</span>
-              <span className="hidden md:inline">+ Neuer Workspace</span>
+              <span className="hidden md:inline">+ {labels.singular}</span>
             </button>
           </div>
 
@@ -118,8 +120,8 @@ export default function LecturerView() {
             <EmptyState
               size="lg"
               icon={<Files size={40} weight="bold" />}
-              title="Noch keine Workspaces vorhanden."
-              text="Erstelle deinen ersten Workspace mit dem Button oben."
+              title={`Noch keine ${labels.plural} vorhanden.`}
+              text="Mit dem Button oben anlegen."
             />
           ) : (
             <div className="mt-3 md:mt-10">

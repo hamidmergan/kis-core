@@ -2,15 +2,19 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const BYPASS_PREFIXES = ["/wartung", "/login", "/admin", "/api"];
 
 export default function MaintenanceGuard() {
   const router = useRouter();
   const pathname = usePathname();
+  const { isAdmin, loaded } = useIsAdmin();
 
   useEffect(() => {
     if (BYPASS_PREFIXES.some((p) => pathname?.startsWith(p))) return;
+    if (!loaded) return;
+    if (isAdmin) return;
     let cancelled = false;
 
     const check = async () => {
@@ -26,7 +30,7 @@ export default function MaintenanceGuard() {
     check();
     const id = setInterval(check, 30000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [pathname, router]);
+  }, [pathname, router, isAdmin, loaded]);
 
   return null;
 }

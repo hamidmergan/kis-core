@@ -3,7 +3,7 @@ from loguru import logger
 
 from src.dependencies import get_session_store
 
-_OPEN_PATHS = {"/health", "/health/maintenance", "/docs", "/redoc", "/openapi.json"}
+_OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels", "/docs", "/redoc", "/openapi.json"}
 _OPEN_PREFIXES = ("/auth/",)
 
 
