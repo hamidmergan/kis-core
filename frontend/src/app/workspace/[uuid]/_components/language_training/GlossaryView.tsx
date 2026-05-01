@@ -28,11 +28,11 @@ export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
         <DotsThreeVertical size={12} weight="bold" />
       </button>
       {open && (
-        <div className="absolute right-0 top-6 z-50 rounded-lg py-1"
-          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
+        <div className="absolute right-0 top-6 z-50 rounded-xl py-1"
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", minWidth: 180, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
           <button type="button"
             onClick={() => { setOpen(false); onDeleteAll?.(); }}
-            className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[var(--surface-dim)] transition-colors"
+            className="w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-dim)] transition-colors"
             style={{ color: "var(--error-strong)" }}>
             Alle Begriffe löschen
           </button>

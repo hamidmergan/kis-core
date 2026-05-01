@@ -123,7 +123,7 @@ export default function ToolsSidebar() {
                 <Link
                   href={tool.href}
                   title={effectiveCollapsed ? tool.title : undefined}
-                  className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
+                  className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline transition-colors hover:bg-surface-dim ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
                 >
                   <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
                     <ToolIcon size={18} weight="bold" />

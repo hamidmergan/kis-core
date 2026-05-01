@@ -214,7 +214,7 @@ export function ScheduleView({
   const canGenerate = hasSources && selectedPending.length > 0 && !generating;
 
   let selectionHint = "";
-  if (!hasSources) selectionHint = "Keine Quellen im Workspace";
+  if (!hasSources) selectionHint = "Keine Quellen vorhanden";
   else if (!hasSelection) selectionHint = "Keine Quelle ausgewählt";
   else if (selectedPending.length === 0) selectionHint = `${selectedSourceIds.length} ausgewählt · alle bereits verarbeitet`;
   else if (selectedProcessed.length === 0) selectionHint = `${selectedPending.length} ausgewählt · nicht verarbeitet`;

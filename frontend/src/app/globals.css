@@ -364,12 +364,6 @@ me-tpc:hover .mm-src-chip {
   }
 }
 
-/* Workspace table: hovering a main cell triggers arrow icon hover */
-tr.workspace-row:has(td.row-main:hover) .row-arrow {
-  color: var(--kb);
-  outline: 2px solid var(--kb);
-}
-
 /* Sources panel: hovering "Alle auswählen" previews hover on per-source checkboxes */
 .sources-panel:has(.sources-select-all:hover) .source-checkbox {
   border-color: var(--kb);

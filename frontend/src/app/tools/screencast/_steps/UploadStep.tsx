@@ -2,6 +2,7 @@
 
 import type { DragEvent, RefObject } from "react";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
+import Select from "@/components/ui/Select";
 
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
@@ -159,33 +160,21 @@ export default function UploadStep(props: UploadStepProps) {
             <div className="flex gap-3 mb-4">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-muted mb-1">Quellsprache</label>
-                <select
+                <Select
                   value={sourceLang}
-                  onChange={(e) => onSourceLangChange(e.target.value)}
+                  onChange={onSourceLangChange}
+                  options={languages.map((l) => ({ value: l.id, label: l.label }))}
                   disabled
-                  className="w-full rounded-md border border-border text-sm py-2 px-3 focus:ring-2 focus:ring-kb focus:border-kb disabled:opacity-50"
-                >
-                  {languages.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="flex-1">
                 <label className="block text-xs font-medium text-muted mb-1">Zielsprache</label>
-                <select
+                <Select
                   value={targetLang}
-                  onChange={(e) => onTargetLangChange(e.target.value)}
+                  onChange={onTargetLangChange}
+                  options={languages.map((l) => ({ value: l.id, label: l.label }))}
                   disabled
-                  className="w-full rounded-md border border-border text-sm py-2 px-3 focus:ring-2 focus:ring-kb focus:border-kb disabled:opacity-50"
-                >
-                  {languages.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
           )}

@@ -82,8 +82,8 @@ export default function Modal({
               type="button"
               onClick={onClose}
               aria-label="Schließen"
-              className="w-7 h-7 inline-flex items-center justify-center rounded-full hover:opacity-70 transition-opacity"
-              style={{ color: "var(--muted)" }}
+              className="w-7 h-7 inline-flex items-center justify-center rounded-full btn-icon transition-colors"
+              style={{ backgroundColor: "var(--surface-dim)" }}
             >
               <svg
                 width="16"

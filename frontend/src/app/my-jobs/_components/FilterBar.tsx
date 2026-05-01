@@ -1,3 +1,15 @@
+import Select from "@/components/ui/Select";
+
+const TOOL_FILTER_OPTIONS = [
+  { value: "", label: "Alle Tools" },
+  { value: "transcription", label: "Sprache in Text" },
+  { value: "translation", label: "Translate" },
+  { value: "summary", label: "Summarize" },
+  { value: "tts", label: "Text in Sprache" },
+  { value: "screencast", label: "Screencast" },
+  { value: "image", label: "Image" },
+] as const;
+
 interface FilterBarProps {
   q: string;
   toolFilter: string;
@@ -21,42 +33,32 @@ export function FilterBar({
 }: FilterBarProps) {
   return (
     <div className="mb-4 flex flex-wrap gap-2 items-center">
-      <div className="flex-1 min-w-[220px] flex items-center border border-border rounded-md bg-white focus-within:ring-2 focus-within:ring-kb hover:outline-2 hover:outline-kb transition">
-        <input
-          type="text"
-          value={q}
-          onChange={(e) => onQChange(e.target.value)}
-          placeholder="Suche"
-          className="flex-1 text-sm px-3 py-2 bg-transparent outline-none min-w-0"
-        />
-        <div className="w-px h-5 bg-surface-dim shrink-0" />
-        <select
-          value={toolFilter}
-          onChange={(e) => onToolFilterChange(e.target.value)}
-          className="text-sm px-2 py-2 bg-transparent outline-none text-muted cursor-pointer appearance-none pr-3"
-        >
-          <option value="">Alle Tools</option>
-          <option value="transcription">Sprache in Text</option>
-          <option value="translation">Translate</option>
-          <option value="summary">Summarize</option>
-          <option value="tts">Text in Sprache</option>
-          <option value="screencast">Screencast</option>
-          <option value="image">Image</option>
-        </select>
-      </div>
+      <input
+        type="text"
+        value={q}
+        onChange={(e) => onQChange(e.target.value)}
+        placeholder="Suche"
+        className="flex-1 min-w-[220px] text-sm border border-border rounded-md px-3 py-2 bg-white transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
+      />
+      <Select
+        value={toolFilter}
+        onChange={onToolFilterChange}
+        options={TOOL_FILTER_OPTIONS}
+        className="w-44"
+      />
       <input
         type="date"
         value={dateFrom}
         onChange={(e) => onDateFromChange(e.target.value)}
         title="Von"
-        className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb hover:outline-2 hover:outline-kb transition"
+        className="text-sm border border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <input
         type="date"
         value={dateTo}
         onChange={(e) => onDateToChange(e.target.value)}
         title="Bis"
-        className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb hover:outline-2 hover:outline-kb transition"
+        className="text-sm border border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <select
         value={limit}

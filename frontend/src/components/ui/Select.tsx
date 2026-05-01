@@ -105,12 +105,16 @@ export default function Select<T extends string>({
         aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className="block w-full rounded-md border-2 border-border bg-white px-3 py-2 text-sm text-foreground shadow-sm hover:border-kb focus:border-kb focus:outline-none focus:ring-1 focus:ring-kb disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border transition-colors flex items-center justify-between gap-2 text-left"
+        className="group block w-full rounded-md border-2 border-border bg-white px-3 py-2 text-sm text-foreground shadow-sm hover:border-kb focus:border-kb focus:outline-none focus:ring-1 focus:ring-kb disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border transition-colors flex items-center justify-between gap-2 text-left"
       >
         <span className={`flex-1 truncate ${selected ? "" : "text-muted-soft"}`}>
           {selected ? selected.label : placeholder}
         </span>
-        <CaretDown size={14} weight="bold" className={`flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
+        <CaretDown
+          size={14}
+          weight="bold"
+          className={`flex-shrink-0 transition-transform text-muted group-hover:text-kb group-focus:text-kb ${open ? "rotate-180 text-kb" : ""}`}
+        />
       </button>
       {open && (
         <ul

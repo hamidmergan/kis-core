@@ -93,13 +93,13 @@ export default function GlossarySelector({ values, onChange }: Props) {
         <button
           type="button"
           onClick={() => setOpen(prev => !prev)}
-          className="w-full flex items-center justify-between rounded-md border border-border bg-white px-3 py-2 text-sm shadow-sm hover:bg-surface focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
+          className="group w-full flex items-center justify-between rounded-md border-2 border-border bg-white px-3 py-2 text-sm shadow-sm transition-colors hover:border-kb focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
         >
           <span className={selectedIds.length === 0 ? "text-muted-soft" : "text-foreground-soft"}>
             {buttonLabel}
           </span>
           <svg
-            className={`w-4 h-4 text-muted-soft transition-transform flex-shrink-0 ${open ? "rotate-180" : ""}`}
+            className={`w-4 h-4 transition-all flex-shrink-0 text-muted group-hover:text-kb group-focus:text-kb ${open ? "rotate-180 text-kb" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -111,9 +111,14 @@ export default function GlossarySelector({ values, onChange }: Props) {
 
         {open && (
           <ul
-            className="absolute z-10 mt-1 w-full rounded-md border border-border-soft bg-white shadow-lg max-h-60 overflow-auto py-1"
+            className="absolute z-10 mt-1 w-full rounded-md max-h-60 overflow-auto py-1"
             role="listbox"
             aria-multiselectable="true"
+            style={{
+              backgroundColor: "#fff",
+              border: "1px solid var(--border)",
+              boxShadow: "0 8px 24px rgba(0,40,60,0.12)",
+            }}
           >
             {glossaries.map(g => {
               const isSelected = selectedIds.includes(g.id);
