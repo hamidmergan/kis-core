@@ -111,7 +111,7 @@ function ChatMessageImpl({
           isLatest && (
             <div className="flex items-center gap-2 mb-0.5">
               <Hilde size={80} state={avatarState} />
-              <span className="text-lg font-medium">Hilde</span>
+              <span className="text-base font-medium">Hilde</span>
             </div>
           )
         ) : (
@@ -122,7 +122,7 @@ function ChatMessageImpl({
             >
               KI
             </div>
-            <span className="text-lg font-medium">KI-Assistent</span>
+            <span className="text-base font-medium">KI-Assistent</span>
           </div>
         )
       )}

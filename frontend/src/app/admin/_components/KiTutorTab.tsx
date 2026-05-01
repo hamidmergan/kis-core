@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { CaretRight, ChartLineUp } from "@phosphor-icons/react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface KiTutorSummary {
   total_workspaces: number;
@@ -46,6 +49,7 @@ const MODE_META: Record<StatsMode, { label: string; accent: string }> = {
 };
 
 export default function KiTutorTab() {
+  const labels = useWorkspaceLabel();
   const [data, setData] = useState<KiTutorStatsData | null>(null);
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
@@ -101,7 +105,7 @@ export default function KiTutorTab() {
             <button
               key={d}
               onClick={() => setDays(d)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-kb text-white border-kb" : "border-border text-foreground-soft hover:border-muted"}`}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-kb text-white border-kb" : "border-border text-foreground-soft hover:border-kb hover:text-kb"}`}
             >
               {d === 7 ? "7 Tage" : d === 30 ? "1 Monat" : d === 90 ? "3 Monate" : "6 Monate"}
             </button>
@@ -109,138 +113,143 @@ export default function KiTutorTab() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-border-soft rounded-lg p-4">
-          <p className="text-xs text-muted uppercase tracking-wide">Workspaces</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{data.summary.total_workspaces}</p>
-        </div>
-        <div className="bg-white border border-border-soft rounded-lg p-4">
-          <p className="text-xs text-muted uppercase tracking-wide">Aktive Teilnehmer ({days}T)</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{data.summary.active_students}</p>
-        </div>
-        <div className="bg-white border border-border-soft rounded-lg p-4">
-          <p className="text-xs text-muted uppercase tracking-wide">Übungen ({days}T)</p>
-          <p className="text-2xl font-bold text-foreground mt-1">
-            {data.summary.total_answers.toLocaleString("de-DE")}
-          </p>
-        </div>
-        <div className="bg-white border border-border-soft rounded-lg p-4">
-          <p className="text-xs text-muted uppercase tracking-wide">Chat ({days}T)</p>
-          <p className="text-2xl font-bold text-foreground mt-1">
-            {data.summary.total_chat_messages.toLocaleString("de-DE")}
-          </p>
-        </div>
-      </div>
+      {data.workspace_stats.length === 0 ? (
+        <EmptyState
+          size="lg"
+          icon={<ChartLineUp size={40} weight="bold" />}
+          text="Keine Daten im gewählten Zeitraum"
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white border border-border-soft rounded-lg p-4">
+              <p className="text-xs text-muted uppercase tracking-wide">{labels.plural}</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{data.summary.total_workspaces}</p>
+            </div>
+            <div className="bg-white border border-border-soft rounded-lg p-4">
+              <p className="text-xs text-muted uppercase tracking-wide">Aktive Teilnehmer ({days}T)</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{data.summary.active_students}</p>
+            </div>
+            <div className="bg-white border border-border-soft rounded-lg p-4">
+              <p className="text-xs text-muted uppercase tracking-wide">Übungen ({days}T)</p>
+              <p className="text-2xl font-bold text-foreground mt-1">
+                {data.summary.total_answers.toLocaleString("de-DE")}
+              </p>
+            </div>
+            <div className="bg-white border border-border-soft rounded-lg p-4">
+              <p className="text-xs text-muted uppercase tracking-wide">Chat ({days}T)</p>
+              <p className="text-2xl font-bold text-foreground mt-1">
+                {data.summary.total_chat_messages.toLocaleString("de-DE")}
+              </p>
+            </div>
+          </div>
 
-      <div className="bg-white border border-border-soft rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
-                <th className="px-4 py-2 w-6"></th>
-                <th className="px-4 py-2">Workspace</th>
-                <th className="px-4 py-2">Ersteller</th>
-                <th className="px-4 py-2 text-right">Quellen</th>
-                <th className="px-4 py-2 text-right">Teilnehmer</th>
-                <th className="px-4 py-2 text-right">Übungen</th>
-                <th className="px-4 py-2 text-right">Chat</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.workspace_stats.map((m) => {
-                const isOpen = expanded.has(m.workspace_uuid);
-                return (
-                  <React.Fragment key={m.workspace_uuid}>
-                    <tr
-                      onClick={() => toggle(m.workspace_uuid)}
-                      className={`border-b border-border-soft cursor-pointer transition-colors ${isOpen ? "bg-surface" : "hover:bg-surface"}`}
-                    >
-                      <td className="px-4 py-2 text-muted-soft text-xs">{isOpen ? "▼" : "▶"}</td>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full shrink-0 ${m.is_active ? "bg-success-border" : "bg-border"}`}
-                          />
-                          <span className="font-medium text-foreground-soft truncate max-w-[200px]">
-                            {m.title}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 text-foreground-soft">{m.owner}</td>
-                      <td className="px-4 py-2 text-right text-foreground-soft">{m.source_count}</td>
-                      <td className="px-4 py-2 text-right text-foreground-soft">{m.enrollment_count}</td>
-                      <td className="px-4 py-2 text-right" style={{ color: accent }}>
-                        {(m.total_answers + m.lecturer.exercises).toLocaleString("de-DE")}
-                      </td>
-                      <td className="px-4 py-2 text-right text-foreground-soft">
-                        {(m.chat_messages + m.lecturer.messages).toLocaleString("de-DE")}
-                      </td>
-                    </tr>
-                    {isOpen && (
-                      <tr>
-                        <td colSpan={7} className="px-0 py-0">
-                          <div className="bg-surface border-t border-border-soft">
-                            {m.students.length === 0 ? (
-                              <p className="px-8 py-3 text-xs text-muted-soft">
-                                Keine eingeschriebenen Teilnehmer
-                              </p>
-                            ) : (
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="text-left text-muted-soft uppercase">
-                                    <th className="pl-12 pr-4 py-2">Student</th>
-                                    <th className="px-4 py-2 text-right">Übungen</th>
-                                    <th className="px-4 py-2 text-right">Richtig</th>
-                                    <th className="px-4 py-2 text-right">Lerntools</th>
-                                    <th className="px-4 py-2 text-right">Sprachtr.</th>
-                                    <th className="px-4 py-2 text-right">Chat</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {m.students.map((s) => (
-                                    <tr
-                                      key={s.name}
-                                      className="border-t border-border-soft hover:bg-surface/50"
-                                    >
-                                      <td className="pl-12 pr-4 py-2 text-foreground-soft">{s.name}</td>
-                                      <td className="px-4 py-2 text-right text-foreground-soft">
-                                        {s.answers.toLocaleString("de-DE")}
-                                      </td>
-                                      <td className="px-4 py-2 text-right text-success">
-                                        {s.correct.toLocaleString("de-DE")}
-                                      </td>
-                                      <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
-                                        {s.lerntools}
-                                      </td>
-                                      <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
-                                        {s.language_training}
-                                      </td>
-                                      <td className="px-4 py-2 text-right text-foreground-soft">
-                                        {s.chat_messages}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-              {data.workspace_stats.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-muted-soft">
-                    Keine Workspaces vorhanden
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <div className="bg-white border border-border-soft rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
+                    <th className="px-4 py-2 w-6"></th>
+                    <th className="px-4 py-2">{labels.singular}</th>
+                    <th className="px-4 py-2">Ersteller</th>
+                    <th className="px-4 py-2 text-right">Quellen</th>
+                    <th className="px-4 py-2 text-right">Teilnehmer</th>
+                    <th className="px-4 py-2 text-right">Übungen</th>
+                    <th className="px-4 py-2 text-right">Chat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.workspace_stats.map((m) => {
+                    const isOpen = expanded.has(m.workspace_uuid);
+                    return (
+                      <React.Fragment key={m.workspace_uuid}>
+                        <tr
+                          onClick={() => toggle(m.workspace_uuid)}
+                          className={`border-b border-border-soft cursor-pointer transition-colors ${isOpen ? "bg-surface" : "hover:bg-surface"}`}
+                        >
+                          <td className="px-4 py-2 text-muted-soft">
+                            <CaretRight size={12} weight="bold" className={`transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${m.is_active ? "bg-success-border" : "bg-border"}`}
+                              />
+                              <span className="font-medium text-foreground-soft truncate max-w-[200px]">
+                                {m.title}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-foreground-soft">{m.owner}</td>
+                          <td className="px-4 py-2 text-right text-foreground-soft">{m.source_count}</td>
+                          <td className="px-4 py-2 text-right text-foreground-soft">{m.enrollment_count}</td>
+                          <td className="px-4 py-2 text-right" style={{ color: accent }}>
+                            {(m.total_answers + m.lecturer.exercises).toLocaleString("de-DE")}
+                          </td>
+                          <td className="px-4 py-2 text-right text-foreground-soft">
+                            {(m.chat_messages + m.lecturer.messages).toLocaleString("de-DE")}
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr>
+                            <td colSpan={7} className="px-0 py-0">
+                              <div className="bg-surface border-t border-border-soft">
+                                {m.students.length === 0 ? (
+                                  <p className="px-8 py-3 text-xs text-muted-soft">
+                                    Keine eingeschriebenen Teilnehmer
+                                  </p>
+                                ) : (
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="text-left text-muted-soft uppercase">
+                                        <th className="pl-12 pr-4 py-2">Student</th>
+                                        <th className="px-4 py-2 text-right">Übungen</th>
+                                        <th className="px-4 py-2 text-right">Richtig</th>
+                                        <th className="px-4 py-2 text-right">Lerntools</th>
+                                        <th className="px-4 py-2 text-right">Sprachtr.</th>
+                                        <th className="px-4 py-2 text-right">Chat</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {m.students.map((s) => (
+                                        <tr
+                                          key={s.name}
+                                          className="border-t border-border-soft hover:bg-surface/50"
+                                        >
+                                          <td className="pl-12 pr-4 py-2 text-foreground-soft">{s.name}</td>
+                                          <td className="px-4 py-2 text-right text-foreground-soft">
+                                            {s.answers.toLocaleString("de-DE")}
+                                          </td>
+                                          <td className="px-4 py-2 text-right text-success">
+                                            {s.correct.toLocaleString("de-DE")}
+                                          </td>
+                                          <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
+                                            {s.lerntools}
+                                          </td>
+                                          <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
+                                            {s.language_training}
+                                          </td>
+                                          <td className="px-4 py-2 text-right text-foreground-soft">
+                                            {s.chat_messages}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

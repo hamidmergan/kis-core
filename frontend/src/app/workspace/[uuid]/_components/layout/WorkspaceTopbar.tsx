@@ -4,22 +4,25 @@ import React from "react";
 import Link from "next/link";
 import { GearSix, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { SettingsMenu } from "./SettingsMenu";
-import type { PanelKey } from "../../_types";
+import type { PanelKey, TranscriptTranslationMode } from "../../_types";
 
 interface WorkspaceTopbarProps {
   isMobile: boolean;
   title: string;
-  // Settings dropdown
+  // Settings modal
   showSettings: boolean;
   onToggleSettings: () => void;
-  settingsRef: React.RefObject<HTMLDivElement | null>;
+  onCloseSettings: () => void;
   studioEnabled: boolean;
   onToggleStudio: () => void;
   language_trainingActive: boolean;
   onToggleLanguageTraining: () => void;
   isLecturer: boolean;
+  isOwner: boolean;
   hideHeader: boolean;
   onToggleHideHeader: () => void;
+  translationMode: TranscriptTranslationMode;
+  onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
   // Mobile tabs
   activeTab: PanelKey;
   setActiveTab: (k: PanelKey) => void;
@@ -34,19 +37,25 @@ const BackArrow = ({ size }: { size: 12 | 14 }) => (
 export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
   const {
     isMobile, title,
-    showSettings, onToggleSettings, settingsRef,
+    showSettings, onToggleSettings, onCloseSettings,
     studioEnabled, onToggleStudio,
     language_trainingActive, onToggleLanguageTraining,
-    isLecturer, hideHeader, onToggleHideHeader,
+    isLecturer, isOwner, hideHeader, onToggleHideHeader,
+    translationMode, onChangeTranslationMode,
     activeTab, setActiveTab,
   } = props;
 
-  const settingsDropdown = showSettings && (
+  const settingsModal = (
     <SettingsMenu
+      open={showSettings}
+      onClose={onCloseSettings}
       studioEnabled={studioEnabled}
       onToggleStudio={onToggleStudio}
       language_trainingActive={language_trainingActive}
       onToggleLanguageTraining={onToggleLanguageTraining}
+      isOwner={isOwner}
+      translationMode={translationMode}
+      onChangeTranslationMode={onChangeTranslationMode}
     />
   );
 
@@ -78,28 +87,28 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
 
   if (!isMobile) {
     return (
-      <div className="flex items-center px-5 flex-shrink-0 relative" style={{ height: 48 }}>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-xs font-medium transition-colors group flex-shrink-0"
-          style={{ color: "var(--kb)" }}
-        >
-          <BackArrow size={12} />
-          Zurück zur Übersicht
-        </Link>
-        <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-base font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)" }}>
-            {title}
+      <>
+        <div className="flex items-center px-5 flex-shrink-0 relative" style={{ height: 48 }}>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1 text-xs font-medium transition-colors group flex-shrink-0"
+            style={{ color: "var(--kb)" }}
+          >
+            <BackArrow size={12} />
+            Zurück zur Übersicht
+          </Link>
+          <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-base font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)" }}>
+              {title}
+            </span>
           </span>
-        </span>
-        <div className="flex items-center gap-1.5 ml-auto">
-          {headerToggleButton}
-          <div ref={settingsRef} className="relative flex-shrink-0">
+          <div className="flex items-center gap-1.5 ml-auto">
+            {headerToggleButton}
             {settingsButton}
-            {settingsDropdown}
           </div>
         </div>
-      </div>
+        {settingsModal}
+      </>
     );
   }
 
@@ -121,10 +130,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
         </span>
         <div className="flex items-center gap-1.5 ml-auto">
           {headerToggleButton}
-          <div ref={settingsRef} className="relative flex-shrink-0">
-            {settingsButton}
-            {settingsDropdown}
-          </div>
+          {settingsButton}
         </div>
       </div>
       <div className="flex" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -143,6 +149,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
           </button>
         ))}
       </div>
+      {settingsModal}
     </div>
   );
 }

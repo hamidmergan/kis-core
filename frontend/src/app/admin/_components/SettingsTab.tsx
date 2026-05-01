@@ -1,7 +1,27 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
+import WorkspaceLabelCard from "./WorkspaceLabelCard";
+import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
+import { notifyMascotGlobalChanged } from "@/hooks/useHildePref";
+
+const TRANSLATION_MODE_OPTIONS = [
+  { value: "off", label: "Aus" },
+  { value: "auto", label: "Auto (bei Ingest)" },
+  { value: "manual", label: "Manuell (Button)" },
+] as const;
+
+const TRANSLATION_PROVIDER_OPTIONS = [
+  { value: "deepl", label: "DeepL" },
+  { value: "llm", label: "LLM" },
+] as const;
+
+type TranslationMode = typeof TRANSLATION_MODE_OPTIONS[number]["value"];
+type TranslationProvider = typeof TRANSLATION_PROVIDER_OPTIONS[number]["value"];
+
+export type SettingsSection = "system" | "speech" | "images" | "embedding" | "llm";
 
 function ProviderToggle({
   label,
@@ -67,7 +87,7 @@ function ProviderToggle({
               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
               disabled={saving || !configured}
               spellCheck={false}
-              className="font-mono text-xs px-2 py-1 border border-border-soft rounded w-full max-w-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="font-mono text-xs px-3 py-1.5 border-2 border-border rounded-md w-full max-w-md transition-colors hover:border-kb focus:outline-none focus:border-kb disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border"
             />
           </div>
         )}
@@ -76,12 +96,12 @@ function ProviderToggle({
         onClick={() => onToggle(settingKey, !enabled)}
         disabled={saving || !configured}
         title={!configured && envHint ? `${envHint} ist nicht in .env gesetzt` : undefined}
-        className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+        className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
           enabled ? "bg-kb" : "bg-border"
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <span
-          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+          className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
             enabled ? "translate-x-5" : "translate-x-0"
           }`}
         />
@@ -113,19 +133,15 @@ function ProviderSection({
   );
 }
 
-function GeneralSettingsSection() {
-  const [whitelistEnabled, setWhitelistEnabled] = useState<boolean | null>(null);
+function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"> }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [s, setS] = useState<Record<string, any>>({});
+  const [s, setS] = useState<Record<string, any> | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/settings", { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => {
-        setWhitelistEnabled(d.whitelist_enabled ?? true);
-        setS(d);
-      });
+      .then((d) => setS(d));
   }, []);
 
   const patch = async (body: Record<string, unknown>) => {
@@ -154,9 +170,9 @@ function GeneralSettingsSection() {
     if (group && val) {
       const mutex: Record<string, boolean> = { [key]: true };
       for (const other of group) if (other !== key) mutex[other] = false;
-      setS((prev) => ({ ...prev, ...mutex }));
+      setS((prev) => (prev ? { ...prev, ...mutex } : prev));
     } else {
-      setS((prev) => ({ ...prev, [key]: val }));
+      setS((prev) => (prev ? { ...prev, [key]: val } : prev));
     }
     await patch({ [key]: val });
     if (EMBEDDING_KEYS.includes(key)) {
@@ -165,12 +181,14 @@ function GeneralSettingsSection() {
   };
 
   const setModel = async (key: string, value: string) => {
-    setS((prev) => ({ ...prev, models: { ...(prev.models ?? {}), [key]: value } }));
+    setS((prev) => (prev ? { ...prev, models: { ...(prev.models ?? {}), [key]: value } } : prev));
     await patch({ models: { [key]: value } } as Record<string, unknown>);
     if (key.includes("embedding")) {
       window.dispatchEvent(new CustomEvent("embedding-provider-changed"));
     }
   };
+
+  if (!s) return <Spinner className="flex justify-center py-12" />;
 
   const models: Record<string, string> = (s.models as Record<string, string>) ?? {};
 
@@ -184,195 +202,168 @@ function GeneralSettingsSection() {
     />
   );
 
-  if (whitelistEnabled === null) return <Spinner className="flex justify-center py-12" />;
-
   return (
     <div className="space-y-4">
-      <div className="border border-border-soft rounded-xl bg-white p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">Whitelist-Modus</p>
-            <p className="text-xs text-muted mt-1">
-              {whitelistEnabled
-                ? "Aktiv — nur freigeschaltete E-Mail-Adressen dürfen sich einloggen."
-                : "Deaktiviert — alle authentifizierten TH-Accounts haben Zugang."}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              const v = !whitelistEnabled;
-              setWhitelistEnabled(v);
-              patch({ whitelist_enabled: v });
-            }}
-            disabled={saving}
-            className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-              whitelistEnabled ? "bg-kb" : "bg-border"
-            } disabled:opacity-50`}
-            aria-label="Whitelist umschalten"
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                whitelistEnabled ? "translate-x-5" : "translate-x-0"
-              }`}
-            />
-          </button>
-        </div>
-        {!whitelistEnabled && (
-          <p className="mt-3 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
-            Achtung: Alle TH-Mitarbeiter mit gültigem LDAP-Account können sich einloggen.
-          </p>
-        )}
-      </div>
+      {section === "speech" && (
+        <>
+          <ProviderSection title="Text in Sprache">
+            <P label="ElevenLabs" settingKey="elevenlabs_enabled" enabled={s.elevenlabs_enabled ?? false} configured={s.elevenlabs_configured ?? false} envHint="ELEVENLABS_API_KEY" />
+            <P label="Kokoro TTS" settingKey="kokoro_enabled" enabled={s.kokoro_enabled ?? false} configured={s.kokoro_configured ?? false} available={s.kokoro_available} envHint="KOKORO_BASE_URL" />
+            <P label="THL myLab (XTTS-v2)" settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" modelKey="mylab_tts_model" />
+          </ProviderSection>
 
-      <ProviderSection title="Text in Sprache">
-        <P label="ElevenLabs" settingKey="elevenlabs_enabled" enabled={s.elevenlabs_enabled ?? false} configured={s.elevenlabs_configured ?? false} envHint="ELEVENLABS_API_KEY" />
-        <P label="Kokoro TTS" settingKey="kokoro_enabled" enabled={s.kokoro_enabled ?? false} configured={s.kokoro_configured ?? false} available={s.kokoro_available} envHint="KOKORO_BASE_URL" />
-        <P label="THL myLab (XTTS-v2)" settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" modelKey="mylab_tts_model" />
-      </ProviderSection>
+          <ProviderSection title="Transkription (Sprache in Text)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+            <P label="KISSKI (Whisper)" settingKey="kisski_whisper_enabled" enabled={s.kisski_whisper_enabled ?? true} configured={s.kisski_whisper_configured ?? false} envHint="KISSKI_API_KEY" />
+            <P label="THL myLab (Whisper-3-large)" settingKey="mylab_whisper_enabled" enabled={s.mylab_whisper_enabled ?? false} configured={s.mylab_whisper_configured ?? false} available={s.mylab_whisper_available} envHint="MYLAB_BASE_URL" />
+          </ProviderSection>
 
-      <ProviderSection title="Transkription (Sprache in Text)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
-        <P label="KISSKI (Whisper)" settingKey="kisski_whisper_enabled" enabled={s.kisski_whisper_enabled ?? true} configured={s.kisski_whisper_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab (Whisper-3-large)" settingKey="mylab_whisper_enabled" enabled={s.mylab_whisper_enabled ?? false} configured={s.mylab_whisper_configured ?? false} available={s.mylab_whisper_available} envHint="MYLAB_BASE_URL" />
-      </ProviderSection>
+          <ProviderSection title="Transkript-Übersetzung (EN)" hint="Übersetzung deutscher Video-/Audio-Transkripte ins Englische. Betrifft aktuell nur den KI-Assistenten.">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Modus</p>
+                <p className="text-xs text-muted mt-1">
+                  Aus: keine EN-Übersetzung. Auto: direkt beim Indexieren. Manuell: nur über den Button im Transkript-Panel (Default).
+                </p>
+              </div>
+              <Select<TranslationMode>
+                value={(s.transcript_translation_mode ?? "manual") as TranslationMode}
+                onChange={(v) => {
+                  setS((prev) => (prev ? { ...prev, transcript_translation_mode: v } : prev));
+                  patch({ transcript_translation_mode: v });
+                }}
+                options={TRANSLATION_MODE_OPTIONS}
+                disabled={saving}
+                className="shrink-0 w-48"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-4" style={{ opacity: (s.transcript_translation_mode ?? "manual") === "off" ? 0.5 : 1 }}>
+              <div>
+                <p className="text-sm font-medium text-foreground">Anbieter</p>
+                <p className="text-xs text-muted mt-1">
+                  DeepL: schnell, aber Kontingent-limitiert. LLM: nutzt den konfigurierten Chat-Provider, keine zusätzliche Quote.
+                </p>
+              </div>
+              <Select<TranslationProvider>
+                value={(s.transcript_translation_provider ?? "llm") as TranslationProvider}
+                onChange={(v) => {
+                  setS((prev) => (prev ? { ...prev, transcript_translation_provider: v } : prev));
+                  patch({ transcript_translation_provider: v });
+                }}
+                options={TRANSLATION_PROVIDER_OPTIONS}
+                disabled={saving || (s.transcript_translation_mode ?? "manual") === "off"}
+                className="shrink-0 w-48"
+              />
+            </div>
+          </ProviderSection>
+        </>
+      )}
 
-      <ProviderSection title="Embeddings (KI-Assistent)" hint="Nur ein Anbieter gleichzeitig — Wechsel erfordert Reindex (siehe Wartungsmodus oben).">
-        <P label="KISSKI" settingKey="kisski_embedding_enabled" enabled={s.kisski_embedding_enabled ?? true} configured={s.kisski_embedding_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_embedding_model" />
-        <P label="THL myLab" settingKey="mylab_embedding_enabled" enabled={s.mylab_embedding_enabled ?? false} configured={s.mylab_embedding_configured ?? false} available={s.mylab_embedding_available} envHint="MYLAB_BASE_URL" modelKey="mylab_embedding_model" />
-        <P label="Ollama (lokal)" settingKey="ollama_embedding_enabled" enabled={s.ollama_embedding_enabled ?? false} configured={s.ollama_embedding_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_embedding_model" />
-      </ProviderSection>
+      {section === "images" && (
+        <>
+          <ProviderSection title="Bild-Generierung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
+            <P label="KISSKI (Flux)" settingKey="kisski_image_gen_enabled" enabled={s.kisski_image_gen_enabled ?? true} configured={s.kisski_image_gen_configured ?? false} envHint="KISSKI_API_KEY" />
+            <P label="THL myLab" settingKey="mylab_image_gen_enabled" enabled={s.mylab_image_gen_enabled ?? false} configured={s.mylab_image_gen_configured ?? false} available={s.mylab_image_gen_available} envHint="MYLAB_BASE_URL" modelKey="mylab_image_gen_model" />
+          </ProviderSection>
 
-      <ProviderSection title="Bild-Generierung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
-        <P label="KISSKI (Flux)" settingKey="kisski_image_gen_enabled" enabled={s.kisski_image_gen_enabled ?? true} configured={s.kisski_image_gen_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab" settingKey="mylab_image_gen_enabled" enabled={s.mylab_image_gen_enabled ?? false} configured={s.mylab_image_gen_configured ?? false} available={s.mylab_image_gen_available} envHint="MYLAB_BASE_URL" modelKey="mylab_image_gen_model" />
-      </ProviderSection>
+          <ProviderSection title="Bild-Analyse" hint="Nur KISSKI verfuegbar (THL myLab hat kein Vision-Modell).">
+            <P label="KISSKI (qwen3-omni)" settingKey="kisski_image_analyze_enabled" enabled={s.kisski_image_analyze_enabled ?? true} configured={s.kisski_image_analyze_configured ?? false} envHint="KISSKI_API_KEY" />
+          </ProviderSection>
 
-      <ProviderSection title="Bild-Analyse" hint="Nur KISSKI verfuegbar (THL myLab hat kein Vision-Modell).">
-        <P label="KISSKI (qwen3-omni)" settingKey="kisski_image_analyze_enabled" enabled={s.kisski_image_analyze_enabled ?? true} configured={s.kisski_image_analyze_configured ?? false} envHint="KISSKI_API_KEY" />
-      </ProviderSection>
+          <ProviderSection title="Bild-Bearbeitung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
+            <P label="KISSKI (Flux)" settingKey="kisski_image_edit_enabled" enabled={s.kisski_image_edit_enabled ?? true} configured={s.kisski_image_edit_configured ?? false} envHint="KISSKI_API_KEY" />
+            <P label="THL myLab" settingKey="mylab_image_edit_enabled" enabled={s.mylab_image_edit_enabled ?? false} configured={s.mylab_image_edit_configured ?? false} available={s.mylab_image_edit_available} envHint="MYLAB_BASE_URL" modelKey="mylab_image_edit_model" />
+          </ProviderSection>
 
-      <ProviderSection title="Bild-Bearbeitung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
-        <P label="KISSKI (Flux)" settingKey="kisski_image_edit_enabled" enabled={s.kisski_image_edit_enabled ?? true} configured={s.kisski_image_edit_configured ?? false} envHint="KISSKI_API_KEY" />
-        <P label="THL myLab" settingKey="mylab_image_edit_enabled" enabled={s.mylab_image_edit_enabled ?? false} configured={s.mylab_image_edit_configured ?? false} available={s.mylab_image_edit_available} envHint="MYLAB_BASE_URL" modelKey="mylab_image_edit_model" />
-      </ProviderSection>
+          <ProviderSection title="OCR (Texterkennung)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
+            <P label="KISSKI" settingKey="kisski_ocr_enabled" enabled={s.kisski_ocr_enabled ?? true} configured={s.kisski_ocr_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_ocr_model" />
+            <P label="THL myLab" settingKey="mylab_ocr_enabled" enabled={s.mylab_ocr_enabled ?? false} configured={s.mylab_ocr_configured ?? false} available={s.mylab_ocr_available} envHint="MYLAB_BASE_URL" modelKey="mylab_ocr_model" />
+          </ProviderSection>
+        </>
+      )}
 
-      <ProviderSection title="OCR (Texterkennung)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
-        <P label="KISSKI" settingKey="kisski_ocr_enabled" enabled={s.kisski_ocr_enabled ?? true} configured={s.kisski_ocr_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_ocr_model" />
-        <P label="THL myLab" settingKey="mylab_ocr_enabled" enabled={s.mylab_ocr_enabled ?? false} configured={s.mylab_ocr_configured ?? false} available={s.mylab_ocr_available} envHint="MYLAB_BASE_URL" modelKey="mylab_ocr_model" />
-      </ProviderSection>
+      {section === "embedding" && (
+        <>
+          <ProviderSection title="Embeddings (KI-Assistent)" hint="Nur ein Anbieter gleichzeitig — Wechsel erfordert Reindex (siehe unten).">
+            <P label="KISSKI" settingKey="kisski_embedding_enabled" enabled={s.kisski_embedding_enabled ?? true} configured={s.kisski_embedding_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_embedding_model" />
+            <P label="THL myLab" settingKey="mylab_embedding_enabled" enabled={s.mylab_embedding_enabled ?? false} configured={s.mylab_embedding_configured ?? false} available={s.mylab_embedding_available} envHint="MYLAB_BASE_URL" modelKey="mylab_embedding_model" />
+            <P label="Ollama (lokal)" settingKey="ollama_embedding_enabled" enabled={s.ollama_embedding_enabled ?? false} configured={s.ollama_embedding_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_embedding_model" />
+          </ProviderSection>
 
-      <ProviderSection title="LLM Chat" hint="Nur ein Anbieter gleichzeitig. Wechsel wirkt sofort fuer alle LLM-Calls (Chat, Mindmap, Summary, Skript).">
-        <P label="KISSKI" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_llm_model" />
-        <P label="THL myLab" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" modelKey="mylab_llm_model" />
-        <P label="Ollama (lokal)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_llm_model" />
-      </ProviderSection>
+          <ReindexCard />
+        </>
+      )}
 
-      <ProviderSection title="Transkript-Übersetzung (EN)" hint="Übersetzung deutscher Video-/Audio-Transkripte ins Englische. Betrifft aktuell nur den KI-Assistenten.">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">Modus</p>
-            <p className="text-xs text-muted mt-1">
-              Aus: keine EN-Übersetzung. Auto: direkt beim Indexieren. Manuell: nur über den Button im Transkript-Panel (Default).
-            </p>
-          </div>
-          <select
-            value={s.transcript_translation_mode ?? "manual"}
-            onChange={(e) => {
-              const v = e.target.value;
-              setS((prev) => ({ ...prev, transcript_translation_mode: v }));
-              patch({ transcript_translation_mode: v });
-            }}
-            disabled={saving}
-            className="shrink-0 border border-border rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
-          >
-            <option value="off">Aus</option>
-            <option value="auto">Auto (bei Ingest)</option>
-            <option value="manual">Manuell (Button)</option>
-          </select>
-        </div>
-        <div className="flex items-center justify-between gap-4" style={{ opacity: (s.transcript_translation_mode ?? "manual") === "off" ? 0.5 : 1 }}>
-          <div>
-            <p className="text-sm font-medium text-foreground">Anbieter</p>
-            <p className="text-xs text-muted mt-1">
-              DeepL: schnell, aber Kontingent-limitiert. LLM: nutzt den konfigurierten Chat-Provider, keine zusätzliche Quote.
-            </p>
-          </div>
-          <select
-            value={s.transcript_translation_provider ?? "llm"}
-            onChange={(e) => {
-              const v = e.target.value;
-              setS((prev) => ({ ...prev, transcript_translation_provider: v }));
-              patch({ transcript_translation_provider: v });
-            }}
-            disabled={saving || (s.transcript_translation_mode ?? "manual") === "off"}
-            className="shrink-0 border border-border rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
-          >
-            <option value="deepl">DeepL</option>
-            <option value="llm">LLM</option>
-          </select>
-        </div>
-      </ProviderSection>
+      {section === "llm" && (
+        <ProviderSection title="LLM Chat" hint="Nur ein Anbieter gleichzeitig. Wechsel wirkt sofort fuer alle LLM-Calls (Chat, Mindmap, Summary, Skript).">
+          <P label="KISSKI" settingKey="kisski_llm_enabled" enabled={s.kisski_llm_enabled ?? true} configured={s.kisski_llm_configured ?? false} envHint="KISSKI_API_KEY" modelKey="kisski_llm_model" />
+          <P label="THL myLab" settingKey="mylab_llm_enabled" enabled={s.mylab_llm_enabled ?? false} configured={s.mylab_llm_configured ?? false} available={s.mylab_llm_available} envHint="MYLAB_BASE_URL" modelKey="mylab_llm_model" />
+          <P label="Ollama (lokal)" settingKey="ollama_llm_enabled" enabled={s.ollama_llm_enabled ?? false} configured={s.ollama_llm_configured ?? false} envHint="OLLAMA_BASE_URL" modelKey="ollama_llm_model" />
+        </ProviderSection>
+      )}
     </div>
   );
 }
 
-interface ToolEntry {
-  key: string;
-  label: string;
-  enabled: boolean;
-}
-
-function ToolsSettingsSection() {
-  const [tools, setTools] = useState<ToolEntry[] | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
+function WhitelistCard() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/tools", { credentials: "include" })
+    fetch("/api/admin/settings", { credentials: "include" })
       .then((r) => r.json())
-      .then((d) => setTools(d.tools ?? []));
+      .then((d) => setEnabled(d.whitelist_enabled ?? true));
   }, []);
 
-  const toggle = async (key: string, enabled: boolean) => {
-    setSaving(key);
-    setTools((prev) => prev?.map((t) => (t.key === key ? { ...t, enabled } : t)) ?? null);
+  const toggle = async () => {
+    if (enabled === null) return;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
     try {
-      await fetch(`/api/admin/tools/${key}`, {
+      await fetch("/api/admin/settings", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
+        body: JSON.stringify({ whitelist_enabled: next }),
       });
     } finally {
-      setSaving(null);
+      setSaving(false);
     }
   };
 
-  if (!tools) return <Spinner className="flex justify-center py-12" />;
+  if (enabled === null) return null;
 
   return (
     <div className="border border-border-soft rounded-xl bg-white p-5">
-      <p className="text-sm font-medium text-foreground mb-1">Tools ein-/ausschalten</p>
-      <p className="text-xs text-muted mb-4">Deaktivierte Tools werden auf der Startseite ausgeblendet.</p>
-      <div className="space-y-3">
-        {tools.map((tool) => (
-          <div key={tool.key} className="flex items-center justify-between">
-            <span className="text-sm text-foreground-soft">{tool.label}</span>
-            <button
-              onClick={() => toggle(tool.key, !tool.enabled)}
-              disabled={saving === tool.key}
-              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                tool.enabled ? "bg-kb" : "bg-border"
-              } disabled:opacity-50`}
-              aria-label={`${tool.label} ${tool.enabled ? "deaktivieren" : "aktivieren"}`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                  tool.enabled ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-        ))}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">Whitelist-Modus</p>
+          <p className="text-xs text-muted mt-1">
+            {enabled
+              ? "Aktiv — nur freigeschaltete E-Mail-Adressen dürfen sich einloggen."
+              : "Deaktiviert — alle authentifizierten TH-Accounts haben Zugang."}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+            enabled ? "bg-kb" : "bg-border"
+          } disabled:opacity-50`}
+          aria-label="Whitelist umschalten"
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
       </div>
+      {!enabled && (
+        <p className="mt-3 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+          Achtung: Alle TH-Mitarbeiter mit gültigem LDAP-Account können sich einloggen.
+        </p>
+      )}
     </div>
   );
 }
@@ -385,8 +376,73 @@ interface ReindexProgress {
   running: boolean;
 }
 
-function MaintenanceSection() {
+function MaintenanceCard() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/admin/maintenance", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setEnabled(!!d.enabled))
+      .catch(() => {});
+  }, []);
+
+  const toggle = async (value: boolean) => {
+    setWorking(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/maintenance", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: value }),
+      });
+      if (!res.ok) throw new Error("Toggle fehlgeschlagen");
+      setEnabled(value);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  if (enabled === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">Wartungsmodus</p>
+          <p className="text-xs text-muted mt-1">
+            {enabled
+              ? "Aktiv — alle Nicht-Admin-Anfragen erhalten eine Wartungsseite."
+              : "Deaktiviert — App ist normal nutzbar."}
+          </p>
+        </div>
+        <button
+          onClick={() => toggle(!enabled)}
+          disabled={working}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-error ${
+            enabled ? "bg-error" : "bg-border"
+          } disabled:opacity-50`}
+          aria-label="Wartungsmodus umschalten"
+        >
+          <span
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+      {error && <p className="mt-3 text-xs text-error">{error}</p>}
+    </div>
+  );
+}
+
+function ReindexCard() {
+  const labels = useWorkspaceLabel();
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState<boolean | null>(null);
   const [progress, setProgress] = useState<ReindexProgress | null>(null);
   const [staleModules, setStaleModules] = useState<{ uuid: string; title: string; owner: string | null }[]>([]);
   const [working, setWorking] = useState(false);
@@ -396,7 +452,7 @@ function MaintenanceSection() {
     try {
       const res = await fetch("/api/admin/maintenance", { credentials: "include" });
       const d = await res.json();
-      setEnabled(!!d.enabled);
+      setMaintenanceEnabled(!!d.enabled);
       setProgress(d.reindex ?? null);
       setStaleModules(Array.isArray(d.stale_workspaces) ? d.stale_workspaces : []);
     } catch {
@@ -420,28 +476,9 @@ function MaintenanceSection() {
     return () => window.removeEventListener("embedding-provider-changed", handler);
   }, [load]);
 
-  const toggle = async (value: boolean) => {
-    setWorking(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/maintenance", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: value }),
-      });
-      if (!res.ok) throw new Error("Toggle fehlgeschlagen");
-      setEnabled(value);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setWorking(false);
-    }
-  };
-
   const startReindex = async () => {
-    if (!enabled) {
-      setError("Bitte zuerst Wartungsmodus aktivieren.");
+    if (!maintenanceEnabled) {
+      setError("Bitte zuerst Wartungsmodus aktivieren (Tab \"System\").");
       return;
     }
     setWorking(true);
@@ -460,7 +497,7 @@ function MaintenanceSection() {
     }
   };
 
-  if (enabled === null) return null;
+  if (maintenanceEnabled === null) return null;
 
   const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
@@ -469,8 +506,7 @@ function MaintenanceSection() {
       {staleModules.length > 0 && !progress?.running && (
         <div className="bg-warn-bg border border-warn-border rounded-md px-3 py-2 text-xs text-warn-strong space-y-2">
           <div>
-            <strong>Hinweis:</strong> {staleModules.length} Workspace
-            {staleModules.length === 1 ? "" : "s"} wurde{staleModules.length === 1 ? "" : "n"} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten &quot;Reindex starten&quot; ausführst.
+            <strong>Hinweis:</strong> {staleModules.length} {staleModules.length === 1 ? labels.singular : labels.plural} wurde{staleModules.length === 1 ? "" : "n"} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten &quot;Reindex starten&quot; ausführst.
           </div>
           <ul className="list-disc pl-5 space-y-0.5">
             {staleModules.map((m) => (
@@ -482,85 +518,124 @@ function MaintenanceSection() {
           </ul>
         </div>
       )}
+      <div>
+        <p className="text-sm font-medium text-foreground">Alle Quellen neu indexieren</p>
+        <p className="text-xs text-muted mt-1">
+          Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.
+        </p>
+      </div>
+      {progress?.running ? (
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-foreground-soft">
+            <span>Läuft: {progress.current}</span>
+            <span>
+              {progress.done}/{progress.total} ({pct}%)
+            </span>
+          </div>
+          <div className="w-full h-2 bg-surface-dim rounded-full overflow-hidden">
+            <div className="h-full bg-kb transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          {progress.failed > 0 && (
+            <p className="text-xs text-error">{progress.failed} Fehler — siehe Backend-Logs.</p>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={startReindex}
+            disabled={working || !maintenanceEnabled}
+            className="btn-primary px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-40"
+          >
+            {working ? "…" : "Reindex starten"}
+          </button>
+          {progress && !progress.running && progress.done > 0 && (
+            <p className="text-xs text-muted">
+              Letzter Lauf: {progress.done}/{progress.total} fertig
+              {progress.failed > 0 ? `, ${progress.failed} Fehler` : ""}.
+            </p>
+          )}
+          {!maintenanceEnabled && (
+            <p className="text-xs text-muted-soft">Wartungsmodus aktivieren (Tab &quot;System&quot;), bevor du startest.</p>
+          )}
+        </div>
+      )}
+      {error && <p className="text-xs text-error">{error}</p>}
+    </div>
+  );
+}
+
+function MascotCard() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setEnabled(d.mascot_enabled ?? true));
+  }, []);
+
+  const toggle = async () => {
+    if (enabled === null) return;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mascot_enabled: next }),
+      });
+      notifyMascotGlobalChanged();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (enabled === null) return null;
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-foreground">Wartungsmodus</p>
+          <p className="text-sm font-medium text-foreground">Hilde-Maskottchen</p>
           <p className="text-xs text-muted mt-1">
             {enabled
-              ? "Aktiv — alle Nicht-Admin-Anfragen erhalten eine Wartungsseite."
-              : "Deaktiviert — App ist normal nutzbar."}
+              ? "Aktiv — die Eulen-Begleiterin wird systemweit angezeigt; jeder Nutzer kann sie für sich abschalten."
+              : "Deaktiviert — Hilde wird nirgendwo angezeigt, der Nutzer-Toggle in den KI-Assistent-Einstellungen ist ausgeblendet."}
           </p>
         </div>
         <button
-          onClick={() => toggle(!enabled)}
-          disabled={working || !!progress?.running}
-          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-            enabled ? "bg-error" : "bg-border"
+          onClick={toggle}
+          disabled={saving}
+          className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+            enabled ? "bg-kb" : "bg-border"
           } disabled:opacity-50`}
-          aria-label="Wartungsmodus umschalten"
+          aria-label="Maskottchen umschalten"
         >
           <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+            className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
               enabled ? "translate-x-5" : "translate-x-0"
             }`}
           />
         </button>
       </div>
-
-      <div className="border-t border-border-soft pt-4 space-y-3">
-        <div>
-          <p className="text-sm font-medium text-foreground">Alle Quellen neu indexieren</p>
-          <p className="text-xs text-muted mt-1">
-            Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.
-          </p>
-        </div>
-        {progress?.running ? (
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-foreground-soft">
-              <span>Läuft: {progress.current}</span>
-              <span>
-                {progress.done}/{progress.total} ({pct}%)
-              </span>
-            </div>
-            <div className="w-full h-2 bg-surface-dim rounded-full overflow-hidden">
-              <div className="h-full bg-kb transition-all" style={{ width: `${pct}%` }} />
-            </div>
-            {progress.failed > 0 && (
-              <p className="text-xs text-error">{progress.failed} Fehler — siehe Backend-Logs.</p>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={startReindex}
-              disabled={working || !enabled}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-kb hover:opacity-90 rounded-md disabled:opacity-40"
-            >
-              {working ? "…" : "Reindex starten"}
-            </button>
-            {progress && !progress.running && progress.done > 0 && (
-              <p className="text-xs text-muted">
-                Letzter Lauf: {progress.done}/{progress.total} fertig
-                {progress.failed > 0 ? `, ${progress.failed} Fehler` : ""}.
-              </p>
-            )}
-            {!enabled && (
-              <p className="text-xs text-muted-soft">Wartungsmodus aktivieren, bevor du startest.</p>
-            )}
-          </div>
-        )}
-        {error && <p className="text-xs text-error">{error}</p>}
-      </div>
     </div>
   );
 }
 
-export default function SettingsTab() {
+function SystemPane() {
   return (
-    <div className="space-y-6">
-      <MaintenanceSection />
-      <GeneralSettingsSection />
-      <ToolsSettingsSection />
+    <div className="space-y-4">
+      <MaintenanceCard />
+      <WhitelistCard />
+      <WorkspaceLabelCard />
+      <MascotCard />
     </div>
   );
+}
+
+export default function SettingsTab({ section }: { section: SettingsSection }) {
+  if (section === "system") return <SystemPane />;
+  return <ProvidersPane section={section} />;
 }

@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Users } from "@phosphor-icons/react";
+import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 import type { AdminUser } from "../_shared";
+
+const PAGE_SIZE_OPTIONS = [
+  { value: "50", label: "50 pro Seite" },
+  { value: "100", label: "100 pro Seite" },
+] as const;
 
 export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -72,14 +78,12 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           title="Bis"
           className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
-        <select
-          value={limit}
-          onChange={(e) => setLimit(Number(e.target.value))}
-          className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
-        >
-          <option value={50}>50 pro Seite</option>
-          <option value={100}>100 pro Seite</option>
-        </select>
+        <Select
+          value={String(limit)}
+          onChange={(v) => setLimit(Number(v))}
+          options={PAGE_SIZE_OPTIONS}
+          className="w-40"
+        />
         <span className="text-xs text-muted-soft whitespace-nowrap">{total} User</span>
       </div>
 

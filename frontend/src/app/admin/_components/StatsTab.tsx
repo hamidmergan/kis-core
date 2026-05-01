@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChartBar } from "@phosphor-icons/react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatDuration } from "@/lib/format";
 import { JobStatusBadge } from "../_shared";
 
@@ -57,27 +59,35 @@ export default function StatsTab() {
           <button
             key={d}
             onClick={() => setDays(d)}
-            className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-kb text-white border-kb" : "border-border text-foreground-soft hover:border-muted"}`}
+            className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-kb text-white border-kb" : "border-border text-foreground-soft hover:border-kb hover:text-kb"}`}
           >
             {d === 7 ? "7 Tage" : d === 30 ? "1 Monat" : d === 90 ? "3 Monate" : "6 Monate"}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white border border-border-soft rounded-lg p-4">
-          <p className="text-xs text-muted uppercase tracking-wide">Gesamt</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{totalJobs}</p>
+      {totalJobs === 0 ? (
+        <EmptyState
+          size="lg"
+          icon={<ChartBar size={40} weight="bold" />}
+          text="Keine Jobs im gewählten Zeitraum"
+        />
+      ) : (
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white border border-border-soft rounded-lg p-4">
+            <p className="text-xs text-muted uppercase tracking-wide">Gesamt</p>
+            <p className="text-2xl font-bold text-foreground mt-1">{totalJobs}</p>
+          </div>
+          <div className="bg-white border border-border-soft rounded-lg p-4">
+            <p className="text-xs text-muted uppercase tracking-wide">Erfolgreich</p>
+            <p className="text-2xl font-bold text-success mt-1">{totalSuccess}</p>
+          </div>
+          <div className="bg-white border border-border-soft rounded-lg p-4">
+            <p className="text-xs text-muted uppercase tracking-wide">Fehlgeschlagen</p>
+            <p className="text-2xl font-bold text-error mt-1">{totalFailed}</p>
+          </div>
         </div>
-        <div className="bg-white border border-border-soft rounded-lg p-4">
-          <p className="text-xs text-muted uppercase tracking-wide">Erfolgreich</p>
-          <p className="text-2xl font-bold text-success mt-1">{totalSuccess}</p>
-        </div>
-        <div className="bg-white border border-border-soft rounded-lg p-4">
-          <p className="text-xs text-muted uppercase tracking-wide">Fehlgeschlagen</p>
-          <p className="text-2xl font-bold text-error mt-1">{totalFailed}</p>
-        </div>
-      </div>
+      )}
 
       {data.by_tool.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

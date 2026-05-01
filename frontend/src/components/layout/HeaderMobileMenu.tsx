@@ -30,7 +30,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
   }, [open]);
 
   const rowClass =
-    "flex items-center gap-3 w-full px-4 py-3 text-[15px] font-medium hover:outline-2 hover:outline-kb -outline-offset-2 transition no-underline text-left";
+    "flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
 
   return (
     <div className="sm:hidden relative" ref={ref}>
@@ -46,8 +46,12 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 z-50 w-56 rounded-xl shadow-xl overflow-hidden"
-          style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
+          className="absolute right-0 top-full mt-2 z-50 w-56 rounded-xl py-1 overflow-hidden"
+          style={{
+            backgroundColor: "var(--surface)",
+            border: "1px solid var(--border)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          }}
         >
           <button
             type="button"

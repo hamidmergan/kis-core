@@ -131,9 +131,13 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "ollama_llm_configured": ollama_configured,
         # ── Transcript translation (EN) ──
         "transcript_translation_provider": db.get_setting("transcript_translation_provider", "llm"),
-        "transcript_translation_mode": db.get_setting("transcript_translation_mode", "manual"),
         # ── Provider model names (editable in the admin panel) ──
         "models": _current_models(),
+        # ── UI labels ──
+        "workspace_label_singular": db.get_setting("workspace_label_singular", "Workspace"),
+        "workspace_label_plural": db.get_setting("workspace_label_plural", "Workspaces"),
+        # ── Hilde mascot (system-wide) ──
+        "mascot_enabled": _enabled("mascot_enabled"),
     }
 
 
@@ -152,6 +156,7 @@ _SIMPLE_BOOL_FIELDS = (
     "kisski_image_analyze_enabled",
     "kisski_image_edit_enabled", "mylab_image_edit_enabled",
     "kisski_ocr_enabled", "mylab_ocr_enabled",
+    "mascot_enabled",
 )
 
 # Radio fields: exactly one provider may be active at a time.
@@ -209,18 +214,22 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
     # Provider selection is no longer controlled via env vars (see _resolve_llm_provider).
     _apply_radio_group(body_dict, _LLM_KEYS, "LLM")
 
+    # UI label overrides for "Workspace"
+    for label_key in ("workspace_label_singular", "workspace_label_plural"):
+        value = body_dict.get(label_key)
+        if value is not None:
+            stripped = value.strip()
+            if not stripped:
+                raise HTTPException(status_code=400, detail=f"{label_key} darf nicht leer sein")
+            if len(stripped) > 40:
+                raise HTTPException(status_code=400, detail=f"{label_key} ist zu lang (max 40 Zeichen)")
+            db.set_setting(label_key, stripped)
+
     # Transcript translation: only "deepl" or "llm"
     if body.transcript_translation_provider is not None:
         if body.transcript_translation_provider not in ("deepl", "llm"):
             raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
         db.set_setting("transcript_translation_provider", body.transcript_translation_provider)
-
-    # Transcript translation mode: "off" (no EN translation), "auto" (run at ingest),
-    # "manual" (default — user triggers via button in transcript panel)
-    if body.transcript_translation_mode is not None:
-        if body.transcript_translation_mode not in ("off", "auto", "manual"):
-            raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Modus")
-        db.set_setting("transcript_translation_mode", body.transcript_translation_mode)
 
     # Provider model names
     if body.models:

@@ -81,8 +81,12 @@ export default function HeaderLanguageSwitch() {
       {open && (
         <ul
           role="listbox"
-          className="absolute right-0 top-full mt-2 z-50 min-w-[160px] rounded-xl py-1 text-sm shadow-xl"
-          style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}
+          className="absolute right-0 top-full mt-2 z-50 min-w-[160px] rounded-xl py-1 text-sm"
+          style={{
+            backgroundColor: "var(--background)",
+            border: "1px solid var(--border)",
+            boxShadow: "0 8px 24px rgba(0,40,60,0.12)",
+          }}
         >
           {OPTIONS.map((opt, idx) => {
             const isSelected = idx === selectedIdx;
