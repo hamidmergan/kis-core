@@ -211,14 +211,13 @@ export default function AdminPage() {
                     onClick={() => selectTab(item.key)}
                     className={`group w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm font-medium text-left transition-colors ${
                       active
-                        ? "bg-kb/8 text-kb font-semibold"
-                        : "text-foreground-soft hover:bg-surface-dim hover:text-kb"
+                        ? "admin-nav-active text-kb dark:text-white font-semibold"
+                        : "text-foreground-soft hover:bg-surface-dim hover:text-kb dark:hover:text-white"
                     }`}
-                    style={active ? { backgroundColor: "rgba(var(--kb-rgb), 0.08)" } : undefined}
                   >
                     <span
                       className={`transition-colors ${
-                        active ? "text-kb" : "text-muted group-hover:text-kb"
+                        active ? "text-kb dark:text-white" : "text-muted group-hover:text-kb dark:group-hover:text-white"
                       }`}
                     >
                       {item.icon}
@@ -227,7 +226,7 @@ export default function AdminPage() {
                     {item.hasSubs && (
                       <span
                         className={`text-xs transition-all ${
-                          active ? "rotate-90 text-kb" : "text-muted group-hover:text-kb"
+                          active ? "rotate-90 text-kb dark:text-white" : "text-muted group-hover:text-kb dark:group-hover:text-white"
                         }`}
                       >
                         ›
@@ -247,10 +246,9 @@ export default function AdminPage() {
                             }}
                             className={`px-3 py-1.5 rounded-md text-[13px] text-left transition-colors ${
                               subActive
-                                ? "text-kb font-semibold"
-                                : "text-muted hover:text-foreground-soft hover:bg-surface-dim"
+                                ? "admin-nav-active text-kb dark:text-white font-semibold"
+                                : "text-muted hover:text-kb dark:hover:text-white hover:bg-surface-dim"
                             }`}
-                            style={subActive ? { backgroundColor: "rgba(var(--kb-rgb), 0.08)" } : undefined}
                           >
                             {sub.label}
                           </button>

@@ -146,7 +146,7 @@ export default function Select<T extends string>({
             top: pos.top,
             left: pos.left,
             width: pos.width,
-            backgroundColor: "#fff",
+            backgroundColor: "var(--background)",
             border: "1px solid var(--border)",
             boxShadow: "0 8px 24px rgba(0,40,60,0.12)",
           }}

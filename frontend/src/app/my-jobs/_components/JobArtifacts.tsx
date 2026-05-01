@@ -23,7 +23,7 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
     <button
       onClick={handleClick}
       disabled={busy}
-      className="text-xs text-kb hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+      className="download-link text-xs text-kb hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {busy ? (
         <Spinner size="sm" />

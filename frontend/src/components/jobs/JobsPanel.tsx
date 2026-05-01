@@ -373,7 +373,7 @@ export default function JobsPanel() {
                             <div className="mt-1.5 flex flex-row flex-wrap gap-2">
                               <button
                                 onClick={(e) => handleDownload(e, job)}
-                                className="text-xs text-kb hover:underline flex items-center gap-1"
+                                className="download-link text-xs text-kb hover:underline flex items-center gap-1"
                               >
                                 <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -383,7 +383,7 @@ export default function JobsPanel() {
                               {(SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate") && (
                                 <button
                                   onClick={(e) => handleDownloadBundle(e, job)}
-                                  className="text-xs text-kb hover:underline flex items-center gap-1"
+                                  className="download-link text-xs text-kb hover:underline flex items-center gap-1"
                                 >
                                   <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

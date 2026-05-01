@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Tailwind v4 dark variant: aktiviert via <html data-theme="dark"> */
+@custom-variant dark (&:where(:root[data-theme="dark"] *, :root[data-theme="dark"]));
+
 @theme {
   /* Disable Tailwind's default color palette — only CD tokens below remain */
   --color-*: initial;
@@ -303,6 +306,9 @@ h1 {
 }
 h2, h3, h4, h5, h6 {
   color: var(--kb);
+}
+:root[data-theme="dark"] h2 {
+  color: #ffffff;
 }
 
 /* ─── Utilities ─── */
@@ -609,6 +615,14 @@ me-tpc:hover .mm-src-chip {
   color: var(--kb) !important;
 }
 
+/* Admin-Sidebar selected item — kontrastreicher BG, Light + Dark separat */
+.admin-nav-active {
+  background-color: rgba(var(--kb-rgb), 0.18);
+}
+:root[data-theme="dark"] .admin-nav-active {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
 /* Tools-Sidebar Item — kb-getöntes Hover, konsistent mit CD */
 .tools-sidebar-item__box {
   background-color: var(--background);
@@ -619,6 +633,20 @@ me-tpc:hover .mm-src-chip {
 .tools-sidebar-item:hover .tools-sidebar-item__box {
   border-color: var(--kb);
   box-shadow: 0 0 0 1px var(--kb);
+}
+:root[data-theme="dark"] .tools-sidebar-item__box {
+  color: var(--muted) !important;
+}
+:root[data-theme="dark"] .tools-sidebar-item:hover .tools-sidebar-item__box {
+  color: #FFFFFF !important;
+}
+
+/* Dark Mode: Download-Links (Jobs-Panel, my-jobs JobArtifacts) weiss statt --kb (#004261 unlesbar auf dunkel); Hover faerbt zu --kb. */
+:root[data-theme="dark"] .download-link {
+  color: #FFFFFF !important;
+}
+:root[data-theme="dark"] .download-link:hover {
+  color: var(--kb) !important;
 }
 
 /* Hide non-critical elements (disclaimers, labels) on phones in landscape

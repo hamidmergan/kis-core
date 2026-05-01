@@ -38,7 +38,7 @@ export function FilterBar({
         value={q}
         onChange={(e) => onQChange(e.target.value)}
         placeholder="Suche"
-        className="flex-1 min-w-[220px] text-sm border border-border rounded-md px-3 py-2 bg-background transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
+        className="flex-1 min-w-[220px] text-sm border-2 border-border rounded-md px-3 py-2 bg-background transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <Select
         value={toolFilter}
@@ -51,14 +51,14 @@ export function FilterBar({
         value={dateFrom}
         onChange={(e) => onDateFromChange(e.target.value)}
         title="Von"
-        className="text-sm border border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
+        className="text-sm border-2 border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <input
         type="date"
         value={dateTo}
         onChange={(e) => onDateToChange(e.target.value)}
         title="Bis"
-        className="text-sm border border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
+        className="text-sm border-2 border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <select
         value={limit}

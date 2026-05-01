@@ -115,7 +115,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
             role="listbox"
             aria-multiselectable="true"
             style={{
-              backgroundColor: "#fff",
+              backgroundColor: "var(--background)",
               border: "1px solid var(--border)",
               boxShadow: "0 8px 24px rgba(0,40,60,0.12)",
             }}
