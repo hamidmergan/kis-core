@@ -173,7 +173,7 @@ export function SourcesPanel({
           >
             {allSelected && <Check size={11} weight="bold" />}
           </button>
-          <span className="text-sm" >
+          <span className="text-base" >
             {t("selectAll")}
           </span>
         </label>
@@ -232,7 +232,7 @@ export function SourcesPanel({
                 >
                   <FileIcon filename={src.filename} />
                   <span
-                    className="flex-1 text-sm leading-snug truncate min-w-0 font-medium"
+                    className="flex-1 text-base leading-snug truncate min-w-0 font-medium"
                     style={{ color: "var(--foreground)" }}
                     title={src.filename}
                   >
@@ -317,22 +317,22 @@ export function SourcesPanel({
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">{t("deleteTitle")}</h3>
-            <p className="text-sm text-foreground-soft mb-1">
+            <p className="text-base text-foreground-soft mb-1">
               <span className="font-medium">{sources.find((s) => s.uuid === deleteSourceId)?.filename || t("deleteFallback")}</span>
             </p>
-            <p className="text-sm text-error mb-6">
+            <p className="text-base text-error mb-6">
               {t("deleteWarning")}
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteSourceId(null)}
-                className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg"
+                className="btn-cancel px-4 py-2 text-base btn-secondary rounded-lg"
               >
                 {t("cancel")}
               </button>
               <button
                 onClick={() => { onDeleteSource(deleteSourceId); setDeleteSourceId(null); }}
-                className="px-4 py-2 text-sm btn-danger rounded-lg"
+                className="px-4 py-2 text-base btn-danger rounded-lg"
               >
                 {t("delete")}
               </button>

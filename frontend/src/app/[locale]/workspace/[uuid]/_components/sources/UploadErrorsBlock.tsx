@@ -12,7 +12,7 @@ export function UploadErrorsBlock({
   const [expanded, setExpanded] = useState(false);
   return (
     <div
-      className="mt-2 px-3 py-2 rounded-lg text-sm"
+      className="mt-2 px-3 py-2 rounded-lg text-base"
       style={{ backgroundColor: "rgba(220,38,38,0.08)", color: "var(--error-strong)", border: "1px solid rgba(220,38,38,0.25)" }}
     >
       <div className="flex items-start gap-2">

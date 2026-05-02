@@ -255,7 +255,7 @@ export function NotesStudio({
                               h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                               h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                               h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,
-                              table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-sm border-collapse">{children}</table></div>,
+                              table: ({ children }) => <div className="overflow-x-auto my-2"><table className="w-full text-base border-collapse">{children}</table></div>,
                               th: ({ children }) => <th className="text-left px-2 py-1 font-medium border-b" style={{ borderColor: "var(--border)" }}>{children}</th>,
                               td: ({ children }) => <td className="px-2 py-1 border-b" style={{ borderColor: "var(--border)" }}>{wrapCitations(children)}</td>,
                               hr: () => <hr className="my-3" style={{ borderColor: "var(--border)" }} />,

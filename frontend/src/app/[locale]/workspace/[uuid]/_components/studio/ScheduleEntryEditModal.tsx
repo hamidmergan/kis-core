@@ -84,7 +84,7 @@ export function ScheduleEntryEditModal({
 
         <div className="space-y-3 text-base">
           <label className="block">
-            <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("titleField")}</span>
+            <span className="text-base font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("titleField")}</span>
             <input
               type="text"
               required
@@ -98,7 +98,7 @@ export function ScheduleEntryEditModal({
 
           <div className="grid grid-cols-2 gap-2">
             <label className="block">
-              <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("dateField")}</span>
+              <span className="text-base font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("dateField")}</span>
               <input
                 type="date"
                 value={dueDate}
@@ -108,7 +108,7 @@ export function ScheduleEntryEditModal({
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("timeField")}</span>
+              <span className="text-base font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("timeField")}</span>
               <input
                 type="time"
                 value={dueTime}
@@ -120,7 +120,7 @@ export function ScheduleEntryEditModal({
           </div>
 
           <label className="block">
-            <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("descriptionField")}</span>
+            <span className="text-base font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("descriptionField")}</span>
             <textarea
               rows={3}
               maxLength={2000}
@@ -145,7 +145,7 @@ export function ScheduleEntryEditModal({
             >
               {isOptional && <Check size={11} weight="bold" />}
             </button>
-            <span className="text-sm" style={{ color: "var(--foreground)" }}>{t("optionalLabel")}</span>
+            <span className="text-base" style={{ color: "var(--foreground)" }}>{t("optionalLabel")}</span>
           </label>
         </div>
 
