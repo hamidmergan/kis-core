@@ -2,6 +2,7 @@ from fastapi import HTTPException, Request
 from loguru import logger
 
 from src.dependencies import get_session_store
+from src.i18n import parse_accept_language, t
 
 _OPEN_PATHS = {"/health", "/health/maintenance", "/health/labels", "/docs", "/redoc", "/openapi.json"}
 _OPEN_PREFIXES = ("/auth/",)
@@ -26,4 +27,5 @@ async def verify_auth(request: Request):
     else:
         logger.debug("Missing session cookie on {}", path)
 
-    raise HTTPException(status_code=401, detail="Nicht authentifiziert")
+    locale = parse_accept_language(request.headers.get("accept-language"))
+    raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))

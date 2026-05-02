@@ -1,9 +1,10 @@
 from functools import lru_cache
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from loguru import logger
 
 from src.config import Settings
+from src.i18n import get_locale, t
 from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.openai_compat_llm import OpenAICompatLLMClient
 
@@ -35,13 +36,13 @@ def is_admin_user(user: dict) -> bool:
     return bool(email and email.lower() == settings.admin_email.lower())
 
 
-async def get_admin_user(request: Request) -> dict:
+async def get_admin_user(request: Request, locale: str = Depends(get_locale)) -> dict:
     """Like get_current_user, but raises 403 if the user is not the admin."""
     user = await get_current_user(request)
     settings = get_settings()
     email = user.get("email", "")
     if not email or email.lower() != settings.admin_email.lower():
-        raise HTTPException(status_code=403, detail="Admin-Zugriff erforderlich")
+        raise HTTPException(status_code=403, detail=t("auth.adminRequired", locale))
     return user
 
 
@@ -153,10 +154,10 @@ def resolve_whisper_client() -> OpenAICompatLLMClient:
     return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
 
 
-def get_llm_client() -> OpenAICompatLLMClient:
+def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:
-        raise HTTPException(status_code=500, detail="Kein LLM-Provider konfiguriert")
+        raise HTTPException(status_code=500, detail=t("llm.notConfigured", locale))
     return OpenAICompatLLMClient(
         api_key=api_key,
         base_url=base_url,
@@ -165,10 +166,10 @@ def get_llm_client() -> OpenAICompatLLMClient:
     )
 
 
-def get_elevenlabs_client() -> ElevenLabsClient:
+def get_elevenlabs_client(locale: str = Depends(get_locale)) -> ElevenLabsClient:
     settings = get_settings()
     if not settings.elevenlabs_api_key:
-        raise HTTPException(status_code=500, detail="ElevenLabs API Key nicht konfiguriert")
+        raise HTTPException(status_code=500, detail=t("elevenlabs.notConfigured", locale))
     return ElevenLabsClient(settings.elevenlabs_api_key)
 
 

@@ -6,6 +6,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, get_settings, is_admin_user
+from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.storage import save_queue_file
@@ -18,27 +19,20 @@ from src.utils.text_extraction import EXTRACTORS
 
 router = APIRouter(tags=["translate"])
 
-_LANG_LABELS = {
-    "DE": "Deutsch",
-    "EN-US": "Englisch",
-    "EN-GB": "Englisch (UK)",
-    "FR": "Französisch",
-    "ES": "Spanisch",
-    "IT": "Italienisch",
-}
-
-
 @router.get("/translate/config")
-async def get_translate_config(current_user: dict = Depends(get_current_user)):
+async def get_translate_config(
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     settings = get_settings()
 
     providers = [
-        {"id": "deepl", "label": "DeepL (schnell)"},
-        {"id": "llm", "label": "LLM (langsam)"},
+        {"id": "deepl", "label": t("translateProvider.deepl", locale)},
+        {"id": "llm", "label": t("translateProvider.llm", locale)},
     ]
 
     raw_langs = [lang.strip() for lang in settings.translation_languages.split(",") if lang.strip()]
-    languages = [{"id": lang, "label": _LANG_LABELS.get(lang, lang)} for lang in raw_langs]
+    languages = [{"id": lang, "label": t(f"lang.{lang}", locale)} for lang in raw_langs]
 
     return {
         "providers": providers,

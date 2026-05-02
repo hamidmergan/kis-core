@@ -41,6 +41,12 @@ function _parseErrorResponse(errorBody: { detail?: unknown }, fallbackStatus: nu
   return new Error(msg);
 }
 
+function readLocaleFromCookie(): string {
+  if (typeof document === "undefined") return "de";
+  const match = document.cookie.match(/(?:^|;\s*)NEXT_LOCALE=(de|en)/);
+  return match?.[1] ?? "de";
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -49,12 +55,15 @@ class ApiClient {
   }
 
   async fetch(path: string, options: RequestInit = {}): Promise<Response> {
+    const headers = new Headers(options.headers);
+    if (!headers.has("Accept-Language")) {
+      headers.set("Accept-Language", readLocaleFromCookie());
+    }
+
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...options,
       credentials: "include",
-      headers: {
-        ...options.headers,
-      },
+      headers,
     });
 
     if (response.status === 401 && typeof window !== "undefined") {

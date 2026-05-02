@@ -3,6 +3,7 @@
 import json as json_lib
 import os
 
+from src.i18n import DEFAULT_LOCALE, t
 from src.storage import file_exists, load_result_meta
 
 
@@ -26,18 +27,22 @@ _CONTENT_TYPES = {
 }
 
 
-_TOOL_LABELS = {
-    "screencast_demo_render": "Demo-Screencast",
-    "screencast_render": "Screencast",
-    "screencast_translate": "Screencast-Übersetzung",
-    "tts": "Text in Sprache",
-    "translation": "Übersetzung",
-    "transcription": "Transkription",
-    "image_generate": "Bild-Generierung",
-    "image_edit": "Bild-Bearbeitung",
-    "image_analyze": "Bild-Analyse",
-    "summary": "Zusammenfassung",
-}
+_TOOL_KEYS = (
+    "screencast_demo_render",
+    "screencast_render",
+    "screencast_translate",
+    "tts",
+    "translation",
+    "transcription",
+    "image_generate",
+    "image_edit",
+    "image_analyze",
+    "summary",
+)
+
+
+def _tool_label(tool: str, locale: str) -> str:
+    return t(f"tool.{tool}", locale)
 
 
 _META_TOOLS = {"screencast_translate", "screencast_render", "screencast_demo_render"}
@@ -52,10 +57,10 @@ _TOOL_FILTER_GROUPS: dict[str, list[str]] = {
 _SCREENCAST_TOOLS = {"screencast_translate", "screencast_render", "screencast_demo_render"}
 
 
-def _tools_matching_query(q: str) -> list[str]:
-    """Return tool keys whose label contains q (case-insensitive, umlaut-safe)."""
+def _tools_matching_query(q: str, locale: str = DEFAULT_LOCALE) -> list[str]:
+    """Return tool keys whose label (in the user's locale) contains q (case-insensitive)."""
     q_lower = q.lower()
-    return [k for k, label in _TOOL_LABELS.items() if q_lower in label.lower()]
+    return [k for k in _TOOL_KEYS if q_lower in _tool_label(k, locale).lower()]
 
 
 def _expand_tool_filter(tool_filter: str) -> list[str] | None:
@@ -71,7 +76,7 @@ def _dt(val) -> str | None:
     return (val.isoformat() + "Z") if hasattr(val, "isoformat") else val
 
 
-def _format_job_rows(jobs: list[dict]) -> list[dict]:
+def _format_job_rows(jobs: list[dict], locale: str = DEFAULT_LOCALE) -> list[dict]:
     """Format raw DB job rows into the standard API response format."""
     result = []
     for job in jobs:
@@ -109,7 +114,7 @@ def _format_job_rows(jobs: list[dict]) -> list[dict]:
         result.append({
             "job_uuid": job["job_uuid"],
             "tool": tool,
-            "tool_label": _TOOL_LABELS.get(tool, tool),
+            "tool_label": _tool_label(tool, locale),
             "original_filename": job["original_filename"],
             "status": job["status"],
             "error": job["error_message"],

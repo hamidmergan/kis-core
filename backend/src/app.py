@@ -120,9 +120,11 @@ def create_app() -> FastAPI:
                 admin_email = (settings.admin_email or "").lower()
                 if admin_email and email == admin_email:
                     return await call_next(request)
+        from src.i18n import parse_accept_language, t
+        locale = parse_accept_language(request.headers.get("accept-language"))
         return JSONResponse(
             status_code=503,
-            content={"maintenance": True, "detail": "Wartungsarbeiten - bitte später erneut versuchen."},
+            content={"maintenance": True, "detail": t("maintenance.message", locale)},
             headers={"Retry-After": "60"},
         )
 
