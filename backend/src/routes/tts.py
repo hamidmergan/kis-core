@@ -274,7 +274,7 @@ async def text_to_speech(
     enforce_quota(user_id, "tts", is_admin_user(current_user), locale)
 
     job_uuid = uuid.uuid4().hex
-    db.create_job(job_uuid, user_id, "tts", file.filename)
+    db.create_job(job_uuid, user_id, "tts", file.filename, locale=locale)
     input_path = save_queue_file(user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 

@@ -84,7 +84,7 @@ async def generate_cloze(
         title="Wird generiert…", mode="glossary", source_uuid=None,
     )
     from src.tasks.aia_tasks import run_generate_exercise_set
-    run_generate_exercise_set.delay(placeholder["id"], workspace["id"], "lueckentext", "glossary", 10, None)
+    run_generate_exercise_set.delay(placeholder["id"], workspace["id"], "lueckentext", "glossary", 10, None, locale=locale)
     return {"set_id": placeholder["id"], "status": "generating"}
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercises/vocab-test")
@@ -117,7 +117,7 @@ async def generate_vocab_test(
         title="Wird generiert…", mode="glossary", source_uuid=None,
     )
     from src.tasks.aia_tasks import run_generate_exercise_set
-    run_generate_exercise_set.delay(placeholder["id"], workspace["id"], "vokabeltest", "glossary", 10, None)
+    run_generate_exercise_set.delay(placeholder["id"], workspace["id"], "vokabeltest", "glossary", 10, None, locale=locale)
     return {"set_id": placeholder["id"], "status": "generating"}
 
 
@@ -155,6 +155,7 @@ async def create_exercise_set(
     from src.tasks.aia_tasks import run_generate_exercise_set
     run_generate_exercise_set.delay(
         placeholder["id"], workspace["id"], body.tool, body.mode, body.count, body.source_uuid,
+        locale=locale,
     )
 
     return {"set": placeholder}

@@ -6,6 +6,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
+from src.i18n import t
 from src.limits import SCREENCAST_SOFT_TIME_LIMIT, SCREENCAST_TIME_LIMIT
 from src.storage import clear_render_cache, load_result_meta, save_result_and_evict, save_result_meta
 from src.utils.heartbeat import job_heartbeat
@@ -90,7 +91,9 @@ def run_screencast_render(
 
     except SoftTimeLimitExceeded:
         logger.warning("Screencast render task {} hit soft time limit", translate_job_uuid)
-        db.update_job_status(translate_job_uuid, "failed", error_message="Zeitlimit überschritten. Bitte 'Wiederholen' klicken.")
+        job = db.get_job(translate_job_uuid)
+        locale = (job and job.get("creator_locale")) or "de"
+        db.update_job_status(translate_job_uuid, "failed", error_message=t("job.timeoutRetry", locale))
         _maybe_dispatch_next(translate_job_uuid)
 
     except Exception as e:

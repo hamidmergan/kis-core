@@ -12,16 +12,17 @@ def create_job(
     tool: str,
     original_filename: str,
     input_path: str | None = None,
+    locale: str = "de",
 ) -> None:
     expires_at = datetime.now(timezone.utc) + timedelta(hours=JOB_RETENTION_HOURS)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, expires_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO jobs (job_uuid, user_id, tool, original_filename, input_path, expires_at, creator_locale)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (job_uuid, user_id, tool, original_filename, input_path, expires_at),
+                (job_uuid, user_id, tool, original_filename, input_path, expires_at, locale),
             )
         conn.commit()
 

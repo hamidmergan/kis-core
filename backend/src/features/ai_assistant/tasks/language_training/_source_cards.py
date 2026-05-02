@@ -12,7 +12,7 @@ from pathlib import Path
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import KIA_KARTEIKARTEN_QUESTIONS_PROMPT, KIA_SYSTEM_RAG
+from src.tool_prompts import KIA_KARTEIKARTEN_QUESTIONS_PROMPT, kia_system_rag
 
 from src.features.ai_assistant.tasks.language_training._card_base import with_avoid
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
@@ -33,6 +33,7 @@ def generate_cards_from_source(
     ctx: QuelleContext,
     count: int,
     existing_fronts: list[str],
+    locale: str = "de",
 ) -> tuple[list[dict], str]:
     # Pass 1: generate the questions
     title, questions = _generate_questions(client, model, ctx, count, existing_fronts)
@@ -45,7 +46,7 @@ def generate_cards_from_source(
     chat_ctx, qmap = _build_chat_context(ctx)
     with ThreadPoolExecutor(max_workers=min(2, len(questions))) as pool:
         answers = list(pool.map(
-            lambda q: _answer_via_chat(client, model, q, chat_ctx),
+            lambda q: _answer_via_chat(client, model, q, chat_ctx, locale),
             questions,
         ))
 
@@ -131,18 +132,18 @@ def _build_chat_context(ctx: QuelleContext) -> tuple[str, list[dict]]:
     return xml, qmap
 
 
-def _answer_via_chat(client, model, question: str, chat_ctx: str) -> str:
-    """Run KIA_SYSTEM_RAG (chat's exact prompt) for a single question.
+def _answer_via_chat(client, model, question: str, chat_ctx: str, locale: str = "de") -> str:
+    """Run kia_system_rag (chat's exact prompt) for a single question.
     Retries on 429 with jittered backoff so transient rate limits don't drop a card."""
     # Flashcard length constraint: chat answers full paragraphs, but a Karteikarte
     # back side needs to fit on a card. Add the constraint to the user message so
-    # KIA_SYSTEM_RAG (and its citation rules) stay byte-identical to chat.
+    # the RAG prompt (and its citation rules) stays byte-identical to chat.
     flashcard_hint = (
         "Answer in MAX 2-3 short sentences. NO bullet points, NO markdown formatting "
         "(no **bold**, no lists). Plain flowing text. Keep citations [N, S. X | keywords] inline as instructed."
     )
     messages = [
-        {"role": "system", "content": KIA_SYSTEM_RAG},
+        {"role": "system", "content": kia_system_rag(locale)},
         {"role": "user", "content": f"{chat_ctx}\n\nQuestion: {question}\n\n{flashcard_hint}"},
     ]
     last_err: Exception | None = None

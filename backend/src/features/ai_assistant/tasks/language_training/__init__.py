@@ -27,8 +27,14 @@ from src.features.ai_assistant.tasks.language_training._source_mc import generat
 @observe(name="kia-exercise-set")
 def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                               mode: str, count: int, source_uuid: str | None = None,
-                              source_uuids: list[str] | None = None):
-    """Generate items for an exercise set (flashcards/lueckentext/vokabeltest)."""
+                              source_uuids: list[str] | None = None,
+                              locale: str = "de"):
+    """Generate items for an exercise set (flashcards/lueckentext/vokabeltest).
+
+    `locale` controls the RAG sentinel string for source-cards generation
+    (the KIA_SYSTEM_RAG prompt builder). Defaults to 'de' so older queued
+    tasks keep working.
+    """
     try:
         workspace = db.get_aia_workspace_by_id(workspace_id)
         if not workspace:
@@ -61,7 +67,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
             if tool == "flashcards":
                 items, title = generate_flashcards_from_source(client, model, ctx, count, existing_fronts)
             elif tool == "karteikarten":
-                items, title = generate_cards_from_source(client, model, ctx, count, existing_fronts)
+                items, title = generate_cards_from_source(client, model, ctx, count, existing_fronts, locale=locale)
             else:
                 items, title = generate_mc_from_source(client, model, ctx, tool, count, existing_fronts)
 

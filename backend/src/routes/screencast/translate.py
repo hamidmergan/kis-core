@@ -66,7 +66,7 @@ async def screencast_translate(
 
     job_uuid = uuid.uuid4().hex
     filename = file.filename or "screencast.pptx"
-    db.create_job(job_uuid, user_id, "screencast_translate", filename)
+    db.create_job(job_uuid, user_id, "screencast_translate", filename, locale=locale)
     input_path = save_queue_file(user_id, job_uuid, ".pptx", pptx_bytes)
     db.set_job_input_path(job_uuid, input_path)
 
@@ -201,7 +201,7 @@ async def screencast_upload_corrected(
         user_id = current_user.get("user_id", 0)
         _enforce_queue_and_quota(user_id, current_user, locale)
         translate_job_uuid = uuid.uuid4().hex
-        db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
+        db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx", locale=locale)
         save_job_file(user_id, translate_job_uuid, "translated.pptx", pptx_bytes)
         save_job_file(user_id, translate_job_uuid, "scripts.txt", json.dumps(slide_texts, ensure_ascii=False, indent=2).encode("utf-8"))
         db.update_job_status(translate_job_uuid, "awaiting_user")

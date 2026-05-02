@@ -201,6 +201,12 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
             cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS render_queued_at TIMESTAMP")
             cur.execute("ALTER TABLE jobs DROP COLUMN IF EXISTS username")
+            # Locale at job-creation time, used by Celery workers (no HTTP context)
+            # to localize error_message strings on timeout / provider failure.
+            cur.execute(
+                "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS creator_locale TEXT NOT NULL DEFAULT 'de' "
+                "CHECK (creator_locale IN ('de', 'en'))"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS settings (
                     id         SERIAL PRIMARY KEY,

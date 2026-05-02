@@ -52,6 +52,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
         "en": "Job data no longer available - please start a new screencast",
     },
+    "job.timeoutRetry": {
+        "de": "Zeitlimit überschritten. Bitte 'Wiederholen' klicken.",
+        "en": "Time limit exceeded. Please click 'Retry'.",
+    },
+    "job.providerUnreachableRetry": {
+        "de": "{provider} war ~90 Minuten nicht erreichbar. Bitte 'Wiederholen' klicken wenn der Dienst wieder verfügbar ist.",
+        "en": "{provider} was unreachable for ~90 minutes. Please click 'Retry' once the service is back.",
+    },
     "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
     "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
     "set.notFound": {"de": "Set nicht gefunden", "en": "Set not found"},

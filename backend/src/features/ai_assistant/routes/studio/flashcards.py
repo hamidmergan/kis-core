@@ -87,6 +87,7 @@ async def generate_flashcards(
     run_generate_exercise_set.delay(
         placeholder["id"], workspace["id"], "flashcards", "source", body.count,
         source_uuids=body.active_source_ids[:5],
+        locale=locale,
     )
     return {"set_id": placeholder["id"], "status": "generating"}
 

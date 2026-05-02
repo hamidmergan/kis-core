@@ -22,7 +22,7 @@ from src.limits import (
     KIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    kia_summary_page_system,
     KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
     KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
     KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
@@ -104,9 +104,14 @@ def _call_llm_with_retry(client, model, messages, temperature, max_tokens, timeo
             else:
                 raise
 
-def _summarize_page(client, model, p, is_small, extra_body, lang):
-    """Summarize a single page. Returns summary string."""
-    sys_msg = _SUMMARY_SYSTEM.format(lang=lang)
+def _summarize_page(client, model, p, is_small, extra_body, lang, locale: str = "de"):
+    """Summarize a single page. Returns summary string.
+
+    `lang` is the auto-detected source-text language ("Deutsch" / "English"),
+    `locale` is the workspace owner's UI locale used to pick the meta-page
+    sentinel ("Keine Zusammenfassung vorhanden" / "No summary available").
+    """
+    sys_msg = kia_summary_page_system(locale).format(lang=lang)
     if is_small:
         user_msg = _SUMMARY_USER_SMALL.format(lang=lang, content=p["content"][:KIA_SUMMARY_CONTENT_MAX_CHARS])
     else:
@@ -124,9 +129,12 @@ def _summarize_page(client, model, p, is_small, extra_body, lang):
     summary = _clean_summary(_msg.content or getattr(_msg, "reasoning_content", None) or "")
     return summary
 
-def _summarize_batch(client, model, pages_batch, lang):
-    """Summarize a batch of pages in one request. Returns list[str] (one per page, ordered)."""
-    sys_msg = _SUMMARY_SYSTEM.format(lang=lang)
+def _summarize_batch(client, model, pages_batch, lang, locale: str = "de"):
+    """Summarize a batch of pages in one request. Returns list[str] (one per page, ordered).
+
+    See `_summarize_page` for the lang/locale split.
+    """
+    sys_msg = kia_summary_page_system(locale).format(lang=lang)
     pages_text = "\n\n".join(
         f"---PAGE {p['page_number']}---\n{p['content'][:KIA_SUMMARY_CONTENT_MAX_CHARS]}"
         for p in pages_batch

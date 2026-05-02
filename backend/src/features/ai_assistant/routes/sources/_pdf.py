@@ -99,7 +99,7 @@ async def trigger_paragraph_summaries(
     db.update_aia_source_summaries_status(source_uuid, "generating")
 
     from src.tasks.aia_tasks import run_generate_summaries
-    run_generate_summaries.delay(source_uuid)
+    run_generate_summaries.delay(source_uuid, locale)
     return {"status": "generating"}
 
 

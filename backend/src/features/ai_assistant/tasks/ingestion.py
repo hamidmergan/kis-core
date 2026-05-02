@@ -279,8 +279,13 @@ def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl")
 
 @celery_app.task(bind=True, name="kia.generate_summaries", queue="kia")
 @observe(name="kia-summaries")
-def run_generate_summaries(self, source_uuid: str):
-    """Generate AI page-level summaries for a PDF source."""
+def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
+    """Generate AI page-level summaries for a PDF source.
+
+    `locale` is the workspace owner's UI locale, used to pick the meta-page
+    sentinel ("Keine Zusammenfassung vorhanden" / "No summary available").
+    Defaults to 'de' so older callsites (and pre-i18n queued jobs) keep working.
+    """
     try:
         source = db.get_aia_source(source_uuid)
         if source is None:
@@ -364,7 +369,7 @@ def run_generate_summaries(self, source_uuid: str):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=KIA_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
             futures = {
-                executor.submit(_summarize_batch, client, model, batch, lang): i
+                executor.submit(_summarize_batch, client, model, batch, lang, locale): i
                 for i, batch in enumerate(batches)
             }
             for future in concurrent.futures.as_completed(futures):

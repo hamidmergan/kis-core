@@ -7,6 +7,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
+from src.i18n import t
 from src.storage import delete_file, get_file, get_job_file, save_job_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 from src.limits import TTS_SOFT_TIME_LIMIT, TTS_TIME_LIMIT
@@ -153,14 +154,18 @@ def run_tts(
             raise self.retry(exc=e, countdown=wait)
         logger.error("TTS {} gave up after {} retries: {}", job_uuid, self.max_retries, e)
         provider_name = {"kokoro": "Kokoro", "mylab": "myLab TTS"}.get(provider, "ElevenLabs")
-        db.update_job_status(job_uuid, "failed", error_message=f"{provider_name} war ~90 Minuten nicht erreichbar. Bitte 'Wiederholen' klicken wenn der Dienst wieder verfügbar ist.")
+        job = db.get_job(job_uuid)
+        locale = (job and job.get("creator_locale")) or "de"
+        db.update_job_status(job_uuid, "failed", error_message=t("job.providerUnreachableRetry", locale, provider=provider_name))
         raise
 
     except Exception as e:
         from celery.exceptions import SoftTimeLimitExceeded
         if isinstance(e, SoftTimeLimitExceeded):
             logger.warning("TTS task {} hit soft time limit", job_uuid)
-            db.update_job_status(job_uuid, "failed", error_message="Zeitlimit überschritten. Bitte 'Wiederholen' klicken.")
+            job = db.get_job(job_uuid)
+            locale = (job and job.get("creator_locale")) or "de"
+            db.update_job_status(job_uuid, "failed", error_message=t("job.timeoutRetry", locale))
             return  # exit cleanly before the hard SIGKILL fires
         logger.error("TTS task {} failed: {}", job_uuid, e)
         db.update_job_status(job_uuid, "failed", error_message=str(e))
