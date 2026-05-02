@@ -1,6 +1,7 @@
 "use client";
 
 import type { DragEvent, RefObject } from "react";
+import { useTranslations } from "next-intl";
 
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 export default function UploadZone({
   file, dragOver, disabled, inputRef, onDragOver, onDragLeave, onDrop, onChange,
 }: Props) {
+  const t = useTranslations("tools.image.uploadZone");
   return (
     <div
       onDragOver={onDragOver}
@@ -56,9 +58,9 @@ export default function UploadZone({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-8v12m0-12l-4 4m4-4l4 4" />
           </svg>
           <p className="mt-2 text-sm text-foreground-soft">
-            <span className="font-medium text-kb">Datei auswählen</span> oder hierher ziehen
+            <span className="font-medium text-kb">{t("selectFile")}</span> {t("orDragHere")}
           </p>
-          <p className="text-xs text-muted mt-1">PNG oder JPG, max. 20 MB</p>
+          <p className="text-xs text-muted mt-1">{t("constraints")}</p>
         </div>
       )}
     </div>

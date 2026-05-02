@@ -23,5 +23,259 @@
     "title": "Sprache",
     "de": "Deutsch",
     "en": "English"
+  },
+  "myJobs": {
+    "title": "Meine Jobs",
+    "refresh": "Aktualisieren",
+    "intro": "Es werden bis zu 20 Jobs gespeichert. Fertige Downloads sind 7 Tage verfügbar. Ältere Dateien werden automatisch entfernt.",
+    "emptySearch": "Keine Ergebnisse für diese Suche",
+    "emptyAll": "Keine Jobs in den letzten 7 Tagen",
+    "retryFailed": "Wiederholen fehlgeschlagen",
+    "filter": {
+      "search": "Suche",
+      "from": "Von",
+      "to": "Bis",
+      "perPage": "{n} pro Seite",
+      "results": "{count, plural, =1 {1 Ergebnis} other {# Ergebnisse}}",
+      "reset": "Filter zurücksetzen",
+      "tools": {
+        "all": "Alle Tools",
+        "transcription": "Sprache in Text",
+        "translation": "Übersetzung",
+        "summary": "Zusammenfassung",
+        "tts": "Text in Sprache",
+        "screencast": "Screencast",
+        "image": "Bild"
+      }
+    },
+    "status": {
+      "expired": "Abgelaufen",
+      "success": "Fertig",
+      "failed": "Fehler",
+      "running": "Läuft",
+      "awaitingUser": "Eingabe erforderlich",
+      "queued": "In der Schlange",
+      "pending": "Wartend"
+    },
+    "timing": {
+      "submitted": "Eingereicht:",
+      "queueWait": "Wartezeit:",
+      "renderTime": "Renderzeit:",
+      "processingTime": "Bearbeitungszeit:",
+      "completed": "Fertig:",
+      "expiresAt": "Läuft ab:"
+    },
+    "actions": {
+      "cancel": "Abbrechen",
+      "retry": "Wiederholen",
+      "deleteJob": "Job löschen"
+    },
+    "deleteModal": {
+      "title": "Job löschen?",
+      "warning": "Der Job wird vollständig entfernt und ist nicht mehr herunterladbar.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen"
+    },
+    "artifacts": {
+      "creating": "Wird erstellt…",
+      "generatingScripts": "Skripte werden generiert…",
+      "resumeScreencast": "Screencast fortsetzen →",
+      "resumeDemo": "Demo fortsetzen →",
+      "downloadAllZip": "Alles herunterladen (ZIP)",
+      "fallbackFile": "Datei"
+    },
+    "duration": {
+      "seconds": "{n} Sek.",
+      "minutes": "{m}:{s} Min.",
+      "hours": "{h}:{m}:{s} Std."
+    },
+    "timingShort": {
+      "wait": "Warte:",
+      "work": "Arbeit:"
+    },
+    "relativeTime": {
+      "justNow": "gerade eben",
+      "minutes": "vor {n} Min.",
+      "hours": "vor {n} Std.",
+      "days": "vor {n, plural, =1 {1 Tag} other {# Tagen}}"
+    },
+    "panel": {
+      "notice": "Downloads 7 Tage verfügbar. Es werden nur die letzten 20 Jobs gespeichert.",
+      "empty": "Keine Jobs vorhanden",
+      "viewAll": "Zur Übersicht"
+    }
+  },
+  "toolsSidebar": {
+    "heading": "Tools",
+    "expand": "Tools-Sidebar ausklappen",
+    "collapse": "Tools-Sidebar einklappen",
+    "items": {
+      "translation": "Übersetzung",
+      "tts": "Text in Sprache",
+      "transcription": "Sprache in Text",
+      "image": "Bildgenerierung",
+      "summary": "Zusammenfassung",
+      "screencast": "Screencast",
+      "glossary": "Glossar"
+    }
+  },
+  "common": {
+    "unknownError": "Unbekannter Fehler",
+    "downloadFailed": "Download fehlgeschlagen",
+    "processing": "Wird verarbeitet…",
+    "downloadReady": "Fertig! Download bereit",
+    "newFile": "Neue Datei",
+    "browse": "durchsuchen",
+    "dropOrBrowse": "Datei hierher ziehen oder",
+    "clickToReplace": "Klicken um zu ersetzen",
+    "fileTooLarge": "Datei zu groß (max {n} MB)",
+    "onlyExtsAllowed": "Nur {exts} erlaubt"
+  },
+  "tools": {
+    "stt": {
+      "title": "Sprache in Text",
+      "intro": "Audio und Video transkribieren. Auch als Untertitel mit Zeitstempeln.",
+      "outputFormat": "Ausgabeformat",
+      "outputFormatHelp": "TXT ist reiner Text ohne Zeitstempel. SRT und VTT sind Untertitel-Formate: VTT für Moodle und moderne Web-Player, SRT für klassische Video-Player wie VLC.",
+      "format": {
+        "text": "Text (.txt)",
+        "srt": "SRT (.srt)",
+        "vtt": "VTT (.vtt)"
+      },
+      "submit": "Transkription starten",
+      "longRunning": "Läuft noch - lange Audiodateien können einige Minuten dauern…",
+      "downloadLabel": "Transkription"
+    },
+    "summarize": {
+      "title": "Zusammenfassung",
+      "intro": "Lange Dokumente, Audio- und Videoinhalte auf das Wesentliche bringen.",
+      "selectFileAria": "Datei zur Zusammenfassung auswählen",
+      "submit": "Zusammenfassung erstellen",
+      "longRunning": "Läuft noch - umfangreiche Inhalte können einige Minuten dauern…",
+      "downloadLabel": "Zusammenfassung"
+    },
+    "translate": {
+      "title": "Übersetzung",
+      "intro": "Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.",
+      "sourceLang": "Quellsprache",
+      "targetLang": "Zielsprache",
+      "autoDetect": "Automatisch erkennen",
+      "engine": "Übersetzungs-Engine",
+      "submit": "Übersetzen",
+      "longRunning": "Läuft noch - große Dokumente können einige Minuten dauern…",
+      "downloadLabel": "Übersetzung"
+    },
+    "tts": {
+      "title": "Text in Sprache",
+      "intro": "Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen.",
+      "noProvider": "Kein TTS-Anbieter aktiv - bitte im Admin-Bereich einen Anbieter freischalten.",
+      "providerLabel": "TTS-Anbieter",
+      "voiceLabel": "Stimme",
+      "previewVoices": "Stimmen anhören →",
+      "speed": "Geschwindigkeit: {speed}x",
+      "speedSlow": "Langsam (0.7x)",
+      "speedFast": "Schnell (1.2x)",
+      "pauses": "Pausen",
+      "pause": {
+        "short": "Kurze Pausen",
+        "medium": "Mittlere Pausen",
+        "long": "Lange Pausen",
+        "very_long": "Sehr lange Pausen"
+      },
+      "submit": "MP3 erstellen",
+      "cancel": "Abbrechen",
+      "progress": {
+        "uploading": "Wird hochgeladen…",
+        "queued": "In der Warteschlange…",
+        "extracting": "Text wird extrahiert…",
+        "synthesizing": "Audio wird generiert…",
+        "synthesizingChunk": "Chunk {chunk} von {total} wird synthetisiert…",
+        "downloading": "Wird heruntergeladen…",
+        "noProgress": "Kein Fortschritt seit 60 Sek. - falls der Job hängt, bitte Wiederholen klicken…"
+      },
+      "status": {
+        "uploadingFile": "Datei wird hochgeladen...",
+        "generatingAudio": "Audio wird generiert...",
+        "errorTitle": "Fehler bei der Audiogenerierung",
+        "tryAgain": "Erneut versuchen",
+        "newFileAria": "Neue Datei hochladen"
+      },
+      "upload": {
+        "selectFileAria": "Datei zum Vorlesen auswählen"
+      },
+      "voiceDescription": {
+        "Laid-Back": "Entspannt",
+        "Casual": "Locker",
+        "Formal": "Förmlich",
+        "Friendly": "Freundlich",
+        "Warm": "Warm",
+        "Authoritative": "Autoritär",
+        "Confident": "Selbstsicher",
+        "Calm": "Ruhig",
+        "Energetic": "Energetisch",
+        "Upbeat": "Lebhaft",
+        "Serious": "Sachlich",
+        "Raspy": "Rau",
+        "Smooth": "Weich",
+        "Deep": "Tief",
+        "Resonant": "Resonant",
+        "Crisp": "Klar",
+        "Soft": "Sanft",
+        "Husky": "Heiser",
+        "Clear": "Deutlich",
+        "Conversational": "Gesprächig",
+        "Narrative": "Erzählend",
+        "Expressive": "Ausdrucksstark",
+        "Melodic": "Melodisch",
+        "Mature": "Reif",
+        "Powerful": "Kraftvoll",
+        "Bright": "Hell",
+        "Grounded": "Geerdet",
+        "Soothing": "Beruhigend",
+        "Professional": "Professionell"
+      }
+    },
+    "image": {
+      "title": "Bildgenerierung",
+      "intro": "Bilder erzeugen, bestehende Bilder anpassen oder beschreiben lassen.",
+      "tabs": {
+        "generate": "Text zu Bild",
+        "edit": "Bild bearbeiten",
+        "analyze": "Bild analysieren"
+      },
+      "uploadZone": {
+        "selectFile": "Datei auswählen",
+        "orDragHere": "oder hierher ziehen",
+        "constraints": "PNG oder JPG, max. 20 MB"
+      },
+      "previewAlt": "Vorschau",
+      "generate": {
+        "promptPlaceholder": "Beschreiben Sie das gewünschte Bild ...",
+        "size": "Größe",
+        "count": "Anzahl",
+        "submit": "Bild generieren",
+        "spinner": "Wird generiert…",
+        "longRunning": "Läuft noch - Bildgenerierung kann etwas länger dauern…",
+        "resultAlt": "Generiertes Bild {n}",
+        "downloadAllZip": "Alle als ZIP",
+        "regenerate": "Neu generieren"
+      },
+      "edit": {
+        "promptPlaceholder": "Beschreiben Sie die gewünschte Änderung.",
+        "submit": "Bild bearbeiten",
+        "spinner": "Wird bearbeitet…",
+        "longRunning": "Läuft noch - Bildbearbeitung kann etwas länger dauern…",
+        "resultAlt": "Bearbeitetes Bild",
+        "downloadLabel": "Bild",
+        "regenerate": "Neu bearbeiten"
+      },
+      "analyze": {
+        "promptPlaceholder": "Spezifische Frage stellen (optional) - sonst wird das Bild automatisch vollständig beschrieben.",
+        "submit": "Analysieren",
+        "spinner": "Wird analysiert…",
+        "longRunning": "Läuft noch - Bildanalyse kann etwas länger dauern…",
+        "regenerate": "Neu analysieren"
+      }
+    }
   }
 }

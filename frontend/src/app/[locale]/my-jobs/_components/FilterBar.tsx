@@ -1,14 +1,6 @@
+import { useTranslations } from "next-intl";
 import Select from "@/components/ui/Select";
 
-const TOOL_FILTER_OPTIONS = [
-  { value: "", label: "Alle Tools" },
-  { value: "transcription", label: "Sprache in Text" },
-  { value: "translation", label: "Translate" },
-  { value: "summary", label: "Summarize" },
-  { value: "tts", label: "Text in Sprache" },
-  { value: "screencast", label: "Screencast" },
-  { value: "image", label: "Image" },
-] as const;
 
 interface FilterBarProps {
   q: string;
@@ -31,33 +23,44 @@ export function FilterBar({
   q, toolFilter, dateFrom, dateTo, limit, total, hasActiveFilters,
   onQChange, onToolFilterChange, onDateFromChange, onDateToChange, onLimitChange, onReset,
 }: FilterBarProps) {
+  const t = useTranslations("myJobs.filter");
+  const tt = useTranslations("myJobs.filter.tools");
+  const toolOptions = [
+    { value: "", label: tt("all") },
+    { value: "transcription", label: tt("transcription") },
+    { value: "translation", label: tt("translation") },
+    { value: "summary", label: tt("summary") },
+    { value: "tts", label: tt("tts") },
+    { value: "screencast", label: tt("screencast") },
+    { value: "image", label: tt("image") },
+  ];
   return (
     <div className="mb-4 flex flex-wrap gap-2 items-center">
       <input
         type="text"
         value={q}
         onChange={(e) => onQChange(e.target.value)}
-        placeholder="Suche"
+        placeholder={t("search")}
         className="flex-1 min-w-[220px] text-sm border-2 border-border rounded-md px-3 py-2 bg-background transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <Select
         value={toolFilter}
         onChange={onToolFilterChange}
-        options={TOOL_FILTER_OPTIONS}
+        options={toolOptions}
         className="w-44"
       />
       <input
         type="date"
         value={dateFrom}
         onChange={(e) => onDateFromChange(e.target.value)}
-        title="Von"
+        title={t("from")}
         className="text-sm border-2 border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <input
         type="date"
         value={dateTo}
         onChange={(e) => onDateToChange(e.target.value)}
-        title="Bis"
+        title={t("to")}
         className="text-sm border-2 border-border rounded-md px-3 py-2 transition-colors hover:border-kb focus:outline-none focus:ring-2 focus:ring-kb focus:border-kb"
       />
       <select
@@ -65,19 +68,19 @@ export function FilterBar({
         onChange={(e) => onLimitChange(Number(e.target.value))}
         className="hidden"
       >
-        <option value={10}>10 pro Seite</option>
-        <option value={25}>25 pro Seite</option>
-        <option value={50}>50 pro Seite</option>
+        <option value={10}>{t("perPage", { n: 10 })}</option>
+        <option value={25}>{t("perPage", { n: 25 })}</option>
+        <option value={50}>{t("perPage", { n: 50 })}</option>
       </select>
       <span className="text-xs text-muted-soft whitespace-nowrap">
-        {total} Ergebnis{total !== 1 ? "se" : ""}
+        {t("results", { count: total })}
       </span>
       {hasActiveFilters && (
         <button
           onClick={onReset}
           className="text-xs text-muted-soft hover:text-foreground-soft underline whitespace-nowrap"
         >
-          Filter zurücksetzen
+          {t("reset")}
         </button>
       )}
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
 import TtsStatus from "@/components/jobs/TtsStatus";
@@ -16,60 +17,30 @@ interface Voice {
   use_case?: string | null;
 }
 
-const DESCRIPTION_DE: Record<string, string> = {
-  "Laid-Back": "Entspannt",
-  "Casual": "Locker",
-  "Formal": "Förmlich",
-  "Friendly": "Freundlich",
-  "Warm": "Warm",
-  "Authoritative": "Autoritär",
-  "Confident": "Selbstsicher",
-  "Calm": "Ruhig",
-  "Energetic": "Energetisch",
-  "Upbeat": "Lebhaft",
-  "Serious": "Sachlich",
-  "Raspy": "Rau",
-  "Smooth": "Weich",
-  "Deep": "Tief",
-  "Resonant": "Resonant",
-  "Crisp": "Klar",
-  "Soft": "Sanft",
-  "Husky": "Heiser",
-  "Clear": "Deutlich",
-  "Conversational": "Gesprächig",
-  "Narrative": "Erzählend",
-  "Expressive": "Ausdrucksstark",
-  "Melodic": "Melodisch",
-  "Mature": "Reif",
-  "Powerful": "Kraftvoll",
-  "Bright": "Hell",
-  "Grounded": "Geerdet",
-  "Soothing": "Beruhigend",
-  "Professional": "Professionell",
-};
-
-function translateDesc(description?: string | null): string | null {
-  if (!description) return null;
-  return description.split(",").map(d => {
-    const key = d.trim();
-    return DESCRIPTION_DE[key] ?? key;
-  }).join(" · ");
-}
-
-const PAUSE_OPTIONS = [
-  { value: "short", label: "Kurze Pausen" },
-  { value: "medium", label: "Mittlere Pausen" },
-  { value: "long", label: "Lange Pausen" },
-  { value: "very_long", label: "Sehr lange Pausen" },
-];
-
 const KOKORO_ACCENT_LABEL: Record<string, string> = {
   "American": "🇺🇸",
   "British": "🇬🇧",
   "Deutsch": "🇩🇪",
 };
 
+const PAUSE_KEYS = ["short", "medium", "long", "very_long"] as const;
+
 export default function TtsPage() {
+  const t = useTranslations("tools.tts");
+  const tDesc = useTranslations("tools.tts.voiceDescription");
+  const tProgress = useTranslations("tools.tts.progress");
+  const tCommon = useTranslations("common");
+
+  const translateDesc = useCallback((description?: string | null): string | null => {
+    if (!description) return null;
+    return description.split(",").map(d => {
+      const key = d.trim();
+      // tDesc.has() is not available; use try-catch via has check using raw keys.
+      const known = ["Laid-Back","Casual","Formal","Friendly","Warm","Authoritative","Confident","Calm","Energetic","Upbeat","Serious","Raspy","Smooth","Deep","Resonant","Crisp","Soft","Husky","Clear","Conversational","Narrative","Expressive","Melodic","Mature","Powerful","Bright","Grounded","Soothing","Professional"];
+      return known.includes(key) ? tDesc(key) : key;
+    }).join(" · ");
+  }, [tDesc]);
+
   const [ttsState, setTtsState] = useState<TTSState>("idle");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [ttsSelectedFile, setTtsSelectedFile] = useState<string>("");
@@ -164,7 +135,7 @@ export default function TtsPage() {
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
     setTtsState("uploading");
-    setTtsProgressLabel("Wird hochgeladen…");
+    setTtsProgressLabel(tProgress("uploading"));
     try {
       const voiceLabel = provider === "kokoro"
         ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
@@ -187,34 +158,34 @@ export default function TtsPage() {
         signal,
       });
       if (!uploadRes.ok) {
-        const err = await uploadRes.json().catch(() => ({ detail: "Upload fehlgeschlagen" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${uploadRes.status}`));
+        const err = await uploadRes.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${uploadRes.status}`));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
 
       setTtsState("processing");
-      setTtsProgressLabel("In der Warteschlange…");
+      setTtsProgressLabel(tProgress("queued"));
 
       const jobResult = await pollJob(
         job_uuid,
         (status) => {
           const p = status.progress as { step?: string; chunk?: number; total?: number } | null;
-          if (p?.step === "extract") setTtsProgressLabel("Text wird extrahiert…");
+          if (p?.step === "extract") setTtsProgressLabel(tProgress("extracting"));
           else if (p?.step === "synthesize" && p.chunk && p.total)
-            setTtsProgressLabel(`Chunk ${p.chunk} von ${p.total} wird synthetisiert…`);
-          else if (p?.step === "synthesize") setTtsProgressLabel("Audio wird generiert…");
-          else setTtsProgressLabel("In der Warteschlange…");
+            setTtsProgressLabel(tProgress("synthesizingChunk", { chunk: p.chunk, total: p.total }));
+          else if (p?.step === "synthesize") setTtsProgressLabel(tProgress("synthesizing"));
+          else setTtsProgressLabel(tProgress("queued"));
         },
         3000,
         signal,
-        () => setTtsProgressLabel("Kein Fortschritt seit 60 Sek. - falls der Job hängt, bitte Wiederholen klicken…"),
+        () => setTtsProgressLabel(tProgress("noProgress")),
         60_000,
       );
 
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
-      setTtsProgressLabel("Wird heruntergeladen…");
+      setTtsProgressLabel(tProgress("downloading"));
       const { blob, filename } = await downloadJobAsBlob(
         jobResult.job_uuid,
         `${pendingFile.name.replace(/\.[^.]+$/, "")}.mp3`,
@@ -226,7 +197,7 @@ export default function TtsPage() {
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       currentJobUuidRef.current = null;
-      setTtsErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setTtsErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
       setTtsState("error");
     }
   };
@@ -258,9 +229,9 @@ export default function TtsPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>
-          <h1 className="text-xl font-bold mb-1">Text in Sprache</h1>
+          <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">
-            Texte und Dokumente mit natürlich klingenden Stimmen vorlesen lassen.
+            {t("intro")}
           </p>
 
           <TtsFileUpload
@@ -269,14 +240,14 @@ export default function TtsPage() {
             selectedFilename={ttsSelectedFile || undefined}
           />
           {noProvider && (
-            <p className="mt-3 text-sm text-muted-soft">Kein TTS-Anbieter aktiv - bitte im Admin-Bereich einen Anbieter freischalten.</p>
+            <p className="mt-3 text-sm text-muted-soft">{t("noProvider")}</p>
           )}
 
           {/* Provider */}
           {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
           <div className="mt-6 mb-2">
             <label htmlFor="provider-select" className="block text-sm font-medium text-foreground-soft mb-2">
-              TTS-Anbieter
+              {t("providerLabel")}
             </label>
             <Select
               id="provider-select"
@@ -297,7 +268,7 @@ export default function TtsPage() {
           <div className="mt-4 mb-6 space-y-3">
             <div>
               <label htmlFor="voice-select" className="block text-sm font-medium text-foreground-soft mb-2">
-                Stimme
+                {t("voiceLabel")}
               </label>
               <Select
                 id="voice-select"
@@ -323,7 +294,7 @@ export default function TtsPage() {
                 rel="noopener noreferrer"
                 className="text-sm text-kb hover:underline"
               >
-                Stimmen anhören →
+                {t("previewVoices")}
               </a>
             )}
             {provider === "kokoro" && (
@@ -333,7 +304,7 @@ export default function TtsPage() {
                 rel="noopener noreferrer"
                 className="text-sm text-kb hover:underline"
               >
-                Stimmen anhören →
+                {t("previewVoices")}
               </a>
             )}
             {provider === "mylab" && (
@@ -343,7 +314,7 @@ export default function TtsPage() {
                 rel="noopener noreferrer"
                 className="text-sm text-kb hover:underline"
               >
-                Stimmen anhören →
+                {t("previewVoices")}
               </a>
             )}
           </div>
@@ -353,7 +324,7 @@ export default function TtsPage() {
           {/* Speed */}
           <div className="mb-6">
             <label htmlFor="speed-slider" className="block text-sm font-medium text-foreground-soft mb-2">
-              Geschwindigkeit: {speed.toFixed(1)}x
+              {t("speed", { speed: speed.toFixed(1) })}
             </label>
             <input
               id="speed-slider"
@@ -367,8 +338,8 @@ export default function TtsPage() {
               className="w-full h-2 bg-surface-dim rounded-lg appearance-none cursor-pointer accent-kb disabled:opacity-50"
             />
             <div className="flex justify-between text-xs text-muted-soft mt-1">
-              <span>Langsam (0.7x)</span>
-              <span>Schnell (1.2x)</span>
+              <span>{t("speedSlow")}</span>
+              <span>{t("speedFast")}</span>
             </div>
           </div>
 
@@ -376,14 +347,14 @@ export default function TtsPage() {
           {provider === "elevenlabs" && (
             <div className="mb-6">
               <label htmlFor="pause-select" className="block text-sm font-medium text-foreground-soft mb-2">
-                Pausen
+                {t("pauses")}
               </label>
               <Select
                 id="pause-select"
                 value={pausePreset}
                 onChange={setPausePreset}
                 disabled={isProcessing}
-                options={PAUSE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                options={PAUSE_KEYS.map((k) => ({ value: k, label: t(`pause.${k}`) }))}
               />
             </div>
           )}
@@ -395,7 +366,7 @@ export default function TtsPage() {
                 disabled={!pendingFile || isProcessing || noProvider}
                 className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                MP3 erstellen
+                {t("submit")}
               </button>
               {isProcessing && (
                 <button
@@ -411,7 +382,7 @@ export default function TtsPage() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                  Abbrechen
+                  {t("cancel")}
                 </button>
               )}
             </div>

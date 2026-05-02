@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { checkAuthStatus } from "@/lib/auth";
 import BackLink from "@/components/ui/BackLink";
 import { ArrowsCounterClockwise } from "@phosphor-icons/react";
@@ -15,6 +16,8 @@ import { DeleteConfirmModal } from "./_components/DeleteConfirmModal";
 
 
 export default function MeineJobsPage() {
+  const t = useTranslations("myJobs");
+  const locale = useLocale();
   const [jobs, setJobs] = useState<MyJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -103,7 +106,7 @@ export default function MeineJobsPage() {
       const res = await fetch(`/api/jobs/${job.job_uuid}/retry`, { method: "POST", credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err.detail || "Wiederholen fehlgeschlagen");
+        alert(err.detail || t("retryFailed"));
         return;
       }
       await fetchJobs();
@@ -142,26 +145,26 @@ export default function MeineJobsPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-xl font-semibold mb-4">Meine Jobs</h2>
+          <h2 className="text-xl font-semibold mb-4">{t("title")}</h2>
           <div className="flex items-center gap-2">
             {lastUpdated && !loading && (
               <span className="text-xs text-muted-soft">
-                {lastUpdated.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })}
+                {lastUpdated.toLocaleTimeString(locale === "en" ? "en-US" : "de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })}
               </span>
             )}
             <button
               onClick={() => { fetchJobs(); window.dispatchEvent(new CustomEvent("kis-jobs-changed")); }}
               disabled={loading}
-              title="Aktualisieren"
+              title={t("refresh")}
               className="flex items-center gap-1.5 text-sm text-muted hover:text-foreground disabled:opacity-40 transition-colors"
             >
               <ArrowsCounterClockwise size={16} className={loading ? "animate-spin" : ""} />
-              Aktualisieren
+              {t("refresh")}
             </button>
           </div>
         </div>
         <p className="text-sm text-muted mb-4">
-          Es werden bis zu 20 Jobs gespeichert. Fertige Downloads sind 7 Tage verfügbar. Ältere Dateien werden automatisch entfernt.
+          {t("intro")}
         </p>
 
         <FilterBar
@@ -184,7 +187,7 @@ export default function MeineJobsPage() {
           <Spinner className="flex justify-center py-16" />
         ) : jobs.length === 0 ? (
           <p className="text-sm text-muted-soft text-center py-16">
-            {debouncedQ ? "Keine Ergebnisse für diese Suche" : "Keine Jobs in den letzten 7 Tagen"}
+            {debouncedQ ? t("emptySearch") : t("emptyAll")}
           </p>
         ) : (
           <>

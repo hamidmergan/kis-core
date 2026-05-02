@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import BackLink from "@/components/ui/BackLink";
 import GenerateTab from "./_tabs/GenerateTab";
@@ -9,27 +10,28 @@ import AnalyzeTab from "./_tabs/AnalyzeTab";
 
 type Tab = "generate" | "edit" | "analyze";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "generate", label: "Text zu Bild" },
-  { id: "edit", label: "Bild bearbeiten" },
-  { id: "analyze", label: "Bild analysieren" },
-];
-
 
 export default function ImagePage() {
+  const t = useTranslations("tools.image");
+  const tt = useTranslations("tools.image.tabs");
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "generate", label: tt("generate") },
+    { id: "edit", label: tt("edit") },
+    { id: "analyze", label: tt("analyze") },
+  ];
   const [activeTab, setActiveTab] = useState<Tab>("generate");
 
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
-        <h1 className="text-xl font-bold mb-1">Bildgenerierung</h1>
+        <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
         <p className="text-sm text-muted mb-6">
-          Bilder erzeugen, bestehende Bilder anpassen oder beschreiben lassen.
+          {t("intro")}
         </p>
 
         <div className="flex gap-1 mb-6 border-b border-border-soft">
-          {TABS.map(({ id, label }) => (
+          {tabs.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}

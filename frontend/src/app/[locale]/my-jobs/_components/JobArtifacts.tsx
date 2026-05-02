@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { DownloadSimple } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { SCREENCAST_RENDER_TOOLS, type MyJob } from "../_types";
 
 
 function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void | Promise<void>; href?: string; filename?: string; label: string }) {
+  const t = useTranslations("myJobs.artifacts");
   const [busy, setBusy] = useState(false);
   const handleClick = async () => {
     if (busy) return;
@@ -30,7 +32,7 @@ function DownloadChip({ onClick, href, filename, label }: { onClick?: () => void
       ) : (
         <DownloadSimple size={12} weight="bold" className="shrink-0" />
       )}
-      {busy ? "Wird erstellt…" : label}
+      {busy ? t("creating") : label}
     </button>
   );
 }
@@ -46,6 +48,9 @@ function DisabledChip({ label }: { label: string }) {
 
 
 export function JobArtifacts({ job }: { job: MyJob }) {
+  const t = useTranslations("myJobs.artifacts");
+  const downloadAllLabel = t("downloadAllZip");
+
   // screencast_translate: single-folder workflow — show artifacts for both phases
   if (job.tool === "screencast_translate") {
     if (job.status === "awaiting_user") {
@@ -53,20 +58,20 @@ export function JobArtifacts({ job }: { job: MyJob }) {
         <div className="mt-3 space-y-2">
           <div className="flex flex-wrap gap-2 items-center">
             <DisabledChip label="MP4" />
-            <DisabledChip label="Alles herunterladen (ZIP)" />
+            <DisabledChip label={downloadAllLabel} />
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             {job.is_generating_scripts ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
                 <Spinner size="sm" />
-                Skripte werden generiert…
+                {t("generatingScripts")}
               </span>
             ) : (
               <a
                 href={`/tools/screencast?resume=${job.job_uuid}`}
                 className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
               >
-                Screencast fortsetzen →
+                {t("resumeScreencast")}
               </a>
             )}
           </div>
@@ -90,7 +95,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
             {audioId && (
               <DownloadChip
                 href={`/api/jobs/${audioId}/bundle`}
-                label="Alles herunterladen (ZIP)"
+                label={downloadAllLabel}
               />
             )}
           </div>
@@ -106,20 +111,20 @@ export function JobArtifacts({ job }: { job: MyJob }) {
       <div className="mt-3 space-y-2">
         <div className="flex flex-wrap gap-2 items-center">
           <DisabledChip label="MP4" />
-          <DisabledChip label="Alles herunterladen (ZIP)" />
+          <DisabledChip label={downloadAllLabel} />
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {job.is_generating_scripts ? (
             <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
               <Spinner size="xs" />
-              Skripte werden generiert…
+              {t("generatingScripts")}
             </span>
           ) : (
             <a
               href={`/tools/screencast-demo?resume=${job.job_uuid}`}
               className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
             >
-              Demo fortsetzen →
+              {t("resumeDemo")}
             </a>
           )}
         </div>
@@ -145,7 +150,7 @@ export function JobArtifacts({ job }: { job: MyJob }) {
           {audioId && (
             <DownloadChip
               href={`/api/jobs/${audioId}/bundle`}
-              label="Alles herunterladen (ZIP)"
+              label={downloadAllLabel}
             />
           )}
         </div>
@@ -179,8 +184,8 @@ export function JobArtifacts({ job }: { job: MyJob }) {
         : job.tool === "image_analyze"
         ? "TXT"
         : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary")
-        ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei")
-        : "Datei";
+        ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile"))
+        : t("fallbackFile");
     const downloadFilename =
       job.tool === "image_generate" && job.result_filename?.endsWith(".json")
         ? job.result_filename.replace(".json", ".zip")

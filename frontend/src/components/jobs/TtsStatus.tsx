@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { TTSState } from "@/types";
 import Spinner from "@/components/ui/Spinner";
 
@@ -18,6 +19,8 @@ export default function TtsStatus({
   onDownload,
   onReset,
 }: TtsStatusProps) {
+  const t = useTranslations("tools.tts.status");
+  const tCommon = useTranslations("common");
   if (state === "idle") return null;
 
   return (
@@ -26,7 +29,7 @@ export default function TtsStatus({
         <div className="flex items-center gap-3">
           <Spinner />
           <span className="text-sm text-foreground-soft">
-            {state === "uploading" ? "Datei wird hochgeladen..." : "Audio wird generiert..."}
+            {state === "uploading" ? t("uploadingFile") : t("generatingAudio")}
           </span>
         </div>
       )}
@@ -37,7 +40,7 @@ export default function TtsStatus({
             <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm font-medium text-foreground">Fertig! Download bereit</span>
+            <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
           </div>
           {fileName && <p className="text-xs text-muted">{fileName}</p>}
           <div className="flex gap-3">
@@ -53,10 +56,10 @@ export default function TtsStatus({
             </button>
             <button
               onClick={onReset}
-              aria-label="Neue Datei hochladen"
+              aria-label={t("newFileAria")}
               className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
             >
-              Neue Datei
+              {tCommon("newFile")}
             </button>
           </div>
         </div>
@@ -68,15 +71,15 @@ export default function TtsStatus({
             <svg className="h-5 w-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-            <span className="text-sm font-medium text-error-strong">Fehler bei der Audiogenerierung</span>
+            <span className="text-sm font-medium text-error-strong">{t("errorTitle")}</span>
           </div>
           {errorMessage && <p className="text-xs text-error">{errorMessage}</p>}
           <button
             onClick={onReset}
-            aria-label="Erneut versuchen"
+            aria-label={t("tryAgain")}
             className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
           >
-            Erneut versuchen
+            {t("tryAgain")}
           </button>
         </div>
       )}

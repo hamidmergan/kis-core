@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Sidebar,
   Translate,
@@ -15,21 +16,23 @@ import {
 } from "@phosphor-icons/react";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
 
-type SidebarTool = { key: string; title: string; href: string; icon: Icon };
+type SidebarItemKey = "translation" | "tts" | "transcription" | "image" | "summary" | "screencast" | "glossary";
+type SidebarTool = { key: SidebarItemKey; href: string; icon: Icon };
 
 const TOOLS: SidebarTool[] = [
-  { key: "translation",   title: "Übersetzung",     href: "/tools/translate",  icon: Translate },
-  { key: "tts",           title: "Text in Sprache", href: "/tools/tts",        icon: SpeakerHigh },
-  { key: "transcription", title: "Sprache in Text", href: "/tools/stt",        icon: Microphone },
-  { key: "image",         title: "Bildgenerierung", href: "/tools/image",      icon: ImageIcon },
-  { key: "summary",       title: "Zusammenfassung", href: "/tools/summarize",  icon: TextAlignLeft },
-  { key: "screencast",    title: "Screencast",      href: "/tools/screencast", icon: MonitorPlay },
-  { key: "glossary",      title: "Glossar",         href: "/tools/glossary",   icon: BookOpen },
+  { key: "translation",   href: "/tools/translate",  icon: Translate },
+  { key: "tts",           href: "/tools/tts",        icon: SpeakerHigh },
+  { key: "transcription", href: "/tools/stt",        icon: Microphone },
+  { key: "image",         href: "/tools/image",      icon: ImageIcon },
+  { key: "summary",       href: "/tools/summarize",  icon: TextAlignLeft },
+  { key: "screencast",    href: "/tools/screencast", icon: MonitorPlay },
+  { key: "glossary",      href: "/tools/glossary",   icon: BookOpen },
 ];
 
 const STORAGE_KEY = "kis_tools_sidebar_collapsed";
 
 export default function ToolsSidebar() {
+  const t = useTranslations("toolsSidebar");
   const { loaded, isToolEnabled } = useEnabledTools();
   const [userPref, setUserPref] = useState<boolean | null>(null);
   const [isLarge, setIsLarge] = useState(false);
@@ -101,13 +104,13 @@ export default function ToolsSidebar() {
               className="text-base font-semibold tracking-tight px-2"
               style={{ color: "var(--kb)" }}
             >
-              Tools
+              {t("heading")}
             </h2>
           )}
           <button
             type="button"
             onClick={toggle}
-            aria-label={effectiveCollapsed ? "Tools-Sidebar ausklappen" : "Tools-Sidebar einklappen"}
+            aria-label={effectiveCollapsed ? t("expand") : t("collapse")}
             className="flex items-center justify-center rounded-md w-7 h-7 transition-colors hover:bg-[var(--surface-dim)]"
             style={{ color: "var(--kb)" }}
           >
@@ -118,11 +121,12 @@ export default function ToolsSidebar() {
         <ul className="flex flex-col gap-1">
           {tools.map((tool) => {
             const ToolIcon = tool.icon;
+            const title = t(`items.${tool.key}`);
             return (
               <li key={tool.key}>
                 <Link
                   href={tool.href}
-                  title={effectiveCollapsed ? tool.title : undefined}
+                  title={effectiveCollapsed ? title : undefined}
                   className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline transition-colors hover:bg-surface-dim ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
                 >
                   <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
@@ -133,7 +137,7 @@ export default function ToolsSidebar() {
                       className="text-[15px] truncate"
                       style={{ color: "var(--foreground)" }}
                     >
-                      {tool.title}
+                      {title}
                     </span>
                   )}
                 </Link>

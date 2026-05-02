@@ -1,17 +1,20 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import { SIZES, COUNTS } from "../_utils";
 
 
 export default function GenerateTab() {
+  const t = useTranslations("tools.image.generate");
+  const tCommon = useTranslations("common");
   const [prompt, setPrompt] = useState("");
   const [size, setSize] = useState<string>("1024x1024");
   const [n, setN] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [spinnerLabel, setSpinnerLabel] = useState("Wird generiert…");
+  const [spinnerLabel, setSpinnerLabel] = useState(t("spinner"));
   const [error, setError] = useState("");
   const [results, setResults] = useState<Array<{ url: string; filename: string }>>([]);
   const [jobUuid, setJobUuid] = useState<string | null>(null);
@@ -19,7 +22,7 @@ export default function GenerateTab() {
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim()) return;
     setLoading(true);
-    setSpinnerLabel("Wird generiert…");
+    setSpinnerLabel(t("spinner"));
     setError("");
     setResults([]);
     setJobUuid(null);
@@ -30,13 +33,13 @@ export default function GenerateTab() {
       formData.append("n", String(n));
       const response = await backendApi.fetch("/image/generate", { method: "POST", body: formData });
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
+        const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${response.status}`));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       const jobStatus = await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setSpinnerLabel("Läuft noch - Bildgenerierung kann etwas länger dauern…"),
+        () => setSpinnerLabel(t("longRunning")),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
@@ -54,11 +57,11 @@ export default function GenerateTab() {
         setResults([{ url: URL.createObjectURL(blob), filename }]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setError(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
       setLoading(false);
     }
-  }, [prompt, size, n]);
+  }, [prompt, size, n, t, tCommon]);
 
   return (
     <section>
@@ -66,12 +69,12 @@ export default function GenerateTab() {
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         rows={4}
-        placeholder="Beschreiben Sie das gewünschte Bild ..."
+        placeholder={t("promptPlaceholder")}
         className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none mb-4"
       />
 
       <div className="mb-4">
-        <p className="text-sm font-medium text-foreground-soft mb-2">Größe</p>
+        <p className="text-sm font-medium text-foreground-soft mb-2">{t("size")}</p>
         <div className="flex flex-wrap gap-2">
           {SIZES.map((s) => (
             <button
@@ -91,7 +94,7 @@ export default function GenerateTab() {
       </div>
 
       <div className="mb-6">
-        <p className="text-sm font-medium text-foreground-soft mb-2">Anzahl</p>
+        <p className="text-sm font-medium text-foreground-soft mb-2">{t("count")}</p>
         <div className="flex gap-2">
           {COUNTS.map((c) => (
             <button
@@ -116,7 +119,7 @@ export default function GenerateTab() {
           disabled={!prompt.trim() || loading}
           className="w-full px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Wird verarbeitet…" : "Bild generieren"}
+          {loading ? tCommon("processing") : t("submit")}
         </button>
       )}
 
@@ -129,7 +132,7 @@ export default function GenerateTab() {
               <div key={i}>
                 <img
                   src={result.url}
-                  alt={`Generiertes Bild ${i + 1}`}
+                  alt={t("resultAlt", { n: i + 1 })}
                   className="w-full rounded-lg border border-border-soft bg-surface mb-2"
                 />
                 <button
@@ -158,14 +161,14 @@ export default function GenerateTab() {
               <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Alle als ZIP
+              {t("downloadAllZip")}
             </a>
           )}
           <button
             onClick={() => { setResults([]); setJobUuid(null); }}
             className="mt-4 px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors"
           >
-            Neu generieren
+            {t("regenerate")}
           </button>
         </div>
       )}

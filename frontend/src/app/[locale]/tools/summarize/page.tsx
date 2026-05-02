@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
@@ -12,6 +13,8 @@ const MAX_SIZE_MB = MAX_UPLOAD_MB;
 const MAX_SIZE_BYTES = MAX_UPLOAD_BYTES;
 
 export default function ZusammenfassungPage() {
+  const t = useTranslations("tools.summarize");
+  const tCommon = useTranslations("common");
   const [processing, setProcessing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -27,10 +30,10 @@ export default function ZusammenfassungPage() {
   const validateFile = (file: File): string | null => {
     const ext = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
     if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      return `Nur ${ACCEPTED_EXTENSIONS.join(", ")} erlaubt`;
+      return tCommon("onlyExtsAllowed", { exts: ACCEPTED_EXTENSIONS.join(", ") });
     }
     if (file.size > MAX_SIZE_BYTES) {
-      return `Datei zu groß (max ${MAX_SIZE_MB} MB)`;
+      return tCommon("fileTooLarge", { n: MAX_SIZE_MB });
     }
     return null;
   };
@@ -67,19 +70,19 @@ export default function ZusammenfassungPage() {
       formData.append("output_format", outputFormat);
       const response = await backendApi.fetch("/summary", { method: "POST", body: formData });
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
+        const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${response.status}`));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setStallMessage("Läuft noch - umfangreiche Inhalte können einige Minuten dauern…"),
+        () => setStallMessage(t("longRunning")),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
       setProcessing(false);
     }
@@ -96,7 +99,7 @@ export default function ZusammenfassungPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Download fehlgeschlagen");
+      setErrorMessage(err instanceof Error ? err.message : tCommon("downloadFailed"));
     }
   };
 
@@ -112,16 +115,16 @@ export default function ZusammenfassungPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>
-          <h1 className="text-xl font-bold mb-1">Zusammenfassung</h1>
+          <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">
-            Lange Dokumente, Audio- und Videoinhalte auf das Wesentliche bringen.
+            {t("intro")}
           </p>
 
           {/* File upload */}
           <div
             role="button"
             tabIndex={0}
-            aria-label="Datei zur Zusammenfassung auswählen"
+            aria-label={t("selectFileAria")}
             onClick={() => !processing && inputRef.current?.click()}
             onKeyDown={(e) => {
               if ((e.key === "Enter" || e.key === " ") && !processing) {
@@ -145,13 +148,13 @@ export default function ZusammenfassungPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
-                <p className="text-xs text-muted-soft mt-1">Klicken um zu ersetzen</p>
+                <p className="text-xs text-muted-soft mt-1">{tCommon("clickToReplace")}</p>
               </>
             ) : (
               <>
                 <p className="text-sm font-medium text-muted">
-                  Datei hierher ziehen oder{" "}
-                  <span className="text-kb underline">durchsuchen</span>
+                  {tCommon("dropOrBrowse")}{" "}
+                  <span className="text-kb underline">{tCommon("browse")}</span>
                 </p>
                 <p className="text-xs text-muted-soft mt-1">
                   {ACCEPTED_EXTENSIONS.join(", ")}
@@ -181,7 +184,7 @@ export default function ZusammenfassungPage() {
                 {processing && (
                   <Spinner size="sm" color="current" />
                 )}
-                {processing ? "Wird verarbeitet…" : "Zusammenfassung erstellen"}
+                {processing ? tCommon("processing") : t("submit")}
               </button>
             </div>
           )}
@@ -201,7 +204,7 @@ export default function ZusammenfassungPage() {
                   <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-foreground">Fertig! Download bereit</span>
+                  <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
                 </div>
                 {selectedFile && <p className="text-xs text-muted">{selectedFile.name}</p>}
                 <div className="flex gap-3">
@@ -212,13 +215,13 @@ export default function ZusammenfassungPage() {
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    Zusammenfassung
+                    {t("downloadLabel")}
                   </button>
                   <button
                     onClick={handleReset}
                     className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
                   >
-                    Neue Datei
+                    {tCommon("newFile")}
                   </button>
                 </div>
               </div>

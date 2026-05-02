@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Stack } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -30,15 +31,18 @@ const isActive = (s: MyJob["status"]) => s === "pending" || s === "running" || s
 const needsAttention = (s: MyJob["status"]) => isActive(s);
 const isExpired = (job: MyJob) => job.status === "success" && !job.has_download;
 
-function timeAgo(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").getTime()) / 1000);
-  if (diff < 60) return "gerade eben";
-  if (diff < 3600) return `vor ${Math.floor(diff / 60)} Min.`;
-  if (diff < 86400) return `vor ${Math.floor(diff / 3600)} Std.`;
-  return `vor ${Math.floor(diff / 86400)} Tagen`;
+function useTimeAgo() {
+  const t = useTranslations("myJobs.relativeTime");
+  return (dateStr: string): string => {
+    const diff = Math.floor((Date.now() - new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").getTime()) / 1000);
+    if (diff < 60) return t("justNow");
+    if (diff < 3600) return t("minutes", { n: Math.floor(diff / 60) });
+    if (diff < 86400) return t("hours", { n: Math.floor(diff / 3600) });
+    return t("days", { n: Math.floor(diff / 86400) });
+  };
 }
 
-function formatDuration(ms: number): string {
+function formatDurationShort(ms: number): string {
   const totalSec = Math.round(ms / 1000);
   if (totalSec < 60) return `${totalSec}s`;
   const h = Math.floor(totalSec / 3600);
@@ -53,22 +57,31 @@ function toMs(dateStr: string): number {
 }
 
 function StatusBadge({ status, expired, isGeneratingScripts }: { status: MyJob["status"]; expired: boolean; isGeneratingScripts?: boolean }) {
+  const t = useTranslations("myJobs.status");
   if (expired)
-    return <span className="text-xs font-medium text-muted-soft bg-surface px-2 py-0.5 rounded-full">Abgelaufen</span>;
+    return <span className="text-xs font-medium text-muted-soft bg-surface px-2 py-0.5 rounded-full">{t("expired")}</span>;
   if (status === "success")
-    return <span className="text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">Fertig</span>;
+    return <span className="text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">{t("success")}</span>;
   if (status === "failed")
-    return <span className="text-xs font-medium text-error-strong bg-error-bg px-2 py-0.5 rounded-full">Fehler</span>;
+    return <span className="text-xs font-medium text-error-strong bg-error-bg px-2 py-0.5 rounded-full">{t("failed")}</span>;
   if (status === "running" || isGeneratingScripts)
-    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
+    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">{t("running")}</span>;
   if (status === "awaiting_user")
-    return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">Eingabe erforderlich</span>;
+    return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">{t("awaitingUser")}</span>;
   if (status === "queued")
-    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">In der Schlange</span>;
-  return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">Wartend</span>;
+    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">{t("queued")}</span>;
+  return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">{t("pending")}</span>;
 }
 
 export default function JobsPanel() {
+  const tHeader = useTranslations("header");
+  const tJobs = useTranslations("myJobs");
+  const tActions = useTranslations("myJobs.actions");
+  const tArtifacts = useTranslations("myJobs.artifacts");
+  const tShort = useTranslations("myJobs.timingShort");
+  const tPanel = useTranslations("myJobs.panel");
+  const timeAgo = useTimeAgo();
+
   const [open, setOpen] = useState(false);
   const [jobs, setJobs] = useState<MyJob[]>([]);
   const [loading, setLoading] = useState(false);
@@ -270,7 +283,7 @@ export default function JobsPanel() {
       const res = await fetch(`/api/jobs/${job.job_uuid}/retry`, { method: "POST", credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err.detail || "Wiederholen fehlgeschlagen");
+        alert(err.detail || tJobs("retryFailed"));
         return;
       }
       window.dispatchEvent(new Event("kis-jobs-status-changed"));
@@ -291,12 +304,12 @@ export default function JobsPanel() {
       <button
         onClick={handleButtonClick}
         onMouseDown={(e) => { if (e.button === 1) { e.preventDefault(); window.open("/my-jobs", "_blank"); } }}
-        aria-label="Jobs"
-        title="Jobs"
+        aria-label={tHeader("jobs")}
+        title={tHeader("jobs")}
         className="relative flex items-center justify-center w-10 h-10 sm:w-auto sm:h-9 sm:px-3 sm:gap-1.5 rounded-full btn-on-dark"
       >
         <Stack size={17} weight="bold" aria-hidden="true" />
-        <span className="hidden sm:inline text-sm font-medium">Jobs</span>
+        <span className="hidden sm:inline text-sm font-medium">{tHeader("jobs")}</span>
         {attentionCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-white text-kb text-[9px] font-bold rounded-full flex items-center justify-center shadow">
             {attentionCount}
@@ -317,7 +330,7 @@ export default function JobsPanel() {
           shadow-xl overflow-hidden
         " style={{ backgroundColor: "var(--background)", border: "1px solid var(--border)" }}>
           <div className="px-4 py-3 border-b border-border-soft flex items-center justify-between">
-            <span className="text-sm font-semibold text-foreground">Meine Jobs</span>
+            <span className="text-sm font-semibold text-foreground">{tJobs("title")}</span>
             {loading && (
               <Spinner size="sm" />
             )}
@@ -325,7 +338,7 @@ export default function JobsPanel() {
 
           <div className="px-4 py-2 border-b" style={{ borderColor: "var(--border)" }}>
             <p className="text-xs text-kb">
-              Downloads 7 Tage verfügbar. Es werden nur die letzten 20 Jobs gespeichert.
+              {tPanel("notice")}
             </p>
           </div>
 
@@ -333,7 +346,7 @@ export default function JobsPanel() {
             {jobs.length === 0 ? (
               <EmptyState
                 icon={<Stack size={32} weight="bold" />}
-                text="Keine Jobs vorhanden"
+                text={tPanel("empty")}
               />
             ) : (
               <ul className="divide-y divide-border-soft">
@@ -359,10 +372,10 @@ export default function JobsPanel() {
                           {(job.started_at || job.completed_at) && (
                             <p className="text-xs text-border mt-0.5">
                               {job.started_at && (
-                                <>Warte: {formatDuration(toMs(job.started_at) - toMs(job.created_at))}</>
+                                <>{tShort("wait")} {formatDurationShort(toMs(job.started_at) - toMs(job.created_at))}</>
                               )}
                               {job.started_at && job.completed_at && (
-                                <> · Arbeit: {formatDuration(toMs(job.completed_at) - toMs(job.started_at))}</>
+                                <> · {tShort("work")} {formatDurationShort(toMs(job.completed_at) - toMs(job.started_at))}</>
                               )}
                             </p>
                           )}
@@ -378,7 +391,7 @@ export default function JobsPanel() {
                                 <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
-                                {SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate" ? "MP4" : job.tool === "image_generate" ? (job.result_filename?.endsWith(".json") ? "ZIP" : "PNG") : job.tool === "image_edit" ? "PNG" : job.tool === "image_analyze" ? "TXT" : job.tool === "tts" ? "MP3" : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary") ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? "Datei") : "Datei"}
+                                {SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate" ? "MP4" : job.tool === "image_generate" ? (job.result_filename?.endsWith(".json") ? "ZIP" : "PNG") : job.tool === "image_edit" ? "PNG" : job.tool === "image_analyze" ? "TXT" : job.tool === "tts" ? "MP3" : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary") ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? tArtifacts("fallbackFile")) : tArtifacts("fallbackFile")}
                               </button>
                               {(SCREENCAST_RENDER_TOOLS.has(job.tool) || job.tool === "screencast_translate") && (
                                 <button
@@ -388,7 +401,7 @@ export default function JobsPanel() {
                                   <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                   </svg>
-                                  Alles herunterladen (ZIP)
+                                  {tArtifacts("downloadAllZip")}
                                 </button>
                               )}
                             </div>
@@ -402,7 +415,7 @@ export default function JobsPanel() {
                               disabled={cancelling === job.job_uuid}
                               className="text-xs text-error hover:underline disabled:opacity-50"
                             >
-                              {cancelling === job.job_uuid ? "..." : "Abbrechen"}
+                              {cancelling === job.job_uuid ? "..." : tActions("cancel")}
                             </button>
                           )}
                           {(job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render" || job.tool === "screencast_demo_render") && job.status === "failed" && (
@@ -411,7 +424,7 @@ export default function JobsPanel() {
                               disabled={retrying === job.job_uuid}
                               className="text-xs text-info hover:underline disabled:opacity-50"
                             >
-                              {retrying === job.job_uuid ? "..." : "Wiederholen"}
+                              {retrying === job.job_uuid ? "..." : tActions("retry")}
                             </button>
                           )}
                         </div>
@@ -421,7 +434,7 @@ export default function JobsPanel() {
                           {job.is_generating_scripts ? (
                             <span className="inline-flex items-center gap-1.5 text-xs text-muted bg-surface border border-border-soft px-2.5 py-1 rounded-full">
                               <Spinner size="sm" />
-                              Skripte werden generiert…
+                              {tArtifacts("generatingScripts")}
                             </span>
                           ) : (
                             <a
@@ -429,7 +442,7 @@ export default function JobsPanel() {
                               onClick={(e) => { e.stopPropagation(); setOpen(false); }}
                               className="inline-flex items-center gap-1 text-xs text-warn-strong bg-warn-bg hover:bg-warn-bg border border-warn-border px-2.5 py-1 rounded-full"
                             >
-                              {job.tool === "screencast_demo_render" ? "Demo fortsetzen →" : "Screencast fortsetzen →"}
+                              {job.tool === "screencast_demo_render" ? tArtifacts("resumeDemo") : tArtifacts("resumeScreencast")}
                             </a>
                           )}
                         </div>
@@ -447,7 +460,7 @@ export default function JobsPanel() {
               onClick={() => setOpen(false)}
               className="text-xs text-kb hover:underline"
             >
-              Zur Übersicht
+              {tPanel("viewAll")}
             </Link>
           </div>
         </div>

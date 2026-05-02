@@ -23,5 +23,259 @@
     "title": "Language",
     "de": "Deutsch",
     "en": "English"
+  },
+  "myJobs": {
+    "title": "My jobs",
+    "refresh": "Refresh",
+    "intro": "Up to 20 jobs are stored. Finished downloads are available for 7 days. Older files are removed automatically.",
+    "emptySearch": "No results for this search",
+    "emptyAll": "No jobs in the last 7 days",
+    "retryFailed": "Retry failed",
+    "filter": {
+      "search": "Search",
+      "from": "From",
+      "to": "To",
+      "perPage": "{n} per page",
+      "results": "{count, plural, =1 {1 result} other {# results}}",
+      "reset": "Reset filters",
+      "tools": {
+        "all": "All tools",
+        "transcription": "Speech to text",
+        "translation": "Translation",
+        "summary": "Summary",
+        "tts": "Text to speech",
+        "screencast": "Screencast",
+        "image": "Image"
+      }
+    },
+    "status": {
+      "expired": "Expired",
+      "success": "Done",
+      "failed": "Failed",
+      "running": "Running",
+      "awaitingUser": "Input required",
+      "queued": "Queued",
+      "pending": "Pending"
+    },
+    "timing": {
+      "submitted": "Submitted:",
+      "queueWait": "Wait time:",
+      "renderTime": "Render time:",
+      "processingTime": "Processing time:",
+      "completed": "Completed:",
+      "expiresAt": "Expires:"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "retry": "Retry",
+      "deleteJob": "Delete job"
+    },
+    "deleteModal": {
+      "title": "Delete job?",
+      "warning": "The job will be removed completely and can no longer be downloaded.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "artifacts": {
+      "creating": "Creating…",
+      "generatingScripts": "Generating scripts…",
+      "resumeScreencast": "Resume screencast →",
+      "resumeDemo": "Resume demo →",
+      "downloadAllZip": "Download all (ZIP)",
+      "fallbackFile": "File"
+    },
+    "duration": {
+      "seconds": "{n} s",
+      "minutes": "{m}:{s} min",
+      "hours": "{h}:{m}:{s} h"
+    },
+    "timingShort": {
+      "wait": "Wait:",
+      "work": "Work:"
+    },
+    "relativeTime": {
+      "justNow": "just now",
+      "minutes": "{n} min ago",
+      "hours": "{n} h ago",
+      "days": "{n, plural, =1 {1 day ago} other {# days ago}}"
+    },
+    "panel": {
+      "notice": "Downloads available for 7 days. Only the last 20 jobs are stored.",
+      "empty": "No jobs",
+      "viewAll": "View all"
+    }
+  },
+  "toolsSidebar": {
+    "heading": "Tools",
+    "expand": "Expand tools sidebar",
+    "collapse": "Collapse tools sidebar",
+    "items": {
+      "translation": "Translation",
+      "tts": "Text to speech",
+      "transcription": "Speech to text",
+      "image": "Image generation",
+      "summary": "Summary",
+      "screencast": "Screencast",
+      "glossary": "Glossary"
+    }
+  },
+  "common": {
+    "unknownError": "Unknown error",
+    "downloadFailed": "Download failed",
+    "processing": "Processing…",
+    "downloadReady": "Done! Download ready",
+    "newFile": "New file",
+    "browse": "browse",
+    "dropOrBrowse": "Drop file here or",
+    "clickToReplace": "Click to replace",
+    "fileTooLarge": "File too large (max {n} MB)",
+    "onlyExtsAllowed": "Only {exts} allowed"
+  },
+  "tools": {
+    "stt": {
+      "title": "Speech to text",
+      "intro": "Transcribe audio and video. Also as subtitles with timestamps.",
+      "outputFormat": "Output format",
+      "outputFormatHelp": "TXT is plain text without timestamps. SRT and VTT are subtitle formats: VTT for Moodle and modern web players, SRT for classic video players like VLC.",
+      "format": {
+        "text": "Text (.txt)",
+        "srt": "SRT (.srt)",
+        "vtt": "VTT (.vtt)"
+      },
+      "submit": "Start transcription",
+      "longRunning": "Still running - long audio files may take a few minutes…",
+      "downloadLabel": "Transcription"
+    },
+    "summarize": {
+      "title": "Summary",
+      "intro": "Distill long documents, audio and video content to the essentials.",
+      "selectFileAria": "Select file to summarize",
+      "submit": "Create summary",
+      "longRunning": "Still running - extensive content may take a few minutes…",
+      "downloadLabel": "Summary"
+    },
+    "translate": {
+      "title": "Translation",
+      "intro": "Translate documents into other languages. Layout and formatting are preserved.",
+      "sourceLang": "Source language",
+      "targetLang": "Target language",
+      "autoDetect": "Auto-detect",
+      "engine": "Translation engine",
+      "submit": "Translate",
+      "longRunning": "Still running - large documents may take a few minutes…",
+      "downloadLabel": "Translation"
+    },
+    "tts": {
+      "title": "Text to speech",
+      "intro": "Have texts and documents read aloud with natural-sounding voices.",
+      "noProvider": "No TTS provider active - please enable one in the admin area.",
+      "providerLabel": "TTS provider",
+      "voiceLabel": "Voice",
+      "previewVoices": "Preview voices →",
+      "speed": "Speed: {speed}x",
+      "speedSlow": "Slow (0.7x)",
+      "speedFast": "Fast (1.2x)",
+      "pauses": "Pauses",
+      "pause": {
+        "short": "Short pauses",
+        "medium": "Medium pauses",
+        "long": "Long pauses",
+        "very_long": "Very long pauses"
+      },
+      "submit": "Create MP3",
+      "cancel": "Cancel",
+      "progress": {
+        "uploading": "Uploading…",
+        "queued": "In queue…",
+        "extracting": "Extracting text…",
+        "synthesizing": "Generating audio…",
+        "synthesizingChunk": "Synthesizing chunk {chunk} of {total}…",
+        "downloading": "Downloading…",
+        "noProgress": "No progress for 60 sec - if the job is stuck, please click Retry…"
+      },
+      "status": {
+        "uploadingFile": "Uploading file...",
+        "generatingAudio": "Generating audio...",
+        "errorTitle": "Audio generation failed",
+        "tryAgain": "Try again",
+        "newFileAria": "Upload new file"
+      },
+      "upload": {
+        "selectFileAria": "Select file to read aloud"
+      },
+      "voiceDescription": {
+        "Laid-Back": "Laid-back",
+        "Casual": "Casual",
+        "Formal": "Formal",
+        "Friendly": "Friendly",
+        "Warm": "Warm",
+        "Authoritative": "Authoritative",
+        "Confident": "Confident",
+        "Calm": "Calm",
+        "Energetic": "Energetic",
+        "Upbeat": "Upbeat",
+        "Serious": "Serious",
+        "Raspy": "Raspy",
+        "Smooth": "Smooth",
+        "Deep": "Deep",
+        "Resonant": "Resonant",
+        "Crisp": "Crisp",
+        "Soft": "Soft",
+        "Husky": "Husky",
+        "Clear": "Clear",
+        "Conversational": "Conversational",
+        "Narrative": "Narrative",
+        "Expressive": "Expressive",
+        "Melodic": "Melodic",
+        "Mature": "Mature",
+        "Powerful": "Powerful",
+        "Bright": "Bright",
+        "Grounded": "Grounded",
+        "Soothing": "Soothing",
+        "Professional": "Professional"
+      }
+    },
+    "image": {
+      "title": "Image generation",
+      "intro": "Create images, edit existing images, or have them described.",
+      "tabs": {
+        "generate": "Text to image",
+        "edit": "Edit image",
+        "analyze": "Analyze image"
+      },
+      "uploadZone": {
+        "selectFile": "Select file",
+        "orDragHere": "or drop here",
+        "constraints": "PNG or JPG, max 20 MB"
+      },
+      "previewAlt": "Preview",
+      "generate": {
+        "promptPlaceholder": "Describe the desired image ...",
+        "size": "Size",
+        "count": "Count",
+        "submit": "Generate image",
+        "spinner": "Generating…",
+        "longRunning": "Still running - image generation may take a bit longer…",
+        "resultAlt": "Generated image {n}",
+        "downloadAllZip": "All as ZIP",
+        "regenerate": "Regenerate"
+      },
+      "edit": {
+        "promptPlaceholder": "Describe the desired change.",
+        "submit": "Edit image",
+        "spinner": "Editing…",
+        "longRunning": "Still running - image editing may take a bit longer…",
+        "resultAlt": "Edited image",
+        "downloadLabel": "Image",
+        "regenerate": "Edit again"
+      },
+      "analyze": {
+        "promptPlaceholder": "Ask a specific question (optional) - otherwise the image will be described automatically.",
+        "submit": "Analyze",
+        "spinner": "Analyzing…",
+        "longRunning": "Still running - image analysis may take a bit longer…",
+        "regenerate": "Analyze again"
+      }
+    }
   }
 }

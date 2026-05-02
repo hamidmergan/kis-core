@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import FileUpload from "@/components/jobs/FileUpload";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
@@ -11,6 +12,8 @@ import Spinner from "@/components/ui/Spinner";
 import Select from "@/components/ui/Select";
 
 export default function UebersetzungPage() {
+  const t = useTranslations("tools.translate");
+  const tCommon = useTranslations("common");
   const { mergeToApiJson } = useGlossaries();
   const [glossaryIds, setGlossaryIds] = useState<string[]>(["", "", ""]);
 
@@ -64,19 +67,19 @@ export default function UebersetzungPage() {
       if (targetLang) formData.append("target_lang", targetLang);
       const response = await api.fetch("/translate", { method: "POST", body: formData });
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
+        const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${response.status}`));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setStallMessage("Läuft noch - große Dokumente können einige Minuten dauern…"),
+        () => setStallMessage(t("longRunning")),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
       setProcessing(false);
     }
@@ -93,7 +96,7 @@ export default function UebersetzungPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Download fehlgeschlagen");
+      setErrorMessage(err instanceof Error ? err.message : tCommon("downloadFailed"));
     }
   };
 
@@ -109,9 +112,9 @@ export default function UebersetzungPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>
-          <h1 className="text-xl font-bold mb-1">Übersetzung</h1>
+          <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">
-            Dokumente in andere Sprachen übersetzen. Layout und Formatierung bleiben erhalten.
+            {t("intro")}
           </p>
 
           <FileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
@@ -124,7 +127,7 @@ export default function UebersetzungPage() {
             <div className="mb-4 flex items-center gap-3">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-foreground-soft mb-1">
-                  Quellsprache
+                  {t("sourceLang")}
                 </label>
                 <Select
                   value={sourceLang}
@@ -136,7 +139,7 @@ export default function UebersetzungPage() {
                     }
                   }}
                   disabled
-                  options={[{ value: "auto", label: "Automatisch erkennen" }, ...languages.map((l) => ({ value: l.id, label: l.label }))]}
+                  options={[{ value: "auto", label: t("autoDetect") }, ...languages.map((l) => ({ value: l.id, label: l.label }))]}
                 />
               </div>
 
@@ -144,7 +147,7 @@ export default function UebersetzungPage() {
 
               <div className="flex-1">
                 <label className="block text-sm font-medium text-foreground-soft mb-1">
-                  Zielsprache
+                  {t("targetLang")}
                 </label>
                 <Select
                   value={targetLang}
@@ -165,7 +168,7 @@ export default function UebersetzungPage() {
           {providers.length > 0 && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-foreground-soft mb-1">
-                Übersetzungs-Engine
+                {t("engine")}
               </label>
               <Select
                 value={translationProvider}
@@ -186,7 +189,7 @@ export default function UebersetzungPage() {
                 {processing && (
                   <Spinner size="sm" color="current" />
                 )}
-                {processing ? "Wird verarbeitet…" : "Übersetzen"}
+                {processing ? tCommon("processing") : t("submit")}
               </button>
             </div>
           )}
@@ -206,7 +209,7 @@ export default function UebersetzungPage() {
                   <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-foreground">Fertig! Download bereit</span>
+                  <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
                 </div>
                 {selectedFile && <p className="text-xs text-muted">{selectedFile}</p>}
                 <div className="flex gap-3">
@@ -217,13 +220,13 @@ export default function UebersetzungPage() {
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    Übersetzung
+                    {t("downloadLabel")}
                   </button>
                   <button
                     onClick={handleReset}
                     className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
                   >
-                    Neue Datei
+                    {tCommon("newFile")}
                   </button>
                 </div>
               </div>

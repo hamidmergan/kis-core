@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import UploadZone from "../_components/UploadZone";
@@ -8,11 +9,14 @@ import { validateImageFile } from "../_utils";
 
 
 export default function EditTab() {
+  const t = useTranslations("tools.image.edit");
+  const tImage = useTranslations("tools.image");
+  const tCommon = useTranslations("common");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [spinnerLabel, setSpinnerLabel] = useState("Wird bearbeitet…");
+  const [spinnerLabel, setSpinnerLabel] = useState(t("spinner"));
   const [error, setError] = useState("");
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultFilename, setResultFilename] = useState<string | null>(null);
@@ -27,18 +31,18 @@ export default function EditTab() {
   }, [file]);
 
   const handleFileSelect = useCallback((f: File) => {
-    const err = validateImageFile(f);
+    const err = validateImageFile(f, tCommon);
     if (err) { setError(err); return; }
     setError("");
     setFile(f);
     setResultUrl(null);
     setResultFilename(null);
-  }, []);
+  }, [tCommon]);
 
   const handleSubmit = useCallback(async () => {
     if (!file || !prompt.trim()) return;
     setLoading(true);
-    setSpinnerLabel("Wird bearbeitet…");
+    setSpinnerLabel(t("spinner"));
     setError("");
     setResultUrl(null);
     setResultFilename(null);
@@ -48,13 +52,13 @@ export default function EditTab() {
       formData.append("prompt", prompt);
       const response = await backendApi.fetch("/image/edit", { method: "POST", body: formData });
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
+        const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${response.status}`));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setSpinnerLabel("Läuft noch - Bildbearbeitung kann etwas länger dauern…"),
+        () => setSpinnerLabel(t("longRunning")),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
@@ -62,11 +66,11 @@ export default function EditTab() {
       setResultUrl(URL.createObjectURL(blob));
       setResultFilename(filename);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setError(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
       setLoading(false);
     }
-  }, [file, prompt]);
+  }, [file, prompt, t, tCommon]);
 
   const handleDownload = () => {
     if (!resultUrl || !resultFilename) return;
@@ -96,7 +100,7 @@ export default function EditTab() {
 
       {previewUrl && (
         <div className="mb-4 rounded-lg overflow-hidden border border-border-soft">
-          <img src={previewUrl} alt="Vorschau" className="w-full max-h-64 object-contain bg-surface" />
+          <img src={previewUrl} alt={tImage("previewAlt")} className="w-full max-h-64 object-contain bg-surface" />
         </div>
       )}
 
@@ -104,7 +108,7 @@ export default function EditTab() {
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         rows={3}
-        placeholder="Beschreiben Sie die gewünschte Änderung."
+        placeholder={t("promptPlaceholder")}
         className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none mb-4"
       />
 
@@ -114,7 +118,7 @@ export default function EditTab() {
           disabled={!file || !prompt.trim() || loading}
           className="w-full px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Wird verarbeitet…" : "Bild bearbeiten"}
+          {loading ? tCommon("processing") : t("submit")}
         </button>
       )}
 
@@ -122,7 +126,7 @@ export default function EditTab() {
       {error && <p className="mt-4 text-sm text-error" role="alert">{error}</p>}
       {resultUrl && (
         <div className="mt-6">
-          <img src={resultUrl} alt="Bearbeitetes Bild" className="w-full rounded-lg border border-border-soft bg-surface" />
+          <img src={resultUrl} alt={t("resultAlt")} className="w-full rounded-lg border border-border-soft bg-surface" />
           <div className="mt-3 flex items-center gap-3">
             <button
               onClick={handleDownload}
@@ -131,13 +135,13 @@ export default function EditTab() {
               <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Bild
+              {t("downloadLabel")}
             </button>
             <button
               onClick={() => { setResultUrl(null); setResultFilename(null); }}
               className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors"
             >
-              Neu bearbeiten
+              {t("regenerate")}
             </button>
           </div>
         </div>

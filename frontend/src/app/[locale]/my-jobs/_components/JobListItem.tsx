@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 import { isActive, isExpired, type MyJob } from "../_types";
@@ -28,6 +29,7 @@ function providerLabel(provider: string | undefined): string {
 export function JobListItem({
   job, isAdmin, cancelling, retrying, onCancel, onRetry, onRequestDelete,
 }: JobListItemProps) {
+  const t = useTranslations("myJobs.actions");
   const expired = isExpired(job);
   const canRetry =
     (job.tool === "tts" || job.tool === "screencast_translate" || job.tool === "screencast_render" || job.tool === "screencast_demo_render")
@@ -62,7 +64,7 @@ export function JobListItem({
               disabled={cancelling === job.job_uuid}
               className="text-xs text-error hover:underline disabled:opacity-50"
             >
-              {cancelling === job.job_uuid ? "..." : "Abbrechen"}
+              {cancelling === job.job_uuid ? "..." : t("cancel")}
             </button>
           )}
           {canRetry && (
@@ -71,13 +73,13 @@ export function JobListItem({
               disabled={retrying === job.job_uuid}
               className="text-xs text-info hover:underline disabled:opacity-50"
             >
-              {retrying === job.job_uuid ? "..." : "Wiederholen"}
+              {retrying === job.job_uuid ? "..." : t("retry")}
             </button>
           )}
           {!isActive(job.status) && (
             <IconButton
               onClick={() => onRequestDelete(job)}
-              title="Job löschen"
+              title={t("deleteJob")}
               className="mt-auto"
             >
               <Trash size={13} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import TranscriptionFileUpload from "@/components/jobs/TranscriptionFileUpload";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
@@ -8,13 +9,14 @@ import BackLink from "@/components/ui/BackLink";
 import Spinner from "@/components/ui/Spinner";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 
-const FORMAT_OPTIONS = [
-  { value: "text", label: "Text (.txt)" },
-  { value: "srt", label: "SRT (.srt)" },
-  { value: "vtt", label: "VTT (.vtt)" },
-];
-
 export default function TranscriptionPage() {
+  const t = useTranslations("tools.stt");
+  const tCommon = useTranslations("common");
+  const FORMAT_OPTIONS = [
+    { value: "text", label: t("format.text") },
+    { value: "srt", label: t("format.srt") },
+    { value: "vtt", label: t("format.vtt") },
+  ];
   const [processing, setProcessing] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [selectedFile, setSelectedFile] = useState<string>("");
@@ -44,19 +46,19 @@ export default function TranscriptionPage() {
       formData.append("response_format", responseFormat);
       const response = await backendApi.fetch("/transcription", { method: "POST", body: formData });
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
+        const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${response.status}`));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setStallMessage("Läuft noch - lange Audiodateien können einige Minuten dauern…"),
+        () => setStallMessage(t("longRunning")),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
       setDoneJobUuid(data.job_uuid);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setErrorMessage(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
       setProcessing(false);
     }
@@ -73,7 +75,7 @@ export default function TranscriptionPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Download fehlgeschlagen");
+      setErrorMessage(err instanceof Error ? err.message : tCommon("downloadFailed"));
     }
   };
 
@@ -89,17 +91,17 @@ export default function TranscriptionPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
         <section>
-          <h1 className="text-xl font-bold mb-1">Sprache in Text</h1>
+          <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
           <p className="text-sm text-muted mb-6">
-            Audio und Video transkribieren. Auch als Untertitel mit Zeitstempeln.
+            {t("intro")}
           </p>
 
           <TranscriptionFileUpload onFileSelected={handleFileSelected} disabled={processing} selectedFilename={selectedFile || undefined} />
 
           <div className="mb-6 mt-6">
             <span className="flex items-center gap-1.5 text-sm font-medium text-foreground-soft mb-2">
-              Ausgabeformat
-              <HelpTooltip text="TXT ist reiner Text ohne Zeitstempel. SRT und VTT sind Untertitel-Formate: VTT für Moodle und moderne Web-Player, SRT für klassische Video-Player wie VLC." />
+              {t("outputFormat")}
+              <HelpTooltip text={t("outputFormatHelp")} />
             </span>
             <div className="flex gap-6">
               {FORMAT_OPTIONS.map((opt) => (
@@ -129,7 +131,7 @@ export default function TranscriptionPage() {
                 {processing && (
                   <Spinner size="sm" color="current" />
                 )}
-                {processing ? "Wird verarbeitet…" : "Transkription starten"}
+                {processing ? tCommon("processing") : t("submit")}
               </button>
             </div>
           )}
@@ -149,7 +151,7 @@ export default function TranscriptionPage() {
                   <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm font-medium text-foreground">Fertig! Download bereit</span>
+                  <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
                 </div>
                 {selectedFile && <p className="text-xs text-muted">{selectedFile}</p>}
                 <div className="flex gap-3">
@@ -160,13 +162,13 @@ export default function TranscriptionPage() {
                     <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    Transkription
+                    {t("downloadLabel")}
                   </button>
                   <button
                     onClick={handleReset}
                     className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
                   >
-                    Neue Datei
+                    {tCommon("newFile")}
                   </button>
                 </div>
               </div>

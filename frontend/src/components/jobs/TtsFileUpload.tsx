@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 const ACCEPTED_EXTENSIONS = [".docx", ".md", ".txt"];
 const MAX_SIZE_MB = 500;
@@ -13,20 +14,22 @@ interface TtsFileUploadProps {
 }
 
 export default function TtsFileUpload({ onFileSelected, disabled = false, selectedFilename }: TtsFileUploadProps) {
+  const tCommon = useTranslations("common");
+  const tUpload = useTranslations("tools.tts.upload");
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = (file: File): string | null => {
+  const validateFile = useCallback((file: File): string | null => {
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
     if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      return `Nur ${ACCEPTED_EXTENSIONS.join(", ")} Dateien erlaubt`;
+      return tCommon("onlyExtsAllowed", { exts: ACCEPTED_EXTENSIONS.join(", ") });
     }
     if (file.size > MAX_SIZE_BYTES) {
-      return `Datei zu groß (max ${MAX_SIZE_MB} MB)`;
+      return tCommon("fileTooLarge", { n: MAX_SIZE_MB });
     }
     return null;
-  };
+  }, [tCommon]);
 
   const handleFile = useCallback(
     (file: File) => {
@@ -38,7 +41,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
       }
       onFileSelected(file);
     },
-    [onFileSelected]
+    [onFileSelected, validateFile]
   );
 
   const handleDrop = useCallback(
@@ -76,7 +79,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
       <div
         role="button"
         tabIndex={0}
-        aria-label="Datei zum Vorlesen auswählen"
+        aria-label={tUpload("selectFileAria")}
         onClick={() => !disabled && inputRef.current?.click()}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -95,7 +98,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <p className="text-sm font-medium text-foreground">{selectedFilename}</p>
-            <p className="text-xs text-muted-soft mt-1">Klicken um zu ersetzen</p>
+            <p className="text-xs text-muted-soft mt-1">{tCommon("clickToReplace")}</p>
           </>
         ) : (
           <>
@@ -114,7 +117,7 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
               />
             </svg>
             <p className="text-sm font-medium text-muted">
-              Datei hierher ziehen oder <span className="text-kb underline">durchsuchen</span>
+              {tCommon("dropOrBrowse")} <span className="text-kb underline">{tCommon("browse")}</span>
             </p>
             <p className="text-xs text-muted-soft mt-1">
               {ACCEPTED_EXTENSIONS.join(", ")}

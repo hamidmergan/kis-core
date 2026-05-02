@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { backendApi, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
 import Spinner from "@/components/ui/Spinner";
 import UploadZone from "../_components/UploadZone";
@@ -8,11 +9,14 @@ import { validateImageFile } from "../_utils";
 
 
 export default function AnalyzeTab() {
+  const t = useTranslations("tools.image.analyze");
+  const tImage = useTranslations("tools.image");
+  const tCommon = useTranslations("common");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [spinnerLabel, setSpinnerLabel] = useState("Wird analysiert…");
+  const [spinnerLabel, setSpinnerLabel] = useState(t("spinner"));
   const [error, setError] = useState("");
   const [resultText, setResultText] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -26,17 +30,17 @@ export default function AnalyzeTab() {
   }, [file]);
 
   const handleFileSelect = useCallback((f: File) => {
-    const err = validateImageFile(f);
+    const err = validateImageFile(f, tCommon);
     if (err) { setError(err); return; }
     setError("");
     setFile(f);
     setResultText(null);
-  }, []);
+  }, [tCommon]);
 
   const handleSubmit = useCallback(async () => {
     if (!file) return;
     setLoading(true);
-    setSpinnerLabel("Wird analysiert…");
+    setSpinnerLabel(t("spinner"));
     setError("");
     setResultText(null);
     try {
@@ -45,13 +49,13 @@ export default function AnalyzeTab() {
       formData.append("prompt", prompt);
       const response = await backendApi.fetch("/image/analyze", { method: "POST", body: formData });
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
+        const err = await response.json().catch(() => ({ detail: tCommon("unknownError") }));
+        throw new Error(parseDetail(err.detail, `${tCommon("unknownError")}: ${response.status}`));
       }
       const data = await response.json();
       window.dispatchEvent(new Event("kis-jobs-changed"));
       await pollJob(data.job_uuid, undefined, 3000, undefined,
-        () => setSpinnerLabel("Läuft noch - Bildanalyse kann etwas länger dauern…"),
+        () => setSpinnerLabel(t("longRunning")),
         60_000,
       );
       window.dispatchEvent(new Event("kis-jobs-changed"));
@@ -59,11 +63,11 @@ export default function AnalyzeTab() {
       const text = await blob.text();
       setResultText(text);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setError(err instanceof Error ? err.message : tCommon("unknownError"));
     } finally {
       setLoading(false);
     }
-  }, [file, prompt]);
+  }, [file, prompt, t, tCommon]);
 
   return (
     <section>
@@ -85,7 +89,7 @@ export default function AnalyzeTab() {
 
       {previewUrl && (
         <div className="mb-4 rounded-lg overflow-hidden border border-border-soft">
-          <img src={previewUrl} alt="Vorschau" className="w-full max-h-64 object-contain bg-surface" />
+          <img src={previewUrl} alt={tImage("previewAlt")} className="w-full max-h-64 object-contain bg-surface" />
         </div>
       )}
 
@@ -93,7 +97,7 @@ export default function AnalyzeTab() {
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         rows={3}
-        placeholder="Spezifische Frage stellen (optional) - sonst wird das Bild automatisch vollständig beschrieben."
+        placeholder={t("promptPlaceholder")}
         className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-soft focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none mb-4"
       />
 
@@ -103,7 +107,7 @@ export default function AnalyzeTab() {
           disabled={!file || loading}
           className="w-full px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Wird verarbeitet…" : "Analysieren"}
+          {loading ? tCommon("processing") : t("submit")}
         </button>
       )}
 
@@ -136,7 +140,7 @@ export default function AnalyzeTab() {
               onClick={() => setResultText(null)}
               className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors"
             >
-              Neu analysieren
+              {t("regenerate")}
             </button>
           </div>
         </div>
