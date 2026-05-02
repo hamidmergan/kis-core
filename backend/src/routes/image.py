@@ -33,8 +33,8 @@ async def generate_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
-    enforce_tool_burst(user_id, "image_generate")
-    enforce_quota(user_id, "image_generate", is_admin_user(current_user))
+    enforce_tool_burst(user_id, "image_generate", locale)
+    enforce_quota(user_id, "image_generate", is_admin_user(current_user), locale)
 
     db.create_job(job_uuid, user_id, "image_generate", prompt[:100])
 
@@ -69,8 +69,8 @@ async def edit_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
-    enforce_tool_burst(user_id, "image_edit")
-    enforce_quota(user_id, "image_edit", is_admin_user(current_user))
+    enforce_tool_burst(user_id, "image_edit", locale)
+    enforce_quota(user_id, "image_edit", is_admin_user(current_user), locale)
 
     display_name = f"{image.filename}: {prompt[:80]}"
     db.create_job(job_uuid, user_id, "image_edit", display_name)
@@ -106,8 +106,8 @@ async def analyze_image(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
-    enforce_tool_burst(user_id, "image_analyze")
-    enforce_quota(user_id, "image_analyze", is_admin_user(current_user))
+    enforce_tool_burst(user_id, "image_analyze", locale)
+    enforce_quota(user_id, "image_analyze", is_admin_user(current_user), locale)
 
     display_name = f"{image.filename}: {prompt[:80]}" if prompt.strip() else image.filename
     db.create_job(job_uuid, user_id, "image_analyze", display_name)

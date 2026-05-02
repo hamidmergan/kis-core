@@ -35,8 +35,8 @@ def _enforce_queue_and_quota(user_id: int, current_user: dict, locale: str = "de
             status_code=409,
             detail=t("screencast.queueFull", locale, max=MAX_QUEUED_SCREENCAST_JOBS),
         )
-    enforce_tool_burst(user_id, "screencast")
-    enforce_quota(user_id, "screencast", is_admin_user(current_user))
+    enforce_tool_burst(user_id, "screencast", locale)
+    enforce_quota(user_id, "screencast", is_admin_user(current_user), locale)
 
 
 @router.post("/screencast/translate")

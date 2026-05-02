@@ -90,8 +90,8 @@ async def generate_glossary(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    enforce_aia_burst(user_id)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
+    enforce_aia_burst(user_id, locale)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     source_ids = _resolve_source_ids(workspace, body.active_source_ids, locale=locale)
 
@@ -174,18 +174,18 @@ async def extract_glossary_from_selection(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    enforce_aia_burst(user_id)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
+    enforce_aia_burst(user_id, locale)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     # Check glossary limit
     current_count = db.get_glossary_count(workspace["id"])
     if current_count >= GLOSSARY_LIMIT:
-        return {"added": 0, "message": "Glossary voll (150 / 150) - entferne Begriffe um neue hinzuzufügen."}
+        return {"added": 0, "message": t("ai.glossary.full", locale, current=current_count, max=GLOSSARY_LIMIT)}
 
     # Truncate to 300 chars
     text = body.text[:300].strip()
     if not text:
-        return {"added": 0, "message": "Kein Text markiert."}
+        return {"added": 0, "message": t("ai.glossary.noTextSelected", locale)}
 
     # Find the source
     source = db.get_aia_source(body.source_uuid)
@@ -212,47 +212,47 @@ async def extract_glossary_from_selection(
 
         terms = json.loads(answer)
         if not isinstance(terms, list):
-            return {"added": 0, "message": "Keine lernenswerten Begriffe in der Markierung gefunden."}
+            return {"added": 0, "message": t("ai.glossary.noLearnableTerms", locale)}
 
         # Filter: must appear in source text, no duplicates
         text_lower = text.lower()
         remaining_slots = GLOSSARY_LIMIT - current_count
         new_entries = []
-        for t in terms[:5]:
-            if not t.get("term_de"):
+        for term_obj in terms[:5]:
+            if not term_obj.get("term_de"):
                 continue
-            term = t["term_de"]
+            term = term_obj["term_de"]
             if not _term_appears_in_text(term, text_lower):
                 continue
             if term.lower() in existing_terms:
                 continue
             new_entries.append({
-                "term_de": t["term_de"],
-                "term_en": t.get("term_en", ""),
-                "definition": t.get("definition", ""),
-                "definition_en": t.get("definition_en", ""),
-                "example_sentence": t.get("example_sentence", ""),
-                "example_sentence_en": t.get("example_sentence_en", ""),
+                "term_de": term_obj["term_de"],
+                "term_en": term_obj.get("term_en", ""),
+                "definition": term_obj.get("definition", ""),
+                "definition_en": term_obj.get("definition_en", ""),
+                "example_sentence": term_obj.get("example_sentence", ""),
+                "example_sentence_en": term_obj.get("example_sentence_en", ""),
                 "page_number": body.page_number,
             })
-            existing_terms.add(t["term_de"].lower())
+            existing_terms.add(term_obj["term_de"].lower())
             if len(new_entries) >= remaining_slots:
                 break
 
         if not new_entries:
-            if existing_terms and any(t.get("term_de", "").lower() in existing_terms for t in terms):
-                return {"added": 0, "message": "Die erkannten Begriffe sind bereits im Glossary."}
-            return {"added": 0, "message": "Keine neuen lernenswerten Begriffe in der Markierung gefunden."}
+            if existing_terms and any(term_obj.get("term_de", "").lower() in existing_terms for term_obj in terms):
+                return {"added": 0, "message": t("ai.glossary.alreadyKnown", locale)}
+            return {"added": 0, "message": t("ai.glossary.noNewTerms", locale)}
 
         db.bulk_create_glossary_entries(source["id"], new_entries)
         count = len(new_entries)
         return {
             "added": count,
-            "message": f"{count} Begriff{'e' if count > 1 else ''} zum Glossary hinzugefügt.",
+            "message": t("ai.glossary.added", locale, count=count),
             "entries": new_entries,
         }
     except (json.JSONDecodeError, ValueError):
-        return {"added": 0, "message": "Keine lernenswerten Begriffe in der Markierung gefunden."}
+        return {"added": 0, "message": t("ai.glossary.noLearnableTerms", locale)}
     except Exception as e:
         logger.error("Glossary extract error: {}", e)
         raise HTTPException(status_code=500, detail=t("ai.glossary.extractionFailed", locale))

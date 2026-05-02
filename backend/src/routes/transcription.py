@@ -65,8 +65,8 @@ async def transcribe(
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
-    enforce_tool_burst(user_id, "transcription")
-    enforce_quota(user_id, "transcription", is_admin_user(current_user))
+    enforce_tool_burst(user_id, "transcription", locale)
+    enforce_quota(user_id, "transcription", is_admin_user(current_user), locale)
 
     db.create_job(job_uuid, user_id, "transcription", file.filename)
     input_path = save_queue_file(user_id, job_uuid, ext, content)

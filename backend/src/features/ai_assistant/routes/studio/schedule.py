@@ -155,8 +155,8 @@ async def generate_schedule(
     if not body.source_ids:
         raise HTTPException(status_code=400, detail=t("ai.source.noneSelected", locale))
 
-    enforce_aia_burst(user_id)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
+    enforce_aia_burst(user_id, locale)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     # Filter: skip already-processed sources client-side already knows this,
     # but we also store the full selection for traceability. The task will

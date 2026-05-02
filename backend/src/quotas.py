@@ -14,6 +14,7 @@ import psycopg2.extras
 from fastapi import HTTPException
 
 from src.database import get_connection
+from src.i18n import DEFAULT_LOCALE, t
 from src.limits import QUOTA_DEFAULTS
 
 
@@ -134,7 +135,7 @@ def check_and_consume_quota(
     }
 
 
-def enforce_quota(user_id: int, quota_type: str, is_admin: bool) -> None:
+def enforce_quota(user_id: int, quota_type: str, is_admin: bool, locale: str = DEFAULT_LOCALE) -> None:
     """Check quota and raise HTTP 429 if the limit is exceeded.
 
     Call this before create_job() in each route handler.
@@ -150,13 +151,13 @@ def enforce_quota(user_id: int, quota_type: str, is_admin: bool) -> None:
             try:
                 from zoneinfo import ZoneInfo
                 dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00")).astimezone(ZoneInfo("Europe/Berlin"))
-                reset_text = f" Erneut verfügbar ab {dt.strftime('%H:%M')} Uhr."
+                reset_text = t("quota.resetAt", locale, time=dt.strftime("%H:%M"))
             except Exception:
                 pass
         raise HTTPException(
             status_code=429,
             detail={
-                "message": f"Limit erreicht für {label}.{reset_text}",
+                "message": t("quota.limitReached", locale, label=label) + reset_text,
                 "quota_type": quota_type,
                 "label": label,
                 "used": result["used"],

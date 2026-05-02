@@ -118,6 +118,40 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Chat ist bis {time} Uhr gesperrt (zu viele Anfragen in kurzer Zeit). Bitte später erneut versuchen.",
         "en": "Chat is locked until {time} (too many requests in a short time). Please try again later.",
     },
+    # Quota enforcement
+    "quota.limitReached": {
+        "de": "Limit erreicht für {label}.",
+        "en": "Limit reached for {label}.",
+    },
+    "quota.resetAt": {
+        "de": " Erneut verfügbar ab {time} Uhr.",
+        "en": " Available again at {time}.",
+    },
+    # Glossary extract feedback (returned in response body, not detail)
+    "ai.glossary.full": {
+        "de": "Glossary voll ({current} / {max}) - entferne Begriffe um neue hinzuzufügen.",
+        "en": "Glossary full ({current} / {max}) - remove terms to add new ones.",
+    },
+    "ai.glossary.noTextSelected": {
+        "de": "Kein Text markiert.",
+        "en": "No text selected.",
+    },
+    "ai.glossary.noLearnableTerms": {
+        "de": "Keine lernenswerten Begriffe in der Markierung gefunden.",
+        "en": "No worthwhile terms found in the selection.",
+    },
+    "ai.glossary.alreadyKnown": {
+        "de": "Die erkannten Begriffe sind bereits im Glossary.",
+        "en": "The detected terms are already in the glossary.",
+    },
+    "ai.glossary.noNewTerms": {
+        "de": "Keine neuen lernenswerten Begriffe in der Markierung gefunden.",
+        "en": "No new worthwhile terms found in the selection.",
+    },
+    "ai.glossary.added": {
+        "de": "{count} Begriffe zum Glossary hinzugefügt.",
+        "en": "{count} terms added to the glossary.",
+    },
     # Maintenance mode
     "maintenance.message": {
         "de": "Wartungsarbeiten - bitte später erneut versuchen.",

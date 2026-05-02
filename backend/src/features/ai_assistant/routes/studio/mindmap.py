@@ -71,8 +71,8 @@ async def generate_mindmap(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    enforce_aia_burst(user_id)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
+    enforce_aia_burst(user_id, locale)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5, locale=locale)
 

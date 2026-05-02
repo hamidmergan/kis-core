@@ -72,8 +72,8 @@ async def generate_cloze(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    enforce_aia_burst(user_id)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
+    enforce_aia_burst(user_id, locale)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     entries = db.get_aia_glossary_by_workspace(workspace["id"])
     if not entries:
@@ -105,8 +105,8 @@ async def generate_vocab_test(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    enforce_aia_burst(user_id)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
+    enforce_aia_burst(user_id, locale)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     entries = db.get_aia_glossary_by_workspace(workspace["id"])
     if not entries:
@@ -141,8 +141,8 @@ async def create_exercise_set(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    enforce_aia_burst(user_id)
-    enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
+    enforce_aia_burst(user_id, locale)
+    enforce_quota(user_id, "aia_generate", is_admin_user(current_user), locale)
 
     if body.mode == "source" and not body.source_uuid:
         raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))

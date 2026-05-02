@@ -113,7 +113,7 @@ async def chat(
 
     # Burst block: at >50 chat requests in 60s the user is blocked for 10 min.
     # Raises 429 if currently blocked or the limit is being exceeded right now.
-    enforce_burst(user_id)
+    enforce_burst(user_id, locale)
 
     _started_at = _time.monotonic()
     workspace = db.get_aia_workspace(workspace_uuid)

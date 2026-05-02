@@ -214,6 +214,6 @@ def enforce_tool_burst(user_id: int, tool_key: str, locale: str = "de") -> None:
     )
 
 
-def enforce_aia_burst(user_id: int) -> None:
+def enforce_aia_burst(user_id: int, locale: str = "de") -> None:
     """Backward-compatible alias for the AI tutor burst gate."""
-    enforce_tool_burst(user_id, "aia")
+    enforce_tool_burst(user_id, "aia", locale)

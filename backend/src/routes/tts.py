@@ -270,8 +270,8 @@ async def text_to_speech(
         get_elevenlabs_client()
 
     user_id = current_user.get("user_id", 0)
-    enforce_tool_burst(user_id, "tts")
-    enforce_quota(user_id, "tts", is_admin_user(current_user))
+    enforce_tool_burst(user_id, "tts", locale)
+    enforce_quota(user_id, "tts", is_admin_user(current_user), locale)
 
     job_uuid = uuid.uuid4().hex
     db.create_job(job_uuid, user_id, "tts", file.filename)
