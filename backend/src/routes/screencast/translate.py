@@ -21,7 +21,7 @@ from src.services.screencast import (
     maybe_start_cleanup_task,
 )
 from src.storage import save_job_file, save_queue_file
-from src.utils.file_validation import MAX_SCREENCAST_SLIDES, MAX_UPLOAD_BYTES
+from src.utils.file_validation import MAX_SCREENCAST_SLIDES, MAX_UPLOAD_BYTES, validate_or_raise
 
 from src.routes.screencast._models import ExtractTextsRequest, PrepareRequest
 from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload
@@ -60,6 +60,7 @@ async def screencast_translate(
     pptx_bytes = await file.read()
     if not pptx_bytes:
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
+    validate_or_raise(pptx_bytes, ".pptx", locale)
 
     user_id = current_user.get("user_id", 0)
     _enforce_queue_and_quota(user_id, current_user, locale)
@@ -166,6 +167,7 @@ async def screencast_upload_corrected(
     pptx_bytes = await file.read()
     if not pptx_bytes:
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
+    validate_or_raise(pptx_bytes, ".pptx", locale)
 
     logger.info("Screencast/upload-corrected: '{}' ({} bytes)", file.filename, len(pptx_bytes))
 

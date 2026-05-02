@@ -14,6 +14,7 @@ from src.utils.file_validation import (
     ALLOWED_EXTENSIONS,
     TRANSLATE_MAX_UPLOAD_BYTES,
     TRANSLATE_MAX_CHARS,
+    validate_or_raise,
 )
 from src.utils.text_extraction import EXTRACTORS
 
@@ -110,6 +111,7 @@ async def translate(
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
     if len(content) > TRANSLATE_MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
+    validate_or_raise(content, ext, locale)
 
     extractor = EXTRACTORS.get(ext)
     if extractor is not None:

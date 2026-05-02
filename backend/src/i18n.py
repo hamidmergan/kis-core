@@ -84,6 +84,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Das PDF enthält keinen lesbaren Text. Gescannte PDFs werden aktuell nicht unterstützt. Bitte konvertiere das PDF zuerst mit einem OCR-Tool (z.B. Adobe Acrobat oder online unter smallpdf.com).",
         "en": "The PDF does not contain readable text. Scanned PDFs are not supported. Please convert the PDF with an OCR tool first (e.g. Adobe Acrobat or online via smallpdf.com).",
     },
+    "file.contentMismatch": {
+        "de": "Dateiinhalt passt nicht zur Endung. Möglicherweise wurde die Datei umbenannt oder ist beschädigt.",
+        "en": "File content does not match the extension. The file may have been renamed or is corrupted.",
+    },
+    "file.textNotUtf8": {
+        "de": "Textdatei muss UTF-8-kodiert sein.",
+        "en": "Text file must be UTF-8 encoded.",
+    },
     # Quota labels (interpolated into quota.limitReached)
     "quota.label.tts": {"de": "Text in Sprache", "en": "Text to speech"},
     "quota.label.summary": {"de": "Zusammenfassung", "en": "Summary"},

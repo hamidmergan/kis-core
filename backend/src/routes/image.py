@@ -9,6 +9,7 @@ from src.dependencies import get_current_user, is_admin_user
 from src.i18n import get_locale, t
 from src.storage import save_queue_file
 from src.limits import MAX_IMAGE_BYTES
+from src.utils.file_validation import validate_or_raise
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 
@@ -66,6 +67,7 @@ async def edit_image(
         raise HTTPException(status_code=400, detail=t("image.empty", locale))
     if len(content) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail=t("image.tooLarge", locale))
+    validate_or_raise(content, ext, locale)
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
@@ -103,6 +105,7 @@ async def analyze_image(
         raise HTTPException(status_code=400, detail=t("image.empty", locale))
     if len(content) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail=t("image.tooLarge", locale))
+    validate_or_raise(content, ext, locale)
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)

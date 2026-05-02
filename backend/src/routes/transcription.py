@@ -12,7 +12,7 @@ from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.storage import save_queue_file
-from src.utils.file_validation import MAX_TRANSCRIPTION_BYTES, TRANSCRIPTION_EXTENSIONS
+from src.utils.file_validation import MAX_TRANSCRIPTION_BYTES, TRANSCRIPTION_EXTENSIONS, validate_or_raise
 
 router = APIRouter(tags=["transcription"])
 
@@ -62,6 +62,7 @@ async def transcribe(
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
     if len(content) > MAX_TRANSCRIPTION_BYTES:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
+    validate_or_raise(content, ext, locale)
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)

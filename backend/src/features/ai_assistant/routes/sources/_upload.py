@@ -1,6 +1,8 @@
 """Source upload / retry / delete."""
 import uuid
 
+from src.utils.file_validation import validate_or_raise
+
 from ._shared import (
     Path, APIRouter, Depends, File, HTTPException, UploadFile, logger, db,
     get_current_user, get_locale, t,
@@ -43,6 +45,7 @@ async def upload_source(
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
     if len(data) > _MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=_MAX_UPLOAD_BYTES // (1024 * 1024)))
+    validate_or_raise(data, ext, locale)
 
     stored_filename = file.filename
     if ext in (".docx", ".pptx"):

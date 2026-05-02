@@ -13,7 +13,7 @@ from src.security.rate_limit import enforce_tool_burst
 from src import database as db
 from src.storage import save_queue_file
 from src.services.elevenlabs_client import DEFAULT_VOICE_ID
-from src.utils.file_validation import TTS_EXTENSIONS, MAX_UPLOAD_BYTES, TTS_MAX_CHARS
+from src.utils.file_validation import TTS_EXTENSIONS, MAX_UPLOAD_BYTES, TTS_MAX_CHARS, validate_or_raise
 from src.utils.text_extraction import EXTRACTORS
 
 router = APIRouter(tags=["tts"])
@@ -239,6 +239,7 @@ async def text_to_speech(
         raise HTTPException(status_code=400, detail=t("file.empty", locale))
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
+    validate_or_raise(content, ext, locale)
 
     # Validate file type and that text can be extracted (fast check before queuing)
     extractor = EXTRACTORS.get(ext)
