@@ -1126,7 +1126,7 @@
     "detail": {
       "languageTraining": {
         "tools": {
-          "flashcards": "Flashcards",
+          "flashcards": "Vocab cards",
           "karteikarten": "Flashcards",
           "lueckentext": "Cloze",
           "vokabeltest": "Term quiz",
@@ -1183,7 +1183,7 @@
           "modeQuiz": "Quiz",
           "modeLueckentext": "Cloze",
           "modeVokabeltest": "Vocab test",
-          "modeFlashcards": "Flashcards",
+          "modeFlashcards": "Vocab cards",
           "failed": "Failed",
           "fromGlossarySuffix": " · Glossary"
         },
@@ -1229,7 +1229,7 @@
         },
         "overview": {
           "glossaryCounter": "{count}/{max} glossary",
-          "lernkarten": "Flashcards",
+          "lernkarten": "Vocab cards",
           "lueckentext": "Cloze",
           "begriffeQuiz": "Term quiz",
           "tileDesc": "Exercises"
@@ -1249,7 +1249,7 @@
           "percentCorrect": "{pct}% correct"
         },
         "vocabFlashcards": {
-          "title": "Flashcards",
+          "title": "Vocab cards",
           "percentKnew": "{pct}% known",
           "studyAgain": "Study again:",
           "allAgain": "All again"
@@ -1573,8 +1573,8 @@
         "networkRetry": "Network error. Please try again."
       },
       "langTools": {
-        "flashcards": "Flashcards",
-        "karteikarten": "Cards",
+        "flashcards": "Vocab cards",
+        "karteikarten": "Flashcards",
         "lueckentext": "Cloze",
         "vokabeltest": "Term quiz",
         "quiz": "Quiz"
