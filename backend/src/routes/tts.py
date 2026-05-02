@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from src.dependencies import get_elevenlabs_client, get_current_user, is_admin_user
+from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src import database as db
@@ -65,15 +66,19 @@ async def get_tts_providers():
 
 
 @router.post("/kokoro/preview")
-async def kokoro_preview(body: dict, _user=Depends(get_current_user)):
+async def kokoro_preview(
+    body: dict,
+    _user=Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     """Synthesize a short preview sample for a Kokoro voice."""
     from fastapi.responses import Response as FastAPIResponse
     from src.dependencies import is_kokoro_enabled, get_kokoro_client
     if not is_kokoro_enabled():
-        raise HTTPException(status_code=400, detail="Kokoro nicht aktiv")
+        raise HTTPException(status_code=400, detail=t("kokoro.notActive", locale))
     client = get_kokoro_client()
     if not client or not client.is_available():
-        raise HTTPException(status_code=503, detail="Kokoro Server nicht erreichbar")
+        raise HTTPException(status_code=503, detail=t("kokoro.unreachable", locale))
     voice_id = body.get("voice_id", "af_heart")
     # Use German preview text for German voices
     if voice_id.startswith(("df_", "dm_")):
@@ -101,15 +106,19 @@ async def list_kokoro_voices():
 
 
 @router.post("/mylab/preview")
-async def mylab_preview(body: dict, _user=Depends(get_current_user)):
+async def mylab_preview(
+    body: dict,
+    _user=Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     """Synthesize a short preview sample for a myLab voice."""
     from fastapi.responses import Response as FastAPIResponse
     from src.dependencies import is_mylab_enabled, get_mylab_client
     if not is_mylab_enabled():
-        raise HTTPException(status_code=400, detail="myLab TTS nicht aktiv")
+        raise HTTPException(status_code=400, detail=t("mylab.notActive", locale))
     client = get_mylab_client()
     if not client or not client.is_available():
-        raise HTTPException(status_code=503, detail="myLab TTS Server nicht erreichbar")
+        raise HTTPException(status_code=503, detail=t("mylab.ttsUnreachable", locale))
     voice_id = body.get("voice_id", "alloy")
     audio = client.synthesize_chunk(
         "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen.",
@@ -192,6 +201,7 @@ async def text_to_speech(
     provider: str = Form("elevenlabs"),  # "elevenlabs" or "fish_speech"
     voice_label: str = Form(""),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Queue a TTS job: synthesize uploaded document to MP3 via ElevenLabs.
 
@@ -199,59 +209,64 @@ async def text_to_speech(
     On success the result contains ``download_url`` for the MP3.
     """
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Dateiname fehlt")
+        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
     ext = Path(file.filename).suffix.lower()
     if ext not in TTS_EXTENSIONS:
         raise HTTPException(
-            status_code=400, detail="Nur .docx, .md oder .txt erlaubt"
+            status_code=400, detail=t("tts.unsupportedFormat", locale)
         )
 
     valid_presets = {"short", "medium", "long", "very_long"}
     if pause_preset not in valid_presets:
-        raise HTTPException(status_code=400, detail="Ungültiges Pausen-Preset")
+        raise HTTPException(status_code=400, detail=t("tts.invalidPausePreset", locale))
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
 
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Datei ist leer")
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
     if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
 
     # Validate file type and that text can be extracted (fast check before queuing)
     extractor = EXTRACTORS.get(ext)
     if extractor is None:
-        raise HTTPException(status_code=400, detail="Dateityp wird nicht unterstützt")
+        raise HTTPException(status_code=400, detail=t("tts.unsupportedFileType", locale))
 
     text = extractor(content)
     if len(text) > TTS_MAX_CHARS:
         raise HTTPException(
             status_code=422,
-            detail=f"Dokument zu lang ({len(text):,} Zeichen). Bitte aufteilen (max. {TTS_MAX_CHARS:,} Zeichen).".replace(",", "."),
+            detail=t(
+                "tts.documentTooLong",
+                locale,
+                chars=f"{len(text):,}".replace(",", "."),
+                maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
+            ),
         )
 
     # Validate provider + client
     if provider == "kokoro":
         from src.dependencies import is_kokoro_enabled, get_kokoro_client
         if not is_kokoro_enabled():
-            raise HTTPException(status_code=400, detail="Kokoro TTS ist nicht aktiviert")
+            raise HTTPException(status_code=400, detail=t("kokoro.notEnabled", locale))
         kokoro_client = get_kokoro_client()
         if not kokoro_client or not kokoro_client.is_available():
-            raise HTTPException(status_code=503, detail="Kokoro Server nicht erreichbar")
+            raise HTTPException(status_code=503, detail=t("kokoro.unreachable", locale))
     elif provider == "mylab":
         from src.dependencies import is_mylab_enabled, get_mylab_client
         if not is_mylab_enabled():
-            raise HTTPException(status_code=400, detail="myLab TTS ist nicht aktiviert")
+            raise HTTPException(status_code=400, detail=t("mylab.notEnabled", locale))
         mylab_client = get_mylab_client()
         if not mylab_client or not mylab_client.is_available():
-            raise HTTPException(status_code=503, detail="myLab TTS Server nicht erreichbar")
+            raise HTTPException(status_code=503, detail=t("mylab.ttsUnreachable", locale))
     else:
         from src.dependencies import is_elevenlabs_enabled
         if not is_elevenlabs_enabled():
-            raise HTTPException(status_code=400, detail="ElevenLabs ist nicht aktiviert")
+            raise HTTPException(status_code=400, detail=t("elevenlabs.notEnabled", locale))
         get_elevenlabs_client()
 
     user_id = current_user.get("user_id", 0)

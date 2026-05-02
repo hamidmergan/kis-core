@@ -18,6 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client, is_admin_user
+from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
@@ -57,21 +58,22 @@ async def generate_data_table(
     workspace_uuid: str,
     body: schemas.DataTableGenerateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
-    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5)
+    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5, locale=locale)
 
     # Build source map for citations
     source_map: dict[int, dict] = {}
@@ -93,16 +95,17 @@ async def get_data_table(
     workspace_uuid: str,
     data_table_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Poll data_table status."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     dt = db.get_aia_data_table(data_table_id)
     if not dt or dt["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="DataTable nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("ai.dataTable.notFound", locale))
 
     return dt
 
@@ -110,12 +113,13 @@ async def get_data_table(
 async def get_latest_data_table(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Get the most recent data_table for a workspace."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     dt = db.get_latest_aia_data_table(workspace["id"], user_id)
     return dt or {}
@@ -124,12 +128,13 @@ async def get_latest_data_table(
 async def get_data_tables(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Get all data_tables for a workspace."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     rows = db.get_aia_data_tables_by_workspace(workspace["id"], user_id)
     return [
@@ -146,11 +151,12 @@ async def delete_data_table(
     workspace_uuid: str,
     data_table_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     dt = db.get_aia_data_table(data_table_id)
     if not dt or dt["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="DataTable nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("ai.dataTable.notFound", locale))
     db.delete_aia_data_table(data_table_id)
     return {"ok": True}
 

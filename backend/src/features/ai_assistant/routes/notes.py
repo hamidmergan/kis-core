@@ -18,6 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
+from src.i18n import get_locale, t
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -98,16 +99,17 @@ router = APIRouter(tags=["ki-assistent: notes"])
 async def get_notes(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     notes = db.get_aia_notes(workspace["id"], user_id)
     return [
@@ -130,21 +132,22 @@ async def create_note(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
     llm=Depends(get_llm_client),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     if db.count_aia_notes(workspace["id"], user_id) >= KIA_NOTES_MAX_PER_USER:
         raise HTTPException(
             status_code=409,
-            detail=f"Maximal {KIA_NOTES_MAX_PER_USER} Notizen pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Notizen.",
+            detail=t("ai.notes.maxPerWorkspace", locale, max=KIA_NOTES_MAX_PER_USER),
         )
 
     content = body.content.strip()
@@ -170,15 +173,16 @@ async def update_note_title(
     note_id: int,
     body: schemas.NoteTitleBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     updated = db.update_aia_note_title(note_id, user_id, body.title)
     if not updated:
-        raise HTTPException(status_code=404, detail="Notiz nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("note.notFound", locale))
     return {"ok": True}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/notes/{note_id}")
@@ -186,15 +190,16 @@ async def delete_note(
     workspace_uuid: str,
     note_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     deleted = db.delete_aia_note(note_id, user_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Notiz nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("note.notFound", locale))
     return {"ok": True}
 
 

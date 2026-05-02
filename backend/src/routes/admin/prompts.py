@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies import get_admin_user
+from src.i18n import get_locale, t
 
 from src.routes.admin._models import UpdatePromptRequest
 from src.routes.admin._registries import PROMPT_REGISTRY
@@ -32,22 +33,31 @@ async def get_prompts(_admin=Depends(get_admin_user)):
 
 
 @router.patch("/prompts/{key}")
-async def update_prompt(key: str, body: UpdatePromptRequest, _admin=Depends(get_admin_user)):
+async def update_prompt(
+    key: str,
+    body: UpdatePromptRequest,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     p = _find_prompt(key)
     if not p:
-        raise HTTPException(status_code=404, detail="Prompt nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("admin.prompt.notFound", locale))
     if not p["editable"]:
-        raise HTTPException(status_code=400, detail="Dieser Prompt ist schreibgeschützt")
+        raise HTTPException(status_code=400, detail=t("admin.prompt.readOnly", locale))
     if not body.value.strip():
-        raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
+        raise HTTPException(status_code=400, detail=t("prompt.empty", locale))
     db.set_setting(key, body.value)
     return {"ok": True}
 
 
 @router.delete("/prompts/{key}/reset")
-async def reset_prompt(key: str, _admin=Depends(get_admin_user)):
+async def reset_prompt(
+    key: str,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     p = _find_prompt(key)
     if not p or not p["editable"]:
-        raise HTTPException(status_code=400, detail="Nicht erlaubt")
+        raise HTTPException(status_code=400, detail=t("admin.prompt.notAllowed", locale))
     db.set_setting(key, p["default"])
     return {"ok": True}

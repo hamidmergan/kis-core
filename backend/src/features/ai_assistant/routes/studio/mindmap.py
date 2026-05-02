@@ -18,6 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client, is_admin_user
+from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
@@ -57,22 +58,23 @@ async def generate_mindmap(
     workspace_uuid: str,
     body: schemas.MindmapGenerateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Queue mindmap generation as a background Celery task."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
-    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5)
+    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5, locale=locale)
 
     # Build uuid→id mapping for the task
     source_uuids = []
@@ -95,21 +97,22 @@ async def get_mindmap(
     workspace_uuid: str,
     mindmap_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Poll mindmap generation status."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     mindmap = db.get_aia_mindmap(mindmap_id)
     if not mindmap or mindmap["workspace_id"] != workspace["id"]:
-        raise HTTPException(status_code=404, detail="Mindmap nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("mindmap.notFound", locale))
 
     return {
         "id": mindmap["id"],
@@ -122,17 +125,18 @@ async def get_mindmap(
 async def get_latest_mindmap(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Get the latest mindmap for this workspace."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     mindmap = db.get_latest_aia_mindmap(workspace["id"], user_id)
     if not mindmap:
@@ -149,17 +153,18 @@ async def get_latest_mindmap(
 async def list_mindmaps(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """List all saved mindmaps for this workspace."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     rows = db.get_all_aia_mindmaps(workspace["id"], user_id)
     return [
@@ -176,16 +181,17 @@ async def delete_mindmap(
     workspace_uuid: str,
     mindmap_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Delete a mindmap."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     mindmap = db.get_aia_mindmap(mindmap_id)
     if not mindmap or mindmap["workspace_id"] != workspace["id"] or mindmap["user_id"] != user_id:
-        raise HTTPException(status_code=404, detail="Mindmap nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("mindmap.notFound", locale))
 
     db.delete_aia_mindmap(mindmap_id)
     return {"ok": True}

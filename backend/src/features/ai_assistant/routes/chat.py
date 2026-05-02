@@ -19,6 +19,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
+from src.i18n import get_locale, t
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -104,6 +105,7 @@ async def chat(
     request: Request,
     current_user: dict = Depends(get_current_user),
     llm=Depends(get_llm_client),
+    locale: str = Depends(get_locale),
 ):
     import time as _time
     _trace_llm(llm, "kia-chat")
@@ -116,12 +118,12 @@ async def chat(
     _started_at = _time.monotonic()
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     # Per-(workspace, user) AI tutor language; drives the locale-specific
     # "no info" sentinel injected into the RAG system prompt.
@@ -135,7 +137,7 @@ async def chat(
         sources_check = db.get_aia_sources_by_workspace(workspace["id"])
         ready_sources = [s for s in sources_check if s["status"] == "ready"]
         if not ready_sources:
-            raise HTTPException(status_code=409, detail="Keine indizierten Sources vorhanden")
+            raise HTTPException(status_code=409, detail=t("ai.chat.noIndexedSources", locale))
         if all(s["status"] == "ready" for s in sources_check):
             db.update_aia_workspace_status(workspace_uuid, "ready")
 

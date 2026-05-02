@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies import get_current_user
+from src.i18n import get_locale, t
 from src.storage import get_job_file, load_result_json
 
 router = APIRouter(tags=["screencast: resume"])
@@ -41,17 +42,21 @@ def _load_slide_images(result_path: str | None) -> list[str]:
 
 
 @router.get("/screencast/resume/{translate_job_uuid}")
-async def get_resume_data(translate_job_uuid: str, current_user: dict = Depends(get_current_user)):
+async def get_resume_data(
+    translate_job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     """Reconstruct workflow state from job folder for resuming an awaiting_user screencast job."""
     if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
-        raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
+        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
     job = db.get_job(translate_job_uuid)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+        raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
     if job["status"] != "awaiting_user":
-        raise HTTPException(status_code=409, detail="Job ist nicht im Eingabe-Status")
+        raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
 
     tool = job["tool"]
     user_id = job["user_id"]
@@ -66,7 +71,7 @@ async def get_resume_data(translate_job_uuid: str, current_user: dict = Depends(
         try:
             slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
         except Exception:
-            raise HTTPException(status_code=404, detail="Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten")
+            raise HTTPException(status_code=404, detail=t("job.dataUnavailable", locale))
     elif tool == "screencast_demo_render":
         try:
             slide_texts = json.loads(get_job_file(user_id, translate_job_uuid, "scripts.txt"))
@@ -93,13 +98,17 @@ async def get_resume_data(translate_job_uuid: str, current_user: dict = Depends(
 
 
 @router.get("/screencast/folder-exists/{translate_job_uuid}")
-async def check_folder_exists(translate_job_uuid: str, current_user: dict = Depends(get_current_user)):
+async def check_folder_exists(
+    translate_job_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     """Check if the job folder (scripts.txt) still exists in storage. Lightweight pre-flight check."""
     if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
-        raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
+        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
     job = db.get_job(translate_job_uuid)
     if not job or job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     try:
         get_job_file(job["user_id"], translate_job_uuid, "scripts.txt")
         return {"exists": True}

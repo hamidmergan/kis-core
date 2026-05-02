@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
+from src.i18n import DEFAULT_LOCALE, get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.features.ai_assistant import schemas
@@ -16,34 +17,34 @@ router = APIRouter(tags=["ki-assistent: studio"])
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-def _require_module_access(workspace_uuid: str, user_id: int) -> dict:
+def _require_module_access(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
     return workspace
 
 
-def _parse_date(s: Optional[str]) -> Optional[date]:
+def _parse_date(s: Optional[str], locale: str = DEFAULT_LOCALE) -> Optional[date]:
     if not s:
         return None
     try:
         return date.fromisoformat(s)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Ungültiges Datum: {s}")
+        raise HTTPException(status_code=400, detail=t("ai.schedule.invalidDate", locale, value=s))
 
 
-def _parse_time(s: Optional[str]) -> Optional[time]:
+def _parse_time(s: Optional[str], locale: str = DEFAULT_LOCALE) -> Optional[time]:
     if not s:
         return None
     try:
         parts = s.split(":")
         return time(int(parts[0]), int(parts[1]))
     except (ValueError, IndexError):
-        raise HTTPException(status_code=400, detail=f"Ungültige Uhrzeit: {s}")
+        raise HTTPException(status_code=400, detail=t("ai.schedule.invalidTime", locale, value=s))
 
 
 def _serialize_entry(row: dict) -> dict:
@@ -91,6 +92,7 @@ async def get_upcoming_schedule(
     only_checked: bool = False,
     include_past_open: bool = False,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Top-N upcoming schedule entries across all the user's workspaces
     (owned + enrolled). Used by the home widget (limit=5) and the global
@@ -101,9 +103,9 @@ async def get_upcoming_schedule(
       so missed deadlines are visible alongside upcoming ones.
     """
     if limit is not None and (limit < 1 or limit > 500):
-        raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+        raise HTTPException(status_code=400, detail=t("ai.schedule.limitRange", locale))
     if offset < 0:
-        raise HTTPException(status_code=400, detail="offset must be >= 0")
+        raise HTTPException(status_code=400, detail=t("ai.schedule.offsetRange", locale))
     user_id = current_user["user_id"]
     rows = db.get_schedule_entries_for_user(
         user_id, limit=limit, offset=offset,
@@ -119,9 +121,10 @@ async def get_upcoming_schedule(
 async def get_schedule(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id)
+    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
 
     entries = db.get_schedule_entries(workspace["id"], user_id)
     processed_ids = db.get_processed_source_ids(workspace["id"], user_id)
@@ -144,12 +147,13 @@ async def generate_schedule(
     workspace_uuid: str,
     body: schemas.ScheduleGenerateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id)
+    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
 
     if not body.source_ids:
-        raise HTTPException(status_code=400, detail="Keine Sources ausgewählt")
+        raise HTTPException(status_code=400, detail=t("ai.source.noneSelected", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
@@ -169,9 +173,10 @@ async def generate_schedule(
 async def get_active_schedule_job_route(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id)
+    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
     job = db.get_active_schedule_job(workspace["id"], user_id)
     if not job:
         return {"active": False}
@@ -188,12 +193,13 @@ async def get_schedule_job(
     workspace_uuid: str,
     job_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(workspace_uuid, user_id)
+    _require_module_access(workspace_uuid, user_id, locale=locale)
     job = db.get_schedule_job(job_id, user_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     return {
         "id": job["id"],
         "status": job["status"],
@@ -212,12 +218,13 @@ async def create_entry(
     workspace_uuid: str,
     body: schemas.ScheduleEntryCreateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id)
+    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
 
     if body.type not in ("deadline", "termin"):
-        raise HTTPException(status_code=400, detail="Typ muss 'deadline' oder 'termin' sein")
+        raise HTTPException(status_code=400, detail=t("scheduleEntry.invalidType", locale))
 
     row = db.create_schedule_entry(
         workspace["id"],
@@ -225,8 +232,8 @@ async def create_entry(
         type=body.type,
         title=body.title.strip(),
         description=(body.description.strip() if body.description else None),
-        due_date=_parse_date(body.due_date),
-        due_time=_parse_time(body.due_time),
+        due_date=_parse_date(body.due_date, locale=locale),
+        due_time=_parse_time(body.due_time, locale=locale),
         is_optional=body.is_optional,
         origin="manual",
         source_refs=[],
@@ -242,16 +249,17 @@ async def update_entry(
     entry_id: int,
     body: schemas.ScheduleEntryUpdateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(workspace_uuid, user_id)
+    _require_module_access(workspace_uuid, user_id, locale=locale)
 
     existing = db.get_schedule_entry(entry_id, user_id)
     if not existing:
-        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("entry.notFound", locale))
 
     if body.type is not None and body.type not in ("deadline", "termin"):
-        raise HTTPException(status_code=400, detail="Typ muss 'deadline' oder 'termin' sein")
+        raise HTTPException(status_code=400, detail=t("scheduleEntry.invalidType", locale))
 
     row = db.update_schedule_entry(
         entry_id,
@@ -259,15 +267,15 @@ async def update_entry(
         type=body.type,
         title=(body.title.strip() if body.title else None),
         description=(body.description.strip() if body.description else None),
-        due_date=_parse_date(body.due_date) if body.due_date else None,
-        due_time=_parse_time(body.due_time) if body.due_time else None,
+        due_date=_parse_date(body.due_date, locale=locale) if body.due_date else None,
+        due_time=_parse_time(body.due_time, locale=locale) if body.due_time else None,
         is_optional=body.is_optional,
         is_checked=body.is_checked,
         clear_date=body.clear_date,
         clear_time=body.clear_time,
     )
     if not row:
-        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("entry.notFound", locale))
     return _serialize_entry(row)
 
 
@@ -278,11 +286,12 @@ async def delete_entry(
     workspace_uuid: str,
     entry_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    _require_module_access(workspace_uuid, user_id)
+    _require_module_access(workspace_uuid, user_id, locale=locale)
     if not db.delete_schedule_entry(entry_id, user_id):
-        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("entry.notFound", locale))
     return {"ok": True}
 
 
@@ -292,8 +301,9 @@ async def delete_entry(
 async def delete_all(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
-    workspace = _require_module_access(workspace_uuid, user_id)
+    workspace = _require_module_access(workspace_uuid, user_id, locale=locale)
     count = db.delete_all_schedule_entries(workspace["id"], user_id)
     return {"deleted": count}

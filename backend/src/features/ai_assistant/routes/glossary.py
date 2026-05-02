@@ -18,6 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client, is_admin_user
+from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
@@ -57,16 +58,17 @@ router = APIRouter(tags=["ki-assistent: glossary"])
 async def get_glossary(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     entries = db.get_aia_glossary_by_workspace(workspace["id"])
     return {"entries": entries}
@@ -76,21 +78,22 @@ async def generate_glossary(
     workspace_uuid: str,
     body: schemas.GlossaryGenerateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
-    source_ids = _resolve_source_ids(workspace, body.active_source_ids)
+    source_ids = _resolve_source_ids(workspace, body.active_source_ids, locale=locale)
 
     from src.tasks.aia_tasks import run_generate_glossary
     run_generate_glossary.delay(workspace["id"], source_ids)
@@ -101,19 +104,21 @@ async def delete_glossary_entry_endpoint(
     workspace_uuid: str,
     entry_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     if not db.delete_glossary_entry(entry_id):
-        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("entry.notFound", locale))
     return {"ok": True}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}/glossary")
 async def delete_all_glossary_endpoint(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     count = db.delete_all_glossary_entries(workspace["id"])
     return {"ok": True, "deleted": count}
 
@@ -156,17 +161,18 @@ async def extract_glossary_from_selection(
     body: schemas.GlossaryExtractBody,
     current_user: dict = Depends(get_current_user),
     llm=Depends(get_llm_client),
+    locale: str = Depends(get_locale),
 ):
     """Extract glossary terms from a PDF text selection."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
@@ -184,7 +190,7 @@ async def extract_glossary_from_selection(
     # Find the source
     source = db.get_aia_source(body.source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     # Get existing terms to avoid duplicates
     existing = db.get_aia_glossary_by_workspace(workspace["id"])
@@ -249,7 +255,7 @@ async def extract_glossary_from_selection(
         return {"added": 0, "message": "Keine lernenswerten Begriffe in der Markierung gefunden."}
     except Exception as e:
         logger.error("Glossary extract error: {}", e)
-        raise HTTPException(status_code=500, detail="Extraktion fehlgeschlagen")
+        raise HTTPException(status_code=500, detail=t("ai.glossary.extractionFailed", locale))
 
 
 # ─── Mindmap generieren ──────────────────────────────────────────────────────

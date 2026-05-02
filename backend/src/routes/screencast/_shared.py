@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from loguru import logger
 
 from src.dependencies import get_deepl_client
+from src.i18n import t
 from src.services.glossary import GlossaryService
 from src.features.jobs.repository import get_job
 from src.services.screencast import IMAGE_TMP_DIR, pptx_to_images
@@ -31,21 +32,21 @@ def get_script_gen_lock(uuid_key: str) -> asyncio.Lock:
     return _script_gen_locks[uuid_key]
 
 
-def validate_upload(filename: str | None) -> str:
+def validate_upload(filename: str | None, locale: str = "de") -> str:
     """Validate filename/extension of a PPTX upload and return the extension."""
     if not filename:
-        raise HTTPException(status_code=400, detail="Dateiname fehlt")
+        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
     ext = Path(filename).suffix.lower()
     if ext not in SCREENCAST_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Nur .pptx erlaubt")
+        raise HTTPException(status_code=400, detail=t("screencast.onlyPptx", locale))
     return ext
 
 
-def build_translation_service(glossary_json: str = "") -> TranslationService:
+def build_translation_service(glossary_json: str = "", locale: str = "de") -> TranslationService:
     """Build a TranslationService with DeepL client and optional glossary."""
     client = get_deepl_client()
     if client is None:
-        raise HTTPException(status_code=500, detail="DeepL API Key fehlt")
+        raise HTTPException(status_code=500, detail=t("translate.deeplKeyMissing", locale))
     glossary = GlossaryService()
     if glossary_json:
         try:

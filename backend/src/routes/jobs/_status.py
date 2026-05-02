@@ -8,6 +8,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user
+from src.i18n import get_locale, t
 from src.storage import load_result_json, load_result_meta
 
 
@@ -18,11 +19,12 @@ router = APIRouter()
 async def get_job_status(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Poll job status. Returns progress while running, result when done."""
     job = db.get_job(job_uuid)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 
     response: dict = {
         "job_uuid": job_uuid,
@@ -51,7 +53,7 @@ async def get_job_status(
                 response["result"] = load_result_json(job["result_path"])
             except Exception as e:
                 logger.error("Failed to load result JSON for {}: {}", job_uuid, e)
-                raise HTTPException(status_code=500, detail="Ergebnis konnte nicht geladen werden")
+                raise HTTPException(status_code=500, detail=t("job.resultLoadFailed", locale))
         else:
             # Binary result (MP4, MP3) - provide download URL
             response["download_url"] = f"/jobs/{job_uuid}/download"

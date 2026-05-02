@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies import get_admin_user
+from src.i18n import get_locale, t
 from src.limits import QUOTA_DEFAULTS
 
 from src.routes.admin._models import SetQuotaOverrideRequest
@@ -15,9 +16,12 @@ def _iso_z(ts) -> str | None:
     return (ts.isoformat() + "Z") if ts else None
 
 
-def _ensure_known_quota_type(quota_type: str) -> None:
+def _ensure_known_quota_type(quota_type: str, locale: str) -> None:
     if quota_type not in QUOTA_DEFAULTS:
-        raise HTTPException(status_code=400, detail=f"Unbekannter Quota-Typ: {quota_type}")
+        raise HTTPException(
+            status_code=400,
+            detail=t("admin.quota.unknownType", locale, quota_type=quota_type),
+        )
 
 
 @router.get("/quota/defaults")
@@ -102,9 +106,10 @@ async def set_quota_override(
     quota_type: str,
     body: SetQuotaOverrideRequest,
     _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
 ):
     """Set per-user limit. -1 = unlimited."""
-    _ensure_known_quota_type(quota_type)
+    _ensure_known_quota_type(quota_type, locale)
     db.quota_set_override(user_id, quota_type, body.limit_value)
     return {"ok": True}
 
@@ -114,9 +119,10 @@ async def delete_quota_override(
     user_id: int,
     quota_type: str,
     _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
 ):
     """Delete override - user falls back to the global default."""
-    _ensure_known_quota_type(quota_type)
+    _ensure_known_quota_type(quota_type, locale)
     db.quota_remove_override(user_id, quota_type)
     return {"ok": True}
 
@@ -126,8 +132,9 @@ async def reset_user_quota(
     user_id: int,
     quota_type: str,
     _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
 ):
     """Reset quota counter to 0 immediately and clear the reset timer."""
-    _ensure_known_quota_type(quota_type)
+    _ensure_known_quota_type(quota_type, locale)
     db.quota_reset(user_id, quota_type)
     return {"ok": True}

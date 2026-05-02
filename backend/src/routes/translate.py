@@ -49,6 +49,7 @@ def translate_pptx_content(
     glossary_json: str = "",
     source_lang: str = "",
     target_lang: str = "",
+    locale: str = "de",
 ) -> bytes:
     """Synchronous PPTX translation helper - used by screencast.py."""
     import json
@@ -60,7 +61,7 @@ def translate_pptx_content(
     settings = get_settings()
     api_key = settings.deepl_api_key
     if not api_key:
-        raise HTTPException(status_code=500, detail="DeepL API Key fehlt")
+        raise HTTPException(status_code=500, detail=t("translate.deeplKeyMissing", locale))
     deepl_client = DeepLClient(api_key)
     glossary = GlossaryService()
     if glossary_json:
@@ -76,10 +77,10 @@ def translate_pptx_content(
         eff_target = target_lang if target_lang else "EN-US"
         return translate_pptx(content, eff_source, eff_target, service)
     except ValueError as e:
-        raise HTTPException(status_code=500, detail=f"PPTX-Übersetzungsfehler: {str(e)}")
+        raise HTTPException(status_code=500, detail=t("translate.pptxError", locale, error=str(e)))
     except Exception as e:
         logger.exception("PPTX processing error for file '{}'", filename)
-        raise HTTPException(status_code=500, detail=f"PPTX-Verarbeitungsfehler: {str(e)}")
+        raise HTTPException(status_code=500, detail=t("translate.pptxProcessingError", locale, error=str(e)))
 
 
 @router.post("/translate")
@@ -91,23 +92,24 @@ async def translate(
     source_lang: str = Form(""),
     target_lang: str = Form(""),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Dateiname fehlt")
+        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Nur .docx, .pptx, .md, .tex oder .txt erlaubt")
+        raise HTTPException(status_code=400, detail=t("translate.unsupportedFormat", locale))
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > TRANSLATE_MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
 
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Datei ist leer")
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
     if len(content) > TRANSLATE_MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
 
     extractor = EXTRACTORS.get(ext)
     if extractor is not None:
@@ -115,7 +117,12 @@ async def translate(
         if len(text) > TRANSLATE_MAX_CHARS:
             raise HTTPException(
                 status_code=422,
-                detail=f"Dokument zu lang ({len(text):,} Zeichen). Bitte aufteilen (max. {TRANSLATE_MAX_CHARS:,} Zeichen).".replace(",", "."),
+                detail=t(
+                    "translate.documentTooLong",
+                    locale,
+                    chars=f"{len(text):,}".replace(",", "."),
+                    maxChars=f"{TRANSLATE_MAX_CHARS:,}".replace(",", "."),
+                ),
             )
 
     effective_source = source_lang or ""

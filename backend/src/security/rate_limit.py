@@ -25,6 +25,7 @@ from fastapi import HTTPException
 from loguru import logger
 
 from src.core.db.pool import get_connection
+from src.i18n import t
 from src.limits import (
     RATE_LIMIT_BURST_REQUESTS,
     RATE_LIMIT_BURST_WINDOW_SECONDS,
@@ -69,16 +70,13 @@ def _set_blocked_until(user_id: int, blocked_until: datetime) -> None:
         conn.commit()
 
 
-def _format_block_message(blocked_until: datetime) -> str:
-    """German error message with local Berlin time."""
+def _format_block_message(blocked_until: datetime, locale: str = "de") -> str:
+    """Localized error message with local Berlin time."""
     local = blocked_until.astimezone(_TZ_BERLIN)
-    return (
-        f"Chat ist bis {local.strftime('%H:%M')} Uhr gesperrt "
-        f"(zu viele Anfragen in kurzer Zeit). Bitte später erneut versuchen."
-    )
+    return t("rateLimit.blocked", locale, time=local.strftime("%H:%M"))
 
 
-def enforce_burst(user_id: int) -> None:
+def enforce_burst(user_id: int, locale: str = "de") -> None:
     """Raise HTTP 429 if the user is currently blocked or exceeds the burst limit.
 
     Order:
@@ -99,7 +97,7 @@ def enforce_burst(user_id: int) -> None:
         raise HTTPException(
             status_code=429,
             detail={
-                "message": _format_block_message(blocked_until),
+                "message": _format_block_message(blocked_until, locale),
                 "kind": "chat_blocked",
                 "blocked_until": blocked_until.isoformat(),
             },
@@ -138,7 +136,7 @@ def enforce_burst(user_id: int) -> None:
     raise HTTPException(
         status_code=429,
         detail={
-            "message": _format_block_message(new_block_until),
+            "message": _format_block_message(new_block_until, locale),
             "kind": "chat_blocked",
             "blocked_until": new_block_until.isoformat(),
         },
@@ -146,7 +144,7 @@ def enforce_burst(user_id: int) -> None:
     )
 
 
-def enforce_tool_burst(user_id: int, tool_key: str) -> None:
+def enforce_tool_burst(user_id: int, tool_key: str, locale: str = "de") -> None:
     """Raise HTTP 429 if the user fires too many requests against a tool in a
     short window. Redis-only (no DB persistence): the 10-min block is short
     enough that surviving a backend restart isn't worth a schema change. On
@@ -173,7 +171,7 @@ def enforce_tool_burst(user_id: int, tool_key: str) -> None:
                 raise HTTPException(
                     status_code=429,
                     detail={
-                        "message": _format_block_message(blocked_until),
+                        "message": _format_block_message(blocked_until, locale),
                         "kind": "tool_blocked",
                         "tool_key": tool_key,
                         "blocked_until": blocked_until.isoformat(),
@@ -207,7 +205,7 @@ def enforce_tool_burst(user_id: int, tool_key: str) -> None:
     raise HTTPException(
         status_code=429,
         detail={
-            "message": _format_block_message(new_block_until),
+            "message": _format_block_message(new_block_until, locale),
             "kind": "tool_blocked",
             "tool_key": tool_key,
             "blocked_until": new_block_until.isoformat(),

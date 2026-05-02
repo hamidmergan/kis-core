@@ -6,6 +6,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
+from src.i18n import get_locale, t
 from src.storage import save_queue_file
 from src.limits import MAX_IMAGE_BYTES
 from src.quotas import enforce_quota
@@ -21,13 +22,14 @@ async def generate_image(
     size: str = Form("1024x1024"),
     n: int = Form(1),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     if not prompt.strip():
-        raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
+        raise HTTPException(status_code=400, detail=t("prompt.empty", locale))
     if n < 1 or n > 4:
-        raise HTTPException(status_code=400, detail="Anzahl muss zwischen 1 und 4 liegen")
+        raise HTTPException(status_code=400, detail=t("image.invalidCount", locale))
     if size not in {"1024x1024", "1280x720"}:
-        raise HTTPException(status_code=400, detail="Ungültige Bildgröße")
+        raise HTTPException(status_code=400, detail=t("image.invalidSize", locale))
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
@@ -48,21 +50,22 @@ async def edit_image(
     image: UploadFile = File(...),
     prompt: str = Form(...),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     if not prompt.strip():
-        raise HTTPException(status_code=400, detail="Prompt darf nicht leer sein")
+        raise HTTPException(status_code=400, detail=t("prompt.empty", locale))
     if not image.filename:
-        raise HTTPException(status_code=400, detail="Dateiname fehlt")
+        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
     ext = Path(image.filename).suffix.lower()
     if ext not in ALLOWED_IMAGE_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Nur PNG oder JPG erlaubt")
+        raise HTTPException(status_code=400, detail=t("file.onlyPngJpg", locale))
 
     content = await image.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Bild ist leer")
+        raise HTTPException(status_code=400, detail=t("image.empty", locale))
     if len(content) > MAX_IMAGE_BYTES:
-        raise HTTPException(status_code=413, detail="Bild zu groß (max 10 MB)")
+        raise HTTPException(status_code=413, detail=t("image.tooLarge", locale))
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)
@@ -86,19 +89,20 @@ async def analyze_image(
     image: UploadFile = File(...),
     prompt: str = Form(""),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     if not image.filename:
-        raise HTTPException(status_code=400, detail="Dateiname fehlt")
+        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
     ext = Path(image.filename).suffix.lower()
     if ext not in ALLOWED_IMAGE_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Nur PNG oder JPG erlaubt")
+        raise HTTPException(status_code=400, detail=t("file.onlyPngJpg", locale))
 
     content = await image.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Bild ist leer")
+        raise HTTPException(status_code=400, detail=t("image.empty", locale))
     if len(content) > MAX_IMAGE_BYTES:
-        raise HTTPException(status_code=413, detail="Bild zu groß (max 10 MB)")
+        raise HTTPException(status_code=413, detail=t("image.tooLarge", locale))
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)

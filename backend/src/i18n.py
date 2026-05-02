@@ -31,6 +31,71 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Admin-Zugriff erforderlich",
         "en": "Admin access required",
     },
+    # Common errors (broadly reused across feature routes)
+    "workspace.notFound": {"de": "Modul nicht gefunden", "en": "Workspace not found"},
+    "workspace.accessDenied": {"de": "Kein Zugriff", "en": "Access denied"},
+    "job.notFound": {"de": "Job nicht gefunden", "en": "Job not found"},
+    "job.accessDenied": {
+        "de": "Kein Zugriff auf diesen Job",
+        "en": "No access to this job",
+    },
+    "job.invalidUuid": {"de": "Ungültige Job-UUID", "en": "Invalid job UUID"},
+    "job.parallelRunning": {
+        "de": "Job läuft bereits (parallel gestartet)",
+        "en": "Job already running (started in parallel)",
+    },
+    "job.notInputState": {
+        "de": "Job ist nicht im Eingabe-Status",
+        "en": "Job is not in input state",
+    },
+    "job.dataUnavailable": {
+        "de": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
+        "en": "Job data no longer available - please start a new screencast",
+    },
+    "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
+    "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
+    "set.notFound": {"de": "Set nicht gefunden", "en": "Set not found"},
+    "note.notFound": {"de": "Notiz nicht gefunden", "en": "Note not found"},
+    "mindmap.notFound": {"de": "Mindmap nicht gefunden", "en": "Mindmap not found"},
+    "audio.notFound": {
+        "de": "Audio nicht gefunden (abgelaufen oder ungültige ID)",
+        "en": "Audio not found (expired or invalid ID)",
+    },
+    "file.nameMissing": {"de": "Dateiname fehlt", "en": "Filename missing"},
+    "file.empty": {"de": "Datei ist leer", "en": "File is empty"},
+    "file.tooLargeMb": {
+        "de": "Datei zu groß (max {max} MB)",
+        "en": "File too large (max {max} MB)",
+    },
+    "file.invalidPptxBase64": {
+        "de": "Ungültige PPTX-Daten (Base64)",
+        "en": "Invalid PPTX data (Base64)",
+    },
+    "file.onlyPngJpg": {"de": "Nur PNG oder JPG erlaubt", "en": "Only PNG or JPG allowed"},
+    "prompt.empty": {
+        "de": "Prompt darf nicht leer sein",
+        "en": "Prompt must not be empty",
+    },
+    "date.invalidExpiresAt": {
+        "de": "Ungültiges Datumsformat für expires_at",
+        "en": "Invalid date format for expires_at",
+    },
+    "scheduleEntry.invalidType": {
+        "de": "Typ muss 'deadline' oder 'termin' sein",
+        "en": "Type must be 'deadline' or 'termin'",
+    },
+    "translate.invalidProvider": {
+        "de": "Ungültiger Übersetzungs-Provider",
+        "en": "Invalid translation provider",
+    },
+    "glossary.notProvided": {
+        "de": "Kein Glossary vorhanden",
+        "en": "No glossary provided",
+    },
+    "screencast.noSlides": {
+        "de": "Keine Slides in der Präsentation gefunden",
+        "en": "No slides found in the presentation",
+    },
     # Provider configuration errors
     "llm.notConfigured": {
         "de": "Kein LLM-Provider konfiguriert",
@@ -39,6 +104,19 @@ MESSAGES: dict[str, dict[str, str]] = {
     "elevenlabs.notConfigured": {
         "de": "ElevenLabs API Key nicht konfiguriert",
         "en": "ElevenLabs API key not configured",
+    },
+    "kokoro.unreachable": {
+        "de": "Kokoro Server nicht erreichbar",
+        "en": "Kokoro server unreachable",
+    },
+    "mylab.ttsUnreachable": {
+        "de": "myLab TTS Server nicht erreichbar",
+        "en": "myLab TTS server unreachable",
+    },
+    # Rate limiting / burst block
+    "rateLimit.blocked": {
+        "de": "Chat ist bis {time} Uhr gesperrt (zu viele Anfragen in kurzer Zeit). Bitte später erneut versuchen.",
+        "en": "Chat is locked until {time} (too many requests in a short time). Please try again later.",
     },
     # Maintenance mode
     "maintenance.message": {
@@ -94,6 +172,15 @@ async def get_locale(
     return parse_accept_language(accept_language)
 
 
+def register_messages(extra: dict[str, dict[str, str]]) -> None:
+    """Register additional translation entries from a sub-module.
+
+    Used by feature-specific message fragments (see `src/_i18n_fragments/`)
+    to keep niche keys close to their feature without bloating this file.
+    """
+    MESSAGES.update(extra)
+
+
 def t(key: str, locale: str = DEFAULT_LOCALE, **params: object) -> str:
     """Translate a message key. Falls back to default locale, then to the key itself."""
     entry = MESSAGES.get(key)
@@ -101,3 +188,20 @@ def t(key: str, locale: str = DEFAULT_LOCALE, **params: object) -> str:
         return key
     text = entry.get(locale) or entry.get(DEFAULT_LOCALE) or key
     return text.format(**params) if params else text
+
+
+# Register feature-specific message fragments. Imported lazily to avoid
+# circular imports if a fragment ever needs `t()` itself.
+def _load_fragments() -> None:
+    try:
+        from src._i18n_fragments import ai_assistant, jobs, admin  # noqa: F401
+
+        for module in (ai_assistant, jobs, admin):
+            entries = getattr(module, "MESSAGES", None)
+            if entries:
+                register_messages(entries)
+    except ImportError:
+        pass
+
+
+_load_fragments()

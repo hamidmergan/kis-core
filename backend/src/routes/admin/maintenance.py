@@ -8,6 +8,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_admin_user
+from src.i18n import get_locale, t
 
 from src.routes.admin._embedding import active_embedding_provider_key, get_cached_fingerprint
 from src.routes.admin._models import MaintenanceToggleRequest
@@ -54,7 +55,10 @@ async def set_maintenance(body: MaintenanceToggleRequest, _admin=Depends(get_adm
 
 
 @router.post("/reindex-all")
-async def reindex_all(_admin=Depends(get_admin_user)):
+async def reindex_all(
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     """Queue a Celery job to re-embed every KI-Assistent chunk with the current provider."""
     progress_raw = db.get_setting("reindex_progress", "") or ""
     try:
@@ -62,7 +66,10 @@ async def reindex_all(_admin=Depends(get_admin_user)):
     except Exception:
         progress = None
     if progress and progress.get("running"):
-        raise HTTPException(status_code=409, detail="Reindex läuft bereits")
+        raise HTTPException(
+            status_code=409,
+            detail=t("admin.maintenance.reindexAlreadyRunning", locale),
+        )
 
     from src.tasks.aia_tasks import run_reindex_all_sources
     db.set_setting("reindex_progress", json.dumps({

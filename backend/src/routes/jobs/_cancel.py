@@ -6,6 +6,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_current_user
+from src.i18n import get_locale, t
 from src.storage import delete_job_folder
 
 from src.routes.jobs._shared import _SCREENCAST_TOOLS
@@ -18,13 +19,14 @@ router = APIRouter()
 async def cancel_job_render(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Stop a running render without deleting job data. Sets status back to awaiting_user."""
     job = db.get_job(job_uuid)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+        raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
 
     if job["celery_task_id"]:
         try:
@@ -55,13 +57,14 @@ async def cancel_job_render(
 async def cancel_job(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Cancel and delete a job. Revokes the Celery task if still running."""
     job = db.get_job(job_uuid)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+        raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
 
     # Revoke the Celery task (terminate=True sends SIGTERM to the worker process)
     if job["celery_task_id"]:

@@ -11,6 +11,7 @@ from loguru import logger
 from langfuse.decorators import langfuse_context
 
 from src import database as db
+from src.i18n import DEFAULT_LOCALE, t
 from src.storage import USE_S3
 
 def _trace_llm(llm, name: str) -> None:
@@ -24,7 +25,7 @@ _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".mp3", ".mp4", ".wav", ".flac"
 _MEDIA_EXTENSIONS = {".mp3", ".mp4", ".wav", ".flac", ".m4a", ".webm"}
 _MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB (audio/video can be large)
 
-def _convert_office_to_pdf(data: bytes, ext: str) -> bytes:
+def _convert_office_to_pdf(data: bytes, ext: str, locale: str = DEFAULT_LOCALE) -> bytes:
     """Convert .docx or .pptx to PDF using LibreOffice. Raises HTTPException on failure."""
     import subprocess
     import tempfile
@@ -40,7 +41,7 @@ def _convert_office_to_pdf(data: bytes, ext: str) -> bytes:
         pdf_path = tmp / "input.pdf"
         if not pdf_path.exists():
             logger.error("LibreOffice conversion failed (rc={}): {}", result.returncode, result.stderr[:300])
-            raise HTTPException(status_code=500, detail="Konvertierung nach PDF fehlgeschlagen")
+            raise HTTPException(status_code=500, detail=t("ai.source.pdfConversionFailed", locale))
         return pdf_path.read_bytes()
 
 def _mp4_faststart(data: bytes) -> bytes:
@@ -154,12 +155,12 @@ def _enrich_media_content(chunk: dict, segments: list[dict]) -> str:
         return content
     return " ".join(f"({_format_timestamp(s['start'])}) {s['text']}" for s in relevant)
 
-def _require_own_workspace(workspace_uuid: str, user_id: int) -> dict:
+def _require_own_workspace(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     if workspace["user_id"] != user_id:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
     return workspace
 
 def _save_source_file(user_id: int, workspace_uuid: str, source_uuid: str, ext: str, data: bytes) -> str:
@@ -183,17 +184,20 @@ def _delete_source_files_for_workspace(workspace: dict) -> None:
         except Exception as e:
             logger.warning("KI Tutor: could not delete file {}: {}", source["file_path"], e)
 
-def _resolve_source_ids(workspace: dict, source_uuids: list[str], max_count: int = 3) -> list[int]:
+def _resolve_source_ids(
+    workspace: dict, source_uuids: list[str], max_count: int = 3,
+    locale: str = DEFAULT_LOCALE,
+) -> list[int]:
     """Resolve source UUIDs to DB IDs, enforce max count."""
     if len(source_uuids) > max_count:
-        raise HTTPException(status_code=400, detail=f"Maximal {max_count} Sources erlaubt")
+        raise HTTPException(status_code=400, detail=t("ai.source.maxAllowed", locale, max=max_count))
     ids = []
     for suuid in source_uuids:
         source = db.get_aia_source(suuid)
         if source and source["workspace_id"] == workspace["id"] and source["status"] == "ready":
             ids.append(source["id"])
     if not ids:
-        raise HTTPException(status_code=400, detail="Keine gültigen Sources ausgewählt")
+        raise HTTPException(status_code=400, detail=t("ai.source.noValidSelected", locale))
     return ids
 
 def _term_appears_in_text(term: str, text_lower: str) -> bool:

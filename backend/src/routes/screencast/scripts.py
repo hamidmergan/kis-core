@@ -9,6 +9,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
+from src.i18n import get_locale, t
 from src.services.screencast import generate_all_scripts
 from src.storage import get_job_file, save_job_file
 from src.utils.file_validation import MAX_SCREENCAST_SLIDES
@@ -28,15 +29,16 @@ async def save_scripts(
     translate_job_uuid: str,
     body: SaveScriptsRequest,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Autosave or accept scripts for a screencast job (awaiting_user)."""
     if not re.match(r"^[a-f0-9]{32}$", translate_job_uuid):
-        raise HTTPException(status_code=400, detail="Ungültige Job-UUID")
+        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
     job = db.get_job(translate_job_uuid)
     if not job or job["user_id"] != current_user.get("user_id", 0):
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["status"] not in ("awaiting_user", "success"):
-        raise HTTPException(status_code=409, detail="Job ist nicht im Eingabe-Status")
+        raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
     filename = "accepted_scripts.json" if body.accepted else "user_scripts.json"
     save_job_file(job["user_id"], translate_job_uuid, filename, json.dumps(body.scripts, ensure_ascii=False).encode())
     if body.user_prompt is not None:
@@ -45,15 +47,23 @@ async def save_scripts(
 
 
 @router.post("/screencast/generate-scripts")
-async def screencast_generate_scripts(body: GenerateScriptsRequest):
+async def screencast_generate_scripts(
+    body: GenerateScriptsRequest,
+    locale: str = Depends(get_locale),
+):
     """Generate spoken scripts for each slide via the configured LLM."""
     if not body.slide_texts:
-        raise HTTPException(status_code=400, detail="Keine Folientexte übergeben")
+        raise HTTPException(status_code=400, detail=t("screencast.noSlideTexts", locale))
 
     if len(body.slide_texts) > MAX_SCREENCAST_SLIDES:
         raise HTTPException(
             status_code=400,
-            detail=f"Zu viele Folien ({len(body.slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
+            detail=t(
+                "screencast.tooManySlides",
+                locale,
+                count=len(body.slide_texts),
+                max=MAX_SCREENCAST_SLIDES,
+            ),
         )
 
     logger.info(
@@ -76,7 +86,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
     if uuid_key:
         job_row = db.get_job(uuid_key)
         if not job_row:
-            raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar, bitte neuen Screencast starten")
+            raise HTTPException(status_code=410, detail=t("job.dataUnavailable", locale))
         uuid_user_id = job_row["user_id"]
 
     # Verify job folder still exists before burning LLM tokens
@@ -84,7 +94,7 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
         try:
             get_job_file(uuid_user_id, uuid_key, "scripts.txt")
         except Exception:
-            raise HTTPException(status_code=410, detail="Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten")
+            raise HTTPException(status_code=410, detail=t("job.dataUnavailable", locale))
 
     async def _do_generate() -> list[str]:
         return await generate_all_scripts(
@@ -128,7 +138,10 @@ async def screencast_generate_scripts(body: GenerateScriptsRequest):
 
 
 @router.post("/screencast/regenerate-slide-script")
-async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest):
+async def screencast_regenerate_slide_script(
+    body: RegenerateSlideScriptRequest,
+    locale: str = Depends(get_locale),
+):
     """Regenerate the narration script for a single slide via the configured LLM.
 
     Called from Step 5 when the user clicks the AI icon next to a slide.
@@ -156,6 +169,6 @@ async def screencast_regenerate_slide_script(body: RegenerateSlideScriptRequest)
             [{"role": m.role, "content": m.content} for m in body.messages],
         )
     except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=f"Skript-Generierung fehlgeschlagen: {e}")
+        raise HTTPException(status_code=502, detail=t("screencast.scriptGenerationFailed", locale, error=str(e)))
 
     return {"script": script}

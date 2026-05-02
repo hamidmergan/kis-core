@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src import database as db
 from src.dependencies import get_admin_user, get_current_user
+from src.i18n import get_locale, t
 
 from src.routes.admin._models import ToggleToolRequest
 from src.routes.admin._registries import DEFAULT_DISABLED_TOOLS, TOOLS_CONFIG
@@ -28,18 +29,23 @@ async def get_tools(_user=Depends(get_current_user)):
 
     return {
         "tools": [
-            {**t, "enabled": _is_enabled(t["key"])}
-            for t in TOOLS_CONFIG
+            {**tool, "enabled": _is_enabled(tool["key"])}
+            for tool in TOOLS_CONFIG
         ]
     }
 
 
 @router.patch("/tools/{tool_key}")
-async def toggle_tool(tool_key: str, body: ToggleToolRequest, _admin=Depends(get_admin_user)):
+async def toggle_tool(
+    tool_key: str,
+    body: ToggleToolRequest,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     """Enable or disable a tool on the homepage. Admin only."""
-    valid_keys = {t["key"] for t in TOOLS_CONFIG}
+    valid_keys = {tool["key"] for tool in TOOLS_CONFIG}
     if tool_key not in valid_keys:
-        raise HTTPException(status_code=400, detail="Unbekanntes Tool")
+        raise HTTPException(status_code=400, detail=t("admin.tools.unknownKey", locale))
     disabled = set(json.loads(db.get_setting("disabled_tools", "[]")))
     enabled_overrides = set(json.loads(db.get_setting("enabled_tools_override", "[]")))
     if body.enabled:

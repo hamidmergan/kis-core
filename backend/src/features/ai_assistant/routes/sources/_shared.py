@@ -8,6 +8,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user
+from src.i18n import get_locale, t
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -30,6 +31,7 @@ __all__ = [
     "FileResponse", "Response", "StreamingResponse",
     "logger", "db",
     "get_current_user",
+    "get_locale", "t",
     "KIA_SOURCE_MAX_PAGES", "KIA_WORKSPACE_MAX_SOURCES",
     "USE_S3", "delete_file", "file_exists", "get_file", "stream_s3_object",
     "_convert_office_to_pdf", "_mp4_faststart", "_count_pages",

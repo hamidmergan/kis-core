@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from loguru import logger
 from pydantic import BaseModel
 
 from src import database
 from src.dependencies import get_settings, get_session_store
+from src.i18n import get_locale, t
 from src.ldap_auth import authenticate_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -15,7 +16,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
-async def login(body: LoginRequest, response: Response):
+async def login(body: LoginRequest, response: Response, locale: str = Depends(get_locale)):
     settings = get_settings()
 
     # Step 1: LDAP authentication
@@ -27,7 +28,7 @@ async def login(body: LoginRequest, response: Response):
 
     if ldap_user is None:
         logger.warning("Failed login attempt for user '{}' (invalid credentials)", body.username)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail=t("auth.invalidCredentials", locale))
 
     # Step 2: Determine active status via email whitelist (if enabled)
     ldap_username = ldap_user["username"]  # confirmed by LDAP, not from body

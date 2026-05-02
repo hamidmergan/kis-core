@@ -18,6 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client, is_admin_user
+from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
@@ -58,22 +59,23 @@ async def generate_flashcards(
     workspace_uuid: str,
     body: schemas.FlashcardsGenerateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Create a flashcards exercise set via Celery."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
-    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5)
+    source_ids = _resolve_source_ids(workspace, body.active_source_ids, max_count=5, locale=locale)
     first_uuid = body.active_source_ids[0] if body.active_source_ids else None
 
     placeholder = db.create_exercise_set_placeholder(

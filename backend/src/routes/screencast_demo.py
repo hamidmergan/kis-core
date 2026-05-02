@@ -22,6 +22,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from src.dependencies import get_current_user
+from src.i18n import get_locale, t
 from src.limits import BUNDLE_INCLUDE_AUDIO, BUNDLE_INCLUDE_IMAGES
 from src.storage import _S3_BUCKET, _s3
 
@@ -176,7 +177,10 @@ async def demo_available():
 
 
 @router.post("/screencast-demo/translate")
-async def demo_translate(_: dict = Depends(get_current_user)):
+async def demo_translate(
+    _: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     """Return demo slide data instantly from pre-baked files."""
     _require_demo_enabled()
 
@@ -184,7 +188,7 @@ async def demo_translate(_: dict = Depends(get_current_user)):
     if not scripts:
         raise HTTPException(
             status_code=404,
-            detail="Keine Skripte in demo/ gefunden (accepted_scripts.json fehlt)",
+            detail=t("screencastDemo.scriptsMissing", locale),
         )
 
     images = _load_demo_images()
@@ -200,7 +204,10 @@ async def demo_translate(_: dict = Depends(get_current_user)):
 
 
 @router.post("/screencast-demo/generate-scripts")
-async def demo_generate_scripts(body: DemoGenerateScriptsRequest = DemoGenerateScriptsRequest()):
+async def demo_generate_scripts(
+    body: DemoGenerateScriptsRequest = DemoGenerateScriptsRequest(),
+    locale: str = Depends(get_locale),
+):
     """Return pre-baked scripts instantly."""
     _require_demo_enabled()
 
@@ -208,7 +215,7 @@ async def demo_generate_scripts(body: DemoGenerateScriptsRequest = DemoGenerateS
     if not scripts:
         raise HTTPException(
             status_code=404,
-            detail="Keine Skripte in demo/ gefunden (accepted_scripts.json fehlt)",
+            detail=t("screencastDemo.scriptsMissing", locale),
         )
 
     logger.info("Demo/generate-scripts: returning {} scripts", len(scripts))
@@ -216,7 +223,11 @@ async def demo_generate_scripts(body: DemoGenerateScriptsRequest = DemoGenerateS
 
 
 @router.post("/screencast-demo/render")
-async def demo_render(body: DemoRenderRequest, _: dict = Depends(get_current_user)):
+async def demo_render(
+    body: DemoRenderRequest,
+    _: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     """Stream the pre-rendered demo video directly."""
     _require_demo_enabled()
 
@@ -224,13 +235,13 @@ async def demo_render(body: DemoRenderRequest, _: dict = Depends(get_current_use
     if not video:
         raise HTTPException(
             status_code=404,
-            detail="Kein Demo-Video gefunden (output.mp4 fehlt in demo/)",
+            detail=t("screencastDemo.videoMissing", locale),
         )
 
     if not DEMO_LOCAL:
         video_bytes = _s3_get(str(video))
         if not video_bytes:
-            raise HTTPException(status_code=404, detail="Demo-Video konnte nicht aus S3 gelesen werden")
+            raise HTTPException(status_code=404, detail=t("screencastDemo.videoReadFailed", locale))
         name = str(video).split("/")[-1]
     else:
         video_bytes = Path(video).read_bytes()

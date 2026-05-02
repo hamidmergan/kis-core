@@ -8,6 +8,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
+from src.i18n import get_locale, t
 from src.storage import clear_render_cache, delete_job_folder, job_file_exists, save_job_file
 from src.utils.file_validation import MAX_SCREENCAST_SLIDES, SCREENCAST_MAX_CHARS
 
@@ -18,14 +19,18 @@ router = APIRouter(tags=["screencast: render"])
 
 
 @router.post("/screencast/prerender-images")
-async def prerender_images(body: PrerenderRequest, background_tasks: BackgroundTasks):
+async def prerender_images(
+    body: PrerenderRequest,
+    background_tasks: BackgroundTasks,
+    locale: str = Depends(get_locale),
+):
     """Start background pre-rendering of slide images at 300 DPI.
 
     Call this after the user confirms scripts so images are ready when /render is called.
     Fire-and-forget: always returns immediately.
     """
     if not re.match(r"^[a-f0-9]{32}$", body.translate_job_uuid):
-        raise HTTPException(status_code=400, detail="Ungültige job UUID")
+        raise HTTPException(status_code=400, detail=t("job.invalidUuid", locale))
     background_tasks.add_task(prerender_images_task, body.translate_job_uuid)
     logger.info("Pre-render started for job={}", body.translate_job_uuid)
     return {"status": "started"}
@@ -35,22 +40,33 @@ async def prerender_images(body: PrerenderRequest, background_tasks: BackgroundT
 async def screencast_render(
     body: RenderRequest,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Queue render phase on the existing translate job (single-folder workflow)."""
     if not body.scripts:
-        raise HTTPException(status_code=400, detail="Keine Skripte übergeben")
+        raise HTTPException(status_code=400, detail=t("screencast.noScripts", locale))
 
     if len(body.scripts) > MAX_SCREENCAST_SLIDES:
         raise HTTPException(
             status_code=400,
-            detail=f"Zu viele Folien ({len(body.scripts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
+            detail=t(
+                "screencast.tooManySlides",
+                locale,
+                count=len(body.scripts),
+                max=MAX_SCREENCAST_SLIDES,
+            ),
         )
 
     total_chars = sum(len(s) for s in body.scripts)
     if total_chars > SCREENCAST_MAX_CHARS:
         raise HTTPException(
             status_code=422,
-            detail=f"Das Skript ist zu lang ({total_chars:,} Zeichen). Maximum: {SCREENCAST_MAX_CHARS:,} Zeichen.",
+            detail=t(
+                "screencast.scriptTooLong",
+                locale,
+                chars=f"{total_chars:,}",
+                maxChars=f"{SCREENCAST_MAX_CHARS:,}",
+            ),
         )
 
     user_id = current_user.get("user_id", 0)
@@ -58,15 +74,15 @@ async def screencast_render(
     # Validate translate job ownership + status
     translate_job = db.get_job(body.translate_job_uuid)
     if not translate_job:
-        raise HTTPException(status_code=404, detail="Translate-Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("screencast.translateJobNotFound", locale))
     if translate_job["user_id"] != user_id:
-        raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+        raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
     if translate_job["status"] not in ("awaiting_user", "failed", "success"):
-        raise HTTPException(status_code=409, detail="Job ist nicht bereit zum Rendern")
+        raise HTTPException(status_code=409, detail=t("screencast.notReadyForRender", locale))
     if not job_file_exists(user_id, body.translate_job_uuid, "translated.pptx"):
         delete_job_folder(user_id, body.translate_job_uuid)
         db.delete_job(body.translate_job_uuid)
-        raise HTTPException(status_code=404, detail="Job-Dateien nicht mehr vorhanden. Bitte neue Übersetzung starten.")
+        raise HTTPException(status_code=404, detail=t("screencast.jobFilesGone", locale))
 
     # If re-rendering a previously completed job, clear stale TTS audio so the
     # crash-recovery mechanism doesn't reuse old audio for the new scripts.
@@ -94,7 +110,7 @@ async def screencast_render(
         from_statuses=("awaiting_user", "failed", "success"),
     )
     if not transitioned:
-        raise HTTPException(status_code=409, detail="Dieser Job wird bereits verarbeitet.")
+        raise HTTPException(status_code=409, detail=t("screencast.alreadyProcessing", locale))
 
     from src.tasks.screencast_tasks import dispatch_next_screencast_job_for_user
     dispatch_next_screencast_job_for_user(user_id)

@@ -18,6 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
+from src.i18n import get_locale, t
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -56,6 +57,7 @@ async def create_workspace(
     description: Optional[str] = Form(None, max_length=300),
     expires_at: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace_uuid = db.create_aia_workspace(user_id, title, description)
@@ -67,7 +69,7 @@ async def create_workspace(
         try:
             expires = datetime.fromisoformat(expires_at).replace(tzinfo=timezone.utc)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für expires_at")
+            raise HTTPException(status_code=400, detail=t("date.invalidExpiresAt", locale))
     else:
         expires = None
 
@@ -124,8 +126,12 @@ async def list_workspaces(current_user: dict = Depends(get_current_user)):
     return result
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}")
-async def get_workspace(workspace_uuid: str, current_user: dict = Depends(get_current_user)):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
+async def get_workspace(
+    workspace_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     db.touch_aia_workspace_visited(workspace_uuid)
     sources = db.get_aia_sources_by_workspace(workspace["id"])
     links = db.get_access_links_by_workspace(workspace["id"])
@@ -169,15 +175,16 @@ async def patch_workspace(
     workspace_uuid: str,
     body: schemas.PatchWorkspaceBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     new_title = body.title if body.title is not None else workspace["title"]
     new_desc = body.description if body.description is not None else workspace["description"]
     new_active = body.is_active if body.is_active is not None else workspace["is_active"]
     db.update_aia_workspace(workspace_uuid, new_title, new_desc, new_active)
     if body.transcript_translation_mode is not None:
         if body.transcript_translation_mode not in ("off", "auto", "manual"):
-            raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Modus")
+            raise HTTPException(status_code=400, detail=t("ai.workspace.translationModeInvalid", locale))
         db.set_aia_workspace_translation_mode(workspace_uuid, body.transcript_translation_mode)
     return {"uuid": workspace_uuid, "title": new_title, "is_active": new_active}
 
@@ -186,13 +193,14 @@ async def renew_enroll_code(
     workspace_uuid: str,
     body: schemas.RenewCodeBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Legacy: creates a new access link (kept for backward compat)."""
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     try:
         expires = datetime.fromisoformat(body.expires_at).replace(tzinfo=timezone.utc)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für expires_at")
+        raise HTTPException(status_code=400, detail=t("date.invalidExpiresAt", locale))
     new_code = uuid.uuid4().hex[:8]
     link = db.create_access_link(workspace["id"], new_code, expires)
     db.set_aia_workspace_enroll_code(workspace_uuid, new_code, expires)
@@ -207,18 +215,19 @@ async def create_workspace_access_link(
     workspace_uuid: str,
     body: schemas.CreateAccessLinkBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     existing_links = db.get_access_links_by_workspace(workspace["id"])
     if len(existing_links) >= KIA_WORKSPACE_MAX_ACCESS_LINKS:
         raise HTTPException(
             status_code=400,
-            detail=f"Maximal {KIA_WORKSPACE_MAX_ACCESS_LINKS} Einschreibelinks pro Modul erlaubt. Bitte lösche zuerst einen alten Link.",
+            detail=t("ai.workspace.maxAccessLinks", locale, max=KIA_WORKSPACE_MAX_ACCESS_LINKS),
         )
     try:
         expires = datetime.fromisoformat(body.expires_at).replace(tzinfo=timezone.utc)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Ungültiges Datumsformat für expires_at")
+        raise HTTPException(status_code=400, detail=t("date.invalidExpiresAt", locale))
     code = uuid.uuid4().hex[:8]
     link = db.create_access_link(workspace["id"], code, expires)
     logger.info("KI Tutor: access link {} created for workspace {}", link["id"], workspace_uuid)
@@ -232,8 +241,9 @@ async def create_workspace_access_link(
 async def list_access_links(
     workspace_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     links = db.get_access_links_by_workspace(workspace["id"])
     return [
         {
@@ -250,22 +260,31 @@ async def delete_access_link(
     workspace_uuid: str,
     link_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
-    _require_own_workspace(workspace_uuid, current_user["user_id"])
+    _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     db.delete_access_link(link_id)
     logger.info("KI Tutor: access link {} deleted from workspace {}", link_id, workspace_uuid)
     return {"deleted": link_id}
 
 @router.delete("/ai-assistant/workspaces/{workspace_uuid}")
-async def delete_workspace(workspace_uuid: str, current_user: dict = Depends(get_current_user)):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
+async def delete_workspace(
+    workspace_uuid: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     _delete_source_files_for_workspace(workspace)
     db.delete_aia_workspace(workspace_uuid)
     logger.info("KI Tutor: workspace {} deleted by user {}", workspace_uuid, current_user["user_id"])
     return {"deleted": workspace_uuid}
 
 @router.post("/ai-assistant/enroll")
-async def enroll(body: schemas.EnrollBody, current_user: dict = Depends(get_current_user)):
+async def enroll(
+    body: schemas.EnrollBody,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     user_id = current_user["user_id"]
 
     # Try new access_links table first
@@ -287,7 +306,7 @@ async def enroll(body: schemas.EnrollBody, current_user: dict = Depends(get_curr
     # Fallback: legacy enroll_code on workspace
     workspace = db.get_workspace_by_enroll_code(body.enroll_code)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Ungültiger oder abgelaufener Einschreibecode")
+        raise HTTPException(status_code=404, detail=t("ai.workspace.invalidEnrollCode", locale))
     if db.is_student_enrolled(workspace["id"], user_id):
         return {"workspace_uuid": workspace["uuid"], "title": workspace["title"]}
     enrolled_until = workspace.get("enroll_code_expires")

@@ -3,7 +3,7 @@ import re
 
 from ._shared import (
     Path, Optional, APIRouter, Depends, HTTPException, Request, logger, db,
-    get_current_user,
+    get_current_user, get_locale, t,
     FileResponse, Response, StreamingResponse,
     USE_S3, file_exists, get_file, stream_s3_object,
     _require_own_workspace,
@@ -18,20 +18,21 @@ async def stream_source_file(
     source_uuid: str,
     request: Request,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     ext = Path(source["filename"]).suffix.lower()
     media_type_map = {
@@ -85,29 +86,30 @@ async def regenerate_en_transcript(
     source_uuid: str,
     provider: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Dispatch an async Celery task to translate the source-language VTT to English.
 
     If ``provider`` is omitted, falls back to the admin-configured default
     (``transcript_translation_provider`` setting; defaults to ``llm``).
     """
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     if workspace.get("transcript_translation_mode", "manual") == "off":
-        raise HTTPException(status_code=403, detail="EN-Übersetzung ist für diesen Workspace deaktiviert")
+        raise HTTPException(status_code=403, detail=t("ai.transcript.translationDisabled", locale))
 
     effective_provider = provider or db.get_setting("transcript_translation_provider", "llm")
     if effective_provider not in ("deepl", "llm"):
-        raise HTTPException(status_code=400, detail="Ungültiger Provider")
+        raise HTTPException(status_code=400, detail=t("ai.transcript.invalidProvider", locale))
 
     base_key = source["file_path"].rsplit(".", 1)[0]
     if not any(file_exists(f"{base_key}_transcript.{lang}.vtt") for lang in ("de",)):
         raise HTTPException(
             status_code=404,
-            detail="Kein Quell-Transkript gefunden. Neu-Übersetzung nicht möglich.",
+            detail=t("ai.transcript.sourceMissing", locale),
         )
 
     from src.tasks.aia_tasks import run_translate_transcript_en
@@ -125,31 +127,32 @@ async def get_transcript_vtt(
     source_uuid: str,
     lang: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Return a WebVTT transcript for a media source in the requested language."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     # Only allow lowercase ISO-like language codes (2-5 chars)
     lang_clean = (lang or "").strip().lower()
     if not re.fullmatch(r"[a-z]{2,5}", lang_clean):
-        raise HTTPException(status_code=400, detail="Ungültiger Sprachcode")
+        raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
 
     base_key = source["file_path"].rsplit(".", 1)[0]
     vtt_key = f"{base_key}_transcript.{lang_clean}.vtt"
     if not file_exists(vtt_key):
-        raise HTTPException(status_code=404, detail="Transkript nicht verfügbar")
+        raise HTTPException(status_code=404, detail=t("ai.transcript.notAvailable", locale))
 
     data = get_file(vtt_key)
     return Response(

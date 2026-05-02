@@ -3,30 +3,34 @@
 import zipfile
 from io import BytesIO
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from src.features.jobs.repository import get_job
+from src.i18n import get_locale, t
 from src.storage import get_all_audio_slides, get_audio_slide, get_audio_slide_count
 
 router = APIRouter(tags=["screencast: audio"])
 
 
-def _resolve_user_id(audio_id: str) -> int:
+def _resolve_user_id(audio_id: str, locale: str = "de") -> int:
     """Resolve the owning user_id for an audio_id (which is a job_uuid)."""
     job = get_job(audio_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
+        raise HTTPException(status_code=404, detail=t("audio.notFound", locale))
     return job["user_id"]
 
 
 @router.get("/screencast/audio/{audio_id}/zip")
-async def download_all_slide_audio_zip(audio_id: str):
+async def download_all_slide_audio_zip(
+    audio_id: str,
+    locale: str = Depends(get_locale),
+):
     """Download all per-slide MP3s as a single ZIP archive."""
-    user_id = _resolve_user_id(audio_id)
+    user_id = _resolve_user_id(audio_id, locale)
     slides = get_all_audio_slides(user_id, audio_id)
     if not slides:
-        raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
+        raise HTTPException(status_code=404, detail=t("audio.notFound", locale))
 
     buf = BytesIO()
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_STORED) as zf:
@@ -46,18 +50,22 @@ async def download_all_slide_audio_zip(audio_id: str):
 
 
 @router.get("/screencast/audio/{audio_id}/{slide_index}")
-async def download_slide_audio(audio_id: str, slide_index: int):
+async def download_slide_audio(
+    audio_id: str,
+    slide_index: int,
+    locale: str = Depends(get_locale),
+):
     """Download a single per-slide MP3 from the render audio cache (file-based)."""
-    user_id = _resolve_user_id(audio_id)
+    user_id = _resolve_user_id(audio_id, locale)
     count = get_audio_slide_count(user_id, audio_id)
     if count == 0:
-        raise HTTPException(status_code=404, detail="Audio nicht gefunden (abgelaufen oder ungültige ID)")
+        raise HTTPException(status_code=404, detail=t("audio.notFound", locale))
     if slide_index < 0 or slide_index >= count:
-        raise HTTPException(status_code=404, detail=f"Folie {slide_index + 1} nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("screencast.slideNotFound", locale, slide=slide_index + 1))
 
     audio_bytes = get_audio_slide(user_id, audio_id, slide_index)
     if audio_bytes is None:
-        raise HTTPException(status_code=404, detail=f"Folie {slide_index + 1} nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("screencast.slideNotFound", locale, slide=slide_index + 1))
 
     filename = f"slide_{slide_index + 1:02d}.mp3"
     return StreamingResponse(

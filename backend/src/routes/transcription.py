@@ -8,6 +8,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
+from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.storage import save_queue_file
@@ -28,31 +29,39 @@ async def transcribe(
     task: str = Form("transcribe"),
     response_format: str = Form("text"),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Filename missing")
+        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
 
     ext = Path(file.filename).suffix.lower()
     if ext not in TRANSCRIPTION_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Only {', '.join(TRANSCRIPTION_EXTENSIONS.keys())} allowed",
+            detail=t(
+                "transcription.unsupportedFormat",
+                locale,
+                formats=", ".join(TRANSCRIPTION_EXTENSIONS.keys()),
+            ),
         )
 
     if task not in _VALID_TASKS:
-        raise HTTPException(status_code=400, detail=f"Invalid task: {task}")
+        raise HTTPException(status_code=400, detail=t("transcription.invalidTask", locale, task=task))
     if response_format not in _VALID_FORMATS:
-        raise HTTPException(status_code=400, detail=f"Invalid format: {response_format}")
+        raise HTTPException(
+            status_code=400,
+            detail=t("transcription.invalidFormat", locale, format=response_format),
+        )
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_TRANSCRIPTION_BYTES:
-        raise HTTPException(status_code=413, detail="File too large (max 500 MB)")
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
 
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=400, detail="File is empty")
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
     if len(content) > MAX_TRANSCRIPTION_BYTES:
-        raise HTTPException(status_code=413, detail="File too large (max 500 MB)")
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb500", locale))
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)

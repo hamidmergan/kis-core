@@ -12,6 +12,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user
+from src.i18n import get_locale, t
 from src.limits import BUNDLE_INCLUDE_AUDIO
 from src.storage import (
     get_file,
@@ -30,21 +31,22 @@ router = APIRouter()
 async def download_job_result(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Download the binary result file (MP4 or MP3) for a completed job."""
     job = db.get_job(job_uuid)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["status"] != "success":
-        raise HTTPException(status_code=404, detail="Job noch nicht abgeschlossen")
+        raise HTTPException(status_code=404, detail=t("job.notCompleted", locale))
     if not job["result_path"]:
-        raise HTTPException(status_code=404, detail="Kein Download für diesen Job")
+        raise HTTPException(status_code=404, detail=t("job.noDownloadAvailable", locale))
 
     result_path_str = job["result_path"]
     try:
         data = get_file(result_path_str)
     except Exception:
-        raise HTTPException(status_code=404, detail="Datei nicht mehr vorhanden (abgelaufen)")
+        raise HTTPException(status_code=404, detail=t("job.fileExpired", locale))
 
     ext = Path(result_path_str).suffix.lower()
 
@@ -53,7 +55,7 @@ async def download_job_result(
         try:
             images_data = json_lib.loads(data)["images"]
         except Exception:
-            raise HTTPException(status_code=500, detail="Bilddaten konnten nicht gelesen werden")
+            raise HTTPException(status_code=500, detail=t("image.dataReadFailed", locale))
 
         if len(images_data) == 1:
             img_bytes = base64.b64decode(images_data[0]["b64_json"])
@@ -101,11 +103,12 @@ async def download_job_result(
 async def download_job_pptx(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Download the translated PPTX for a screencast render job."""
     job = db.get_job(job_uuid)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 
     # Works for both screencast_translate (has result_path)
     # and screencast_demo_render (result_path is NULL, but translated.pptx is in folder).
@@ -113,7 +116,7 @@ async def download_job_pptx(
         data = get_job_file(job["user_id"], job_uuid, "translated.pptx")
     except Exception as e:
         logger.error("PPTX download failed for job {}: {}", job_uuid, e)
-        raise HTTPException(status_code=404, detail="PPTX nicht mehr vorhanden (abgelaufen)")
+        raise HTTPException(status_code=404, detail=t("screencast.pptxExpired", locale))
 
     pptx_filename = _resolve_artifact_filename(job, ext="pptx")
 
@@ -227,13 +230,14 @@ def _streaming_zip_bundle(user_id: int, job_uuid: str, stem: str, audio_count: i
 async def download_job_bundle(
     job_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Download a ZIP bundle containing MP4, slide audios, PPTX and script for a screencast job."""
     job = db.get_job(job_uuid)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job.get("user_id") != current_user.get("user_id"):
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     user_id = job["user_id"]
     meta = load_result_meta(user_id, job_uuid) or {}

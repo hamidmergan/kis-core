@@ -7,6 +7,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_admin_user
+from src.i18n import get_locale, t
 from src.services.admin.health import (
     check_fish_speech_available,
     check_kokoro_available,
@@ -22,7 +23,11 @@ router = APIRouter(tags=["admin: settings"])
 
 
 @router.get("/settings/ping")
-async def ping_service(service: str, _admin=Depends(get_admin_user)):
+async def ping_service(
+    service: str,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     """On-demand reachability probe. Called from the UI when the user clicks
     a 'Testen' (Test) button, so the main settings load stays instant.
     """
@@ -37,7 +42,10 @@ async def ping_service(service: str, _admin=Depends(get_admin_user)):
     }
     fn = checks.get(service)
     if fn is None:
-        raise HTTPException(status_code=400, detail=f"Unknown service: {service}")
+        raise HTTPException(
+            status_code=400,
+            detail=t("admin.settings.unknownPingService", locale, service=service),
+        )
 
     # URL pick for DNS pre-check
     urls = {
@@ -168,7 +176,9 @@ _EMBEDDING_KEYS = ("primary_embedding_enabled", "fallback_embedding_enabled", "l
 _LLM_KEYS = ("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled")
 
 
-def _apply_radio_group(body_dict: dict, keys: tuple[str, ...], group_label: str) -> bool:
+def _apply_radio_group(
+    body_dict: dict, keys: tuple[str, ...], group_label: str, locale: str
+) -> bool:
     """Enforce 'exactly one active' for a group of mutually-exclusive provider toggles.
 
     Returns True when any key in the group was changed.
@@ -189,7 +199,11 @@ def _apply_radio_group(body_dict: dict, keys: tuple[str, ...], group_label: str)
             if currently_on == [active_key]:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Mindestens ein {group_label}-Anbieter muss aktiv bleiben. Aktiviere zuerst einen anderen.",
+                    detail=t(
+                        "admin.settings.lastProviderRequired",
+                        locale,
+                        group=group_label,
+                    ),
                 )
             db.set_setting(active_key, "false")
             changed = True
@@ -197,7 +211,11 @@ def _apply_radio_group(body_dict: dict, keys: tuple[str, ...], group_label: str)
 
 
 @router.patch("/settings")
-async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_user)):
+async def update_settings(
+    body: UpdateSettingsRequest,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     body_dict = body.model_dump()
 
     # Simple bool toggles
@@ -209,12 +227,12 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
     # Embeddings - exactly one must be enabled at any time.
     # Different embedding models have different vector dimensions, so parallel
     # operation or silent fallback would corrupt the index.
-    if _apply_radio_group(body_dict, _EMBEDDING_KEYS, "Embedding"):
+    if _apply_radio_group(body_dict, _EMBEDDING_KEYS, "Embedding", locale):
         invalidate_fingerprint_cache()
 
     # LLM Chat - exactly one must be enabled at any time.
     # Provider selection is no longer controlled via env vars (see _resolve_llm_provider).
-    _apply_radio_group(body_dict, _LLM_KEYS, "LLM")
+    _apply_radio_group(body_dict, _LLM_KEYS, "LLM", locale)
 
     # UI label overrides for "Workspace"
     for label_key in ("workspace_label_singular", "workspace_label_plural"):
@@ -222,22 +240,34 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         if value is not None:
             stripped = value.strip()
             if not stripped:
-                raise HTTPException(status_code=400, detail=f"{label_key} darf nicht leer sein")
+                raise HTTPException(
+                    status_code=400,
+                    detail=t("admin.settings.labelEmpty", locale, label=label_key),
+                )
             if len(stripped) > 40:
-                raise HTTPException(status_code=400, detail=f"{label_key} ist zu lang (max 40 Zeichen)")
+                raise HTTPException(
+                    status_code=400,
+                    detail=t("admin.settings.labelTooLong", locale, label=label_key),
+                )
             db.set_setting(label_key, stripped)
 
     # Transcript translation: only "deepl" or "llm"
     if body.transcript_translation_provider is not None:
         if body.transcript_translation_provider not in ("deepl", "llm"):
-            raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
+            raise HTTPException(
+                status_code=400,
+                detail=t("translate.invalidProvider", locale),
+            )
         db.set_setting("transcript_translation_provider", body.transcript_translation_provider)
 
     # /translate LLM provider override (model values flow through the generic `models` dict)
     if body.translation_llm_provider is not None:
         prov = body.translation_llm_provider.strip()
         if prov and prov not in ("primary", "fallback", "local"):
-            raise HTTPException(status_code=400, detail="Ungültiger Übersetzungs-Provider")
+            raise HTTPException(
+                status_code=400,
+                detail=t("translate.invalidProvider", locale),
+            )
         db.set_setting("translation_llm_provider", prov)
 
     # Provider model names
@@ -245,11 +275,17 @@ async def update_settings(body: UpdateSettingsRequest, _admin=Depends(get_admin_
         from src.services.runtime_models import MODEL_KEYS
         unknown = [k for k in body.models if k not in MODEL_KEYS]
         if unknown:
-            raise HTTPException(status_code=400, detail=f"Unbekannte Model-Keys: {unknown}")
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.unknownModelKeys", locale, unknown=unknown),
+            )
         for key, value in body.models.items():
             stripped = (value or "").strip()
             if not stripped:
-                raise HTTPException(status_code=400, detail=f"Modellname fuer {key} darf nicht leer sein")
+                raise HTTPException(
+                    status_code=400,
+                    detail=t("admin.settings.modelNameEmpty", locale, key=key),
+                )
             db.set_setting(key, stripped)
         # Model change for embedding may require reindex
         if any(k in MODEL_KEYS and "embedding" in k for k in body.models):

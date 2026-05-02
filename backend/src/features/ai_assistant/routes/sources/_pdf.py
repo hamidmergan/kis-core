@@ -1,7 +1,7 @@
 """PDF-specific operations: TOC, paragraph summaries, text search."""
 from ._shared import (
     Path, APIRouter, Depends, HTTPException, logger, db,
-    get_current_user,
+    get_current_user, get_locale, t,
     get_file,
 )
 from src.dependencies import is_admin_user
@@ -16,21 +16,22 @@ async def get_pdf_toc(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Return the stored table of contents from the DB."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     return {"toc": source.get("toc") or []}
 
@@ -40,21 +41,22 @@ async def get_paragraph_summaries(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Return page-level summaries for the sidebar."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     status = source.get("summaries_status", "none")
     summaries = db.get_paragraph_summaries_by_source(source["id"])
@@ -70,20 +72,21 @@ async def trigger_paragraph_summaries(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Manually trigger paragraph summary generation for a source."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     if workspace["user_id"] != user_id:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
     if source["file_type"] != "pdf":
-        raise HTTPException(status_code=400, detail="Nur für PDF-Dateien verfügbar")
+        raise HTTPException(status_code=400, detail=t("ai.source.pdfOnly", locale))
 
     status = source.get("summaries_status", "none")
     if status == "generating":
@@ -106,20 +109,21 @@ async def search_pdf(
     source_uuid: str,
     q: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     ext = Path(source["filename"]).suffix.lower()
     if ext != ".pdf":

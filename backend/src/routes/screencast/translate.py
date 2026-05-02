@@ -11,6 +11,7 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, is_admin_user
+from src.i18n import get_locale, t
 from src.limits import MAX_QUEUED_SCREENCAST_JOBS
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
@@ -28,11 +29,11 @@ from src.routes.screencast._shared import SCREENCAST_TOOLS, validate_upload
 router = APIRouter(tags=["screencast: translate"])
 
 
-def _enforce_queue_and_quota(user_id: int, current_user: dict) -> None:
+def _enforce_queue_and_quota(user_id: int, current_user: dict, locale: str = "de") -> None:
     if db.count_all_jobs_for_tool(user_id, SCREENCAST_TOOLS) >= MAX_QUEUED_SCREENCAST_JOBS:
         raise HTTPException(
             status_code=409,
-            detail=f"Du hast bereits {MAX_QUEUED_SCREENCAST_JOBS} Screencast-Jobs in der Warteschlange.",
+            detail=t("screencast.queueFull", locale, max=MAX_QUEUED_SCREENCAST_JOBS),
         )
     enforce_tool_burst(user_id, "screencast")
     enforce_quota(user_id, "screencast", is_admin_user(current_user))
@@ -46,21 +47,22 @@ async def screencast_translate(
     source_lang: str = Form("DE"),
     target_lang: str = Form("EN-US"),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Queue a translate job: translate PPTX DE→EN, extract slide texts (+ images)."""
-    validate_upload(file.filename)
+    validate_upload(file.filename, locale)
     maybe_start_cleanup_task()
 
     content_length = request.headers.get("content-length")
     if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 200 MB)")
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
 
     pptx_bytes = await file.read()
     if not pptx_bytes:
-        raise HTTPException(status_code=400, detail="Datei ist leer")
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
 
     user_id = current_user.get("user_id", 0)
-    _enforce_queue_and_quota(user_id, current_user)
+    _enforce_queue_and_quota(user_id, current_user, locale)
 
     job_uuid = uuid.uuid4().hex
     filename = file.filename or "screencast.pptx"
@@ -85,22 +87,30 @@ async def screencast_translate(
 
 
 @router.post("/screencast/extract-texts")
-async def screencast_extract_texts(body: ExtractTextsRequest):
+async def screencast_extract_texts(
+    body: ExtractTextsRequest,
+    locale: str = Depends(get_locale),
+):
     """Extract slide texts from a PPTX (base64-encoded)."""
     try:
         pptx_bytes = base64.b64decode(body.pptx_b64)
     except Exception:
-        raise HTTPException(status_code=400, detail="Ungültige PPTX-Daten (Base64)")
+        raise HTTPException(status_code=400, detail=t("file.invalidPptxBase64", locale))
 
     logger.info("Screencast/extract-texts: extracting texts from PPTX")
     slide_texts = extract_text_per_slide(pptx_bytes)
     if not slide_texts:
-        raise HTTPException(status_code=400, detail="Keine Slides in der Präsentation gefunden")
+        raise HTTPException(status_code=400, detail=t("screencast.noSlides", locale))
 
     if len(slide_texts) > MAX_SCREENCAST_SLIDES:
         raise HTTPException(
             status_code=400,
-            detail=f"Zu viele Folien ({len(slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
+            detail=t(
+                "screencast.tooManySlides",
+                locale,
+                count=len(slide_texts),
+                max=MAX_SCREENCAST_SLIDES,
+            ),
         )
 
     return {
@@ -110,12 +120,15 @@ async def screencast_extract_texts(body: ExtractTextsRequest):
 
 
 @router.post("/screencast/prepare")
-async def screencast_prepare(body: PrepareRequest):
+async def screencast_prepare(
+    body: PrepareRequest,
+    locale: str = Depends(get_locale),
+):
     """Convert translated PPTX to slide images."""
     try:
         pptx_bytes = base64.b64decode(body.translated_pptx_b64)
     except Exception:
-        raise HTTPException(status_code=400, detail="Ungültige PPTX-Daten (Base64)")
+        raise HTTPException(status_code=400, detail=t("file.invalidPptxBase64", locale))
 
     logger.info("Screencast/prepare: converting PPTX to images")
 
@@ -144,14 +157,15 @@ async def screencast_upload_corrected(
     file: UploadFile = File(...),
     translate_job_uuid: str = Form(""),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Upload a corrected PPTX, save to temp storage + job folder, extract texts and slide images."""
-    validate_upload(file.filename)
+    validate_upload(file.filename, locale)
     maybe_start_cleanup_task()
 
     pptx_bytes = await file.read()
     if not pptx_bytes:
-        raise HTTPException(status_code=400, detail="Datei ist leer")
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
 
     logger.info("Screencast/upload-corrected: '{}' ({} bytes)", file.filename, len(pptx_bytes))
 
@@ -159,18 +173,23 @@ async def screencast_upload_corrected(
     if translate_job_uuid:
         job = db.get_job(translate_job_uuid)
         if not job:
-            raise HTTPException(status_code=404, detail="Job nicht gefunden")
+            raise HTTPException(status_code=404, detail=t("job.notFound", locale))
         if job["user_id"] != current_user.get("user_id", 0):
-            raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job")
+            raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
 
     slide_texts = extract_text_per_slide(pptx_bytes)
     if not slide_texts:
-        raise HTTPException(status_code=400, detail="Keine Slides in der Präsentation gefunden")
+        raise HTTPException(status_code=400, detail=t("screencast.noSlides", locale))
 
     if len(slide_texts) > MAX_SCREENCAST_SLIDES:
         raise HTTPException(
             status_code=400,
-            detail=f"Zu viele Folien ({len(slide_texts)}). Maximum: {MAX_SCREENCAST_SLIDES} Folien.",
+            detail=t(
+                "screencast.tooManySlides",
+                locale,
+                count=len(slide_texts),
+                max=MAX_SCREENCAST_SLIDES,
+            ),
         )
 
     if translate_job_uuid:
@@ -180,7 +199,7 @@ async def screencast_upload_corrected(
     else:
         # No job yet (EN path): create a new translate job and save PPTX as translated.pptx
         user_id = current_user.get("user_id", 0)
-        _enforce_queue_and_quota(user_id, current_user)
+        _enforce_queue_and_quota(user_id, current_user, locale)
         translate_job_uuid = uuid.uuid4().hex
         db.create_job(translate_job_uuid, user_id, "screencast_translate", file.filename or "screencast.pptx")
         save_job_file(user_id, translate_job_uuid, "translated.pptx", pptx_bytes)

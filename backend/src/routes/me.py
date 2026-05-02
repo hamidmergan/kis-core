@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from src import database as db
 from src.dependencies import get_current_user
+from src.i18n import get_locale, t
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -12,13 +13,16 @@ class LocaleUpdate(BaseModel):
 
 
 @router.get("")
-async def get_me(user: dict = Depends(get_current_user)):
+async def get_me(
+    user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     user_id = user.get("user_id")
     if not user_id:
-        raise HTTPException(status_code=401, detail="Nicht authentifiziert")
+        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
     row = db.get_user_by_id(user_id)
     if not row:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=t("user.notFound", locale))
     return {
         "id": row["id"],
         "username": row["ldap_username"],
@@ -30,9 +34,13 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 
 @router.patch("/locale")
-async def update_locale(payload: LocaleUpdate, user: dict = Depends(get_current_user)):
+async def update_locale(
+    payload: LocaleUpdate,
+    user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
     user_id = user.get("user_id")
     if not user_id:
-        raise HTTPException(status_code=401, detail="Nicht authentifiziert")
+        raise HTTPException(status_code=401, detail=t("auth.notAuthenticated", locale))
     db.update_user_locale(user_id, payload.locale)
     return {"locale": payload.locale}

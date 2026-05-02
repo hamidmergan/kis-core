@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src import database as db
 from src.dependencies import get_admin_user
+from src.i18n import get_locale, t
 
 from src.routes.admin._models import AddWhitelistRequest
 
@@ -34,14 +35,18 @@ async def list_pending_users(_admin=Depends(get_admin_user)):
 
 
 @router.post("/users/{user_id}/approve")
-async def approve_user(user_id: int, _admin=Depends(get_admin_user)):
+async def approve_user(
+    user_id: int,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     """Whitelist the user's email and set active=1 so they can log in immediately."""
     row = db.get_user_by_id(user_id)
     if not row:
-        raise HTTPException(status_code=404, detail="User nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("admin.user.notFound", locale))
     user = dict(row)
     if not user.get("email"):
-        raise HTTPException(status_code=400, detail="User hat keine Email-Adresse")
+        raise HTTPException(status_code=400, detail=t("admin.user.noEmail", locale))
     db.add_to_whitelist(user["email"])
     db.activate_user(user_id)
     return {"ok": True}
@@ -55,19 +60,32 @@ async def list_whitelist(_admin=Depends(get_admin_user)):
 
 
 @router.post("/whitelist")
-async def add_whitelist(body: AddWhitelistRequest, _admin=Depends(get_admin_user)):
+async def add_whitelist(
+    body: AddWhitelistRequest,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     if not body.email or "@" not in body.email:
-        raise HTTPException(status_code=400, detail="Ungültige Email-Adresse")
+        raise HTTPException(
+            status_code=400, detail=t("admin.whitelist.invalidEmail", locale)
+        )
     db.add_to_whitelist(body.email)
     return {"ok": True}
 
 
 @router.delete("/whitelist/{email:path}")
-async def remove_whitelist(email: str, _admin=Depends(get_admin_user)):
+async def remove_whitelist(
+    email: str,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     from src.dependencies import get_settings
     settings = get_settings()
     if email.strip().lower() == settings.admin_email.strip().lower():
-        raise HTTPException(status_code=403, detail="Die Admin-Email kann nicht aus der Whitelist entfernt werden.")
+        raise HTTPException(
+            status_code=403,
+            detail=t("admin.whitelist.adminProtected", locale),
+        )
     db.remove_from_whitelist(email)
     db.deactivate_user_by_email(email)
     return {"ok": True}

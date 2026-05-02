@@ -6,6 +6,7 @@ from loguru import logger
 from src import database as db
 from src.celery_app import celery_app
 from src.dependencies import get_admin_user
+from src.i18n import get_locale, t
 from src.storage import delete_job_folder
 
 from src.routes.admin._registries import TOOL_LABELS, tools_matching_query
@@ -63,11 +64,15 @@ async def list_all_jobs(
 
 
 @router.delete("/jobs/{job_uuid}")
-async def admin_cancel_job(job_uuid: str, _admin=Depends(get_admin_user)):
+async def admin_cancel_job(
+    job_uuid: str,
+    _admin=Depends(get_admin_user),
+    locale: str = Depends(get_locale),
+):
     """Admin: cancel and delete any job regardless of owner."""
     job = db.get_job(job_uuid)
     if not job:
-        raise HTTPException(status_code=404, detail="Job nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("job.notFound", locale))
 
     if job["celery_task_id"]:
         try:

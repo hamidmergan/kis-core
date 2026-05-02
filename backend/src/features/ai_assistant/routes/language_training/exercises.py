@@ -18,6 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client, is_admin_user
+from src.i18n import get_locale, t
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
@@ -58,24 +59,25 @@ async def generate_cloze(
     workspace_uuid: str,
     body: schemas.ExerciseGenerateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Create a cloze exercise set via Celery."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
     entries = db.get_aia_glossary_by_workspace(workspace["id"])
     if not entries:
-        raise HTTPException(status_code=400, detail="Kein Glossary vorhanden")
+        raise HTTPException(status_code=400, detail=t("glossary.notProvided", locale))
 
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool="lueckentext",
@@ -90,24 +92,25 @@ async def generate_vocab_test(
     workspace_uuid: str,
     body: schemas.ExerciseGenerateBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Create a vocab test exercise set via Celery."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
     entries = db.get_aia_glossary_by_workspace(workspace["id"])
     if not entries:
-        raise HTTPException(status_code=400, detail="Kein Glossary vorhanden")
+        raise HTTPException(status_code=400, detail=t("glossary.notProvided", locale))
 
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool="vokabeltest",
@@ -125,23 +128,24 @@ async def create_exercise_set(
     workspace_uuid: str,
     body: schemas.CreateSetBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     """Create a new exercise set - returns immediately, generates via Celery."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
 
     is_owner = workspace["user_id"] == user_id
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
-        raise HTTPException(status_code=403, detail="Kein Zugriff")
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
     enforce_aia_burst(user_id)
     enforce_quota(user_id, "aia_generate", is_admin_user(current_user))
 
     if body.mode == "source" and not body.source_uuid:
-        raise HTTPException(status_code=400, detail="Keine Source angegeben")
+        raise HTTPException(status_code=400, detail=t("ai.source.notSelected", locale))
 
     placeholder = db.create_exercise_set_placeholder(
         workspace_id=workspace["id"], user_id=user_id, tool=body.tool,
@@ -160,11 +164,12 @@ async def list_exercise_sets(
     workspace_uuid: str,
     tool: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     sets = db.get_exercise_sets(workspace["id"], user_id, tool)
     for s in sets:
         if s.get("created_at") and hasattr(s["created_at"], "isoformat"):
@@ -176,10 +181,11 @@ async def get_exercise_set(
     workspace_uuid: str,
     set_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     ex_set = db.get_exercise_set_with_items(set_id)
     if not ex_set:
-        raise HTTPException(status_code=404, detail="Set nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     if ex_set.get("created_at") and hasattr(ex_set["created_at"], "isoformat"):
         ex_set["created_at"] = ex_set["created_at"].isoformat() + "Z"
     return {"set": ex_set}
@@ -189,9 +195,10 @@ async def delete_exercise_set_endpoint(
     workspace_uuid: str,
     set_id: int,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     if not db.delete_exercise_set(set_id):
-        raise HTTPException(status_code=404, detail="Set nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("set.notFound", locale))
     return {"ok": True}
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/exercise-sets/{set_id}/progress")
@@ -200,11 +207,12 @@ async def record_set_progress(
     set_id: int,
     body: schemas.ExerciseProgressBody,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
-        raise HTTPException(status_code=404, detail="Modul nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     if body.new_run:
         db.start_new_run(set_id)
     db.bulk_record_exercise_progress(set_id, user_id, body.results)

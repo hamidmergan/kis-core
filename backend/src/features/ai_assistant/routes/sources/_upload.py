@@ -3,7 +3,8 @@ import uuid
 
 from ._shared import (
     Path, APIRouter, Depends, File, HTTPException, UploadFile, logger, db,
-    get_current_user, KIA_SOURCE_MAX_PAGES, KIA_WORKSPACE_MAX_SOURCES,
+    get_current_user, get_locale, t,
+    KIA_SOURCE_MAX_PAGES, KIA_WORKSPACE_MAX_SOURCES,
     delete_file, _convert_office_to_pdf, _mp4_faststart, _count_pages,
     _require_own_workspace, _save_source_file,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
@@ -17,35 +18,36 @@ async def upload_source(
     workspace_uuid: str,
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"])
+    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
 
     existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
     if len(existing_sources) >= KIA_WORKSPACE_MAX_SOURCES:
         raise HTTPException(
             status_code=409,
-            detail=f"Maximal {KIA_WORKSPACE_MAX_SOURCES} Sources pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Sources.",
+            detail=t("ai.source.maxPerWorkspace", locale, max=KIA_WORKSPACE_MAX_SOURCES),
         )
 
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Dateiname fehlt")
+        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
     ext = Path(file.filename).suffix.lower()
     if ext not in _ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Nur {', '.join(sorted(_ALLOWED_EXTENSIONS))} erlaubt",
+            detail=t("ai.source.allowedExtensions", locale, extensions=", ".join(sorted(_ALLOWED_EXTENSIONS))),
         )
 
     data = await file.read()
     if not data:
-        raise HTTPException(status_code=400, detail="Datei ist leer")
+        raise HTTPException(status_code=400, detail=t("file.empty", locale))
     if len(data) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Datei zu groß (max 500 MB)")
+        raise HTTPException(status_code=413, detail=t("file.tooLargeMb", locale, max=_MAX_UPLOAD_BYTES // (1024 * 1024)))
 
     stored_filename = file.filename
     if ext in (".docx", ".pptx"):
         logger.info("KI Tutor: converting {} to PDF ({})", ext, file.filename)
-        data = _convert_office_to_pdf(data, ext)
+        data = _convert_office_to_pdf(data, ext, locale=locale)
         stored_filename = Path(file.filename).stem + ".pdf"
         ext = ".pdf"
     elif ext == ".mp4":
@@ -56,7 +58,7 @@ async def upload_source(
     if page_count is not None and page_count > KIA_SOURCE_MAX_PAGES:
         raise HTTPException(
             status_code=413,
-            detail=f"Dokument hat {page_count} Seiten - max. {KIA_SOURCE_MAX_PAGES} Seiten erlaubt. Bitte teile das Dokument in kleinere Abschnitte auf.",
+            detail=t("ai.source.tooManyPages", locale, pages=page_count, max=KIA_SOURCE_MAX_PAGES),
         )
 
     source_uuid = uuid.uuid4().hex
@@ -83,13 +85,14 @@ async def retry_source(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
-    _require_own_workspace(workspace_uuid, current_user["user_id"])
+    _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
     if source["status"] != "failed":
-        raise HTTPException(status_code=409, detail="Nur fehlgeschlagene Sources können neu indexiert werden")
+        raise HTTPException(status_code=409, detail=t("ai.source.retryFailedOnly", locale))
 
     db.delete_aia_chunks_by_source(source["id"])
     db.reset_aia_source_for_retry(source_uuid)
@@ -106,11 +109,12 @@ async def delete_source(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
 ):
-    _require_own_workspace(workspace_uuid, current_user["user_id"])
+    _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     source = db.get_aia_source(source_uuid)
     if not source:
-        raise HTTPException(status_code=404, detail="Source nicht gefunden")
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
     try:
         delete_file(source["file_path"])
     except Exception as e:
