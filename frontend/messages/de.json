@@ -1,0 +1,27 @@
+{
+  "header": {
+    "homeAria": "Zur Startseite",
+    "admin": "Admin",
+    "logout": "Abmelden",
+    "jobs": "Jobs",
+    "tools": "Tools",
+    "menuOpen": "Menü öffnen",
+    "menuClose": "Menü schließen",
+    "themeDark": "Dunkel",
+    "themeLight": "Hell",
+    "themeToDarkAria": "Dunkler Modus",
+    "themeToLightAria": "Heller Modus"
+  },
+  "footer": {
+    "aiNotice": "Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.",
+    "feedback": "Feedback oder Probleme?",
+    "imprint": "Impressum",
+    "privacy": "Datenschutz"
+  },
+  "languageSwitch": {
+    "ariaLabel": "Sprache wählen",
+    "title": "Sprache",
+    "de": "Deutsch",
+    "en": "English"
+  }
+}

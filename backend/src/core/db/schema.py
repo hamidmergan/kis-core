@@ -166,6 +166,9 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'lecturer'")
             # Chat block after burst-limit trigger (survives backend restart, unlike Redis counter).
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_blocked_until TIMESTAMP WITH TIME ZONE")
+            # UI locale preference (DE default, EN supported). Cookie + URL prefix are authoritative
+            # for unauthenticated requests; this column is the cross-device source of truth after login.
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'de' CHECK (locale IN ('de', 'en'))")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS whitelist (
                     id         SERIAL PRIMARY KEY,

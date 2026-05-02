@@ -180,8 +180,8 @@ export default function AdminPage() {
       {/* Sidebar */}
       <aside
         className={`bg-surface border-r border-border-soft p-3 flex flex-col gap-0.5 overflow-y-auto
-          fixed md:sticky top-16 md:top-16 left-0 bottom-0 md:bottom-auto
-          h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)]
+          fixed md:sticky top-16 md:top-0 left-0 bottom-0 md:bottom-auto
+          h-[calc(100vh-4rem)] md:h-screen
           w-72 md:w-60 z-40
           shadow-xl md:shadow-none
           transition-transform duration-200

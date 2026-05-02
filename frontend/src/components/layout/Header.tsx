@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { SignOut, UserCircleGear } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/jobs/JobsPanel";
@@ -17,6 +18,7 @@ interface HeaderProps {
 
 export default function Header({ showLogout = false, showToolsToggle = false }: HeaderProps) {
   const router = useRouter();
+  const t = useTranslations("header");
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
         <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2">
           <Link
             href="/"
-            aria-label="Zur Startseite"
+            aria-label={t("homeAria")}
             className="text-white logo-link"
           >
             KIS
@@ -59,23 +61,23 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
               {isAdmin && (
                 <Link
                   href="/admin"
-                  aria-label="Admin"
-                  title="Admin"
+                  aria-label={t("admin")}
+                  title={t("admin")}
                   className="flex items-center justify-center h-9 px-3 gap-1.5 rounded-full btn-on-dark"
                 >
                   <UserCircleGear size={17} weight="bold" />
-                  <span className="text-sm font-medium">Admin</span>
+                  <span className="text-sm font-medium">{t("admin")}</span>
                 </Link>
               )}
 
               <button
                 onClick={handleLogout}
-                aria-label="Abmelden"
-                title="Abmelden"
+                aria-label={t("logout")}
+                title={t("logout")}
                 className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full border border-white/25 btn-on-dark"
               >
                 <SignOut size={17} weight="bold" />
-                <span className="text-sm font-medium">Abmelden</span>
+                <span className="text-sm font-medium">{t("logout")}</span>
               </button>
             </div>
 

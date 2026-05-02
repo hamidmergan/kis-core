@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const BYPASS_PREFIXES = ["/wartung", "/login", "/admin", "/api"];

@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Globe, List, Moon, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
+import { useRouter, usePathname } from "@/i18n/navigation";
+import type { Locale } from "@/i18n/routing";
 
 interface HeaderMobileMenuProps {
   isAdmin: boolean;
@@ -10,12 +13,26 @@ interface HeaderMobileMenuProps {
   onLogout: () => void;
 }
 
-type Lang = "de" | "en";
 type Theme = "light" | "dark";
 
+async function persistLocale(locale: Locale) {
+  try {
+    await fetch("/api/me/locale", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locale }),
+    });
+  } catch {
+    // Silently fall back to cookie/URL when backend is unavailable.
+  }
+}
+
 export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
+  const t = useTranslations("header");
+  const router = useRouter();
+  const pathname = usePathname();
+  const currentLocale = useLocale() as Locale;
   const [open, setOpen] = useState(false);
-  const [lang, setLang] = useState<Lang>("de");
   const [theme, setTheme] = useState<Theme>("light");
   const ref = useRef<HTMLDivElement>(null);
   const isDark = theme === "dark";
@@ -29,6 +46,12 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
     return () => document.removeEventListener("pointerdown", handler);
   }, [open]);
 
+  const toggleLocale = () => {
+    const next: Locale = currentLocale === "de" ? "en" : "de";
+    router.replace(pathname, { locale: next });
+    void persistLocale(next);
+  };
+
   const rowClass =
     "flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium hover:bg-[var(--surface-dim)] transition-colors no-underline text-left";
 
@@ -37,7 +60,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? "Menü schließen" : "Menü öffnen"}
+        aria-label={open ? t("menuClose") : t("menuOpen")}
         aria-expanded={open}
         className="flex items-center justify-center w-10 h-10 rounded-full btn-on-dark"
       >
@@ -55,24 +78,24 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
         >
           <button
             type="button"
-            onClick={() => setLang(lang === "de" ? "en" : "de")}
+            onClick={toggleLocale}
             className={rowClass}
             style={{ color: "var(--foreground)" }}
-            aria-label="Sprache wechseln"
+            aria-label={t("homeAria")}
           >
             <Globe size={20} weight="bold" />
-            <span className="flex-1">Sprache</span>
-            <span className="text-xs font-mono uppercase" style={{ color: "var(--muted)" }}>{lang}</span>
+            <span className="flex-1">{currentLocale === "de" ? "Deutsch" : "English"}</span>
+            <span className="text-xs font-mono uppercase" style={{ color: "var(--muted)" }}>{currentLocale}</span>
           </button>
           <button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
             className={rowClass}
             style={{ color: "var(--foreground)", borderBottom: "1px solid var(--border)" }}
-            aria-label={isDark ? "Heller Modus" : "Dunkler Modus"}
+            aria-label={isDark ? t("themeToLightAria") : t("themeToDarkAria")}
           >
             {isDark ? <Moon size={20} weight="bold" /> : <Sun size={20} weight="bold" />}
-            <span className="flex-1">{isDark ? "Dunkel" : "Hell"}</span>
+            <span className="flex-1">{isDark ? t("themeDark") : t("themeLight")}</span>
           </button>
           {showToolsToggle && (
             <button
@@ -85,7 +108,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
               style={{ color: "var(--foreground)" }}
             >
               <Sidebar size={20} weight="bold" />
-              <span>Tools</span>
+              <span>{t("tools")}</span>
             </button>
           )}
           <Link
@@ -95,7 +118,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
             style={{ color: "var(--foreground)" }}
           >
             <Stack size={20} weight="bold" />
-            <span>Jobs</span>
+            <span>{t("jobs")}</span>
           </Link>
           {isAdmin && (
             <Link
@@ -105,7 +128,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
               style={{ color: "var(--foreground)" }}
             >
               <UserCircleGear size={20} weight="bold" />
-              <span>Admin</span>
+              <span>{t("admin")}</span>
             </Link>
           )}
           <button
@@ -118,7 +141,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
             style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)" }}
           >
             <SignOut size={20} weight="bold" />
-            <span>Abmelden</span>
+            <span>{t("logout")}</span>
           </button>
         </div>
       )}

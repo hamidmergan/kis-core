@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
@@ -79,6 +82,14 @@ const nextConfig: NextConfig = {
       {
         source: "/api/admin/:path*",
         destination: `${backendUrl}/admin/:path*`,
+      },
+      {
+        source: "/api/me/:path*",
+        destination: `${backendUrl}/me/:path*`,
+      },
+      {
+        source: "/api/me",
+        destination: `${backendUrl}/me`,
       },
       {
         source: "/api/jobs/my",
@@ -164,4 +175,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

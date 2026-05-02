@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
-import "./globals.css";
+import { NextIntlClientProvider, hasLocale } from "next-intl";
+import { setRequestLocale, getMessages } from "next-intl/server";
+import { notFound } from "next/navigation";
+import { routing } from "@/i18n/routing";
+import "../globals.css";
 import FooterWrapper from "@/components/layout/FooterWrapper";
 import LayoutShell from "@/components/layout/LayoutShell";
 import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
@@ -17,23 +21,40 @@ export const metadata: Metadata = {
   },
 };
 
-// Set data-theme synchronously before React hydrates to prevent FOUC.
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
+
 const themeBootScript = `(function(){try{var t=localStorage.getItem('kis.theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+type Props = {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+};
+
+export default async function RootLayout({ children, params }: Props) {
+  const { locale } = await params;
+  if (!hasLocale(routing.locales, locale)) {
+    notFound();
+  }
+  setRequestLocale(locale);
+  const messages = await getMessages();
+
   return (
-    <html lang="de">
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <link rel="license" href="https://www.apache.org/licenses/LICENSE-2.0" />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className={`${geist.variable} min-h-screen flex flex-col`}>
-        <NextTopLoader color="#668DA0" showSpinner={false} height={3} />
-        <MaintenanceGuard />
-        <main className="flex-1">
-          <LayoutShell>{children}</LayoutShell>
-        </main>
-        <FooterWrapper />
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <NextTopLoader color="#668DA0" showSpinner={false} height={3} />
+          <MaintenanceGuard />
+          <main className="flex-1">
+            <LayoutShell>{children}</LayoutShell>
+          </main>
+          <FooterWrapper />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

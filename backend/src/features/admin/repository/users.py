@@ -50,6 +50,13 @@ def update_user(user_id: int, display_name: str, email: str, active: int, role: 
         conn.commit()
 
 
+def update_user_locale(user_id: int, locale: str) -> None:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET locale = %s WHERE id = %s", (locale, user_id))
+        conn.commit()
+
+
 # --- Whitelist ---
 
 def get_whitelist_emails() -> list[str]:

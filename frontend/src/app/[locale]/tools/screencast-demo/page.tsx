@@ -19,7 +19,7 @@ import { TranslationReviewStep } from "./_steps/TranslationReviewStep";
 import { ScriptReviewStep } from "./_steps/ScriptReviewStep";
 import { TtsSettingsStep } from "./_steps/TtsSettingsStep";
 import { DoneStep } from "./_steps/DoneStep";
-import RegenChatModal from "@/app/tools/screencast/_components/RegenChatModal";
+import RegenChatModal from "@/app/[locale]/tools/screencast/_components/RegenChatModal";
 import { useDemoRegen } from "./_hooks/useDemoRegen";
 import { useDemoScriptEditing } from "./_hooks/useDemoScriptEditing";
 

@@ -1,0 +1,27 @@
+{
+  "header": {
+    "homeAria": "Go to homepage",
+    "admin": "Admin",
+    "logout": "Sign out",
+    "jobs": "Jobs",
+    "tools": "Tools",
+    "menuOpen": "Open menu",
+    "menuClose": "Close menu",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "themeToDarkAria": "Dark mode",
+    "themeToLightAria": "Light mode"
+  },
+  "footer": {
+    "aiNotice": "This platform uses AI and may make mistakes. Please verify the responses.",
+    "feedback": "Feedback or issues?",
+    "imprint": "Imprint",
+    "privacy": "Privacy"
+  },
+  "languageSwitch": {
+    "ariaLabel": "Select language",
+    "title": "Language",
+    "de": "Deutsch",
+    "en": "English"
+  }
+}
