@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { cookies } from "next/headers";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale, getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -27,7 +28,10 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
-const themeBootScript = `(function(){try{var t=localStorage.getItem('kis.theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();`;
+// Backfills the kis-theme cookie from localStorage on first paint so SSR can
+// pick it up after the next navigation. Cookie is the source of truth for SSR;
+// localStorage stays for backwards-compat and cross-tab sync via storage events.
+const themeBootScript = `(function(){try{var t=localStorage.getItem('kis.theme');var hasCookie=document.cookie.indexOf('kis-theme=')!==-1;if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');if(!hasCookie)document.cookie='kis-theme=dark; path=/; max-age=31536000; SameSite=Lax';}else if(t==='light'&&!hasCookie){document.cookie='kis-theme=light; path=/; max-age=31536000; SameSite=Lax';}}catch(e){}})();`;
 
 type Props = {
   children: React.ReactNode;
@@ -41,9 +45,12 @@ export default async function RootLayout({ children, params }: Props) {
   }
   setRequestLocale(locale);
   const messages = await getMessages();
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get("kis-theme")?.value;
+  const dataTheme = themeCookie === "dark" ? "dark" : undefined;
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} data-theme={dataTheme} suppressHydrationWarning>
       <head>
         <link rel="license" href="https://www.apache.org/licenses/LICENSE-2.0" />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />

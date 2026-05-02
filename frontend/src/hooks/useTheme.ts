@@ -6,6 +6,7 @@ export type Theme = "light" | "dark";
 
 const STORAGE_KEY = "kis.theme";
 const PDF_STORAGE_KEY = "kis.pdf-theme";
+const COOKIE_KEY = "kis-theme";
 const CHANGE_EVENT = "kis-theme:change";
 
 export function readTheme(): Theme {
@@ -15,6 +16,12 @@ export function readTheme(): Theme {
   } catch {
     return "light";
   }
+}
+
+function writeThemeCookie(theme: Theme) {
+  if (typeof document === "undefined") return;
+  // 1 year, site-wide. SameSite=Lax so it survives locale prefix navigations.
+  document.cookie = `${COOKIE_KEY}=${theme}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
 }
 
 function applyTheme(theme: Theme) {
@@ -47,6 +54,7 @@ export function useTheme(): { theme: Theme; toggle: () => void; setTheme: (t: Th
   const setTheme = useCallback((next: Theme) => {
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
     try { localStorage.setItem(PDF_STORAGE_KEY, next); } catch { /* ignore */ }
+    writeThemeCookie(next);
     applyTheme(next);
     try { window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: next })); } catch { /* ignore */ }
     setThemeState(next);
