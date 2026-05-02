@@ -200,7 +200,7 @@ def get_stale_awaiting_user_jobs(threshold_hours: int = 2) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                "SELECT job_uuid, tool FROM jobs WHERE status = 'awaiting_user' AND created_at <= %s",
+                "SELECT job_uuid, tool, creator_locale FROM jobs WHERE status = 'awaiting_user' AND created_at <= %s",
                 (cutoff,),
             )
             rows = cur.fetchall()
@@ -213,7 +213,7 @@ def get_stuck_running_jobs(threshold_minutes: int = 20) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT job_uuid, tool, progress, progress_updated_at FROM jobs
+                """SELECT job_uuid, tool, progress, progress_updated_at, creator_locale FROM jobs
                    WHERE (
                        (status = 'running' AND progress_updated_at IS NOT NULL AND progress_updated_at <= %s)
                        OR

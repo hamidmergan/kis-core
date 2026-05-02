@@ -4,6 +4,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
+from src.i18n import t
 
 # Jobs with no progress update for longer than this are considered stuck.
 STUCK_THRESHOLD_MINUTES = 5  # 5 minutes - the heartbeat fires every 10 s, so this is a generous safety net
@@ -25,10 +26,11 @@ def check_stuck_jobs() -> None:
                 "Watchdog: job {} ({}) stuck since {} - terminating and marking as failed",
                 job_uuid, tool, last_update,
             )
+            locale = job.get("creator_locale") or "de"
             db.update_job_status(
                 job_uuid,
                 "failed",
-                error_message="Job hat sich nicht mehr gemeldet (möglicher Absturz oder Hänger). Bitte Wiederholen klicken.",
+                error_message=t("job.watchdogStuck", locale),
             )
             # Revoke + terminate the Celery task so the worker slot is freed immediately.
             # Without this the slot stays blocked until the soft time limit fires (up to 60 min).
@@ -46,9 +48,10 @@ def check_stuck_jobs() -> None:
                 "Watchdog: awaiting_user job {} ({}) timed out - marking as failed",
                 job_uuid, tool,
             )
+            locale = job.get("creator_locale") or "de"
             db.update_job_status(
                 job_uuid,
                 "failed",
-                error_message="Job abgelaufen (keine Eingabe erfolgt). Bitte neuen Screencast starten.",
+                error_message=t("job.watchdogStaleAwaiting", locale),
             )
         logger.info("Watchdog: {} stale awaiting_user job(s) expired", len(stale))

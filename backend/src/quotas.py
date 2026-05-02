@@ -144,7 +144,10 @@ def enforce_quota(user_id: int, quota_type: str, is_admin: bool, locale: str = D
     result = check_and_consume_quota(user_id, quota_type, is_admin)
     if not result["allowed"]:
         cfg = QUOTA_DEFAULTS.get(quota_type, {})
-        label = cfg.get("label", quota_type)
+        # Localized label, fall back to the static one in QUOTA_DEFAULTS, then to the quota_type key.
+        label = t(f"quota.label.{quota_type}", locale)
+        if label == f"quota.label.{quota_type}":
+            label = cfg.get("label", quota_type)
         reset_at = result.get("reset_at")
         reset_text = ""
         if reset_at:

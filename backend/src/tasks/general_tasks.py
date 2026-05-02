@@ -9,6 +9,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
+from src.i18n import t
 from src.storage import delete_file, get_file, open_input_file, save_result_file, save_result_and_evict
 from src.utils.heartbeat import job_heartbeat
 
@@ -437,6 +438,8 @@ def run_summary(
     try:
         db.update_job_status(job_uuid, "running")
         user_id = _resolve_user_id(job_uuid)
+        job = db.get_job(job_uuid)
+        locale = (job and job.get("creator_locale")) or "de"
 
         content = get_file(input_path)
         ext = Path(filename).suffix.lower()
@@ -453,7 +456,7 @@ def run_summary(
             word_count = len(text.split())
             if word_count < _SUMMARY_MIN_WORDS:
                 raise ValueError(
-                    f"Inhalt zu kurz ({word_count} Wörter). Mindestens {_SUMMARY_MIN_WORDS} Wörter erforderlich."
+                    t("summary.contentTooShort", locale, words=word_count, min=_SUMMARY_MIN_WORDS)
                 )
 
             too_long = len(text) > _SUMMARY_CONTEXT_WARN_CHARS
@@ -463,10 +466,7 @@ def run_summary(
             )
 
         if too_long:
-            summary += (
-                "\n\n⚠️ Hinweis: Der Inhalt war sehr umfangreich. "
-                "Die Zusammenfassung könnte unvollständig sein."
-            )
+            summary += t("summary.contentTooLongHint", locale)
 
         out_ext = _SUMMARY_OUTPUT_EXT[output_format]
         output_name = f"{Path(filename).stem}{out_ext}"

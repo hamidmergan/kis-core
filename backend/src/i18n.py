@@ -60,6 +60,36 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "{provider} war ~90 Minuten nicht erreichbar. Bitte 'Wiederholen' klicken wenn der Dienst wieder verfügbar ist.",
         "en": "{provider} was unreachable for ~90 minutes. Please click 'Retry' once the service is back.",
     },
+    "job.watchdogStuck": {
+        "de": "Job hat sich nicht mehr gemeldet (möglicher Absturz oder Hänger). Bitte Wiederholen klicken.",
+        "en": "Job stopped reporting progress (possible crash or hang). Please click 'Retry'.",
+    },
+    "job.watchdogStaleAwaiting": {
+        "de": "Job abgelaufen (keine Eingabe erfolgt). Bitte neuen Screencast starten.",
+        "en": "Job expired (no input received). Please start a new screencast.",
+    },
+    "job.unexpectedError": {
+        "de": "Unerwarteter Fehler: {error}",
+        "en": "Unexpected error: {error}",
+    },
+    "summary.contentTooShort": {
+        "de": "Inhalt zu kurz ({words} Wörter). Mindestens {min} Wörter erforderlich.",
+        "en": "Content too short ({words} words). At least {min} words required.",
+    },
+    "summary.contentTooLongHint": {
+        "de": "\n\n⚠️ Hinweis: Der Inhalt war sehr umfangreich. Die Zusammenfassung könnte unvollständig sein.",
+        "en": "\n\n⚠️ Note: The content was very long. The summary may be incomplete.",
+    },
+    # Quota labels (interpolated into quota.limitReached)
+    "quota.label.tts": {"de": "Text in Sprache", "en": "Text to speech"},
+    "quota.label.summary": {"de": "Zusammenfassung", "en": "Summary"},
+    "quota.label.translate": {"de": "Dokumentenübersetzung", "en": "Document translation"},
+    "quota.label.transcription": {"de": "Transkription", "en": "Transcription"},
+    "quota.label.image_generate": {"de": "Bild-Generierung", "en": "Image generation"},
+    "quota.label.image_edit": {"de": "Bild-Bearbeitung", "en": "Image editing"},
+    "quota.label.image_analyze": {"de": "Bild-Analyse", "en": "Image analysis"},
+    "quota.label.screencast": {"de": "Screencast", "en": "Screencast"},
+    "quota.label.aia_generate": {"de": "KI-Tutor: Generierung", "en": "AI tutor: generation"},
     "source.notFound": {"de": "Source nicht gefunden", "en": "Source not found"},
     "entry.notFound": {"de": "Eintrag nicht gefunden", "en": "Entry not found"},
     "set.notFound": {"de": "Set nicht gefunden", "en": "Set not found"},

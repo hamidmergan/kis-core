@@ -72,13 +72,28 @@ def on_worker_ready(**kwargs):
 
 
 def _mark_task_failed(task_id: str, reason: str) -> None:
-    """Mark a running job as failed based on its Celery task ID."""
+    """Mark a running job as failed based on its Celery task ID.
+
+    `reason` is an i18n key (or a tuple `(key, params)`) so the persisted
+    error_message can be localized using the job's `creator_locale`. Plain
+    strings still work as a fallback for legacy callers.
+    """
     try:
         from src import database as db
+        from src.i18n import t
         job = db.get_job_by_celery_task_id(task_id)
-        if job:
-            db.update_job_status(job["job_uuid"], "failed", error_message=reason)
-            logger.warning("Signal: job {} marked failed - {}", job["job_uuid"][:8], reason)
+        if not job:
+            return
+        locale = job.get("creator_locale") or "de"
+        if isinstance(reason, tuple):
+            key, params = reason
+            message = t(key, locale, **params)
+        elif isinstance(reason, str) and "." in reason and " " not in reason:
+            message = t(reason, locale)
+        else:
+            message = reason
+        db.update_job_status(job["job_uuid"], "failed", error_message=message)
+        logger.warning("Signal: job {} marked failed - {}", job["job_uuid"][:8], message)
     except Exception as e:
         logger.error("Signal handler error: {}", e)
 
@@ -90,15 +105,12 @@ def on_task_failure(task_id, exception, **kwargs):
         # Task body should have caught this and updated the DB already.
         # If it reaches here, the soft limit fired in an unguarded spot - still
         # give a friendly message rather than a raw exception string.
-        _mark_task_failed(task_id, "Zeitlimit überschritten. Bitte 'Wiederholen' klicken.")
+        _mark_task_failed(task_id, "job.timeoutRetry")
     else:
-        _mark_task_failed(task_id, f"Unerwarteter Fehler: {exception}")
+        _mark_task_failed(task_id, ("job.unexpectedError", {"error": str(exception)}))
 
 
 @task_revoked.connect
 def on_task_revoked(request, terminated, signum, expired, **kwargs):
     if terminated or expired:
-        _mark_task_failed(
-            request.id,
-            "Job hat sich nicht mehr gemeldet (möglicher Absturz oder Hänger). Bitte Wiederholen klicken.",
-        )
+        _mark_task_failed(request.id, "job.watchdogStuck")
