@@ -261,10 +261,13 @@
   color: #7BBDE5 !important;
 }
 
-/* Dark Mode only: Quellen-hinzufuegen-Button — weisse Schrift, neutrale Border. */
+/* Dark Mode only: Quellen-hinzufuegen-Button — weisse Schrift, neutrale Border, Hover kb-blau (dashed bleibt). */
 :root[data-theme="dark"] .add-source-btn {
   color: #FFFFFF !important;
   border-color: var(--border) !important;
+}
+:root[data-theme="dark"] .add-source-btn:hover {
+  border-color: var(--kb) !important;
 }
 
 /* Unified Abbrechen-Button: Outline permanent 2px (Layout-stabil), default transparent → Hover #004261 + weisse Schrift. BG bleibt unveraendert. */
