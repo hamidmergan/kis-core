@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { CaretRight, ChartLineUp } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
@@ -43,18 +44,22 @@ interface KiTutorStatsData {
 }
 
 type StatsMode = "source" | "glossary";
-const MODE_META: Record<StatsMode, { label: string; accent: string }> = {
-  source: { label: "Lerntools", accent: "var(--kb)" },
-  glossary: { label: "Fachsprachentraining", accent: "var(--kb)" },
-};
 
 export default function KiTutorTab() {
+  const t = useTranslations("admin");
+  const locale = useLocale();
   const labels = useWorkspaceLabel();
   const [data, setData] = useState<KiTutorStatsData | null>(null);
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<StatsMode>("source");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const numLocale = locale === "en" ? "en-US" : "de-DE";
+  const modeMeta: Record<StatsMode, { label: string; accent: string }> = {
+    source: { label: t("kiTutor.modeSource"), accent: "var(--kb)" },
+    glossary: { label: t("kiTutor.modeGlossary"), accent: "var(--kb)" },
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -72,10 +77,12 @@ export default function KiTutorTab() {
       return next;
     });
 
-  if (loading && !data) return <p className="text-sm text-muted">Laden…</p>;
-  if (!data) return <p className="text-sm text-error">Fehler beim Laden</p>;
+  if (loading && !data) return <p className="text-sm text-muted">{t("loading")}</p>;
+  if (!data) return <p className="text-sm text-error">{t("loadError")}</p>;
 
-  const accent = MODE_META[mode].accent;
+  const accent = modeMeta[mode].accent;
+  const periodLabel = (d: number) =>
+    d === 7 ? t("kiTutor.days7") : d === 30 ? t("kiTutor.month1") : d === 90 ? t("kiTutor.months3") : t("kiTutor.months6");
 
   return (
     <div className={`space-y-6 transition-opacity ${loading ? "opacity-50 pointer-events-none" : ""}`}>
@@ -83,7 +90,7 @@ export default function KiTutorTab() {
         <div className="flex items-center gap-1">
           {(["source", "glossary"] as StatsMode[]).map((m) => {
             const active = mode === m;
-            const meta = MODE_META[m];
+            const meta = modeMeta[m];
             return (
               <button
                 key={m}
@@ -107,7 +114,7 @@ export default function KiTutorTab() {
               onClick={() => setDays(d)}
               className={`px-3 py-1 text-xs rounded-full border transition-colors ${days === d ? "bg-kb text-white border-kb" : "border-border text-foreground-soft hover:border-kb hover:text-kb"}`}
             >
-              {d === 7 ? "7 Tage" : d === 30 ? "1 Monat" : d === 90 ? "3 Monate" : "6 Monate"}
+              {periodLabel(d)}
             </button>
           ))}
         </div>
@@ -117,7 +124,7 @@ export default function KiTutorTab() {
         <EmptyState
           size="lg"
           icon={<ChartLineUp size={40} weight="bold" />}
-          text="Keine Daten im gewählten Zeitraum"
+          text={t("kiTutor.empty")}
         />
       ) : (
         <>
@@ -127,19 +134,19 @@ export default function KiTutorTab() {
               <p className="text-2xl font-bold text-foreground mt-1">{data.summary.total_workspaces}</p>
             </div>
             <div className="bg-background border border-border-soft rounded-lg p-4">
-              <p className="text-xs text-muted uppercase tracking-wide">Aktive Teilnehmer ({days}T)</p>
+              <p className="text-xs text-muted uppercase tracking-wide">{t("kiTutor.summaryActiveStudents", { days })}</p>
               <p className="text-2xl font-bold text-foreground mt-1">{data.summary.active_students}</p>
             </div>
             <div className="bg-background border border-border-soft rounded-lg p-4">
-              <p className="text-xs text-muted uppercase tracking-wide">Übungen ({days}T)</p>
+              <p className="text-xs text-muted uppercase tracking-wide">{t("kiTutor.summaryExercises", { days })}</p>
               <p className="text-2xl font-bold text-foreground mt-1">
-                {data.summary.total_answers.toLocaleString("de-DE")}
+                {data.summary.total_answers.toLocaleString(numLocale)}
               </p>
             </div>
             <div className="bg-background border border-border-soft rounded-lg p-4">
-              <p className="text-xs text-muted uppercase tracking-wide">Chat ({days}T)</p>
+              <p className="text-xs text-muted uppercase tracking-wide">{t("kiTutor.summaryChat", { days })}</p>
               <p className="text-2xl font-bold text-foreground mt-1">
-                {data.summary.total_chat_messages.toLocaleString("de-DE")}
+                {data.summary.total_chat_messages.toLocaleString(numLocale)}
               </p>
             </div>
           </div>
@@ -151,11 +158,11 @@ export default function KiTutorTab() {
                   <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
                     <th className="px-4 py-2 w-6"></th>
                     <th className="px-4 py-2">{labels.singular}</th>
-                    <th className="px-4 py-2">Ersteller</th>
-                    <th className="px-4 py-2 text-right">Quellen</th>
-                    <th className="px-4 py-2 text-right">Teilnehmer</th>
-                    <th className="px-4 py-2 text-right">Übungen</th>
-                    <th className="px-4 py-2 text-right">Chat</th>
+                    <th className="px-4 py-2">{t("kiTutor.colCreator")}</th>
+                    <th className="px-4 py-2 text-right">{t("kiTutor.colSources")}</th>
+                    <th className="px-4 py-2 text-right">{t("kiTutor.colParticipants")}</th>
+                    <th className="px-4 py-2 text-right">{t("kiTutor.colExercises")}</th>
+                    <th className="px-4 py-2 text-right">{t("kiTutor.colChat")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,10 +191,10 @@ export default function KiTutorTab() {
                           <td className="px-4 py-2 text-right text-foreground-soft">{m.source_count}</td>
                           <td className="px-4 py-2 text-right text-foreground-soft">{m.enrollment_count}</td>
                           <td className="px-4 py-2 text-right" style={{ color: accent }}>
-                            {(m.total_answers + m.lecturer.exercises).toLocaleString("de-DE")}
+                            {(m.total_answers + m.lecturer.exercises).toLocaleString(numLocale)}
                           </td>
                           <td className="px-4 py-2 text-right text-foreground-soft">
-                            {(m.chat_messages + m.lecturer.messages).toLocaleString("de-DE")}
+                            {(m.chat_messages + m.lecturer.messages).toLocaleString(numLocale)}
                           </td>
                         </tr>
                         {isOpen && (
@@ -196,18 +203,18 @@ export default function KiTutorTab() {
                               <div className="bg-surface border-t border-border-soft">
                                 {m.students.length === 0 ? (
                                   <p className="px-8 py-3 text-xs text-muted-soft">
-                                    Keine eingeschriebenen Teilnehmer
+                                    {t("kiTutor.noStudents")}
                                   </p>
                                 ) : (
                                   <table className="w-full text-xs">
                                     <thead>
                                       <tr className="text-left text-muted-soft uppercase">
-                                        <th className="pl-12 pr-4 py-2">Student</th>
-                                        <th className="px-4 py-2 text-right">Übungen</th>
-                                        <th className="px-4 py-2 text-right">Richtig</th>
-                                        <th className="px-4 py-2 text-right">Lerntools</th>
-                                        <th className="px-4 py-2 text-right">Sprachtr.</th>
-                                        <th className="px-4 py-2 text-right">Chat</th>
+                                        <th className="pl-12 pr-4 py-2">{t("kiTutor.colStudent")}</th>
+                                        <th className="px-4 py-2 text-right">{t("kiTutor.colExercises")}</th>
+                                        <th className="px-4 py-2 text-right">{t("kiTutor.colCorrect")}</th>
+                                        <th className="px-4 py-2 text-right">{t("kiTutor.colLerntools")}</th>
+                                        <th className="px-4 py-2 text-right">{t("kiTutor.colLanguageTraining")}</th>
+                                        <th className="px-4 py-2 text-right">{t("kiTutor.colChat")}</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -218,10 +225,10 @@ export default function KiTutorTab() {
                                         >
                                           <td className="pl-12 pr-4 py-2 text-foreground-soft">{s.name}</td>
                                           <td className="px-4 py-2 text-right text-foreground-soft">
-                                            {s.answers.toLocaleString("de-DE")}
+                                            {s.answers.toLocaleString(numLocale)}
                                           </td>
                                           <td className="px-4 py-2 text-right text-success">
-                                            {s.correct.toLocaleString("de-DE")}
+                                            {s.correct.toLocaleString(numLocale)}
                                           </td>
                                           <td className="px-4 py-2 text-right" style={{ color: "var(--kb)" }}>
                                             {s.lerntools}

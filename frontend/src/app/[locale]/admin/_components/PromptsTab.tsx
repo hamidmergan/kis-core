@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 
 interface AdminPrompt {
@@ -13,6 +14,7 @@ interface AdminPrompt {
 }
 
 export default function PromptsTab() {
+  const t = useTranslations("admin");
   const [prompts, setPrompts] = useState<AdminPrompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -81,7 +83,7 @@ export default function PromptsTab() {
                     <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
                       <path d="M12 6h-1V4a3 3 0 0 0-6 0v2H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1zm-5 5.73V13h2v-1.27a1.5 1.5 0 1 0-2 0zM7 4a1 1 0 0 1 2 0v2H7V4z" />
                     </svg>
-                    Schreibgeschützt
+                    {t("prompts.readonly")}
                   </span>
                 )}
               </div>
@@ -107,14 +109,14 @@ export default function PromptsTab() {
                 disabled={saving === p.key}
                 className="text-sm btn-primary px-4 py-1.5 rounded-lg  disabled:opacity-50"
               >
-                {saving === p.key ? "Speichert..." : saved === p.key ? "Gespeichert ✓" : "Speichern"}
+                {saving === p.key ? t("saving") : saved === p.key ? t("saved") : t("save")}
               </button>
               <button
                 onClick={() => reset(p.key, p.default_value)}
                 disabled={saving === p.key || values[p.key] === p.default_value}
                 className="text-sm text-muted hover:text-foreground-soft px-3 py-1.5 rounded-lg border border-border hover:bg-surface disabled:opacity-40"
               >
-                Zurücksetzen
+                {t("reset")}
               </button>
             </div>
           )}

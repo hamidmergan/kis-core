@@ -1,5 +1,6 @@
 import "mind-elixir/style.css";
 import React, { useContext, useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   ArrowsInLineVertical,
@@ -52,6 +53,9 @@ export function MindmapStudio({
   openInViewer?: boolean;
   onViewerOpened?: () => void;
 }) {
+  const t = useTranslations("workspace.detail.studio");
+  const tMm = useTranslations("workspace.detail.studio.mindmap");
+  const locale = useLocale();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const meInstanceRef = useRef<any>(null);
@@ -196,7 +200,7 @@ export function MindmapStudio({
             const isMedia = _isMediaFile(node.source_label);
             const label = isMedia && typeof node.page_number === "string"
               ? node.page_number
-              : `S. ${node.page_number}`;
+              : tMm("pageLabel", { page: node.page_number ?? 0 });
             const esc = node.topic.replace(/&/g, "&amp;").replace(/</g, "&lt;");
             const IconComp = _getChipIcon(node.source_label);
             const icon = renderToStaticMarkup(
@@ -322,7 +326,7 @@ export function MindmapStudio({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mindmap, view]);
 
-  const activeTopicName = mindmap?.topic ?? "Mindmap";
+  const activeTopicName = mindmap?.topic ?? tMm("fallbackTopic");
   const noSources = sourceCount === 0;
   const atLimit = savedList.length >= 20;
 
@@ -330,7 +334,7 @@ export function MindmapStudio({
     <div className="flex flex-col h-full">
       {/* ── List view ── */}
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
-        <SubviewHeader title="Mindmap" toolKey="Mindmap" onBack={onBack} breadcrumbs={breadcrumbs} />
+        <SubviewHeader title={tMm("title")} toolKey="Mindmap" onBack={onBack} breadcrumbs={breadcrumbs} />
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2"
             style={{
@@ -338,12 +342,12 @@ export function MindmapStudio({
             }}>
             <Files size={13} weight="bold" />
             {noSources
-              ? "Keine Quelle ausgewählt"
+              ? t("sources.none")
               : sourceCount === 1
-                ? "1 Quelle ausgewählt"
+                ? t("sources.one")
                 : sourceCount <= 5
-                  ? `${sourceCount} Quellen ausgewählt`
-                  : `${sourceCount} Quellen vorhanden, es werden maximal 5 berücksichtigt`}
+                  ? t("sources.few", { n: sourceCount })
+                  : t("sources.tooMany", { n: sourceCount })}
           </div>
 
           {savedList.length === 0 && !loading ? (
@@ -351,12 +355,12 @@ export function MindmapStudio({
               className="pt-[15%]"
               size="lg"
               icon={<TreeStructure size={48} weight="bold" />}
-              text="Wähle Quellen aus und drücke auf Erstellen."
+              text={tMm("emptyHint")}
               action={
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
                   className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+                  <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
                 </button>
               }
             />
@@ -366,11 +370,11 @@ export function MindmapStudio({
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
                   className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+                  <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
                 </button>
               </div>
               <div className="flex items-center justify-between px-1">
-                <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? "Mindmap" : "Mindmaps"}</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? tMm("countOne") : tMm("countMany")}</span>
               </div>
               <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                 {loading && (
@@ -378,7 +382,7 @@ export function MindmapStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Spinner size="sm" />
-                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>Wird generiert…</span>
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>{t("generate.generating")}</span>
                     </div>
                   </div>
                 )}
@@ -395,7 +399,7 @@ export function MindmapStudio({
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
-                        {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
                         className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
@@ -432,35 +436,35 @@ export function MindmapStudio({
                     <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}
-                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>Mindmap</button>
+                <button type="button" onClick={() => { if (fullscreen) setFullscreen(false); setView("list"); }} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>{tMm("title")}</button>
                 <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                 <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{activeTopicName}</span>
               </div>
             );
           })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--foreground)" }}>{activeTopicName}</span>)}
           <div className="flex items-center gap-1.5">
-            <button type="button" onClick={handleZoomOut} title="Verkleinern"
+            <button type="button" onClick={handleZoomOut} title={tMm("zoomOut")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
               style={{ backgroundColor: "var(--surface-dim)" }}>
               <MagnifyingGlassMinus size={13} />
             </button>
-            <button type="button" onClick={handleZoomIn} title="Vergrößern"
+            <button type="button" onClick={handleZoomIn} title={tMm("zoomIn")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
               style={{ backgroundColor: "var(--surface-dim)" }}>
               <MagnifyingGlassPlus size={13} />
             </button>
-            <button type="button" onClick={handleToggleExpand} title={allExpanded ? "Alle einklappen" : "Alle ausklappen"}
+            <button type="button" onClick={handleToggleExpand} title={allExpanded ? tMm("collapseAll") : tMm("expandAll")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
               style={{ backgroundColor: "var(--surface-dim)" }}>
               {allExpanded ? <ArrowsInLineVertical size={13} /> : <ArrowsOutLineVertical size={13} />}
             </button>
-            <button type="button" onClick={handleFullscreenToggle} title={fullscreen ? "Vollbild beenden" : "Vollbild"}
+            <button type="button" onClick={handleFullscreenToggle} title={fullscreen ? tMm("exitFullscreen") : tMm("fullscreen")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
               style={{ backgroundColor: "var(--surface-dim)" }}>
               {fullscreen ? <CornersIn size={13} /> : <CornersOut size={13} />}
             </button>
             {minimize && (
-              <button type="button" onClick={minimize} title="Panel minimieren"
+              <button type="button" onClick={minimize} title={t("minimizePanel")}
                 className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
                 style={{ backgroundColor: "var(--surface-dim)" }}>
                 <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
@@ -473,7 +477,7 @@ export function MindmapStudio({
             <div className="flex-1 flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
                 <Spinner size="lg" />
-                <p className="text-sm" >Mindmap wird generiert…</p>
+                <p className="text-sm" >{tMm("loadingViewer")}</p>
               </div>
             </div>
           )}

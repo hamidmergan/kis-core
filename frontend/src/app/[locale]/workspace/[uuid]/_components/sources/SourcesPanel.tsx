@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   SidebarSimple,
   Plus,
@@ -44,6 +45,8 @@ export function SourcesPanel({
   workspaceUuid: string;
   hideHeader?: boolean;
 }) {
+  const t = useTranslations("workspace.detail.sources");
+  const tPanels = useTranslations("workspace.detail.panels");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
@@ -83,14 +86,14 @@ export function SourcesPanel({
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <span className="text-base font-semibold tracking-wide" style={{ color: "var(--foreground)" }}>
-            Quellen
+            {t("title")}
           </span>
           <button
             type="button"
             onClick={onMinimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}
-            title="Panel minimieren"
+            title={tPanels("minimize")}
           >
             <SidebarSimple size={13} />
           </button>
@@ -128,7 +131,7 @@ export function SourcesPanel({
             className="add-source-btn w-full flex items-center justify-center gap-2 py-2 rounded-lg text-base font-medium border-2 border-dashed transition-colors text-[var(--kb)] bg-[rgba(var(--kb-rgb),0.08)] border-[rgba(var(--kb-rgb),0.3)] hover:bg-[rgba(var(--kb-rgb),0.16)] hover:border-[var(--kb)]"
           >
             <Plus size={15} weight="bold" />
-            Quellen hinzufügen
+            {t("addSources")}
           </button>
           {uploadProgress !== null && (
             <div className="mt-2">
@@ -140,8 +143,8 @@ export function SourcesPanel({
               </div>
               <p className="text-xs mt-1" >
                 {uploadProgress.total > 1
-                  ? `Datei ${uploadProgress.current}/${uploadProgress.total} – ${uploadProgress.percent}%`
-                  : `Hochladen… ${uploadProgress.percent}%`}
+                  ? t("uploadingMulti", { current: uploadProgress.current, total: uploadProgress.total, percent: uploadProgress.percent })
+                  : t("uploadingSingle", { percent: uploadProgress.percent })}
               </p>
             </div>
           )}
@@ -160,7 +163,7 @@ export function SourcesPanel({
           <button
             type="button"
             onClick={toggleAll}
-            aria-label={allSelected ? "Alle abwählen" : "Alle auswählen"}
+            aria-label={allSelected ? t("deselectAll") : t("selectAll")}
             className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
               allSelected
                 ? "border-[var(--kb)] bg-[var(--kb)]"
@@ -171,7 +174,7 @@ export function SourcesPanel({
             {allSelected && <Check size={11} weight="bold" />}
           </button>
           <span className="text-sm" >
-            Alle auswählen
+            {t("selectAll")}
           </span>
         </label>
       )}
@@ -182,7 +185,7 @@ export function SourcesPanel({
           <EmptyState
             size="lg"
             icon={<FilePdf size={32} weight="bold" />}
-            text="Lade eine Quelle hoch."
+            text={t("emptyHint")}
           />
         ) : (
           sources.map((src) => {
@@ -199,8 +202,8 @@ export function SourcesPanel({
                     type="button"
                     onClick={() => { if (ready) onToggleSource(src.uuid); }}
                     disabled={!ready}
-                    aria-label={checked ? "Quelle abwählen" : "Quelle auswählen"}
-                    title={!ready ? "Quelle wird noch verarbeitet" : undefined}
+                    aria-label={checked ? t("deselectSource") : t("selectSource")}
+                    title={!ready ? t("stillProcessing") : undefined}
                     className={`source-checkbox flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
                       checked
                         ? "border-[var(--kb)] bg-[var(--kb)]"
@@ -224,7 +227,7 @@ export function SourcesPanel({
                   }}
                   role={ready ? "button" : undefined}
                   tabIndex={ready ? 0 : undefined}
-                  title={ready ? "Im Viewer öffnen" : undefined}
+                  title={ready ? t("openInViewer") : undefined}
                   className={`flex-1 flex items-center gap-3 pl-3 pr-4 py-2.5 min-w-0 ${ready ? "cursor-pointer" : "cursor-default"}`}
                 >
                   <FileIcon filename={src.filename} />
@@ -256,7 +259,7 @@ export function SourcesPanel({
                           onClick={() => onRetrySource(src.uuid)}
                           className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
                           style={{ backgroundColor: "var(--surface-dim)" }}
-                          title="Erneut versuchen"
+                          title={t("retry")}
                         >
                           <ArrowCounterClockwise size={13} weight="bold" />
                         </button>
@@ -270,7 +273,7 @@ export function SourcesPanel({
                             onClick={() => setMenuOpenId(menuOpenId === src.uuid ? null : src.uuid)}
                             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
                             style={{ backgroundColor: "var(--surface-dim)" }}
-                            title="Optionen"
+                            title={t("options")}
                           >
                             <DotsThreeVertical size={16} weight="bold" />
                           </button>
@@ -293,7 +296,7 @@ export function SourcesPanel({
                                   style={{ color: "rgb(185, 28, 28)" }}
                                 >
                                   <Trash size={16} weight="bold" />
-                                  Löschen
+                                  {t("delete")}
                                 </button>
                               </div>
                             </>
@@ -313,25 +316,25 @@ export function SourcesPanel({
       {deleteSourceId && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold mb-2">Quelle löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">{t("deleteTitle")}</h3>
             <p className="text-sm text-foreground-soft mb-1">
-              <span className="font-medium">{sources.find((s) => s.uuid === deleteSourceId)?.filename || "Quelle"}</span>
+              <span className="font-medium">{sources.find((s) => s.uuid === deleteSourceId)?.filename || t("deleteFallback")}</span>
             </p>
             <p className="text-sm text-error mb-6">
-              Die Quelle wird vollständig entfernt und kann nicht wiederhergestellt werden.
+              {t("deleteWarning")}
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteSourceId(null)}
                 className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg"
               >
-                Abbrechen
+                {t("cancel")}
               </button>
               <button
                 onClick={() => { onDeleteSource(deleteSourceId); setDeleteSourceId(null); }}
                 className="px-4 py-2 text-sm btn-danger rounded-lg"
               >
-                Löschen
+                {t("delete")}
               </button>
             </div>
           </div>

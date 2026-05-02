@@ -1,14 +1,14 @@
 import type { ScreencastStep } from "@/types";
 
-export const STEP_LABELS = [
-  "Upload",
-  "Übersetzen",
-  "Prüfen",
-  "Anweisungen",
-  "Skripte",
-  "Einstellungen",
-  "Rendern",
-  "Fertig",
+export const STEP_KEYS = [
+  "upload",
+  "translate",
+  "review",
+  "instructions",
+  "scripts",
+  "settings",
+  "rendering",
+  "done",
 ] as const;
 
 export function stepToIndex(step: ScreencastStep): number {

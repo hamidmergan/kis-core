@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 
 export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
+  const t = useTranslations("admin");
   const [emails, setEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [newEmail, setNewEmail] = useState("");
@@ -35,7 +37,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
       });
       if (!res.ok) {
         const d = await res.json();
-        setError(d.detail || "Fehler beim Hinzufügen");
+        setError(d.detail || t("whitelist.addError"));
         return;
       }
       setEmails((prev) => [...prev, newEmail.trim().toLowerCase()]);
@@ -54,7 +56,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
       });
       if (!res.ok) {
         const d = await res.json();
-        setError(d.detail || "Fehler beim Entfernen");
+        setError(d.detail || t("whitelist.removeError"));
         return;
       }
       setEmails((prev) => prev.filter((e) => e !== email));
@@ -71,7 +73,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
           value={newEmail}
           onChange={(e) => setNewEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="name@th-luebeck.de"
+          placeholder={t("whitelist.placeholder")}
           className="flex-1 text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <button
@@ -79,7 +81,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
           disabled={adding || !newEmail.trim()}
           className="btn-primary px-4 py-2 text-sm font-medium rounded-md disabled:opacity-40"
         >
-          {adding ? "..." : "Hinzufügen"}
+          {adding ? t("ellipsis") : t("whitelist.add")}
         </button>
       </div>
       {error && <p className="text-xs text-error">{error}</p>}
@@ -87,7 +89,7 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
       {loading ? (
         <Spinner className="flex justify-center py-12" />
       ) : emails.length === 0 ? (
-        <p className="text-sm text-muted-soft text-center py-8">Whitelist ist leer</p>
+        <p className="text-sm text-muted-soft text-center py-8">{t("whitelist.empty")}</p>
       ) : (
         <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
           {emails.map((email) => {
@@ -113,19 +115,19 @@ export default function WhitelistTab({ adminEmail }: { adminEmail: string }) {
                   </span>
                   {isAdmin && (
                     <span className="text-[10px] font-medium text-muted-soft bg-surface-dim px-1.5 py-0.5 rounded-full shrink-0">
-                      Admin
+                      {t("whitelist.adminBadge")}
                     </span>
                   )}
                 </div>
                 {isAdmin ? (
-                  <span className="text-xs text-border shrink-0 cursor-default select-none">Entfernen</span>
+                  <span className="text-xs text-border shrink-0 cursor-default select-none">{t("whitelist.remove")}</span>
                 ) : (
                   <button
                     onClick={() => remove(email)}
                     disabled={removing === email}
                     className="text-xs text-error hover:underline disabled:opacity-50 shrink-0"
                   >
-                    {removing === email ? "..." : "Entfernen"}
+                    {removing === email ? t("ellipsis") : t("whitelist.remove")}
                   </button>
                 )}
               </li>

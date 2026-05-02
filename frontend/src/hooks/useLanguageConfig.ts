@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
 
 export interface Language {
   id: string;
   label: string;
 }
-
-const DEFAULT_LANGUAGES: Language[] = [
-  { id: "DE", label: "Deutsch" },
-  { id: "EN-US", label: "Englisch" },
-  { id: "EN-GB", label: "Englisch (UK)" },
-  { id: "FR", label: "Französisch" },
-  { id: "ES", label: "Spanisch" },
-  { id: "IT", label: "Italienisch" },
-];
 
 interface TranslateConfigResponse {
   languages: Language[];
@@ -24,7 +16,19 @@ interface TranslateConfigResponse {
 }
 
 export function useLanguageConfig() {
-  const [languages, setLanguages] = useState<Language[]>(DEFAULT_LANGUAGES);
+  const t = useTranslations("langLabels");
+  const defaults = useMemo<Language[]>(
+    () => [
+      { id: "DE", label: t("DE") },
+      { id: "EN-US", label: t("EN-US") },
+      { id: "EN-GB", label: t("EN-GB") },
+      { id: "FR", label: t("FR") },
+      { id: "ES", label: t("ES") },
+      { id: "IT", label: t("IT") },
+    ],
+    [t],
+  );
+  const [languages, setLanguages] = useState<Language[]>(defaults);
   const [sourceLang, setSourceLang] = useState<string>("DE");
   const [targetLang, setTargetLang] = useState<string>("EN-US");
 

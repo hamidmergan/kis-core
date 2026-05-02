@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { ChartBar, DotsThreeVertical, PencilSimple, Trash } from "@phosphor-icons/react";
 import IconButton from "@/components/ui/IconButton";
 
@@ -15,6 +16,7 @@ const MENU_WIDTH = 220;
 const GAP = 6;
 
 export default function WorkspaceMenu({ onStats, onEdit, onDelete }: WorkspaceMenuProps) {
+  const t = useTranslations("workspace.list");
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -60,7 +62,7 @@ export default function WorkspaceMenu({ onStats, onEdit, onDelete }: WorkspaceMe
       <IconButton
         ref={triggerRef}
         onClick={(e: React.MouseEvent) => { e.stopPropagation(); setOpen(!open); }}
-        title="Mehr"
+        title={t("more")}
       >
         <DotsThreeVertical size={13} weight="bold" />
       </IconButton>
@@ -84,7 +86,7 @@ export default function WorkspaceMenu({ onStats, onEdit, onDelete }: WorkspaceMe
             style={{ color: "var(--foreground)" }}
           >
             <ChartBar size={16} weight="bold" />
-            Statistik
+            {t("stats")}
           </button>
           <button
             type="button"
@@ -93,7 +95,7 @@ export default function WorkspaceMenu({ onStats, onEdit, onDelete }: WorkspaceMe
             style={{ color: "var(--foreground)" }}
           >
             <PencilSimple size={16} weight="bold" />
-            Bearbeiten
+            {t("edit")}
           </button>
           <button
             type="button"
@@ -102,7 +104,7 @@ export default function WorkspaceMenu({ onStats, onEdit, onDelete }: WorkspaceMe
             style={{ color: "rgb(185, 28, 28)" }}
           >
             <Trash size={16} weight="bold" />
-            Löschen
+            {t("delete")}
           </button>
         </div>,
         document.body,

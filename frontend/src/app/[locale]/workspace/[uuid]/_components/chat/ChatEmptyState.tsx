@@ -1,12 +1,6 @@
+import { useTranslations } from "next-intl";
 import { Chat } from "@phosphor-icons/react";
 import Hilde from "@/components/ui/Hilde";
-
-
-const EMPTY_PROMPTS = [
-  "Gib mir einen Überblick über den Inhalt.",
-  "Fasse die wichtigsten Punkte zusammen.",
-  "Erkläre zentrale Begriffe kurz und verständlich.",
-];
 
 
 interface ChatEmptyStateProps {
@@ -17,7 +11,13 @@ interface ChatEmptyStateProps {
 
 
 export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = true }: ChatEmptyStateProps) {
+  const t = useTranslations("workspace.detail.chat");
   const disabled = activeSourceIds.length === 0;
+  const prompts = [
+    t("emptyPromptOverview"),
+    t("emptyPromptSummary"),
+    t("emptyPromptTerms"),
+  ];
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
       {hildeEnabled ? (
@@ -31,15 +31,13 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
         </div>
       )}
       <p className="text-base font-medium" style={{ color: "var(--foreground)" }}>
-        {hildeEnabled ? "Hallo, ich bin Hilde." : "Dein KI-Assistent"}
+        {hildeEnabled ? t("emptyHildeGreeting") : t("emptyAssistantTitle")}
       </p>
       <p className="text-sm text-center max-w-xs" style={{ color: "var(--muted)" }}>
-        {hildeEnabled
-          ? "Frag mich was zu deinen Quellen - ich helfe dir beim Verstehen, Zusammenfassen und Wiederholen."
-          : "Wähle Quellen links aus - stell Fragen, lass dir Inhalte erklären oder gib Anweisungen."}
+        {hildeEnabled ? t("emptyHildeIntro") : t("emptyAssistantIntro")}
       </p>
       <div className="flex flex-col gap-2 mt-2 w-full max-w-sm">
-        {EMPTY_PROMPTS.map((prompt) => (
+        {prompts.map((prompt) => (
           <button
             key={prompt}
             disabled={disabled}

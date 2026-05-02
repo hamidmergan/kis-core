@@ -1,5 +1,11 @@
-export function formatDate(dateStr: string): string {
-  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").toLocaleString("de-DE", {
+type Locale = "de" | "en";
+
+function intlTag(locale: Locale): string {
+  return locale === "en" ? "en-GB" : "de-DE";
+}
+
+export function formatDate(dateStr: string, locale: Locale = "de"): string {
+  return new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z").toLocaleString(intlTag(locale), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -9,8 +15,10 @@ export function formatDate(dateStr: string): string {
   });
 }
 
-export function formatDuration(seconds: number | null | undefined): string {
+export function formatDuration(seconds: number | null | undefined, locale: Locale = "de"): string {
   if (seconds == null) return "-";
-  if (seconds >= 60) return `${Math.round(seconds / 60)} min`;
-  return `${Math.round(seconds)} s`;
+  const minLabel = locale === "en" ? "min" : "min";
+  const secLabel = locale === "en" ? "s" : "s";
+  if (seconds >= 60) return `${Math.round(seconds / 60)} ${minLabel}`;
+  return `${Math.round(seconds)} ${secLabel}`;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import WorkspaceTableRow from "./WorkspaceTableRow";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
@@ -23,6 +24,7 @@ export default function WorkspaceTable({
   onEdit,
   onLinksChanged,
 }: WorkspaceTableProps) {
+  const t = useTranslations("workspace.list");
   const labels = useWorkspaceLabel();
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(workspaces.length / MODULES_PER_PAGE));
@@ -39,12 +41,12 @@ export default function WorkspaceTable({
               <tr className="border-b border-border-soft text-left text-xs text-muted uppercase">
                 <th className="px-4 py-2 w-6"></th>
                 <th className="px-4 py-2">{labels.singular}</th>
-                <th className="px-4 py-2 text-right">Quellen</th>
-                <th className="px-4 py-2 text-right">Links</th>
+                <th className="px-4 py-2 text-right">{t("colSources")}</th>
+                <th className="px-4 py-2 text-right">{t("colLinks")}</th>
                 <th className="px-4 py-2">
                   <span className="inline-flex items-center gap-1.5">
-                    Status
-                    <HelpTooltip text="Aktiv: Studierende können sich über Zugangslinks einschreiben und die Inhalte nutzen. Inaktiv: für Studierende gesperrt. Bestehende Einschreibungen bleiben erhalten." />
+                    {t("colStatus")}
+                    <HelpTooltip text={t("statusHelp")} />
                   </span>
                 </th>
                 <th className="px-4 py-2"></th>
@@ -71,7 +73,12 @@ export default function WorkspaceTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Zeige {startIdx + 1} bis {Math.min(startIdx + MODULES_PER_PAGE, workspaces.length)} von {workspaces.length} {labels.plural}
+            {t("paginationInfo", {
+              from: startIdx + 1,
+              to: Math.min(startIdx + MODULES_PER_PAGE, workspaces.length),
+              total: workspaces.length,
+              label: labels.plural,
+            })}
           </p>
           <div className="flex items-center gap-1">
             <button
@@ -80,7 +87,7 @@ export default function WorkspaceTable({
               disabled={safePage === 1}
               className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[var(--foreground)] enabled:hover:outline-2 enabled:hover:outline-[var(--kb)] enabled:hover:text-[var(--kb)] -outline-offset-1"
             >
-              Zurück
+              {t("prev")}
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
               const isActive = p === safePage;
@@ -106,7 +113,7 @@ export default function WorkspaceTable({
               disabled={safePage === totalPages}
               className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[var(--foreground)] enabled:hover:outline-2 enabled:hover:outline-[var(--kb)] enabled:hover:text-[var(--kb)] -outline-offset-1"
             >
-              Weiter
+              {t("next")}
             </button>
           </div>
         </div>

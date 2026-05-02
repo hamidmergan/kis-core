@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { GearSix, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { SettingsMenu } from "./SettingsMenu";
 import type { PanelKey, TranscriptTranslationMode } from "../../_types";
@@ -44,6 +45,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     translationMode, onChangeTranslationMode,
     activeTab, setActiveTab,
   } = props;
+  const t = useTranslations("workspace.detail.topbar");
+  const tPanels = useTranslations("workspace.detail.panels");
 
   const settingsModal = (
     <SettingsMenu
@@ -65,7 +68,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onClick={onToggleSettings}
       className={`w-7 h-7 flex items-center justify-center rounded-full ${showSettings ? "text-white" : "btn-icon"}`}
       style={{ backgroundColor: showSettings ? "var(--kb)" : "var(--surface-dim)" }}
-      title="Einstellungen"
+      title={t("settings")}
     >
       <GearSix size={17} weight={showSettings ? "fill" : "regular"} />
     </button>
@@ -77,8 +80,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onClick={onToggleHideHeader}
       className={`w-7 h-7 flex items-center justify-center rounded-full ${hideHeader ? "text-white" : "btn-icon"}`}
       style={{ backgroundColor: hideHeader ? "var(--kb)" : "var(--surface-dim)" }}
-      title={hideHeader ? "Header anzeigen" : "Header ausblenden"}
-      aria-label={hideHeader ? "Header anzeigen" : "Header ausblenden"}
+      title={hideHeader ? t("showHeader") : t("hideHeader")}
+      aria-label={hideHeader ? t("showHeader") : t("hideHeader")}
       aria-pressed={hideHeader}
     >
       {hideHeader ? <CaretDown size={16} weight="bold" /> : <CaretUp size={16} weight="bold" />}
@@ -95,7 +98,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
             style={{ color: "var(--kb)" }}
           >
             <BackArrow size={12} />
-            Zurück zur Übersicht
+            {t("backToOverview")}
           </Link>
           <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <h3 className="text-base font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)" }}>
@@ -121,7 +124,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
           style={{ color: "var(--kb)" }}
         >
           <BackArrow size={12} />
-          Zurück
+          {t("back")}
         </Link>
         <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-sm font-bold truncate px-12 pointer-events-auto select-text cursor-text" style={{ color: "var(--foreground)" }}>
@@ -142,7 +145,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
             className="flex-1 py-3 compact-on-short text-sm font-medium transition-colors relative"
             style={{ color: activeTab === key ? "var(--kb)" : "var(--muted)", background: "none", border: "none" }}
           >
-            {key === "quellen" ? "Quellen" : key === "chat" ? "Chat" : "Studio"}
+            {key === "quellen" ? tPanels("sources") : key === "chat" ? tPanels("chat") : tPanels("studio")}
             {activeTab === key && (
               <span className="absolute bottom-0 left-0 right-0" style={{ height: 2, backgroundColor: "var(--kb)", display: "block" }} />
             )}

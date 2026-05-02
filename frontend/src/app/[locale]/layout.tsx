@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
-import { setRequestLocale, getMessages } from "next-intl/server";
+import { setRequestLocale, getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import "../globals.css";
@@ -12,14 +12,16 @@ import NextTopLoader from "nextjs-toploader";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
-export const metadata: Metadata = {
-  title: "KIS",
-  description: "KIS - Services der TH Lübeck",
-  authors: [{ name: "Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck" }],
-  other: {
-    copyright: "© 2026 Hamid Mergan, Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck",
-  },
-};
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "layoutMeta" });
+  return {
+    title: t("title"),
+    description: t("description"),
+    authors: [{ name: t("author") }],
+    other: { copyright: t("copyright") },
+  };
+}
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));

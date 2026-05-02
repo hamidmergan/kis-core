@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowCounterClockwise, Check, WarningCircle, XIcon } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import type { GlossaryEntry } from "../../_types";
 import { _chunkLabel, _md } from "../../_utils";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
@@ -11,6 +12,7 @@ export function VocabFlashcards({
   onBack: () => void;
   breadcrumbs?: BreadcrumbItem[];
 }) {
+  const t = useTranslations("workspace.detail.languageTraining");
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [results, setResults] = useState<{ glossary_entry_id: number; correct: boolean }[]>([]);
@@ -39,16 +41,16 @@ export function VocabFlashcards({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Karteikarten" toolKey="Flashcards" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+        <SubviewHeader title={t("vocabFlashcards.title")} toolKey="Flashcards" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
-              <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>Ergebnis</p>
+              <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>{t("common.result")}</p>
               <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                {Math.round((correctCount / total) * 100)}% gewusst
+                {t("vocabFlashcards.percentKnew", { pct: Math.round((correctCount / total) * 100) })}
               </p>
             </div>
 
@@ -64,7 +66,7 @@ export function VocabFlashcards({
               <div className="w-full rounded-xl p-4" style={{ backgroundColor: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
                 <p className="text-xs font-semibold mb-2" style={{ color: "var(--error-strong)" }}>
                   <WarningCircle size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-2px" }} />
-                  Nochmal lernen:
+                  {t("vocabFlashcards.studyAgain")}
                 </p>
                 <div className="flex flex-col gap-1.5">
                   {wrongEntries.map((e) => (
@@ -87,7 +89,7 @@ export function VocabFlashcards({
                   style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "var(--error-strong)", border: "1px solid rgba(239,68,68,0.2)" }}
                 >
                   <ArrowCounterClockwise size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
-                  Alle nochmal
+                  {t("vocabFlashcards.allAgain")}
                 </button>
               )}
               <button
@@ -96,7 +98,7 @@ export function VocabFlashcards({
                 className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--surface-dim)]"
                 style={{ backgroundColor: "var(--border)", color: "var(--foreground)" }}
               >
-                Zurück
+                {t("common.back")}
               </button>
             </div>
           </div>
@@ -107,7 +109,7 @@ export function VocabFlashcards({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Karteikarten" toolKey="Flashcards" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+      <SubviewHeader title={t("vocabFlashcards.title")} toolKey="Flashcards" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
       <div className="flex-1 overflow-y-auto p-4">
         <div className="mx-auto mt-4 sm:mt-6 w-full flex flex-col gap-3" style={{ maxWidth: 560 }}>
           {/* Card */}
@@ -139,7 +141,7 @@ export function VocabFlashcards({
                     <span className="text-sm leading-relaxed font-semibold" style={{ color: "var(--foreground)" }}
                       dangerouslySetInnerHTML={{ __html: _md(card.definition) }} />
                     {card.page_number && (
-                      <span className="text-xs mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!) : `S. ${card.page_number}`}</span>
+                      <span className="text-xs mt-1" style={{ color: "var(--muted)" }}>{card.filename ? _chunkLabel(card.filename, card.page_number!) : t("glossary.pageShort", { page: card.page_number })}</span>
                     )}
                   </>
                 )}
@@ -152,7 +154,7 @@ export function VocabFlashcards({
           {!flipped ? (
             <button type="button" onClick={() => setFlipped(true)}
               className="btn-soft-accent w-full py-2.5 rounded-xl text-xs font-semibold transition-all">
-              Antwort zeigen
+              {t("common.showAnswer")}
             </button>
           ) : (
             <div className="flex gap-2">
@@ -163,11 +165,11 @@ export function VocabFlashcards({
                 style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "var(--error-strong)", border: "1px solid rgba(239,68,68,0.2)" }}
               >
                 <XIcon size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
-                Nochmal
+                {t("common.again")}
               </button>
               <button type="button" onClick={() => setFlipped(false)}
                 className="btn-soft-accent py-2.5 px-4 rounded-xl text-xs font-semibold transition-all">
-                Frage zeigen
+                {t("common.showQuestion")}
               </button>
               <button
                 type="button"
@@ -176,7 +178,7 @@ export function VocabFlashcards({
                 style={{ backgroundColor: "rgba(34,197,94,0.1)", color: "var(--success-strong)", border: "1px solid rgba(34,197,94,0.2)" }}
               >
                 <Check size={13} weight="bold" className="inline mr-1" style={{ verticalAlign: "-1px" }} />
-                Gewusst
+                {t("common.knew")}
               </button>
             </div>
           )}
@@ -185,4 +187,3 @@ export function VocabFlashcards({
     </div>
   );
 }
-

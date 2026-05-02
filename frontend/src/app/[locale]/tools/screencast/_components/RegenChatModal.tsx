@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { api } from "@/lib/api";
 
@@ -59,6 +60,7 @@ export default function RegenChatModal({
   onApply,
   onClose,
 }: RegenChatModalProps) {
+  const t = useTranslations("tools.screencast.regenChat");
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -89,7 +91,7 @@ export default function RegenChatModal({
       });
       setMessages([...newMessages, { role: "assistant", content: result.script }]);
     } catch {
-      setMessages([...newMessages, { role: "assistant", content: "Fehler beim Generieren." }]);
+      setMessages([...newMessages, { role: "assistant", content: t("errorMessage") }]);
     } finally {
       setLoading(false);
     }
@@ -114,7 +116,7 @@ export default function RegenChatModal({
               KI
             </div>
             <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-              KI-Assistent · Folie {slideIndex + 1}
+              {t("headerTitle", { n: slideIndex + 1 })}
             </span>
           </div>
           <button
@@ -158,7 +160,7 @@ export default function RegenChatModal({
                       KI
                     </div>
                     <span className="text-[11px] font-medium" style={{ color: "var(--muted)" }}>
-                      KI-Assistent
+                      {t("assistant")}
                     </span>
                   </div>
                 )}
@@ -201,28 +203,28 @@ export default function RegenChatModal({
                                 className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}
                               >
-                                Markierung ersetzen
+                                {t("actions.replaceSelection")}
                               </button>
                               <button
                                 onClick={() => onApply("insert-before", msg.content)}
                                 className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}
                               >
-                                Davor
+                                {t("actions.insertBefore")}
                               </button>
                               <button
                                 onClick={() => onApply("insert-after", msg.content)}
                                 className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}
                               >
-                                Danach
+                                {t("actions.insertAfter")}
                               </button>
                               <button
                                 onClick={() => onApply("replace-all", msg.content)}
                                 className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                                 style={{ backgroundColor: "rgba(var(--kb-rgb),0.05)", color: "var(--muted)" }}
                               >
-                                Ganzes Skript
+                                {t("actions.wholeScript")}
                               </button>
                             </>
                           ) : (
@@ -231,7 +233,7 @@ export default function RegenChatModal({
                               className="px-3 py-1 text-xs font-medium rounded-full chip-cite"
                               style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)" }}
                             >
-                              Ersetzen
+                              {t("actions.replace")}
                             </button>
                           )}
                         </div>
@@ -270,7 +272,7 @@ export default function RegenChatModal({
                     ))}
                   </span>
                   <span className="text-xs" style={{ color: "var(--muted)" }}>
-                    Denkt nach…
+                    {t("thinking")}
                   </span>
                 </span>
               </div>
@@ -295,7 +297,7 @@ export default function RegenChatModal({
                 }
               }}
               rows={1}
-              placeholder={demo ? "Nicht in der Demo verfügbar" : "Text eingeben…"}
+              placeholder={demo ? t("promptPlaceholderDemo") : t("promptPlaceholder")}
               autoFocus={!demo}
               disabled={demo}
               className="flex-1 text-sm resize-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed bg-transparent"

@@ -1,23 +1,20 @@
-const SCRIPT_CHIPS = [
-  "Kurze Sätze",
-  "Formelle Sprache",
-  "Für Studierende verständlich",
-  "Technische Details betonen",
-  "Übergänge zwischen Folien einfügen",
-  "Mit Begrüßung beginnen",
-];
+"use client";
+
+import { useTranslations } from "next-intl";
 
 interface PromptChipsProps {
   onChipClick: (chip: string) => void;
   disabled?: boolean;
-  chips?: string[];
+  chips: string[];
+  ariaLabelKey?: string;
 }
 
-export default function PromptChips({ onChipClick, disabled, chips }: PromptChipsProps) {
-  const items = chips ?? SCRIPT_CHIPS;
+export default function PromptChips({ onChipClick, disabled, chips, ariaLabelKey }: PromptChipsProps) {
+  const t = useTranslations("common");
+  const ariaLabel = ariaLabelKey ?? t("pleaseSelect");
   return (
-    <div className="flex flex-wrap gap-2 mt-3" aria-label="Schnellauswahl">
-      {items.map((chip) => (
+    <div className="flex flex-wrap gap-2 mt-3" aria-label={ariaLabel}>
+      {chips.map((chip) => (
         <button
           key={chip}
           type="button"

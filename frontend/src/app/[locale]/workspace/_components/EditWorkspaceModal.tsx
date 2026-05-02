@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 
 interface EditWorkspaceModalProps {
@@ -16,6 +17,7 @@ export default function EditWorkspaceModal({
   onClose,
   onSubmit,
 }: EditWorkspaceModalProps) {
+  const t = useTranslations("workspace.list");
   const labels = useWorkspaceLabel();
   const [title, setTitle] = useState(currentTitle);
   const [description, setDescription] = useState(currentDescription);
@@ -26,7 +28,7 @@ export default function EditWorkspaceModal({
     const trimmedTitle = title.trim();
     const trimmedDesc = description.trim();
     if (!trimmedTitle) {
-      setError("Titel darf nicht leer sein");
+      setError(t("titleEmpty"));
       return;
     }
     if (trimmedTitle === currentTitle && trimmedDesc === currentDescription) {
@@ -38,7 +40,7 @@ export default function EditWorkspaceModal({
     const ok = await onSubmit(trimmedTitle, trimmedDesc);
     setSaving(false);
     if (ok) onClose();
-    else setError("Speichern fehlgeschlagen");
+    else setError(t("saveFailed"));
   }
 
   return (
@@ -49,10 +51,10 @@ export default function EditWorkspaceModal({
       }}
     >
       <div className="bg-background shadow-xl rounded-xl w-full max-h-[90vh] sm:max-w-xl lg:max-w-3xl p-6 flex flex-col">
-        <h3 className="text-base font-semibold mb-4">{labels.singular} bearbeiten</h3>
+        <h3 className="text-base font-semibold mb-4">{t("editTitle", { label: labels.singular })}</h3>
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
-            Titel <span style={{ color: "var(--error)" }}>*</span>
+            {t("titleField")} <span style={{ color: "var(--error)" }}>*</span>
           </label>
           <input
             type="text"
@@ -70,7 +72,7 @@ export default function EditWorkspaceModal({
         </div>
         <div className="flex flex-col flex-1 min-h-0">
           <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
-            Beschreibung
+            {t("descriptionField")}
           </label>
           <textarea
             value={description}
@@ -79,7 +81,7 @@ export default function EditWorkspaceModal({
             rows={8}
             className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none flex-1 sm:min-h-[180px] lg:min-h-[260px]"
             style={{ backgroundColor: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-            placeholder="z. B. Sommersemester 2026, Grundlagen der Programmierung"
+            placeholder={t("descriptionPlaceholder")}
           />
           <p className="text-xs text-muted-soft text-right mt-1">{description.length}/300</p>
         </div>
@@ -90,14 +92,14 @@ export default function EditWorkspaceModal({
             disabled={saving}
             className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50"
           >
-            Abbrechen
+            {t("cancel")}
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
             className="px-4 py-2 text-sm btn-primary rounded-lg disabled:opacity-50"
           >
-            {saving ? "..." : "Speichern"}
+            {saving ? "..." : t("save")}
           </button>
         </div>
       </div>

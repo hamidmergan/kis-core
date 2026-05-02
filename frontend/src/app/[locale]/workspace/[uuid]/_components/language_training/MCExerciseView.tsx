@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import type { ExerciseItem, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md } from "../../_utils";
@@ -18,7 +19,9 @@ export function MCExerciseView({
   breadcrumbs?: BreadcrumbItem[];
   chatLang?: "de" | "en";
 }) {
-  const t = (de: string, en: string) => (chatLang === "en" ? en : de);
+  const t = useTranslations("workspace.detail.languageTraining");
+  // Chat prompt strings are sent to the LLM, not displayed.
+  // chatLang controls the language of the LLM response, so prompts stay in chatLang.
   const promptTip = (term: string) => chatLang === "en"
     ? `Give me a brief hint for the following question, WITHOUT revealing the answer: "${term}"`
     : `Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${term}"`;
@@ -101,7 +104,7 @@ export function MCExerciseView({
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
       <Spinner size="lg" />
-      <p className="text-xs" >Wird geladen…</p>
+      <p className="text-xs" >{t("common.loading")}</p>
     </div>
   );
   const progressPct = showResults ? 100 : ((index + 1) / total) * 100;
@@ -121,7 +124,7 @@ export function MCExerciseView({
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}
-            title="Panel minimieren">
+            title={t("common.minimizePanel")}>
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
           </button>
         )}
@@ -134,18 +137,23 @@ export function MCExerciseView({
             style={{ backgroundColor: "#1a8a5c", boxShadow: "0 4px 20px rgba(26,138,92,0.25)" }}>
             <Check size={30} weight="bold" color="white" />
           </div>
-          <h3 className="text-lg font-semibold">Quiz abgeschlossen!</h3>
+          <h3 className="text-lg font-semibold">{t("mcExercise.quizCompleted")}</h3>
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            <strong style={{ color: "#1a8a5c" }}>{results.filter(r => r.correct).length} / {total}</strong> richtig — <strong style={{ color: "#1a8a5c" }}>{Math.round((results.filter(r => r.correct).length / total) * 100)}%</strong>
+            {t.rich("mcExercise.quizScore", {
+              correct: results.filter(r => r.correct).length,
+              total,
+              pct: Math.round((results.filter(r => r.correct).length / total) * 100),
+              hl: (chunks) => <strong style={{ color: "#1a8a5c" }}>{chunks}</strong>,
+            })}
           </p>
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={() => { setShowResults(false); setIndex(0); setSelected(null); setResults([]); shuffledRef.current = false; }}
               className="btn-outline-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-              Erneut versuchen
+              {t("mcExercise.tryAgain")}
             </button>
             <button type="button" onClick={onBack}
               className="btn-fill-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-              Fertig
+              {t("common.done")}
             </button>
           </div>
         </div>
@@ -209,7 +217,7 @@ export function MCExerciseView({
                       style={isCorrect
                         ? { color: "#1a8a5c", backgroundColor: "rgba(26,138,92,0.08)" }
                         : { color: "#d4453a", backgroundColor: "rgba(212,69,58,0.07)" }}>
-                      {isCorrect ? "✓ Richtig!" : <span dangerouslySetInnerHTML={{ __html: `✗ Richtig wäre: ${_md(card.back)}` }} />}
+                      {isCorrect ? `✓ ${t("common.correctShort")}` : <span dangerouslySetInnerHTML={{ __html: `✗ ${t("mcExercise.correctIs")} ${_md(card.back)}` }} />}
                     </div>
                   )}
                   {/* Source chip + Hint */}
@@ -237,7 +245,7 @@ export function MCExerciseView({
                         disabled={hintLoading}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
                         <Lightbulb size={13} weight="bold" />
-                        {hintLoading ? t("Wird geladen…", "Loading…") : t("Tipp", "Hint")}
+                        {hintLoading ? t("common.loading") : t("common.hint")}
                       </button>
                     )}
                   </div>
@@ -248,11 +256,11 @@ export function MCExerciseView({
                         ? promptTermDeep(tool === "lueckentext" ? card.back : card.front)
                         : promptTopicDeep(card.front))}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all">
-                        <Chat size={13} weight="bold" /> {t("Mehr erfahren", "Learn more")}
+                        <Chat size={13} weight="bold" /> {t("common.learnMore")}
                       </button>
                       <button type="button" onClick={advance}
                         className="btn-fill-accent flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold transition-all">
-                        {index >= total - 1 ? "Abschließen" : "Weiter"} <CaretRight size={14} weight="bold" />
+                        {index >= total - 1 ? t("common.finish") : t("common.next")} <CaretRight size={14} weight="bold" />
                       </button>
                     </div>
                   )}
@@ -265,4 +273,3 @@ export function MCExerciseView({
     </div>
   );
 }
-

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { CaretLeft, SidebarSimple } from "@phosphor-icons/react";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
@@ -27,6 +28,9 @@ export function PdfViewer({
   onAddToGlossary?: (text: string, sourceUuid: string, page: number) => void;
   isOwner?: boolean;
 }) {
+  const t = useTranslations("workspace.detail.pdf");
+  const tViewer = useTranslations("workspace.detail.viewer");
+  const tPanels = useTranslations("workspace.detail.panels");
   const [page, setPage] = useState(source.page);
   const [showAnnotations, setShowAnnotations] = useState(false);
   const [pageSummaries, setPageSummaries] = useState<Record<number, string>>({});
@@ -342,10 +346,10 @@ export function PdfViewer({
     // Register custom question command – prefills chat input with selected text
     commands.registerCommand({
       id: "kis.custom-question",
-      label: "Frage stellen",
-      description: "Frage stellen",
+      label: t("askQuestion"),
+      description: t("askQuestion"),
       icon: "ph-chat-circle",
-      iconProps: { title: "Frage stellen" },
+      iconProps: { title: t("askQuestion") },
       categories: ["kis-actions"],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       visible: ({ state, documentId }: any) => {
@@ -374,10 +378,10 @@ export function PdfViewer({
     // ClipboardItem so the user gesture is preserved across the await.
     commands.registerCommand({
       id: "kis.copy-selection",
-      label: "Kopieren",
-      description: "Auswahl kopieren",
+      label: t("copy"),
+      description: t("copySelection"),
       icon: "copy",
-      iconProps: { title: "Kopieren" },
+      iconProps: { title: t("copy") },
       categories: ["selection", "selection-copy"],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       visible: ({ state, documentId }: any) => {
@@ -402,10 +406,10 @@ export function PdfViewer({
     // Register glossary extract command
     commands.registerCommand({
       id: "kis.add-to-glossary",
-      label: "Zum Glossar",
-      description: "Fachbegriffe zum Glossar hinzufügen",
+      label: t("addToGlossary"),
+      description: t("addToGlossaryDescription"),
       icon: "ph-book",
-      iconProps: { title: "Zum Glossar hinzufügen" },
+      iconProps: { title: t("addToGlossaryTitle") },
       categories: ["kis-actions"],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       visible: ({ state, documentId }: any) => {
@@ -433,8 +437,8 @@ export function PdfViewer({
     // Register summary toggle command (opens EmbedPDF sidebar like comments)
     commands.registerCommand({
       id: "kis.toggle-summaries",
-      label: "Zusammenfassungen",
-      description: "Zusammenfassungen",
+      label: t("summaries"),
+      description: t("summaries"),
       icon: "ph-funnel-simple",
       categories: ["panel", "panel-summaries"],
       action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
@@ -513,7 +517,7 @@ export function PdfViewer({
       <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
         <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-          style={{ backgroundColor: "var(--surface-dim)" }} title="Zurück">
+          style={{ backgroundColor: "var(--surface-dim)" }} title={tViewer("back")}>
           <CaretLeft size={13} weight="bold" />
         </button>
         <FileIcon filename={source.filename} />
@@ -521,7 +525,7 @@ export function PdfViewer({
         {onMinimize && (
           <button type="button" onClick={onMinimize}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon ml-2"
-            style={{ backgroundColor: "var(--surface-dim)" }} title="Panel minimieren">
+            style={{ backgroundColor: "var(--surface-dim)" }} title={tPanels("minimize")}>
             <SidebarSimple size={13} />
           </button>
         )}

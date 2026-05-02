@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Book } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -15,6 +16,7 @@ interface GlossaryPanelProps {
 }
 
 export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps) {
+  const t = useTranslations("glossaryPanel");
   const [error, setError] = useState<string | null>(null);
   const [newSource, setNewSource] = useState("");
   const [newTarget, setNewTarget] = useState("");
@@ -22,7 +24,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
   const handleAddEntry = () => {
     if (!newSource.trim() || !newTarget.trim()) return;
     if (entries.some((e) => e.source.toLowerCase() === newSource.trim().toLowerCase())) {
-      setError(`"${newSource.trim()}" existiert bereits im Glossar`);
+      setError(t("duplicate", { term: newSource.trim() }));
       return;
     }
     onChange([...entries, { source: newSource.trim(), target: newTarget.trim() }]);
@@ -45,19 +47,15 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-1">Glossar</h2>
-        <p className="text-sm text-muted">
-          Begriffe, die bei der Übersetzung konsistent verwendet werden sollen.
-          Einträge gelten nur solange dieser Tab geöffnet ist.
-        </p>
+        <h2 className="text-lg font-semibold mb-1">{t("title")}</h2>
+        <p className="text-sm text-muted">{t("intro")}</p>
       </div>
 
-      {/* Add new entry */}
       <div className="bg-background rounded-lg border border-border-soft p-4 mb-6">
         <div className="flex gap-3 items-end">
           <div className="flex-1">
             <label htmlFor="glossary-source" className="block text-xs font-medium text-foreground-soft mb-1">
-              Deutsch (Quelle)
+              {t("deLabel")}
             </label>
             <input
               id="glossary-source"
@@ -65,13 +63,13 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
               value={newSource}
               onChange={(e) => setNewSource(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="z.B. Technische Hochschule"
+              placeholder={t("placeholderDe")}
               className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent"
             />
           </div>
           <div className="flex-1">
             <label htmlFor="glossary-target" className="block text-xs font-medium text-foreground-soft mb-1">
-              Englisch (Ziel)
+              {t("enLabel")}
             </label>
             <input
               id="glossary-target"
@@ -79,7 +77,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
               value={newTarget}
               onChange={(e) => setNewTarget(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="z.B. University of Applied Sciences"
+              placeholder={t("placeholderEn")}
               className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-kb focus:border-transparent"
             />
           </div>
@@ -88,24 +86,22 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
             disabled={!newSource.trim() || !newTarget.trim()}
             className="px-4 py-2 btn-primary text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors whitespace-nowrap"
           >
-            Hinzufügen
+            {t("addButton")}
           </button>
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="mb-4 p-3 bg-error-bg border border-error-border rounded-lg text-sm text-error-strong" role="alert">
           {error}
         </div>
       )}
 
-      {/* Entries table */}
       {entries.length === 0 ? (
         <EmptyState
           size="lg"
           icon={<Book size={32} weight="bold" />}
-          text="Noch keine Glossar-Einträge vorhanden."
+          text={t("empty")}
         />
       ) : (
         <div className="bg-background rounded-lg border border-border-soft overflow-hidden">
@@ -113,10 +109,10 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
             <thead>
               <tr className="bg-surface border-b border-border-soft">
                 <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-4 py-3">
-                  Deutsch
+                  {t("thDe")}
                 </th>
                 <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-4 py-3">
-                  Englisch
+                  {t("thEn")}
                 </th>
                 <th className="w-16 px-4 py-3" />
               </tr>
@@ -129,7 +125,7 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => handleRemoveEntry(index)}
-                      aria-label={`${entry.source} entfernen`}
+                      aria-label={t("removeAria", { term: entry.source })}
                       className="w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-muted-soft hover:text-kb hover:bg-surface transition-colors"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -140,10 +136,14 @@ export default function GlossaryPanel({ entries, onChange }: GlossaryPanelProps)
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={3} className="px-4 py-3 bg-surface border-t border-border-soft text-xs text-muted">
+                  {t("entryCount", { count: entries.length })}
+                </td>
+              </tr>
+            </tfoot>
           </table>
-          <div className="px-4 py-3 bg-surface border-t border-border-soft text-xs text-muted">
-            {entries.length} {entries.length === 1 ? "Eintrag" : "Einträge"}
-          </div>
         </div>
       )}
     </div>

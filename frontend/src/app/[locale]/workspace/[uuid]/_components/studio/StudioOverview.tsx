@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import {
   SidebarSimple,
@@ -75,6 +76,7 @@ export function StudioOverview({
   onPillClick,
   hideHeader,
 }: StudioOverviewProps) {
+  const t = useTranslations("workspace.detail.studio");
   const [studioTab, _setStudioTab] = useState<StudioTab>(() => {
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("kis-studio-tab");
@@ -107,16 +109,16 @@ export function StudioOverview({
   }, [studioTab, workspaceUuid, refreshStats, statsVersion]);
 
   const lerntoolsTiles = [
-    { key: "karteikarten" as const, Icon: Cards, label: "Karteikarten", iconBg: "var(--badge-emerald-bg)", iconColor: "var(--badge-emerald-fg)" },
-    { key: "quiz" as const, Icon: Question, label: "Quiz", iconBg: "var(--badge-yellow-bg)", iconColor: "var(--badge-yellow-fg)" },
-    { key: "data_table" as const, Icon: Table, label: "Datentabelle", iconBg: "var(--badge-orange-bg)", iconColor: "var(--badge-orange-fg)" },
-    { key: "mindmap" as const, Icon: TreeStructure, label: "Mindmap", iconBg: "var(--badge-teal-bg)", iconColor: "var(--badge-teal-fg)" },
+    { key: "karteikarten" as const, Icon: Cards, label: t("tiles.karteikarten"), iconBg: "var(--badge-emerald-bg)", iconColor: "var(--badge-emerald-fg)" },
+    { key: "quiz" as const, Icon: Question, label: t("tiles.quiz"), iconBg: "var(--badge-yellow-bg)", iconColor: "var(--badge-yellow-fg)" },
+    { key: "data_table" as const, Icon: Table, label: t("tiles.dataTable"), iconBg: "var(--badge-orange-bg)", iconColor: "var(--badge-orange-fg)" },
+    { key: "mindmap" as const, Icon: TreeStructure, label: t("tiles.mindmap"), iconBg: "var(--badge-teal-bg)", iconColor: "var(--badge-teal-fg)" },
   ];
 
   const langTrainingTiles = [
-    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
-    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", iconBg: "var(--badge-red-bg)", iconColor: "var(--badge-red-fg)" },
-    { key: "vt-sets" as const, Icon: Exam, label: "Begriffe-Quiz", iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
+    { key: "lk-sets" as const, Icon: BookOpenText, label: t("tiles.lernkarten"), iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
+    { key: "cl-sets" as const, Icon: TextAa, label: t("tiles.lueckentext"), iconBg: "var(--badge-red-bg)", iconColor: "var(--badge-red-fg)" },
+    { key: "vt-sets" as const, Icon: Exam, label: t("tiles.begriffeQuiz"), iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
   ];
 
   void activeSourceCount;
@@ -143,14 +145,14 @@ export function StudioOverview({
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <span className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
-            Studio
+            {t("panelTitle")}
           </span>
           <button
             type="button"
             onClick={onMinimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}
-            title="Panel minimieren"
+            title={t("minimizePanel")}
           >
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
           </button>
@@ -159,11 +161,11 @@ export function StudioOverview({
 
       <StudioTabs
         tabs={[
-          { key: "tools" as const, label: "Tools" },
-          { key: "glossary" as const, label: "Glossar" },
-          { key: "notes" as const, label: "Notizen" },
-          { key: "statistik" as const, label: "Statistik" },
-          { key: "schedule" as const, label: "Zeitplan" },
+          { key: "tools" as const, label: t("tabs.tools") },
+          { key: "glossary" as const, label: t("tabs.glossary") },
+          { key: "notes" as const, label: t("tabs.notes") },
+          { key: "statistik" as const, label: t("tabs.statistik") },
+          { key: "schedule" as const, label: t("tabs.schedule") },
         ]}
         active={effectiveTab === "language_training" ? "tools" : effectiveTab}
         onSelect={(k) => setStudioTab(k as StudioTab)}
@@ -173,7 +175,7 @@ export function StudioOverview({
         <div className="flex-1 overflow-y-auto flex flex-col">
           <div className="px-3 pt-3 pb-1">
             <span className="text-xs font-semibold uppercase tracking-wider" >
-              Lerntools
+              {t("headings.learningTools")}
             </span>
           </div>
           <LerntoolsGrid tiles={lerntoolsTiles} onSelect={(key) => onSelect(key as StudioView)} />
@@ -182,7 +184,7 @@ export function StudioOverview({
             <>
               <div className="px-3 pb-1">
                 <span className="text-xs font-semibold uppercase tracking-wider" >
-                  Fachsprachentraining
+                  {t("headings.languageTraining")}
                 </span>
               </div>
               <LerntoolsGrid

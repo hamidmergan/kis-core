@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, X } from "@phosphor-icons/react";
 import type { ScheduleEntry, ScheduleEntryType } from "../../_types";
 
@@ -24,6 +25,7 @@ export function ScheduleEntryEditModal({
   onCancel: () => void;
   onSubmit: (input: EditInput) => Promise<void> | void;
 }) {
+  const t = useTranslations("workspace.detail.studio.schedule.modal");
   const [titleVal, setTitleVal] = useState(initial?.title || "");
   const [description, setDescription] = useState(initial?.description || "");
   const [dueDate, setDueDate] = useState(initial?.due_date || "");
@@ -74,7 +76,7 @@ export function ScheduleEntryEditModal({
             onClick={onCancel}
             className="w-7 h-7 rounded-full flex items-center justify-center btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}
-            aria-label="Schließen"
+            aria-label={t("close")}
           >
             <X size={14} weight="bold" />
           </button>
@@ -82,7 +84,7 @@ export function ScheduleEntryEditModal({
 
         <div className="space-y-3 text-base">
           <label className="block">
-            <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>Titel</span>
+            <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("titleField")}</span>
             <input
               type="text"
               required
@@ -96,7 +98,7 @@ export function ScheduleEntryEditModal({
 
           <div className="grid grid-cols-2 gap-2">
             <label className="block">
-              <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>Datum</span>
+              <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("dateField")}</span>
               <input
                 type="date"
                 value={dueDate}
@@ -106,7 +108,7 @@ export function ScheduleEntryEditModal({
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>Uhrzeit</span>
+              <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("timeField")}</span>
               <input
                 type="time"
                 value={dueTime}
@@ -118,7 +120,7 @@ export function ScheduleEntryEditModal({
           </div>
 
           <label className="block">
-            <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>Beschreibung (optional)</span>
+            <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("descriptionField")}</span>
             <textarea
               rows={3}
               maxLength={2000}
@@ -133,7 +135,7 @@ export function ScheduleEntryEditModal({
             <button
               type="button"
               onClick={() => setIsOptional(!isOptional)}
-              aria-label={isOptional ? "Nicht optional" : "Als optional markieren"}
+              aria-label={isOptional ? t("notOptionalAria") : t("optionalAria")}
               className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors border-2 ${
                 isOptional
                   ? "border-[var(--kb)] bg-[var(--kb)]"
@@ -143,7 +145,7 @@ export function ScheduleEntryEditModal({
             >
               {isOptional && <Check size={11} weight="bold" />}
             </button>
-            <span className="text-sm" style={{ color: "var(--foreground)" }}>Optional (freiwillig)</span>
+            <span className="text-sm" style={{ color: "var(--foreground)" }}>{t("optionalLabel")}</span>
           </label>
         </div>
 
@@ -153,14 +155,14 @@ export function ScheduleEntryEditModal({
             onClick={onCancel}
             className="btn-cancel px-4 py-2 rounded-lg text-xs font-semibold text-[var(--muted)] bg-[var(--surface-dim)]"
           >
-            Abbrechen
+            {t("cancel")}
           </button>
           <button
             type="submit"
             disabled={submitting || !titleVal.trim()}
             className="btn-fill-accent px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40"
           >
-            {submitting ? "..." : submitLabel}
+            {submitting ? t("submitting") : submitLabel}
           </button>
         </div>
       </form>

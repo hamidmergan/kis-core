@@ -1,4 +1,5 @@
 import { memo, useState } from "react";
+import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CaretDown, CaretUp, Check, Copy, NotePencil, Stop } from "@phosphor-icons/react";
@@ -30,6 +31,7 @@ function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, loading,
   hildeEnabled = false, isLatest = false, collapseByDefault = false,
 }: ChatMessageProps) {
+  const t = useTranslations("workspace.detail.chat");
   const [expandUserContent, setExpandUserContent] = useState(false);
   const [expandAssistantContent, setExpandAssistantContent] = useState(false);
   const [expandSources, setExpandSources] = useState(false);
@@ -61,7 +63,7 @@ function ChatMessageImpl({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch (err) {
-      console.error("Kopieren fehlgeschlagen", err);
+      console.error("Copy failed", err);
     }
   }
 
@@ -87,7 +89,7 @@ function ChatMessageImpl({
         type="button"
         onClick={handleCopy}
         className="mt-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full btn-icon"
-        title="Kopieren"
+        title={t("copy")}
       >
         {copied ? <Check size={13} weight="bold" /> : <Copy size={13} />}
       </button>
@@ -98,7 +100,7 @@ function ChatMessageImpl({
           onClick={handleSaveNote}
           className={`[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full ${saved ? "" : "btn-icon"}`}
           style={saved ? { color: "var(--success)" } : undefined}
-          title="Als Notiz speichern"
+          title={t("saveAsNote")}
         >
           {savingNote
             ? <Spinner size="xs" color="current" />
@@ -115,7 +117,7 @@ function ChatMessageImpl({
           isLatest && (
             <div className="flex items-center gap-2 mb-0.5">
               <Hilde size={80} state={avatarState} />
-              <span className="text-base font-medium">Hilde</span>
+              <span className="text-base font-medium">{t("hildeName")}</span>
             </div>
           )
         ) : (
@@ -124,9 +126,9 @@ function ChatMessageImpl({
               className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
               style={{ backgroundColor: "var(--kb)" }}
             >
-              KI
+              {t("assistantBadge")}
             </div>
-            <span className="text-base font-medium">KI-Assistent</span>
+            <span className="text-base font-medium">{t("assistantName")}</span>
           </div>
         )
       )}
@@ -153,7 +155,7 @@ function ChatMessageImpl({
             </span>
           ) : msg.role === "assistant" && !msg.content && msg.aborted ? (
             <span className="text-xs italic" style={{ color: "var(--muted)" }}>
-              (keine Antwort)
+              {t("noAnswer")}
             </span>
           ) : msg.role === "assistant" ? (
             <>
@@ -188,9 +190,9 @@ function ChatMessageImpl({
                   style={{ color: "var(--muted)" }}
                 >
                   {expandAssistantContent ? (
-                    <><CaretUp size={12} /> Einklappen</>
+                    <><CaretUp size={12} /> {t("collapse")}</>
                   ) : (
-                    <><CaretDown size={12} /> Mehr anzeigen</>
+                    <><CaretDown size={12} /> {t("expand")}</>
                   )}
                 </button>
               )}
@@ -213,9 +215,9 @@ function ChatMessageImpl({
                   style={{ color: "white" }}
                 >
                   {expandUserContent ? (
-                    <><CaretUp size={12} /> Einklappen</>
+                    <><CaretUp size={12} /> {t("collapse")}</>
                   ) : (
-                    <><CaretDown size={12} /> Mehr anzeigen</>
+                    <><CaretDown size={12} /> {t("expand")}</>
                   )}
                 </button>
               )}
@@ -226,7 +228,7 @@ function ChatMessageImpl({
         {msg.role === "assistant" && msg.aborted && (
           <div className="flex items-center gap-1 mt-1 text-xs" style={{ color: "var(--muted)" }}>
             <Stop size={11} weight="bold" />
-            <span>Abgebrochen</span>
+            <span>{t("aborted")}</span>
           </div>
         )}
 
@@ -239,7 +241,7 @@ function ChatMessageImpl({
                 className="flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--kb)] transition-colors"
               >
                 {expandSources ? <CaretUp size={10} /> : <CaretDown size={10} />}
-                {msgQmap.length} {msgQmap.length === 1 ? "Quelle" : "Quellen"}
+                {t("sourcesCount", { n: msgQmap.length })}
               </button>
               <div className="flex items-center gap-1">{actionButtons}</div>
             </div>

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ChartBar, ClockCounterClockwise } from "@phosphor-icons/react";
+import { useLocale, useTranslations } from "next-intl";
 import type { HeatmapDay, StudentStats } from "../../_types";
-import { TOOL_COLORS, TOOL_LABELS } from "../../_constants";
+import { TOOL_COLORS } from "../../_constants";
 import { RecentActivities } from "../studio/RecentActivities";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -17,6 +18,11 @@ interface DayDetail {
 }
 
 export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSet, language_trainingActive = true }: { stats: StudentStats | null; loading: boolean; workspaceUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; language_trainingActive?: boolean }) {
+  const t = useTranslations("workspace.detail.languageTraining");
+  const tTools = useTranslations("workspace.detail.langTools");
+  const toolLabel = (tool: string) => tTools.has(tool) ? tTools(tool) : tool;
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "de-DE";
   const [period, setPeriod] = useState<StatsPeriod>("30");
 
   // Responsive heatmap: adjust cells to container width
@@ -68,14 +74,14 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center p-4">
-      <p className="text-sm" style={{ color: "var(--muted)" }}>Statistik wird geladen…</p>
+      <p className="text-sm" style={{ color: "var(--muted)" }}>{t("stats.loading")}</p>
     </div>
   );
   if (!stats) return (
     <div className="flex-1 flex items-center justify-center p-4">
       <EmptyState
         icon={<ChartBar size={32} weight="bold" />}
-        text="Noch keine Daten vorhanden. Starte Übungen, um deine Statistik zu sehen."
+        text={t("stats.emptyData")}
       />
     </div>
   );
@@ -121,13 +127,13 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
 
   function formatDay(dayStr: string) {
     const d = new Date(dayStr + "T12:00:00+02:00");
-    return d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Berlin" });
+    return d.toLocaleDateString(dateLocale, { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Berlin" });
   }
 
   function formatTime(iso: string | null) {
     if (!iso) return "";
     const d = new Date(iso);
-    return d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
+    return d.toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
   }
 
   async function selectDay(d: HeatmapDay) {
@@ -149,9 +155,9 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
       {/* ── Period selector + period summary ── */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold">Aktivität</h3>
+          <h3 className="text-sm font-semibold">{t("stats.activity")}</h3>
           <div className="flex gap-1">
-            {([["30", "30 Tage"], ["180", "6 Monate"]] as [StatsPeriod, string][]).map(([val, label]) => (
+            {([["30", t("stats.period30")], ["180", t("stats.period180")]] as [StatsPeriod, string][]).map(([val, label]) => (
               <button
                 key={val}
                 type="button"
@@ -172,15 +178,15 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
           <EmptyState
             size="sm"
             icon={<ChartBar size={32} weight="bold" />}
-            text="Noch keine Aktivitäten in diesem Zeitraum."
+            text={t("stats.noActivityRange")}
           />
         ) : (
           <>
             {/* Period summary line */}
             <div className="flex gap-3 mb-2 text-xs" style={{ color: "var(--muted)" }}>
-              <span>{periodActiveDays} aktive Tage</span>
-              <span>{periodAnswers} Antworten</span>
-              {periodAnswers > 0 && <span>{periodAccuracy}% richtig</span>}
+              <span>{t("stats.activeDays", { count: periodActiveDays })}</span>
+              <span>{t("stats.answersCount", { count: periodAnswers })}</span>
+              {periodAnswers > 0 && <span>{t("stats.percentCorrect", { pct: periodAccuracy })}</span>}
             </div>
 
             {/* ── Heatmap ── */}
@@ -207,18 +213,27 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                 const d = new Date(week[0].day + "T12:00:00+02:00");
                 const m = d.getMonth();
                 if (m !== prevMonth) {
-                  monthLabels.push({ label: d.toLocaleDateString("de-DE", { month: "short", timeZone: "Europe/Berlin" }), colSpan: 1 });
+                  monthLabels.push({ label: d.toLocaleDateString(dateLocale, { month: "short", timeZone: "Europe/Berlin" }), colSpan: 1 });
                   prevMonth = m;
                 } else {
                   monthLabels[monthLabels.length - 1].colSpan++;
                 }
               }
+              const weekdayLabels = [
+                t("stats.weekdays.mo"),
+                t("stats.weekdays.tu"),
+                t("stats.weekdays.we"),
+                t("stats.weekdays.th"),
+                t("stats.weekdays.fr"),
+                t("stats.weekdays.sa"),
+                t("stats.weekdays.su"),
+              ];
               return (
                 <div ref={heatmapContainerRef} className="p-1 w-full overflow-x-auto">
                   <div className="flex mx-auto" style={{ width: "fit-content" }}>
                     {/* Row labels — fixed */}
                     <div className="flex flex-col flex-shrink-0" style={{ paddingTop: cellSize + gap + 2, width: labelsColWidth, marginRight: labelsMarginRight }}>
-                      {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(d => (
+                      {weekdayLabels.map(d => (
                         <div key={d} className="flex items-center justify-end text-[10px] font-medium" style={{ height: cellSize, marginBottom: gap, color: "var(--muted)" }}>{d}</div>
                       ))}
                     </div>
@@ -260,7 +275,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                                     outlineOffset: 1,
                                     borderBottom: isToday && !isSelected ? "2.5px solid var(--muted)" : "none",
                                   }}
-                                  title={`${formatDay(d.day)}: ${d.answers} Antworten`}
+                                  title={t("stats.answersTooltip", { date: formatDay(d.day), count: d.answers })}
                                 >
                                   {showDayNums && <span className="text-[10px] font-medium" style={{ color: d.answers > 0 ? `rgba(255,255,255,${Math.min(0.5 + (d.answers / maxAns) * 0.5, 1)})` : "var(--muted)" }}>{dayNum}</span>}
                                 </button>
@@ -277,11 +292,11 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
 
             {/* Legend */}
             <div className="flex items-center justify-center gap-2 mt-2">
-              <span className="text-[10px]" style={{ color: "var(--muted)" }}>Weniger</span>
+              <span className="text-[10px]" style={{ color: "var(--muted)" }}>{t("stats.less")}</span>
               {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
                 <div key={i} className="rounded-[3px]" style={{ width: 14, height: 14, backgroundColor: v === 0 ? `rgba(${heatRgb},0.07)` : `rgba(${heatRgb},${0.15 + v * 0.70})` }} />
               ))}
-              <span className="text-[10px]" style={{ color: "var(--muted)" }}>Mehr</span>
+              <span className="text-[10px]" style={{ color: "var(--muted)" }}>{t("stats.more")}</span>
             </div>
           </>
         )}
@@ -292,16 +307,16 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
         <div className="rounded-xl p-3">
           <div className="mb-2">
             <div className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
-              {formatDay(selectedDay.day)} {selectedDay.day === today && "(Heute)"}
+              {formatDay(selectedDay.day)} {selectedDay.day === today && t("stats.today")}
             </div>
           </div>
           {selectedDay.answers === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-4" style={{ color: "var(--muted)" }}>
               <ClockCounterClockwise size={24} weight="bold" />
-              <span className="text-xs text-center">Keine Aktivität an diesem Tag.</span>
+              <span className="text-xs text-center">{t("stats.noActivityDay")}</span>
             </div>
           ) : dayDetailLoading ? (
-            <p className="text-xs" style={{ color: "var(--muted)" }}>Wird geladen…</p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>{t("common.loading")}</p>
           ) : dayDetail ? (
             <div className="space-y-2">
               {/* Per-set breakdown */}
@@ -329,9 +344,9 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                         backgroundColor: (TOOL_COLORS[s.tool] || { bg: "var(--surface)" }).bg,
                         color: (TOOL_COLORS[s.tool] || { color: "var(--muted)" }).color,
                       }}>
-                        {TOOL_LABELS[s.tool] || s.tool}
+                        {toolLabel(s.tool)}
                       </span>
-                      <span>{s.correct}/{s.correct + s.wrong} richtig</span>
+                      <span>{t("stats.setCorrectFraction", { correct: s.correct, total: s.correct + s.wrong })}</span>
                     </div>
                   </div>
                 );
@@ -343,7 +358,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                   className="w-full text-[11px] font-medium py-2 rounded-lg transition-colors hover:bg-[var(--surface-dim)] hover:text-kb"
                   style={{ color: "var(--muted)", backgroundColor: "var(--surface)" }}
                 >
-                  {showAllSets ? "Weniger anzeigen" : `+${dayDetail.sets.length - DAY_DETAIL_LIMIT} weitere anzeigen`}
+                  {showAllSets ? t("stats.showLess") : t("stats.showMore", { count: dayDetail.sets.length - DAY_DETAIL_LIMIT })}
                 </button>
               )}
             </div>
@@ -354,4 +369,3 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
     </div>
   );
 }
-

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { MinimizeContext } from "../../_context";
 import { MiniStrip } from "./MiniStrip";
 import type { PanelKey } from "../../_types";
@@ -46,6 +47,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
     studioEnabled, canDrag, startDrag,
     renderQuellen, renderChat, renderStudio,
   } = props;
+  const tPanels = useTranslations("workspace.detail.panels");
 
   if (isMobile) {
     const switchToChat = () => setActiveTab("chat");
@@ -103,7 +105,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
     >
       <div ref={p1Ref} className={panelBaseClass} style={{ ...p1Style, ...panelBaseStyle }}>
         {!panels.quellen
-          ? <MiniStrip label="Quellen" onClick={() => togglePanel("quellen")} side="left" />
+          ? <MiniStrip label={tPanels("sources")} onClick={() => togglePanel("quellen")} side="left" />
           : renderQuellen({ onMinimize: () => togglePanel("quellen"), hideHeader: false })}
       </div>
 
@@ -111,7 +113,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
 
       <div ref={p2Ref} className={panelBaseClass} style={{ ...p2Style, ...panelBaseStyle }}>
         {!panels.chat
-          ? <MiniStrip label="Chat" onClick={() => togglePanel("chat")} side="left" />
+          ? <MiniStrip label={tPanels("chat")} onClick={() => togglePanel("chat")} side="left" />
           : renderChat({ onMinimize: () => togglePanel("chat"), hideHeader: false })}
       </div>
 
@@ -121,7 +123,7 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
           <div ref={p3Ref} className={panelBaseClass} style={{ ...p3Style, ...panelBaseStyle }}>
             <MinimizeContext.Provider value={() => togglePanel("studio")}>
               {!panels.studio
-                ? <MiniStrip label="Studio" onClick={() => togglePanel("studio")} side="right" />
+                ? <MiniStrip label={tPanels("studio")} onClick={() => togglePanel("studio")} side="right" />
                 : renderStudio({ onMinimize: () => togglePanel("studio"), hideHeader: false })}
             </MinimizeContext.Provider>
           </div>

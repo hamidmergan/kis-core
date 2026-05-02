@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Check, Clock, PencilSimple, Trash } from "@phosphor-icons/react";
 import type { ScheduleEntry } from "../../_types";
 import { _chunkLabel, _getChipIcon } from "../../_utils";
@@ -30,6 +31,7 @@ export function ScheduleEntryCard({
   onDelete: () => void;
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
+  const t = useTranslations("workspace.detail.studio.schedule.entry");
   const baseStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     backgroundColor: entry.is_checked ? "var(--success-bg)" : "var(--background)",
@@ -63,12 +65,12 @@ export function ScheduleEntryCard({
           type="button"
           aria-label={
             isPast
-              ? "Vergangene Termine können nicht geändert werden"
+              ? t("pastLockedAria")
               : entry.is_checked
-              ? "Erledigt aufheben"
-              : "Als erledigt markieren"
+              ? t("uncheckAria")
+              : t("checkAria")
           }
-          title={isPast ? "Vergangene Termine sind gesperrt" : undefined}
+          title={isPast ? t("pastLockedTitle") : undefined}
           onClick={() => { if (!isPast) onToggleChecked(!entry.is_checked); }}
           disabled={isPast}
           className={`flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors mt-0.5 border-2 ${
@@ -171,7 +173,7 @@ export function ScheduleEntryCard({
                 onClick={onEdit}
                 className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
                 style={{ backgroundColor: "var(--surface-dim)" }}
-                aria-label="Bearbeiten"
+                aria-label={t("edit")}
               >
                 <PencilSimple size={11} weight="bold" />
               </button>
@@ -180,7 +182,7 @@ export function ScheduleEntryCard({
                 onClick={onDelete}
                 className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
                 style={{ backgroundColor: "var(--surface-dim)" }}
-                aria-label="Löschen"
+                aria-label={t("delete")}
               >
                 <Trash size={11} weight="bold" />
               </button>

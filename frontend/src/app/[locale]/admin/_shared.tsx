@@ -1,3 +1,7 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+
 export interface PendingUser {
   id: number;
   ldap_username: string;
@@ -29,13 +33,14 @@ export interface AdminJob {
 }
 
 export function JobStatusBadge({ status }: { status: string }) {
+  const t = useTranslations("admin.jobStatus");
   if (status === "success")
-    return <span className="text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">Fertig</span>;
+    return <span className="text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">{t("success")}</span>;
   if (status === "failed")
-    return <span className="text-xs font-medium text-error-strong bg-error-bg px-2 py-0.5 rounded-full">Fehler</span>;
+    return <span className="text-xs font-medium text-error-strong bg-error-bg px-2 py-0.5 rounded-full">{t("failed")}</span>;
   if (status === "running")
-    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">Läuft</span>;
+    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full animate-pulse">{t("running")}</span>;
   if (status === "queued")
-    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">In der Schlange</span>;
-  return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">Wartend</span>;
+    return <span className="text-xs font-medium text-info-strong bg-info-bg px-2 py-0.5 rounded-full">{t("queued")}</span>;
+  return <span className="text-xs font-medium text-warn-strong bg-warn-bg px-2 py-0.5 rounded-full">{t("pending")}</span>;
 }

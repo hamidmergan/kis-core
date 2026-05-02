@@ -1,4 +1,5 @@
 import { Check } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import { SubviewHeader, type BreadcrumbItem, type ToolCategory } from "../layout/SubviewHeader";
 
 export function ExerciseCompletion({
@@ -9,6 +10,7 @@ export function ExerciseCompletion({
   total: number; onRetryWrong: () => void; onBack: () => void;
   breadcrumbs?: BreadcrumbItem[];
 }) {
+  const t = useTranslations("workspace.detail.languageTraining");
   const correct = results.filter((r) => r.correct).length;
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
   return (
@@ -20,25 +22,29 @@ export function ExerciseCompletion({
           style={{ backgroundColor: "#1a8a5c", boxShadow: "0 4px 20px rgba(26,138,92,0.25)" }}>
           <Check size={30} weight="bold" color="white" />
         </div>
-        <h3 className="text-lg font-semibold">Geschafft!</h3>
+        <h3 className="text-lg font-semibold">{t("common.completed")}</h3>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          <strong style={{ color: "#1a8a5c" }}>{correct} / {total}</strong> gewusst — <strong style={{ color: "#1a8a5c" }}>{pct}%</strong>
+          {t.rich("completion.score", {
+            correct,
+            total,
+            pct,
+            hl: (chunks) => <strong style={{ color: "#1a8a5c" }}>{chunks}</strong>,
+          })}
         </p>
         <div className="flex gap-2 mt-4">
           {correct < total && (
             <button type="button" onClick={onRetryWrong}
               className="px-4 py-2 rounded-full text-xs font-semibold transition-all hover:outline-2 hover:outline-[var(--kb)]"
               style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
-              Falsche wiederholen
+              {t("completion.retryWrong")}
             </button>
           )}
           <button type="button" onClick={onBack}
             className="btn-fill-accent px-4 py-2 rounded-full text-xs font-semibold transition-all">
-            Zur Übersicht
+            {t("completion.toOverview")}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

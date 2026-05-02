@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLocale, useTranslations } from "next-intl";
 import StatsModal from "./StatsModal";
 import EditWorkspaceModal from "./EditWorkspaceModal";
 import AddLinkModal from "./AddLinkModal";
@@ -38,6 +39,8 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
     deleteLinkConfirm, onCancelDeleteLink, onConfirmDeleteLink, deletingLink,
   } = props;
 
+  const t = useTranslations("workspace.list");
+  const locale = useLocale();
   const labels = useWorkspaceLabel();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -62,12 +65,12 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold mb-2">{labels.singular} löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">{t("deleteTitle", { label: labels.singular })}</h3>
             <p className="text-sm text-foreground-soft mb-1"><span className="font-medium">{workspace.title}</span></p>
-            <p className="text-sm text-error mb-6">Wird mit allen zugehörigen Daten unwiderruflich gelöscht.</p>
+            <p className="text-sm text-error mb-6">{t("deleteWarning")}</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={onCancelDelete} disabled={deleting} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">Abbrechen</button>
-              <button onClick={onConfirmDelete} disabled={deleting} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deleting ? "..." : "Löschen"}</button>
+              <button onClick={onCancelDelete} disabled={deleting} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">{t("cancel")}</button>
+              <button onClick={onConfirmDelete} disabled={deleting} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deleting ? "..." : t("delete")}</button>
             </div>
           </div>
         </div>
@@ -75,14 +78,14 @@ export default function WorkspaceModals(props: WorkspaceModalsProps) {
       {deleteLinkConfirm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-base font-semibold mb-2">Einschreibelink löschen?</h3>
+            <h3 className="text-base font-semibold mb-2">{t("deleteLinkTitle")}</h3>
             <p className="text-sm text-foreground-soft mb-1">
-              <span className="font-medium">...{deleteLinkConfirm.code}</span> - {deleteLinkConfirm.expires_at ? `gültig bis ${new Date(deleteLinkConfirm.expires_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" })}` : "unbegrenzt gültig"}
+              <span className="font-medium">...{deleteLinkConfirm.code}</span> - {deleteLinkConfirm.expires_at ? t("linkValidUntil", { date: new Date(deleteLinkConfirm.expires_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" }) }) : t("linkUnlimited")}
             </p>
-            <p className="text-sm text-error mb-6">Der Link wird ungültig. Bereits eingeschriebene Studierende behalten ihren Zugang.</p>
+            <p className="text-sm text-error mb-6">{t("deleteLinkWarning")}</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={onCancelDeleteLink} disabled={deletingLink} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">Abbrechen</button>
-              <button onClick={onConfirmDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deletingLink ? "..." : "Löschen"}</button>
+              <button onClick={onCancelDeleteLink} disabled={deletingLink} className="btn-cancel px-4 py-2 text-sm btn-secondary rounded-lg disabled:opacity-50">{t("cancel")}</button>
+              <button onClick={onConfirmDeleteLink} disabled={deletingLink} className="px-4 py-2 text-sm btn-danger rounded-lg disabled:opacity-50">{deletingLink ? "..." : t("delete")}</button>
             </div>
           </div>
         </div>

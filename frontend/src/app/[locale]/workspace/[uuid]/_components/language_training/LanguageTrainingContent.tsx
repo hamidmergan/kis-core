@@ -2,6 +2,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { ExerciseSetsOverview } from "./ExerciseSetsOverview";
 import { ExerciseCompletion } from "./ExerciseCompletion";
@@ -70,14 +71,20 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
     selectedSourceIds, pageStats, isAdmin, sources,
     refreshProgress, handleAskChat, handlePillClick, chatLang,
   } = props;
+  const t = useTranslations("workspace.detail.languageTraining");
 
   const onSourceClick = (filename: string, page: number, startTime?: number, highlightText?: string) => {
     const src = sources.find((s) => s.filename === filename);
     if (src) handlePillClick(src.uuid, page, filename, highlightText, startTime);
   };
 
-  const toOverviewCrumb = { label: "Studio", onClick: () => setSprachView("overview") };
-  const toOverviewWithReset = { label: "Studio", onClick: () => { setActiveSet(null); setSprachView("overview"); } };
+  const studioLabel = t("common.studio");
+  const lernkartenLabel = t("tools.flashcards");
+  const lueckentextLabel = t("tools.lueckentext");
+  const begriffeQuizLabel = t("tools.vokabeltest");
+
+  const toOverviewCrumb = { label: studioLabel, onClick: () => setSprachView("overview") };
+  const toOverviewWithReset = { label: studioLabel, onClick: () => { setActiveSet(null); setSprachView("overview"); } };
 
   const inner = (() => {
     switch (langTrainingView) {
@@ -113,7 +120,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
       case "lk-sets":
         return (
           <ExerciseSetsOverview
-            title="Lernkarten"
+            title={lernkartenLabel}
             toolKey="Flashcards"
             sets={exerciseSets.filter((s) => s.tool === "flashcards")}
             onBack={() => setSprachView("overview")}
@@ -135,7 +142,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: "Lernkarten", toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: lernkartenLabel, toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
             showTranslation
             chatLang={chatLang}
           />
@@ -150,14 +157,14 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("lk-learn")}
             onBack={() => { setSprachView("lk-sets"); setActiveSet(null); loadExerciseSets("flashcards"); }}
-            breadcrumbs={[toOverviewWithReset, { label: "Lernkarten", toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: lernkartenLabel, toolKey: "Flashcards", onClick: () => { setActiveSet(null); setSprachView("lk-sets"); } }]}
           />
         ) : null;
       // ─── Lückentext Sets Flow ──────────────────────────────
       case "cl-sets":
         return (
           <ExerciseSetsOverview
-            title="Lückentext"
+            title={lueckentextLabel}
             toolKey="Cloze"
             sets={exerciseSets.filter((s) => s.tool === "lueckentext")}
             onBack={() => setSprachView("overview")}
@@ -180,7 +187,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: "Lückentext", toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: lueckentextLabel, toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
             chatLang={chatLang}
           />
         ) : null;
@@ -194,14 +201,14 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("cl-learn")}
             onBack={() => { setSprachView("cl-sets"); setActiveSet(null); loadExerciseSets("lueckentext"); }}
-            breadcrumbs={[toOverviewWithReset, { label: "Lückentext", toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: lueckentextLabel, toolKey: "Cloze", onClick: () => { setActiveSet(null); setSprachView("cl-sets"); } }]}
           />
         ) : null;
       // ─── Vokabeltest Sets Flow ─────────────────────────────
       case "vt-sets":
         return (
           <ExerciseSetsOverview
-            title="Begriffe-Quiz"
+            title={begriffeQuizLabel}
             toolKey="TermQuiz"
             sets={exerciseSets.filter((s) => s.tool === "vokabeltest")}
             onBack={() => setSprachView("overview")}
@@ -224,7 +231,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
             onAskChat={handleAskChat}
             onSourceClick={onSourceClick}
-            breadcrumbs={[toOverviewWithReset, { label: "Begriffe-Quiz", toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: begriffeQuizLabel, toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
             chatLang={chatLang}
           />
         ) : null;
@@ -238,7 +245,7 @@ export function LanguageTrainingContent(props: LanguageTrainingContentProps) {
             total={activeSet.card_count}
             onRetryWrong={() => setSprachView("vt-learn")}
             onBack={() => { setSprachView("vt-sets"); setActiveSet(null); loadExerciseSets("vokabeltest"); }}
-            breadcrumbs={[toOverviewWithReset, { label: "Begriffe-Quiz", toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
+            breadcrumbs={[toOverviewWithReset, { label: begriffeQuizLabel, toolKey: "TermQuiz", onClick: () => { setActiveSet(null); setSprachView("vt-sets"); } }]}
           />
         ) : null;
       default:

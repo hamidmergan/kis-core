@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Sparkle } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 
 export function CreateSetModal({
   tool, glossaryCount, selectedSource,
@@ -9,19 +10,29 @@ export function CreateSetModal({
   onClose: () => void;
   onCreate: (mode: string, count: number) => void;
 }) {
+  const t = useTranslations("workspace.detail.languageTraining");
   const isQuiz = tool === "quiz";
   const [mode, setMode] = useState<"glossary" | "source">(isQuiz || glossaryCount === 0 ? "source" : "glossary");
   const [count, setCount] = useState(isQuiz ? 5 : 10);
-  const toolLabels: Record<string, string> = { karteikarten: "Karteikarten", flashcards: "Lernkarten", lueckentext: "Lückentext", vokabeltest: "Begriffe-Quiz", quiz: "Quiz" };
+  const toolLabel = (() => {
+    const map: Record<string, string> = {
+      karteikarten: t("tools.karteikarten"),
+      flashcards: t("tools.flashcards"),
+      lueckentext: t("tools.lueckentext"),
+      vokabeltest: t("tools.vokabeltest"),
+      quiz: t("tools.quiz"),
+    };
+    return map[tool] || t("tools.exerciseFallback");
+  })();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.25)" }} onClick={onClose}>
       <div className="rounded-2xl p-5 w-[340px]" style={{ backgroundColor: "var(--surface)", boxShadow: "0 8px 40px rgba(0,0,0,0.12)" }}
         onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-semibold mb-3">Neue {toolLabels[tool] || "Übung"} erstellen</h3>
+        <h3 className="text-sm font-semibold mb-3">{t("createModal.title", { tool: toolLabel })}</h3>
 
         {/* Mode */}
-        <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>Quelle</div>
+        <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.sourceHeading")}</div>
         <div className="flex flex-col gap-1.5 mb-3">
           {!isQuiz && (
             <button type="button" onClick={() => glossaryCount > 0 && setMode("glossary")}
@@ -36,7 +47,7 @@ export function CreateSetModal({
                 style={{ borderColor: mode === "glossary" ? "var(--kb)" : "var(--border)" }}>
                 {mode === "glossary" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
               </div>
-              Aus Glossar <span className="text-[10px]" style={{ color: "var(--muted)" }}>({glossaryCount} Begriffe)</span>
+              {t("createModal.fromGlossary")} <span className="text-[10px]" style={{ color: "var(--muted)" }}>{t("createModal.glossaryTermsCount", { count: glossaryCount })}</span>
             </button>
           )}
           <button type="button" onClick={() => selectedSource && setMode("source")}
@@ -53,17 +64,17 @@ export function CreateSetModal({
               style={{ borderColor: mode === "source" ? "var(--kb)" : "var(--border)" }}>
               {mode === "source" && <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--kb)" }} />}
             </div>
-            Aus ausgewählter Quelle {selectedSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={selectedSource.filename} style={{ color: "var(--muted)" }}>({selectedSource.filename})</span>}
+            {t("createModal.fromSelectedSource")} {selectedSource && <span className="text-[10px] inline-block max-w-[120px] truncate align-bottom" title={selectedSource.filename} style={{ color: "var(--muted)" }}>({selectedSource.filename})</span>}
           </button>
           {!selectedSource && (
             <p className="text-[10px] ml-5" style={{ color: "#c4820e" }}>
-              Wähle links eine Quelle aus, um aus ihr zu generieren.
+              {t("createModal.noSourceHint")}
             </p>
           )}
         </div>
 
         {/* Count */}
-        <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>Anzahl</div>
+        <div className="text-[9px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted)" }}>{t("createModal.countHeading")}</div>
         <div className="flex gap-1.5 mb-4">
           {[5, 10, 15].map((n) => (
             <button key={n} type="button" onClick={() => setCount(n)}
@@ -81,16 +92,15 @@ export function CreateSetModal({
           <button type="button" onClick={onClose}
             className="btn-cancel px-4 py-2 rounded-full text-xs font-semibold"
             style={{ color: "var(--kb)", backgroundColor: "var(--surface)", border: "2px solid var(--border)" }}>
-            Abbrechen
+            {t("common.cancel")}
           </button>
           <button type="button" onClick={() => onCreate(mode, count)}
             className="btn-fill-accent flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold transition-all">
             <Sparkle size={12} weight="bold" />
-            Erstellen
+            {t("common.create")}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

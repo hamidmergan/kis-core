@@ -1,12 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import PlayButton from "../_components/PlayButton";
 import { useVoicePlayer } from "../_hooks/useVoicePlayer";
-import { CATEGORY_DE, translateLabel, type Voice } from "../_utils";
+import {
+  CATEGORY_KEYS,
+  translateLabel,
+  type Voice,
+} from "../_utils";
 
 
 export default function ElevenLabsTab({ enabled }: { enabled: boolean }) {
+  const t = useTranslations("tools.tts.voices");
+  const tCategory = useTranslations("tools.tts.voices.category");
+  const tDesc = useTranslations("tools.tts.voiceDescription");
+  const tUseCase = useTranslations("tools.tts.voices.useCase");
   const [voices, setVoices] = useState<Voice[]>([]);
   const [loading, setLoading] = useState(true);
   const { playingId, loadingId, playUrl } = useVoicePlayer();
@@ -20,15 +29,17 @@ export default function ElevenLabsTab({ enabled }: { enabled: boolean }) {
       .finally(() => setLoading(false));
   }, [enabled]);
 
-  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
-  if (voices.length === 0) return <p className="text-sm text-muted">Keine Stimmen verfügbar.</p>;
+  if (loading) return <p className="text-sm text-muted">{t("loading")}</p>;
+  if (voices.length === 0) return <p className="text-sm text-muted">{t("noVoices")}</p>;
 
   return (
     <div className="divide-y divide-border-soft border border-border-soft rounded-lg overflow-hidden">
       {voices.map((voice) => {
         const labelParts: string[] = [];
-        if (voice.category && CATEGORY_DE[voice.category]) labelParts.push(CATEGORY_DE[voice.category]);
-        const desc = translateLabel(voice.description, voice.use_case);
+        if (voice.category && (CATEGORY_KEYS as readonly string[]).includes(voice.category)) {
+          labelParts.push(tCategory(voice.category));
+        }
+        const desc = translateLabel(voice.description, voice.use_case, tDesc, tUseCase);
         if (desc) labelParts.push(desc);
 
         return (
@@ -47,7 +58,7 @@ export default function ElevenLabsTab({ enabled }: { enabled: boolean }) {
                 onClick={() => playUrl(voice.voice_id, voice.preview_url!)}
               />
             ) : (
-              <span className="text-xs text-muted-soft">Kein Sample</span>
+              <span className="text-xs text-muted-soft">{t("noSample")}</span>
             )}
           </div>
         );

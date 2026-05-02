@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CaretLeft, SidebarSimple, SpeakerHigh } from "@phosphor-icons/react";
 import type { ViewerState } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
@@ -16,6 +17,8 @@ export function MediaPlayer({
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
 }) {
+  const t = useTranslations("workspace.detail.viewer");
+  const tPanels = useTranslations("workspace.detail.panels");
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
   const ext = source.filename.slice(source.filename.lastIndexOf(".")).toLowerCase();
   const isVideo = [".mp4", ".webm"].includes(ext);
@@ -60,7 +63,7 @@ export function MediaPlayer({
       >
         <button type="button" onClick={onClose}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon"
-          style={{ backgroundColor: "var(--surface-dim)" }} title="Zurück">
+          style={{ backgroundColor: "var(--surface-dim)" }} title={t("back")}>
           <CaretLeft size={13} weight="bold" />
         </button>
         <FileIcon filename={source.filename} />
@@ -68,7 +71,7 @@ export function MediaPlayer({
         {onMinimize && (
           <button type="button" onClick={onMinimize}
             className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full btn-icon ml-2"
-            style={{ backgroundColor: "var(--surface-dim)" }} title="Panel minimieren">
+            style={{ backgroundColor: "var(--surface-dim)" }} title={tPanels("minimize")}>
             <SidebarSimple size={13} />
           </button>
         )}
@@ -91,7 +94,7 @@ export function MediaPlayer({
                 kind="subtitles"
                 src={transcriptUrl(lang)}
                 srcLang={lang}
-                label={lang === "de" ? "Deutsch" : "English"}
+                label={lang === "de" ? t("tracksDe") : t("tracksEn")}
               />
             ))}
           </video>

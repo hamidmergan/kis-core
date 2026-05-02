@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { KiTutorWorkspace } from "../_shared";
 
@@ -10,6 +11,7 @@ interface CreateWorkspaceModalProps {
 }
 
 export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorkspaceModalProps) {
+  const t = useTranslations("workspace.list");
   const labels = useWorkspaceLabel();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -34,7 +36,7 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? "Fehler beim Erstellen");
+        throw new Error(err.detail ?? t("createError"));
       }
       const created = await res.json();
       onCreated({
@@ -51,7 +53,7 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
       });
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setError(err instanceof Error ? err.message : t("unknownError"));
     } finally {
       setLoading(false);
     }
@@ -69,11 +71,11 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
         className="w-full max-w-md rounded-xl p-4 sm:p-6 shadow-xl"
         style={{ backgroundColor: "var(--surface)" }}
       >
-        <h2 className="text-lg font-semibold mb-5">{labels.singular} erstellen</h2>
+        <h2 className="text-lg font-semibold mb-5">{t("createTitle", { label: labels.singular })}</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
-              Titel <span style={{ color: "var(--error)" }}>*</span>
+              {t("titleField")} <span style={{ color: "var(--error)" }}>*</span>
             </label>
             <input
               type="text"
@@ -83,13 +85,13 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
               maxLength={50}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
               style={{ backgroundColor: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-              placeholder="z. B. Einführung in die Informatik"
+              placeholder={t("titlePlaceholder")}
             />
             <p className="text-xs text-muted-soft text-right mt-1">{title.length}/50</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
-              Beschreibung
+              {t("descriptionField")}
             </label>
             <textarea
               value={description}
@@ -98,13 +100,13 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
               rows={2}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ backgroundColor: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
-              placeholder="z. B. Sommersemester 2026, Grundlagen der Programmierung"
+              placeholder={t("descriptionPlaceholder")}
             />
             <p className="text-xs text-muted-soft text-right mt-1">{description.length}/300</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
-              Einschreibelink gültig bis
+              {t("linkValidUntilField")}
             </label>
             <input
               type="date"
@@ -127,14 +129,14 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
               className="btn-cancel px-4 py-2 rounded-lg text-sm font-medium"
               style={{ backgroundColor: "var(--border)", color: "var(--foreground)" }}
             >
-              Abbrechen
+              {t("cancel")}
             </button>
             <button
               type="submit"
               disabled={loading || !title.trim()}
               className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
             >
-              {loading ? "Erstellen…" : "Erstellen"}
+              {loading ? t("creating") : t("create")}
             </button>
           </div>
         </form>

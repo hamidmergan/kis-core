@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import type { AccessLink } from "../_shared";
 
 interface AddLinkModalProps {
@@ -10,6 +11,7 @@ interface AddLinkModalProps {
 }
 
 export default function AddLinkModal({ workspaceUuid, onClose, onCreated }: AddLinkModalProps) {
+  const t = useTranslations("workspace.list");
   const [expiresAt, setExpiresAt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,13 +30,13 @@ export default function AddLinkModal({ workspaceUuid, onClose, onCreated }: AddL
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? "Fehler beim Erstellen");
+        throw new Error(err.detail ?? t("createError"));
       }
       const data = await res.json();
       onCreated(data);
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setError(err instanceof Error ? err.message : t("unknownError"));
     } finally {
       setLoading(false);
     }
@@ -52,14 +54,14 @@ export default function AddLinkModal({ workspaceUuid, onClose, onCreated }: AddL
         className="w-full max-w-sm rounded-xl p-6 shadow-xl"
         style={{ backgroundColor: "var(--surface)" }}
       >
-        <h2 className="text-lg font-semibold mb-2">Neuen Einschreibelink erstellen</h2>
+        <h2 className="text-lg font-semibold mb-2">{t("newLinkTitle")}</h2>
         <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-          Jeder Link hat eine eigene Laufzeit. Studierende mit unterschiedlichen Links haben getrennte Chat-Verläufe.
+          {t("newLinkBody")}
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
-              Gültig bis
+              {t("validUntilField")}
             </label>
             <input
               type="date"
@@ -83,14 +85,14 @@ export default function AddLinkModal({ workspaceUuid, onClose, onCreated }: AddL
               className="btn-cancel px-4 py-2 rounded-lg text-sm font-medium"
               style={{ backgroundColor: "var(--border)", color: "var(--foreground)" }}
             >
-              Abbrechen
+              {t("cancel")}
             </button>
             <button
               type="submit"
               disabled={loading || !expiresAt}
               className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
             >
-              {loading ? "Erstellen…" : "Erstellen"}
+              {loading ? t("creating") : t("create")}
             </button>
           </div>
         </form>

@@ -1,6 +1,31 @@
 const API_BASE = "";
 const BACKEND_BASE = "/api";
 
+const FALLBACKS = {
+  de: {
+    limitReached: "Limit erreicht",
+    unknownError: "Unbekannter Fehler",
+    translationError: "Übersetzungsfehler",
+    jobStatusError: "Fehler beim Abrufen des Job-Status",
+    httpError: "Fehler",
+    jobFailed: "Job fehlgeschlagen",
+    downloadFailed: "Download fehlgeschlagen",
+  },
+  en: {
+    limitReached: "Limit reached",
+    unknownError: "Unknown error",
+    translationError: "Translation error",
+    jobStatusError: "Failed to load job status",
+    httpError: "Error",
+    jobFailed: "Job failed",
+    downloadFailed: "Download failed",
+  },
+} as const;
+
+function fallback(key: keyof typeof FALLBACKS["de"]): string {
+  return FALLBACKS[readLocaleFromCookie()][key];
+}
+
 export class QuotaError extends Error {
   quota_type: string;
   label: string;
@@ -9,7 +34,7 @@ export class QuotaError extends Error {
   limit: number;
 
   constructor(detail: Record<string, unknown>) {
-    super(typeof detail.message === "string" ? detail.message : "Limit erreicht");
+    super(typeof detail.message === "string" ? detail.message : fallback("limitReached"));
     this.name = "QuotaError";
     this.quota_type = String(detail.quota_type ?? "");
     this.label = String(detail.label ?? detail.quota_type ?? "");
@@ -32,19 +57,20 @@ function _parseErrorResponse(errorBody: { detail?: unknown }, fallbackStatus: nu
   if (detail && typeof detail === "object" && "quota_type" in (detail as object)) {
     return new QuotaError(detail as Record<string, unknown>);
   }
-  // Burst-Sperren (kind: "tool_blocked" | "chat_blocked") liefern die konkrete
-  // Sperrnachricht in detail.message — sonst ginge sie als generisches "Fehler: 429" verloren.
+  // Burst blocks (kind: "tool_blocked" | "chat_blocked") carry the concrete
+  // block message in detail.message; without this they would surface as the
+  // generic "Error: 429" instead.
   if (detail && typeof detail === "object" && "message" in (detail as object)) {
     return new Error(String((detail as Record<string, unknown>).message));
   }
-  const msg = typeof detail === "string" ? detail : `Fehler: ${fallbackStatus}`;
+  const msg = typeof detail === "string" ? detail : `${fallback("httpError")}: ${fallbackStatus}`;
   return new Error(msg);
 }
 
-function readLocaleFromCookie(): string {
+function readLocaleFromCookie(): "de" | "en" {
   if (typeof document === "undefined") return "de";
   const match = document.cookie.match(/(?:^|;\s*)NEXT_LOCALE=(de|en)/);
-  return match?.[1] ?? "de";
+  return (match?.[1] as "de" | "en") ?? "de";
 }
 
 class ApiClient {
@@ -85,7 +111,7 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
       throw _parseErrorResponse(error, response.status);
     }
 
@@ -96,7 +122,7 @@ class ApiClient {
     const response = await this.fetch(path);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
       throw _parseErrorResponse(error, response.status);
     }
 
@@ -123,7 +149,7 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
       throw _parseErrorResponse(error, response.status);
     }
 
@@ -167,7 +193,7 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Übersetzungsfehler" }));
+      const error = await response.json().catch(() => ({ detail: fallback("translationError") }));
       throw _parseErrorResponse(error, response.status);
     }
 
@@ -207,7 +233,7 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
       throw _parseErrorResponse(error, response.status);
     }
 
@@ -253,7 +279,7 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+      const error = await response.json().catch(() => ({ detail: fallback("unknownError") }));
       throw _parseErrorResponse(error, response.status);
     }
 
@@ -315,12 +341,12 @@ export async function pollJob(
   let lastProgressChangeAt = Date.now();
 
   while (true) {
-    if (signal?.aborted) throw new DOMException("Abgebrochen", "AbortError");
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
     const res = await fetch(`/api/jobs/${jobUuid}`, { credentials: "include", signal });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: "Fehler beim Abrufen des Job-Status" }));
-      throw new Error(err.detail || `Fehler: ${res.status}`);
+      const err = await res.json().catch(() => ({ detail: fallback("jobStatusError") }));
+      throw new Error(err.detail || `${fallback("httpError")}: ${res.status}`);
     }
 
     const status: JobStatus = await res.json();
@@ -338,11 +364,11 @@ export async function pollJob(
 
     if (status.status === "success") return status;
     if (status.status === "awaiting_user") return status;
-    if (status.status === "failed") throw new Error(status.error || "Job fehlgeschlagen");
+    if (status.status === "failed") throw new Error(status.error || fallback("jobFailed"));
 
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(resolve, intervalMs);
-      signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new DOMException("Abgebrochen", "AbortError")); }, { once: true });
+      signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); }, { once: true });
     });
   }
 }
@@ -356,8 +382,8 @@ export async function downloadJobAsBlob(
 ): Promise<{ blob: Blob; filename: string }> {
   const res = await fetch(`/api/jobs/${jobUuid}/download`, { credentials: "include" });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Download fehlgeschlagen" }));
-    throw new Error(err.detail || `Download-Fehler: ${res.status}`);
+    const err = await res.json().catch(() => ({ detail: fallback("downloadFailed") }));
+    throw new Error(err.detail || `${fallback("downloadFailed")}: ${res.status}`);
   }
 
   const blob = await res.blob();

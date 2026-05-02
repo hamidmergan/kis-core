@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { CalendarBlank } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import ExpandableText from "@/components/ui/ExpandableText";
@@ -11,6 +12,8 @@ import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { StudentWorkspace } from "../_shared";
 
 export default function StudentView() {
+  const t = useTranslations("workspace.list");
+  const locale = useLocale();
   const labels = useWorkspaceLabel();
   const searchParams = useSearchParams();
   const [workspaces, setModules] = useState<StudentWorkspace[]>([]);
@@ -58,12 +61,12 @@ export default function StudentView() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? "Ungültiger Code");
+        throw new Error(err.detail ?? t("enrollInvalidCode"));
       }
       setEnrollCode("");
       await loadModules();
     } catch (err: unknown) {
-      setEnrollError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setEnrollError(err instanceof Error ? err.message : t("unknownError"));
     } finally {
       setEnrolling(false);
     }
@@ -72,20 +75,20 @@ export default function StudentView() {
   return (
     <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20 lg:pt-15 lg:pb-30">
       <div className="max-w-5xl mx-auto">
-      <h1 className="text-3xl font-bold mb-10">Willkommen bei KIS</h1>
+      <h1 className="text-3xl font-bold mb-10">{t("welcomeTitle")}</h1>
 
       <div className="mb-12">
         <UpcomingDeadlinesWidget />
       </div>
 
-      <h2 className="text-xl font-semibold mb-8">Meine {labels.plural}</h2>
+      <h2 className="text-xl font-semibold mb-8">{t("myWorkspaces", { label: labels.plural })}</h2>
 
       <section
         className="rounded-xl p-5 mb-8"
         style={{ backgroundColor: "var(--surface)", boxShadow: "var(--shadow)" }}
       >
         <p className="text-sm font-medium mb-3" style={{ color: "var(--foreground)" }}>
-          Einschreibecode eingeben
+          {t("enrollPrompt")}
         </p>
         <form onSubmit={handleEnroll} className="flex gap-2">
           <input
@@ -95,7 +98,7 @@ export default function StudentView() {
               setEnrollCode(e.target.value);
               setEnrollError(null);
             }}
-            placeholder="z. B. a1b2c3d4"
+            placeholder={t("enrollPlaceholder")}
             className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none font-mono"
             style={{
               backgroundColor: "var(--background)",
@@ -108,7 +111,7 @@ export default function StudentView() {
             disabled={enrolling || !enrollCode.trim()}
             className="btn-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
           >
-            {enrolling ? "…" : "Einschreiben"}
+            {enrolling ? "…" : t("enroll")}
           </button>
         </form>
         {enrollError && (
@@ -124,14 +127,14 @@ export default function StudentView() {
         </div>
       ) : workspaces.length === 0 ? (
         <p className="text-center py-10 text-sm" style={{ color: "var(--muted)" }}>
-          Noch keine Einschreibung vorhanden.
+          {t("noEnrollments")}
         </p>
       ) : (
         <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
           {workspaces.map((m, i) => {
             const href = m.enrollment_id ? `/workspace/${m.uuid}?eid=${m.enrollment_id}` : `/workspace/${m.uuid}`;
             const untilDate = m.enrolled_until
-              ? new Date(m.enrolled_until).toLocaleDateString("de-DE", {
+              ? new Date(m.enrolled_until).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
                   day: "2-digit",
                   month: "2-digit",
                   year: "numeric",
@@ -152,7 +155,7 @@ export default function StudentView() {
                       {untilDate && (
                         <span className="inline-flex items-center gap-1 text-xs text-muted-soft whitespace-nowrap">
                           <CalendarBlank size={12} />
-                          bis {untilDate}
+                          {t("untilDate", { date: untilDate })}
                         </span>
                       )}
                     </div>
@@ -161,7 +164,7 @@ export default function StudentView() {
                     href={href}
                     className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-kb"
                   >
-                    Öffnen
+                    {t("open")}
                   </Link>
                 </div>
               </li>

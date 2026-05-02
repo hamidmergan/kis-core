@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { notifyWorkspaceLabelsChanged } from "@/hooks/useWorkspaceLabel";
 
 interface Labels {
@@ -11,6 +12,7 @@ interface Labels {
 const DEFAULTS: Labels = { singular: "Workspace", plural: "Workspaces" };
 
 export default function WorkspaceLabelCard() {
+  const t = useTranslations("admin");
   const [loaded, setLoaded] = useState<Labels | null>(null);
   const [singular, setSingular] = useState("");
   const [plural, setPlural] = useState("");
@@ -60,7 +62,7 @@ export default function WorkspaceLabelCard() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d.detail ?? "Speichern fehlgeschlagen");
+        throw new Error(d.detail ?? t("saveFailed"));
       }
       setLoaded({ singular: trimmedSingular, plural: trimmedPlural });
       setSavedAt(Date.now());
@@ -81,13 +83,11 @@ export default function WorkspaceLabelCard() {
 
   return (
     <div className="border border-border-soft rounded-xl bg-background p-5">
-      <p className="text-sm font-medium text-foreground">Bezeichnung &quot;Workspace&quot;</p>
-      <p className="text-xs text-muted mt-1 mb-4">
-        Wie der Begriff im Frontend angezeigt wird (z. B. &quot;Modul&quot; / &quot;Module&quot; oder &quot;Kurs&quot; / &quot;Kurse&quot;). Default: Workspace / Workspaces.
-      </p>
+      <p className="text-sm font-medium text-foreground">{t("workspaceLabel.title")}</p>
+      <p className="text-xs text-muted mt-1 mb-4">{t("workspaceLabel.description")}</p>
       <div className="grid sm:grid-cols-2 gap-3">
         <label className="block">
-          <span className="block text-xs text-muted mb-1">Singular</span>
+          <span className="block text-xs text-muted mb-1">{t("workspaceLabel.singular")}</span>
           <input
             type="text"
             value={singular}
@@ -98,7 +98,7 @@ export default function WorkspaceLabelCard() {
           />
         </label>
         <label className="block">
-          <span className="block text-xs text-muted mb-1">Plural</span>
+          <span className="block text-xs text-muted mb-1">{t("workspaceLabel.plural")}</span>
           <input
             type="text"
             value={plural}
@@ -116,10 +116,10 @@ export default function WorkspaceLabelCard() {
           disabled={saving || (singular === DEFAULTS.singular && plural === DEFAULTS.plural)}
           className="text-xs text-muted hover:text-kb disabled:opacity-40 disabled:hover:text-muted"
         >
-          Zurücksetzen
+          {t("reset")}
         </button>
         <div className="flex items-center gap-3">
-          {justSaved && !error && <span className="text-xs text-muted">Gespeichert.</span>}
+          {justSaved && !error && <span className="text-xs text-muted">{t("savedShort")}</span>}
           {error && <span className="text-xs text-error">{error}</span>}
           <button
             type="button"
@@ -127,7 +127,7 @@ export default function WorkspaceLabelCard() {
             disabled={saving || !dirty || !valid}
             className="btn-primary px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-40"
           >
-            {saving ? "…" : "Speichern"}
+            {saving ? t("ellipsis") : t("save")}
           </button>
         </div>
       </div>

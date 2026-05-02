@@ -19,6 +19,15 @@ interface GenerateScriptsResponse {
   scripts: string[];
 }
 
+export interface TranslateFlowMessages {
+  unknownError: string;
+  errorWithCode: (code: number) => string;
+  uploadError: string;
+  downloadFailed: string;
+  jobInOtherTab: string;
+  jobDeleted: string;
+}
+
 interface UseScreencastTranslateFlowOptions {
   translateJobUuid: string;
   slides: SlideData[];
@@ -37,6 +46,9 @@ interface UseScreencastTranslateFlowOptions {
   checkJobFolder: () => Promise<boolean>;
   goError: (msg: string) => void;
   newSignal: () => AbortSignal;
+
+  // Translated messages from the component
+  messages: TranslateFlowMessages;
 
   // Refs
   currentJobUuidRef: MutableRefObject<string | null>;
@@ -58,6 +70,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     checkJobFolder,
     goError,
     newSignal,
+    messages,
     currentJobUuidRef,
     isGeneratingScriptsRef,
   } = opts;
@@ -85,8 +98,8 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
           signal,
         });
         if (!response.ok) {
-          const error = await response.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-          throw new Error(parseDetail(error.detail, `Fehler: ${response.status}`));
+          const error = await response.json().catch(() => ({ detail: messages.unknownError }));
+          throw new Error(parseDetail(error.detail, messages.errorWithCode(response.status)));
         }
         const data: { translate_job_uuid: string; slide_texts: string[]; slide_images: string[] } =
           await response.json();
@@ -107,7 +120,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
         dispatch({ type: "SET_STEP", step: "user-prompt" });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+        goError(err instanceof Error ? err.message : messages.unknownError);
       }
       return;
     }
@@ -128,8 +141,8 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
         signal,
       });
       if (!uploadRes.ok) {
-        const error = await uploadRes.json().catch(() => ({ detail: "Unbekannter Fehler" }));
-        throw new Error(parseDetail(error.detail, `Fehler: ${uploadRes.status}`));
+        const error = await uploadRes.json().catch(() => ({ detail: messages.unknownError }));
+        throw new Error(parseDetail(error.detail, messages.errorWithCode(uploadRes.status)));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
@@ -208,7 +221,7 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
         dispatch({ type: "SET_LOADING", loading: false });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+        goError(err instanceof Error ? err.message : messages.unknownError);
       }
     },
     [translateJobUuid, goError, newSignal, dispatch],
@@ -220,11 +233,11 @@ export function useScreencastTranslateFlow(opts: UseScreencastTranslateFlowOptio
     if (translateJobUuid) {
       const validity = await checkJobStillValid(translateJobUuid);
       if (validity === "running") {
-        goError("Dieser Job wird bereits in einem anderen Tab verarbeitet. Bitte wechseln Sie zur Jobliste.");
+        goError(messages.jobInOtherTab);
         return;
       }
       if (validity === "deleted") {
-        goError("Der Job wurde gelöscht oder abgebrochen. Bitte starten Sie einen neuen Screencast.");
+        goError(messages.jobDeleted);
         return;
       }
     } else {

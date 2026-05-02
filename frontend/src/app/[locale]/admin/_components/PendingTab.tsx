@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { formatDate } from "@/lib/format";
 import type { PendingUser } from "../_shared";
 
 export default function PendingTab() {
+  const t = useTranslations("admin");
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState<number | null>(null);
@@ -34,7 +36,7 @@ export default function PendingTab() {
 
   if (loading) return <Spinner className="flex justify-center py-12" />;
   if (users.length === 0)
-    return <p className="text-sm text-muted-soft text-center py-12">Keine ausstehenden Anfragen</p>;
+    return <p className="text-sm text-muted-soft text-center py-12">{t("pending.empty")}</p>;
 
   return (
     <ul className="divide-y divide-border-soft border border-border-soft rounded-xl overflow-hidden">
@@ -43,16 +45,18 @@ export default function PendingTab() {
           <div>
             <p className="text-sm font-medium text-foreground">{u.display_name}</p>
             <p className="text-xs text-muted mt-0.5">
-              {u.email ?? <span className="text-error">Keine Email</span>}
+              {u.email ?? <span className="text-error">{t("pending.noEmail")}</span>}
             </p>
-            <p className="text-xs text-muted-soft mt-0.5">Erstellt: {formatDate(u.created_at)}</p>
+            <p className="text-xs text-muted-soft mt-0.5">
+              {t("pending.createdLabel", { date: formatDate(u.created_at) })}
+            </p>
           </div>
           <button
             onClick={() => approve(u)}
             disabled={!u.email || approving === u.id}
             className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-success hover:bg-success-strong rounded-md disabled:opacity-40 transition-colors"
           >
-            {approving === u.id ? "..." : "Freischalten"}
+            {approving === u.id ? t("ellipsis") : t("pending.approve")}
           </button>
         </li>
       ))}

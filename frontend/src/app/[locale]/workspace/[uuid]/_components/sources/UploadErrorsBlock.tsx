@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 export function UploadErrorsBlock({
   errors,
@@ -7,6 +8,7 @@ export function UploadErrorsBlock({
   errors: { filename: string; message: string }[];
   onDismiss: () => void;
 }) {
+  const t = useTranslations("workspace.detail.sources.uploadErrors");
   const [expanded, setExpanded] = useState(false);
   return (
     <div
@@ -19,16 +21,14 @@ export function UploadErrorsBlock({
           onClick={() => setExpanded((v) => !v)}
           className="flex-1 text-left hover:underline transition-colors"
         >
-          {errors.length === 1
-            ? `1 Datei fehlgeschlagen`
-            : `${errors.length} Dateien fehlgeschlagen`}
+          {errors.length === 1 ? t("single") : t("multi", { n: errors.length })}
           <span className="ml-1 opacity-70">{expanded ? "▾" : "▸"}</span>
         </button>
         <button
           type="button"
           onClick={onDismiss}
           className="hover:text-kb transition-colors flex-shrink-0"
-          aria-label="Schließen"
+          aria-label={t("dismiss")}
         >
           ×
         </button>

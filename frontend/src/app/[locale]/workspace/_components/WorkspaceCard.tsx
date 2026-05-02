@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   ArrowRight,
   CaretRight,
@@ -28,6 +29,7 @@ export default function WorkspaceCard({
   onEdit,
   onLinksChanged,
 }: WorkspaceCardProps) {
+  const t = useTranslations("workspace.list");
   const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
   const labels = useWorkspaceLabel();
 
@@ -58,7 +60,7 @@ export default function WorkspaceCard({
           <button
             type="button"
             onClick={() => a.setExpanded(!a.expanded)}
-            title={a.expanded ? "Zuklappen" : "Aufklappen"}
+            title={a.expanded ? t("collapse") : t("expand")}
             className="w-7 h-7 flex items-center justify-center rounded-full transition-colors flex-shrink-0 hover:bg-[var(--surface-dim)] hover:text-kb"
             style={{ color: "var(--muted)" }}
           >
@@ -81,7 +83,7 @@ export default function WorkspaceCard({
               type="button"
               role="switch"
               aria-checked={workspace.is_active}
-              aria-label={workspace.is_active ? `${labels.singular} deaktivieren` : `${labels.singular} aktivieren`}
+              aria-label={workspace.is_active ? t("deactivate", { label: labels.singular }) : t("activate", { label: labels.singular })}
               onClick={() => a.handleToggle(!workspace.is_active)}
               disabled={a.toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2"
@@ -94,18 +96,18 @@ export default function WorkspaceCard({
               />
             </button>
             <span className="text-xs font-medium" style={{ color: workspace.is_active ? "var(--kb)" : "var(--muted)" }}>
-              {workspace.is_active ? "Aktiv" : "Inaktiv"}
+              {workspace.is_active ? t("active") : t("inactive")}
             </span>
           </div>
-          <span className="text-xs" style={{ color: "var(--muted)" }}>{workspace.source_count} Quellen</span>
-          <span className="text-xs" style={{ color: "var(--muted)" }}>{a.links.length} Links</span>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>{t("sourcesCount", { n: workspace.source_count })}</span>
+          <span className="text-xs" style={{ color: "var(--muted)" }}>{t("linksCount", { n: a.links.length })}</span>
           <div className="ml-auto flex items-center gap-2">
             <WorkspaceMenu
               onStats={() => a.setShowStats(true)}
               onEdit={() => a.setEditOpen(true)}
               onDelete={() => a.setDeleteConfirm(true)}
             />
-            <IconButton onClick={a.handleOpen} title={`${labels.singular} öffnen`}>
+            <IconButton onClick={a.handleOpen} title={t("openWorkspace", { label: labels.singular })}>
               <ArrowRight size={13} weight="bold" />
             </IconButton>
           </div>
@@ -123,7 +125,7 @@ export default function WorkspaceCard({
             ))}
             {a.links.length >= MAX_ACCESS_LINKS ? (
               <p className="text-xs self-start mt-0.5" style={{ color: "var(--muted)" }}>
-                Maximal {MAX_ACCESS_LINKS} Einschreibelinks erreicht. Lösche einen alten Link, um einen neuen zu erstellen.
+                {t("maxLinksReached", { n: MAX_ACCESS_LINKS })}
               </p>
             ) : (
               <button
@@ -131,7 +133,7 @@ export default function WorkspaceCard({
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-soft hover:text-kb transition-colors self-start mt-0.5"
               >
                 <Plus size={12} weight="bold" />
-                Neuer Link
+                {t("newLink")}
               </button>
             )}
           </div>

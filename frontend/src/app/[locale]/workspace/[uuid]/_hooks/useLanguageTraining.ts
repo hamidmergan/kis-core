@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { ClozeExercise, GlossaryEntry, LanguageTrainingView, VocabTestQuestion } from "../_types";
 
 interface UseLanguageTrainingOptions {
@@ -11,6 +12,7 @@ interface UseLanguageTrainingOptions {
 }
 
 export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze, onAfterVocabTest }: UseLanguageTrainingOptions) {
+  const t = useTranslations("workspace.detail.errors");
   const [langTrainingView, setSprachView] = useState<LanguageTrainingView>("overview");
   const [glossary, setGlossary] = useState<GlossaryEntry[]>([]);
   const [glossaryLoading, setGlossaryLoading] = useState(false);
@@ -175,15 +177,15 @@ export function useLanguageTraining({ uuid, langTrainingActiveIds, onAfterCloze,
         if (data.added > 0) {
           loadGlossary();
           loadGlossaryCount();
-          showFeedback("success", data.message || `${data.added} Begriff(e) hinzugefügt.`);
+          showFeedback("success", data.message || t("termsAdded", { count: data.added }));
         } else {
-          showFeedback("info", data.message || "Keine neuen Begriffe gefunden.");
+          showFeedback("info", data.message || t("noNewTerms"));
         }
       } else {
-        showFeedback("error", "Extraktion fehlgeschlagen. Bitte erneut versuchen.");
+        showFeedback("error", t("extractionFailed"));
       }
     } catch {
-      showFeedback("error", "Netzwerkfehler. Bitte erneut versuchen.");
+      showFeedback("error", t("networkRetry"));
     } finally {
       setGlossaryExtracting(false);
     }

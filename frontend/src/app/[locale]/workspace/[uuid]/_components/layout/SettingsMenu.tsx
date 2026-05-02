@@ -1,16 +1,11 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useHildePref } from "@/hooks/useHildePref";
 import type { TranscriptTranslationMode } from "../../_types";
-
-const TRANSLATION_MODE_OPTIONS = [
-  { value: "off", label: "Aus" },
-  { value: "auto", label: "Auto (beim Indexieren)" },
-  { value: "manual", label: "Manuell (per Klick)" },
-] as const;
 
 interface SettingsMenuProps {
   open: boolean;
@@ -73,44 +68,49 @@ export function SettingsMenu({
   translationMode,
   onChangeTranslationMode,
 }: SettingsMenuProps) {
+  const t = useTranslations("workspace.detail.settings");
   const { enabled: hildeEnabled, toggle: toggleHilde, globalEnabled: mascotGlobalEnabled } = useHildePref();
 
+  const TRANSLATION_MODE_OPTIONS = [
+    { value: "off" as const, label: t("translationModeOff") },
+    { value: "auto" as const, label: t("translationModeAuto") },
+    { value: "manual" as const, label: t("translationModeManual") },
+  ];
+
   return (
-    <Modal open={open} onClose={onClose} title="Einstellungen" size="md">
+    <Modal open={open} onClose={onClose} title={t("title")} size="md">
       <div className="flex flex-col gap-4">
         {mascotGlobalEnabled && (
           <ToggleRow
-            title="Hilde-Maskottchen"
-            description="Eulen-Begleiterin im Chat anzeigen."
+            title={t("hildeTitle")}
+            description={t("hildeDescription")}
             checked={hildeEnabled}
             onToggle={toggleHilde}
           />
         )}
         <ToggleRow
-          title="Studio"
-          description="Studio-Panel mit Mindmaps, Notizen und Tools einblenden."
+          title={t("studioTitle")}
+          description={t("studioDescription")}
           checked={studioEnabled}
           onToggle={onToggleStudio}
         />
         <ToggleRow
-          title="Fachsprachentraining"
-          description="Zeigt den Fachsprachentraining-Tab im Studio."
+          title={t("languageTrainingTitle")}
+          description={t("languageTrainingDescription")}
           checked={language_trainingActive}
           onToggle={onToggleLanguageTraining}
           disabled={!studioEnabled}
         />
         {isOwner && (
           <div className="mt-3">
-            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>EN-Übersetzung der Transkripte</p>
+            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("translationModeTitle")}</p>
             <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-              Erzeugt englische Untertitel zu deutschen Audio-/Video-Quellen. Studierende können
-              die Sprache im Transkript-Panel umschalten. Die Übersetzung läuft als Hintergrund-Job
-              und kann ein paar Minuten dauern.
+              {t("translationModeDescription")}
             </p>
             <ul className="text-xs mt-2 space-y-1 pl-4 list-disc" style={{ color: "var(--muted)" }}>
-              <li><strong>Aus</strong> — Es werden keine englischen Untertitel erstellt.</li>
-              <li><strong>Auto</strong> — Sobald eine Quelle indexiert ist, startet die Übersetzung automatisch.</li>
-              <li><strong>Manuell</strong> — Übersetzung erst per Klick im Transkript-Panel (Standard).</li>
+              <li><strong>{t("translationModeOff")}</strong> {t("translationModeOffHint")}</li>
+              <li><strong>{t("translationModeAuto")}</strong> {t("translationModeAutoHint")}</li>
+              <li><strong>{t("translationModeManual")}</strong> {t("translationModeManualHint")}</li>
             </ul>
             <div className="mt-3">
               <Select<TranscriptTranslationMode>

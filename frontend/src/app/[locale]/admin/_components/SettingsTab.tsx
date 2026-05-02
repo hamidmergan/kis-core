@@ -1,25 +1,15 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import WorkspaceLabelCard from "./WorkspaceLabelCard";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { notifyMascotGlobalChanged } from "@/hooks/useHildePref";
 
-const TRANSLATION_MODE_OPTIONS = [
-  { value: "off", label: "Aus" },
-  { value: "auto", label: "Auto (bei Ingest)" },
-  { value: "manual", label: "Manuell (Button)" },
-] as const;
-
-const TRANSLATION_PROVIDER_OPTIONS = [
-  { value: "deepl", label: "DeepL" },
-  { value: "llm", label: "LLM" },
-] as const;
-
-type TranslationMode = typeof TRANSLATION_MODE_OPTIONS[number]["value"];
-type TranslationProvider = typeof TRANSLATION_PROVIDER_OPTIONS[number]["value"];
+type TranslationMode = "off" | "auto" | "manual";
+type TranslationProvider = "deepl" | "llm";
 
 export type SettingsSection = "system" | "speech" | "images" | "embedding" | "llm";
 
@@ -48,13 +38,14 @@ function ProviderToggle({
   modelValue?: string;
   onModelChange?: (key: string, value: string) => void;
 }) {
+  const t = useTranslations("admin.settings");
   const statusText = !configured
-    ? "Nicht konfiguriert."
+    ? t("providerNotConfigured")
     : !enabled
-      ? "Deaktiviert - wird nicht angezeigt."
+      ? t("providerDisabled")
       : available === false
-        ? "Aktiviert - Server nicht erreichbar."
-        : "Aktiv - als Anbieter wählbar.";
+        ? t("providerUnavailable")
+        : t("providerActive");
   const [draft, setDraft] = React.useState(modelValue ?? "");
   React.useEffect(() => { setDraft(modelValue ?? ""); }, [modelValue]);
   const commit = () => {
@@ -72,13 +63,14 @@ function ProviderToggle({
         <p className="text-sm text-foreground-soft">{label}</p>
         <p className="text-xs text-muted mt-0.5">{statusText}</p>
         {!configured && envHint && (
-          <p className="mt-1 text-xs text-muted-soft">
-            <code className="font-mono">{envHint}</code> nicht gesetzt
-          </p>
+          <p
+            className="mt-1 text-xs text-muted-soft"
+            dangerouslySetInnerHTML={{ __html: t("envNotSet", { envHint }) }}
+          />
         )}
         {modelKey && onModelChange && (
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-muted shrink-0">Modell:</span>
+            <span className="text-xs text-muted shrink-0">{t("modelLabel")}</span>
             <input
               type="text"
               value={draft}
@@ -95,7 +87,7 @@ function ProviderToggle({
       <button
         onClick={() => onToggle(settingKey, !enabled)}
         disabled={saving || !configured}
-        title={!configured && envHint ? `${envHint} ist nicht in .env gesetzt` : undefined}
+        title={!configured && envHint ? t("envNotSetTitle", { envHint }) : undefined}
         className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
           enabled ? "bg-kb" : "bg-border"
         } disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -134,9 +126,21 @@ function ProviderSection({
 }
 
 function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"> }) {
+  const t = useTranslations("admin.settings");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [s, setS] = useState<Record<string, any> | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const TRANSLATION_MODE_OPTIONS = useMemo(() => [
+    { value: "off" as const, label: t("translationModeOff") },
+    { value: "auto" as const, label: t("translationModeAuto") },
+    { value: "manual" as const, label: t("translationModeManual") },
+  ], [t]);
+
+  const TRANSLATION_PROVIDER_OPTIONS = useMemo(() => [
+    { value: "deepl" as const, label: "DeepL" },
+    { value: "llm" as const, label: "LLM" },
+  ], []);
 
   useEffect(() => {
     fetch("/api/admin/settings", { credentials: "include" })
@@ -206,24 +210,22 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
     <div className="space-y-4">
       {section === "speech" && (
         <>
-          <ProviderSection title="Text in Sprache">
-            <P label="ElevenLabs" settingKey="elevenlabs_enabled" enabled={s.elevenlabs_enabled ?? false} configured={s.elevenlabs_configured ?? false} envHint="ELEVENLABS_API_KEY" />
-            <P label="Kokoro TTS" settingKey="kokoro_enabled" enabled={s.kokoro_enabled ?? false} configured={s.kokoro_configured ?? false} available={s.kokoro_available} envHint="KOKORO_BASE_URL" />
-            <P label="THL myLab (XTTS-v2)" settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" modelKey="mylab_tts_model" />
+          <ProviderSection title={t("speechTitle")}>
+            <P label={t("providerElevenlabs")} settingKey="elevenlabs_enabled" enabled={s.elevenlabs_enabled ?? false} configured={s.elevenlabs_configured ?? false} envHint="ELEVENLABS_API_KEY" />
+            <P label={t("providerKokoro")} settingKey="kokoro_enabled" enabled={s.kokoro_enabled ?? false} configured={s.kokoro_configured ?? false} available={s.kokoro_available} envHint="KOKORO_BASE_URL" />
+            <P label={t("providerMylabXtts")} settingKey="mylab_enabled" enabled={s.mylab_enabled ?? false} configured={s.mylab_configured ?? false} available={s.mylab_available} envHint="MYLAB_TTS_BASE_URL" modelKey="mylab_tts_model" />
           </ProviderSection>
 
-          <ProviderSection title="Transkription (Sprache in Text)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
-            <P label="KISSKI (Whisper)" settingKey="primary_whisper_enabled" enabled={s.primary_whisper_enabled ?? true} configured={s.primary_whisper_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label="THL myLab (Whisper-3-large)" settingKey="fallback_whisper_enabled" enabled={s.fallback_whisper_enabled ?? false} configured={s.fallback_whisper_configured ?? false} available={s.fallback_whisper_available} envHint="FALLBACK_PROVIDER_BASE_URL" />
+          <ProviderSection title={t("transcriptionTitle")} hint={t("transcriptionHint")}>
+            <P label={t("providerKisskiWhisper")} settingKey="primary_whisper_enabled" enabled={s.primary_whisper_enabled ?? true} configured={s.primary_whisper_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
+            <P label={t("providerMylabWhisper3")} settingKey="fallback_whisper_enabled" enabled={s.fallback_whisper_enabled ?? false} configured={s.fallback_whisper_configured ?? false} available={s.fallback_whisper_available} envHint="FALLBACK_PROVIDER_BASE_URL" />
           </ProviderSection>
 
-          <ProviderSection title="Transkript-Übersetzung (EN)" hint="Übersetzung deutscher Video-/Audio-Transkripte ins Englische. Betrifft aktuell nur den KI-Assistenten.">
+          <ProviderSection title={t("transcriptTranslationTitle")} hint={t("transcriptTranslationHint")}>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-foreground">Modus</p>
-                <p className="text-xs text-muted mt-1">
-                  Aus: keine EN-Übersetzung. Auto: direkt beim Indexieren. Manuell: nur über den Button im Transkript-Panel (Default).
-                </p>
+                <p className="text-sm font-medium text-foreground">{t("modeLabel")}</p>
+                <p className="text-xs text-muted mt-1">{t("modeHint")}</p>
               </div>
               <Select<TranslationMode>
                 value={(s.transcript_translation_mode ?? "manual") as TranslationMode}
@@ -238,10 +240,8 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
             </div>
             <div className="flex items-center justify-between gap-4" style={{ opacity: (s.transcript_translation_mode ?? "manual") === "off" ? 0.5 : 1 }}>
               <div>
-                <p className="text-sm font-medium text-foreground">Anbieter</p>
-                <p className="text-xs text-muted mt-1">
-                  DeepL: schnell, aber Kontingent-limitiert. LLM: nutzt den konfigurierten Chat-Provider, keine zusätzliche Quote.
-                </p>
+                <p className="text-sm font-medium text-foreground">{t("providerLabel")}</p>
+                <p className="text-xs text-muted mt-1">{t("providerHint")}</p>
               </div>
               <Select<TranslationProvider>
                 value={(s.transcript_translation_provider ?? "llm") as TranslationProvider}
@@ -260,33 +260,33 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
 
       {section === "images" && (
         <>
-          <ProviderSection title="Bild-Generierung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
-            <P label="KISSKI (Flux)" settingKey="primary_image_gen_enabled" enabled={s.primary_image_gen_enabled ?? true} configured={s.primary_image_gen_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label="THL myLab" settingKey="fallback_image_gen_enabled" enabled={s.fallback_image_gen_enabled ?? false} configured={s.fallback_image_gen_configured ?? false} available={s.fallback_image_gen_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_gen_model" />
+          <ProviderSection title={t("imageGenTitle")} hint={t("imageGenHint")}>
+            <P label={t("providerKisskiFlux")} settingKey="primary_image_gen_enabled" enabled={s.primary_image_gen_enabled ?? true} configured={s.primary_image_gen_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
+            <P label={t("providerMylab")} settingKey="fallback_image_gen_enabled" enabled={s.fallback_image_gen_enabled ?? false} configured={s.fallback_image_gen_configured ?? false} available={s.fallback_image_gen_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_gen_model" />
           </ProviderSection>
 
-          <ProviderSection title="Bild-Analyse" hint="Nur KISSKI verfuegbar (THL myLab hat kein Vision-Modell).">
-            <P label="KISSKI (qwen3-omni)" settingKey="primary_image_analyze_enabled" enabled={s.primary_image_analyze_enabled ?? true} configured={s.primary_image_analyze_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
+          <ProviderSection title={t("imageAnalyzeTitle")} hint={t("imageAnalyzeHint")}>
+            <P label={t("providerKisskiQwen")} settingKey="primary_image_analyze_enabled" enabled={s.primary_image_analyze_enabled ?? true} configured={s.primary_image_analyze_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
           </ProviderSection>
 
-          <ProviderSection title="Bild-Bearbeitung" hint="Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.">
-            <P label="KISSKI (Flux)" settingKey="primary_image_edit_enabled" enabled={s.primary_image_edit_enabled ?? true} configured={s.primary_image_edit_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label="THL myLab" settingKey="fallback_image_edit_enabled" enabled={s.fallback_image_edit_enabled ?? false} configured={s.fallback_image_edit_configured ?? false} available={s.fallback_image_edit_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_edit_model" />
+          <ProviderSection title={t("imageEditTitle")} hint={t("imageEditHint")}>
+            <P label={t("providerKisskiFlux")} settingKey="primary_image_edit_enabled" enabled={s.primary_image_edit_enabled ?? true} configured={s.primary_image_edit_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
+            <P label={t("providerMylab")} settingKey="fallback_image_edit_enabled" enabled={s.fallback_image_edit_enabled ?? false} configured={s.fallback_image_edit_configured ?? false} available={s.fallback_image_edit_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_edit_model" />
           </ProviderSection>
 
-          <ProviderSection title="OCR (Texterkennung)" hint="KISSKI = primär, THL myLab = Fallback bei Ausfall">
-            <P label="KISSKI" settingKey="primary_ocr_enabled" enabled={s.primary_ocr_enabled ?? true} configured={s.primary_ocr_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_ocr_model" />
-            <P label="THL myLab" settingKey="fallback_ocr_enabled" enabled={s.fallback_ocr_enabled ?? false} configured={s.fallback_ocr_configured ?? false} available={s.fallback_ocr_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_ocr_model" />
+          <ProviderSection title={t("ocrTitle")} hint={t("ocrHint")}>
+            <P label={t("providerKisski")} settingKey="primary_ocr_enabled" enabled={s.primary_ocr_enabled ?? true} configured={s.primary_ocr_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_ocr_model" />
+            <P label={t("providerMylab")} settingKey="fallback_ocr_enabled" enabled={s.fallback_ocr_enabled ?? false} configured={s.fallback_ocr_configured ?? false} available={s.fallback_ocr_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_ocr_model" />
           </ProviderSection>
         </>
       )}
 
       {section === "embedding" && (
         <>
-          <ProviderSection title="Embeddings (KI-Assistent)" hint="Nur ein Anbieter gleichzeitig - Wechsel erfordert Reindex (siehe unten).">
-            <P label="KISSKI" settingKey="primary_embedding_enabled" enabled={s.primary_embedding_enabled ?? true} configured={s.primary_embedding_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_embedding_model" />
-            <P label="THL myLab" settingKey="fallback_embedding_enabled" enabled={s.fallback_embedding_enabled ?? false} configured={s.fallback_embedding_configured ?? false} available={s.fallback_embedding_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_embedding_model" />
-            <P label="Ollama (lokal)" settingKey="local_embedding_enabled" enabled={s.local_embedding_enabled ?? false} configured={s.local_embedding_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_embedding_model" />
+          <ProviderSection title={t("embeddingTitle")} hint={t("embeddingHint")}>
+            <P label={t("providerKisski")} settingKey="primary_embedding_enabled" enabled={s.primary_embedding_enabled ?? true} configured={s.primary_embedding_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_embedding_model" />
+            <P label={t("providerMylab")} settingKey="fallback_embedding_enabled" enabled={s.fallback_embedding_enabled ?? false} configured={s.fallback_embedding_configured ?? false} available={s.fallback_embedding_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_embedding_model" />
+            <P label={t("providerOllama")} settingKey="local_embedding_enabled" enabled={s.local_embedding_enabled ?? false} configured={s.local_embedding_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_embedding_model" />
           </ProviderSection>
 
           <ReindexCard />
@@ -295,13 +295,13 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
 
       {section === "llm" && (
         <>
-          <ProviderSection title="LLM Chat" hint="Nur ein Anbieter gleichzeitig. Wechsel wirkt sofort fuer alle LLM-Calls (Chat, Mindmap, Summary, Skript).">
-            <P label="KISSKI" settingKey="primary_llm_enabled" enabled={s.primary_llm_enabled ?? true} configured={s.primary_llm_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_llm_model" />
-            <P label="THL myLab" settingKey="fallback_llm_enabled" enabled={s.fallback_llm_enabled ?? false} configured={s.fallback_llm_configured ?? false} available={s.fallback_llm_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_llm_model" />
-            <P label="Ollama (lokal)" settingKey="local_llm_enabled" enabled={s.local_llm_enabled ?? false} configured={s.local_llm_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_llm_model" />
+          <ProviderSection title={t("llmTitle")} hint={t("llmHint")}>
+            <P label={t("providerKisski")} settingKey="primary_llm_enabled" enabled={s.primary_llm_enabled ?? true} configured={s.primary_llm_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_llm_model" />
+            <P label={t("providerMylab")} settingKey="fallback_llm_enabled" enabled={s.fallback_llm_enabled ?? false} configured={s.fallback_llm_configured ?? false} available={s.fallback_llm_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_llm_model" />
+            <P label={t("providerOllama")} settingKey="local_llm_enabled" enabled={s.local_llm_enabled ?? false} configured={s.local_llm_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_llm_model" />
           </ProviderSection>
 
-          <ProviderSection title="LLM-Übersetzung (/translate)" hint="Optionaler Provider+Modell-Override nur für Datei-Übersetzung. Keiner aktiv = nutzt das aktive LLM oben.">
+          <ProviderSection title={t("llmTranslationTitle")} hint={t("llmTranslationHint")}>
             {(() => {
               const tProvider: string = s.translation_llm_provider ?? "";
               const toggleProvider = async (target: "primary" | "fallback" | "local", on: boolean) => {
@@ -327,9 +327,9 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
               );
               return (
                 <>
-                  <T label="KISSKI" target="primary" configured={s.primary_llm_configured ?? false} modelKey="translation_primary_model" envHint="PRIMARY_PROVIDER_API_KEY" />
-                  <T label="THL myLab" target="fallback" configured={s.fallback_llm_configured ?? false} modelKey="translation_fallback_model" envHint="FALLBACK_PROVIDER_BASE_URL" />
-                  <T label="Ollama (lokal)" target="local" configured={s.local_llm_configured ?? false} modelKey="translation_local_model" envHint="LOCAL_PROVIDER_BASE_URL" />
+                  <T label={t("providerKisski")} target="primary" configured={s.primary_llm_configured ?? false} modelKey="translation_primary_model" envHint="PRIMARY_PROVIDER_API_KEY" />
+                  <T label={t("providerMylab")} target="fallback" configured={s.fallback_llm_configured ?? false} modelKey="translation_fallback_model" envHint="FALLBACK_PROVIDER_BASE_URL" />
+                  <T label={t("providerOllama")} target="local" configured={s.local_llm_configured ?? false} modelKey="translation_local_model" envHint="LOCAL_PROVIDER_BASE_URL" />
                 </>
               );
             })()}
@@ -341,6 +341,7 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
 }
 
 function WhitelistCard() {
+  const t = useTranslations("admin.whitelistCard");
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -373,11 +374,9 @@ function WhitelistCard() {
     <div className="border border-border-soft rounded-xl bg-background p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-foreground">Whitelist-Modus</p>
+          <p className="text-sm font-medium text-foreground">{t("title")}</p>
           <p className="text-xs text-muted mt-1">
-            {enabled
-              ? "Aktiv - nur freigeschaltete E-Mail-Adressen dürfen sich einloggen."
-              : "Deaktiviert - alle authentifizierten TH-Accounts haben Zugang."}
+            {enabled ? t("active") : t("disabled")}
           </p>
         </div>
         <button
@@ -386,7 +385,7 @@ function WhitelistCard() {
           className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
             enabled ? "bg-kb" : "bg-border"
           } disabled:opacity-50`}
-          aria-label="Whitelist umschalten"
+          aria-label={t("toggleAria")}
         >
           <span
             className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
@@ -397,7 +396,7 @@ function WhitelistCard() {
       </div>
       {!enabled && (
         <p className="mt-3 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
-          Achtung: Alle TH-Mitarbeiter mit gültigem LDAP-Account können sich einloggen.
+          {t("warningOff")}
         </p>
       )}
     </div>
@@ -413,6 +412,7 @@ interface ReindexProgress {
 }
 
 function MaintenanceCard() {
+  const t = useTranslations("admin.maintenanceCard");
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -434,7 +434,7 @@ function MaintenanceCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: value }),
       });
-      if (!res.ok) throw new Error("Toggle fehlgeschlagen");
+      if (!res.ok) throw new Error(t("toggleFailed"));
       setEnabled(value);
     } catch (e) {
       setError(String(e));
@@ -449,11 +449,9 @@ function MaintenanceCard() {
     <div className="border border-border-soft rounded-xl bg-background p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-foreground">Wartungsmodus</p>
+          <p className="text-sm font-medium text-foreground">{t("title")}</p>
           <p className="text-xs text-muted mt-1">
-            {enabled
-              ? "Aktiv - alle Nicht-Admin-Anfragen erhalten eine Wartungsseite."
-              : "Deaktiviert - App ist normal nutzbar."}
+            {enabled ? t("active") : t("disabled")}
           </p>
         </div>
         <button
@@ -462,7 +460,7 @@ function MaintenanceCard() {
           className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-error ${
             enabled ? "bg-error" : "bg-border"
           } disabled:opacity-50`}
-          aria-label="Wartungsmodus umschalten"
+          aria-label={t("toggleAria")}
         >
           <span
             className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
@@ -477,6 +475,7 @@ function MaintenanceCard() {
 }
 
 function ReindexCard() {
+  const t = useTranslations("admin.reindexCard");
   const labels = useWorkspaceLabel();
   const [maintenanceEnabled, setMaintenanceEnabled] = useState<boolean | null>(null);
   const [progress, setProgress] = useState<ReindexProgress | null>(null);
@@ -514,7 +513,7 @@ function ReindexCard() {
 
   const startReindex = async () => {
     if (!maintenanceEnabled) {
-      setError("Bitte zuerst Wartungsmodus aktivieren (Tab \"System\").");
+      setError(t("needsMaintenance"));
       return;
     }
     setWorking(true);
@@ -523,7 +522,7 @@ function ReindexCard() {
       const res = await fetch("/api/admin/reindex-all", { method: "POST", credentials: "include" });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d.detail ?? "Reindex konnte nicht gestartet werden");
+        throw new Error(d.detail ?? t("couldNotStart"));
       }
       await load();
     } catch (e) {
@@ -542,7 +541,11 @@ function ReindexCard() {
       {staleModules.length > 0 && !progress?.running && (
         <div className="bg-warn-bg border border-warn-border rounded-md px-3 py-2 text-xs text-warn-strong space-y-2">
           <div>
-            <strong>Hinweis:</strong> {staleModules.length} {staleModules.length === 1 ? labels.singular : labels.plural} wurde{staleModules.length === 1 ? "" : "n"} mit einem anderen Embedding-Modell indexiert. Chat-Suche kann fehlschlagen, bis du unten &quot;Reindex starten&quot; ausführst.
+            {t.rich("staleNotice", {
+              n: staleModules.length,
+              label: staleModules.length === 1 ? labels.singular : labels.plural,
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </div>
           <ul className="list-disc pl-5 space-y-0.5">
             {staleModules.map((m) => (
@@ -555,24 +558,20 @@ function ReindexCard() {
         </div>
       )}
       <div>
-        <p className="text-sm font-medium text-foreground">Alle Quellen neu indexieren</p>
-        <p className="text-xs text-muted mt-1">
-          Berechnet alle Embeddings mit dem aktuellen Anbieter neu. Chips, Notes und Tools bleiben gültig (gleiche UUIDs). Nötig nach Wechsel des Embedding-Modells.
-        </p>
+        <p className="text-sm font-medium text-foreground">{t("title")}</p>
+        <p className="text-xs text-muted mt-1">{t("description")}</p>
       </div>
       {progress?.running ? (
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-foreground-soft">
-            <span>Läuft: {progress.current}</span>
-            <span>
-              {progress.done}/{progress.total} ({pct}%)
-            </span>
+            <span>{t("running", { current: progress.current })}</span>
+            <span>{t("progressCount", { done: progress.done, total: progress.total, pct })}</span>
           </div>
           <div className="w-full h-2 bg-surface-dim rounded-full overflow-hidden">
             <div className="h-full bg-kb transition-all" style={{ width: `${pct}%` }} />
           </div>
           {progress.failed > 0 && (
-            <p className="text-xs text-error">{progress.failed} Fehler - siehe Backend-Logs.</p>
+            <p className="text-xs text-error">{t("errorsHint", { n: progress.failed })}</p>
           )}
         </div>
       ) : (
@@ -582,16 +581,19 @@ function ReindexCard() {
             disabled={working || !maintenanceEnabled}
             className="btn-primary px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-40"
           >
-            {working ? "…" : "Reindex starten"}
+            {working ? "…" : t("start")}
           </button>
           {progress && !progress.running && progress.done > 0 && (
             <p className="text-xs text-muted">
-              Letzter Lauf: {progress.done}/{progress.total} fertig
-              {progress.failed > 0 ? `, ${progress.failed} Fehler` : ""}.
+              {t("lastRun", {
+                done: progress.done,
+                total: progress.total,
+                failed: progress.failed > 0 ? t("lastRunFailed", { n: progress.failed }) : "",
+              })}
             </p>
           )}
           {!maintenanceEnabled && (
-            <p className="text-xs text-muted-soft">Wartungsmodus aktivieren (Tab &quot;System&quot;), bevor du startest.</p>
+            <p className="text-xs text-muted-soft">{t("activateMaintenance")}</p>
           )}
         </div>
       )}
@@ -601,6 +603,7 @@ function ReindexCard() {
 }
 
 function MascotCard() {
+  const t = useTranslations("admin.mascotCard");
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -634,11 +637,9 @@ function MascotCard() {
     <div className="border border-border-soft rounded-xl bg-background p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-foreground">Hilde-Maskottchen</p>
+          <p className="text-sm font-medium text-foreground">{t("title")}</p>
           <p className="text-xs text-muted mt-1">
-            {enabled
-              ? "Aktiv - die Eulen-Begleiterin wird systemweit angezeigt; jeder Nutzer kann sie für sich abschalten."
-              : "Deaktiviert - Hilde wird nirgendwo angezeigt, der Nutzer-Toggle in den KI-Assistent-Einstellungen ist ausgeblendet."}
+            {enabled ? t("active") : t("disabled")}
           </p>
         </div>
         <button
@@ -647,7 +648,7 @@ function MascotCard() {
           className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
             enabled ? "bg-kb" : "bg-border"
           } disabled:opacity-50`}
-          aria-label="Maskottchen umschalten"
+          aria-label={t("toggleAria")}
         >
           <span
             className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${

@@ -7,11 +7,24 @@ import type { SlideData } from "@/types";
 import type { ElevenLabsVoice, KokoroVoice, TtsProvider } from "@/hooks/useVoices";
 import type { useFailedRender } from "@/hooks/useFailedRender";
 import type { useRenderResult } from "@/hooks/useRenderResult";
-import { computeVoiceLabel, renderProgressLabel as renderProgressLabelFn } from "../_utils";
+import { computeVoiceLabel, renderProgress, type RenderProgress } from "../_utils";
 import type { FlowAction } from "../_reducer";
 
 const RENDER_SESSION_KEY = "kis_screencast_active_render";
-const STUCK_LABEL = "Kein Fortschritt seit 60 Sek. - falls der Job hängt, bitte Wiederholen klicken…";
+
+export interface RenderFlowMessages {
+  stuck: string;
+  queue: string;
+  reconnected: string;
+  renderError: string;
+  errorWithCode: (code: number) => string;
+  retryFailed: string;
+  tooManyJobs: string;
+  jobFailed: string;
+  unknownError: string;
+  previousRenderBusy: string;
+  renderLabel: (p: RenderProgress) => string;
+}
 
 interface UseScreencastRenderFlowOptions {
   // Flow state
@@ -38,6 +51,9 @@ interface UseScreencastRenderFlowOptions {
   setTtsSettingsError: (msg: string) => void;
   setRenderProgressLabel: (label: string) => void;
 
+  // Translated messages (from the component)
+  messages: RenderFlowMessages;
+
   // Refs
   abortControllerRef: MutableRefObject<AbortController | null>;
   currentJobUuidRef: MutableRefObject<string | null>;
@@ -61,6 +77,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     goError,
     setTtsSettingsError,
     setRenderProgressLabel,
+    messages,
     abortControllerRef,
     currentJobUuidRef,
   } = opts;
@@ -73,9 +90,9 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
 
   const onRenderProgress = useCallback(
     (status: JobStatus) => {
-      setRenderProgressLabel(renderProgressLabelFn(status));
+      setRenderProgressLabel(messages.renderLabel(renderProgress(status)));
     },
-    [setRenderProgressLabel],
+    [setRenderProgressLabel, messages],
   );
 
   const processRenderResultFromJob = useCallback(
@@ -121,15 +138,15 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         credentials: "include",
       });
       if (!uploadRes.ok) {
-        const err = await uploadRes.json().catch(() => ({ detail: "Render-Fehler" }));
+        const err = await uploadRes.json().catch(() => ({ detail: messages.renderError }));
         // 409 = previous render still stopping — stay on settings, show inline message
         if (uploadRes.status === 409) {
           dispatch({ type: "SET_STEP", step: "tts-settings" });
           dispatch({ type: "SET_LOADING", loading: false });
-          setTtsSettingsError("Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen.");
+          setTtsSettingsError(messages.previousRenderBusy);
           return;
         }
-        throw new Error(parseDetail(err.detail, `Fehler: ${uploadRes.status}`));
+        throw new Error(parseDetail(err.detail, messages.errorWithCode(uploadRes.status)));
       }
       const { job_uuid } = await uploadRes.json();
       currentJobUuidRef.current = job_uuid;
@@ -147,7 +164,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         onRenderProgress,
         5000,
         signal,
-        () => setRenderProgressLabel(STUCK_LABEL),
+        () => setRenderProgressLabel(messages.stuck),
         60_000,
       );
       currentJobUuidRef.current = null;
@@ -156,14 +173,14 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
       failedRender.mark(currentJobUuidRef.current);
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      goError(err instanceof Error ? err.message : messages.unknownError);
     }
   }, [
     slides, translateJobUuid, voiceId, ttsProvider, kokoroVoices, voices,
     speed, slidePause, dpi,
     newSignal, onRenderProgress, setRenderProgressLabel, setTtsSettingsError,
     failedRender, processRenderResultFromJob,
-    checkBeforeSubmit, goError, dispatch, currentJobUuidRef,
+    checkBeforeSubmit, goError, dispatch, currentJobUuidRef, messages,
   ]);
 
   // ── Retry a failed render ──
@@ -178,7 +195,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         const jobData = await jobRes.json();
         if (jobData.status === "failed") {
           const err = await res.json().catch(() => ({}));
-          throw new Error(parseDetail(err.detail, "Zu viele laufende Jobs. Bitte warten bis ein Job abgeschlossen ist."));
+          throw new Error(parseDetail(err.detail, messages.tooManyJobs));
         }
         if (jobData.status === "success") {
           failedRender.clear();
@@ -187,11 +204,11 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         }
         // Job is running — fall through to polling
       } else if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Retry fehlgeschlagen" }));
-        throw new Error(parseDetail(err.detail, "Retry fehlgeschlagen"));
+        const err = await res.json().catch(() => ({ detail: messages.retryFailed }));
+        throw new Error(parseDetail(err.detail, messages.retryFailed));
       }
 
-      setRenderProgressLabel("In der Warteschlange…");
+      setRenderProgressLabel(messages.queue);
       currentJobUuidRef.current = uuid;
       sessionStorage.setItem(RENDER_SESSION_KEY, JSON.stringify({ uuid }));
       notifyJobsChanged();
@@ -201,7 +218,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
       const signal = newSignal();
       const jobResult = await pollJob(
         uuid, onRenderProgress, 3000, signal,
-        () => setRenderProgressLabel(STUCK_LABEL), 60_000,
+        () => setRenderProgressLabel(messages.stuck), 60_000,
       );
       currentJobUuidRef.current = null;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
@@ -211,14 +228,14 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       sessionStorage.removeItem(RENDER_SESSION_KEY);
-      const msg = err instanceof Error ? err.message : "Retry fehlgeschlagen";
+      const msg = err instanceof Error ? err.message : messages.retryFailed;
       failedRender.mark(uuid);
       goError(msg);
     }
   }, [
     failedRender,
     newSignal, onRenderProgress, setRenderProgressLabel,
-    processRenderResultFromJob, goError, dispatch, currentJobUuidRef,
+    processRenderResultFromJob, goError, dispatch, currentJobUuidRef, messages,
   ]);
 
   // ── Resume after page refresh (sessionStorage-backed) ──
@@ -244,17 +261,17 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
         if (job.status === "failed") {
           sessionStorage.removeItem(RENDER_SESSION_KEY);
           failedRender.mark(uuid);
-          goError(job.error || "Job fehlgeschlagen");
+          goError(job.error || messages.jobFailed);
           return;
         }
         currentJobUuidRef.current = uuid;
-        setRenderProgressLabel("Verbindung wiederhergestellt…");
+        setRenderProgressLabel(messages.reconnected);
         dispatch({ type: "SET_STEP", step: "rendering" });
         dispatch({ type: "SET_LOADING", loading: true });
         const ctrl = new AbortController();
         abortControllerRef.current = ctrl;
         pollJob(uuid, onRenderProgress, 3000, ctrl.signal,
-          () => setRenderProgressLabel(STUCK_LABEL), 60_000)
+          () => setRenderProgressLabel(messages.stuck), 60_000)
           .then((jobResult) => {
             sessionStorage.removeItem(RENDER_SESSION_KEY);
             currentJobUuidRef.current = null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 import { _formatApiError } from "../_utils";
 import type { Note } from "../_components/studio/NotesStudio";
 import type { SourceRef } from "../_types";
@@ -16,6 +17,7 @@ export interface AddNoteExtras {
 }
 
 export function useNotes({ uuid }: UseNotesOptions) {
+  const t = useTranslations("workspace.detail.errors");
   const [notes, setNotes] = useState<Note[]>([]);
   const [pendingTitleIds, setPendingTitleIds] = useState<Set<number>>(new Set());
 
@@ -56,7 +58,7 @@ export function useNotes({ uuid }: UseNotesOptions) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        alert(_formatApiError(data) ?? "Notiz konnte nicht gespeichert werden.");
+        alert(_formatApiError(data) ?? t("noteSaveFailed"));
         return;
       }
       const note = await res.json();

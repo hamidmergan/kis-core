@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import Spinner from "@/components/ui/Spinner";
 import { ExerciseSetsOverview } from "../language_training/ExerciseSetsOverview";
@@ -89,6 +90,7 @@ interface StudioPanelContentProps {
 }
 
 export function StudioPanelContent(props: StudioPanelContentProps) {
+  const t = useTranslations("workspace.detail.studio");
   const {
     studioView, setStudioView, langTrainingView, language_trainingActive, studioTabRequest,
     language_trainingContent, glossaryContent, notesContent,
@@ -141,7 +143,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
         onAskChat={(text) => onAskChat(text, hideHeader)}
         onSourceClick={onSourceClick}
-        breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Karteikarten", toolKey: "Flashcards", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+        breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.karteikarten"), toolKey: "Flashcards", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
         chatLang={chatLang}
       />
     );
@@ -156,18 +158,18 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
         onAnswer={(itemId, correct, newRun) => submitSingleAnswer(activeSet.id, itemId, correct, newRun)}
         onAskChat={(text) => onAskChat(text, true)}
         onSourceClick={onSourceClick}
-        breadcrumbs={[{ label: "Studio", onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: "Quiz", toolKey: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
+        breadcrumbs={[{ label: t("panelTitle"), onClick: () => { setActiveSet(null); setStudioView("overview"); } }, { label: t("tiles.quiz"), toolKey: "Quiz", onClick: () => { setActiveSet(null); refreshProgress(); } }]}
         chatLang={chatLang}
       />
     );
   }
 
-  const setsCrumb = [{ label: "Studio", onClick: () => setStudioView("overview") }];
+  const setsCrumb = [{ label: t("panelTitle"), onClick: () => setStudioView("overview") }];
 
   if (studioView === "karteikarten") {
     return (
       <ExerciseSetsOverview
-        title="Karteikarten"
+        title={t("tiles.karteikarten")}
         toolKey="Flashcards"
         sets={exerciseSets.filter((s) => s.tool === "karteikarten")}
         onBack={() => setStudioView("overview")}
@@ -246,7 +248,7 @@ export function StudioPanelContent(props: StudioPanelContentProps) {
   if (studioView === "quiz") {
     return (
       <ExerciseSetsOverview
-        title="Quiz"
+        title={t("tiles.quiz")}
         toolKey="Quiz"
         sets={exerciseSets.filter((s) => s.tool === "quiz")}
         onBack={() => setStudioView("overview")}

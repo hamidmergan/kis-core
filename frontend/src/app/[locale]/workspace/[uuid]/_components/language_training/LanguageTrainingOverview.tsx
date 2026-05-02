@@ -1,4 +1,5 @@
 import { BookOpenText, Exam, TextAa } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import type { LanguageTrainingView } from "../../_types";
 
 export function LanguageTrainingOverview({
@@ -8,12 +9,13 @@ export function LanguageTrainingOverview({
   glossaryCount: number;
   onNavigate: (view: LanguageTrainingView) => void;
 }) {
+  const t = useTranslations("workspace.detail.languageTraining");
   const noSources = activeSourceCount === 0;
 
   const tiles = [
-    { key: "lk-sets" as const, Icon: BookOpenText, label: "Lernkarten", desc: "Übungen", iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
-    { key: "cl-sets" as const, Icon: TextAa, label: "Lückentext", desc: "Übungen", iconBg: "var(--badge-red-bg)", iconColor: "var(--badge-red-fg)" },
-    { key: "vt-sets" as const, Icon: Exam, label: "Begriffe-Quiz", desc: "Übungen", iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
+    { key: "lk-sets" as const, Icon: BookOpenText, label: t("overview.lernkarten"), desc: t("overview.tileDesc"), iconBg: "var(--badge-amber-bg)", iconColor: "var(--badge-amber-fg)" },
+    { key: "cl-sets" as const, Icon: TextAa, label: t("overview.lueckentext"), desc: t("overview.tileDesc"), iconBg: "var(--badge-red-bg)", iconColor: "var(--badge-red-fg)" },
+    { key: "vt-sets" as const, Icon: Exam, label: t("overview.begriffeQuiz"), desc: t("overview.tileDesc"), iconBg: "var(--badge-violet-bg)", iconColor: "var(--badge-violet-fg)" },
   ];
 
   return (
@@ -22,7 +24,7 @@ export function LanguageTrainingOverview({
         {/* Glossary counter */}
         {glossaryCount > 0 && (
           <span className="text-xs font-medium px-1" style={{ color: "var(--muted)" }}>
-            {glossaryCount}/150 Glossar
+            {t("overview.glossaryCounter", { count: glossaryCount, max: 150 })}
           </span>
         )}
 
@@ -60,4 +62,3 @@ export function LanguageTrainingOverview({
     </div>
   );
 }
-

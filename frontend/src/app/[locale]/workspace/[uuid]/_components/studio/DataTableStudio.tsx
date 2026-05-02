@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { CaretLeft, CaretRight, FilePdf, Files, SidebarSimple, Sparkle, Table, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -29,6 +30,9 @@ export function DataTableStudio({
   openInViewer?: boolean;
   onViewerOpened?: () => void;
 }) {
+  const t = useTranslations("workspace.detail.studio");
+  const tDt = useTranslations("workspace.detail.studio.dataTable");
+  const locale = useLocale();
   const [view, setView] = useState<"viewer" | "list">(openInViewer ? "viewer" : "list");
   const minimize = useContext(MinimizeContext);
 
@@ -40,13 +44,13 @@ export function DataTableStudio({
   }, [openInViewer, onViewerOpened]);
   const noSources = sourceCount === 0;
   const atLimit = savedList.length >= 20;
-  const activeTitle = table?.title || "Datentabelle";
+  const activeTitle = table?.title || tDt("fallbackTitle");
 
   return (
     <div className="flex flex-col h-full">
       {/* ── List view ── */}
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
-        <SubviewHeader title="Datentabelle" toolKey="DataTable" onBack={onBack} breadcrumbs={breadcrumbs} />
+        <SubviewHeader title={tDt("title")} toolKey="DataTable" onBack={onBack} breadcrumbs={breadcrumbs} />
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           <div className="rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2"
             style={{
@@ -54,12 +58,12 @@ export function DataTableStudio({
             }}>
             <Files size={13} weight="bold" />
             {noSources
-              ? "Keine Quelle ausgewählt"
+              ? t("sources.none")
               : sourceCount === 1
-                ? "1 Quelle ausgewählt"
+                ? t("sources.one")
                 : sourceCount <= 5
-                  ? `${sourceCount} Quellen ausgewählt`
-                  : `${sourceCount} Quellen vorhanden, es werden maximal 5 berücksichtigt`}
+                  ? t("sources.few", { n: sourceCount })
+                  : t("sources.tooMany", { n: sourceCount })}
           </div>
 
           {savedList.length === 0 && !loading ? (
@@ -67,12 +71,12 @@ export function DataTableStudio({
               className="pt-[15%]"
               size="lg"
               icon={<Table size={48} weight="bold" />}
-              text="Wähle Quellen aus und drücke auf Erstellen."
+              text={tDt("emptyHint")}
               action={
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
                   className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+                  <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
                 </button>
               }
             />
@@ -82,11 +86,11 @@ export function DataTableStudio({
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
                   className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
-                  <Sparkle size={12} weight="bold" /> Erstellen ({savedList.length}/20)
+                  <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
                 </button>
               </div>
               <div className="flex items-center justify-between px-1">
-                <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? "Datentabelle" : "Datentabellen"}</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? tDt("countOne") : tDt("countMany")}</span>
               </div>
               <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                 {loading && (
@@ -94,7 +98,7 @@ export function DataTableStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Spinner size="sm" />
-                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>Wird generiert…</span>
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>{t("generate.generating")}</span>
                     </div>
                   </div>
                 )}
@@ -111,7 +115,7 @@ export function DataTableStudio({
                     </div>
                     <div className="flex items-center justify-between mt-auto pt-1">
                       <span className="text-xs font-medium" >
-                        {item.created_at ? new Date(item.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
                         className="w-6 h-6 rounded-full flex items-center justify-center btn-icon"
@@ -145,14 +149,14 @@ export function DataTableStudio({
                     <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                   </React.Fragment>
                 ))}
-                <button type="button" onClick={() => setView("list")} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>Datentabelle</button>
+                <button type="button" onClick={() => setView("list")} className="font-medium shrink-0 px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity" style={badge ? { backgroundColor: badge.bg, color: badge.color } : {  }}>{tDt("title")}</button>
                 <CaretRight size={10} weight="bold" style={{ opacity: 0.5 }} className="shrink-0" />
                 <span className="font-semibold truncate" style={{ color: "var(--foreground)" }}>{activeTitle}</span>
               </div>
             );
           })() : (<span className="text-base font-bold flex-1 truncate" style={{ color: "var(--foreground)" }}>{activeTitle}</span>)}
           {minimize && (
-            <button type="button" onClick={minimize} title="Panel minimieren"
+            <button type="button" onClick={minimize} title={t("minimizePanel")}
               className="w-7 h-7 flex items-center justify-center rounded-full btn-icon ml-auto"
               style={{ backgroundColor: "var(--surface-dim)" }}>
               <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
@@ -164,14 +168,14 @@ export function DataTableStudio({
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
                 <Spinner size="lg" />
-                <p className="text-sm" >Datentabelle wird generiert…</p>
+                <p className="text-sm" >{tDt("loadingViewer")}</p>
               </div>
             </div>
           )}
           {table && (
             <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ userSelect: "text" }}>
               <p className="text-xs" >
-                Basierend auf {sources.length} Quelle{sources.length !== 1 ? "n" : ""}
+                {tDt("basedOn", { n: sources.length })}
               </p>
 
               {(() => {
@@ -191,7 +195,7 @@ export function DataTableStudio({
                       ))}
                       <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap"
                         style={{ backgroundColor: "rgba(var(--kb-rgb),0.08)", color: "var(--kb)", borderBottom: "1px solid var(--border)" }}>
-                        Quelle
+                        {tDt("sourceCol")}
                       </th>
                     </tr>
                   </thead>
@@ -240,7 +244,7 @@ export function DataTableStudio({
                                 const SourceIcon = _getChipIcon(rs.source_label);
                                 let pageNum = 0;
                                 let startTime: number | undefined;
-                                const label = isMedia ? String(rs.page) : `S. ${rs.page}`;
+                                const label = isMedia ? String(rs.page) : tDt("pageLabel", { page: rs.page });
                                 if (isMedia && typeof rs.page === "string") {
                                   const parts = rs.page.split(":").map(Number);
                                   if (parts.length === 3) startTime = parts[0] * 3600 + parts[1] * 60 + parts[2];

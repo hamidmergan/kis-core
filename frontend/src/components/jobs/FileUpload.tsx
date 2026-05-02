@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 
 const ACCEPTED_EXTENSIONS = [".docx", ".pptx", ".md", ".tex", ".txt"];
@@ -12,6 +13,7 @@ interface FileUploadProps {
 }
 
 export default function FileUpload({ onFileSelected, disabled = false, selectedFilename }: FileUploadProps) {
+  const t = useTranslations("common");
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -19,10 +21,10 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
   const validateFile = (file: File): string | null => {
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
     if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      return `Nur ${ACCEPTED_EXTENSIONS.join(", ")} Dateien erlaubt`;
+      return t("onlyExtsAllowed", { exts: ACCEPTED_EXTENSIONS.join(", ") });
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      return `Datei zu groß (max ${MAX_UPLOAD_MB} MB)`;
+      return t("fileTooLarge", { n: MAX_UPLOAD_MB });
     }
     return null;
   };
@@ -75,7 +77,7 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
       <div
         role="button"
         tabIndex={0}
-        aria-label="Datei zum Hochladen auswählen"
+        aria-label={t("fileSelectAria")}
         onClick={() => !disabled && inputRef.current?.click()}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -94,7 +96,7 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <p className="text-sm font-medium text-foreground">{selectedFilename}</p>
-            <p className="text-xs text-muted-soft mt-1">Klicken um zu ersetzen</p>
+            <p className="text-xs text-muted-soft mt-1">{t("clickToReplace")}</p>
           </>
         ) : (
           <>
@@ -102,7 +104,7 @@ export default function FileUpload({ onFileSelected, disabled = false, selectedF
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
             <p className="text-sm font-medium text-muted">
-              Datei hierher ziehen oder <span className="text-kb underline">durchsuchen</span>
+              {t("dropOrBrowse")} <span className="text-kb underline">{t("browse")}</span>
             </p>
             <p className="text-xs text-muted-soft mt-1">
               {ACCEPTED_EXTENSIONS.join(", ")}

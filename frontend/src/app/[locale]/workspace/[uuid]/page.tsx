@@ -468,7 +468,6 @@ export default function KiTutorWorkspacePage() {
         <WorkspaceTopbar
           isMobile={isMobile}
           title={moduleDetail?.title ?? ""}
-          workspaceUuid={uuid}
           showSettings={showSettings}
           onToggleSettings={() => setShowSettings((v) => !v)}
           onCloseSettings={() => setShowSettings(false)}

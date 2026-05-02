@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { CaretLeft, CaretRight, Chat, Check, Lightbulb, Question, SidebarSimple, XIcon } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import type { ExerciseItem, ExerciseItemSource, ExerciseSet, Source } from "../../_types";
 import { _chunkLabel, _getChipIcon, _md, _sourceChipKey } from "../../_utils";
@@ -18,16 +19,18 @@ export function FlashcardsLearnView({
   showTranslation?: boolean;
   chatLang?: "de" | "en";
 }) {
-  const t = (de: string, en: string) => (chatLang === "en" ? en : de);
+  const t = useTranslations("workspace.detail.languageTraining");
+  // Chat prompt strings are sent to the LLM, not displayed.
+  // chatLang controls the language of the LLM response, so prompts stay in chatLang.
   const promptTip = (term: string) => chatLang === "en"
-    ? `Give me a brief hint for the following question, WITHOUT revealing the answer: “${term}”`
-    : `Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${term}“`;
+    ? `Give me a brief hint for the following question, WITHOUT revealing the answer: "${term}"`
+    : `Gib mir einen kurzen Tipp zur folgenden Frage, OHNE die Antwort zu verraten.: „${term}"`;
   const promptTermDeep = (term: string) => chatLang === "en"
-    ? `Explain the term “${term}” in detail. What does it mean, in which contexts is it used, and what are the important relationships?`
-    : `Erkläre mir den Begriff „${term}“ genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`;
+    ? `Explain the term "${term}" in detail. What does it mean, in which contexts is it used, and what are the important relationships?`
+    : `Erkläre mir den Begriff „${term}" genauer. Was bedeutet er, in welchem Kontext wird er verwendet und welche Zusammenhänge sind wichtig?`;
   const promptTopicDeep = (term: string) => chatLang === "en"
-    ? `Explain the following topic in more detail: “${term}”. What are important details, examples, and connections?`
-    : `Erkläre mir folgendes Thema genauer: „${term}“. Was sind wichtige Details, Beispiele und Zusammenhänge?`;
+    ? `Explain the following topic in more detail: "${term}". What are important details, examples, and connections?`
+    : `Erkläre mir folgendes Thema genauer: „${term}". Was sind wichtige Details, Beispiele und Zusammenhänge?`;
   const minimize = useContext(MinimizeContext);
   const [shuffledItems, setShuffledItems] = useState<ExerciseItem[]>([]);
   const shuffledRef = useRef(false);
@@ -125,7 +128,7 @@ export function FlashcardsLearnView({
   if (!card && !showResults) return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
       <Spinner size="lg" />
-      <p className="text-xs" >Wird geladen…</p>
+      <p className="text-xs" >{t("common.loading")}</p>
     </div>
   );
   const progressPct = showResults ? 100 : ((index + 1) / total) * 100;
@@ -144,7 +147,7 @@ export function FlashcardsLearnView({
           <button type="button" onClick={minimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}
-            title="Panel minimieren">
+            title={t("common.minimizePanel")}>
             <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
           </button>
         )}
@@ -160,10 +163,13 @@ export function FlashcardsLearnView({
             style={{ backgroundColor: "#1a8a5c", boxShadow: "0 4px 20px rgba(26,138,92,0.25)" }}>
             <Check size={30} weight="bold" color="white" />
           </div>
-          <h3 className="text-lg font-semibold">Geschafft!</h3>
+          <h3 className="text-lg font-semibold">{t("common.completed")}</h3>
           {isVocab ? (
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              <strong style={{ color: "#1a8a5c" }}>{total}</strong> {total === 1 ? "Begriff" : "Begriffe"} durchgearbeitet
+              {t.rich("flashcardsLearn.vocabSummary", {
+                count: total,
+                hl: (chunks) => <strong style={{ color: "#1a8a5c" }}>{chunks}</strong>,
+              })}
             </p>
           ) : (() => {
             const correctCount = Object.values(results).filter(Boolean).length;
@@ -172,14 +178,19 @@ export function FlashcardsLearnView({
             const pct = total > 0 ? Math.round((correctCount / total) * 100) : 0;
             return (
               <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
-                <strong style={{ color: "#1a8a5c" }}>{correctCount} / {total}</strong> gewusst, <strong style={{ color: "#1a8a5c" }}>{pct}%</strong>
+                {t.rich("completion.score", {
+                  correct: correctCount,
+                  total,
+                  pct,
+                  hl: (chunks) => <strong style={{ color: "#1a8a5c" }}>{chunks}</strong>,
+                })}
                 {(wrongCount > 0 || pendingCount > 0) && (
                   <>
                     <br />
                     <span className="text-xs" >
-                      {wrongCount > 0 && <>{wrongCount} falsch</>}
+                      {wrongCount > 0 && t("flashcardsLearn.wrongCount", { count: wrongCount })}
                       {wrongCount > 0 && pendingCount > 0 && ", "}
-                      {pendingCount > 0 && <>{pendingCount} offen</>}
+                      {pendingCount > 0 && t("flashcardsLearn.pendingCount", { count: pendingCount })}
                     </span>
                   </>
                 )}
@@ -189,11 +200,11 @@ export function FlashcardsLearnView({
           <div className="flex gap-3 mt-4">
             <button type="button" onClick={() => { setShowResults(false); setIndex(0); setFlipped(false); setResults({}); setShowPendingPrompt(false); shuffledRef.current = false; }}
               className="btn-outline-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-              Nochmal
+              {t("common.again")}
             </button>
             <button type="button" onClick={onBack}
               className="btn-fill-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-              Fertig
+              {t("common.done")}
             </button>
           </div>
         </div>
@@ -205,18 +216,21 @@ export function FlashcardsLearnView({
               style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)" }}>
               <Question size={30} weight="bold" style={{ color: "var(--kb)" }} />
             </div>
-            <h3 className="text-lg font-semibold text-center">Noch nicht ganz fertig</h3>
+            <h3 className="text-lg font-semibold text-center">{t("flashcardsLearn.pendingTitle")}</h3>
             <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
-              Du hast noch <strong style={{ color: "var(--kb)" }}>{pendingCount}</strong> {pendingCount === 1 ? "offene Karte" : "offene Karten"}.
+              {t.rich("flashcardsLearn.pendingBody", {
+                count: pendingCount,
+                kb: (chunks) => <strong style={{ color: "var(--kb)" }}>{chunks}</strong>,
+              })}
             </p>
             <div className="flex flex-wrap gap-3 mt-4 justify-center">
               <button type="button" onClick={goToFirstPending}
                 className="btn-fill-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-                Offene ansehen
+                {t("flashcardsLearn.viewPending")}
               </button>
               <button type="button" onClick={finishAnyway}
                 className="btn-outline-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-                Trotzdem abschließen
+                {t("flashcardsLearn.finishAnyway")}
               </button>
             </div>
           </div>
@@ -242,12 +256,12 @@ export function FlashcardsLearnView({
                     <div className="text-center">
                       <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>{card.front}</p>
                       {showTranslation && card.back_en && (
-                        <p className="text-xs italic mt-0.5" >EN: {card.back_en}</p>
+                        <p className="text-xs italic mt-0.5" >{t("flashcardsLearn.translationPrefix")} {card.back_en}</p>
                       )}
                     </div>
                     {/* Definition */}
                     <div>
-                      <span className="text-[9px] font-bold uppercase tracking-widest" >Definition</span>
+                      <span className="text-[9px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.definition")}</span>
                       <p className="text-sm leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{definition}</p>
                     </div>
                     {/* Word parts */}
@@ -255,7 +269,7 @@ export function FlashcardsLearnView({
                       const parts = wordPartsExplained.split("|").map(p => p.trim()).filter(Boolean);
                       return (
                         <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--surface-dim)" }}>
-                          <span className="text-[9px] font-bold uppercase tracking-widest" >Wortzerlegung</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.wordParts")}</span>
                           <p className="text-sm font-semibold mt-1.5" style={{ color: "var(--foreground)" }}>{wordParts}</p>
                           {parts.length > 0 && (
                             <div className="flex flex-col gap-1 mt-2">
@@ -277,7 +291,7 @@ export function FlashcardsLearnView({
                     {/* Context sentence */}
                     {exampleSentence && (
                       <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
-                        <span className="text-[9px] font-bold uppercase tracking-widest" >Beispiel</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
                         <p className="text-xs italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
                       </div>
                     )}
@@ -323,7 +337,7 @@ export function FlashcardsLearnView({
                       {onAskChat && (
                         <button type="button" onClick={() => onAskChat(promptTermDeep(card.front))}
                           className="btn-soft-accent inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full transition-colors">
-                          <Chat size={10} weight="bold" /> {t("Mehr erfahren", "Learn more")}
+                          <Chat size={10} weight="bold" /> {t("common.learnMore")}
                         </button>
                       )}
                     </div>
@@ -332,7 +346,7 @@ export function FlashcardsLearnView({
                 {/* Next button */}
                 <button type="button" onClick={() => { answer(true); }}
                   className="btn-soft-accent w-full py-2.5 rounded-xl text-xs font-semibold transition-all">
-                  {index >= total - 1 ? "Abschließen" : "Nächster Begriff"} <CaretRight size={12} weight="bold" className="inline ml-0.5" style={{ verticalAlign: "-1px" }} />
+                  {index >= total - 1 ? t("common.finish") : t("flashcardsLearn.nextTerm")} <CaretRight size={12} weight="bold" className="inline ml-0.5" style={{ verticalAlign: "-1px" }} />
                 </button>
               </div>
             </div>
@@ -359,14 +373,14 @@ export function FlashcardsLearnView({
                   border: "1px solid var(--border)",
                   boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
                 }}>
-                  <span className="text-[9px] font-bold uppercase tracking-widest" >Frage</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.questionLabel")}</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "var(--foreground)" }} dangerouslySetInnerHTML={{ __html: _md(card.front) }} />
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
                     <span />
                     {onAskChat && (
                       <button type="button" onClick={(e) => { e.stopPropagation(); onAskChat(promptTip(card.front)); }}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-colors">
-                        <Lightbulb size={13} weight="bold" /> {t("Tipp", "Hint")}
+                        <Lightbulb size={13} weight="bold" /> {t("common.hint")}
                       </button>
                     )}
                   </div>
@@ -379,7 +393,7 @@ export function FlashcardsLearnView({
                   backgroundColor: "var(--kb)",
                   boxShadow: "0 4px 20px rgba(var(--kb-rgb),0.2)",
                 }}>
-                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Antwort</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>{t("flashcardsLearn.answerLabel")}</span>
                   <p className="text-sm text-center leading-relaxed font-semibold" style={{ color: "white" }} dangerouslySetInnerHTML={{ __html: _md(card.back) }} />
                   {/* Chat button */}
                   <div className="absolute bottom-3 left-4 right-4 flex items-center justify-end">
@@ -388,7 +402,7 @@ export function FlashcardsLearnView({
                         e.stopPropagation(); onAskChat(promptTopicDeep(card.front));
                       }}
                         className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border-none cursor-pointer transition-all text-white/55 bg-white/10 hover:text-white hover:bg-white/20">
-                        <Chat size={13} weight="bold" /> {t("Mehr erfahren", "Learn more")}
+                        <Chat size={13} weight="bold" /> {t("common.learnMore")}
                       </button>
                     )}
                   </div>
@@ -399,16 +413,16 @@ export function FlashcardsLearnView({
             <div className="flex flex-wrap items-center justify-center gap-3 min-h-[48px]">
               {flipped ? (
                 <>
-                  <button type="button" onClick={() => answer(false)} title="Nochmal"
+                  <button type="button" onClick={() => answer(false)} title={t("common.again")}
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(212,69,58,0.08)]"
                     style={{ border: "2px solid #d4453a", color: "#d4453a", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
                     <XIcon size={18} weight="bold" />
                   </button>
                   <button type="button" onClick={() => setFlipped(false)}
                     className="btn-soft-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
-                    Frage zeigen
+                    {t("common.showQuestion")}
                   </button>
-                  <button type="button" onClick={() => answer(true)} title="Gewusst!"
+                  <button type="button" onClick={() => answer(true)} title={t("common.know")}
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(26,138,92,0.08)]"
                     style={{ border: "2px solid #1a8a5c", color: "#1a8a5c", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
                     <Check size={18} weight="bold" />
@@ -416,17 +430,17 @@ export function FlashcardsLearnView({
                 </>
               ) : (
                 <>
-                  <button type="button" onClick={goPrev} disabled={index === 0} title="Zurück"
+                  <button type="button" onClick={goPrev} disabled={index === 0} title={t("common.back")}
                     className="btn-soft-accent inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                    <CaretLeft size={12} weight="bold" /> Zurück
+                    <CaretLeft size={12} weight="bold" /> {t("common.back")}
                   </button>
                   <button type="button" onClick={() => setFlipped(true)}
                     className="btn-soft-accent px-6 py-2 rounded-full text-xs font-semibold transition-all">
-                    Antwort zeigen
+                    {t("common.showAnswer")}
                   </button>
-                  <button type="button" onClick={goNext} title="Weiter"
+                  <button type="button" onClick={goNext} title={t("common.next")}
                     className="btn-soft-accent inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-semibold transition-all">
-                    Weiter <CaretRight size={12} weight="bold" />
+                    {t("common.next")} <CaretRight size={12} weight="bold" />
                   </button>
                 </>
               )}
@@ -474,4 +488,3 @@ export function FlashcardsLearnView({
     </div>
   );
 }
-

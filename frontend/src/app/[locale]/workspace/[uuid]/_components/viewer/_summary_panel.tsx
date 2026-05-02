@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 
 type SummaryPanelProps = {
   page: number;
@@ -11,6 +12,7 @@ type SummaryPanelProps = {
 export function SummaryPanel({
   page, summaryText, summariesStatus, onGenerate, onScrollPdf,
 }: SummaryPanelProps) {
+  const t = useTranslations("workspace.detail.summary");
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Forward wheel events to the PDF when the panel can't scroll further in that direction.
@@ -33,7 +35,7 @@ export function SummaryPanel({
 
   const renderContent = () => {
     if (summariesStatus === "generating" && !summaryText) {
-      return <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Wird generiert...</span>;
+      return <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>{t("generating")}</span>;
     }
     if (summaryText) {
       return renderWithBreaks(summaryText);
@@ -42,26 +44,26 @@ export function SummaryPanel({
       return (
         <div style={{ textAlign: "center", padding: "16px 12px" }}>
           <span style={{ color: "var(--muted)", display: "block", marginBottom: 10, fontSize: 12 }}>
-            {summariesStatus === "rate_limited" ? "API-Limit erreicht. Bitte spaeter erneut versuchen."
-              : summariesStatus === "failed" ? "Generierung fehlgeschlagen."
-              : "Noch keine Zusammenfassungen vorhanden."}
+            {summariesStatus === "rate_limited" ? t("rateLimited")
+              : summariesStatus === "failed" ? t("failed")
+              : t("none")}
           </span>
           <button
             onClick={() => { void onGenerate(); }}
             style={{ padding: "6px 16px", fontSize: 12, borderRadius: 6, border: "1px solid var(--color-accent, #3b82f6)", background: "var(--color-accent, #3b82f6)", color: "var(--color-accent-fg, #fff)", cursor: "pointer", fontWeight: 500 }}
           >
-            Zusammenfassungen generieren
+            {t("generateButton")}
           </button>
         </div>
       );
     }
-    return <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>Keine Zusammenfassung fuer diese Seite.</span>;
+    return <span style={{ color: "var(--color-fg-muted, #9ca3af)" }}>{t("noneForPage")}</span>;
   };
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", fontFamily: "inherit", userSelect: "text", WebkitUserSelect: "text", cursor: "text" }}>
       <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--color-border-default, var(--border-soft))", fontWeight: 600, fontSize: 12, color: "var(--color-fg-primary, #1f2937)" }}>
-        Seite {page} - Zusammenfassung
+        {t("header", { page })}
       </div>
       <div ref={contentRef} style={{ flex: 1, overflowY: "auto", padding: 12, fontSize: 12, lineHeight: 1.6, color: "var(--color-fg-primary, #1f2937)" }}>
         {renderContent()}

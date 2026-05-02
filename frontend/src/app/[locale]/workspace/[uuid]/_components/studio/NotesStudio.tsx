@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CaretDown, CaretUp, NotePencil, PencilSimple, Plus, Trash, X } from "@phosphor-icons/react";
@@ -19,7 +20,7 @@ export interface Note {
   created_at: string | null;
 }
 
-function _notePreview(content: string, max = 60): string {
+function _notePreview(content: string, emptyLabel: string, max = 60): string {
   const stripped = content
     .replace(/\[[^\]]*\]/g, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -29,7 +30,7 @@ function _notePreview(content: string, max = 60): string {
     .replace(/^\s*[->*+]\s+/gm, "")
     .replace(/\s+/g, " ")
     .trim();
-  if (!stripped) return "(leere Notiz)";
+  if (!stripped) return emptyLabel;
   return stripped.length > max ? stripped.slice(0, max).trimEnd() + "…" : stripped;
 }
 
@@ -45,6 +46,8 @@ export function NotesStudio({
   breadcrumbs?: BreadcrumbItem[];
   pendingTitleIds?: Set<number>;
 }) {
+  const t = useTranslations("workspace.detail.studio.notes");
+  const locale = useLocale();
   const [draft, setDraft] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<number | null>(null);
@@ -83,7 +86,7 @@ export function NotesStudio({
 
   return (
     <div className="flex flex-col h-full">
-      {onBack && <SubviewHeader title="Notizen" toolKey="Notes" onBack={onBack} breadcrumbs={breadcrumbs} />}
+      {onBack && <SubviewHeader title={t("title")} toolKey="Notes" onBack={onBack} breadcrumbs={breadcrumbs} />}
       <div className="flex-1 overflow-y-auto">
         <div className="w-full px-4 pt-4 pb-6 flex flex-col gap-3">
           {/* New note input */}
@@ -98,7 +101,7 @@ export function NotesStudio({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && draft.trim()) { e.preventDefault(); onAdd(draft.trim()); setDraft(""); }
               }}
-              placeholder="Neue Notiz…"
+              placeholder={t("placeholder")}
               maxLength={2000}
               rows={1}
               className="flex-1 text-base resize-none focus:outline-none bg-transparent"
@@ -114,7 +117,7 @@ export function NotesStudio({
                 type="button"
                 onClick={() => { setDraft(""); textareaRef.current?.focus(); }}
                 className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full btn-icon"
-                title="Eingabe löschen"
+                title={t("clearInput")}
               >
                 <X size={14} weight="bold" />
               </button>
@@ -124,7 +127,7 @@ export function NotesStudio({
               onClick={() => { if (draft.trim()) { onAdd(draft.trim()); setDraft(""); } }}
               disabled={!draft.trim()}
               className="btn-fill-accent flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg disabled:opacity-40 transition-colors"
-              title="Notiz speichern"
+              title={t("save")}
             >
               <Plus size={14} weight="bold" />
             </button>
@@ -134,7 +137,7 @@ export function NotesStudio({
           {notes.length === 0 && (
             <EmptyState
               icon={<NotePencil size={32} weight="bold" />}
-              text="Noch keine Notes. Erstelle eine oben oder speichere eine KI-Antwort als Notiz."
+              text={t("empty")}
             />
           )}
 
@@ -155,7 +158,7 @@ export function NotesStudio({
                 const isLast = idx === notes.length - 1;
                 const hasCustomTitle = !!(note.title && note.title.trim());
                 const isTitlePending = !hasCustomTitle && !!pendingTitleIds?.has(note.id);
-                const rowLabel = hasCustomTitle ? note.title!.trim() : _notePreview(note.content);
+                const rowLabel = hasCustomTitle ? note.title!.trim() : _notePreview(note.content, t("emptyPreview"));
                 const isEditingTitle = editingTitleId === note.id;
 
                 function commitTitle() {
@@ -190,7 +193,7 @@ export function NotesStudio({
                         <span className="truncate">{rowLabel}</span>
                       </span>
                       <span className="flex-shrink-0 text-xs text-[var(--muted)]">
-                        {note.created_at ? new Date(note.created_at).toLocaleDateString("de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }) : ""}
+                        {note.created_at ? new Date(note.created_at).toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short", timeZone: "Europe/Berlin" }) : ""}
                       </span>
                       <span className="row-caret flex-shrink-0 transition-colors">
                         {isExpanded ? <CaretUp size={14} /> : <CaretDown size={14} />}
@@ -216,7 +219,7 @@ export function NotesStudio({
                                 if (e.key === "Enter") { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
                                 else if (e.key === "Escape") { e.preventDefault(); skipTitleCommitRef.current = true; (e.currentTarget as HTMLInputElement).blur(); }
                               }}
-                              placeholder="Titel vergeben…"
+                              placeholder={t("titlePlaceholder")}
                               maxLength={200}
                               className="w-full text-base font-medium mb-2 px-2 py-1 rounded-md focus:outline-none"
                               style={{ backgroundColor: "var(--surface-dim)", color: "var(--foreground)", border: "1px solid var(--border)" }}
@@ -228,10 +231,10 @@ export function NotesStudio({
                               onClick={() => { setTitleDraft(note.title ?? ""); setEditingTitleId(note.id); }}
                               className="group w-full text-left text-base font-medium mb-2 px-2 py-1 rounded-md hover:bg-[var(--surface-dim)] transition-colors flex items-center gap-2 disabled:cursor-wait"
                               style={hasCustomTitle ? { color: "var(--foreground)" } : { fontStyle: "italic", fontWeight: 400 }}
-                              title={isTitlePending ? "Titel wird generiert…" : hasCustomTitle ? "Titel ändern" : "Titel vergeben"}
+                              title={isTitlePending ? t("titleGenerating") : hasCustomTitle ? t("titleEdit") : t("titleSet")}
                             >
                               <span className="flex-1 truncate">
-                                {isTitlePending ? "Titel wird generiert…" : hasCustomTitle ? note.title : "Titel vergeben…"}
+                                {isTitlePending ? t("titleGenerating") : hasCustomTitle ? note.title : t("titlePlaceholder")}
                               </span>
                               {isTitlePending
                                 ? <Spinner size="xs" color="current" />

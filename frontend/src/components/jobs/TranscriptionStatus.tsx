@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { TranscriptionState } from "@/types";
 import Spinner from "@/components/ui/Spinner";
 
@@ -18,6 +19,9 @@ export default function TranscriptionStatus({
   onDownload,
   onReset,
 }: TranscriptionStatusProps) {
+  const tCommon = useTranslations("common");
+  const t = useTranslations("jobsStatus.transcription");
+
   if (state === "idle") return null;
 
   return (
@@ -26,7 +30,7 @@ export default function TranscriptionStatus({
         <div className="flex items-center gap-3">
           <Spinner />
           <span className="text-sm text-foreground-soft">
-            {state === "uploading" ? "Datei wird hochgeladen..." : "Transkription läuft..."}
+            {state === "uploading" ? tCommon("uploadingFile") : t("processing")}
           </span>
         </div>
       )}
@@ -37,26 +41,26 @@ export default function TranscriptionStatus({
             <svg className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm font-medium text-foreground">Fertig! Download bereit</span>
+            <span className="text-sm font-medium text-foreground">{tCommon("downloadReady")}</span>
           </div>
           {fileName && <p className="text-xs text-muted">{fileName}</p>}
           <div className="flex gap-3">
             <button
               onClick={onDownload}
-              aria-label="Transkription"
+              aria-label={t("download")}
               className="px-4 py-2 btn-primary text-sm rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors flex items-center gap-2"
             >
               <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Transkription
+              {t("download")}
             </button>
             <button
               onClick={onReset}
-              aria-label="Neue Datei hochladen"
+              aria-label={tCommon("uploadNewAria")}
               className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
             >
-              Neue Datei
+              {tCommon("newFile")}
             </button>
           </div>
         </div>
@@ -68,15 +72,15 @@ export default function TranscriptionStatus({
             <svg className="h-5 w-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-            <span className="text-sm font-medium text-error-strong">Fehler bei der Transkription</span>
+            <span className="text-sm font-medium text-error-strong">{t("errorTitle")}</span>
           </div>
           {errorMessage && <p className="text-xs text-error">{errorMessage}</p>}
           <button
             onClick={onReset}
-            aria-label="Erneut versuchen"
+            aria-label={tCommon("tryAgain")}
             className="px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors"
           >
-            Erneut versuchen
+            {tCommon("tryAgain")}
           </button>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useCallback, useState, type DragEvent } from "react";
+import { useTranslations } from "next-intl";
 
 interface UseFileDropzoneOptions {
   acceptedExtensions: string[];
@@ -6,6 +7,7 @@ interface UseFileDropzoneOptions {
 }
 
 export function useFileDropzone({ acceptedExtensions, errorMessage }: UseFileDropzoneOptions) {
+  const t = useTranslations("common");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -15,12 +17,12 @@ export function useFileDropzone({ acceptedExtensions, errorMessage }: UseFileDro
       setFileError(null);
       const ext = "." + f.name.split(".").pop()?.toLowerCase();
       if (!acceptedExtensions.includes(ext)) {
-        setFileError(errorMessage ?? `Nur ${acceptedExtensions.join(", ")}-Dateien erlaubt`);
+        setFileError(errorMessage ?? t("onlyExtsAllowed", { exts: acceptedExtensions.join(", ") }));
         return;
       }
       setFile(f);
     },
-    [acceptedExtensions, errorMessage],
+    [acceptedExtensions, errorMessage, t],
   );
 
   const onDragOver = useCallback((e: DragEvent) => {

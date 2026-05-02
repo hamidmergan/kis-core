@@ -16,26 +16,37 @@ export function computeVoiceLabel(
 }
 
 
-export function renderProgressLabel(status: JobStatus): string {
+export type RenderProgress =
+  | { kind: "queue" }
+  | { kind: "translatePresentation" }
+  | { kind: "extractSlides" }
+  | { kind: "scripts"; total?: number }
+  | { kind: "images" }
+  | { kind: "tts"; current?: number; total?: number }
+  | { kind: "video"; current?: number; total?: number }
+  | { kind: "concat" }
+  | { kind: "subtitles" }
+  | { kind: "fallback" };
+
+export function renderProgress(status: JobStatus): RenderProgress {
   const p = status.progress as { step?: string; current?: number; total?: number } | null;
-  if (!p?.step) return "In der Warteschlange…";
-  if (p.step === "translate") return "Präsentation wird übersetzt…";
-  if (p.step === "extract") return "Folien werden analysiert…";
-  if (p.step === "scripts" && p.total != null) return `Skripte werden generiert… (${p.total} Folien)`;
-  if (p.step === "scripts") return "Skripte werden generiert…";
-  if (p.step === "images") return "Folienbilder werden vorbereitet…";
-  if (p.step === "tts" && p.current != null && p.total != null) return `Sprachsynthese: Folie ${p.current} von ${p.total}…`;
-  if (p.step === "tts") return "Sprachsynthese läuft…";
-  if (p.step === "video" && p.current != null && p.total != null) return `Video-Clip ${p.current} von ${p.total} wird gerendert…`;
-  if (p.step === "video") return "Video-Clips werden gerendert…";
-  if (p.step === "concat") return "Videos werden zusammengefügt…";
-  if (p.step === "subtitles") return "Untertitel werden eingebettet…";
-  return "Video wird erstellt…";
+  if (!p?.step) return { kind: "queue" };
+  if (p.step === "translate") return { kind: "translatePresentation" };
+  if (p.step === "extract") return { kind: "extractSlides" };
+  if (p.step === "scripts") return { kind: "scripts", total: p.total ?? undefined };
+  if (p.step === "images") return { kind: "images" };
+  if (p.step === "tts") return { kind: "tts", current: p.current ?? undefined, total: p.total ?? undefined };
+  if (p.step === "video") return { kind: "video", current: p.current ?? undefined, total: p.total ?? undefined };
+  if (p.step === "concat") return { kind: "concat" };
+  if (p.step === "subtitles") return { kind: "subtitles" };
+  return { kind: "fallback" };
 }
+
+export type ScriptImportError = "invalidExtension" | "mustBeArray" | "parseError";
 
 export type ScriptJsonParseResult =
   | { scripts: string[]; error?: never }
-  | { scripts?: never; error: string };
+  | { scripts?: never; error: ScriptImportError };
 
 export async function checkHasActiveJob(tool: string): Promise<{ ok: true; hasActive: boolean } | { ok: false }> {
   try {
@@ -83,7 +94,7 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
 
 export function parseScriptJsonFile(file: File): Promise<ScriptJsonParseResult> {
   if (!file.name.toLowerCase().endsWith(".json")) {
-    return Promise.resolve({ error: "Bitte eine gültige JSON-Datei auswählen (.json)." });
+    return Promise.resolve({ error: "invalidExtension" });
   }
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -91,12 +102,12 @@ export function parseScriptJsonFile(file: File): Promise<ScriptJsonParseResult> 
       try {
         const parsed = JSON.parse(e.target?.result as string);
         if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === "string")) {
-          resolve({ error: 'Die JSON-Datei muss ein Array von Strings sein, z.B. ["Skript 1", "Skript 2"].' });
+          resolve({ error: "mustBeArray" });
           return;
         }
         resolve({ scripts: parsed });
       } catch {
-        resolve({ error: "Ungültige JSON-Datei - Parsing fehlgeschlagen." });
+        resolve({ error: "parseError" });
       }
     };
     reader.readAsText(file);

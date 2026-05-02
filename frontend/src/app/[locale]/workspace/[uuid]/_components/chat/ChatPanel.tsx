@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import type { ChatMessage as ChatMessageType, Source } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
@@ -41,6 +42,7 @@ export function ChatPanel({
   registerSetInput?: (setter: ((v: string) => void) | null) => void;
   hideHeader?: boolean;
 }) {
+  const t = useTranslations("workspace.detail.chat");
   const { enabled: hildeEnabled } = useHildePref();
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -138,7 +140,7 @@ export function ChatPanel({
         <button
           type="button"
           onClick={jumpPage}
-          aria-label={pageNearTop ? "Nach unten scrollen" : "Nach oben scrollen"}
+          aria-label={pageNearTop ? t("scrollToBottom") : t("scrollToTop")}
           className="show-on-short fixed right-3 bottom-3 z-50 w-10 h-10 items-center justify-center rounded-full shadow-lg"
           style={{ backgroundColor: "var(--kb)", color: "white" }}
         >
@@ -198,10 +200,10 @@ export function ChatPanel({
         registerSetInput={registerSetInput}
       />
       <p className="hide-on-short w-full text-center mt-3 pb-0 text-xs" style={{ color: "var(--muted)" }}>
-        Diese Plattform nutzt KI und kann Fehler machen. Überprüfen Sie die Antworten.
+        {t("aiNotice")}
       </p>
       <p className="hide-on-short w-full text-center mt-1 pb-2 text-xs" style={{ color: "var(--muted)" }}>
-        Feedback oder Probleme?{" "}
+        {t("feedbackQuestion")}{" "}
         <a href="mailto:hamid.mergan@th-luebeck.de" className="hover:underline hover:text-[var(--kb)] transition-colors">
           hamid.mergan@th-luebeck.de
         </a>

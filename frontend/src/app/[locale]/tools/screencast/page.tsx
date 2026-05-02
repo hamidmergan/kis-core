@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries } from "@/hooks/useGlossaries";
 
@@ -47,6 +48,8 @@ const RENDER_SESSION_KEY = "kis_screencast_active_render";
 const SCREENCAST_MAX_CHARS = 100_000;
 
 function ScreencastPageInner() {
+  const t = useTranslations("tools.screencast");
+  const tCommon = useTranslations("common");
   const { mergeToApiJson } = useGlossaries();
 
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
@@ -225,7 +228,7 @@ function ScreencastPageInner() {
     if (!translateJobUuid) return true;
     const exists = await checkJobFolderExists(translateJobUuid);
     if (!exists) {
-      goError("Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten");
+      goError(t("error.jobFolderMissing"));
       return false;
     }
     return true;
@@ -252,6 +255,36 @@ function ScreencastPageInner() {
     goError,
     setTtsSettingsError,
     setRenderProgressLabel,
+    messages: {
+      stuck: t("rendering.stuck"),
+      queue: t("rendering.queue"),
+      reconnected: t("rendering.reconnected"),
+      renderError: t("error.renderError"),
+      errorWithCode: (code: number) => t("error.errorWithCode", { code }),
+      retryFailed: t("error.retryFailed"),
+      tooManyJobs: t("error.tooManyJobs"),
+      jobFailed: t("error.jobFailed"),
+      unknownError: tCommon("unknownError"),
+      previousRenderBusy: t("error.previousRenderBusy"),
+      renderLabel: (p) => {
+        switch (p.kind) {
+          case "queue": return t("rendering.queue");
+          case "translatePresentation": return t("rendering.translatePresentation");
+          case "extractSlides": return t("rendering.extractSlides");
+          case "scripts": return p.total != null ? t("rendering.scriptsWithCount", { n: p.total }) : t("rendering.scripts");
+          case "images": return t("rendering.images");
+          case "tts": return p.current != null && p.total != null
+            ? t("rendering.ttsWithProgress", { current: p.current, total: p.total })
+            : t("rendering.tts");
+          case "video": return p.current != null && p.total != null
+            ? t("rendering.videoWithProgress", { current: p.current, total: p.total })
+            : t("rendering.video");
+          case "concat": return t("rendering.concat");
+          case "subtitles": return t("rendering.subtitles");
+          default: return t("rendering.fallback");
+        }
+      },
+    },
     abortControllerRef,
     currentJobUuidRef,
   });
@@ -275,6 +308,14 @@ function ScreencastPageInner() {
     checkJobFolder,
     goError,
     newSignal,
+    messages: {
+      unknownError: tCommon("unknownError"),
+      errorWithCode: (code: number) => t("error.errorWithCode", { code }),
+      uploadError: t("error.uploadError"),
+      downloadFailed: t("error.downloadFailed"),
+      jobInOtherTab: t("error.jobInOtherTab"),
+      jobDeleted: t("error.jobDeleted"),
+    },
     currentJobUuidRef,
     isGeneratingScriptsRef,
   });
@@ -457,7 +498,7 @@ function ScreencastPageInner() {
                 dispatch({ type: "SET_STEP", step: "script-review" });
               } else if (scriptInputMode === "import") {
                 if (!importedScripts) {
-                  setImportError("Bitte zuerst eine JSON-Datei auswählen.");
+                  setImportError(t("selectJsonFirst"));
                   return;
                 }
                 dispatch({ type: "IMPORT_SCRIPTS", scripts: importedScripts });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Brain,
   Cpu,
@@ -9,7 +10,6 @@ import {
   Funnel,
   Gauge,
   HardDrives,
-  Hourglass,
   Lightning,
   ListChecks,
   Sparkle,
@@ -57,20 +57,8 @@ interface SystemInfo {
 const PROVIDER_LABEL: Record<string, string> = {
   kisski: "KISSKI",
   mylab: "myLab",
-  ollama: "Ollama (lokal)",
+  ollama: "Ollama (local)",
 };
-
-function fmtSeconds(s: number): string {
-  if (s < 60) return `${s} s`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} min`;
-  const h = m / 60;
-  return Number.isInteger(h) ? `${h} h` : `${h.toFixed(1)} h`;
-}
-
-function fmtNumber(n: number): string {
-  return n.toLocaleString("de-DE");
-}
 
 function Section({
   icon,
@@ -120,9 +108,9 @@ function Row({
   );
 }
 
-function ModelRow({ label, info }: { label: string; info: ModelInfo }) {
+function ModelRow({ label, info, dash }: { label: string; info: ModelInfo; dash: string }) {
   if (!info.provider) {
-    return <Row label={label} value={<span className="text-muted">-</span>} />;
+    return <Row label={label} value={<span className="text-muted">{dash}</span>} />;
   }
   const provider = PROVIDER_LABEL[info.provider] ?? info.provider;
   return (
@@ -142,6 +130,21 @@ function ModelRow({ label, info }: { label: string; info: ModelInfo }) {
 }
 
 export default function SystemInfoTab() {
+  const t = useTranslations("admin");
+  const locale = useLocale();
+  const numLocale = locale === "en" ? "en-US" : "de-DE";
+
+  const fmtNumber = (n: number): string => n.toLocaleString(numLocale);
+  const fmtSeconds = (s: number): string => {
+    if (s < 60) return t("systemInfo.secondsUnit", { n: s });
+    const m = Math.round(s / 60);
+    if (m < 60) return t("systemInfo.minUnit", { n: m });
+    const h = m / 60;
+    return Number.isInteger(h)
+      ? t("systemInfo.hUnit", { n: h })
+      : t("systemInfo.hUnitFloat", { n: h.toFixed(1) });
+  };
+
   const [data, setData] = useState<SystemInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,34 +158,32 @@ export default function SystemInfoTab() {
       .catch((e) => setError(String(e)));
   }, []);
 
-  if (error) return <p className="text-sm text-error">Fehler beim Laden: {error}</p>;
+  if (error) return <p className="text-sm text-error">{t("loadErrorDetail", { error })}</p>;
   if (!data) return <Spinner className="flex justify-center py-12" />;
 
   const { models, rate_limits, quotas, uploads, char_limits, workspace_limits, rag, summaries, jobs, celery_timeouts, parallelism, database } = data;
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted -mt-2 mb-4">
-        Übersicht der aktuell konfigurierten Werte. Nur lesbar - Änderungen erfolgen im Code (
-        <code className="text-[11px] bg-surface-dim px-1.5 py-0.5 rounded">backend/src/limits.py</code>
-        ) bzw. unter „KI" und „System".
-      </p>
+      <p
+        className="text-sm text-muted -mt-2 mb-4"
+        dangerouslySetInnerHTML={{ __html: t.raw("systemInfo.intro") as string }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* ── Active models ───────────────────────────────────────── */}
         <Section
           icon={<Sparkle size={18} weight="bold" />}
-          title="Aktive Modelle"
-          subtitle="Pro Fähigkeit ein Provider. Auswahl unter KI."
+          title={t("systemInfo.modelsTitle")}
+          subtitle={t("systemInfo.modelsSubtitle")}
         >
-          <ModelRow label="LLM (Chat)" info={models.llm} />
-          <ModelRow label="Embedding" info={models.embedding} />
-          <ModelRow label="OCR" info={models.ocr} />
-          <ModelRow label="Bild-Generierung" info={models.image_gen} />
-          <ModelRow label="Bild-Bearbeitung" info={models.image_edit} />
-          <ModelRow label="Transkription (Whisper)" info={models.whisper} />
+          <ModelRow label={t("systemInfo.modelLlm")} info={models.llm} dash="-" />
+          <ModelRow label={t("systemInfo.modelEmbedding")} info={models.embedding} dash="-" />
+          <ModelRow label={t("systemInfo.modelOcr")} info={models.ocr} dash="-" />
+          <ModelRow label={t("systemInfo.modelImageGen")} info={models.image_gen} dash="-" />
+          <ModelRow label={t("systemInfo.modelImageEdit")} info={models.image_edit} dash="-" />
+          <ModelRow label={t("systemInfo.modelWhisper")} info={models.whisper} dash="-" />
           <Row
-            label="TTS-Provider aktiv"
+            label={t("systemInfo.ttsActive")}
             value={
               models.tts_active.length === 0 ? (
                 <span className="text-muted">-</span>
@@ -192,33 +193,31 @@ export default function SystemInfoTab() {
             }
           />
           {models.tts_mylab_model && (
-            <Row label="myLab TTS Modell" value={<span className="text-xs">{models.tts_mylab_model}</span>} />
+            <Row label={t("systemInfo.ttsMylabModel")} value={<span className="text-xs">{models.tts_mylab_model}</span>} />
           )}
         </Section>
 
-        {/* ── Rate limits ─────────────────────────────────────────── */}
         <Section
           icon={<Gauge size={18} weight="bold" />}
-          title="Rate-Limits (Burst-Schutz)"
-          subtitle="Greift bei Bots/Bugs. Keine Tages-/Stunden-Limits."
+          title={t("systemInfo.rateLimitsTitle")}
+          subtitle={t("systemInfo.rateLimitsSubtitle")}
         >
           <Row
-            label="Chat: max Anfragen / Fenster"
+            label={t("systemInfo.chatBurst")}
             value={`${rate_limits.chat_burst_requests} / ${rate_limits.chat_burst_window_seconds}s`}
           />
-          <Row label="Chat: Sperrdauer bei Auslösen" value={`${rate_limits.chat_block_minutes} min`} />
+          <Row label={t("systemInfo.chatBlock")} value={t("systemInfo.minutesUnit", { n: rate_limits.chat_block_minutes })} />
           <Row
-            label="Tools: max Anfragen / Fenster"
+            label={t("systemInfo.toolBurst")}
             value={`${rate_limits.tool_burst_requests} / ${rate_limits.tool_burst_window_seconds}s`}
           />
-          <Row label="Tools: Sperrdauer bei Auslösen" value={`${rate_limits.tool_block_minutes} min`} />
+          <Row label={t("systemInfo.toolBlock")} value={t("systemInfo.minutesUnit", { n: rate_limits.tool_block_minutes })} />
         </Section>
 
-        {/* ── Quotas ──────────────────────────────────────────────── */}
         <Section
           icon={<ListChecks size={18} weight="bold" />}
-          title="Standard-Quotas pro Nutzer"
-          subtitle={"Pro-Nutzer-Overrides unter „Alle User“ → Quota."}
+          title={t("systemInfo.quotasTitle")}
+          subtitle={t("systemInfo.quotasSubtitle")}
         >
           {quotas.map((q) => (
             <Row
@@ -229,124 +228,115 @@ export default function SystemInfoTab() {
           ))}
         </Section>
 
-        {/* ── Upload sizes ───────────────────────────────────────── */}
         <Section
           icon={<Files size={18} weight="bold" />}
-          title="Upload-Größen"
-          subtitle="Maximalgröße pro hochgeladener Datei."
+          title={t("systemInfo.uploadsTitle")}
+          subtitle={t("systemInfo.uploadsSubtitle")}
         >
-          <Row label="Allgemein" value={`${uploads.general_mb} MB`} />
-          <Row label="Übersetzung" value={`${uploads.translate_mb} MB`} />
-          <Row label="Audio (Transkription)" value={`${uploads.transcription_mb} MB`} />
-          <Row label="Bild" value={`${uploads.image_mb} MB`} />
-          <Row label="Video-Output (Screencast)" value={`${uploads.output_video_mb} MB`} />
+          <Row label={t("systemInfo.uploadGeneral")} value={`${uploads.general_mb} MB`} />
+          <Row label={t("systemInfo.uploadTranslate")} value={`${uploads.translate_mb} MB`} />
+          <Row label={t("systemInfo.uploadTranscription")} value={`${uploads.transcription_mb} MB`} />
+          <Row label={t("systemInfo.uploadImage")} value={`${uploads.image_mb} MB`} />
+          <Row label={t("systemInfo.uploadOutputVideo")} value={`${uploads.output_video_mb} MB`} />
         </Section>
 
-        {/* ── Char limits ────────────────────────────────────────── */}
         <Section
           icon={<TextAa size={18} weight="bold" />}
-          title="Zeichenlimits pro Anfrage"
-          subtitle="Max. Eingabelänge pro Tool-Request."
+          title={t("systemInfo.charLimitsTitle")}
+          subtitle={t("systemInfo.charLimitsSubtitle")}
         >
-          <Row label="TTS" value={fmtNumber(char_limits.tts)} />
-          <Row label="Übersetzung" value={fmtNumber(char_limits.translate)} />
-          <Row label="Zusammenfassung" value={fmtNumber(char_limits.summary)} />
-          <Row label="Screencast" value={fmtNumber(char_limits.screencast)} />
-          <Row label="Skript" value={fmtNumber(char_limits.script)} />
+          <Row label={t("systemInfo.charLimitTts")} value={fmtNumber(char_limits.tts)} />
+          <Row label={t("systemInfo.charLimitTranslate")} value={fmtNumber(char_limits.translate)} />
+          <Row label={t("systemInfo.charLimitSummary")} value={fmtNumber(char_limits.summary)} />
+          <Row label={t("systemInfo.charLimitScreencast")} value={fmtNumber(char_limits.screencast)} />
+          <Row label={t("systemInfo.charLimitScript")} value={fmtNumber(char_limits.script)} />
         </Section>
 
-        {/* ── Workspace limits ───────────────────────────────────── */}
         <Section
           icon={<HardDrives size={18} weight="bold" />}
-          title="Workspace- & Inhalts-Limits"
-          subtitle="Begrenzung pro Workspace bzw. Nutzer."
+          title={t("systemInfo.workspaceLimitsTitle")}
+          subtitle={t("systemInfo.workspaceLimitsSubtitle")}
         >
-          <Row label="Quellen pro Workspace" value={fmtNumber(workspace_limits.max_sources_per_workspace)} />
-          <Row label="Seiten pro Quelle (PDF/PPTX/DOCX)" value={fmtNumber(workspace_limits.max_pages_per_source)} />
-          <Row label="Zugangslinks pro Workspace" value={fmtNumber(workspace_limits.max_access_links)} />
-          <Row label="Notizen pro Nutzer" value={fmtNumber(workspace_limits.max_notes_per_user)} />
-          <Row label="Glossar-Einträge" value={fmtNumber(workspace_limits.glossary_limit)} />
-          <Row label="Folien pro Screencast" value={fmtNumber(workspace_limits.max_screencast_slides)} />
-          <Row label="Screencast-Jobs in Warteschlange" value={fmtNumber(workspace_limits.max_queued_screencast_jobs)} />
+          <Row label={t("systemInfo.wlSourcesPerWorkspace")} value={fmtNumber(workspace_limits.max_sources_per_workspace)} />
+          <Row label={t("systemInfo.wlPagesPerSource")} value={fmtNumber(workspace_limits.max_pages_per_source)} />
+          <Row label={t("systemInfo.wlAccessLinks")} value={fmtNumber(workspace_limits.max_access_links)} />
+          <Row label={t("systemInfo.wlNotesPerUser")} value={fmtNumber(workspace_limits.max_notes_per_user)} />
+          <Row label={t("systemInfo.wlGlossary")} value={fmtNumber(workspace_limits.glossary_limit)} />
+          <Row label={t("systemInfo.wlSlidesPerScreencast")} value={fmtNumber(workspace_limits.max_screencast_slides)} />
+          <Row label={t("systemInfo.wlQueuedScreencast")} value={fmtNumber(workspace_limits.max_queued_screencast_jobs)} />
         </Section>
 
-        {/* ── RAG retrieval ──────────────────────────────────────── */}
         <Section
           icon={<Funnel size={18} weight="bold" />}
-          title="RAG-Retrieval (KI-Tutor)"
-          subtitle="Hybrid-Suche aus Vektor + Keyword (BM25) via RRF-Fusion."
+          title={t("systemInfo.ragTitle")}
+          subtitle={t("systemInfo.ragSubtitle")}
         >
-          <Row label="Vector-Suche Top-K" value={fmtNumber(rag.vector_top_k)} hint="Kandidaten aus pgvector" />
-          <Row label="Keyword-Suche Top-K" value={fmtNumber(rag.keyword_top_k)} hint="ts_rank_cd, OR-Verknüpfung" />
-          <Row label="ILIKE-Fallback Top-K" value={fmtNumber(rag.ilike_fallback_top_k)} hint="Eigennamen / Nicht-Deutsch" />
-          <Row label="RRF-Konstante k" value={fmtNumber(rag.rrf_k)} hint="Reciprocal Rank Fusion" />
-          <Row label="Final genutzte Chunks" value={fmtNumber(rag.final_chunks_used)} hint="Werden ans LLM gegeben" />
-          <Row label="Embedding Batch-Größe" value={fmtNumber(rag.embed_batch_size)} hint="Beim Indexieren" />
+          <Row label={t("systemInfo.ragVectorTopK")} value={fmtNumber(rag.vector_top_k)} hint={t("systemInfo.ragVectorTopKHint")} />
+          <Row label={t("systemInfo.ragKeywordTopK")} value={fmtNumber(rag.keyword_top_k)} hint={t("systemInfo.ragKeywordTopKHint")} />
+          <Row label={t("systemInfo.ragIlikeFallback")} value={fmtNumber(rag.ilike_fallback_top_k)} hint={t("systemInfo.ragIlikeFallbackHint")} />
+          <Row label={t("systemInfo.ragRrfK")} value={fmtNumber(rag.rrf_k)} hint={t("systemInfo.ragRrfKHint")} />
+          <Row label={t("systemInfo.ragFinalChunks")} value={fmtNumber(rag.final_chunks_used)} hint={t("systemInfo.ragFinalChunksHint")} />
+          <Row label={t("systemInfo.ragEmbedBatch")} value={fmtNumber(rag.embed_batch_size)} hint={t("systemInfo.ragEmbedBatchHint")} />
         </Section>
 
-        {/* ── Page summaries ─────────────────────────────────────── */}
         <Section
           icon={<Brain size={18} weight="bold" />}
-          title="Seiten-Zusammenfassungen (Pipeline)"
-          subtitle="Werden beim Hochladen einer Quelle erstellt."
+          title={t("systemInfo.summariesTitle")}
+          subtitle={t("systemInfo.summariesSubtitle")}
         >
-          <Row label="Max Retries" value={fmtNumber(summaries.max_retries)} />
-          <Row label="Timeout pro Seite (Ollama)" value={fmtSeconds(summaries.timeout_small_seconds)} />
-          <Row label="Timeout pro Seite (Cloud)" value={fmtSeconds(summaries.timeout_large_seconds)} />
-          <Row label="Max Tokens (Ollama, einzeln)" value={fmtNumber(summaries.max_tokens_small)} />
-          <Row label="Max Tokens (Cloud, einzeln)" value={fmtNumber(summaries.max_tokens_large)} />
-          <Row label="Max Tokens (Cloud, Batch)" value={fmtNumber(summaries.max_tokens_batch)} />
-          <Row label="Max Zeichen pro Seite an LLM" value={fmtNumber(summaries.content_max_chars_per_page)} />
-          <Row label="Parallele Worker (Ollama)" value={fmtNumber(summaries.parallel_workers_small)} hint="Mehrere Seiten parallel" />
-          <Row label="Parallele Worker (Cloud)" value={fmtNumber(summaries.parallel_workers_large)} hint="Sequenziell für Stabilität" />
-          <Row label="Seiten pro Batch" value={fmtNumber(summaries.batch_size_pages)} hint="Cloud, mehrere Seiten in einer Anfrage" />
+          <Row label={t("systemInfo.sumMaxRetries")} value={fmtNumber(summaries.max_retries)} />
+          <Row label={t("systemInfo.sumTimeoutSmall")} value={fmtSeconds(summaries.timeout_small_seconds)} />
+          <Row label={t("systemInfo.sumTimeoutLarge")} value={fmtSeconds(summaries.timeout_large_seconds)} />
+          <Row label={t("systemInfo.sumMaxTokensSmall")} value={fmtNumber(summaries.max_tokens_small)} />
+          <Row label={t("systemInfo.sumMaxTokensLarge")} value={fmtNumber(summaries.max_tokens_large)} />
+          <Row label={t("systemInfo.sumMaxTokensBatch")} value={fmtNumber(summaries.max_tokens_batch)} />
+          <Row label={t("systemInfo.sumMaxCharsPerPage")} value={fmtNumber(summaries.content_max_chars_per_page)} />
+          <Row label={t("systemInfo.sumParallelSmall")} value={fmtNumber(summaries.parallel_workers_small)} hint={t("systemInfo.sumParallelSmallHint")} />
+          <Row label={t("systemInfo.sumParallelLarge")} value={fmtNumber(summaries.parallel_workers_large)} hint={t("systemInfo.sumParallelLargeHint")} />
+          <Row label={t("systemInfo.sumBatchSize")} value={fmtNumber(summaries.batch_size_pages)} hint={t("systemInfo.sumBatchSizeHint")} />
         </Section>
 
-        {/* ── Jobs ───────────────────────────────────────────────── */}
         <Section
           icon={<Lightning size={18} weight="bold" />}
-          title="Job-Verwaltung"
-          subtitle="Ergebnisdateien & Watchdog für Tool-Jobs."
+          title={t("systemInfo.jobsTitle")}
+          subtitle={t("systemInfo.jobsSubtitle")}
         >
-          <Row label="Max Ergebnis-Dateien pro Nutzer" value={fmtNumber(jobs.max_result_files_per_user)} hint="Älteste werden überschrieben" />
-          <Row label="Aufbewahrung Ergebnisse" value={`${jobs.retention_hours} h (${Math.round(jobs.retention_hours / 24)} Tage)`} />
-          <Row label="Watchdog ohne Heartbeat" value={`${jobs.watchdog_minutes} min`} hint="Danach gilt Job als hängend" />
+          <Row label={t("systemInfo.jobsMaxFiles")} value={fmtNumber(jobs.max_result_files_per_user)} hint={t("systemInfo.jobsMaxFilesHint")} />
+          <Row label={t("systemInfo.jobsRetention")} value={t("systemInfo.jobsRetentionValue", { hours: jobs.retention_hours, days: Math.round(jobs.retention_hours / 24) })} />
+          <Row label={t("systemInfo.jobsWatchdog")} value={t("systemInfo.minutesUnit", { n: jobs.watchdog_minutes })} hint={t("systemInfo.jobsWatchdogHint")} />
         </Section>
 
-        {/* ── Celery timeouts ────────────────────────────────────── */}
         <Section
           icon={<Timer size={18} weight="bold" />}
-          title="Task-Timeouts (Celery)"
-          subtitle="Soft-Limit = sauberes Abbrechen, Hard-Limit = SIGKILL."
+          title={t("systemInfo.celeryTitle")}
+          subtitle={t("systemInfo.celerySubtitle")}
         >
-          <Row label="TTS (soft / hard)" value={`${fmtSeconds(celery_timeouts.tts_soft_seconds)} / ${fmtSeconds(celery_timeouts.tts_hard_seconds)}`} />
-          <Row label="Screencast (soft / hard)" value={`${fmtSeconds(celery_timeouts.screencast_soft_seconds)} / ${fmtSeconds(celery_timeouts.screencast_hard_seconds)}`} />
-          <Row label="Screencast Auto-Pipeline" value={`${fmtSeconds(celery_timeouts.screencast_auto_soft_seconds)} / ${fmtSeconds(celery_timeouts.screencast_auto_hard_seconds)}`} />
+          <Row label={t("systemInfo.celeryTts")} value={`${fmtSeconds(celery_timeouts.tts_soft_seconds)} / ${fmtSeconds(celery_timeouts.tts_hard_seconds)}`} />
+          <Row label={t("systemInfo.celeryScreencast")} value={`${fmtSeconds(celery_timeouts.screencast_soft_seconds)} / ${fmtSeconds(celery_timeouts.screencast_hard_seconds)}`} />
+          <Row label={t("systemInfo.celeryScreencastAuto")} value={`${fmtSeconds(celery_timeouts.screencast_auto_soft_seconds)} / ${fmtSeconds(celery_timeouts.screencast_auto_hard_seconds)}`} />
         </Section>
 
-        {/* ── Parallelism ────────────────────────────────────────── */}
         <Section
           icon={<Cpu size={18} weight="bold" />}
-          title="Parallelisierung & CPU"
-          subtitle="ThreadPool-Größen für Render-Tasks."
+          title={t("systemInfo.parallelismTitle")}
+          subtitle={t("systemInfo.parallelismSubtitle")}
         >
-          <Row label="Render-Worker (PDF→PNG, FFmpeg)" value={fmtNumber(parallelism.render_workers)} />
-          <Row label="CPU-Kerne im Container" value={fmtNumber(parallelism.cpu_count)} />
+          <Row label={t("systemInfo.renderWorkers")} value={fmtNumber(parallelism.render_workers)} />
+          <Row label={t("systemInfo.cpuCount")} value={fmtNumber(parallelism.cpu_count)} />
           <Row
-            label="Daumenregel"
-            value={<span className="text-xs text-muted">Worker ≈ Kerne / 2</span>}
-            hint="Reserve für Uvicorn + OS"
+            label={t("systemInfo.ruleOfThumb")}
+            value={<span className="text-xs text-muted">{t("systemInfo.ruleOfThumbValue")}</span>}
+            hint={t("systemInfo.ruleOfThumbHint")}
           />
         </Section>
 
-        {/* ── Database ───────────────────────────────────────────── */}
         <Section
           icon={<Database size={18} weight="bold" />}
-          title="Datenbank-Pool"
-          subtitle="Postgres-Connection-Pool (psycopg2 ThreadedPool)."
+          title={t("systemInfo.databaseTitle")}
+          subtitle={t("systemInfo.databaseSubtitle")}
         >
-          <Row label="Pool min" value={fmtNumber(database.pool_min)} />
-          <Row label="Pool max" value={fmtNumber(database.pool_max)} />
+          <Row label={t("systemInfo.poolMin")} value={fmtNumber(database.pool_min)} />
+          <Row label={t("systemInfo.poolMax")} value={fmtNumber(database.pool_max)} />
         </Section>
       </div>
 

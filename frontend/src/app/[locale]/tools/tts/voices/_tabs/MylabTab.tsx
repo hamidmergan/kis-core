@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import PlayButton from "../_components/PlayButton";
 import { useVoicePlayer } from "../_hooks/useVoicePlayer";
 import type { OpenAITtsVoice } from "../_utils";
 
 
 export default function MylabTab({ active }: { active: boolean }) {
+  const t = useTranslations("tools.tts.voices");
   const [voices, setVoices] = useState<OpenAITtsVoice[]>([]);
   const [loading, setLoading] = useState(false);
   const { playingId, loadingId, playFromApi } = useVoicePlayer();
@@ -21,9 +23,9 @@ export default function MylabTab({ active }: { active: boolean }) {
       .finally(() => setLoading(false));
   }, [active, voices.length]);
 
-  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
+  if (loading) return <p className="text-sm text-muted">{t("loading")}</p>;
   if (voices.length === 0) {
-    return <p className="text-sm text-muted-soft">myLab TTS Server nicht erreichbar oder keine Stimmen gefunden.</p>;
+    return <p className="text-sm text-muted-soft">{t("mylabUnavailable")}</p>;
   }
 
   return (

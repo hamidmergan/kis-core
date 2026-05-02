@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
 
 interface TranslationReviewStepProps {
@@ -21,12 +22,11 @@ export default function TranslationReviewStep({
   onUploadCorrectedPptx,
   onAcceptAndNext,
 }: TranslationReviewStepProps) {
+  const t = useTranslations("tools.screencast");
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-1">Übersetzung prüfen</h2>
-      <p className="text-sm text-muted mb-4">
-        Die Präsentation wurde übersetzt. Sie können die übersetzte PPTX herunterladen, prüfen und optional eine korrigierte Version hochladen.
-      </p>
+      <h2 className="text-lg font-bold mb-1">{t("translationReview.heading")}</h2>
+      <p className="text-sm text-muted mb-4">{t("translationReview.intro")}</p>
 
       <div className="flex flex-wrap justify-center gap-2 mb-6">
         {slides.map((slide, i) => (
@@ -35,16 +35,16 @@ export default function TranslationReviewStep({
             onClick={() => onLightboxOpen(i)}
             style={{ width: "100px" }}
             className="relative rounded-lg overflow-hidden border border-border-soft hover:border-kb transition-colors focus-visible:outline-2 focus-visible:outline-kb group flex-shrink-0"
-            aria-label={`Folie ${i + 1} vergrößern`}
+            aria-label={t("common.slideZoomAria", { n: i + 1 })}
           >
             {slide.imageBase64 ? (
-              <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full object-cover" />
+              <img src={`data:image/png;base64,${slide.imageBase64}`} alt={t("common.slide", { n: i + 1 })} className="w-full object-cover" />
             ) : (
-              <div className="aspect-video bg-surface flex items-center justify-center text-xs text-muted-soft">Wird geladen...</div>
+              <div className="aspect-video bg-surface flex items-center justify-center text-xs text-muted-soft">{t("common.loadingImage")}</div>
             )}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
               <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-foreground-soft px-2 py-1 rounded transition-opacity">
-                Folie {i + 1}
+                {t("common.slide", { n: i + 1 })}
               </span>
             </div>
           </button>
@@ -64,12 +64,12 @@ export default function TranslationReviewStep({
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
             />
           </svg>
-          PPTX
+          {t("translationReview.downloadPptx")}
         </button>
 
         <div className="relative">
           <label className="block w-full px-4 py-2 text-sm text-foreground-soft border border-border rounded-md hover:bg-surface transition-colors text-center cursor-pointer">
-            {loading ? "Wird verarbeitet..." : "Korrigierte PPTX hochladen (optional)"}
+            {loading ? t("translationReview.uploading") : t("translationReview.uploadCorrected")}
             <input
               type="file"
               accept=".pptx"
@@ -86,7 +86,7 @@ export default function TranslationReviewStep({
               <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              {correctedFileName} wurde hochgeladen
+              {t("translationReview.uploaded", { name: correctedFileName })}
             </p>
           )}
         </div>
@@ -98,7 +98,7 @@ export default function TranslationReviewStep({
           disabled={loading}
           className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          Übersetzung übernehmen und weiter
+          {t("translationReview.acceptAndNext")}
         </button>
       </div>
     </section>

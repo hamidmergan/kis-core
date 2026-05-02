@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 export interface WorkspaceLabels {
   singular: string;
@@ -15,7 +16,7 @@ let inflight: Promise<WorkspaceLabels> | null = null;
 
 async function fetchLabels(): Promise<WorkspaceLabels> {
   try {
-    const res = await fetch("/api/health/labels", { cache: "no-store" });
+    const res = await api.fetch("/api/health/labels", { cache: "no-store" });
     if (!res.ok) return DEFAULTS;
     const data = await res.json();
     return {

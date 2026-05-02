@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ArrowRight, CalendarBlank, CaretDown } from "@phosphor-icons/react";
 import { ScheduleTimeline } from "@/components/schedule/ScheduleTimeline";
 import { ScheduleEntryCardGlobal, type ScheduleListEntry } from "@/components/schedule/ScheduleEntryCardGlobal";
@@ -41,6 +42,7 @@ async function fetchUpcoming(): Promise<ScheduleListEntry[] | null> {
 }
 
 export default function UpcomingDeadlinesWidget() {
+  const t = useTranslations("workspace.list");
   const [entries, setEntries] = useState<ScheduleListEntry[] | null>(null);
   const [error, setError] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
@@ -112,7 +114,7 @@ export default function UpcomingDeadlinesWidget() {
           </span>
           <CalendarBlank size={16} weight="bold" style={{ color: "var(--kb)" }} />
           <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-            Nächste Termine
+            {t("upcomingTitle")}
           </h3>
         </div>
         <Link
@@ -122,7 +124,7 @@ export default function UpcomingDeadlinesWidget() {
           className="inline-flex items-center gap-1 text-xs font-medium rounded-md transition-colors hover:bg-[var(--surface-dim)] -my-2 px-3 py-2"
           style={{ color: "var(--kb)" }}
         >
-          Alle anzeigen
+          {t("showAll")}
           <ArrowRight size={12} weight="bold" />
         </Link>
       </header>

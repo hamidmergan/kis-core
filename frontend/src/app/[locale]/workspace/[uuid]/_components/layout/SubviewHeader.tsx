@@ -1,4 +1,5 @@
 import React, { useContext } from "react";
+import { useTranslations } from "next-intl";
 import { CaretLeft, CaretRight, SidebarSimple } from "@phosphor-icons/react";
 import { MinimizeContext } from "../../_context";
 
@@ -34,6 +35,7 @@ export function _getToolBadge(toolKey: string | undefined, category?: ToolCatego
 }
 
 export function SubviewHeader({ title, toolKey, onBack, breadcrumbs, rightContent, category }: { title: string; toolKey?: string; onBack: () => void; breadcrumbs?: BreadcrumbItem[]; rightContent?: React.ReactNode; category?: ToolCategory }) {
+  const t = useTranslations("workspace.detail.panels");
   const minimize = useContext(MinimizeContext);
   const badge = _getToolBadge(toolKey, category);
   const mutedColor = "var(--muted)";
@@ -84,7 +86,7 @@ export function SubviewHeader({ title, toolKey, onBack, breadcrumbs, rightConten
         <button type="button" onClick={minimize}
           className="w-7 h-7 flex items-center justify-center rounded-full btn-icon ml-auto"
           style={{ backgroundColor: "var(--surface-dim)" }}
-          title="Panel minimieren">
+          title={t("minimize")}>
           <SidebarSimple size={13} style={{ transform: "scaleX(-1)" }} />
         </button>
       )}

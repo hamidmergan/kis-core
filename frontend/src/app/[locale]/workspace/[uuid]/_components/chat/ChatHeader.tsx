@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { DotsThreeVertical, SidebarSimple, Trash } from "@phosphor-icons/react";
 
 
@@ -10,6 +11,8 @@ interface ChatHeaderProps {
 
 
 export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProps) {
+  const t = useTranslations("workspace.detail.chat");
+  const tPanels = useTranslations("workspace.detail.panels");
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const chatMenuRef = useRef<HTMLDivElement>(null);
 
@@ -24,7 +27,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
 
   return (
     <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative" style={{ borderBottom: "1px solid var(--border)" }}>
-      <span className="text-base font-semibold" style={{ color: "var(--foreground)" }}>Chat</span>
+      <span className="text-base font-semibold" style={{ color: "var(--foreground)" }}>{t("title")}</span>
       <div className="flex items-center gap-1.5">
         <div className="relative" ref={chatMenuRef}>
           <button
@@ -32,7 +35,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
             onClick={() => setChatMenuOpen((v) => !v)}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}
-            title="Optionen"
+            title={t("options")}
           >
             <DotsThreeVertical size={16} weight="bold" />
           </button>
@@ -49,7 +52,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
                 style={{ color: "rgb(185, 28, 28)" }}
               >
                 <Trash size={16} />
-                Chatprotokoll löschen
+                {t("clearLog")}
               </button>
             </div>
           )}
@@ -60,7 +63,7 @@ export function ChatHeader({ messageCount, onClear, onMinimize }: ChatHeaderProp
             onClick={onMinimize}
             className="w-7 h-7 flex items-center justify-center rounded-full btn-icon"
             style={{ backgroundColor: "var(--surface-dim)" }}
-            title="Panel minimieren"
+            title={tPanels("minimize")}
           >
             <SidebarSimple size={13} />
           </button>

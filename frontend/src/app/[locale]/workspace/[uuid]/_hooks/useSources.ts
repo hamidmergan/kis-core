@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { WorkspaceDetail, Source } from "../_types";
 
 interface UseSourcesOptions {
@@ -9,6 +10,7 @@ interface UseSourcesOptions {
 }
 
 export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
+  const t = useTranslations("workspace.detail.errors");
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [prevSelectedSourceIds, setPrevSelectedSourceIds] = useState<string[]>([]);
@@ -73,7 +75,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
     const toUpload = files.length > MAX_BATCH ? files.slice(0, MAX_BATCH) : files;
     const errors: { filename: string; message: string }[] = skipped.map((f) => ({
       filename: f.name,
-      message: `Übersprungen, maximal ${MAX_BATCH} Dateien gleichzeitig hochladen.`,
+      message: t("uploadSkippedMax", { max: MAX_BATCH }),
     }));
     setUploadErrors(errors);
     for (let i = 0; i < toUpload.length; i++) {
@@ -93,7 +95,7 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
               setSources((prev) => [newSrc, ...prev]);
               resolve();
             } else {
-              let detail = "Upload fehlgeschlagen";
+              let detail = t("uploadFailed");
               try {
                 const body = JSON.parse(xhr.responseText);
                 if (body?.detail) detail = body.detail;
@@ -101,13 +103,13 @@ export function useSources({ uuid, onModuleUpdate }: UseSourcesOptions) {
               reject(new Error(detail));
             }
           };
-          xhr.onerror = () => reject(new Error("Netzwerkfehler"));
+          xhr.onerror = () => reject(new Error(t("networkError")));
           const form = new FormData();
           form.append("file", file);
           xhr.send(form);
         });
       } catch (err) {
-        errors.push({ filename: file.name, message: err instanceof Error ? err.message : "Upload fehlgeschlagen" });
+        errors.push({ filename: file.name, message: err instanceof Error ? err.message : t("uploadFailed") });
       }
     }
     setUploadProgress(null);

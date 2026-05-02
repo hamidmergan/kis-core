@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CaretRight, Exam } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import type { VocabTestQuestion } from "../../_types";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
@@ -10,6 +11,7 @@ export function VokabeltestView({
   onGenerate: () => void; onBack: () => void;
   breadcrumbs?: BreadcrumbItem[];
 }) {
+  const t = useTranslations("workspace.detail.languageTraining");
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [current, setCurrent] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -38,16 +40,16 @@ export function VokabeltestView({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Begriffe-Quiz" toolKey="TermQuiz" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+        <SubviewHeader title={t("tools.vokabeltest")} toolKey="TermQuiz" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
-              <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>Ergebnis</p>
+              <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>{t("common.result")}</p>
               <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                {Math.round((correctCount / total) * 100)}% richtig
+                {t("vokabeltest.percentCorrect", { pct: Math.round((correctCount / total) * 100) })}
               </p>
             </div>
             <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
@@ -58,13 +60,13 @@ export function VokabeltestView({
                 onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
                 className="btn-primary flex-1 py-2.5 rounded-xl text-xs font-semibold"
               >
-                Neuer Test
+                {t("vokabeltest.newTest")}
               </button>
               <button type="button" onClick={onBack}
                 className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--surface-dim)]"
                 style={{ backgroundColor: "var(--border)", color: "var(--foreground)" }}
               >
-                Zurück
+                {t("common.back")}
               </button>
             </div>
           </div>
@@ -75,7 +77,7 @@ export function VokabeltestView({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Begriffe-Quiz" toolKey="TermQuiz" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+      <SubviewHeader title={t("tools.vokabeltest")} toolKey="TermQuiz" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           <button
@@ -86,7 +88,7 @@ export function VokabeltestView({
           >
             <span className="flex items-center justify-center gap-2">
               <Exam size={16} weight="bold" />
-              {loading ? "Generiere…" : "Begriffe-Quiz starten"}
+              {loading ? t("vokabeltest.generating") : t("vokabeltest.startButton")}
             </span>
           </button>
 
@@ -129,7 +131,7 @@ export function VokabeltestView({
                 {answers[current] !== undefined && (
                   <button type="button" onClick={handleAdvance}
                     className="btn-primary mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold">
-                    {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
+                    {current + 1 >= total ? t("common.finish") : t("common.next")} <CaretRight size={12} weight="bold" />
                   </button>
                 )}
               </div>
@@ -140,4 +142,3 @@ export function VokabeltestView({
     </div>
   );
 }
-

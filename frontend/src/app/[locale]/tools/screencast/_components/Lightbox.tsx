@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
 
 interface LightboxProps {
@@ -10,6 +11,7 @@ interface LightboxProps {
 }
 
 export default function Lightbox({ index, slides, onClose, onIndexChange }: LightboxProps) {
+  const t = useTranslations("tools.screencast");
   const slide = slides[index];
   if (!slide?.imageBase64) return null;
   return (
@@ -18,24 +20,24 @@ export default function Lightbox({ index, slides, onClose, onIndexChange }: Ligh
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label={`Folie ${index + 1}`}
+      aria-label={t("common.slide", { n: index + 1 })}
     >
       <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={onClose}
           className="absolute -top-10 right-0 text-white hover:text-border transition-colors"
-          aria-label="Schließen"
+          aria-label={t("common.close")}
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
         <p className="text-white text-sm text-center mb-2">
-          Folie {index + 1} von {slides.length}
+          {t("common.slideXofY", { n: index + 1, total: slides.length })}
         </p>
         <img
           src={`data:image/png;base64,${slide.imageBase64}`}
-          alt={`Folie ${index + 1}`}
+          alt={t("common.slide", { n: index + 1 })}
           className="w-full rounded-lg shadow-2xl"
         />
         <div className="flex justify-center gap-4 mt-4">
@@ -44,14 +46,14 @@ export default function Lightbox({ index, slides, onClose, onIndexChange }: Ligh
             disabled={index === 0}
             className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30"
           >
-            ← Zurück
+            {t("lightbox.prev")}
           </button>
           <button
             onClick={() => onIndexChange(Math.min(slides.length - 1, index + 1))}
             disabled={index === slides.length - 1}
             className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30"
           >
-            Weiter →
+            {t("lightbox.next")}
           </button>
         </div>
       </div>

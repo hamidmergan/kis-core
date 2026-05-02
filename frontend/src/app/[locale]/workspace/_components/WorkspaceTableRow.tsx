@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   ArrowRight,
   CaretRight,
@@ -28,6 +29,7 @@ export default function WorkspaceTableRow({
   onEdit,
   onLinksChanged,
 }: WorkspaceTableRowProps) {
+  const t = useTranslations("workspace.list");
   const a = useWorkspaceActions({ workspace, onToggleActive, onDelete, onLinksChanged });
   const labels = useWorkspaceLabel();
 
@@ -53,7 +55,7 @@ export default function WorkspaceTableRow({
           <button
             type="button"
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.setExpanded(!a.expanded); }}
-            title={a.expanded ? "Zuklappen" : "Aufklappen"}
+            title={a.expanded ? t("collapse") : t("expand")}
             className="w-6 h-6 flex items-center justify-center text-[var(--muted)] hover:text-kb transition"
           >
             <CaretRight size={12} weight="bold" className={`transition-transform ${a.expanded ? "rotate-90" : ""}`} />
@@ -89,7 +91,7 @@ export default function WorkspaceTableRow({
               type="button"
               role="switch"
               aria-checked={workspace.is_active}
-              aria-label={workspace.is_active ? `${labels.singular} deaktivieren` : `${labels.singular} aktivieren`}
+              aria-label={workspace.is_active ? t("deactivate", { label: labels.singular }) : t("activate", { label: labels.singular })}
               onClick={(e) => { e.stopPropagation(); a.handleToggle(!workspace.is_active); }}
               disabled={a.toggling}
               className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full border-2 border-transparent transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 enabled:hover:border-kb"
@@ -105,7 +107,7 @@ export default function WorkspaceTableRow({
               className="text-xs font-medium"
               style={{ color: workspace.is_active ? "var(--kb)" : "var(--muted)" }}
             >
-              {workspace.is_active ? "Aktiv" : "Inaktiv"}
+              {workspace.is_active ? t("active") : t("inactive")}
             </span>
           </div>
         </td>
@@ -126,7 +128,7 @@ export default function WorkspaceTableRow({
           <div className="flex justify-end">
             <IconButton
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); a.handleOpen(); }}
-              title={`${labels.singular} öffnen`}
+              title={t("openWorkspace", { label: labels.singular })}
             >
               <ArrowRight size={13} weight="bold" />
             </IconButton>
@@ -149,7 +151,7 @@ export default function WorkspaceTableRow({
               ))}
               {a.links.length >= MAX_ACCESS_LINKS ? (
                 <p className="text-xs self-start mt-0.5" style={{ color: "var(--muted)" }}>
-                  Maximal {MAX_ACCESS_LINKS} Einschreibelinks erreicht. Lösche einen alten Link, um einen neuen zu erstellen.
+                  {t("maxLinksReached", { n: MAX_ACCESS_LINKS })}
                 </p>
               ) : (
                 <button
@@ -157,7 +159,7 @@ export default function WorkspaceTableRow({
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-soft hover:text-kb transition-colors self-start mt-0.5"
                 >
                   <Plus size={12} weight="bold" />
-                  Neuer Link
+                  {t("newLink")}
                 </button>
               )}
             </div>

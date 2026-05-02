@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ArrowsClockwise, Check, NavigationArrow, NotePencil } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
@@ -67,6 +68,7 @@ export function TranscriptPanel({
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
 }) {
+  const t = useTranslations("workspace.detail.viewer");
   const [deCues, setDeCues] = useState<Cue[] | null>(null);
   const [enCues, setEnCues] = useState<Cue[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -182,7 +184,7 @@ export function TranscriptPanel({
       if (Date.now() - started > TIMEOUT_MS) {
         clearInterval(timer);
         setRegenEn("error");
-        setRegenError("Übersetzung dauert zu lange. Später prüfen oder erneut versuchen.");
+        setRegenError(t("regenEnTimeout"));
         return;
       }
       try {
@@ -220,7 +222,7 @@ export function TranscriptPanel({
       // Task was dispatched; polling effect takes over.
     } catch (e) {
       setRegenEn("error");
-      setRegenError(e instanceof Error ? e.message : "Unbekannter Fehler");
+      setRegenError(e instanceof Error ? e.message : t("regenEnUnknownError"));
     }
   };
 
@@ -260,7 +262,7 @@ export function TranscriptPanel({
   if (loading) {
     return (
       <div className="px-4 py-3 text-xs" style={{ color: "var(--muted)" }}>
-        Transkript wird geladen...
+        {t("transcriptLoading")}
       </div>
     );
   }
@@ -285,13 +287,13 @@ export function TranscriptPanel({
           className="text-xs font-semibold uppercase tracking-wide"
           style={{ color: "var(--muted)" }}
         >
-          Transkript
+          {t("transcriptLabel")}
         </span>
         <button
           type="button"
           onClick={jumpToCurrent}
           disabled={currentIdx < 0}
-          title="Zum aktuellen Transkript springen"
+          title={t("jumpToCurrent")}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             backgroundColor: followCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
@@ -304,14 +306,14 @@ export function TranscriptPanel({
         <div className="flex-1" />
         {hasBoth ? (
           <div className="flex gap-1">
-            <TabButton active={mode === "de"} onClick={() => setMode("de")}>Deutsch</TabButton>
-            <TabButton active={mode === "en"} onClick={() => setMode("en")}>English</TabButton>
-            <TabButton active={mode === "both"} onClick={() => setMode("both")}>Beide</TabButton>
+            <TabButton active={mode === "de"} onClick={() => setMode("de")}>{t("tabDe")}</TabButton>
+            <TabButton active={mode === "en"} onClick={() => setMode("en")}>{t("tabEn")}</TabButton>
+            <TabButton active={mode === "both"} onClick={() => setMode("both")}>{t("tabBoth")}</TabButton>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: "var(--muted)" }}>
-              {deCues ? "Deutsch" : "English"}
+              {deCues ? t("tabDe") : t("tabEn")}
             </span>
             {canManage && deCues && !enCues && (
               <button
@@ -320,10 +322,10 @@ export function TranscriptPanel({
                 disabled={regenEn === "running"}
                 title={
                   regenEn === "error"
-                    ? `EN-Übersetzung fehlgeschlagen: ${regenError}. Nochmal versuchen?`
+                    ? t("regenEnErrorTitle", { error: regenError ?? "" })
                     : regenEn === "running"
-                    ? "Übersetzung läuft im Hintergrund..."
-                    : "Englische Untertitel im Hintergrund übersetzen"
+                    ? t("regenEnRunningTitle")
+                    : t("regenEnIdleTitle")
                 }
                 className="flex-shrink-0 h-6 px-2 flex items-center gap-1 rounded-full transition-colors disabled:opacity-60 disabled:cursor-wait"
                 style={{
@@ -338,7 +340,7 @@ export function TranscriptPanel({
                 ) : (
                   <ArrowsClockwise size={10} weight="bold" />
                 )}
-                <span>{regenEn === "running" ? "läuft..." : "EN übersetzen"}</span>
+                <span>{regenEn === "running" ? t("regenEnRunning") : t("regenEnButton")}</span>
               </button>
             )}
           </div>
@@ -405,7 +407,7 @@ export function TranscriptPanel({
                     type="button"
                     disabled={savingCueIdx === idx}
                     onClick={(e) => { e.stopPropagation(); onSaveCue(idx); }}
-                    title="Als Notiz speichern"
+                    title={t("saveAsNote")}
                     className={`[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 p-1 rounded-full ${savedCueIdx === idx ? "" : "btn-icon"}`}
                     style={savedCueIdx === idx ? { color: "var(--success)" } : undefined}
                   >

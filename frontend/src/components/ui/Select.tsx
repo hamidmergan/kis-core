@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { CaretDown, Check } from "@phosphor-icons/react";
 
@@ -25,10 +26,12 @@ export default function Select<T extends string>({
   onChange,
   options,
   disabled = false,
-  placeholder = "Bitte wählen",
+  placeholder,
   id,
   className = "",
 }: SelectProps<T>) {
+  const t = useTranslations("common");
+  const resolvedPlaceholder = placeholder ?? t("pleaseSelect");
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState<number>(-1);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -129,7 +132,7 @@ export default function Select<T extends string>({
         className="group block w-full rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm hover:border-kb focus:border-kb focus:outline-none focus:ring-1 focus:ring-kb disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border transition-colors flex items-center justify-between gap-2 text-left"
       >
         <span className={`flex-1 truncate ${selected ? "" : "text-muted-soft"}`}>
-          {selected ? selected.label : placeholder}
+          {selected ? selected.label : resolvedPlaceholder}
         </span>
         <CaretDown
           size={14}

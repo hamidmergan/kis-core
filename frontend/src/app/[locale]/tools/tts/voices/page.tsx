@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import BackLink from "@/components/ui/BackLink";
 import ElevenLabsTab from "./_tabs/ElevenLabsTab";
@@ -18,6 +19,7 @@ interface TabConfig {
 
 
 function StimmenPageInner() {
+  const t = useTranslations("tools.tts.voices");
   const searchParams = useSearchParams();
   const [elevenlabsEnabled, setElevenlabsEnabled] = useState(true);
   const [kokoroEnabled, setKokoroEnabled] = useState(false);
@@ -55,7 +57,7 @@ function StimmenPageInner() {
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
         <BackLink />
-        <h1 className="text-xl font-bold mb-1">Verfügbare Stimmen</h1>
+        <h1 className="text-xl font-bold mb-1">{t("title")}</h1>
 
         <div className="flex gap-1 border-b border-border-soft mb-6">
           {tabs.filter((t) => t.enabled).map(({ id, label }) => (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CalendarBlank, CheckCircle, Files, PencilSimple, Plus, Sparkle, Trash } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -29,6 +30,8 @@ export function ScheduleView({
   selectedSourceIds: string[];
   onPillClick?: (sourceUuid: string, page: number, filename: string, sourceText?: string, startTime?: number, isExact?: boolean) => void;
 }) {
+  const t = useTranslations("workspace.detail.studio.schedule");
+  const tModal = useTranslations("workspace.detail.studio.schedule.modal");
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [processedUuids, setProcessedUuids] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,11 +59,11 @@ export function ScheduleView({
       setEntries(data.entries);
       setProcessedUuids(data.processed_source_uuids);
     } catch (e: any) {
-      setError(e?.message || "Fehler beim Laden");
+      setError(e?.message || t("msg.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [workspaceUuid]);
+  }, [workspaceUuid, t]);
 
   useEffect(() => {
     if (!generateMsg || generateMsg.kind === "error") return;
@@ -79,23 +82,23 @@ export function ScheduleView({
           setGenerateMsg({
             kind: "success",
             text: job.added_count > 0
-              ? `${job.added_count} neue Einträge hinzugefügt`
-              : "Keine neuen Einträge gefunden",
+              ? t("msg.added", { n: job.added_count })
+              : t("msg.none"),
           });
           await load();
         } else if (job.status === "failed") {
           stopPolling();
           setGenerating(false);
-          setGenerateMsg({ kind: "error", text: job.error || "Generierung fehlgeschlagen" });
+          setGenerateMsg({ kind: "error", text: job.error || t("msg.generationFailed") });
           await load();
         }
       } catch (e: any) {
         stopPolling();
         setGenerating(false);
-        setGenerateMsg({ kind: "error", text: e?.message || "Polling fehlgeschlagen" });
+        setGenerateMsg({ kind: "error", text: e?.message || t("msg.pollFailed") });
       }
     }, 2000);
-  }, [workspaceUuid, load, stopPolling]);
+  }, [workspaceUuid, load, stopPolling, t]);
 
   // On mount: load entries, then check if a job is already running (from a prior session/tab)
   useEffect(() => {
@@ -197,7 +200,7 @@ export function ScheduleView({
       startPolling(job_id);
     } catch (e: any) {
       setGenerating(false);
-      setGenerateMsg({ kind: "error", text: e?.message || "Fehler beim Start" });
+      setGenerateMsg({ kind: "error", text: e?.message || t("msg.startError") });
     }
   };
 
@@ -214,11 +217,11 @@ export function ScheduleView({
   const canGenerate = hasSources && selectedPending.length > 0 && !generating;
 
   let selectionHint = "";
-  if (!hasSources) selectionHint = "Keine Quellen vorhanden";
-  else if (!hasSelection) selectionHint = "Keine Quelle ausgewählt";
-  else if (selectedPending.length === 0) selectionHint = `${selectedSourceIds.length} ausgewählt · alle bereits verarbeitet`;
-  else if (selectedProcessed.length === 0) selectionHint = `${selectedPending.length} ausgewählt · nicht verarbeitet`;
-  else selectionHint = `${selectedPending.length} neu · ${selectedProcessed.length} bereits verarbeitet`;
+  if (!hasSources) selectionHint = t("selection.noSources");
+  else if (!hasSelection) selectionHint = t("selection.noSelection");
+  else if (selectedPending.length === 0) selectionHint = t("selection.allProcessed", { n: selectedSourceIds.length });
+  else if (selectedProcessed.length === 0) selectionHint = t("selection.pendingOnly", { n: selectedPending.length });
+  else selectionHint = t("selection.mixed", { pending: selectedPending.length, processed: selectedProcessed.length });
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -241,8 +244,8 @@ export function ScheduleView({
             backgroundColor: editMode ? "var(--kb)" : "var(--surface-dim)",
             ...(editMode ? { color: "#fff" } : {}),
           }}
-          aria-label="Bearbeiten"
-          title="Bearbeiten"
+          aria-label={t("edit")}
+          title={t("edit")}
         >
           {editMode ? <CheckCircle size={14} weight="bold" /> : <PencilSimple size={14} weight="bold" />}
         </button>
@@ -257,7 +260,7 @@ export function ScheduleView({
           className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
         >
           {generating ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
-          {generating ? "Termine werden extrahiert..." : "Termine extrahieren"}
+          {generating ? t("extracting") : t("extract")}
         </button>
         {generateMsg && (
           <div
@@ -276,7 +279,7 @@ export function ScheduleView({
               type="button"
               onClick={() => setGenerateMsg(null)}
               className="opacity-60 hover:opacity-100 text-xs leading-none"
-              aria-label="Schließen"
+              aria-label={t("msg.close")}
             >
               ×
             </button>
@@ -293,7 +296,7 @@ export function ScheduleView({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all outline-[var(--kb)] hover:outline-2"
             style={{ color: "var(--kb)", backgroundColor: "var(--surface-dim)" }}
           >
-            <Plus size={12} weight="bold" /> Neuer Eintrag
+            <Plus size={12} weight="bold" /> {t("newEntry")}
           </button>
           <button
             type="button"
@@ -301,7 +304,7 @@ export function ScheduleView({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:outline-2"
             style={{ color: "rgb(185, 28, 28)", outlineColor: "rgb(185, 28, 28)", backgroundColor: "rgba(185,28,28,.08)" }}
           >
-            <Trash size={12} weight="bold" /> Alles löschen
+            <Trash size={12} weight="bold" /> {t("deleteAll")}
           </button>
         </div>
       )}
@@ -309,7 +312,7 @@ export function ScheduleView({
       {/* Content */}
       <div className="px-3 py-2">
         {loading && (
-          <p className="text-sm py-6 text-center" >Lade Zeitplan...</p>
+          <p className="text-sm py-6 text-center" >{t("loading")}</p>
         )}
         {error && (
           <p className="text-sm py-6 text-center" style={{ color: "var(--error-strong)" }}>{error}</p>
@@ -318,7 +321,7 @@ export function ScheduleView({
           <EmptyState
             size="lg"
             icon={<CalendarBlank size={40} weight="bold" />}
-            text="Noch keine Einträge. Wähle Quellen links aus und generiere, oder erstelle manuelle Einträge."
+            text={t("empty")}
           />
         )}
         {!loading && entries.length > 0 && (
@@ -349,16 +352,16 @@ export function ScheduleView({
       {/* Modals */}
       {creatingManual && (
         <ScheduleEntryEditModal
-          title="Neuer Eintrag"
-          submitLabel="Anlegen"
+          title={tModal("newTitle")}
+          submitLabel={tModal("submitCreate")}
           onCancel={() => setCreatingManual(false)}
           onSubmit={handleCreateManual}
         />
       )}
       {editing && (
         <ScheduleEntryEditModal
-          title="Eintrag bearbeiten"
-          submitLabel="Speichern"
+          title={tModal("editTitle")}
+          submitLabel={tModal("submitSave")}
           initial={editing}
           onCancel={() => setEditing(null)}
           onSubmit={handleEditSubmit}
@@ -375,9 +378,9 @@ export function ScheduleView({
             style={{ backgroundColor: "var(--background)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-bold mb-2" style={{ color: "var(--foreground)" }}>Zeitplan komplett löschen?</h3>
+            <h3 className="text-base font-bold mb-2" style={{ color: "var(--foreground)" }}>{t("confirmDeleteAll.title")}</h3>
             <p className="text-sm" >
-              Alle Einträge werden gelöscht und alle Quellen werden wieder generierbar. Diese Aktion kann nicht rückgängig gemacht werden.
+              {t("confirmDeleteAll.body")}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -386,7 +389,7 @@ export function ScheduleView({
                 className="btn-cancel px-4 py-2 rounded-lg text-xs font-semibold"
                 style={{ backgroundColor: "var(--surface-dim)" }}
               >
-                Abbrechen
+                {t("confirmDeleteAll.cancel")}
               </button>
               <button
                 type="button"
@@ -394,7 +397,7 @@ export function ScheduleView({
                 className="px-4 py-2 rounded-lg text-xs font-semibold"
                 style={{ color: "#fff", backgroundColor: "var(--error-strong)" }}
               >
-                Alles löschen
+                {t("confirmDeleteAll.confirm")}
               </button>
             </div>
           </div>

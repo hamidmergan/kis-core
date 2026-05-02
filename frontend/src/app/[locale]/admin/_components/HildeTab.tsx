@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import Hilde, { type HildeState } from "@/components/ui/Hilde";
 
 const STATES: HildeState[] = ["idle", "thinking", "found", "confused", "wave"];
 
-const STATE_LABELS: Record<HildeState, string> = {
-  idle: "Idle",
-  thinking: "Denkt nach",
-  found: "Hat's gefunden",
-  confused: "Verwirrt",
-  wave: "Begrüßt",
+const STATE_KEYS: Record<HildeState, string> = {
+  idle: "stateIdle",
+  thinking: "stateThinking",
+  found: "stateFound",
+  confused: "stateConfused",
+  wave: "stateWave",
 };
 
 function Hero({
@@ -28,6 +29,7 @@ function Hero({
   replayKey: number;
   replay: () => void;
 }) {
+  const t = useTranslations("admin.hilde");
   return (
     <section
       className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-center rounded-2xl border border-border p-6 md:p-12 mb-8"
@@ -39,18 +41,18 @@ function Hero({
 
       <div>
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted mb-2">
-          Spielwiese · Hilde
+          {t("categoryLabel")}
         </div>
         <h1 className="m-0 text-4xl md:text-5xl font-bold text-kb leading-none tracking-tight">
-          Hilde
+          {t("title")}
         </h1>
         <div className="text-base md:text-lg text-muted mt-1.5 font-medium">
-          Belesen, ein bisschen schrullig
+          {t("subtitle")}
         </div>
 
         <div className="mt-7">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted mb-2.5">
-            State
+            {t("stateHeading")}
           </div>
           <div className="flex flex-wrap md:flex-nowrap gap-2">
             {STATES.map((s) => (
@@ -63,7 +65,7 @@ function Hero({
                     : "bg-background text-foreground-soft border-border hover:border-kb"
                 }`}
               >
-                {STATE_LABELS[s]}
+                {t(STATE_KEYS[s])}
               </button>
             ))}
           </div>
@@ -71,7 +73,7 @@ function Hero({
 
         <div className="mt-6">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted mb-2.5">
-            Größe · {size}px
+            {t("sizeHeading", { size })}
           </div>
           <input
             type="range"
@@ -84,9 +86,9 @@ function Hero({
             style={{ accentColor: "var(--kb)" }}
           />
           <div className="flex justify-between mt-1.5 text-[11px] text-muted">
-            <span>32 (Avatar)</span>
-            <span className="hidden sm:inline">120 (Standard)</span>
-            <span>320 (Hero)</span>
+            <span>{t("sizeAvatar")}</span>
+            <span className="hidden sm:inline">{t("sizeStandard")}</span>
+            <span>{t("sizeHero")}</span>
           </div>
         </div>
 
@@ -96,7 +98,7 @@ function Hero({
             className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold"
           >
             <span className="text-[11px]">▶</span>
-            Animationen neu abspielen
+            {t("replay")}
           </button>
         </div>
       </div>
@@ -105,10 +107,11 @@ function Hero({
 }
 
 function StatesGrid() {
+  const t = useTranslations("admin.hilde");
   return (
     <section className="mb-8">
       <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted mb-3.5">
-        Alle Stimmungen nebeneinander
+        {t("allMoodsHeading")}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         {STATES.map((s) => (
@@ -118,7 +121,7 @@ function StatesGrid() {
           >
             <Hilde size={120} state={s} />
             <div className="text-[11px] font-semibold text-foreground-soft tracking-[0.1em] text-center">
-              {STATE_LABELS[s].replace(/ß/g, "ẞ").toUpperCase()}
+              {t(STATE_KEYS[s]).replace(/ß/g, "ẞ").toUpperCase()}
             </div>
           </div>
         ))}
@@ -128,12 +131,21 @@ function StatesGrid() {
 }
 
 function ChatMockup() {
+  const t = useTranslations("admin.hilde");
   const [bubbleState, setBubbleState] = useState<HildeState>("thinking");
+
+  const bubbleTextKey: Record<HildeState, string> = {
+    thinking: "chatThinking",
+    found: "chatFound",
+    idle: "chatIdle",
+    confused: "chatConfused",
+    wave: "chatWave",
+  };
 
   return (
     <section className="mb-8">
       <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted mb-3.5">
-        Im Chat-Kontext (so würde sie im KI-Assistenten erscheinen)
+        {t("chatHeading")}
       </div>
 
       <div className="bg-background rounded-xl border border-border p-4 sm:p-6 flex flex-col gap-4">
@@ -142,7 +154,7 @@ function ChatMockup() {
             className="bg-kb text-white px-3.5 py-2.5 rounded-[20px] text-sm leading-relaxed max-w-[85%] sm:max-w-[70%]"
             style={{ borderBottomRightRadius: 6 }}
           >
-            Kannst du mir die Kapitel 3 und 4 aus dem Skript zusammenfassen?
+            {t("chatUserMessage")}
           </div>
         </div>
 
@@ -154,18 +166,12 @@ function ChatMockup() {
             className="bg-surface text-foreground-soft px-3.5 py-2.5 rounded-[20px] text-sm leading-relaxed max-w-[85%] sm:max-w-[70%] border border-border"
             style={{ borderBottomLeftRadius: 6 }}
           >
-            {bubbleState === "thinking" && "Einen Moment, ich gehe das Skript durch…"}
-            {bubbleState === "found" &&
-              "Klar! Hier die Kernpunkte aus Kapitel 3 und 4: Markov-Ketten beschreiben Übergänge zwischen Zuständen, wobei die Wahrscheinlichkeit nur vom aktuellen Zustand abhängt…"}
-            {bubbleState === "idle" && "Bereit. Was möchtest du wissen?"}
-            {bubbleState === "confused" &&
-              "Hm, das Kapitel finde ich im Skript nicht eindeutig. Meintest du Kapitel 3 oder die Übungsaufgaben dazu?"}
-            {bubbleState === "wave" && "Hallo! Schön, dass du da bist. Womit kann ich helfen?"}
+            {t(bubbleTextKey[bubbleState])}
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2 pt-3 border-t border-border items-center">
-          <span className="text-[11px] text-muted mr-1">Bubble-State:</span>
+          <span className="text-[11px] text-muted mr-1">{t("bubbleStateLabel")}</span>
           {STATES.map((s) => (
             <button
               key={s}
@@ -176,7 +182,7 @@ function ChatMockup() {
                   : "bg-background text-muted border-border hover:border-kb"
               }`}
             >
-              {STATE_LABELS[s]}
+              {t(STATE_KEYS[s])}
             </button>
           ))}
         </div>
@@ -186,11 +192,12 @@ function ChatMockup() {
 }
 
 function SizesRow() {
+  const t = useTranslations("admin.hilde");
   const sizes = [24, 32, 48, 64, 96, 140];
   return (
     <section className="mb-8">
       <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted mb-3.5">
-        Größen-Test (Idle)
+        {t("sizesHeading")}
       </div>
       <div className="flex gap-4 sm:gap-6 items-end justify-center flex-wrap p-4 sm:p-6 bg-surface rounded-xl border border-border">
         {sizes.map((sz) => (

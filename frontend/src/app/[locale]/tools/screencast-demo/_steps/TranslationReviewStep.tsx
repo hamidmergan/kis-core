@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { SlideData } from "@/types";
 
 
@@ -13,28 +16,26 @@ interface TranslationReviewStepProps {
 export function TranslationReviewStep({
   slides, loading, lightboxIndex, onLightboxOpen, onAcceptAndNext,
 }: TranslationReviewStepProps) {
+  const t = useTranslations("tools.screencast");
+  const tDemo = useTranslations("tools.screencastDemo");
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-1">Übersetzung prüfen</h2>
-      <p className="text-sm text-muted mb-4">
-        Die Präsentation wurde übersetzt. Sie können die übersetzte
-        PPTX herunterladen, prüfen und optional eine korrigierte
-        Version hochladen.
-      </p>
+      <h2 className="text-lg font-bold mb-1">{t("translationReview.heading")}</h2>
+      <p className="text-sm text-muted mb-4">{t("translationReview.intro")}</p>
 
       <div className="flex flex-wrap justify-center gap-2 mb-6">
         {slides.map((slide, i) => (
           <button key={i} onClick={() => onLightboxOpen(i)} style={{ width: "100px" }}
             className="relative rounded-lg overflow-hidden border border-border-soft hover:border-kb transition-colors focus-visible:outline-2 focus-visible:outline-kb group flex-shrink-0"
-            aria-label={`Folie ${i + 1} vergrößern`}
+            aria-label={t("common.slideZoomAria", { n: i + 1 })}
           >
             {slide.imageBase64 ? (
-              <img src={`data:image/png;base64,${slide.imageBase64}`} alt={`Folie ${i + 1}`} className="w-full object-cover" />
+              <img src={`data:image/png;base64,${slide.imageBase64}`} alt={t("common.slide", { n: i + 1 })} className="w-full object-cover" />
             ) : (
-              <div className="aspect-video bg-surface flex items-center justify-center text-xs text-muted-soft">Wird geladen...</div>
+              <div className="aspect-video bg-surface flex items-center justify-center text-xs text-muted-soft">{t("common.loadingImage")}</div>
             )}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-              <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-foreground-soft px-2 py-1 rounded transition-opacity">Folie {i + 1}</span>
+              <span className="opacity-0 group-hover:opacity-100 bg-white/90 text-xs font-medium text-foreground-soft px-2 py-1 rounded transition-opacity">{t("common.slide", { n: i + 1 })}</span>
             </div>
           </button>
         ))}
@@ -42,21 +43,21 @@ export function TranslationReviewStep({
 
       {lightboxIndex !== null && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-          onClick={() => onLightboxOpen(null)} role="dialog" aria-modal="true" aria-label={`Folie ${lightboxIndex + 1}`}
+          onClick={() => onLightboxOpen(null)} role="dialog" aria-modal="true" aria-label={t("common.slide", { n: lightboxIndex + 1 })}
         >
           <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => onLightboxOpen(null)} className="absolute -top-10 right-0 text-white hover:text-border transition-colors" aria-label="Schließen">
+            <button onClick={() => onLightboxOpen(null)} className="absolute -top-10 right-0 text-white hover:text-border transition-colors" aria-label={t("common.close")}>
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <p className="text-white text-sm text-center mb-2">Folie {lightboxIndex + 1} von {slides.length}</p>
-            <img src={`data:image/png;base64,${slides[lightboxIndex].imageBase64}`} alt={`Folie ${lightboxIndex + 1}`} className="w-full rounded-lg shadow-2xl" />
+            <p className="text-white text-sm text-center mb-2">{t("common.slideXofY", { n: lightboxIndex + 1, total: slides.length })}</p>
+            <img src={`data:image/png;base64,${slides[lightboxIndex].imageBase64}`} alt={t("common.slide", { n: lightboxIndex + 1 })} className="w-full rounded-lg shadow-2xl" />
             <div className="flex justify-center gap-4 mt-4">
               <button onClick={() => onLightboxOpen(Math.max(0, lightboxIndex - 1))} disabled={lightboxIndex === 0}
-                className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30">← Zurück</button>
+                className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30">{t("lightbox.prev")}</button>
               <button onClick={() => onLightboxOpen(Math.min(slides.length - 1, lightboxIndex + 1))} disabled={lightboxIndex === slides.length - 1}
-                className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30">Weiter →</button>
+                className="px-4 py-2 text-sm text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30">{t("lightbox.next")}</button>
             </div>
           </div>
         </div>
@@ -64,20 +65,20 @@ export function TranslationReviewStep({
 
       {/* Actions (Demo: decorative only) */}
       <div className="flex flex-col gap-3 mb-4">
-        <button type="button" disabled title="Nicht in der Demo verfügbar"
+        <button type="button" disabled title={tDemo("notAvailableInDemo")}
           className="w-full px-4 py-2 text-sm text-kb border border-kb rounded-md hover:bg-kb/5 transition-colors flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
         >
           <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          PPTX
+          {t("translationReview.downloadPptx")}
         </button>
 
         <div className="relative">
-          <div title="Nicht in der Demo verfügbar"
+          <div title={tDemo("notAvailableInDemo")}
             className="block w-full px-4 py-2 text-sm text-foreground-soft border border-border rounded-md text-center cursor-not-allowed opacity-60"
           >
-            Korrigierte PPTX hochladen (optional)
+            {t("translationReview.uploadCorrected")}
           </div>
         </div>
       </div>
@@ -86,7 +87,7 @@ export function TranslationReviewStep({
         <button onClick={onAcceptAndNext} disabled={loading}
           className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          Übersetzung übernehmen und weiter
+          {t("translationReview.acceptAndNext")}
         </button>
       </div>
     </section>

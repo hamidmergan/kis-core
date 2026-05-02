@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Stack } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
@@ -8,12 +9,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatDuration } from "@/lib/format";
 import { JobStatusBadge, type AdminJob } from "../_shared";
 
-const PAGE_SIZE_OPTIONS = [
-  { value: "50", label: "50 pro Seite" },
-  { value: "100", label: "100 pro Seite" },
-] as const;
-
 export default function JobsTab() {
+  const t = useTranslations("admin");
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -25,13 +22,21 @@ export default function JobsTab() {
   const [dateTo, setDateTo] = useState("");
   const [cancelling, setCancelling] = useState<string | null>(null);
 
+  const pageSizeOptions = useMemo(
+    () => [
+      { value: "50", label: t("jobs.pageSize", { n: 50 }) },
+      { value: "100", label: t("jobs.pageSize", { n: 100 }) },
+    ],
+    [t],
+  );
+
   const handleCancel = async (jobUuid: string) => {
-    if (!confirm("Job abbrechen und löschen?")) return;
+    if (!confirm(t("jobs.cancelConfirm"))) return;
     setCancelling(jobUuid);
     try {
       await fetch(`/api/admin/jobs/${jobUuid}`, { method: "DELETE", credentials: "include" });
       setJobs((prev) => prev.filter((j) => j.job_uuid !== jobUuid));
-      setTotal((t) => t - 1);
+      setTotal((n) => n - 1);
       window.dispatchEvent(new Event("kis-jobs-changed"));
     } finally {
       setCancelling(null);
@@ -39,8 +44,8 @@ export default function JobsTab() {
   };
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(q), 350);
-    return () => clearTimeout(t);
+    const id = setTimeout(() => setDebouncedQ(q), 350);
+    return () => clearTimeout(id);
   }, [q]);
 
   useEffect(() => {
@@ -75,31 +80,31 @@ export default function JobsTab() {
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Suche: User, Tool, Datei..."
+          placeholder={t("jobs.searchPlaceholder")}
           className="flex-1 min-w-[200px] text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <input
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
-          title="Von"
+          title={t("jobs.from")}
           className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
-          title="Bis"
+          title={t("jobs.to")}
           className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <Select
           value={String(limit)}
           onChange={(v) => setLimit(Number(v))}
-          options={PAGE_SIZE_OPTIONS}
+          options={pageSizeOptions}
           className="w-40"
         />
         <span className="text-xs text-muted-soft whitespace-nowrap">
-          {total} Ergebnis{total !== 1 ? "se" : ""}
+          {t("jobs.results", { count: total })}
         </span>
       </div>
 
@@ -109,19 +114,19 @@ export default function JobsTab() {
         <EmptyState
           size="lg"
           icon={<Stack size={32} weight="bold" />}
-          text="Keine Jobs gefunden"
+          text={t("jobs.empty")}
         />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
             <thead className="bg-surface text-xs text-muted uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">User</th>
-                <th className="px-4 py-3 text-left">Tool</th>
-                <th className="px-4 py-3 text-left">Datei</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-right">Renderzeit</th>
-                <th className="px-4 py-3 text-left">Erstellt</th>
+                <th className="px-4 py-3 text-left">{t("jobs.colUser")}</th>
+                <th className="px-4 py-3 text-left">{t("jobs.colTool")}</th>
+                <th className="px-4 py-3 text-left">{t("jobs.colFile")}</th>
+                <th className="px-4 py-3 text-left">{t("jobs.colStatus")}</th>
+                <th className="px-4 py-3 text-right">{t("jobs.colRenderTime")}</th>
+                <th className="px-4 py-3 text-left">{t("jobs.colCreated")}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -153,7 +158,7 @@ export default function JobsTab() {
                           disabled={cancelling === j.job_uuid}
                           className="text-xs text-error hover:underline disabled:opacity-40"
                         >
-                          {cancelling === j.job_uuid ? "..." : "Abbrechen"}
+                          {cancelling === j.job_uuid ? "..." : t("jobs.cancel")}
                         </button>
                       )}
                     </td>

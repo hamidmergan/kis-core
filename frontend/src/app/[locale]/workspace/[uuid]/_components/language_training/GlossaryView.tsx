@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Book, CaretDown, CaretUp, DotsThreeVertical, FilePdf, Files, Sparkle, Trash } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import HelpTooltip from "@/components/ui/HelpTooltip";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -8,6 +9,7 @@ import { _chunkLabel, _getChipIcon } from "../../_utils";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
 export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
+  const t = useTranslations("workspace.detail.languageTraining.glossary");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -34,7 +36,7 @@ export function GlossaryMenu({ onDeleteAll }: { onDeleteAll?: () => void }) {
             onClick={() => { setOpen(false); onDeleteAll?.(); }}
             className="w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-dim)] transition-colors"
             style={{ color: "var(--error-strong)" }}>
-            Alle Begriffe löschen
+            {t("deleteAll")}
           </button>
         </div>
       )}
@@ -57,11 +59,12 @@ export function GlossaryView({
   feedback?: { kind: "success" | "info" | "error"; message: string } | null;
   onDismissFeedback?: () => void;
 }) {
+  const t = useTranslations("workspace.detail.languageTraining");
   const noSources = sourceCount === 0;
   const [expandedId, setExpandedId] = useState<number | null>(null);
   return (
     <div className="flex flex-col h-full">
-      {onBack && <SubviewHeader title="Glossar" toolKey="Glossary" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
+      {onBack && <SubviewHeader title={t("glossary.title")} toolKey="Glossary" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
         <div className="rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2"
           style={{
@@ -69,12 +72,12 @@ export function GlossaryView({
           }}>
           <Files size={13} weight="bold" />
           {noSources
-            ? "Keine Quelle ausgewählt"
+            ? t("sourceStatus.none")
             : sourceCount === 1
-              ? "1 Quelle ausgewählt"
+              ? t("sourceStatus.one")
               : sourceCount <= 5
-                ? `${sourceCount} Quellen ausgewählt`
-                : `${sourceCount} Quellen vorhanden, es werden maximal 5 berücksichtigt`}
+                ? t("sourceStatus.few", { count: sourceCount })
+                : t("sourceStatus.many", { count: sourceCount })}
         </div>
         <div className="relative w-full px-1 flex items-center justify-center gap-1.5">
           <button
@@ -84,9 +87,9 @@ export function GlossaryView({
             className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
           >
             {loading ? <Spinner size="xs" color="current" /> : <Sparkle size={12} weight="bold" />}
-            {loading ? "Begriffe werden extrahiert…" : `Begriffe extrahieren (${entries.length}/150)`}
+            {loading ? t("glossary.extracting") : t("glossary.extractButton", { current: entries.length, max: 150 })}
           </button>
-          <HelpTooltip text="Extrahiert Fachbegriffe aus den ausgewählten Quellen." />
+          <HelpTooltip text={t("glossary.extractTooltip")} />
           {entries.length > 0 && (
             <div className="absolute right-1 flex items-center">
               <GlossaryMenu onDeleteAll={onDeleteAll} />
@@ -99,7 +102,7 @@ export function GlossaryView({
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
               style={{ backgroundColor: "rgba(var(--kb-rgb),0.06)", color: "var(--kb)" }}>
               <Spinner size="xs" color="current" />
-              Begriffe werden aus Markierung extrahiert…
+              {t("glossary.extractingMarkup")}
             </div>
           )}
           {!extracting && feedback && (
@@ -110,7 +113,7 @@ export function GlossaryView({
               }}>
               <span className="flex-1">{feedback.message}</span>
               {onDismissFeedback && (
-                <button type="button" onClick={onDismissFeedback} className="opacity-60 hover:opacity-100 text-xs leading-none" aria-label="Schließen">×</button>
+                <button type="button" onClick={onDismissFeedback} className="opacity-60 hover:opacity-100 text-xs leading-none" aria-label={t("common.close")}>×</button>
               )}
             </div>
           )}
@@ -118,7 +121,7 @@ export function GlossaryView({
             <EmptyState
               size="sm"
               icon={<Book size={32} weight="bold" />}
-              text={'Noch kein Glossar generiert. Klicke oben auf „Begriffe extrahieren", um Fachbegriffe aus deinen Quellen zu extrahieren.'}
+              text={t("glossary.emptyTitle")}
             />
           )}
         </div>
@@ -161,7 +164,7 @@ export function GlossaryView({
                           className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 chip-cite cursor-pointer"
                           style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
                         >
-                          <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time) : `S. ${entry.page_number}`}
+                          <ChipIcon size={8} weight="bold" /> {entry.filename ? _chunkLabel(entry.filename, entry.page_number!, entry.start_time) : t("glossary.pageShort", { page: entry.page_number })}
                         </span>
                       )}
                       {isExpanded
@@ -173,14 +176,14 @@ export function GlossaryView({
                       <div className="px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
                         {showTranslation && entry.example_sentence && (
                           <div className="mb-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>Kontext</span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.context")}</span>
                             <p className="text-sm italic leading-relaxed mt-0.5" >
                               „{entry.example_sentence}"
                             </p>
                           </div>
                         )}
                         <div>
-                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>Erklärung (B1)</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanationB1")}</span>
                           <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)", opacity: 0.8 }}>
                             {entry.definition}
                           </p>
@@ -207,4 +210,3 @@ export function GlossaryView({
     </div>
   );
 }
-

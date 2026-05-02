@@ -1,6 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
+import { useTranslations } from "next-intl";
 
 interface UserPromptStepProps {
   scriptInputMode: "generate" | "manual" | "import";
@@ -29,9 +30,11 @@ export default function UserPromptStep({
   onJsonImport,
   onNext,
 }: UserPromptStepProps) {
+  const t = useTranslations("tools.screencast");
+
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
-      <h2 className="text-lg font-bold mb-1">Wie sollen die Skripte erstellt werden?</h2>
+      <h2 className="text-lg font-bold mb-1">{t("userPrompt.heading")}</h2>
 
       <div className="mt-3 space-y-2">
         <label
@@ -49,8 +52,8 @@ export default function UserPromptStep({
             className="mt-0.5 accent-kb"
           />
           <div>
-            <span className="text-sm font-medium text-foreground">KI-Generierung</span>
-            <p className="text-xs text-muted mt-0.5">KI erstellt Skripte automatisch basierend auf den Folieninhalten.</p>
+            <span className="text-sm font-medium text-foreground">{t("userPrompt.generate")}</span>
+            <p className="text-xs text-muted mt-0.5">{t("userPrompt.generateDesc")}</p>
           </div>
         </label>
 
@@ -69,8 +72,8 @@ export default function UserPromptStep({
             className="mt-0.5 accent-kb"
           />
           <div>
-            <span className="text-sm font-medium text-foreground">Manuell eingeben</span>
-            <p className="text-xs text-muted mt-0.5">Alle Textfelder bleiben leer – Sie tippen die Skripte selbst ein.</p>
+            <span className="text-sm font-medium text-foreground">{t("userPrompt.manual")}</span>
+            <p className="text-xs text-muted mt-0.5">{t("userPrompt.manualDesc")}</p>
           </div>
         </label>
 
@@ -86,8 +89,8 @@ export default function UserPromptStep({
             className="mt-0.5 accent-kb"
           />
           <div className="flex-1 min-w-0">
-            <span className="text-sm font-medium text-foreground">Skript importieren</span>
-            <p className="text-xs text-muted mt-0.5">JSON-Datei hochladen – Array von Strings, ein Eintrag pro Folie.</p>
+            <span className="text-sm font-medium text-foreground">{t("userPrompt.import")}</span>
+            <p className="text-xs text-muted mt-0.5">{t("userPrompt.importDesc")}</p>
             {scriptInputMode === "import" && (
               <div className="mt-2">
                 <div
@@ -129,9 +132,9 @@ export default function UserPromptStep({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                       <p className="text-xs font-medium text-success-strong">
-                        {importedScripts.length} Skript{importedScripts.length !== 1 ? "e" : ""} geladen
+                        {t("userPrompt.scriptsLoaded", { n: importedScripts.length })}
                       </p>
-                      <p className="text-xs text-muted-soft mt-0.5">Klicken oder ziehen zum Ersetzen</p>
+                      <p className="text-xs text-muted-soft mt-0.5">{t("userPrompt.replaceHint")}</p>
                     </>
                   ) : (
                     <>
@@ -144,7 +147,8 @@ export default function UserPromptStep({
                         />
                       </svg>
                       <p className="text-xs text-foreground-soft">
-                        JSON-Datei hierher ziehen oder <span className="text-kb font-medium">auswählen</span>
+                        {t("userPrompt.jsonDropPrefix")}
+                        <span className="text-kb font-medium">{t("userPrompt.jsonDropBrowse")}</span>
                       </p>
                     </>
                   )}
@@ -174,7 +178,7 @@ export default function UserPromptStep({
           disabled={loading}
           className="flex-1 px-4 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          Weiter
+          {t("common.next")}
         </button>
       </div>
     </section>

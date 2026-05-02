@@ -1,6 +1,8 @@
 "use client";
 
 import type { DragEvent, RefObject } from "react";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import GlossarySelector from "@/components/glossary/GlossarySelector";
 import Select from "@/components/ui/Select";
 
@@ -49,35 +51,35 @@ export default function UploadStep(props: UploadStepProps) {
     onUploadNext,
   } = props;
 
+  const t = useTranslations("tools.screencast");
+
   return (
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <div className="flex items-baseline justify-between mb-1">
-        <h1 className="text-xl font-bold">Screencast</h1>
+        <h1 className="text-xl font-bold">{t("title")}</h1>
         {showDemoLink && (
-          <a
+          <Link
             href="/tools/screencast-demo"
             className="text-xs font-semibold px-3.5 py-1.5 rounded border-2 border-transparent hover:border-black transition-colors"
             style={{ backgroundColor: "rgb(245, 158, 11)", color: "rgb(0, 0, 0)" }}
           >
-            Demo ansehen →
-          </a>
+            {t("demoBadge")}
+          </Link>
         )}
       </div>
-      <p className="text-sm text-muted mb-6">
-        Aus PowerPoint-Folien ein vertontes Video erzeugen, wahlweise in einer anderen Sprache.
-      </p>
+      <p className="text-sm text-muted mb-6">{t("intro")}</p>
 
       {hasActiveJob === true && (
         <div className="mb-6 rounded-lg border border-error-border bg-error-bg px-4 py-4">
           <p className="text-sm font-semibold text-error-strong">
-            Sie haben bereits 5 Jobs in der Warteschlange, kein weiterer ist möglich.
+            {t("upload.activeJobsTitle")}
           </p>
           <p className="mt-1 text-sm text-error-strong">
-            Warten Sie bis ein Job abgeschlossen ist oder löschen Sie einen in der{" "}
-            <a href="/my-jobs" className="underline hover:text-error-strong font-medium">
-              Jobliste
-            </a>
-            .
+            {t("upload.activeJobsBodyPrefix")}
+            <Link href="/my-jobs" className="underline hover:text-error-strong font-medium">
+              {t("upload.activeJobsBodyLink")}
+            </Link>
+            {t("upload.activeJobsBodySuffix")}
           </p>
         </div>
       )}
@@ -119,7 +121,7 @@ export default function UploadStep(props: UploadStepProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <p className="text-sm font-medium text-foreground">{file.name}</p>
-            <p className="text-xs text-muted-soft mt-1">Klicken oder ziehen Sie eine andere Datei hierher</p>
+            <p className="text-xs text-muted-soft mt-1">{t("upload.replaceHint")}</p>
           </>
         ) : (
           <>
@@ -132,9 +134,10 @@ export default function UploadStep(props: UploadStepProps) {
               />
             </svg>
             <p className="text-sm text-foreground-soft">
-              Datei hierher ziehen oder <span className="text-kb font-medium">durchsuchen</span>
+              {t("upload.dropPrefix")}
+              <span className="text-kb font-medium">{t("upload.dropBrowse")}</span>
             </p>
-            <p className="text-xs text-muted-soft mt-1">Nur .pptx-Datei</p>
+            <p className="text-xs text-muted-soft mt-1">{t("upload.onlyPptx")}</p>
           </>
         )}
       </div>
@@ -150,7 +153,7 @@ export default function UploadStep(props: UploadStepProps) {
           className="mt-0.5 h-4 w-4 rounded border-border text-kb focus:ring-kb"
         />
         <span className="text-sm font-medium text-foreground-soft">
-          Präsentation bereits übersetzt (Übersetzung überspringen)
+          {t("upload.skipTranslation")}
         </span>
       </label>
 
@@ -159,7 +162,7 @@ export default function UploadStep(props: UploadStepProps) {
           {languages.length > 0 && (
             <div className="flex gap-3 mb-4">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-muted mb-1">Quellsprache</label>
+                <label className="block text-xs font-medium text-muted mb-1">{t("upload.sourceLang")}</label>
                 <Select
                   value={sourceLang}
                   onChange={onSourceLangChange}
@@ -168,7 +171,7 @@ export default function UploadStep(props: UploadStepProps) {
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-muted mb-1">Zielsprache</label>
+                <label className="block text-xs font-medium text-muted mb-1">{t("upload.targetLang")}</label>
                 <Select
                   value={targetLang}
                   onChange={onTargetLangChange}
@@ -195,7 +198,7 @@ export default function UploadStep(props: UploadStepProps) {
           disabled={!file || !!hasActiveJob}
           className="flex-1 px-4 py-3 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Weiter
+          {t("common.next")}
         </button>
       </div>
     </section>

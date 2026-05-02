@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { PaperPlaneRight, Stop, X } from "@phosphor-icons/react";
 
 
@@ -15,6 +16,7 @@ interface ChatInputBarProps {
 export function ChatInputBar({
   loading, activeSourceIds, onSend, onStop, externalTextareaRef, registerSetInput,
 }: ChatInputBarProps) {
+  const t = useTranslations("workspace.detail.chat");
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaCallbackRef = useCallback((el: HTMLTextAreaElement | null) => {
@@ -49,7 +51,7 @@ export function ChatInputBar({
       <div className="mx-auto w-full" style={{ maxWidth: 720 }}>
         <div className="flex justify-end px-1 mb-1">
           <span className="text-xs leading-none" style={{ color: "var(--muted)" }}>
-            {activeSourceIds.length} {activeSourceIds.length === 1 ? "Quelle" : "Quellen"} aktiv
+            {t("sourcesActive", { n: activeSourceIds.length })}
           </span>
         </div>
         <div
@@ -63,7 +65,7 @@ export function ChatInputBar({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!loading) submit(); }
             }}
-            placeholder="Text eingeben…"
+            placeholder={t("inputPlaceholder")}
             rows={1}
             className="flex-1 text-base resize-none focus:outline-none disabled:opacity-50 bg-transparent"
             style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}
@@ -74,7 +76,7 @@ export function ChatInputBar({
               onClick={() => { setInput(""); textareaRef.current?.focus(); }}
               className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full btn-icon"
               
-              title="Eingabe löschen"
+              title={t("clearInput")}
             >
               <X size={14} weight="bold" />
             </button>
@@ -84,7 +86,7 @@ export function ChatInputBar({
               type="button"
               onClick={onStop}
               className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition-colors"
-              title="Stoppen"
+              title={t("stop")}
             >
               <Stop size={16} weight="bold" />
             </button>
@@ -94,7 +96,7 @@ export function ChatInputBar({
               onClick={submit}
               disabled={loading || !input.trim() || activeSourceIds.length === 0}
               className="btn-fill-accent flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl disabled:opacity-40 transition-colors"
-              title="Senden"
+              title={t("send")}
             >
               <PaperPlaneRight size={16} weight="bold" />
             </button>

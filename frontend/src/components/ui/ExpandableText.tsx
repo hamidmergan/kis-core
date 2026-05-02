@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
+import { useTranslations } from "next-intl";
 
 interface ExpandableTextProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ export default function ExpandableText({
   clampClass = "",
   style,
 }: ExpandableTextProps) {
+  const t = useTranslations("common");
   const [expanded, setExpanded] = useState(false);
   const [isClamped, setIsClamped] = useState(false);
   const ref = useRef<HTMLParagraphElement>(null);
@@ -40,8 +42,8 @@ export default function ExpandableText({
       title={
         isClamped || expanded
           ? expanded
-            ? "Klicken zum Einklappen"
-            : "Klicken zum Aufklappen"
+            ? t("collapseClick")
+            : t("expandClick")
           : undefined
       }
     >

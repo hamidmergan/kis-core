@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   BookOpenText,
   Cards,
@@ -9,7 +10,6 @@ import {
   TextAa,
   TreeStructure,
 } from "@phosphor-icons/react";
-import { TOOL_LABELS } from "../../_constants";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 interface RecentActivity {
@@ -43,6 +43,10 @@ const ACTIVITY_TOOL_COLORS: Record<string, string> = {
 };
 
 export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }: { workspaceUuid: string; onNavigateToSet?: (setId: number, tool: string, mode: string) => void; refreshKey?: number }) {
+  const t = useTranslations("workspace.detail.studio.recent");
+  const tTools = useTranslations("workspace.detail.langTools");
+  const toolLabel = (tool: string) => tTools.has(tool) ? tTools(tool) : tool;
+  const locale = useLocale();
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -61,14 +65,14 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "gerade eben";
-    if (diffMin < 60) return `vor ${diffMin} Min.`;
+    if (diffMin < 1) return t("justNow");
+    if (diffMin < 60) return t("minutesAgo", { n: diffMin });
     const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24) return `vor ${diffH} Std.`;
+    if (diffH < 24) return t("hoursAgo", { n: diffH });
     const diffD = Math.floor(diffH / 24);
-    if (diffD === 1) return "gestern";
-    if (diffD < 7) return `vor ${diffD} Tagen`;
-    return d.toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+    if (diffD === 1) return t("yesterday");
+    if (diffD < 7) return t("daysAgo", { n: diffD });
+    return d.toLocaleDateString(locale === "en" ? "en-US" : "de-DE", { day: "numeric", month: "short" });
   };
 
   if (activities.length === 0) {
@@ -76,7 +80,7 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
       <EmptyState
         className="pt-16"
         icon={<ClockCounterClockwise size={32} weight="bold" />}
-        text="Noch keine Aktivitäten."
+        text={t("empty")}
       />
     );
   }
@@ -84,7 +88,7 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
   return (
     <div className="px-3 pb-3">
       <span className="text-xs font-semibold uppercase tracking-wider my-2 block" style={{ color: "var(--muted)" }}>
-        Letzte Aktivitäten
+        {t("heading")}
       </span>
       <div className="flex flex-col gap-1">
         {activities.map((a) => {
@@ -107,7 +111,7 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
                   {displayTitle}
                 </div>
                 <div className="text-xs" style={{ color: "var(--muted)" }}>
-                  {TOOL_LABELS[a.tool] ?? a.tool} · {a.last_answer ? formatTime(a.last_answer) : ""}
+                  {toolLabel(a.tool)} · {a.last_answer ? formatTime(a.last_answer) : ""}
                 </div>
               </div>
             </button>

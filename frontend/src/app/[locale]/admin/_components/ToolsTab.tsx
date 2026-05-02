@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 
 interface ToolEntry {
@@ -10,6 +11,7 @@ interface ToolEntry {
 }
 
 export default function ToolsTab() {
+  const t = useTranslations("admin");
   const [tools, setTools] = useState<ToolEntry[] | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -21,7 +23,7 @@ export default function ToolsTab() {
 
   const toggle = async (key: string, enabled: boolean) => {
     setSaving(key);
-    setTools((prev) => prev?.map((t) => (t.key === key ? { ...t, enabled } : t)) ?? null);
+    setTools((prev) => prev?.map((tool) => (tool.key === key ? { ...tool, enabled } : tool)) ?? null);
     try {
       await fetch(`/api/admin/tools/${key}`, {
         method: "PATCH",
@@ -38,8 +40,8 @@ export default function ToolsTab() {
 
   return (
     <div className="border border-border-soft rounded-xl bg-background p-5">
-      <p className="text-sm font-medium text-foreground mb-1">Tools ein-/ausschalten</p>
-      <p className="text-xs text-muted mb-4">Deaktivierte Tools werden auf der Startseite ausgeblendet.</p>
+      <p className="text-sm font-medium text-foreground mb-1">{t("tools.title")}</p>
+      <p className="text-xs text-muted mb-4">{t("tools.subtitle")}</p>
       <div className="space-y-3">
         {tools.map((tool) => (
           <div key={tool.key} className="flex items-center justify-between">
@@ -50,7 +52,10 @@ export default function ToolsTab() {
               className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
                 tool.enabled ? "bg-kb" : "bg-border"
               } disabled:opacity-50`}
-              aria-label={`${tool.label} ${tool.enabled ? "deaktivieren" : "aktivieren"}`}
+              aria-label={t("tools.toggleAria", {
+                label: tool.label,
+                action: tool.enabled ? t("tools.actionDisable") : t("tools.actionEnable"),
+              })}
             >
               <span
                 className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${

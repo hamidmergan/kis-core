@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Files } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -11,6 +12,7 @@ import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
 export default function LecturerView() {
+  const t = useTranslations("workspace.list");
   const labels = useWorkspaceLabel();
   const [workspaces, setModules] = useState<KiTutorWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,18 +95,18 @@ export default function LecturerView() {
 
       <div className="px-4 sm:px-6 md:px-8 pt-6 pb-20 lg:pt-15 lg:pb-30">
         <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-bold mb-10 lg:mb-16">KI-Internationalisierung von Studiengängen</h1>
+          <h1 className="text-3xl font-bold mb-10 lg:mb-16">{t("headerTitle")}</h1>
 
           <div className="mb-12">
             <UpcomingDeadlinesWidget />
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg md:text-xl font-semibold">Meine {labels.plural}</h2>
+            <h2 className="text-lg md:text-xl font-semibold">{t("myWorkspaces", { label: labels.plural })}</h2>
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              aria-label={`${labels.singular} erstellen`}
+              aria-label={t("createAria", { label: labels.singular })}
               className="whitespace-nowrap rounded-lg text-sm font-medium btn-primary w-9 h-9 flex items-center justify-center text-lg md:w-auto md:h-auto md:px-4 md:py-2 md:text-sm"
             >
               <span className="md:hidden">+</span>
@@ -120,8 +122,8 @@ export default function LecturerView() {
             <EmptyState
               size="lg"
               icon={<Files size={40} weight="bold" />}
-              title={`Noch keine ${labels.plural} vorhanden.`}
-              text="Mit dem Button oben anlegen."
+              title={t("emptyTitle", { label: labels.plural })}
+              text={t("emptyText")}
             />
           ) : (
             <div className="mt-3 md:mt-10">

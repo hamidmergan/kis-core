@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Users } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
@@ -8,12 +9,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 import type { AdminUser } from "../_shared";
 
-const PAGE_SIZE_OPTIONS = [
-  { value: "50", label: "50 pro Seite" },
-  { value: "100", label: "100 pro Seite" },
-] as const;
-
 export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
+  const t = useTranslations("admin");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -24,9 +21,17 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
+  const pageSizeOptions = useMemo(
+    () => [
+      { value: "50", label: t("users.pageSize", { n: 50 }) },
+      { value: "100", label: t("users.pageSize", { n: 100 }) },
+    ],
+    [t],
+  );
+
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(q), 350);
-    return () => clearTimeout(t);
+    const id = setTimeout(() => setDebouncedQ(q), 350);
+    return () => clearTimeout(id);
   }, [q]);
 
   useEffect(() => {
@@ -61,30 +66,30 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Suche: Name, Username, Email..."
+          placeholder={t("users.searchPlaceholder")}
           className="flex-1 min-w-[200px] text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <input
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
-          title="Von"
+          title={t("users.from")}
           className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
-          title="Bis"
+          title={t("users.to")}
           className="text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb"
         />
         <Select
           value={String(limit)}
           onChange={(v) => setLimit(Number(v))}
-          options={PAGE_SIZE_OPTIONS}
+          options={pageSizeOptions}
           className="w-40"
         />
-        <span className="text-xs text-muted-soft whitespace-nowrap">{total} User</span>
+        <span className="text-xs text-muted-soft whitespace-nowrap">{t("users.totalUsers", { n: total })}</span>
       </div>
 
       {loading ? (
@@ -93,18 +98,18 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
         <EmptyState
           size="lg"
           icon={<Users size={32} weight="bold" />}
-          text="Keine User gefunden"
+          text={t("users.empty")}
         />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border-soft rounded-xl overflow-hidden">
             <thead className="bg-surface text-xs text-muted uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Name</th>
-                <th className="px-4 py-3 text-left">Email</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Erstellt</th>
-                <th className="px-4 py-3 text-left">Kontingente</th>
+                <th className="px-4 py-3 text-left">{t("users.colName")}</th>
+                <th className="px-4 py-3 text-left">{t("users.colEmail")}</th>
+                <th className="px-4 py-3 text-left">{t("users.colStatus")}</th>
+                <th className="px-4 py-3 text-left">{t("users.colCreated")}</th>
+                <th className="px-4 py-3 text-left">{t("users.colQuotas")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-soft bg-background">
@@ -120,11 +125,11 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                   <td className="px-4 py-3">
                     {u.active ? (
                       <span className="text-xs font-medium text-success-strong bg-success-bg px-2 py-0.5 rounded-full">
-                        Aktiv
+                        {t("users.active")}
                       </span>
                     ) : (
                       <span className="text-xs font-medium text-error bg-error-bg px-2 py-0.5 rounded-full">
-                        Inaktiv
+                        {t("users.inactive")}
                       </span>
                     )}
                   </td>
@@ -136,7 +141,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                       onClick={() => onOpenQuota(u.id)}
                       className="text-xs text-kb hover:underline whitespace-nowrap"
                     >
-                      Details
+                      {t("users.details")}
                     </button>
                   </td>
                 </tr>

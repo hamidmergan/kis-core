@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import PlayButton from "../_components/PlayButton";
 import { useVoicePlayer } from "../_hooks/useVoicePlayer";
 import { KOKORO_LANGUAGE_LABEL, KOKORO_LANGUAGE_ORDER, type KokoroVoice } from "../_utils";
 
 
 export default function KokoroTab({ active }: { active: boolean }) {
+  const t = useTranslations("tools.tts.voices");
   const [voices, setVoices] = useState<KokoroVoice[]>([]);
   const [loading, setLoading] = useState(false);
   const { playingId, loadingId, playFromApi } = useVoicePlayer();
@@ -21,9 +23,9 @@ export default function KokoroTab({ active }: { active: boolean }) {
       .finally(() => setLoading(false));
   }, [active, voices.length]);
 
-  if (loading) return <p className="text-sm text-muted">Wird geladen…</p>;
+  if (loading) return <p className="text-sm text-muted">{t("loading")}</p>;
   if (voices.length === 0) {
-    return <p className="text-sm text-muted-soft">Kokoro Server nicht erreichbar oder keine Stimmen gefunden.</p>;
+    return <p className="text-sm text-muted-soft">{t("kokoroUnavailable")}</p>;
   }
 
   const grouped: Record<string, KokoroVoice[]> = {};
@@ -44,7 +46,7 @@ export default function KokoroTab({ active }: { active: boolean }) {
           <summary className="cursor-pointer select-none px-4 py-3 bg-surface border border-border-soft rounded-lg text-sm font-medium text-foreground hover:bg-surface transition-colors">
             {KOKORO_LANGUAGE_LABEL[lang] ?? lang}
             <span className="ml-2 text-xs text-muted-soft font-normal">
-              {grouped[lang].length} {grouped[lang].length === 1 ? "Stimme" : "Stimmen"}
+              {grouped[lang].length} {grouped[lang].length === 1 ? t("voiceSingular") : t("voicePlural")}
             </span>
           </summary>
           <div className="mt-1 divide-y divide-border-soft border border-border-soft rounded-lg overflow-hidden">
@@ -53,7 +55,7 @@ export default function KokoroTab({ active }: { active: boolean }) {
                 <div>
                   <p className="text-sm font-medium text-foreground">{voice.name}</p>
                   <p className="text-xs text-muted-soft mt-0.5">
-                    {voice.gender === "Female" ? "Weiblich" : "Männlich"}
+                    {voice.gender === "Female" ? t("genderFemale") : t("genderMale")}
                     {voice.accent && lang === "English" ? ` · ${voice.accent}` : ""}
                   </p>
                 </div>

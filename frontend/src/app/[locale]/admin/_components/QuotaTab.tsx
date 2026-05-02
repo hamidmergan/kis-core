@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 
 interface QuotaEntry {
@@ -32,6 +33,9 @@ interface QuotaTabProps {
 }
 
 export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabProps) {
+  const t = useTranslations("admin");
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : "de-DE";
   const [defaults, setDefaults] = useState<QuotaDefaults>({});
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<QuotaUser | null>(null);
@@ -128,7 +132,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
             }}
             className="text-sm text-kb hover:underline"
           >
-            ← Zurück
+            {t("back")}
           </button>
           <span className="text-sm text-muted">|</span>
           <span className="text-sm font-medium text-foreground">{selectedUser.display_name}</span>
@@ -137,15 +141,15 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
         {selectedUser.global_reset_at && (
           <div className="flex items-center gap-2 text-xs text-warn-strong bg-warn-bg border border-warn-border rounded-lg px-4 py-2.5">
             <span>
-              Globaler Reset aktiv - alle Tools werden zurückgesetzt ab{" "}
-              {new Date(selectedUser.global_reset_at).toLocaleString("de-DE", {
-                hour: "2-digit",
-                minute: "2-digit",
-                day: "2-digit",
-                month: "2-digit",
-                timeZone: "Europe/Berlin",
-              })}{" "}
-              Uhr.
+              {t("quota.globalResetActive", {
+                time: new Date(selectedUser.global_reset_at).toLocaleString(dateLocale, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  day: "2-digit",
+                  month: "2-digit",
+                  timeZone: "Europe/Berlin",
+                }),
+              })}
             </span>
           </div>
         )}
@@ -154,11 +158,11 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-surface border-b border-border-soft">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Tool</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Verbraucht</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Limit (Standard)</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Override</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted">Reset</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">{t("quota.colTool")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">{t("quota.colUsed")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">{t("quota.colLimit")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">{t("quota.colOverride")}</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted">{t("quota.colReset")}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -187,7 +191,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                         )}
                       </div>
                       {!q.limit_is_unlimited && q.used >= q.limit && (
-                        <p className="text-xs text-warn mt-0.5">Gesperrt</p>
+                        <p className="text-xs text-warn mt-0.5">{t("quota.blocked")}</p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-muted">
@@ -202,7 +206,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                           onChange={(e) =>
                             setOverrideInputs((prev) => ({ ...prev, [q.quota_type]: e.target.value }))
                           }
-                          placeholder="Standard"
+                          placeholder={t("quota.overridePlaceholder")}
                           className="w-24 border border-border rounded px-2 py-1 text-sm focus:outline-none focus:border-kb"
                         />
                         <button
@@ -210,10 +214,10 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                           disabled={saving === q.quota_type}
                           className="text-xs text-kb hover:underline disabled:opacity-50"
                         >
-                          Speichern
+                          {t("save")}
                         </button>
                       </div>
-                      <p className="text-xs text-muted-soft mt-0.5">-1 = unlimitiert, leer = Standard</p>
+                      <p className="text-xs text-muted-soft mt-0.5">{t("quota.overrideHint")}</p>
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -221,7 +225,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
                         disabled={saving === q.quota_type + "_reset" || q.used === 0}
                         className="text-xs text-error hover:underline disabled:opacity-40"
                       >
-                        Zurücksetzen
+                        {t("reset")}
                       </button>
                     </td>
                   </tr>
@@ -232,7 +236,7 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
         </div>
 
         <div className="border border-border-soft rounded-xl bg-background p-4">
-          <p className="text-xs font-medium text-muted mb-3">Standard-Limits (global)</p>
+          <p className="text-xs font-medium text-muted mb-3">{t("quota.defaultsTitle")}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {Object.entries(defaults).map(([type, def]) => (
               <div key={type} className="text-xs text-foreground-soft">
@@ -247,8 +251,8 @@ export default function QuotaTab({ targetUserId, onConsumed, onBack }: QuotaTabP
 
   return (
     <div className="text-center py-12 text-sm text-muted">
-      Bitte einen User über{" "}
-      <span className="font-medium text-foreground-soft">Alle User → Kontingente →</span> auswählen.
+      {t("quota.promptUser")}{" "}
+      <span className="font-medium text-foreground-soft">{t("quota.promptUserPath")}</span> {t("quota.promptUserSuffix")}
     </div>
   );
 }

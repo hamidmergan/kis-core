@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CaretRight, Check, TextAa, XIcon } from "@phosphor-icons/react";
+import { useTranslations } from "next-intl";
 import type { ClozeExercise } from "../../_types";
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 
@@ -10,6 +11,7 @@ export function LueckentextView({
   onGenerate: () => void; onBack: () => void;
   breadcrumbs?: BreadcrumbItem[];
 }) {
+  const t = useTranslations("workspace.detail.languageTraining");
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [finished, setFinished] = useState(false);
@@ -38,16 +40,16 @@ export function LueckentextView({
   if (finished) {
     return (
       <div className="flex flex-col h-full">
-        <SubviewHeader title="Lückentext" toolKey="Cloze" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+        <SubviewHeader title={t("tools.lueckentext")} toolKey="Cloze" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full px-4 pt-8 pb-6 flex flex-col items-center gap-5" style={{ maxWidth: 560 }}>
             <div className="text-center">
-              <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>Ergebnis</p>
+              <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>{t("common.result")}</p>
               <p className="text-3xl font-bold mt-2" style={{ color: "var(--kb)" }}>
                 {correctCount} / {total}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-                {Math.round((correctCount / total) * 100)}% richtig
+                {t("lueckentext.percentCorrect", { pct: Math.round((correctCount / total) * 100) })}
               </p>
             </div>
             <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
@@ -59,13 +61,13 @@ export function LueckentextView({
                 onClick={() => { setCurrent(0); setAnswers({}); setFinished(false); onGenerate(); }}
                 className="btn-primary flex-1 py-2.5 rounded-xl text-xs font-semibold"
               >
-                Neue Übung
+                {t("lueckentext.newExercise")}
               </button>
               <button type="button" onClick={onBack}
                 className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors hover:bg-[var(--surface-dim)]"
                 style={{ backgroundColor: "var(--border)", color: "var(--foreground)" }}
               >
-                Zurück
+                {t("common.back")}
               </button>
             </div>
           </div>
@@ -76,7 +78,7 @@ export function LueckentextView({
 
   return (
     <div className="flex flex-col h-full">
-      <SubviewHeader title="Lückentext" toolKey="Cloze" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
+      <SubviewHeader title={t("tools.lueckentext")} toolKey="Cloze" onBack={onBack} breadcrumbs={breadcrumbs} category="language_training" />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-4 pt-4 pb-6 flex flex-col gap-4" style={{ maxWidth: 560 }}>
           <button
@@ -87,7 +89,7 @@ export function LueckentextView({
           >
             <span className="flex items-center justify-center gap-2">
               <TextAa size={16} weight="bold" />
-              {loading ? "Generiere…" : "Lückentext starten"}
+              {loading ? t("lueckentext.generating") : t("lueckentext.startButton")}
             </span>
           </button>
 
@@ -132,14 +134,14 @@ export function LueckentextView({
                     style={{ color: ex.options[answers[current]] === ex.answer ? "var(--success-strong)" : "var(--error-strong)" }}
                   >
                     {ex.options[answers[current]] === ex.answer
-                      ? <><Check size={12} weight="bold" /> Richtig!</>
-                      : <><XIcon size={12} weight="bold" /> Die richtige Antwort ist: {ex.answer}</>}
+                      ? <><Check size={12} weight="bold" /> {t("lueckentext.answerCorrect")}</>
+                      : <><XIcon size={12} weight="bold" /> {t("lueckentext.answerCorrectIs", { answer: ex.answer })}</>}
                   </p>
                 )}
                 {answers[current] !== undefined && (
                   <button type="button" onClick={handleAdvance}
                     className="btn-primary mt-2 self-end flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold">
-                    {current + 1 >= total ? "Abschließen" : "Weiter"} <CaretRight size={12} weight="bold" />
+                    {current + 1 >= total ? t("common.finish") : t("common.next")} <CaretRight size={12} weight="bold" />
                   </button>
                 )}
               </div>
@@ -150,4 +152,3 @@ export function LueckentextView({
     </div>
   );
 }
-

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import type { ScreencastStep } from "@/types";
-import { STEP_LABELS, stepToIndex } from "./steps";
+import { STEP_KEYS, stepToIndex } from "./steps";
 
 interface ScreencastStepperProps {
   step: ScreencastStep;
@@ -17,6 +18,7 @@ export default function ScreencastStepper({
   sourceLang,
   onStepClick,
 }: ScreencastStepperProps) {
+  const t = useTranslations("stepper");
   const containerRef = useRef<HTMLElement>(null);
   const isDraggingRef = useRef(false);
   const hasDraggedRef = useRef(false);
@@ -84,7 +86,7 @@ export default function ScreencastStepper({
   return (
     <nav
       ref={containerRef}
-      aria-label="Fortschritt"
+      aria-label={t("ariaLabel")}
       className="mb-6 overflow-x-auto scrollbar-hide cursor-grab touch-pan-x"
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
@@ -92,7 +94,8 @@ export default function ScreencastStepper({
       onMouseLeave={onMouseUp}
     >
       <ol className="flex items-center gap-1 sm:gap-2 min-w-0 w-max sm:w-full">
-        {STEP_LABELS.map((label, i) => {
+        {STEP_KEYS.map((stepKey, i) => {
+          const label = t(`steps.${stepKey}`);
           const isSkipped = sourceLang === "EN" && (i === 1 || i === 2);
           const isDone = !isSkipped && i < currentIdx;
           const isActive = i === currentIdx;
@@ -106,7 +109,7 @@ export default function ScreencastStepper({
             i !== 6 &&
             step !== "rendering";
           return (
-            <li key={label} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
+            <li key={stepKey} data-active={isActive} className="flex items-center gap-1 sm:gap-2">
               <button
                 type="button"
                 onClick={() => handleClick(i)}
@@ -169,7 +172,7 @@ export default function ScreencastStepper({
                   {label}
                 </span>
               </button>
-              {i < STEP_LABELS.length - 1 && (
+              {i < STEP_KEYS.length - 1 && (
                 <span
                   className={`w-3 sm:w-8 h-px flex-shrink-0 ${
                     i < currentIdx && !isSkipped ? "bg-kb" : "bg-surface-dim"

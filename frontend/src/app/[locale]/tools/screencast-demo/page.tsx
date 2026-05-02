@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { api, parseDetail } from "@/lib/api";
 import BackLink from "@/components/ui/BackLink";
@@ -46,6 +47,9 @@ const RENDER_SESSION_KEY = "kis_screencast_demo_active_render";
 const SCREENCAST_MAX_CHARS = 100_000;
 
 function ScreencastDemoPageInner() {
+  const t = useTranslations("tools.screencast");
+  const tDemo = useTranslations("tools.screencastDemo");
+  const tCommon = useTranslations("common");
   const [ttsSettingsError, setTtsSettingsError] = useState("");
   const [renderProgressLabel, setRenderProgressLabel] = useState("");
   const [step, setStep] = useState<ScreencastStep>("upload");
@@ -170,8 +174,8 @@ function ScreencastDemoPageInner() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Fehler beim Laden der Demo" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${res.status}`));
+        const err = await res.json().catch(() => ({ detail: tDemo("loadDemoError") }));
+        throw new Error(parseDetail(err.detail, tDemo("errorWithCode", { code: res.status })));
       }
       const data: TranslateResponse = await res.json();
       setTranslateJobUuid(data.translate_job_uuid ?? "demo");
@@ -186,9 +190,9 @@ function ScreencastDemoPageInner() {
       setLoading(false);
       setStep("translation-review");
     } catch (err) {
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      goError(err instanceof Error ? err.message : tCommon("unknownError"));
     }
-  }, [goError]);
+  }, [goError, tDemo, tCommon]);
 
   const handleAcceptTranslation = useCallback(async () => {
     setStep("generating-scripts");
@@ -201,24 +205,24 @@ function ScreencastDemoPageInner() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Fehler beim Laden der Skripte" }));
-        throw new Error(parseDetail(err.detail, `Fehler: ${res.status}`));
+        const err = await res.json().catch(() => ({ detail: tDemo("loadScriptsError") }));
+        throw new Error(parseDetail(err.detail, tDemo("errorWithCode", { code: res.status })));
       }
       const data: GenerateScriptsResponse = await res.json();
       setSlides((prev) => prev.map((s, i) => ({ ...s, script: data.scripts[i] || "" })));
       setLoading(false);
       setStep("script-review");
     } catch (err) {
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      goError(err instanceof Error ? err.message : tCommon("unknownError"));
     }
-  }, [goError]);
+  }, [goError, tDemo, tCommon]);
 
   const handleAcceptScripts = useCallback(() => { setStep("tts-settings"); }, []);
 
   const processRenderResponse = useCallback(async (response: Response) => {
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ detail: "Render-Fehler" }));
-      throw new Error(parseDetail(err.detail, `Fehler: ${response.status}`));
+      const err = await response.json().catch(() => ({ detail: t("error.renderError") }));
+      throw new Error(parseDetail(err.detail, tDemo("errorWithCode", { code: response.status })));
     }
     const blob = await response.blob();
     const aId = response.headers.get("X-Audio-Id");
@@ -228,7 +232,7 @@ function ScreencastDemoPageInner() {
     setVideoUrl(url);
     setLoading(false);
     setStep("done");
-  }, []);
+  }, [t, tDemo]);
 
   const handleStartRender = useCallback(async () => {
     setTtsSettingsError("");
@@ -251,14 +255,14 @@ function ScreencastDemoPageInner() {
       await processRenderResponse(response);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      goError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      goError(err instanceof Error ? err.message : tCommon("unknownError"));
     }
-  }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, voices, translateJobUuid, goError, processRenderResponse]);
+  }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, voices, translateJobUuid, goError, processRenderResponse, tCommon]);
 
   const handleJsonImport = useCallback((file: File) => {
     setImportError(null);
     if (!file.name.toLowerCase().endsWith(".json")) {
-      setImportError("Bitte eine gültige JSON-Datei auswählen (.json).");
+      setImportError(t("scriptImport.invalidExtension"));
       return;
     }
     const reader = new FileReader();
@@ -266,16 +270,16 @@ function ScreencastDemoPageInner() {
       try {
         const parsed = JSON.parse(e.target?.result as string);
         if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === "string")) {
-          setImportError("Die JSON-Datei muss ein Array von Strings sein, z.B. [\"Skript 1\", \"Skript 2\"].");
+          setImportError(t("scriptImport.mustBeArray"));
           return;
         }
         setImportedScripts(parsed);
       } catch {
-        setImportError("Ungültige JSON-Datei - Parsing fehlgeschlagen.");
+        setImportError(t("scriptImport.parseError"));
       }
     };
     reader.readAsText(file);
-  }, []);
+  }, [t]);
 
   const handleDownload = () => {
     if (!downloadBlob) return;
@@ -304,7 +308,7 @@ function ScreencastDemoPageInner() {
   return (
     <ProtectedRoute>
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BackLink href="/tools/screencast" label="Zurück" />
+        <BackLink href="/tools/screencast" label={tDemo("backToScreencast")} />
         {showStepIndicator && (
           <>
             <ScreencastStepper
@@ -321,7 +325,7 @@ function ScreencastDemoPageInner() {
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Neu starten
+                {t("resetStart")}
               </button>
               <button
                 onClick={() => resetAll()}
@@ -330,7 +334,7 @@ function ScreencastDemoPageInner() {
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Screencast abbrechen
+                {t("cancelScreencast")}
               </button>
             </div>
           </>
@@ -360,7 +364,7 @@ function ScreencastDemoPageInner() {
                 setSlides((prev) => prev.map((s) => ({ ...s, script: "" })));
                 setStep("script-review");
               } else if (scriptInputMode === "import") {
-                if (!importedScripts) { setImportError("Bitte zuerst eine JSON-Datei auswählen."); return; }
+                if (!importedScripts) { setImportError(t("userPrompt.selectJsonFirst")); return; }
                 setSlides((prev) => prev.map((s, i) => ({ ...s, script: importedScripts[i] ?? "" })));
                 setStep("script-review");
               } else {

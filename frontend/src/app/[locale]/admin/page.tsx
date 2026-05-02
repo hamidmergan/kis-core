@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import {
   Bird,
   ChartBar,
@@ -61,60 +62,8 @@ interface NavGroup {
 
 const ICON_PROPS = { size: 18, weight: "bold" as const };
 
-const NAV: NavGroup[] = [
-  {
-    label: "Konfiguration",
-    items: [
-      { key: "system", label: "System", icon: <GearSix {...ICON_PROPS} /> },
-      { key: "ki", label: "KI", icon: <Sparkle {...ICON_PROPS} />, hasSubs: true },
-      { key: "prompts", label: "Prompts", icon: <NotePencil {...ICON_PROPS} /> },
-    ],
-  },
-  {
-    label: "Nutzer",
-    items: [
-      { key: "pending", label: "Ausstehend", icon: <HourglassMedium {...ICON_PROPS} /> },
-      { key: "whitelist", label: "Whitelist", icon: <CheckCircle {...ICON_PROPS} /> },
-      { key: "users", label: "Alle User", icon: <Users {...ICON_PROPS} /> },
-    ],
-  },
-  {
-    label: "Tools",
-    items: [
-      { key: "tools", label: "Tools", icon: <Toolbox {...ICON_PROPS} /> },
-      { key: "jobs", label: "Alle Jobs", icon: <Lightning {...ICON_PROPS} /> },
-    ],
-  },
-  {
-    label: "Betrieb",
-    items: [
-      { key: "stats", label: "Jobs Statistiken", icon: <ChartBar {...ICON_PROPS} /> },
-      { key: "ki-stats", label: "KI-Assistent Statistiken", icon: <ChartLineUp {...ICON_PROPS} /> },
-      { key: "limits", label: "Systemwerte", icon: <ListMagnifyingGlass {...ICON_PROPS} /> },
-    ],
-  },
-  {
-    label: "Spielwiese",
-    items: [{ key: "hilde", label: "Maskottchen", icon: <Bird {...ICON_PROPS} /> }],
-  },
-];
-
-const KI_SUBS: { key: Exclude<SettingsSection, "system">; label: string }[] = [
-  { key: "speech", label: "Sprache" },
-  { key: "images", label: "Bilder" },
-  { key: "embedding", label: "Embedding" },
-  { key: "llm", label: "LLM" },
-];
-
-function flatItems(): NavItem[] {
-  return NAV.flatMap((g) => g.items);
-}
-
-function findItem(key: Tab): NavItem | undefined {
-  return flatItems().find((i) => i.key === key);
-}
-
 export default function AdminPage() {
+  const t = useTranslations("admin");
   const [tab, setTab] = useState<Tab>("system");
   const [kiSection, setKiSection] = useState<Exclude<SettingsSection, "system">>("speech");
   const [checking, setChecking] = useState(true);
@@ -122,6 +71,54 @@ export default function AdminPage() {
   const [quotaTargetId, setQuotaTargetId] = useState<number | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const router = useRouter();
+
+  const NAV: NavGroup[] = [
+    {
+      label: t("nav.configuration"),
+      items: [
+        { key: "system", label: t("nav.system"), icon: <GearSix {...ICON_PROPS} /> },
+        { key: "ki", label: t("nav.ki"), icon: <Sparkle {...ICON_PROPS} />, hasSubs: true },
+        { key: "prompts", label: t("nav.prompts"), icon: <NotePencil {...ICON_PROPS} /> },
+      ],
+    },
+    {
+      label: t("nav.users"),
+      items: [
+        { key: "pending", label: t("nav.pending"), icon: <HourglassMedium {...ICON_PROPS} /> },
+        { key: "whitelist", label: t("nav.whitelist"), icon: <CheckCircle {...ICON_PROPS} /> },
+        { key: "users", label: t("nav.allUsers"), icon: <Users {...ICON_PROPS} /> },
+      ],
+    },
+    {
+      label: t("nav.tools"),
+      items: [
+        { key: "tools", label: t("nav.toolsLabel"), icon: <Toolbox {...ICON_PROPS} /> },
+        { key: "jobs", label: t("nav.allJobs"), icon: <Lightning {...ICON_PROPS} /> },
+      ],
+    },
+    {
+      label: t("nav.operations"),
+      items: [
+        { key: "stats", label: t("nav.jobStats"), icon: <ChartBar {...ICON_PROPS} /> },
+        { key: "ki-stats", label: t("nav.kiStats"), icon: <ChartLineUp {...ICON_PROPS} /> },
+        { key: "limits", label: t("nav.systemValues"), icon: <ListMagnifyingGlass {...ICON_PROPS} /> },
+      ],
+    },
+    {
+      label: t("nav.playground"),
+      items: [{ key: "hilde", label: t("nav.mascot"), icon: <Bird {...ICON_PROPS} /> }],
+    },
+  ];
+
+  const KI_SUBS: { key: Exclude<SettingsSection, "system">; label: string }[] = [
+    { key: "speech", label: t("nav.speech") },
+    { key: "images", label: t("nav.images") },
+    { key: "embedding", label: t("nav.embedding") },
+    { key: "llm", label: t("nav.llm") },
+  ];
+
+  const flatItems = (): NavItem[] => NAV.flatMap((g) => g.items);
+  const findItem = (key: Tab): NavItem | undefined => flatItems().find((i) => i.key === key);
 
   const openQuotaForUser = (userId: number) => {
     setQuotaTargetId(userId);
@@ -147,7 +144,9 @@ export default function AdminPage() {
 
   const currentItem = findItem(tab);
   const currentLabel =
-    tab === "ki" ? `KI · ${KI_SUBS.find((s) => s.key === kiSection)?.label ?? ""}` : currentItem?.label ?? "";
+    tab === "ki"
+      ? t("nav.kiCrumb", { section: KI_SUBS.find((s) => s.key === kiSection)?.label ?? "" })
+      : currentItem?.label ?? "";
 
   const selectTab = (k: Tab) => {
     setTab(k);
@@ -156,28 +155,25 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
-      {/* Mobile menu button + crumb bar */}
       <div className="md:hidden flex items-center gap-3 px-4 h-12 border-b border-border-soft bg-background sticky top-0 z-20">
         <button
           onClick={() => setMobileNavOpen(true)}
           className="w-9 h-9 rounded-lg bg-surface border-2 border-transparent flex items-center justify-center text-muted transition-colors hover:border-kb hover:text-kb"
-          aria-label="Menü öffnen"
+          aria-label={t("menuOpen")}
         >
           <List size={18} weight="bold" />
         </button>
         <div className="text-sm font-medium text-foreground-soft truncate">{currentLabel}</div>
       </div>
 
-      {/* Scrim for mobile drawer */}
       {mobileNavOpen && (
         <button
           onClick={() => setMobileNavOpen(false)}
-          aria-label="Menü schließen"
+          aria-label={t("menuClose")}
           className="md:hidden fixed inset-0 top-16 bg-black/40 z-30"
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`bg-surface border-r border-border-soft p-3 flex flex-col gap-0.5 overflow-y-auto
           fixed md:sticky top-16 md:top-0 left-0 bottom-0 md:bottom-auto
@@ -188,11 +184,11 @@ export default function AdminPage() {
           ${mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
         <div className="md:hidden flex items-center justify-between px-2 pt-1 pb-2">
-          <span className="text-sm font-semibold">Admin</span>
+          <span className="text-sm font-semibold">{t("title")}</span>
           <button
             onClick={() => setMobileNavOpen(false)}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-muted transition-colors hover:bg-surface-dim hover:text-kb"
-            aria-label="Schließen"
+            aria-label={t("close")}
           >
             <X size={16} weight="bold" />
           </button>
@@ -263,7 +259,6 @@ export default function AdminPage() {
         ))}
       </aside>
 
-      {/* Main */}
       <main className="flex-1 min-w-0 px-4 py-6 md:px-8 md:py-8 lg:px-10">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-lg font-semibold mb-6">{currentLabel}</h2>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 interface ModalProps {
   open: boolean;
@@ -32,6 +33,7 @@ export default function Modal({
   closeOnEscape = true,
   className = "",
 }: ModalProps) {
+  const t = useTranslations("common");
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export default function Modal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Schließen"
+              aria-label={t("close")}
               className="w-7 h-7 inline-flex items-center justify-center rounded-full btn-icon transition-colors"
               style={{ backgroundColor: "var(--surface-dim)" }}
             >
