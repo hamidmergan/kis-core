@@ -18,6 +18,7 @@ from langfuse.decorators import langfuse_context, observe
 
 from src import database as db
 from src.dependencies import get_current_user, get_llm_client
+from src.i18n import get_locale
 from src.limits import (
     KIA_SOURCE_MAX_PAGES,
     KIA_WORKSPACE_MAX_SOURCES,
@@ -51,10 +52,15 @@ from src.features.ai_assistant import schemas
 router = APIRouter(tags=["ki-assistent: popup"])
 
 @router.get("/ai-assistant/popup-actions")
-async def get_popup_actions(lang: str = "de"):
-    """Liefert die konfigurierten Popup-Aktionen für den PDF-Viewer."""
-    label_key = "label_en" if lang == "en" else "label_de"
-    prompt_key = "prompt_en" if lang == "en" else "prompt_de"
+async def get_popup_actions(locale: str = Depends(get_locale)):
+    """Return the PDF-viewer popup actions in the user's UI locale.
+
+    Both label and prompt match the locale; the prompts instruct the LLM to
+    answer in the source-text language, so they're behaviourally equivalent
+    across locales and only differ in tone.
+    """
+    label_key = "label_en" if locale == "en" else "label_de"
+    prompt_key = "prompt_en" if locale == "en" else "prompt_de"
     return {
         "actions": [
             {

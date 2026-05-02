@@ -80,8 +80,12 @@ async def kokoro_preview(
     if not client or not client.is_available():
         raise HTTPException(status_code=503, detail=t("kokoro.unreachable", locale))
     voice_id = body.get("voice_id", "af_heart")
-    # Use German preview text for German voices
+    # Voice prefix wins over UI locale - a German voice MUST speak German text,
+    # otherwise the audio quality drops. Only fall back to UI locale for
+    # locale-agnostic voices.
     if voice_id.startswith(("df_", "dm_")):
+        preview_text = "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
+    elif locale == "de":
         preview_text = "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
     else:
         preview_text = "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
@@ -120,8 +124,13 @@ async def mylab_preview(
     if not client or not client.is_available():
         raise HTTPException(status_code=503, detail=t("mylab.ttsUnreachable", locale))
     voice_id = body.get("voice_id", "alloy")
+    preview_text = (
+        "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
+        if locale == "en"
+        else "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
+    )
     audio = client.synthesize_chunk(
-        "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen.",
+        preview_text,
         voice_id=voice_id,
         speed=1.0,
     )

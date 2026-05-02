@@ -80,6 +80,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "\n\n⚠️ Hinweis: Der Inhalt war sehr umfangreich. Die Zusammenfassung könnte unvollständig sein.",
         "en": "\n\n⚠️ Note: The content was very long. The summary may be incomplete.",
     },
+    "ai.source.pdfNoReadableText": {
+        "de": "Das PDF enthält keinen lesbaren Text. Gescannte PDFs werden aktuell nicht unterstützt. Bitte konvertiere das PDF zuerst mit einem OCR-Tool (z.B. Adobe Acrobat oder online unter smallpdf.com).",
+        "en": "The PDF does not contain readable text. Scanned PDFs are not supported. Please convert the PDF with an OCR tool first (e.g. Adobe Acrobat or online via smallpdf.com).",
+    },
     # Quota labels (interpolated into quota.limitReached)
     "quota.label.tts": {"de": "Text in Sprache", "en": "Text to speech"},
     "quota.label.summary": {"de": "Zusammenfassung", "en": "Summary"},

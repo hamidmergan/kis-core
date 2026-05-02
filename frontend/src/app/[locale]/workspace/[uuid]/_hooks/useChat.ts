@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { ChatMessage, ViewerState } from "../_types";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
+import { api } from "@/lib/api";
 
 interface PopupAction {
   key: string;
@@ -21,7 +23,9 @@ interface UseChatOptions {
 }
 
 export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, chatLang }: UseChatOptions) {
+  void chatLang; // popup labels now follow UI locale (Accept-Language); chatLang stays in the API for callers
   const labels = useWorkspaceLabel();
+  const tChat = useTranslations("workspace.detail.chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [popupActions, setPopupActions] = useState<PopupAction[]>([]);
@@ -48,13 +52,15 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
 
   const loadPopupActions = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ai-assistant/popup-actions?lang=${chatLang}`, { credentials: "include" });
+      // Locale comes from Accept-Language (api.fetch reads NEXT_LOCALE cookie),
+      // not chat_lang - popup labels are UI strings, not LLM output language.
+      const res = await api.fetch("/api/ai-assistant/popup-actions");
       if (res.ok) {
         const d = await res.json();
         setPopupActions(d.actions ?? []);
       }
     } catch { /* ignore */ }
-  }, [chatLang]);
+  }, []);
 
   const sendChatMessage = useCallback(async (
     content: string,
@@ -158,18 +164,18 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
         flushTokens();
       } else if (res.status === 409) {
-        updateLast({ content: `${labels.singular} wird noch indiziert. Bitte warte einen Moment und versuche es erneut.` });
+        updateLast({ content: tChat("indexingInProgress", { label: labels.singular }) });
       } else if (res.status === 429) {
         // Burst lock: too many chat requests in a short time. Backend returns
         // the concrete lock time in detail.message ("Chat ist bis HH:MM Uhr gesperrt").
-        let msg = "Zu viele Anfragen. Bitte einen Moment warten und erneut senden.";
+        let msg = tChat("tooManyRequests");
         try {
           const err = await res.json();
           if (err?.detail?.message) msg = err.detail.message;
         } catch { /* ignore */ }
         updateLast({ content: msg });
       } else {
-        updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
+        updateLast({ content: tChat("genericError") });
       }
     } catch {
       // AbortController-triggered cancel: keep partial text + flag aborted.
@@ -177,7 +183,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
       if (ac.signal.aborted) {
         updateLast({ aborted: true });
       } else {
-        updateLast({ content: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut." });
+        updateLast({ content: tChat("genericError") });
       }
     } finally {
       if (abortControllerRef.current === ac) abortControllerRef.current = null;

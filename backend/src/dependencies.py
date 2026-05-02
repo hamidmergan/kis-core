@@ -150,7 +150,7 @@ def resolve_whisper_client() -> OpenAICompatLLMClient:
         )
     api_key, base_url, model, provider = _resolve_llm_provider()
     if not api_key:
-        raise RuntimeError("Kein LLM-Provider konfiguriert (für Whisper-Transkription)")
+        raise RuntimeError("No LLM provider configured (required for Whisper transcription)")
     return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
 
 

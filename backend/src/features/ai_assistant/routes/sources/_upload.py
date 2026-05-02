@@ -74,7 +74,7 @@ async def upload_source(
     )
 
     from src.tasks.aia_tasks import run_index_source
-    run_index_source.delay(source_uuid)
+    run_index_source.delay(source_uuid, locale)
 
     logger.info("KI Tutor: source {} ({}) uploaded to workspace {}", source_uuid, stored_filename, workspace_uuid)
     return {"uuid": source_uuid, "filename": stored_filename, "status": "pending"}
@@ -98,7 +98,7 @@ async def retry_source(
     db.reset_aia_source_for_retry(source_uuid)
 
     from src.tasks.aia_tasks import run_index_source
-    run_index_source.delay(source_uuid)
+    run_index_source.delay(source_uuid, locale)
 
     logger.info("KI Tutor: source {} retry dispatched", source_uuid)
     return {"uuid": source_uuid, "status": "pending"}

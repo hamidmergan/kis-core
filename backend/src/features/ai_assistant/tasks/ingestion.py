@@ -37,7 +37,7 @@ def _save_transcript_artifact(key: str, text: str) -> None:
         _Path(key).write_text(text, encoding="utf-8")
 
 @celery_app.task(bind=True, name="kia.index_source", queue="kia")
-def run_index_source(self, source_uuid: str):
+def run_index_source(self, source_uuid: str, locale: str = "de"):
     try:
         # 1. Load source from DB
         source = db.get_aia_source(source_uuid)
@@ -183,7 +183,13 @@ def run_index_source(self, source_uuid: str):
 
     except Exception as e:
         logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
-        db.update_aia_source_status(source_uuid, "failed", error_message=str(e))
+        from src.services.aia_chunker import PdfNoReadableTextError
+        from src.i18n import t
+        if isinstance(e, PdfNoReadableTextError):
+            error_message = t("ai.source.pdfNoReadableText", locale)
+        else:
+            error_message = str(e)
+        db.update_aia_source_status(source_uuid, "failed", error_message=error_message)
         raise
 
 @celery_app.task(bind=True, name="kia.translate_transcript_en", queue="kia")

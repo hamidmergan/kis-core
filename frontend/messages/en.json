@@ -1355,7 +1355,10 @@
         "saveAsNote": "Save as note",
         "expand": "Show more",
         "collapse": "Collapse",
-        "sourcesCount": "{n, plural, =1 {1 source} other {# sources}}"
+        "sourcesCount": "{n, plural, =1 {1 source} other {# sources}}",
+        "indexingInProgress": "{label} is still being indexed. Please wait a moment and try again.",
+        "tooManyRequests": "Too many requests. Please wait a moment and try again.",
+        "genericError": "An error occurred. Please try again."
       },
       "sources": {
         "title": "Sources",

@@ -9,6 +9,7 @@ from loguru import logger
 
 from src.celery_app import celery_app
 from src import database as db
+from src.i18n import t
 from src.storage import (
     delete_file,
     get_file,
@@ -61,7 +62,8 @@ def run_screencast_translate(
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
         slide_texts = _extract_text_per_slide(translated_bytes)
         if not slide_texts:
-            raise ValueError("Keine Slides in der Präsentation gefunden")
+            locale = job_row.get("creator_locale") or "de"
+            raise ValueError(t("screencast.noSlides", locale))
 
         # Save translated PPTX + scripts to job folder immediately
         save_job_file(user_id, job_uuid, "translated.pptx", translated_bytes)

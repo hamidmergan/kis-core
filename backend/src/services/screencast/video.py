@@ -131,7 +131,7 @@ def concatenate_videos(video_paths: list[Path], output_path: Path) -> None:
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     if result.returncode != 0:
         logger.error("Video concatenation failed: {}", result.stderr[:300])
-        raise RuntimeError(f"Video-Zusammenführung fehlgeschlagen: {result.stderr[:200]}")
+        raise RuntimeError(f"Video concatenation failed: {result.stderr[:200]}")
 
 
 def apply_faststart(input_path: Path, output_path: Path) -> bytes:

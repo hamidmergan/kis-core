@@ -4,6 +4,15 @@ import re
 
 from loguru import logger
 
+
+class PdfNoReadableTextError(ValueError):
+    """Raised when a PDF has no extractable text (typical for scanned PDFs).
+
+    The Celery task that catches this maps it to a localized error_message
+    using the source's creator locale. Carries no message body - the route /
+    task is the only place that knows which locale to render in.
+    """
+
 # Chunk sizes per embedding provider:
 #   ollama / nomic-embed-text: BERT 2048-token ctx, German ~2-3 chars/token
 #     → 600 chars ≈ 240 tokens, safely within limit
@@ -171,11 +180,7 @@ def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
         page.close()
     doc.close()
     if not chunks:
-        raise ValueError(
-            "Das PDF enthält keinen lesbaren Text. "
-            "Gescannte PDFs werden aktuell nicht unterstützt. "
-            "Bitte konvertiere das PDF zuerst mit einem OCR-Tool (z.B. Adobe Acrobat oder online unter smallpdf.com)."
-        )
+        raise PdfNoReadableTextError()
     return chunks
 
 
