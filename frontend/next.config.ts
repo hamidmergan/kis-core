@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
   experimental: {
     middlewareClientMaxBodySize: "500mb",
     proxyTimeout: 600000, // 10 min – für lokale Ollama-Generierung
+    optimizePackageImports: ["@phosphor-icons/react"],
   },
   async rewrites() {
     return [

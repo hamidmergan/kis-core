@@ -13,8 +13,6 @@
   "dependencies": {
     "@embedpdf/react-pdf-viewer": "^2.10.0",
     "@phosphor-icons/react": "^2.1.10",
-    "html-to-image": "^1.11.13",
-    "html2canvas": "^1.4.1",
     "mind-elixir": "^5.9.3",
     "next": "^15.1.0",
     "next-intl": "^4.0.0",
@@ -22,7 +20,6 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
-    "react-pdf": "^9.2.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.0"
   },

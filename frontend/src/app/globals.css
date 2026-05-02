@@ -65,32 +65,6 @@
   --color-tooltip-fg: var(--tooltip-fg);
 }
 
-/* PDF Text Layer — undo Tailwind Preflight damage */
-.react-pdf__Page canvas {
-  display: block;
-  user-select: none;
-}
-.react-pdf__Page {
-  user-select: none;
-}
-.react-pdf__Page .textLayer,
-.react-pdf__Page .textLayer * {
-  box-sizing: content-box;
-  border-style: none;
-}
-.react-pdf__Page .textLayer span[role="presentation"] {
-  padding-top: 0.3em;
-  padding-bottom: 0.3em;
-  margin-top: -0.3em;
-}
-.textLayer :is(span, br) {
-  color: transparent;
-  cursor: text;
-  user-select: text;
-}
-.textLayer ::selection {
-  background: rgba(var(--kb-rgb), 0.25);
-}
 
 
 /* ─── Corporate Design tokens — single source of truth ──────────────────
