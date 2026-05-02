@@ -2,7 +2,14 @@
 
 import json
 
+import httpx
 from langfuse.openai import AsyncOpenAI, OpenAI
+
+# Connect + headers + first-byte deadline. Once the upstream starts streaming, the
+# per-chunk inactivity timeout (in chat.py) takes over. Default OpenAI SDK timeout
+# is 600s — far too generous for an interactive chat where requests pile up if the
+# provider stalls.
+_LLM_HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
 
 
 def is_transient_error(e: Exception) -> bool:
@@ -55,9 +62,9 @@ class _OpenAICompatBase:
         provider: str = "kisski",
         whisper_model: str = "whisper-large-v2",
     ):
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=_LLM_HTTP_TIMEOUT)
         # Async twin for streaming endpoints that need cancel-on-disconnect.
-        self._async_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        self._async_client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=_LLM_HTTP_TIMEOUT)
         self._model = model
         self._provider = provider
         self._base_url = base_url

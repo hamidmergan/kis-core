@@ -436,7 +436,26 @@ async def chat(
                     stream=True,
                     **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
                 )
-                async for chunk_resp in stream:
+                # Inter-chunk inactivity guard: once streaming starts, the SDK's
+                # request timeout no longer applies. If upstream goes silent
+                # (zombie connection, provider stall) we'd wait forever and the
+                # client's burst limit fills up with hung requests.
+                _CHUNK_INACTIVITY_SECONDS = 60.0
+                stream_iter = stream.__aiter__()
+                while True:
+                    try:
+                        chunk_resp = await asyncio.wait_for(
+                            stream_iter.__anext__(),
+                            timeout=_CHUNK_INACTIVITY_SECONDS,
+                        )
+                    except StopAsyncIteration:
+                        break
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            "LLM stream inactive for {}s, aborting",
+                            _CHUNK_INACTIVITY_SECONDS,
+                        )
+                        raise
                     if await request.is_disconnected():
                         aborted = True
                         break

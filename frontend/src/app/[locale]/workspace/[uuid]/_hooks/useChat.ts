@@ -89,8 +89,24 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
 
     const ac = new AbortController();
     abortControllerRef.current = ac;
+    // Inactivity safety net: if no chunk arrives for this long, the connection
+    // is presumed dead (network zombie, provider stall the backend missed) and
+    // we bail so the user can retry instead of staring at a frozen indicator.
+    // Backend has its own 60s inactivity timeout, so this is a slightly looser
+    // outer bound that only fires when the backend itself is unreachable.
+    const INACTIVITY_MS = 90_000;
+    let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+    let timedOut = false;
+    const resetInactivity = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => { timedOut = true; ac.abort(); }, INACTIVITY_MS);
+    };
+    const clearInactivity = () => {
+      if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
+    };
 
     try {
+      resetInactivity();
       const res = await fetch(`/api/ai-assistant-stream/${uuid}`, {
         method: "POST",
         credentials: "include",
@@ -155,6 +171,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          resetInactivity();
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
@@ -162,6 +179,7 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
         }
         if (buffer.trim()) processLine(buffer);
         if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
+        clearInactivity();
         flushTokens();
       } else if (res.status === 409) {
         updateLast({ content: tChat("indexingInProgress", { label: labels.singular }) });
@@ -179,13 +197,18 @@ export function useChat({ uuid, enrollmentId, selectedSourceIds, viewerSource, c
       }
     } catch {
       // AbortController-triggered cancel: keep partial text + flag aborted.
+      // Inactivity timeout also routes through abort but with timedOut=true so
+      // the user sees an actionable error instead of a silent "you cancelled" flag.
       // Other errors (network drop, parse fail) overwrite with generic error text.
-      if (ac.signal.aborted) {
+      if (timedOut) {
+        updateLast({ content: tChat("genericError") });
+      } else if (ac.signal.aborted) {
         updateLast({ aborted: true });
       } else {
         updateLast({ content: tChat("genericError") });
       }
     } finally {
+      clearInactivity();
       if (abortControllerRef.current === ac) abortControllerRef.current = null;
       setChatLoading(false);
     }
