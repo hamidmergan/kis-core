@@ -84,7 +84,7 @@ def check_mylab_available(settings) -> bool:
 
 
 def check_mylab_base_available(settings) -> bool:
-    """Prüft ob die myLab-Plattform erreichbar ist (für Whisper, Image, Embeddings, OCR)."""
+    """Check whether the myLab platform is reachable (used for Whisper, Image, Embeddings, OCR)."""
     url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
     if not url:
         return False

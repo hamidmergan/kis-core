@@ -1,4 +1,4 @@
-"""Admin-Services: Health/Reachability-Checks für externe Dienste."""
+"""Admin services: health / reachability checks for external dependencies."""
 
 from src.services.admin.health import (
     check_fish_speech_available,
