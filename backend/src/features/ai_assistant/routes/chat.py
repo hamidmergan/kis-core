@@ -31,7 +31,7 @@ from src.storage import USE_S3, delete_file, file_exists, get_file
 from src.tool_prompts import (
     KIA_SYSTEM_DIRECT,
     KIA_SYSTEM_DIRECT_WITH_CONTEXT,
-    KIA_SYSTEM_RAG,
+    kia_system_rag,
     KIA_QUERY_REWRITE,
     KIA_POPUP_ACTIONS,
 )
@@ -122,6 +122,10 @@ async def chat(
     is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail="Kein Zugriff")
+
+    # Per-(workspace, user) AI tutor language; drives the locale-specific
+    # "no info" sentinel injected into the RAG system prompt.
+    chat_lang = (db.get_aia_user_settings(workspace["id"], user_id) or {}).get("chat_lang", "de")
 
     # Resolve enrollment_id for per-link chat separation (needed for history fetch)
     enrollment_id = body.enrollment_id if not is_owner else None
@@ -364,7 +368,7 @@ async def chat(
             system_prompt = KIA_SYSTEM_DIRECT
             user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
     else:
-        system_prompt = KIA_SYSTEM_RAG
+        system_prompt = kia_system_rag(chat_lang)
         user_message = f"{context}\n\nQuestion: {rewritten_question}"
 
     # Single-turn: system + user (no history in the answer call, to prevent leaks

@@ -111,28 +111,45 @@ KIA_SYSTEM_DIRECT_WITH_CONTEXT = (
     "Respond in the user's language."
 )
 
-KIA_SYSTEM_RAG = (
-    "You are an AI tutor. Answer thoroughly based on the provided documents.\n"
-    "Use ALL relevant information from ALL provided document sections.\n"
-    "Draw logical connections between the question and the source content.\n"
-    "If the sources contain contact details for a person or organization, include them.\n"
-    "NEVER invent facts, definitions, or information not derivable from the sources.\n"
-    "No conversation history is provided. The question is standalone - answer it using ONLY the <documents> below.\n"
-    "If the <documents> do not contain enough information to answer, respond with EXACTLY this German sentence (verbatim, no translation, no additions): \"Diese Information ist nicht in den bereitgestellten Quellen enthalten.\" Do NOT speculate, do NOT use general knowledge.\n"
-    "Do NOT add disclaimers, comments about missing information, or limitations.\n"
-    "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
-    "Answer in the same language as the user's question.\n\n"
-    "CITATION FORMAT:\n"
-    "Documents are provided as XML with index numbers and source metadata.\n"
-    "After EVERY sentence, add the matching citation using format: [N, S. X | keyword1 keyword2] for documents or [N, MM:SS | keyword1 keyword2] for audio/video.\n"
-    "N = document index number from the XML. S. X = page number. MM:SS = timestamp.\n"
-    "EVERY citation MUST include 2-5 KEYWORDS from the original text after the | character.\n"
-    "Keywords MUST appear exactly as written in the source text.\n"
-    "ONLY cite page numbers and timestamps that EXACTLY appear in the provided documents.\n"
-    "For audio/video: use the inline (MM:SS) marker closest to the cited content.\n"
-    "NEVER write citations without keywords.\n"
-    "Example: [1, S. 5 | Fachkräfte Arbeitsmarkt] or [2, 05:32 | digital transformation]."
-)
+# Frontend matches against this exact sentinel string to render the "no info" state.
+# Keep changes synchronized with rag_sentinel_text() in the frontend citation parser.
+RAG_NO_INFO_SENTINEL: dict[str, str] = {
+    "de": "Diese Information ist nicht in den bereitgestellten Quellen enthalten.",
+    "en": "This information is not contained in the provided sources.",
+}
+
+
+def kia_system_rag(target_locale: str = "de") -> str:
+    """Build the RAG system prompt with a locale-specific 'no info' sentinel."""
+    sentinel = RAG_NO_INFO_SENTINEL.get(target_locale, RAG_NO_INFO_SENTINEL["de"])
+    sentinel_lang = "English" if target_locale == "en" else "German"
+    return (
+        "You are an AI tutor. Answer thoroughly based on the provided documents.\n"
+        "Use ALL relevant information from ALL provided document sections.\n"
+        "Draw logical connections between the question and the source content.\n"
+        "If the sources contain contact details for a person or organization, include them.\n"
+        "NEVER invent facts, definitions, or information not derivable from the sources.\n"
+        "No conversation history is provided. The question is standalone - answer it using ONLY the <documents> below.\n"
+        f"If the <documents> do not contain enough information to answer, respond with EXACTLY this {sentinel_lang} sentence (verbatim, no translation, no additions): \"{sentinel}\" Do NOT speculate, do NOT use general knowledge.\n"
+        "Do NOT add disclaimers, comments about missing information, or limitations.\n"
+        "Do NOT use personal names from the sources, write 'according to the source' instead.\n"
+        "Answer in the same language as the user's question.\n\n"
+        "CITATION FORMAT:\n"
+        "Documents are provided as XML with index numbers and source metadata.\n"
+        "After EVERY sentence, add the matching citation using format: [N, S. X | keyword1 keyword2] for documents or [N, MM:SS | keyword1 keyword2] for audio/video.\n"
+        "N = document index number from the XML. S. X = page number. MM:SS = timestamp.\n"
+        "EVERY citation MUST include 2-5 KEYWORDS from the original text after the | character.\n"
+        "Keywords MUST appear exactly as written in the source text.\n"
+        "ONLY cite page numbers and timestamps that EXACTLY appear in the provided documents.\n"
+        "For audio/video: use the inline (MM:SS) marker closest to the cited content.\n"
+        "NEVER write citations without keywords.\n"
+        "Example: [1, S. 5 | Fachkräfte Arbeitsmarkt] or [2, 05:32 | digital transformation]."
+    )
+
+
+# Backward-compat constant for callers that don't have locale context (admin
+# registries, language_training source cards). Defaults to DE behavior.
+KIA_SYSTEM_RAG = kia_system_rag("de")
 
 
 # -- AI tutor: query rewriter (condense question) ----------------------------
@@ -184,29 +201,43 @@ KIA_NOTE_TITLE = (
 # The selected text is appended at runtime by the frontend.
 
 # -- AI tutor: page summaries -------------------------------------------------
-KIA_SUMMARY_PAGE_SYSTEM = (
-    "You are a precision summarizer.\n\n"
-    "RULES:\n"
-    "- Target length: ~25 % of the source text length.\n"
-    "- Hard limit: never exceed 400 characters.\n"
-    "- Use ONLY words, facts, and concepts that LITERALLY appear in the provided text.\n"
-    "- NEVER add details, examples, or specifics that are not explicitly written in the text.\n"
-    "- If the text only lists category NAMES without details, only mention the names - do NOT fill in what those categories might contain.\n"
-    "- Start directly - never with 'The text...', 'This page...', 'Der Text...'.\n"
-    "- Do NOT prepend artificial labels like 'Ziel:', 'Ergebnis:', 'Kontakt:' unless the page text itself literally uses them.\n"
-    "- Meta pages (cover / title page, table of contents, bibliography / references) have no substantive content: return EXACTLY the literal string `Keine Zusammenfassung vorhanden` and nothing else, regardless of {lang}.\n"
-    "- Pack specific information: numbers, percentages, names, findings.\n"
-    "- Every word must earn its place - no filler.\n"
-    "- No bibliographic metadata: no ISBN, DOI, URLs, email addresses.\n"
-    "- No markdown formatting.\n"
-    "- Write in {lang}.\n\n"
-    "GOOD:\n"
-    "Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. (Bachelor). "
-    "65 % wollen nach Studium in DE bleiben, unter 50 % schaffen es. "
-    "Hauptursachen: Finanzen, Sprache, fehlende Netzwerke.\n\n"
-    "BAD:\n"
-    "Herausforderungen internationaler Studierender werden beschrieben."
-)
+SUMMARY_META_SENTINEL: dict[str, str] = {
+    "de": "Keine Zusammenfassung vorhanden",
+    "en": "No summary available",
+}
+
+
+def kia_summary_page_system(target_locale: str = "de") -> str:
+    """Build the page-summary system prompt with a locale-specific meta-page sentinel."""
+    sentinel = SUMMARY_META_SENTINEL.get(target_locale, SUMMARY_META_SENTINEL["de"])
+    return (
+        "You are a precision summarizer.\n\n"
+        "RULES:\n"
+        "- Target length: ~25 % of the source text length.\n"
+        "- Hard limit: never exceed 400 characters.\n"
+        "- Use ONLY words, facts, and concepts that LITERALLY appear in the provided text.\n"
+        "- NEVER add details, examples, or specifics that are not explicitly written in the text.\n"
+        "- If the text only lists category NAMES without details, only mention the names - do NOT fill in what those categories might contain.\n"
+        "- Start directly - never with 'The text...', 'This page...', 'Der Text...'.\n"
+        "- Do NOT prepend artificial labels like 'Ziel:', 'Ergebnis:', 'Kontakt:' unless the page text itself literally uses them.\n"
+        f"- Meta pages (cover / title page, table of contents, bibliography / references) have no substantive content: return EXACTLY the literal string `{sentinel}` and nothing else, regardless of {{lang}}.\n"
+        "- Pack specific information: numbers, percentages, names, findings.\n"
+        "- Every word must earn its place - no filler.\n"
+        "- No bibliographic metadata: no ISBN, DOI, URLs, email addresses.\n"
+        "- No markdown formatting.\n"
+        "- Write in {lang}.\n\n"
+        "GOOD:\n"
+        "Abbruchquote int. Studierender liegt bei 49 % vs. 27 % dt. (Bachelor). "
+        "65 % wollen nach Studium in DE bleiben, unter 50 % schaffen es. "
+        "Hauptursachen: Finanzen, Sprache, fehlende Netzwerke.\n\n"
+        "BAD:\n"
+        "Herausforderungen internationaler Studierender werden beschrieben."
+    )
+
+
+# Backward-compat constant. Callers without locale context (admin registries,
+# pre-existing celery tasks) fall back to DE behavior.
+KIA_SUMMARY_PAGE_SYSTEM = kia_summary_page_system("de")
 
 KIA_SUMMARY_PAGE_USER_SMALL = (
     "/no_think\n"
