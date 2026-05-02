@@ -2,11 +2,13 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Wrench } from "@phosphor-icons/react";
 import Hilde from "@/components/ui/Hilde";
 import { useHildePref } from "@/hooks/useHildePref";
 
 export default function MaintenancePage() {
+  const t = useTranslations("wartung");
   const router = useRouter();
   const { enabled: hildeEnabled } = useHildePref();
 
@@ -35,11 +37,11 @@ export default function MaintenancePage() {
         ) : (
           <Wrench size={56} weight="bold" className="mx-auto text-muted" />
         )}
-        <h1 className="text-2xl font-semibold text-foreground">Wartungsarbeiten</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
         <p className="text-sm text-foreground-soft">
-          Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.
+          {t("body")}
         </p>
-        <p className="text-xs text-muted-soft">Diese Seite aktualisiert sich automatisch, sobald die Wartung beendet ist.</p>
+        <p className="text-xs text-muted-soft">{t("autoRefresh")}</p>
       </div>
     </div>
   );

@@ -105,6 +105,55 @@
       "viewAll": "Zur Übersicht"
     }
   },
+  "schedule": {
+    "title": "Mein Zeitplan",
+    "showAll": "Alle anzeigen",
+    "loadError": "Termine konnten nicht geladen werden",
+    "empty": "Keine Termine vorhanden",
+    "allLoaded": "Alle Termine geladen",
+    "tbdHeading": "Nach Vereinbarung",
+    "tbdLabel": "offen",
+    "card": {
+      "pastLockedAria": "Vergangene Termine können nicht geändert werden",
+      "uncheckAria": "Erledigt aufheben",
+      "checkAria": "Als erledigt markieren",
+      "pastLockedTitle": "Vergangene Termine sind gesperrt",
+      "ownTooltip": "Eigener Arbeitsraum",
+      "sharedTooltip": "Geteilter Arbeitsraum"
+    }
+  },
+  "imprint": {
+    "title": "Impressum",
+    "lawHeading": "Angaben gemäß § 5 DDG:",
+    "contactHeading": "Kontakt:",
+    "phoneLabel": "Telefon:",
+    "emailLabel": "E-Mail:",
+    "projectHeading": "Projekt:",
+    "projectBody": "Entwicklung am Institut für Interaktive Systeme (ISy),\nTechnische Hochschule Lübeck.\nQuellcode lizenziert unter Apache-2.0."
+  },
+  "wartung": {
+    "title": "Wartungsarbeiten",
+    "body": "Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.",
+    "autoRefresh": "Diese Seite aktualisiert sich automatisch, sobald die Wartung beendet ist."
+  },
+  "pending": {
+    "title": "Konto noch nicht freigeschaltet",
+    "body1": "KIS befindet sich derzeit in der Testphase. Ihr TH-Lübeck-Konto wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung freigegeben.",
+    "body2": "Wenn Sie Zugang zu KIS benötigen, wenden Sie sich bitte an:",
+    "backToLogin": "Zurück zur Anmeldung"
+  },
+  "login": {
+    "welcome": "Willkommen bei KIS",
+    "title": "Anmelden",
+    "formAria": "Anmeldeformular",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "submit": "Anmelden",
+    "submitting": "Wird angemeldet...",
+    "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort."
+  },
   "toolsSidebar": {
     "heading": "Tools",
     "expand": "Tools-Sidebar ausklappen",
@@ -234,6 +283,45 @@
         "Soothing": "Beruhigend",
         "Professional": "Professionell"
       }
+    },
+    "glossary": {
+      "title": "Glossar",
+      "intro": "Eigene Begriffslisten anlegen für konsistente Fachbegriffe in Übersetzungen.",
+      "import": "Importieren",
+      "newButton": "+ Neues Glossar",
+      "maxReached": "Maximum erreicht ({current}/{max})",
+      "namePlaceholder": "Name des Glossaries",
+      "create": "Erstellen",
+      "cancel": "Abbrechen",
+      "deleteConfirm": "Glossar „{name}\" wirklich löschen?",
+      "delete": "Löschen",
+      "empty": "Noch keine Glossare vorhanden. Erstellen Sie Ihr erstes Glossar.",
+      "entryCount": "{n} Einträge",
+      "entryFooter": "{n} / {max} Einträge",
+      "actionRename": "Umbenennen",
+      "actionExport": "Als JSON exportieren",
+      "actionDelete": "Löschen",
+      "removeAria": "{term} entfernen",
+      "deTerm": "Deutsch",
+      "enTerm": "Englisch",
+      "addEntry": "+ Eintrag",
+      "duplicateEntry": "„{key}\" existiert bereits",
+      "noEntries": "Noch keine Einträge vorhanden.",
+      "import_": {
+        "invalidJsonObject": "Ungültiges Format: JSON-Objekt erwartet.",
+        "invalidStrings": "Ungültiges Format: Alle Schlüssel und Werte müssen Strings sein.",
+        "readFailed": "Datei konnte nicht gelesen werden. Gültiges JSON erwartet."
+      }
+    },
+    "glossarySelector": {
+      "noneCreated": "Noch kein Glossar erstellt →",
+      "manageLink": "Glossare verwalten",
+      "noneSelected": "Kein Glossar gewählt",
+      "selected": "{count, plural, =1 {1 Glossar gewählt} other {# Glossare gewählt}}",
+      "entries": "{n} Einträge",
+      "removeAria": "{name} entfernen",
+      "infoOrder": "Bei gleichen Begriffen hat das oben stehende Glossar Vorrang",
+      "infoMax": "Max. {n} gleichzeitig wählbar"
     },
     "image": {
       "title": "Bildgenerierung",

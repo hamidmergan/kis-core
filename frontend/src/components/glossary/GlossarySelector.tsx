@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useGlossaries, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
 
 const MAX_SELECTED = 3;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function GlossarySelector({ values, onChange }: Props) {
+  const t = useTranslations("glossarySelector");
   const { glossaries } = useGlossaries();
   const [open, setOpen] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -32,9 +34,9 @@ export default function GlossarySelector({ values, onChange }: Props) {
     return (
       <div className="mb-4">
         <p className="text-sm text-muted-soft">
-          Noch kein Glossar erstellt →{" "}
+          {t("noneCreated")}{" "}
           <Link href="/tools/glossary" className="text-kb hover:underline">
-            Glossare verwalten
+            {t("manageLink")}
           </Link>
         </p>
       </div>
@@ -81,10 +83,8 @@ export default function GlossarySelector({ values, onChange }: Props) {
 
   const buttonLabel =
     selectedIds.length === 0
-      ? "Kein Glossar gewählt"
-      : selectedIds.length === 1
-        ? "1 Glossar gewählt"
-        : `${selectedIds.length} Glossare gewählt`;
+      ? t("noneSelected")
+      : t("selected", { count: selectedIds.length });
 
   return (
     <div className="mb-4 mt-6">
@@ -139,7 +139,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
                     />
                     <span className="flex-1 text-foreground-soft">{g.name}</span>
                     <span className="text-muted-soft text-xs">
-                      {Object.keys(g.entries).length} Einträge
+                      {t("entries", { n: Object.keys(g.entries).length })}
                     </span>
                   </label>
                 </li>
@@ -178,7 +178,7 @@ export default function GlossarySelector({ values, onChange }: Props) {
                 <button
                   type="button"
                   onClick={() => removeTag(id)}
-                  aria-label={`${g.name} entfernen`}
+                  aria-label={t("removeAria", { name: g.name })}
                   className="w-5 h-5 flex items-center justify-center rounded-full text-muted-soft hover:text-kb hover:bg-surface-dim transition-colors"
                 >
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -193,8 +193,8 @@ export default function GlossarySelector({ values, onChange }: Props) {
 
       {/* Info text */}
       <p className="mt-2 text-xs text-muted-soft">
-        Bei gleichen Begriffen hat das oben stehende Glossar Vorrang
-        {" · "}Max. {MAX_SELECTED} gleichzeitig wählbar
+        {t("infoOrder")}
+        {" · "}{t("infoMax", { n: MAX_SELECTED })}
       </p>
     </div>
   );

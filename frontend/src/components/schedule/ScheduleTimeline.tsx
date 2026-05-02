@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { todayISO, urgencyColor } from "./utils";
 
 export interface DatedEntry {
@@ -36,13 +37,13 @@ function sortByDate<T extends DatedEntry>(entries: T[]): T[] {
   });
 }
 
-function formatDay(dateStr: string, today: Date): { day: string; month: string; year: string | null } {
+function formatDay(dateStr: string, today: Date, locale: string): { day: string; month: string; year: string | null } {
   const d = parseYMD(dateStr);
-  const months = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+  const tag = locale === "en" ? "en-US" : "de-DE";
   const showYear = d.getFullYear() !== today.getFullYear();
   return {
     day: String(d.getDate()).padStart(2, "0"),
-    month: months[d.getMonth()],
+    month: new Intl.DateTimeFormat(tag, { month: "short" }).format(d),
     year: showYear ? String(d.getFullYear()) : null,
   };
 }
@@ -72,6 +73,8 @@ export function ScheduleTimeline<T extends DatedEntry>({
   renderCard,
   renderTbdCard,
 }: ScheduleTimelineProps<T>) {
+  const t = useTranslations("schedule");
+  const locale = useLocale();
   const dated = sortByDate(entries.filter((e) => !!e.due_date));
   const tbd = renderTbdCard ? entries.filter((e) => !e.due_date) : [];
   const today = new Date();
@@ -93,7 +96,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
         {dated.map((entry) => {
           const today_ = isToday(entry.due_date!, today);
           const past_ = isPast(entry.due_date!, entry.due_time, today);
-          const { day, month, year } = formatDay(entry.due_date!, today);
+          const { day, month, year } = formatDay(entry.due_date!, today, locale);
           const urgency = urgencyColor(entry.due_date, todayStr);
 
           return (
@@ -155,7 +158,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
               className="mt-2 mb-1 pl-[68px] text-[11px] font-semibold uppercase tracking-wider"
               style={{ color: "var(--muted)" }}
             >
-              Nach Vereinbarung
+              {t("tbdHeading")}
             </div>
             {tbd.map((entry) => (
               <div
@@ -181,7 +184,7 @@ export function ScheduleTimeline<T extends DatedEntry>({
                     className="font-semibold uppercase tracking-wider leading-tight"
                     style={{ color: "var(--muted)", fontSize: 9 }}
                   >
-                    offen
+                    {t("tbdLabel")}
                   </div>
                 </div>
                 {renderTbdCard(entry)}

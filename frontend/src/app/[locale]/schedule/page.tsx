@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CalendarBlank } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import Spinner from "@/components/ui/Spinner";
@@ -49,6 +50,7 @@ async function toggleChecked(workspaceUuid: string, entryId: number, checked: bo
 }
 
 export default function SchedulePage() {
+  const t = useTranslations("schedule");
   const [entries, setEntries] = useState<ScheduleListEntry[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -82,7 +84,7 @@ export default function SchedulePage() {
       loadingRef.current = false;
       setInitialLoading(false);
       if (!res) {
-        setError("Termine konnten nicht geladen werden");
+        setError(t("loadError"));
         return;
       }
       setEntries(res.items);
@@ -159,10 +161,10 @@ export default function SchedulePage() {
         <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
           <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--foreground)" }}>
             <CalendarBlank size={20} weight="bold" style={{ color: "var(--kb)" }} />
-            Mein Zeitplan
+            {t("title")}
           </h1>
           <label className="inline-flex items-center gap-2 text-xs cursor-pointer select-none">
-            <span style={{ color: "var(--foreground)" }}>Alle anzeigen</span>
+            <span style={{ color: "var(--foreground)" }}>{t("showAll")}</span>
             <button
               type="button"
               role="switch"
@@ -194,7 +196,7 @@ export default function SchedulePage() {
           <EmptyState
             size="lg"
             icon={<CalendarBlank size={40} weight="bold" />}
-            text="Keine Termine vorhanden"
+            text={t("empty")}
           />
         )}
 
@@ -224,7 +226,7 @@ export default function SchedulePage() {
 
             {!hasMore && entries.length >= PAGE_SIZE && (
               <p className="text-center text-xs py-4" style={{ color: "var(--muted)" }}>
-                Alle Termine geladen
+                {t("allLoaded")}
               </p>
             )}
           </>

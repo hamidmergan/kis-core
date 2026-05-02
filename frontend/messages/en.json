@@ -105,6 +105,55 @@
       "viewAll": "View all"
     }
   },
+  "schedule": {
+    "title": "My schedule",
+    "showAll": "Show all",
+    "loadError": "Could not load schedule entries",
+    "empty": "No schedule entries",
+    "allLoaded": "All entries loaded",
+    "tbdHeading": "By arrangement",
+    "tbdLabel": "open",
+    "card": {
+      "pastLockedAria": "Past entries cannot be changed",
+      "uncheckAria": "Mark as not done",
+      "checkAria": "Mark as done",
+      "pastLockedTitle": "Past entries are locked",
+      "ownTooltip": "Own workspace",
+      "sharedTooltip": "Shared workspace"
+    }
+  },
+  "imprint": {
+    "title": "Imprint",
+    "lawHeading": "Information pursuant to § 5 DDG:",
+    "contactHeading": "Contact:",
+    "phoneLabel": "Phone:",
+    "emailLabel": "E-mail:",
+    "projectHeading": "Project:",
+    "projectBody": "Developed at the Institute for Interactive Systems (ISy),\nLübeck University of Applied Sciences.\nSource code licensed under Apache-2.0."
+  },
+  "wartung": {
+    "title": "Maintenance",
+    "body": "The platform is being updated. Please try again in a few minutes.",
+    "autoRefresh": "This page refreshes automatically once maintenance is finished."
+  },
+  "pending": {
+    "title": "Account not yet activated",
+    "body1": "KIS is currently in a test phase. Your TH Lübeck account was recognized but is not yet activated for use.",
+    "body2": "If you need access to KIS, please contact:",
+    "backToLogin": "Back to sign in"
+  },
+  "login": {
+    "welcome": "Welcome to KIS",
+    "title": "Sign in",
+    "formAria": "Sign-in form",
+    "username": "Username",
+    "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "submit": "Sign in",
+    "submitting": "Signing in...",
+    "invalidCredentials": "Invalid credentials. Please check username and password."
+  },
   "toolsSidebar": {
     "heading": "Tools",
     "expand": "Expand tools sidebar",
@@ -234,6 +283,45 @@
         "Soothing": "Soothing",
         "Professional": "Professional"
       }
+    },
+    "glossary": {
+      "title": "Glossary",
+      "intro": "Create your own term lists for consistent technical terminology in translations.",
+      "import": "Import",
+      "newButton": "+ New glossary",
+      "maxReached": "Maximum reached ({current}/{max})",
+      "namePlaceholder": "Glossary name",
+      "create": "Create",
+      "cancel": "Cancel",
+      "deleteConfirm": "Really delete glossary „{name}\"?",
+      "delete": "Delete",
+      "empty": "No glossaries yet. Create your first glossary.",
+      "entryCount": "{n} entries",
+      "entryFooter": "{n} / {max} entries",
+      "actionRename": "Rename",
+      "actionExport": "Export as JSON",
+      "actionDelete": "Delete",
+      "removeAria": "Remove {term}",
+      "deTerm": "German",
+      "enTerm": "English",
+      "addEntry": "+ Entry",
+      "duplicateEntry": "„{key}\" already exists",
+      "noEntries": "No entries yet.",
+      "import_": {
+        "invalidJsonObject": "Invalid format: JSON object expected.",
+        "invalidStrings": "Invalid format: all keys and values must be strings.",
+        "readFailed": "Could not read file. Valid JSON expected."
+      }
+    },
+    "glossarySelector": {
+      "noneCreated": "No glossary yet →",
+      "manageLink": "Manage glossaries",
+      "noneSelected": "No glossary selected",
+      "selected": "{count, plural, =1 {1 glossary selected} other {# glossaries selected}}",
+      "entries": "{n} entries",
+      "removeAria": "Remove {name}",
+      "infoOrder": "When terms collide, the top glossary takes precedence",
+      "infoMax": "Max. {n} selectable at the same time"
     },
     "image": {
       "title": "Image generation",

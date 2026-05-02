@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { login, checkAuthStatus } from "@/lib/auth";
 
 export default function LoginPage() {
+  const t = useTranslations("login");
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +39,7 @@ export default function LoginPage() {
       if (message === "account_not_activated") {
         router.push("/pending");
       } else {
-        setError("Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.");
+        setError(t("invalidCredentials"));
       }
     } finally {
       setLoading(false);
@@ -49,14 +51,14 @@ export default function LoginPage() {
   return (
     <main className="flex items-center justify-center min-h-[80vh] px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-6">Willkommen bei KIS</h1>
+        <h1 className="text-2xl font-bold text-center mb-6">{t("welcome")}</h1>
         <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
-          <h2 className="text-lg font-semibold mb-4">Anmelden</h2>
+          <h2 className="text-lg font-semibold mb-4">{t("title")}</h2>
 
-          <form onSubmit={handleSubmit} aria-label="Anmeldeformular" className="space-y-4">
+          <form onSubmit={handleSubmit} aria-label={t("formAria")} className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-foreground-soft mb-1">
-                Benutzername
+                {t("username")}
               </label>
               <input
                 id="username"
@@ -76,7 +78,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-foreground-soft mb-1">
-                Passwort
+                {t("password")}
               </label>
               <div className="relative">
                 <input
@@ -93,7 +95,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+                  aria-label={showPassword ? t("hidePassword") : t("showPassword")}
                   className="absolute inset-y-0 right-0 flex items-center px-3 text-muted hover:text-kb transition-colors"
                   tabIndex={-1}
                 >
@@ -122,7 +124,7 @@ export default function LoginPage() {
               disabled={loading || !username.trim() || !password}
               className="w-full px-4 py-2 text-sm font-medium rounded-md btn-primary"
             >
-              {loading ? "Wird angemeldet..." : "Anmelden"}
+              {loading ? t("submitting") : t("submit")}
             </button>
           </form>
         </div>

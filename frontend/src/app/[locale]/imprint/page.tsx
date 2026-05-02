@@ -1,11 +1,14 @@
+import { useTranslations } from "next-intl";
+
 export default function ImpressumPage() {
+  const t = useTranslations("imprint");
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
-          <h1 className="text-2xl font-bold mb-6">Impressum</h1>
+          <h1 className="text-2xl font-bold mb-6">{t("title")}</h1>
 
           <p className="font-semibold text-foreground-soft mb-2">
-            Angaben gemäß § 5 DDG:
+            {t("lawHeading")}
           </p>
           <p className="text-foreground-soft mb-4">
             Hamid Mergan<br />
@@ -13,17 +16,15 @@ export default function ImpressumPage() {
             23562 Lübeck
           </p>
 
-          <p className="font-semibold text-foreground-soft mb-2">Kontakt:</p>
+          <p className="font-semibold text-foreground-soft mb-2">{t("contactHeading")}</p>
           <p className="text-foreground-soft mb-4">
-            Telefon: +49 451 160818 81<br />
-            E-Mail: hamid.mergan@th-luebeck.de
+            {t("phoneLabel")} +49 451 160818 81<br />
+            {t("emailLabel")} hamid.mergan@th-luebeck.de
           </p>
 
-          <p className="font-semibold text-foreground-soft mb-2">Projekt:</p>
-          <p className="text-foreground-soft">
-            Entwicklung am Institut für Interaktive Systeme (ISy),<br />
-            Technische Hochschule Lübeck.<br />
-            Quellcode lizenziert unter Apache-2.0.
+          <p className="font-semibold text-foreground-soft mb-2">{t("projectHeading")}</p>
+          <p className="text-foreground-soft whitespace-pre-line">
+            {t("projectBody")}
           </p>
         </div>
     </div>

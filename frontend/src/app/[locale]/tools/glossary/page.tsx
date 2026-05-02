@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { BookOpen, PencilSimple, Trash, DownloadSimple } from "@phosphor-icons/react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { useGlossaries, MAX_GLOSSARIES, MAX_ENTRIES_PER_GLOSSARY } from "@/hooks/useGlossaries";
@@ -8,6 +9,9 @@ import BackLink from "@/components/ui/BackLink";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function GlossaryPage() {
+  const t = useTranslations("glossary");
+  const tImport = useTranslations("glossary.import_");
+  const locale = useLocale();
   const { glossaries, createGlossary, updateGlossary, deleteGlossary } = useGlossaries();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -55,7 +59,7 @@ export default function GlossaryPage() {
     if (!selectedGlossary) return;
     const key = newEntryDe.trim();
     if (key in selectedGlossary.entries) {
-      setEntryError(`"${key}" existiert bereits`);
+      setEntryError(t("duplicateEntry", { key }));
       return;
     }
     updateGlossary(selectedGlossary.id, {
@@ -97,7 +101,7 @@ export default function GlossaryPage() {
       try {
         const parsed = JSON.parse(ev.target?.result as string);
         if (typeof parsed !== "object" || Array.isArray(parsed)) {
-          setImportError("Ungültiges Format: JSON-Objekt erwartet.");
+          setImportError(tImport("invalidJsonObject"));
           return;
         }
 
@@ -119,7 +123,7 @@ export default function GlossaryPage() {
         const entries: Record<string, string> = {};
         for (const [k, v] of Object.entries(rawEntries)) {
           if (typeof k !== "string" || typeof v !== "string") {
-            setImportError("Ungültiges Format: Alle Schlüssel und Werte müssen Strings sein.");
+            setImportError(tImport("invalidStrings"));
             return;
           }
           entries[k] = v;
@@ -129,7 +133,7 @@ export default function GlossaryPage() {
         updateGlossary(id, { entries });
         setSelectedId(id);
       } catch {
-        setImportError("Datei konnte nicht gelesen werden. Gültiges JSON erwartet.");
+        setImportError(tImport("readFailed"));
       }
     };
     reader.readAsText(file);
@@ -138,7 +142,8 @@ export default function GlossaryPage() {
 
   const formatDate = (iso: string) => {
     try {
-      return new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
+      const tag = locale === "en" ? "en-US" : "de-DE";
+      return new Date(iso).toLocaleDateString(tag, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin" });
     } catch {
       return "";
     }
@@ -150,7 +155,7 @@ export default function GlossaryPage() {
         <BackLink />
         <section>
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-xl font-bold">Glossar</h2>
+            <h2 className="text-xl font-bold">{t("title")}</h2>
             <div className="flex gap-2">
               <input
                 ref={importRef}
@@ -163,17 +168,17 @@ export default function GlossaryPage() {
                 onClick={() => { setImportError(""); importRef.current?.click(); }}
                 className="px-3 py-1.5 text-sm border border-border rounded-md text-foreground-soft hover:bg-surface transition-colors"
               >
-                Importieren
+                {t("import")}
               </button>
               <button
                 onClick={() => setCreatingNew(true)}
                 disabled={glossaries.length >= MAX_GLOSSARIES}
-                title={glossaries.length >= MAX_GLOSSARIES ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})` : undefined}
+                title={glossaries.length >= MAX_GLOSSARIES ? t("maxReached", { current: MAX_GLOSSARIES, max: MAX_GLOSSARIES }) : undefined}
                 className="px-3 py-1.5 text-sm btn-primary rounded-md  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {glossaries.length >= MAX_GLOSSARIES
-                  ? `Maximum erreicht (${MAX_GLOSSARIES}/${MAX_GLOSSARIES})`
-                  : "+ Neues Glossar"}
+                  ? t("maxReached", { current: MAX_GLOSSARIES, max: MAX_GLOSSARIES })
+                  : t("newButton")}
               </button>
             </div>
           </div>
@@ -181,7 +186,7 @@ export default function GlossaryPage() {
             <p className="mt-2 mb-0 text-sm text-error">{importError}</p>
           )}
           <p className="text-sm text-muted mb-6 mt-1">
-            Eigene Begriffslisten anlegen für konsistente Fachbegriffe in Übersetzungen.
+            {t("intro")}
           </p>
 
           {/* Create new glossary */}
@@ -193,7 +198,7 @@ export default function GlossaryPage() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreatingNew(false); }}
-                placeholder="Name des Glossaries"
+                placeholder={t("namePlaceholder")}
                 className="flex-1 rounded-md border border-border px-3 py-2 text-sm focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
               />
               <button
@@ -201,13 +206,13 @@ export default function GlossaryPage() {
                 disabled={!newName.trim()}
                 className="px-4 py-2 text-sm btn-primary rounded-md  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Erstellen
+                {t("create")}
               </button>
               <button
                 onClick={() => { setCreatingNew(false); setNewName(""); }}
                 className="btn-cancel px-3 py-2 text-sm border border-border rounded-md text-foreground-soft transition-colors"
               >
-                Abbrechen
+                {t("cancel")}
               </button>
             </div>
           )}
@@ -216,20 +221,20 @@ export default function GlossaryPage() {
           {confirmDeleteId && (
             <div className="mb-4 p-4 bg-error-bg border border-error-border rounded-lg flex items-center justify-between gap-4">
               <p className="text-sm text-error-strong">
-                Glossar &ldquo;{glossaries.find(g => g.id === confirmDeleteId)?.name}&rdquo; wirklich löschen?
+                {t("deleteConfirm", { name: glossaries.find(g => g.id === confirmDeleteId)?.name ?? "" })}
               </p>
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={handleDeleteConfirmed}
                   className="px-3 py-1.5 text-sm bg-error text-white rounded-md hover:bg-error-strong transition-colors"
                 >
-                  Löschen
+                  {t("delete")}
                 </button>
                 <button
                   onClick={() => setConfirmDeleteId(null)}
                   className="btn-cancel px-3 py-1.5 text-sm border border-border rounded-md text-foreground-soft transition-colors"
                 >
-                  Abbrechen
+                  {t("cancel")}
                 </button>
               </div>
             </div>
@@ -241,7 +246,7 @@ export default function GlossaryPage() {
               <EmptyState
                 size="lg"
                 icon={<BookOpen size={32} weight="bold" />}
-                text="Noch keine Glossare vorhanden. Erstellen Sie Ihr erstes Glossar."
+                text={t("empty")}
               />
             </div>
           ) : (
@@ -274,7 +279,7 @@ export default function GlossaryPage() {
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-foreground">{g.name} </span>
                         <span className="text-sm text-muted-soft">
-                          ({Object.keys(g.entries).length} Einträge)
+                          ({t("entryCount", { n: Object.keys(g.entries).length })})
                         </span>
                         <span className="ml-2 text-xs text-border">· {formatDate(g.createdAt)}</span>
                       </div>
@@ -283,21 +288,21 @@ export default function GlossaryPage() {
                       <button
                         onClick={() => handleStartRename(g.id, g.name)}
                         className="p-1.5 text-muted-soft hover:text-foreground-soft transition-colors"
-                        title="Umbenennen"
+                        title={t("actionRename")}
                       >
                         <PencilSimple size={15} weight="bold" />
                       </button>
                       <button
                         onClick={() => handleExport(g.id)}
                         className="p-1.5 text-muted-soft hover:text-foreground-soft transition-colors"
-                        title="Als JSON exportieren"
+                        title={t("actionExport")}
                       >
                         <DownloadSimple size={15} weight="bold" />
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(g.id)}
                         className="p-1.5 text-muted-soft hover:text-error transition-colors"
-                        title="Löschen"
+                        title={t("actionDelete")}
                       >
                         <Trash size={15} weight="bold" />
                       </button>
@@ -314,7 +319,7 @@ export default function GlossaryPage() {
                           value={newEntryDe}
                           onChange={(e) => { setNewEntryDe(e.target.value); setEntryError(""); }}
                           onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}
-                          placeholder="Deutsch"
+                          placeholder={t("deTerm")}
                           className="flex-1 rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
                         />
                         <input
@@ -322,18 +327,18 @@ export default function GlossaryPage() {
                           value={newEntryEn}
                           onChange={(e) => { setNewEntryEn(e.target.value); setEntryError(""); }}
                           onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}
-                          placeholder="Englisch"
+                          placeholder={t("enTerm")}
                           className="flex-1 rounded-md border border-border px-3 py-2 text-sm bg-background focus:border-kb focus:ring-1 focus:ring-kb focus:outline-none"
                         />
                         <button
                           onClick={handleAddEntry}
                           disabled={!newEntryDe.trim() || !newEntryEn.trim() || Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY}
-                          title={Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY ? `Maximum erreicht (${MAX_ENTRIES_PER_GLOSSARY}/${MAX_ENTRIES_PER_GLOSSARY})` : undefined}
+                          title={Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY ? t("maxReached", { current: MAX_ENTRIES_PER_GLOSSARY, max: MAX_ENTRIES_PER_GLOSSARY }) : undefined}
                           className="px-4 py-2 text-sm btn-primary rounded-md  disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                         >
                           {Object.keys(g.entries).length >= MAX_ENTRIES_PER_GLOSSARY
-                            ? `Maximum erreicht (${MAX_ENTRIES_PER_GLOSSARY}/${MAX_ENTRIES_PER_GLOSSARY})`
-                            : "+ Eintrag"}
+                            ? t("maxReached", { current: MAX_ENTRIES_PER_GLOSSARY, max: MAX_ENTRIES_PER_GLOSSARY })
+                            : t("addEntry")}
                         </button>
                       </div>
 
@@ -345,7 +350,7 @@ export default function GlossaryPage() {
                         <div className="border border-dashed border-border-soft rounded-lg bg-background">
                           <EmptyState
                             size="sm"
-                            text="Noch keine Einträge vorhanden."
+                            text={t("noEntries")}
                           />
                         </div>
                       ) : (
@@ -354,10 +359,10 @@ export default function GlossaryPage() {
                             <thead>
                               <tr className="bg-background border-b border-border-soft">
                                 <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-4 py-2.5">
-                                  Deutsch
+                                  {t("deTerm")}
                                 </th>
                                 <th className="text-left text-xs font-medium text-muted uppercase tracking-wider px-4 py-2.5">
-                                  Englisch
+                                  {t("enTerm")}
                                 </th>
                                 <th className="w-12 px-4 py-2.5" />
                               </tr>
@@ -370,7 +375,7 @@ export default function GlossaryPage() {
                                   <td className="px-4 py-2.5 text-right">
                                     <button
                                       onClick={() => handleRemoveEntry(de)}
-                                      aria-label={`${de} entfernen`}
+                                      aria-label={t("removeAria", { term: de })}
                                       className="text-muted-soft hover:text-error transition-colors"
                                     >
                                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -383,7 +388,7 @@ export default function GlossaryPage() {
                             </tbody>
                           </table>
                           <div className="px-4 py-2.5 bg-background border-t border-border-soft text-xs text-muted-soft">
-                            {Object.keys(g.entries).length} / {MAX_ENTRIES_PER_GLOSSARY} Einträge
+                            {t("entryFooter", { n: Object.keys(g.entries).length, max: MAX_ENTRIES_PER_GLOSSARY })}
                           </div>
                         </div>
                       )}

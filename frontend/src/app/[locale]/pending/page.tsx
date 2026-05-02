@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import Header from "@/components/layout/Header";
 import Hilde from "@/components/ui/Hilde";
 import { useHildePref } from "@/hooks/useHildePref";
 
 export default function TestphasePage() {
+  const t = useTranslations("pending");
   const { enabled: hildeEnabled } = useHildePref();
 
   return (
@@ -38,17 +40,15 @@ export default function TestphasePage() {
             </div>
 
             <h1 className="text-xl font-bold mb-2">
-              Konto noch nicht freigeschaltet
+              {t("title")}
             </h1>
 
             <p className="text-foreground-soft mb-4">
-              KIS befindet sich derzeit in der Testphase. Ihr TH-Lübeck-Konto
-              wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung
-              freigegeben.
+              {t("body1")}
             </p>
 
             <p className="text-foreground-soft mb-6">
-              Wenn Sie Zugang zu KIS benötigen, wenden Sie sich bitte an:
+              {t("body2")}
             </p>
 
             <a
@@ -63,7 +63,7 @@ export default function TestphasePage() {
                 href="/login"
                 className="text-sm text-kb hover:underline"
               >
-                Zurück zur Anmeldung
+                {t("backToLogin")}
               </Link>
             </div>
           </div>

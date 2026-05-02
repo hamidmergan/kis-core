@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Check, Clock, Folder, Users } from "@phosphor-icons/react";
 import { cleanScheduleDescription } from "./utils";
 
@@ -32,6 +33,7 @@ export function ScheduleEntryCardGlobal({
   href,
   onToggleChecked,
 }: ScheduleEntryCardGlobalProps) {
+  const t = useTranslations("schedule.card");
   const containerStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
     backgroundColor: entry.is_checked ? "var(--success-bg)" : "var(--background)",
@@ -55,12 +57,12 @@ export function ScheduleEntryCardGlobal({
         type="button"
         aria-label={
           isPast
-            ? "Vergangene Termine können nicht geändert werden"
+            ? t("pastLockedAria")
             : entry.is_checked
-            ? "Erledigt aufheben"
-            : "Als erledigt markieren"
+            ? t("uncheckAria")
+            : t("checkAria")
         }
-        title={isPast ? "Vergangene Termine sind gesperrt" : undefined}
+        title={isPast ? t("pastLockedTitle") : undefined}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -129,7 +131,7 @@ export function ScheduleEntryCardGlobal({
               border: isOwned ? "none" : "1px solid var(--border)",
               color: isOwned ? "var(--kb)" : "var(--muted)",
             }}
-            title={isOwned ? "Eigener Arbeitsraum" : "Geteilter Arbeitsraum"}
+            title={isOwned ? t("ownTooltip") : t("sharedTooltip")}
           >
             <RelIcon size={10} weight="bold" />
             <span className="truncate" style={{ maxWidth: 240 }}>
