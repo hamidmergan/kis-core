@@ -68,18 +68,20 @@ def _llm_provider_config(provider: str) -> tuple[str, str, str]:
 
     if provider == "primary":
         if not settings.primary_provider_api_key:
-            raise RuntimeError("Primary LLM nicht konfiguriert (PRIMARY_PROVIDER_API_KEY fehlt).")
+            raise RuntimeError("Primary LLM not configured (PRIMARY_PROVIDER_API_KEY missing).")
+        if not settings.primary_provider_base_url:
+            raise RuntimeError("Primary LLM not configured (PRIMARY_PROVIDER_BASE_URL missing).")
         return settings.primary_provider_api_key, settings.primary_provider_base_url, get_model("primary_llm_model")
     if provider == "fallback":
         fallback_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
         if not fallback_url:
-            raise RuntimeError("Fallback LLM nicht konfiguriert (FALLBACK_PROVIDER_BASE_URL fehlt).")
+            raise RuntimeError("Fallback LLM not configured (FALLBACK_PROVIDER_BASE_URL missing).")
         return "ignored", f"{fallback_url.rstrip('/')}/v1", get_model("fallback_llm_model")
     if provider == "local":
         if not settings.local_provider_base_url:
-            raise RuntimeError("Local LLM nicht konfiguriert (OLLAMA_BASE_URL fehlt).")
+            raise RuntimeError("Local LLM not configured (OLLAMA_BASE_URL missing).")
         return "ignored", settings.local_provider_base_url, get_model("local_llm_model")
-    raise ValueError(f"Unbekannter LLM-Provider: {provider!r}")
+    raise ValueError(f"Unknown LLM provider: {provider!r}")
 
 
 def _resolve_llm_provider() -> tuple[str, str, str, str]:
@@ -100,8 +102,7 @@ def _resolve_llm_provider() -> tuple[str, str, str, str]:
             return api_key, base_url, model, name
 
     raise RuntimeError(
-        "Kein LLM-Provider aktiv. Bitte im Admin-Bereich unter 'LLM Chat' "
-        "genau einen Anbieter aktivieren."
+        "No LLM provider active. Enable exactly one in the admin panel under 'LLM Chat'."
     )
 
 
@@ -139,7 +140,7 @@ def resolve_whisper_client() -> OpenAICompatLLMClient:
     if db.get_setting("fallback_whisper_enabled", "false").lower() == "true":
         fallback_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
         if not fallback_url:
-            raise RuntimeError("Fallback Whisper aktiv, aber FALLBACK_PROVIDER_BASE_URL nicht konfiguriert")
+            raise RuntimeError("Fallback Whisper enabled but FALLBACK_PROVIDER_BASE_URL not configured")
         from src.services.runtime_models import get_model
         return OpenAICompatLLMClient(
             api_key="not-needed",
@@ -149,15 +150,15 @@ def resolve_whisper_client() -> OpenAICompatLLMClient:
             whisper_model="whisper-3-large",
         )
     api_key, base_url, model, provider = _resolve_llm_provider()
-    if not api_key:
-        raise RuntimeError("No LLM provider configured (required for Whisper transcription)")
     return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
 
 
 def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
-    api_key, base_url, model, provider = _resolve_llm_provider()
-    if not api_key:
-        raise HTTPException(status_code=500, detail=t("llm.notConfigured", locale))
+    try:
+        api_key, base_url, model, provider = _resolve_llm_provider()
+    except RuntimeError as e:
+        logger.warning("LLM provider resolution failed: {}", e)
+        raise HTTPException(status_code=503, detail=t("llm.notConfigured", locale))
     return OpenAICompatLLMClient(
         api_key=api_key,
         base_url=base_url,

@@ -36,7 +36,6 @@ export function ScheduleEntryCardGlobal({
   const t = useTranslations("schedule.card");
   const containerStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
-    backgroundColor: entry.is_checked ? "var(--success-bg)" : "var(--background)",
     opacity: isPast ? 0.55 : 1,
     boxShadow: "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
@@ -52,7 +51,14 @@ export function ScheduleEntryCardGlobal({
   const description = cleanScheduleDescription(entry.description, entry.due_time);
 
   return (
-    <div className="border-2 border-transparent hover:border-kb transition-colors" style={containerStyle}>
+    <div
+      className={`border-2 border-transparent hover:border-kb transition-colors ${
+        entry.is_checked
+          ? "bg-[var(--success-bg)]"
+          : "bg-background hover:bg-surface-dim group-hover:bg-surface-dim"
+      }`}
+      style={containerStyle}
+    >
       <button
         type="button"
         aria-label={

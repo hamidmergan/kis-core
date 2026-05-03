@@ -8,7 +8,6 @@ import WorkspaceLabelCard from "./WorkspaceLabelCard";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { notifyMascotGlobalChanged } from "@/hooks/useHildePref";
 
-type TranslationMode = "off" | "auto" | "manual";
 type TranslationProvider = "deepl" | "llm";
 
 export type SettingsSection = "system" | "speech" | "images" | "embedding" | "llm";
@@ -63,10 +62,12 @@ function ProviderToggle({
         <p className="text-sm text-foreground-soft">{label}</p>
         <p className="text-xs text-muted mt-0.5">{statusText}</p>
         {!configured && envHint && (
-          <p
-            className="mt-1 text-xs text-muted-soft"
-            dangerouslySetInnerHTML={{ __html: t("envNotSet", { envHint }) }}
-          />
+          <p className="mt-1 text-xs text-muted-soft">
+            {t.rich("envNotSet", {
+              envHint,
+              code: (chunks) => <code>{chunks}</code>,
+            })}
+          </p>
         )}
         {modelKey && onModelChange && (
           <div className="mt-2 flex items-center gap-2">
@@ -130,12 +131,6 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [s, setS] = useState<Record<string, any> | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const TRANSLATION_MODE_OPTIONS = useMemo(() => [
-    { value: "off" as const, label: t("translationModeOff") },
-    { value: "auto" as const, label: t("translationModeAuto") },
-    { value: "manual" as const, label: t("translationModeManual") },
-  ], [t]);
 
   const TRANSLATION_PROVIDER_OPTIONS = useMemo(() => [
     { value: "deepl" as const, label: "DeepL" },
@@ -224,22 +219,6 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
           <ProviderSection title={t("transcriptTranslationTitle")} hint={t("transcriptTranslationHint")}>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-foreground">{t("modeLabel")}</p>
-                <p className="text-xs text-muted mt-1">{t("modeHint")}</p>
-              </div>
-              <Select<TranslationMode>
-                value={(s.transcript_translation_mode ?? "manual") as TranslationMode}
-                onChange={(v) => {
-                  setS((prev) => (prev ? { ...prev, transcript_translation_mode: v } : prev));
-                  patch({ transcript_translation_mode: v });
-                }}
-                options={TRANSLATION_MODE_OPTIONS}
-                disabled={saving}
-                className="shrink-0 w-48"
-              />
-            </div>
-            <div className="flex items-center justify-between gap-4" style={{ opacity: (s.transcript_translation_mode ?? "manual") === "off" ? 0.5 : 1 }}>
-              <div>
                 <p className="text-sm font-medium text-foreground">{t("providerLabel")}</p>
                 <p className="text-xs text-muted mt-1">{t("providerHint")}</p>
               </div>
@@ -250,7 +229,7 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
                   patch({ transcript_translation_provider: v });
                 }}
                 options={TRANSLATION_PROVIDER_OPTIONS}
-                disabled={saving || (s.transcript_translation_mode ?? "manual") === "off"}
+                disabled={saving}
                 className="shrink-0 w-48"
               />
             </div>
@@ -266,7 +245,8 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
           </ProviderSection>
 
           <ProviderSection title={t("imageAnalyzeTitle")} hint={t("imageAnalyzeHint")}>
-            <P label={t("providerKisskiQwen")} settingKey="primary_image_analyze_enabled" enabled={s.primary_image_analyze_enabled ?? true} configured={s.primary_image_analyze_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
+            <P label={t("providerKisskiQwen")} settingKey="primary_image_analyze_enabled" enabled={s.primary_image_analyze_enabled ?? true} configured={s.primary_image_analyze_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_image_analyze_model" />
+            <P label={t("providerMylab")} settingKey="fallback_image_analyze_enabled" enabled={s.fallback_image_analyze_enabled ?? false} configured={s.fallback_image_analyze_configured ?? false} available={s.fallback_image_analyze_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_analyze_model" />
           </ProviderSection>
 
           <ProviderSection title={t("imageEditTitle")} hint={t("imageEditHint")}>

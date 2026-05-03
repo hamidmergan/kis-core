@@ -114,9 +114,12 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "fallback_image_gen_enabled": _enabled("fallback_image_gen_enabled"),
         "fallback_image_gen_configured": fallback_configured,
         "fallback_image_gen_available": fallback_available,
-        # ── Image analysis ── (primary slot only, no fallback equivalent today)
+        # ── Image analysis ──
         "primary_image_analyze_enabled": _enabled("primary_image_analyze_enabled"),
         "primary_image_analyze_configured": primary_configured,
+        "fallback_image_analyze_enabled": _enabled("fallback_image_analyze_enabled", "false"),
+        "fallback_image_analyze_configured": fallback_configured,
+        "fallback_image_analyze_available": fallback_available,
         # ── Image editing ──
         "primary_image_edit_enabled": _enabled("primary_image_edit_enabled"),
         "primary_image_edit_configured": primary_configured,
@@ -163,7 +166,7 @@ _SIMPLE_BOOL_FIELDS = (
     "elevenlabs_enabled", "fish_speech_enabled", "kokoro_enabled", "mylab_enabled",
     "primary_whisper_enabled", "fallback_whisper_enabled",
     "primary_image_gen_enabled", "fallback_image_gen_enabled",
-    "primary_image_analyze_enabled",
+    "primary_image_analyze_enabled", "fallback_image_analyze_enabled",
     "primary_image_edit_enabled", "fallback_image_edit_enabled",
     "primary_ocr_enabled", "fallback_ocr_enabled",
     "mascot_enabled",

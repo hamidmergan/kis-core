@@ -228,7 +228,7 @@ export function ScheduleView({
       {/* Header: Quellen-Hint links, Edit-Icon rechts */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2 gap-2">
         <div
-          className="rounded-xl px-3 py-1.5 text-base font-medium flex items-center gap-2"
+          className="rounded-xl px-3 py-1.5 text-sm font-medium flex items-center gap-2"
           style={{
             color: !hasSources || !hasSelection ? "var(--error-strong)" : "var(--kb)",
           }}
@@ -264,7 +264,7 @@ export function ScheduleView({
         </button>
         {generateMsg && (
           <div
-            className="mt-1 px-3 py-1.5 rounded-lg text-base font-medium flex items-center gap-2"
+            className="mt-1 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2"
             style={{
               backgroundColor: generateMsg.kind === "success" ? "rgba(22,163,74,0.08)"
                 : generateMsg.kind === "error" ? "rgba(185,28,28,0.08)"
@@ -312,10 +312,10 @@ export function ScheduleView({
       {/* Content */}
       <div className="px-3 py-2">
         {loading && (
-          <p className="text-base py-6 text-center" >{t("loading")}</p>
+          <p className="text-sm py-6 text-center" >{t("loading")}</p>
         )}
         {error && (
-          <p className="text-base py-6 text-center" style={{ color: "var(--error-strong)" }}>{error}</p>
+          <p className="text-sm py-6 text-center" style={{ color: "var(--error-strong)" }}>{error}</p>
         )}
         {!loading && !error && entries.length === 0 && (
           <EmptyState
@@ -379,7 +379,7 @@ export function ScheduleView({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold mb-2" style={{ color: "var(--foreground)" }}>{t("confirmDeleteAll.title")}</h3>
-            <p className="text-base" >
+            <p className="text-sm" >
               {t("confirmDeleteAll.body")}
             </p>
             <div className="mt-4 flex justify-end gap-2">

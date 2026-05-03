@@ -61,8 +61,8 @@ def _fallback_http_client(timeout: float = 120.0):
 def _image_provider(task: str) -> str:
     """Choose provider slot for image tasks via admin settings.
 
-    task: "gen" | "edit". If ``fallback_image_<task>_enabled`` is set, route to
-    the fallback endpoint; otherwise use the primary (default).
+    task: "gen" | "edit" | "analyze". If ``fallback_image_<task>_enabled`` is
+    set, route to the fallback endpoint; otherwise use the primary (default).
     """
     if db.get_setting(f"fallback_image_{task}_enabled", "false") == "true":
         return "fallback"
@@ -380,15 +380,23 @@ def run_image_analyze(
 
         # qwen3-omni does not support a separate system role with vision content;
         # embed the system instructions as the first text block in the user message.
+        # Same pattern works for qwen3-vl on the fallback slot.
         system_prompt = db.get_setting("prompt_image_analyze", _IMAGE_ANALYZE_SYSTEM_PROMPT)
         user_content = f"{system_prompt}\n\n{user_text}"
 
-        base_url, client = _primary_http_client(timeout=60.0)
+        from src.services.runtime_models import get_model
+        provider = _image_provider("analyze")
+        if provider == "fallback":
+            base_url, client = _fallback_http_client(timeout=60.0)
+            model = get_model("fallback_image_analyze_model")
+        else:
+            base_url, client = _primary_http_client(timeout=60.0)
+            model = get_model("primary_image_analyze_model")
         with job_heartbeat(job_uuid), client:
             response = client.post(
                 f"{base_url}/chat/completions",
                 json={
-                    "model": "qwen3-omni-30b-a3b-instruct",
+                    "model": model,
                     "messages": [
                         {
                             "role": "user",

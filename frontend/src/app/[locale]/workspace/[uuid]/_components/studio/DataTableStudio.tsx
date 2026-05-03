@@ -52,7 +52,7 @@ export function DataTableStudio({
       <div style={{ display: view === "list" ? "flex" : "none" }} className="flex-col h-full">
         <SubviewHeader title={tDt("title")} toolKey="DataTable" onBack={onBack} breadcrumbs={breadcrumbs} />
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-          <div className="rounded-xl px-3 py-2 text-base font-medium flex items-center gap-2"
+          <div className="rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2"
             style={{
               color: noSources ? "var(--error-strong)" : sourceCount > 5 ? "#c4820e" : "var(--kb)",
             }}>
@@ -75,7 +75,7 @@ export function DataTableStudio({
               action={
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-base font-semibold transition-all disabled:opacity-40">
+                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                   <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
                 </button>
               }
@@ -85,12 +85,12 @@ export function DataTableStudio({
               <div className="flex justify-center">
                 <button type="button" onClick={() => onGenerate()}
                   disabled={noSources || loading || atLimit}
-                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-base font-semibold transition-all disabled:opacity-40">
+                  className="btn-outline-accent inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-40">
                   <Sparkle size={12} weight="bold" /> {t("generate.createCount", { current: savedList.length, max: 20 })}
                 </button>
               </div>
               <div className="flex items-center justify-between px-1">
-                <span className="text-base font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? tDt("countOne") : tDt("countMany")}</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{savedList.length} {savedList.length === 1 ? tDt("countOne") : tDt("countMany")}</span>
               </div>
               <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                 {loading && (
@@ -98,7 +98,7 @@ export function DataTableStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Spinner size="sm" />
-                      <span className="text-base font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>{t("generate.generating")}</span>
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>{t("generate.generating")}</span>
                     </div>
                   </div>
                 )}
@@ -109,7 +109,7 @@ export function DataTableStudio({
                     style={{ boxShadow: "0 2px 10px rgba(0,40,60,0.05), 0 0 0 1px rgba(0,40,60,0.03)", minHeight: 90 }}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Table size={16} weight="bold" style={{ color: "var(--kb)", flexShrink: 0 }} />
-                      <span className="text-base font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }} data-tip={item.title}>
+                      <span className="text-sm font-semibold leading-snug flex-1 line-clamp-3 kis-tooltip" style={{ color: "var(--foreground)" }} data-tip={item.title}>
                         {item.title}
                       </span>
                     </div>
@@ -142,7 +142,7 @@ export function DataTableStudio({
           {breadcrumbs ? (() => {
             const badge = _getToolBadge("DataTable");
             return (
-              <div className="flex items-center gap-1 text-base min-w-0 flex-1">
+              <div className="flex items-center gap-1 text-sm min-w-0 flex-1">
                 {breadcrumbs.map((b, i) => (
                   <React.Fragment key={i}>
                     <button type="button" onClick={b.onClick} className="font-medium shrink-0 text-muted hover:text-kb transition-colors">{b.label}</button>
@@ -168,7 +168,7 @@ export function DataTableStudio({
             <div className="flex-1 flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
                 <Spinner size="lg" />
-                <p className="text-base" >{tDt("loadingViewer")}</p>
+                <p className="text-sm" >{tDt("loadingViewer")}</p>
               </div>
             </div>
           )}
@@ -183,7 +183,7 @@ export function DataTableStudio({
                 const visibleColIndices = table.columns.map((col, i) => ({ col, i })).filter(({ col }) => !sourceColKeywords.includes(col.trim().toLowerCase()));
                 return (
               <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid var(--border)" }}>
-                <table className="w-full border-collapse text-base" style={{ minWidth: 500 }}>
+                <table className="w-full border-collapse text-sm" style={{ minWidth: 500 }}>
                   <thead>
                     <tr>
                       {visibleColIndices.map(({ col, i }) => (

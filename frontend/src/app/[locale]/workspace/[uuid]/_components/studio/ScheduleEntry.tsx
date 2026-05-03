@@ -34,14 +34,13 @@ export function ScheduleEntryCard({
   const t = useTranslations("workspace.detail.studio.schedule.entry");
   const baseStyle: React.CSSProperties = {
     border: "1px solid var(--border)",
-    backgroundColor: entry.is_checked ? "var(--success-bg)" : "var(--background)",
     // Dim whenever the deadline has passed — including today's entries whose
     // time is already in the past (isPast is computed with due_time in mind).
     opacity: isPast ? 0.55 : entry.is_checked ? 0.7 : 1,
     boxShadow: "0 1px 3px rgba(13,31,45,.04)",
     borderRadius: 12,
     padding: "12px 14px",
-    fontSize: 16,
+    fontSize: 14,
   };
 
   // Dedup: same (source_uuid, page, start_time) appears only once per entry,
@@ -58,7 +57,14 @@ export function ScheduleEntryCard({
   }
 
   return (
-    <div style={baseStyle}>
+    <div
+      className={`border-2 border-transparent hover:border-kb transition-colors ${
+        entry.is_checked
+          ? "bg-[var(--success-bg)]"
+          : "bg-background hover:bg-surface-dim group-hover:bg-surface-dim"
+      }`}
+      style={baseStyle}
+    >
       <div className="flex items-start gap-2.5">
         {/* Checkbox */}
         <button
@@ -94,7 +100,7 @@ export function ScheduleEntryCard({
             style={{
               color: entry.is_checked ? "var(--success-strong)" : "var(--foreground)",
               textDecoration: entry.is_checked ? "line-through" : "none",
-              fontSize: 16,
+              fontSize: 14,
             }}
           >
             {entry.title}

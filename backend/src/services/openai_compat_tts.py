@@ -13,7 +13,7 @@ from __future__ import annotations
 import httpx
 
 _DEFAULT_VOICE = "alloy"
-_DEFAULT_MODEL = "tts-1-hd"
+_DEFAULT_MODEL = "xtts-v2"
 
 _CHUNK_MAX = 10_000
 _CHUNK_MIN = 9_500

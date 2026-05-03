@@ -529,6 +529,9 @@ me-tpc:hover .mm-src-chip {
     border: 2px solid transparent;
     outline: 2px solid transparent;
   }
+  :root[data-theme="dark"] .btn-soft-accent {
+    color: var(--on-accent);
+  }
   .btn-soft-accent:hover:not(:disabled, [aria-disabled="true"]) {
     outline-color: var(--kb);
   }
@@ -615,7 +618,7 @@ me-tpc:hover .mm-src-chip {
   color: var(--muted) !important;
 }
 :root[data-theme="dark"] .tools-sidebar-item:hover .tools-sidebar-item__box {
-  color: #FFFFFF !important;
+  color: var(--kb) !important;
 }
 
 /* Dark Mode: Download-Links (Jobs-Panel, my-jobs JobArtifacts) weiss statt --kb (#004261 unlesbar auf dunkel); Hover faerbt zu --kb. */

@@ -93,7 +93,7 @@ export function StudioTabs({ tabs, active, onSelect, accentColor }: {
               key={tab.key}
               type="button"
               onClick={() => onSelect(tab.key)}
-              className={`py-1.5 px-3 text-base font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!fits ? "flex-shrink-0 select-none" : ""} ${!isActive ? "text-[var(--muted)] outline-[#004261] hover:text-white hover:bg-transparent hover:outline-2 -outline-offset-1" : ""}`}
+              className={`py-1.5 px-3 text-sm font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!fits ? "flex-shrink-0 select-none" : ""} ${!isActive ? "text-[var(--muted)] outline-[#004261] hover:text-white hover:bg-transparent hover:outline-2 -outline-offset-1" : ""}`}
               style={{
                 ...(isActive ? {
                   color: accentColor || "var(--kb)",

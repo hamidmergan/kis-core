@@ -27,12 +27,15 @@ MODEL_DEFAULTS: dict[str, str] = {
     "local_embedding_model": "nomic-embed-text",
     # OCR
     "primary_ocr_model": "qwen3.5-122b-a10b",
-    "fallback_ocr_model": "qwen3-vl-8b",
+    "fallback_ocr_model": "chandra-ocr-2",
     # Image generation / editing (fallback slot only - primary slot has no equivalent today)
     "fallback_image_gen_model": "flux.1-dev",
     "fallback_image_edit_model": "flux.1-kontext",
+    # Image analysis (vision LLM via chat/completions)
+    "primary_image_analyze_model": "qwen3-omni-30b-a3b-instruct",
+    "fallback_image_analyze_model": "qwen3-vl-8b",
     # TTS (slot identity = product name; not part of primary/fallback/local hierarchy)
-    "mylab_tts_model": "tts-1-hd",
+    "mylab_tts_model": "xtts-v2",
 }
 
 MODEL_KEYS: tuple[str, ...] = tuple(MODEL_DEFAULTS.keys())

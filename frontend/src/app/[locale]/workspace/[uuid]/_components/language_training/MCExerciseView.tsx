@@ -92,6 +92,23 @@ export function MCExerciseView({
     }
   }
 
+  function skip() {
+    if (answered || !card) return;
+    const isFirst = results.length === 0;
+    setResults(prev => [...prev, { item_id: card.id, correct: false }]);
+    setStreak(0);
+    onAnswer(card.id, false, isFirst);
+    advance();
+  }
+
+  // Auto-advance ~2s after the user picks an answer so they read feedback then move on.
+  useEffect(() => {
+    if (!answered || showResults) return;
+    const timer = setTimeout(advance, 2000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answered, showResults, index]);
+
   async function requestHint() {
     if (!card || hintLoading) return;
     setHintLoading(true);
@@ -240,27 +257,32 @@ export function MCExerciseView({
                         );
                       })()}
                     </div>
-                    {tool === "quiz" && !answered && (
-                      <button type="button" onClick={requestHint}
-                        disabled={hintLoading}
-                        className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
-                        <Lightbulb size={13} weight="bold" />
-                        {hintLoading ? t("common.loading") : t("common.hint")}
-                      </button>
+                    {!answered && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        {tool === "quiz" && (
+                          <button type="button" onClick={requestHint}
+                            disabled={hintLoading}
+                            className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all disabled:opacity-50">
+                            <Lightbulb size={13} weight="bold" />
+                            {hintLoading ? t("common.loading") : t("common.hint")}
+                          </button>
+                        )}
+                        <button type="button" onClick={skip}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors hover:bg-[var(--surface-dim)]"
+                          style={{ color: "var(--muted)" }}>
+                          {t("common.dontKnow")}
+                        </button>
+                      </div>
                     )}
                   </div>
-                  {/* Action row: Chat + Weiter */}
+                  {/* Chat link after answering. Auto-advance kicks in via the effect above. */}
                   {answered && (
-                    <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center justify-start mt-2">
                       <button type="button" onClick={() => onAskChat(tool === "vokabeltest" || tool === "lueckentext"
                         ? promptTermDeep(tool === "lueckentext" ? card.back : card.front)
                         : promptTopicDeep(card.front))}
                         className="btn-soft-accent flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all">
                         <Chat size={13} weight="bold" /> {t("common.learnMore")}
-                      </button>
-                      <button type="button" onClick={advance}
-                        className="btn-fill-accent flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold transition-all">
-                        {index >= total - 1 ? t("common.finish") : t("common.next")} <CaretRight size={14} weight="bold" />
                       </button>
                     </div>
                   )}

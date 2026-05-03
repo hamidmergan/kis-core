@@ -98,8 +98,38 @@ def _mark_task_failed(task_id: str, reason: str) -> None:
         logger.error("Signal handler error: {}", e)
 
 
+def _mark_aia_source_failed_from_signal(sender, args, exception) -> None:
+    """Backstop for kia.index_source failures that escape the task body.
+
+    The task already has an inner try/except that marks the source 'failed' for
+    errors raised inside the function. Errors raised at the function boundary
+    (e.g. signature mismatch when worker bytecode lags behind the codebase, or
+    a SIGKILL'd worker) bypass that. Without this hook the source row stays at
+    'queued'/'indexing' and the upload spinner never resolves.
+    """
+    if sender is None or sender.name != "kia.index_source":
+        return
+    if not args or not isinstance(args[0], str):
+        return
+    source_uuid = args[0]
+    locale = args[1] if len(args) > 1 and isinstance(args[1], str) else "de"
+    try:
+        from src import database as db
+        from src.i18n import t
+        source = db.get_aia_source(source_uuid)
+        if not source or source.get("status") == "failed":
+            return
+        message = t("job.unexpectedError", locale, error=str(exception))
+        db.update_aia_source_status(source_uuid, "failed", error_message=message)
+        logger.warning("Signal: aia_source {} marked failed - {}", source_uuid[:8], message)
+    except Exception as e:
+        logger.error("Signal handler (aia_source) error: {}", e)
+
+
 @task_failure.connect
 def on_task_failure(task_id, exception, **kwargs):
+    _mark_aia_source_failed_from_signal(kwargs.get("sender"), kwargs.get("args") or (), exception)
+
     from celery.exceptions import SoftTimeLimitExceeded
     if isinstance(exception, SoftTimeLimitExceeded):
         # Task body should have caught this and updated the DB already.

@@ -40,6 +40,7 @@ _EMBED_GROUP = (
 _OCR_GROUP = ("primary_ocr_enabled", "fallback_ocr_enabled")
 _IMAGE_GEN_GROUP = ("primary_image_gen_enabled", "fallback_image_gen_enabled")
 _IMAGE_EDIT_GROUP = ("primary_image_edit_enabled", "fallback_image_edit_enabled")
+_IMAGE_ANALYZE_GROUP = ("primary_image_analyze_enabled", "fallback_image_analyze_enabled")
 _WHISPER_GROUP = ("primary_whisper_enabled", "fallback_whisper_enabled")
 
 
@@ -61,6 +62,7 @@ async def get_system_info(_admin=Depends(get_admin_user)):
     ocr_provider = _active_provider(_OCR_GROUP)
     image_gen_provider = _active_provider(_IMAGE_GEN_GROUP)
     image_edit_provider = _active_provider(_IMAGE_EDIT_GROUP)
+    image_analyze_provider = _active_provider(_IMAGE_ANALYZE_GROUP)
     whisper_provider = _active_provider(_WHISPER_GROUP)
 
     tts_active = [
@@ -78,6 +80,7 @@ async def get_system_info(_admin=Depends(get_admin_user)):
         "ocr": {"provider": ocr_provider, "model": _model_for(ocr_provider, "ocr_model")},
         "image_gen": {"provider": image_gen_provider, "model": _model_for(image_gen_provider, "image_gen_model")},
         "image_edit": {"provider": image_edit_provider, "model": _model_for(image_edit_provider, "image_edit_model")},
+        "image_analyze": {"provider": image_analyze_provider, "model": _model_for(image_analyze_provider, "image_analyze_model")},
         "whisper": {"provider": whisper_provider, "model": None},
         "tts_active": tts_active,
         "tts_mylab_model": get_model("mylab_tts_model") if _enabled("mylab_enabled", "false") else None,

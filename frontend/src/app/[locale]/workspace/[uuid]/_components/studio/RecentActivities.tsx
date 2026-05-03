@@ -107,7 +107,7 @@ export function RecentActivities({ workspaceUuid, onNavigateToSet, refreshKey }:
                 <Icon size={16} color={iconColor} weight="bold" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-base font-medium truncate" style={{ color: "var(--foreground)" }}>
+                <div className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
                   {displayTitle}
                 </div>
                 <div className="text-xs" style={{ color: "var(--muted)" }}>

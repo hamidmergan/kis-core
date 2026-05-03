@@ -24,8 +24,9 @@ class UpdateSettingsRequest(BaseModel):
     # Image generation
     primary_image_gen_enabled: bool | None = None
     fallback_image_gen_enabled: bool | None = None
-    # Image analysis (primary slot only - no fallback equivalent today)
+    # Image analysis (primary: KISSKI qwen3-omni, fallback: myLab qwen3-vl)
     primary_image_analyze_enabled: bool | None = None
+    fallback_image_analyze_enabled: bool | None = None
     # Image editing
     primary_image_edit_enabled: bool | None = None
     fallback_image_edit_enabled: bool | None = None

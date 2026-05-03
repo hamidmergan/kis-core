@@ -37,6 +37,7 @@ interface SystemInfo {
     ocr: ModelInfo;
     image_gen: ModelInfo;
     image_edit: ModelInfo;
+    image_analyze: ModelInfo;
     whisper: ModelInfo;
     tts_active: string[];
     tts_mylab_model: string | null;
@@ -181,6 +182,7 @@ export default function SystemInfoTab() {
           <ModelRow label={t("systemInfo.modelOcr")} info={models.ocr} dash="-" />
           <ModelRow label={t("systemInfo.modelImageGen")} info={models.image_gen} dash="-" />
           <ModelRow label={t("systemInfo.modelImageEdit")} info={models.image_edit} dash="-" />
+          <ModelRow label={t("systemInfo.modelImageAnalyze")} info={models.image_analyze} dash="-" />
           <ModelRow label={t("systemInfo.modelWhisper")} info={models.whisper} dash="-" />
           <Row
             label={t("systemInfo.ttsActive")}

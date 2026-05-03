@@ -52,7 +52,6 @@ export function FlashcardsLearnView({
   const [flipped, setFlipped] = useState(false);
   const [results, setResults] = useState<Record<number, boolean>>({});
   const [streak, setStreak] = useState(0);
-  const [animating, setAnimating] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showPendingPrompt, setShowPendingPrompt] = useState(false);
 
@@ -63,7 +62,7 @@ export function FlashcardsLearnView({
   useEffect(() => { setFlipped(false); }, [index]);
 
   function answer(correct: boolean) {
-    if (!card || animating) return;
+    if (!card) return;
     const isFirstAnswerOfSession = Object.keys(results).length === 0;
     const newResults = { ...results, [card.id]: correct };
     setResults(newResults);
@@ -77,38 +76,8 @@ export function FlashcardsLearnView({
       else setShowResults(true);
       return;
     }
-    setAnimating(true);
-    setTimeout(() => {
-      setIndex((i) => i + 1);
-      setFlipped(false);
-      setAnimating(false);
-    }, 280);
-  }
-
-  function goPrev() {
-    if (!card || animating || index === 0) return;
-    setAnimating(true);
-    setTimeout(() => {
-      setIndex((i) => i - 1);
-      setFlipped(false);
-      setAnimating(false);
-    }, 280);
-  }
-
-  function goNext() {
-    if (!card || animating) return;
-    if (index >= total - 1) {
-      const pending = items.filter(it => !(it.id in results));
-      if (pending.length > 0) setShowPendingPrompt(true);
-      else setShowResults(true);
-      return;
-    }
-    setAnimating(true);
-    setTimeout(() => {
-      setIndex((i) => i + 1);
-      setFlipped(false);
-      setAnimating(false);
-    }, 280);
+    setIndex((i) => i + 1);
+    setFlipped(false);
   }
 
   function goToFirstPending() {
@@ -413,36 +382,26 @@ export function FlashcardsLearnView({
             <div className="flex flex-wrap items-center justify-center gap-3 min-h-[48px]">
               {flipped ? (
                 <>
-                  <button type="button" onClick={() => answer(false)} title={t("common.again")}
+                  <button key="again" type="button" onClick={() => answer(false)} title={t("common.again")}
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(212,69,58,0.08)]"
                     style={{ border: "2px solid #d4453a", color: "#d4453a", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
                     <XIcon size={18} weight="bold" />
                   </button>
-                  <button type="button" onClick={() => setFlipped(false)}
+                  <button key="back-to-question" type="button" onClick={() => setFlipped(false)}
                     className="btn-soft-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
                     {t("common.showQuestion")}
                   </button>
-                  <button type="button" onClick={() => answer(true)} title={t("common.know")}
+                  <button key="knew" type="button" onClick={() => answer(true)} title={t("common.know")}
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[rgba(26,138,92,0.08)]"
                     style={{ border: "2px solid #1a8a5c", color: "#1a8a5c", backgroundColor: "var(--surface)", boxShadow: "0 1px 3px rgba(0,40,60,0.06)" }}>
                     <Check size={18} weight="bold" />
                   </button>
                 </>
               ) : (
-                <>
-                  <button type="button" onClick={goPrev} disabled={index === 0} title={t("common.back")}
-                    className="btn-soft-accent inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                    <CaretLeft size={12} weight="bold" /> {t("common.back")}
-                  </button>
-                  <button type="button" onClick={() => setFlipped(true)}
-                    className="btn-soft-accent px-6 py-2 rounded-full text-xs font-semibold transition-all">
-                    {t("common.showAnswer")}
-                  </button>
-                  <button type="button" onClick={goNext} title={t("common.next")}
-                    className="btn-soft-accent inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-semibold transition-all">
-                    {t("common.next")} <CaretRight size={12} weight="bold" />
-                  </button>
-                </>
+                <button key="show-answer" type="button" onClick={() => setFlipped(true)}
+                  className="btn-soft-accent px-6 py-2 rounded-full text-xs font-semibold transition-all">
+                  {t("common.showAnswer")}
+                </button>
               )}
             </div>
             {/* Source chips + filename legend */}
