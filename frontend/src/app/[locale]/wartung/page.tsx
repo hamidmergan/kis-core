@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Wrench } from "@phosphor-icons/react";
 import Hilde from "@/components/ui/Hilde";
@@ -9,23 +8,7 @@ import { useHildePref } from "@/hooks/useHildePref";
 
 export default function MaintenancePage() {
   const t = useTranslations("wartung");
-  const router = useRouter();
   const { enabled: hildeEnabled } = useHildePref();
-
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const res = await fetch("/api/health/maintenance", { cache: "no-store" });
-        const d = await res.json();
-        if (!d.enabled) router.replace("/");
-      } catch {
-        /* ignore */
-      }
-    };
-    check();
-    const id = setInterval(check, 5000);
-    return () => clearInterval(id);
-  }, [router]);
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
@@ -41,7 +24,11 @@ export default function MaintenancePage() {
         <p className="text-sm text-foreground-soft">
           {t("body")}
         </p>
-        <p className="text-xs text-muted-soft">{t("autoRefresh")}</p>
+        <div className="pt-2">
+          <Link href="/login" className="text-sm text-kb hover:underline">
+            {t("backToLogin")}
+          </Link>
+        </div>
       </div>
     </div>
   );

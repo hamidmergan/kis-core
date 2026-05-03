@@ -134,7 +134,7 @@
   "wartung": {
     "title": "Maintenance",
     "body": "The platform is being updated. Please try again in a few minutes.",
-    "autoRefresh": "This page refreshes automatically once maintenance is finished."
+    "backToLogin": "Back to sign in"
   },
   "pending": {
     "title": "Account not yet activated",
@@ -819,8 +819,8 @@
     "whitelistCard": {
       "title": "Whitelist mode",
       "active": "Active - only approved email addresses may sign in.",
-      "disabled": "Disabled - all authenticated TH accounts have access.",
-      "warningOff": "Warning: all TH staff with a valid LDAP account can sign in.",
+      "disabled": "Disabled - all authenticated users have access.",
+      "warningOff": "Warning: all users with a valid account can sign in.",
       "toggleAria": "Toggle whitelist"
     },
     "maintenanceCard": {

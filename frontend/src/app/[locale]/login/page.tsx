@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import Header from "@/components/layout/Header";
 import { login, checkAuthStatus } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -49,7 +50,9 @@ export default function LoginPage() {
   if (checking) return null;
 
   return (
-    <main className="flex items-center justify-center min-h-[80vh] px-4">
+    <>
+      <Header />
+      <main className="flex items-center justify-center min-h-[70vh] px-4">
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-bold text-center mb-6">{t("welcome")}</h1>
         <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
@@ -130,5 +133,6 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }

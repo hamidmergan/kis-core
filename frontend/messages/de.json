@@ -134,7 +134,7 @@
   "wartung": {
     "title": "Wartungsarbeiten",
     "body": "Die Plattform wird gerade aktualisiert. Bitte versuche es in wenigen Minuten erneut.",
-    "autoRefresh": "Diese Seite aktualisiert sich automatisch, sobald die Wartung beendet ist."
+    "backToLogin": "Zurück zur Anmeldung"
   },
   "pending": {
     "title": "Konto noch nicht freigeschaltet",
@@ -819,8 +819,8 @@
     "whitelistCard": {
       "title": "Whitelist-Modus",
       "active": "Aktiv - nur freigeschaltete E-Mail-Adressen dürfen sich einloggen.",
-      "disabled": "Deaktiviert - alle authentifizierten TH-Accounts haben Zugang.",
-      "warningOff": "Achtung: Alle TH-Mitarbeiter mit gültigem LDAP-Account können sich einloggen.",
+      "disabled": "Deaktiviert - alle authentifizierten Nutzer haben Zugang.",
+      "warningOff": "Achtung: Alle Nutzer mit gültigem Konto können sich einloggen.",
       "toggleAria": "Whitelist umschalten"
     },
     "maintenanceCard": {
