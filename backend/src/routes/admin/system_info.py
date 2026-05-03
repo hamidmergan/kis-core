@@ -121,10 +121,10 @@ async def get_system_info(_admin=Depends(get_admin_user)):
 
     # ── Workspace / source / KI-Tutor object limits ────────────────────
     workspace_limits = {
-        "max_sources_per_workspace": L.KIA_WORKSPACE_MAX_SOURCES,
-        "max_pages_per_source": L.KIA_SOURCE_MAX_PAGES,
-        "max_access_links": L.KIA_WORKSPACE_MAX_ACCESS_LINKS,
-        "max_notes_per_user": L.KIA_NOTES_MAX_PER_USER,
+        "max_sources_per_workspace": L.AIA_WORKSPACE_MAX_SOURCES,
+        "max_pages_per_source": L.AIA_SOURCE_MAX_PAGES,
+        "max_access_links": L.AIA_WORKSPACE_MAX_ACCESS_LINKS,
+        "max_notes_per_user": L.AIA_NOTES_MAX_PER_USER,
         "glossary_limit": L.GLOSSARY_LIMIT,
         "max_screencast_slides": L.MAX_SCREENCAST_SLIDES,
         "max_queued_screencast_jobs": L.MAX_QUEUED_SCREENCAST_JOBS,
@@ -142,16 +142,16 @@ async def get_system_info(_admin=Depends(get_admin_user)):
 
     # ── KI-Tutor page-summary pipeline ─────────────────────────────────
     summaries = {
-        "max_retries": L.KIA_SUMMARY_MAX_RETRIES,
-        "timeout_small_seconds": L.KIA_SUMMARY_TIMEOUT_SMALL,
-        "timeout_large_seconds": L.KIA_SUMMARY_TIMEOUT_LARGE,
-        "max_tokens_small": L.KIA_SUMMARY_MAX_TOKENS_SMALL,
-        "max_tokens_large": L.KIA_SUMMARY_MAX_TOKENS_LARGE,
-        "max_tokens_batch": L.KIA_SUMMARY_MAX_TOKENS_BATCH,
-        "content_max_chars_per_page": L.KIA_SUMMARY_CONTENT_MAX_CHARS,
-        "parallel_workers_small": L.KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-        "parallel_workers_large": L.KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-        "batch_size_pages": L.KIA_SUMMARY_BATCH_SIZE,
+        "max_retries": L.AIA_SUMMARY_MAX_RETRIES,
+        "timeout_small_seconds": L.AIA_SUMMARY_TIMEOUT_SMALL,
+        "timeout_large_seconds": L.AIA_SUMMARY_TIMEOUT_LARGE,
+        "max_tokens_small": L.AIA_SUMMARY_MAX_TOKENS_SMALL,
+        "max_tokens_large": L.AIA_SUMMARY_MAX_TOKENS_LARGE,
+        "max_tokens_batch": L.AIA_SUMMARY_MAX_TOKENS_BATCH,
+        "content_max_chars_per_page": L.AIA_SUMMARY_CONTENT_MAX_CHARS,
+        "parallel_workers_small": L.AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+        "parallel_workers_large": L.AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+        "batch_size_pages": L.AIA_SUMMARY_BATCH_SIZE,
     }
 
     # ── Job/result management ──────────────────────────────────────────

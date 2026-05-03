@@ -1,5 +1,5 @@
 """Card generation from source (mode='source'): 2-pass - generate questions, then
-answer each question via the SAME chat pipeline (KIA_SYSTEM_RAG + chat citation
+answer each question via the SAME chat pipeline (AIA_SYSTEM_RAG + chat citation
 format) so chip behaviour is identical to chat citations."""
 
 import json
@@ -12,7 +12,7 @@ from pathlib import Path
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import KIA_KARTEIKARTEN_QUESTIONS_PROMPT, kia_system_rag
+from src.tool_prompts import AIA_KARTEIKARTEN_QUESTIONS_PROMPT, aia_system_rag
 
 from src.features.ai_assistant.tasks.language_training._card_base import with_avoid
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
@@ -72,7 +72,7 @@ def generate_cards_from_source(
 def _generate_questions(
     client, model, ctx: QuelleContext, count: int, existing_fronts: list[str],
 ) -> tuple[str, list[str]]:
-    prompt = KIA_KARTEIKARTEN_QUESTIONS_PROMPT.replace("{count}", str(count))
+    prompt = AIA_KARTEIKARTEN_QUESTIONS_PROMPT.replace("{count}", str(count))
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": with_avoid(
@@ -133,7 +133,7 @@ def _build_chat_context(ctx: QuelleContext) -> tuple[str, list[dict]]:
 
 
 def _answer_via_chat(client, model, question: str, chat_ctx: str, locale: str = "de") -> str:
-    """Run kia_system_rag (chat's exact prompt) for a single question.
+    """Run aia_system_rag (chat's exact prompt) for a single question.
     Retries on 429 with jittered backoff so transient rate limits don't drop a card."""
     # Flashcard length constraint: chat answers full paragraphs, but a Karteikarte
     # back side needs to fit on a card. Add the constraint to the user message so
@@ -143,7 +143,7 @@ def _answer_via_chat(client, model, question: str, chat_ctx: str, locale: str = 
         "(no **bold**, no lists). Plain flowing text. Keep citations [N, S. X | keywords] inline as instructed."
     )
     messages = [
-        {"role": "system", "content": kia_system_rag(locale)},
+        {"role": "system", "content": aia_system_rag(locale)},
         {"role": "user", "content": f"{chat_ctx}\n\nQuestion: {question}\n\n{flashcard_hint}"},
     ]
     last_err: Exception | None = None

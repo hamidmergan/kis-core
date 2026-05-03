@@ -95,10 +95,10 @@ services:
         max-size: "10m"
         max-file: "7"
 
-  celery-worker-kia:
+  celery-worker-aia:
     build: ./backend
-    container_name: kis-celery-kia
-    command: celery -A src.celery_app worker --queues=kia --autoscale=6,2 --loglevel=info
+    container_name: kis-celery-aia
+    command: celery -A src.celery_app worker --queues=aia --autoscale=6,2 --loglevel=info
     env_file:
       - .env
     volumes:

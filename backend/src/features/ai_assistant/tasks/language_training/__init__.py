@@ -22,9 +22,9 @@ from src.features.ai_assistant.tasks.language_training._source_flashcards import
 from src.features.ai_assistant.tasks.language_training._source_mc import generate_mc_from_source
 
 
-@celery_app.task(bind=True, name="kia.generate_exercise_set", queue="kia",
+@celery_app.task(bind=True, name="aia.generate_exercise_set", queue="aia",
                  soft_time_limit=120, time_limit=180)
-@observe(name="kia-exercise-set")
+@observe(name="aia-exercise-set")
 def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
                               mode: str, count: int, source_uuid: str | None = None,
                               source_uuids: list[str] | None = None,
@@ -32,7 +32,7 @@ def run_generate_exercise_set(self, set_id: int, workspace_id: int, tool: str,
     """Generate items for an exercise set (flashcards/lueckentext/vokabeltest).
 
     `locale` controls the RAG sentinel string for source-cards generation
-    (the KIA_SYSTEM_RAG prompt builder). Defaults to 'de' so older queued
+    (the AIA_SYSTEM_RAG prompt builder). Defaults to 'de' so older queued
     tasks keep working.
     """
     try:

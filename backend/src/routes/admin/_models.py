@@ -44,9 +44,11 @@ class UpdateSettingsRequest(BaseModel):
     translation_llm_provider: str | None = None  # "" | "primary" | "fallback" | "local"
     # Provider model names (DB setting). Allowed keys: see runtime_models.MODEL_KEYS.
     models: dict[str, str] | None = None
-    # UI label for "Workspace" (singular + plural), shown in the frontend.
-    workspace_label_singular: str | None = None
-    workspace_label_plural: str | None = None
+    # UI label for "Workspace" (singular + plural), per UI locale.
+    workspace_label_singular_de: str | None = None
+    workspace_label_plural_de: str | None = None
+    workspace_label_singular_en: str | None = None
+    workspace_label_plural_en: str | None = None
     # Hide the Hilde mascot system-wide. Default true (mascot shown).
     mascot_enabled: bool | None = None
 

@@ -7,7 +7,7 @@ from datetime import date
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import KIA_SCHEDULE_HARMONIZE_PROMPT
+from src.tool_prompts import AIA_SCHEDULE_HARMONIZE_PROMPT
 
 from src.features.ai_assistant.tasks.studio.schedule._classify import _CLASSIFY_TIMEOUT_SECS
 from src.features.ai_assistant.tasks.studio.schedule._parse import (
@@ -84,7 +84,7 @@ def _harmonize_same_date_titles(
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": KIA_SCHEDULE_HARMONIZE_PROMPT},
+                    {"role": "system", "content": AIA_SCHEDULE_HARMONIZE_PROMPT},
                     {"role": "user", "content": user_msg},
                 ],
                 temperature=0.0,

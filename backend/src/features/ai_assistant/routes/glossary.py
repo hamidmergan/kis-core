@@ -23,17 +23,17 @@ from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_aia_burst
 from src.limits import (
     GLOSSARY_LIMIT,
-    KIA_SOURCE_MAX_PAGES,
-    KIA_WORKSPACE_MAX_SOURCES,
-    KIA_WORKSPACE_MAX_ACCESS_LINKS,
-    KIA_NOTES_MAX_PER_USER,
+    AIA_SOURCE_MAX_PAGES,
+    AIA_WORKSPACE_MAX_SOURCES,
+    AIA_WORKSPACE_MAX_ACCESS_LINKS,
+    AIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file
 from src.tool_prompts import (
-    KIA_SYSTEM_DIRECT,
-    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
-    KIA_SYSTEM_RAG,
-    KIA_POPUP_ACTIONS,
+    AIA_SYSTEM_DIRECT,
+    AIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    AIA_SYSTEM_RAG,
+    AIA_POPUP_ACTIONS,
 )
 
 from src.features.ai_assistant.routes._helpers import (

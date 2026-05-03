@@ -7,7 +7,7 @@ from datetime import date
 from loguru import logger
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import KIA_SCHEDULE_CLASSIFY_PROMPT
+from src.tool_prompts import AIA_SCHEDULE_CLASSIFY_PROMPT
 
 
 # Classify/harmonize batches can carry up to 30 candidates with ±450 chars of
@@ -51,7 +51,7 @@ def _classify_candidates_batch(client, model, batch: list[dict], today_d: date) 
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": KIA_SCHEDULE_CLASSIFY_PROMPT},
+                    {"role": "system", "content": AIA_SCHEDULE_CLASSIFY_PROMPT},
                     {"role": "user", "content": user_msg},
                 ],
                 temperature=0.0,

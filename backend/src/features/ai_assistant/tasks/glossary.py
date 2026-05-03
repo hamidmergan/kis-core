@@ -11,16 +11,16 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    KIA_SUMMARY_MAX_RETRIES,
-    KIA_SUMMARY_TIMEOUT_SMALL,
-    KIA_SUMMARY_TIMEOUT_LARGE,
-    KIA_SUMMARY_MAX_TOKENS_SMALL,
-    KIA_SUMMARY_MAX_TOKENS_LARGE,
-    KIA_SUMMARY_MAX_TOKENS_BATCH,
-    KIA_SUMMARY_CONTENT_MAX_CHARS,
-    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    KIA_SUMMARY_BATCH_SIZE,
+    AIA_SUMMARY_MAX_RETRIES,
+    AIA_SUMMARY_TIMEOUT_SMALL,
+    AIA_SUMMARY_TIMEOUT_LARGE,
+    AIA_SUMMARY_MAX_TOKENS_SMALL,
+    AIA_SUMMARY_MAX_TOKENS_LARGE,
+    AIA_SUMMARY_MAX_TOKENS_BATCH,
+    AIA_SUMMARY_CONTENT_MAX_CHARS,
+    AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    AIA_SUMMARY_BATCH_SIZE,
 )
 from src.features.ai_assistant.tasks._helpers import (
     _get_llm_client,
@@ -59,9 +59,9 @@ Rules:
 - Respond ONLY with the JSON array, no other text."""
 
 
-@celery_app.task(bind=True, name="kia.generate_glossary", queue="kia",
+@celery_app.task(bind=True, name="aia.generate_glossary", queue="aia",
                  soft_time_limit=120, time_limit=180)
-@observe(name="kia-glossary")
+@observe(name="aia-glossary")
 def run_generate_glossary(self, workspace_id: int, source_ids: list[int]):
     """Generate glossary entries from source chunks as a background job."""
     import json as _json

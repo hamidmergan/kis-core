@@ -11,10 +11,10 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    KIA_SUMMARY_BATCH_SIZE,
+    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    AIA_SUMMARY_BATCH_SIZE,
 )
-from src.tool_prompts import KIA_MINDMAP_PROMPT
+from src.tool_prompts import AIA_MINDMAP_PROMPT
 
 from src.features.ai_assistant.tasks._helpers import (
     _format_ts,
@@ -36,7 +36,7 @@ def _save_transcript_artifact(key: str, text: str) -> None:
         from pathlib import Path as _Path
         _Path(key).write_text(text, encoding="utf-8")
 
-@celery_app.task(bind=True, name="kia.index_source", queue="kia")
+@celery_app.task(bind=True, name="aia.index_source", queue="aia")
 def run_index_source(self, source_uuid: str, locale: str = "de"):
     try:
         # 1. Load source from DB
@@ -192,7 +192,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
         db.update_aia_source_status(source_uuid, "failed", error_message=error_message)
         raise
 
-@celery_app.task(bind=True, name="kia.translate_transcript_en", queue="kia")
+@celery_app.task(bind=True, name="aia.translate_transcript_en", queue="aia")
 def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl"):
     """Translate a media source's source-language VTT to English.
 
@@ -283,8 +283,8 @@ def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl")
     )
 
 
-@celery_app.task(bind=True, name="kia.generate_summaries", queue="kia")
-@observe(name="kia-summaries")
+@celery_app.task(bind=True, name="aia.generate_summaries", queue="aia")
+@observe(name="aia-summaries")
 def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
     """Generate AI page-level summaries for a PDF source.
 
@@ -369,11 +369,11 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
                 ],
             )
 
-        batches = [remaining_pages[i:i + KIA_SUMMARY_BATCH_SIZE] for i in range(0, len(remaining_pages), KIA_SUMMARY_BATCH_SIZE)]
+        batches = [remaining_pages[i:i + AIA_SUMMARY_BATCH_SIZE] for i in range(0, len(remaining_pages), AIA_SUMMARY_BATCH_SIZE)]
         failed_batches = 0
         rate_limited = False
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=KIA_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=AIA_SUMMARY_PARALLEL_WORKERS_LARGE) as executor:
             futures = {
                 executor.submit(_summarize_batch, client, model, batch, lang, locale): i
                 for i, batch in enumerate(batches)

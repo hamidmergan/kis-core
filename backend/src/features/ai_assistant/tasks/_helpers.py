@@ -10,22 +10,22 @@ from loguru import logger
 
 from src import database as db
 from src.limits import (
-    KIA_SUMMARY_MAX_RETRIES,
-    KIA_SUMMARY_TIMEOUT_SMALL,
-    KIA_SUMMARY_TIMEOUT_LARGE,
-    KIA_SUMMARY_MAX_TOKENS_SMALL,
-    KIA_SUMMARY_MAX_TOKENS_LARGE,
-    KIA_SUMMARY_MAX_TOKENS_BATCH,
-    KIA_SUMMARY_CONTENT_MAX_CHARS,
-    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    KIA_SUMMARY_BATCH_SIZE,
+    AIA_SUMMARY_MAX_RETRIES,
+    AIA_SUMMARY_TIMEOUT_SMALL,
+    AIA_SUMMARY_TIMEOUT_LARGE,
+    AIA_SUMMARY_MAX_TOKENS_SMALL,
+    AIA_SUMMARY_MAX_TOKENS_LARGE,
+    AIA_SUMMARY_MAX_TOKENS_BATCH,
+    AIA_SUMMARY_CONTENT_MAX_CHARS,
+    AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    AIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    kia_summary_page_system,
-    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    aia_summary_page_system,
+    AIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    AIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    AIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
 )
 
 def _format_ts(seconds: float) -> str:
@@ -111,14 +111,14 @@ def _summarize_page(client, model, p, is_small, extra_body, lang, locale: str = 
     `locale` is the workspace owner's UI locale used to pick the meta-page
     sentinel ("Keine Zusammenfassung vorhanden" / "No summary available").
     """
-    sys_msg = kia_summary_page_system(locale).format(lang=lang)
+    sys_msg = aia_summary_page_system(locale).format(lang=lang)
     if is_small:
-        user_msg = _SUMMARY_USER_SMALL.format(lang=lang, content=p["content"][:KIA_SUMMARY_CONTENT_MAX_CHARS])
+        user_msg = _SUMMARY_USER_SMALL.format(lang=lang, content=p["content"][:AIA_SUMMARY_CONTENT_MAX_CHARS])
     else:
-        user_msg = _SUMMARY_USER_LARGE.format(lang=lang, content=p["content"][:KIA_SUMMARY_CONTENT_MAX_CHARS])
+        user_msg = _SUMMARY_USER_LARGE.format(lang=lang, content=p["content"][:AIA_SUMMARY_CONTENT_MAX_CHARS])
 
-    timeout = KIA_SUMMARY_TIMEOUT_SMALL if is_small else KIA_SUMMARY_TIMEOUT_LARGE
-    max_tokens = KIA_SUMMARY_MAX_TOKENS_SMALL if is_small else KIA_SUMMARY_MAX_TOKENS_LARGE
+    timeout = AIA_SUMMARY_TIMEOUT_SMALL if is_small else AIA_SUMMARY_TIMEOUT_LARGE
+    max_tokens = AIA_SUMMARY_MAX_TOKENS_SMALL if is_small else AIA_SUMMARY_MAX_TOKENS_LARGE
 
     resp = _call_llm_with_retry(
         client, model,
@@ -134,9 +134,9 @@ def _summarize_batch(client, model, pages_batch, lang, locale: str = "de"):
 
     See `_summarize_page` for the lang/locale split.
     """
-    sys_msg = kia_summary_page_system(locale).format(lang=lang)
+    sys_msg = aia_summary_page_system(locale).format(lang=lang)
     pages_text = "\n\n".join(
-        f"---PAGE {p['page_number']}---\n{p['content'][:KIA_SUMMARY_CONTENT_MAX_CHARS]}"
+        f"---PAGE {p['page_number']}---\n{p['content'][:AIA_SUMMARY_CONTENT_MAX_CHARS]}"
         for p in pages_batch
     )
     user_msg = _SUMMARY_BATCH_USER.format(n=len(pages_batch), lang=lang, pages=pages_text)
@@ -144,8 +144,8 @@ def _summarize_batch(client, model, pages_batch, lang, locale: str = "de"):
     resp = _call_llm_with_retry(
         client, model,
         [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}],
-        temperature=0.1, max_tokens=KIA_SUMMARY_MAX_TOKENS_BATCH,
-        timeout=KIA_SUMMARY_TIMEOUT_LARGE, extra_body={},
+        temperature=0.1, max_tokens=AIA_SUMMARY_MAX_TOKENS_BATCH,
+        timeout=AIA_SUMMARY_TIMEOUT_LARGE, extra_body={},
     )
     _msg = resp.choices[0].message
     content = _msg.content or getattr(_msg, "reasoning_content", None) or ""

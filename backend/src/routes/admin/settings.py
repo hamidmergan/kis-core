@@ -146,9 +146,17 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "translation_llm_provider": db.get_setting("translation_llm_provider", ""),
         # ── Provider model names (editable in the admin panel) ──
         "models": _current_models(),
-        # ── UI labels ──
-        "workspace_label_singular": db.get_setting("workspace_label_singular", "Workspace"),
-        "workspace_label_plural": db.get_setting("workspace_label_plural", "Workspaces"),
+        # ── UI labels (per locale; legacy unsuffixed keys fall back as DE defaults) ──
+        "workspace_label_singular_de": db.get_setting(
+            "workspace_label_singular_de",
+            db.get_setting("workspace_label_singular", "Workspace"),
+        ),
+        "workspace_label_plural_de": db.get_setting(
+            "workspace_label_plural_de",
+            db.get_setting("workspace_label_plural", "Workspaces"),
+        ),
+        "workspace_label_singular_en": db.get_setting("workspace_label_singular_en", "Workspace"),
+        "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
         # ── Hilde mascot (system-wide) ──
         "mascot_enabled": _enabled("mascot_enabled"),
     }
@@ -237,8 +245,13 @@ async def update_settings(
     # Provider selection is no longer controlled via env vars (see _resolve_llm_provider).
     _apply_radio_group(body_dict, _LLM_KEYS, "LLM", locale)
 
-    # UI label overrides for "Workspace"
-    for label_key in ("workspace_label_singular", "workspace_label_plural"):
+    # UI label overrides for "Workspace" (per UI locale)
+    for label_key in (
+        "workspace_label_singular_de",
+        "workspace_label_plural_de",
+        "workspace_label_singular_en",
+        "workspace_label_plural_en",
+    ):
         value = body_dict.get(label_key)
         if value is not None:
             stripped = value.strip()

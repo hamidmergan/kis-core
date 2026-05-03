@@ -11,23 +11,23 @@ from src.celery_app import celery_app
 from src import database as db
 from src.storage import open_input_file
 from src.limits import (
-    KIA_SUMMARY_MAX_RETRIES,
-    KIA_SUMMARY_TIMEOUT_SMALL,
-    KIA_SUMMARY_TIMEOUT_LARGE,
-    KIA_SUMMARY_MAX_TOKENS_SMALL,
-    KIA_SUMMARY_MAX_TOKENS_LARGE,
-    KIA_SUMMARY_MAX_TOKENS_BATCH,
-    KIA_SUMMARY_CONTENT_MAX_CHARS,
-    KIA_SUMMARY_PARALLEL_WORKERS_SMALL,
-    KIA_SUMMARY_PARALLEL_WORKERS_LARGE,
-    KIA_SUMMARY_BATCH_SIZE,
+    AIA_SUMMARY_MAX_RETRIES,
+    AIA_SUMMARY_TIMEOUT_SMALL,
+    AIA_SUMMARY_TIMEOUT_LARGE,
+    AIA_SUMMARY_MAX_TOKENS_SMALL,
+    AIA_SUMMARY_MAX_TOKENS_LARGE,
+    AIA_SUMMARY_MAX_TOKENS_BATCH,
+    AIA_SUMMARY_CONTENT_MAX_CHARS,
+    AIA_SUMMARY_PARALLEL_WORKERS_SMALL,
+    AIA_SUMMARY_PARALLEL_WORKERS_LARGE,
+    AIA_SUMMARY_BATCH_SIZE,
 )
 from src.tool_prompts import (
-    KIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
-    KIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
-    KIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
-    KIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
-    KIA_MINDMAP_PROMPT,
+    AIA_SUMMARY_PAGE_SYSTEM as _SUMMARY_SYSTEM,
+    AIA_SUMMARY_PAGE_USER_SMALL as _SUMMARY_USER_SMALL,
+    AIA_SUMMARY_PAGE_USER_LARGE as _SUMMARY_USER_LARGE,
+    AIA_SUMMARY_PAGE_BATCH_USER as _SUMMARY_BATCH_USER,
+    AIA_MINDMAP_PROMPT,
 )
 
 from src.features.ai_assistant.tasks._helpers import (
@@ -43,9 +43,9 @@ from src.features.ai_assistant.tasks._helpers import (
     _clean_llm_json,
 )
 
-@celery_app.task(bind=True, name="kia.generate_mindmap", queue="kia",
+@celery_app.task(bind=True, name="aia.generate_mindmap", queue="aia",
                  soft_time_limit=300, time_limit=360)
-@observe(name="kia-mindmap")
+@observe(name="aia-mindmap")
 def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uuids: list[str]):
     """Generate a mindmap from source summaries as a background job."""
     import json as _json
@@ -125,7 +125,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
         )
 
         messages = [
-            {"role": "system", "content": KIA_MINDMAP_PROMPT},
+            {"role": "system", "content": AIA_MINDMAP_PROMPT},
             {"role": "user", "content": f"/no_think\nErstelle eine Mindmap aus folgenden Sources:\n\n{context}"},
         ]
 

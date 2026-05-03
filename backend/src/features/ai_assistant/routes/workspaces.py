@@ -20,17 +20,17 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.limits import (
-    KIA_SOURCE_MAX_PAGES,
-    KIA_WORKSPACE_MAX_SOURCES,
-    KIA_WORKSPACE_MAX_ACCESS_LINKS,
-    KIA_NOTES_MAX_PER_USER,
+    AIA_SOURCE_MAX_PAGES,
+    AIA_WORKSPACE_MAX_SOURCES,
+    AIA_WORKSPACE_MAX_ACCESS_LINKS,
+    AIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file
 from src.tool_prompts import (
-    KIA_SYSTEM_DIRECT,
-    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
-    KIA_SYSTEM_RAG,
-    KIA_POPUP_ACTIONS,
+    AIA_SYSTEM_DIRECT,
+    AIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    AIA_SYSTEM_RAG,
+    AIA_POPUP_ACTIONS,
 )
 
 from src.features.ai_assistant.routes._helpers import (
@@ -219,10 +219,10 @@ async def create_workspace_access_link(
 ):
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     existing_links = db.get_access_links_by_workspace(workspace["id"])
-    if len(existing_links) >= KIA_WORKSPACE_MAX_ACCESS_LINKS:
+    if len(existing_links) >= AIA_WORKSPACE_MAX_ACCESS_LINKS:
         raise HTTPException(
             status_code=400,
-            detail=t("ai.workspace.maxAccessLinks", locale, max=KIA_WORKSPACE_MAX_ACCESS_LINKS),
+            detail=t("ai.workspace.maxAccessLinks", locale, max=AIA_WORKSPACE_MAX_ACCESS_LINKS),
         )
     try:
         expires = datetime.fromisoformat(body.expires_at).replace(tzinfo=timezone.utc)

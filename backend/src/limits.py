@@ -83,18 +83,18 @@ SCREENCAST_AUTO_SOFT_TIME_LIMIT = 7200   # 2h (translate + scripts + TTS + rende
 SCREENCAST_AUTO_TIME_LIMIT      = 7320   # 2h 2min
 
 # --- AI tutor page summaries ------------------------------------------------
-KIA_SUMMARY_MAX_RETRIES             = 3
-KIA_SUMMARY_TIMEOUT_SMALL           = 120    # ollama, seconds per request
-KIA_SUMMARY_TIMEOUT_LARGE           = 180    # cloud/kisski, seconds per request (100 pages take longer)
-KIA_SUMMARY_MAX_TOKENS_SMALL        = 2048   # ollama, single page (incl. think overhead)
-KIA_SUMMARY_MAX_TOKENS_LARGE        = 2048   # cloud, single page
-KIA_SUMMARY_MAX_TOKENS_BATCH        = 16384  # cloud, batch: up to 100 pages x ~400 chars + JSON overhead
-KIA_SUMMARY_CONTENT_MAX_CHARS       = 2000   # max chars per page to LLM (200x2000 + 200x400 output = 480k < 512k)
-KIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 5      # ollama: parallel single requests
-KIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 1      # cloud: sequential, more reliable
-KIA_SUMMARY_BATCH_SIZE              = 25     # pages per batch request (500 pages = 20 requests)
-KIA_SOURCE_MAX_PAGES                = 500     # max pages per PDF/DOCX/PPTX upload
-KIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
-KIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
-KIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
+AIA_SUMMARY_MAX_RETRIES             = 3
+AIA_SUMMARY_TIMEOUT_SMALL           = 120    # ollama, seconds per request
+AIA_SUMMARY_TIMEOUT_LARGE           = 180    # cloud/kisski, seconds per request (100 pages take longer)
+AIA_SUMMARY_MAX_TOKENS_SMALL        = 2048   # ollama, single page (incl. think overhead)
+AIA_SUMMARY_MAX_TOKENS_LARGE        = 2048   # cloud, single page
+AIA_SUMMARY_MAX_TOKENS_BATCH        = 16384  # cloud, batch: up to 100 pages x ~400 chars + JSON overhead
+AIA_SUMMARY_CONTENT_MAX_CHARS       = 2000   # max chars per page to LLM (200x2000 + 200x400 output = 480k < 512k)
+AIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 5      # ollama: parallel single requests
+AIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 1      # cloud: sequential, more reliable
+AIA_SUMMARY_BATCH_SIZE              = 25     # pages per batch request (500 pages = 20 requests)
+AIA_SOURCE_MAX_PAGES                = 500     # max pages per PDF/DOCX/PPTX upload
+AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace
+AIA_WORKSPACE_MAX_ACCESS_LINKS         = 10      # max enrollment links per workspace
+AIA_NOTES_MAX_PER_USER              = 100     # max notes per user per workspace
 GLOSSARY_LIMIT                        = 150     # max glossary entries per workspace

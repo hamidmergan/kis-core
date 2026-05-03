@@ -95,14 +95,14 @@ IMAGE_ANALYZE_DEFAULT = (
 
 # -- AI tutor: system prompts -------------------------------------------------
 
-KIA_SYSTEM_DIRECT = (
+AIA_SYSTEM_DIRECT = (
     "You are a helpful assistant. Execute the task precisely. "
     "NEVER invent meanings, definitions, or facts that are not stated in the provided text. "
     "Do not use personal names; write 'laut Source' instead. "
     "Respond in the user's language."
 )
 
-KIA_SYSTEM_DIRECT_WITH_CONTEXT = (
+AIA_SYSTEM_DIRECT_WITH_CONTEXT = (
     "You are a helpful assistant. Execute the task precisely. "
     "Use ONLY information from the provided text. "
     "NEVER invent meanings, definitions, or facts that are not explicitly stated in the text. "
@@ -119,7 +119,7 @@ RAG_NO_INFO_SENTINEL: dict[str, str] = {
 }
 
 
-def kia_system_rag(target_locale: str = "de") -> str:
+def aia_system_rag(target_locale: str = "de") -> str:
     """Build the RAG system prompt with a locale-specific 'no info' sentinel."""
     sentinel = RAG_NO_INFO_SENTINEL.get(target_locale, RAG_NO_INFO_SENTINEL["de"])
     sentinel_lang = "English" if target_locale == "en" else "German"
@@ -149,14 +149,14 @@ def kia_system_rag(target_locale: str = "de") -> str:
 
 # Backward-compat constant for callers that don't have locale context (admin
 # registries, language_training source cards). Defaults to DE behavior.
-KIA_SYSTEM_RAG = kia_system_rag("de")
+AIA_SYSTEM_RAG = aia_system_rag("de")
 
 
 # -- AI tutor: query rewriter (condense question) ----------------------------
 # Rewrites a follow-up question into a standalone question using conversation
 # history, so the answering LLM can be called single-turn without history and
 # cannot leak content from previous turns.
-KIA_QUERY_REWRITE = (
+AIA_QUERY_REWRITE = (
     "You rewrite the user's latest question in a conversational Q&A system so it can be answered standalone, without conversation history.\n\n"
     "RULES:\n"
     "- If the latest question depends on previous turns (pronouns like 'this/that/it', references like 'and X?', 'more details', 'simpler'), rewrite it as a full standalone question that includes the missing context from the history.\n"
@@ -184,7 +184,7 @@ KIA_QUERY_REWRITE = (
 
 # -- AI tutor: note title -----------------------------------------------------
 # Generates a short, concise title for a note saved by the user.
-KIA_NOTE_TITLE = (
+AIA_NOTE_TITLE = (
     "You generate a concise title for a note.\n\n"
     "RULES:\n"
     "- Short and to the point; avoid overly long titles. Keep it brief but do not truncate artificially.\n"
@@ -207,7 +207,7 @@ SUMMARY_META_SENTINEL: dict[str, str] = {
 }
 
 
-def kia_summary_page_system(target_locale: str = "de") -> str:
+def aia_summary_page_system(target_locale: str = "de") -> str:
     """Build the page-summary system prompt with a locale-specific meta-page sentinel."""
     sentinel = SUMMARY_META_SENTINEL.get(target_locale, SUMMARY_META_SENTINEL["de"])
     return (
@@ -237,9 +237,9 @@ def kia_summary_page_system(target_locale: str = "de") -> str:
 
 # Backward-compat constant. Callers without locale context (admin registries,
 # pre-existing celery tasks) fall back to DE behavior.
-KIA_SUMMARY_PAGE_SYSTEM = kia_summary_page_system("de")
+AIA_SUMMARY_PAGE_SYSTEM = aia_summary_page_system("de")
 
-KIA_SUMMARY_PAGE_USER_SMALL = (
+AIA_SUMMARY_PAGE_USER_SMALL = (
     "/no_think\n"
     "Summarize this page in 2-3 sentences in {lang}. "
     "Only use information from the text, do not add anything. "
@@ -248,9 +248,9 @@ KIA_SUMMARY_PAGE_USER_SMALL = (
     "{content}"
 )
 
-KIA_SUMMARY_PAGE_USER_LARGE = "Summarize this page in {lang}:\n\n{content}"
+AIA_SUMMARY_PAGE_USER_LARGE = "Summarize this page in {lang}:\n\n{content}"
 
-KIA_SUMMARY_PAGE_BATCH_USER = (
+AIA_SUMMARY_PAGE_BATCH_USER = (
     "Summarize each page separately in {lang}. Max 400 characters per summary.\n"
     "Return ONLY a JSON object mapping each page number to its summary.\n"
     "Example for 2 pages:\n"
@@ -259,7 +259,7 @@ KIA_SUMMARY_PAGE_BATCH_USER = (
 )
 
 
-KIA_MINDMAP_PROMPT = (
+AIA_MINDMAP_PROMPT = (
     "You are an expert in knowledge structuring. Create a hierarchical mind map from the given text.\n\n"
     "Respond ONLY with a JSON object in exactly this format (4 levels). Topic, keyword, and labels MUST be in the source-text language:\n"
     "{\n"
@@ -309,7 +309,7 @@ KIA_MINDMAP_PROMPT = (
     "- Respond ONLY with the JSON object, no other text."
 )
 
-KIA_LERNKARTEN_PROMPT = (
+AIA_LERNKARTEN_PROMPT = (
     "You are a language teacher for international students at German level B1. "
     "Create flashcards for technical terms from the given text.\n\n"
     "IMPORTANT: All German content MUST be understandable at B1 level: simple words, short sentences, no nested clauses.\n\n"
@@ -352,7 +352,7 @@ KIA_LERNKARTEN_PROMPT = (
     "- Respond ONLY with the JSON object, no other text."
 )
 
-KIA_KARTEIKARTEN_QUESTIONS_PROMPT = (
+AIA_KARTEIKARTEN_QUESTIONS_PROMPT = (
     "You are an expert in learning materials. Generate {count} comprehension questions from the given documents. "
     "Each question must be answerable using ONLY the documents (no general knowledge). "
     "Write the questions in the SAME language as the source text.\n\n"
@@ -376,7 +376,7 @@ KIA_KARTEIKARTEN_QUESTIONS_PROMPT = (
 )
 
 
-KIA_DATENTABELLE_PROMPT = (
+AIA_DATENTABELLE_PROMPT = (
     "You are an expert in data extraction and structuring. "
     "Analyze the given text and create a structured data table. "
     "Write title, column headers, and cell values in the SAME language as the source text (German source -> German values).\n\n"
@@ -408,7 +408,7 @@ KIA_DATENTABELLE_PROMPT = (
 )
 
 
-KIA_SCHEDULE_CLASSIFY_PROMPT = (
+AIA_SCHEDULE_CLASSIFY_PROMPT = (
     "You classify date candidates extracted by regex from course documents.\n"
     "For EACH candidate (identified by `id`) you must decide whether it represents "
     "a real scheduled event/deadline the student should see on their schedule - "
@@ -500,7 +500,7 @@ KIA_SCHEDULE_CLASSIFY_PROMPT = (
 )
 
 
-KIA_SCHEDULE_HARMONIZE_PROMPT = (
+AIA_SCHEDULE_HARMONIZE_PROMPT = (
     "You receive a list of events that all occur on the SAME date. They come from "
     "different sources (PDFs, video transcripts) and may be worded differently even "
     "though they describe the SAME real-world event.\n\n"
@@ -532,7 +532,7 @@ KIA_SCHEDULE_HARMONIZE_PROMPT = (
 )
 
 
-KIA_SCHEDULE_SUMMARY_PROMPT = (
+AIA_SCHEDULE_SUMMARY_PROMPT = (
     "You read a source (PDF or video transcript) and extract EXHAUSTIVELY every deadline "
     "and scheduled event that has a concrete date. Do NOT pre-select or filter on your own.\n\n"
     "The source contains position markers:\n"
@@ -573,7 +573,7 @@ KIA_SCHEDULE_SUMMARY_PROMPT = (
 )
 
 
-KIA_SCHEDULE_PROMPT = (
+AIA_SCHEDULE_PROMPT = (
     "You convert an already-extracted list of deadlines/events into structured JSON.\n\n"
     "Input: free-text lines. Each line is one entry with kind, date, time, position "
     "([S. X] or [T HH:MM:SS]) and an original quote.\n\n"
@@ -610,7 +610,7 @@ KIA_SCHEDULE_PROMPT = (
 )
 
 
-KIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
+AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
     {
         "key": "elaborate",
         "label_de": "Genauer ausführen",

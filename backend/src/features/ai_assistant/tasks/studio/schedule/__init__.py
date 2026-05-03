@@ -31,9 +31,9 @@ from src.features.ai_assistant.tasks.studio.schedule._parse import (
 from src.features.ai_assistant.tasks.studio.schedule._titles import _fuzzy_same
 
 
-@celery_app.task(bind=True, name="kia.generate_schedule", queue="kia",
+@celery_app.task(bind=True, name="aia.generate_schedule", queue="aia",
                  soft_time_limit=600, time_limit=720)
-@observe(name="kia-schedule")
+@observe(name="aia-schedule")
 def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
                           source_uuids: list[str]):
     """Regex-first pipeline:

@@ -3,7 +3,7 @@
 import json
 
 from src.features.ai_assistant.tasks._helpers import _clean_llm_json
-from src.tool_prompts import KIA_LERNKARTEN_PROMPT
+from src.tool_prompts import AIA_LERNKARTEN_PROMPT
 
 from src.features.ai_assistant.tasks.language_training._card_base import parse_card, with_avoid
 from src.features.ai_assistant.tasks.language_training._context import QuelleContext
@@ -16,7 +16,7 @@ def generate_flashcards_from_source(
     count: int,
     existing_fronts: list[str],
 ) -> tuple[list[dict], str]:
-    prompt = KIA_LERNKARTEN_PROMPT.replace("{count}", str(count))
+    prompt = AIA_LERNKARTEN_PROMPT.replace("{count}", str(count))
     messages = [
         {"role": "system", "content": prompt},
         {"role": "user", "content": with_avoid(

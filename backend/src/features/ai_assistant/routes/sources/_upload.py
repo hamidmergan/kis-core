@@ -6,7 +6,7 @@ from src.utils.file_validation import validate_or_raise
 from ._shared import (
     Path, APIRouter, Depends, File, HTTPException, UploadFile, logger, db,
     get_current_user, get_locale, t,
-    KIA_SOURCE_MAX_PAGES, KIA_WORKSPACE_MAX_SOURCES,
+    AIA_SOURCE_MAX_PAGES, AIA_WORKSPACE_MAX_SOURCES,
     delete_file, _convert_office_to_pdf, _mp4_faststart, _count_pages,
     _require_own_workspace, _save_source_file,
     _ALLOWED_EXTENSIONS, _MAX_UPLOAD_BYTES,
@@ -25,10 +25,10 @@ async def upload_source(
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
 
     existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
-    if len(existing_sources) >= KIA_WORKSPACE_MAX_SOURCES:
+    if len(existing_sources) >= AIA_WORKSPACE_MAX_SOURCES:
         raise HTTPException(
             status_code=409,
-            detail=t("ai.source.maxPerWorkspace", locale, max=KIA_WORKSPACE_MAX_SOURCES),
+            detail=t("ai.source.maxPerWorkspace", locale, max=AIA_WORKSPACE_MAX_SOURCES),
         )
 
     if not file.filename:
@@ -58,10 +58,10 @@ async def upload_source(
         data = _mp4_faststart(data)
 
     page_count = _count_pages(ext, data)
-    if page_count is not None and page_count > KIA_SOURCE_MAX_PAGES:
+    if page_count is not None and page_count > AIA_SOURCE_MAX_PAGES:
         raise HTTPException(
             status_code=413,
-            detail=t("ai.source.tooManyPages", locale, pages=page_count, max=KIA_SOURCE_MAX_PAGES),
+            detail=t("ai.source.tooManyPages", locale, pages=page_count, max=AIA_SOURCE_MAX_PAGES),
         )
 
     source_uuid = uuid.uuid4().hex

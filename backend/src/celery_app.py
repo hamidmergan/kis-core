@@ -38,12 +38,12 @@ celery_app.conf.update(
         "screencast.demo_render": {"queue": "screencast"},
         "watchdog.check": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
-        "kia.index_source": {"queue": "kia"},
-        "kia.generate_summaries": {"queue": "kia"},
-        "kia.generate_mindmap": {"queue": "kia"},
-        "kia.generate_exercise_set": {"queue": "kia"},
-        "kia.generate_data_table": {"queue": "kia"},
-        "kia.generate_glossary": {"queue": "kia"},
+        "aia.index_source": {"queue": "aia"},
+        "aia.generate_summaries": {"queue": "aia"},
+        "aia.generate_mindmap": {"queue": "aia"},
+        "aia.generate_exercise_set": {"queue": "aia"},
+        "aia.generate_data_table": {"queue": "aia"},
+        "aia.generate_glossary": {"queue": "aia"},
     },
     beat_schedule={
         "watchdog-stuck-jobs": {
@@ -99,7 +99,7 @@ def _mark_task_failed(task_id: str, reason: str) -> None:
 
 
 def _mark_aia_source_failed_from_signal(sender, args, exception) -> None:
-    """Backstop for kia.index_source failures that escape the task body.
+    """Backstop for aia.index_source failures that escape the task body.
 
     The task already has an inner try/except that marks the source 'failed' for
     errors raised inside the function. Errors raised at the function boundary
@@ -107,7 +107,7 @@ def _mark_aia_source_failed_from_signal(sender, args, exception) -> None:
     a SIGKILL'd worker) bypass that. Without this hook the source row stays at
     'queued'/'indexing' and the upload spinner never resolves.
     """
-    if sender is None or sender.name != "kia.index_source":
+    if sender is None or sender.name != "aia.index_source":
         return
     if not args or not isinstance(args[0], str):
         return

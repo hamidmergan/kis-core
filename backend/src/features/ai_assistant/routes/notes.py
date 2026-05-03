@@ -20,18 +20,18 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.limits import (
-    KIA_SOURCE_MAX_PAGES,
-    KIA_WORKSPACE_MAX_SOURCES,
-    KIA_WORKSPACE_MAX_ACCESS_LINKS,
-    KIA_NOTES_MAX_PER_USER,
+    AIA_SOURCE_MAX_PAGES,
+    AIA_WORKSPACE_MAX_SOURCES,
+    AIA_WORKSPACE_MAX_ACCESS_LINKS,
+    AIA_NOTES_MAX_PER_USER,
 )
 from src.storage import USE_S3, delete_file, file_exists, get_file
 from src.tool_prompts import (
-    KIA_SYSTEM_DIRECT,
-    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
-    KIA_SYSTEM_RAG,
-    KIA_POPUP_ACTIONS,
-    KIA_NOTE_TITLE,
+    AIA_SYSTEM_DIRECT,
+    AIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    AIA_SYSTEM_RAG,
+    AIA_POPUP_ACTIONS,
+    AIA_NOTE_TITLE,
 )
 
 _NOTE_TITLE_SAFETY_CAP = 200
@@ -59,7 +59,7 @@ def _generate_note_title(llm, content: str) -> Optional[str]:
         response = llm._client.with_options(timeout=30.0).chat.completions.create(
             model=llm._model,
             messages=[
-                {"role": "system", "content": KIA_NOTE_TITLE},
+                {"role": "system", "content": AIA_NOTE_TITLE},
                 {"role": "user", "content": snippet},
             ],
             temperature=0.2,
@@ -144,10 +144,10 @@ async def create_note(
     if not is_owner and not is_enrolled:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
-    if db.count_aia_notes(workspace["id"], user_id) >= KIA_NOTES_MAX_PER_USER:
+    if db.count_aia_notes(workspace["id"], user_id) >= AIA_NOTES_MAX_PER_USER:
         raise HTTPException(
             status_code=409,
-            detail=t("ai.notes.maxPerWorkspace", locale, max=KIA_NOTES_MAX_PER_USER),
+            detail=t("ai.notes.maxPerWorkspace", locale, max=AIA_NOTES_MAX_PER_USER),
         )
 
     content = body.content.strip()

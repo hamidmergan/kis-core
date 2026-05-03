@@ -21,20 +21,20 @@ from src import database as db
 from src.dependencies import get_current_user, get_llm_client
 from src.i18n import get_locale, t
 from src.limits import (
-    KIA_SOURCE_MAX_PAGES,
-    KIA_WORKSPACE_MAX_SOURCES,
-    KIA_WORKSPACE_MAX_ACCESS_LINKS,
-    KIA_NOTES_MAX_PER_USER,
+    AIA_SOURCE_MAX_PAGES,
+    AIA_WORKSPACE_MAX_SOURCES,
+    AIA_WORKSPACE_MAX_ACCESS_LINKS,
+    AIA_NOTES_MAX_PER_USER,
 )
 from src.security.rate_limit import enforce_burst
 from src.security.usage_log import log_request as _log_usage
 from src.storage import USE_S3, delete_file, file_exists, get_file
 from src.tool_prompts import (
-    KIA_SYSTEM_DIRECT,
-    KIA_SYSTEM_DIRECT_WITH_CONTEXT,
-    kia_system_rag,
-    KIA_QUERY_REWRITE,
-    KIA_POPUP_ACTIONS,
+    AIA_SYSTEM_DIRECT,
+    AIA_SYSTEM_DIRECT_WITH_CONTEXT,
+    aia_system_rag,
+    AIA_QUERY_REWRITE,
+    AIA_POPUP_ACTIONS,
 )
 
 # Accept both ASCII [] and CJK lenticular 【】 - some LLMs emit the latter
@@ -55,7 +55,7 @@ def _rewrite_query(llm, history: list[dict], question: str) -> str:
         f"{m['role']}: {_CITATION_RE.sub('', m['content'])}" for m in history
     )
     messages = [
-        {"role": "system", "content": KIA_QUERY_REWRITE},
+        {"role": "system", "content": AIA_QUERY_REWRITE},
         {
             "role": "user",
             "content": f"History:\n{hist_text}\n\nLatest: {question}\nOutput:",
@@ -98,7 +98,7 @@ from src.features.ai_assistant import schemas
 router = APIRouter(tags=["ki-assistent: chat"])
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/chat")
-@observe(name="kia-chat")
+@observe(name="aia-chat")
 async def chat(
     workspace_uuid: str,
     body: schemas.ChatBody,
@@ -108,7 +108,7 @@ async def chat(
     locale: str = Depends(get_locale),
 ):
     import time as _time
-    _trace_llm(llm, "kia-chat")
+    _trace_llm(llm, "aia-chat")
     user_id = current_user["user_id"]
 
     # Burst block: at >50 chat requests in 60s the user is blocked for 10 min.
@@ -361,16 +361,16 @@ async def chat(
     if body.source_text:
         page_ref = f" [S. {body.source_page}]" if body.source_page else ""
         # "Elaborate" needs RAG context, the others work only with the selected text
-        elaborate = KIA_POPUP_ACTIONS[0]
+        elaborate = AIA_POPUP_ACTIONS[0]
         elaborate_prefixes = (str(elaborate["prompt_de"]), str(elaborate["prompt_en"]))
         if body.question.startswith(elaborate_prefixes):
-            system_prompt = KIA_SYSTEM_DIRECT_WITH_CONTEXT
+            system_prompt = AIA_SYSTEM_DIRECT_WITH_CONTEXT
             user_message = f"{body.question}\n\nMarkierter Text (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}\n\nWeiterer Kontext aus dem Dokument:\n{context}"
         else:
-            system_prompt = KIA_SYSTEM_DIRECT
+            system_prompt = AIA_SYSTEM_DIRECT
             user_message = f"{body.question}\n\nText (aus {body.source_filename or 'Dokument'}{page_ref}):\n{body.source_text}"
     else:
-        system_prompt = kia_system_rag(chat_lang)
+        system_prompt = aia_system_rag(chat_lang)
         user_message = f"{context}\n\nQuestion: {rewritten_question}"
 
     # Single-turn: system + user (no history in the answer call, to prevent leaks
