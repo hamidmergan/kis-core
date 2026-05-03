@@ -199,7 +199,7 @@ Regenerate after dependency changes (requires running `kis-backend` container
 and frontend `node_modules` installed):
 
 ```bash
-python scripts/generate-licenses.py
+python generate-licenses.py
 ```
 
 The generator fails on any AGPL or strong-copyleft GPL dependency. LGPL is

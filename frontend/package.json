@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "check:i18n": "node scripts/check-i18n-keys.mjs"
+    "check:i18n": "node check-i18n-keys.mjs"
   },
   "dependencies": {
     "@embedpdf/react-pdf-viewer": "^2.10.0",

@@ -11,7 +11,6 @@ backend/demo/
 
 .claude/
 .superpowers/
-scripts/backups/
 private/
 
 # Frontend

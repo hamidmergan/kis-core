@@ -12,7 +12,7 @@ mirror. Compliance is satisfied by keeping copyright + license texts at the
 repo root, which is sufficient for an internal tool.
 
 Usage:
-    python scripts/generate-licenses.py [--check]
+    python generate-licenses.py [--check]
 
     --check   Generate to a temp file and diff against the committed version.
               Exits non-zero on drift (suitable for CI).
@@ -28,7 +28,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent
 NOTICE_PATH = REPO_ROOT / "THIRD-PARTY-NOTICES.txt"
 FRONTEND_DIR = REPO_ROOT / "frontend"
 BACKEND_CONTAINER = "kis-backend"
@@ -190,11 +190,9 @@ def build_notice(backend: list[dict], frontend: list[dict]) -> str:
         "1. Backend (Python): direct + transitive dependencies of `backend/requirements.txt`",
         "2. Frontend (npm): direct + transitive dependencies of `frontend/package.json`",
         "",
-        f"Generated automatically on {today} by `scripts/generate-licenses.py`.",
+        f"Generated automatically on {today} by `generate-licenses.py`.",
         "",
-        "Regeneration: run `python scripts/generate-licenses.py` from the repo root.",
-        "The script also syncs this file to `frontend/public/THIRD-PARTY-NOTICES.txt`",
-        "so the `/licenses` page in the running app stays in sync.",
+        "Regeneration: run `python generate-licenses.py` from the repo root.",
         "",
         "Allowlist: the generator fails if any AGPL or strong-copyleft GPL dependency",
         "is detected. LGPL is permitted (dynamic linking via PyPI).",
@@ -263,7 +261,7 @@ def main() -> int:
             sys.stderr.write(v + "\n")
         sys.stderr.write(
             "\nAGPL/strong-GPL dependencies require source disclosure of this project.\n"
-            "Either replace them or update the allowlist in scripts/generate-licenses.py\n"
+            "Either replace them or update the allowlist in generate-licenses.py\n"
             "after explicit legal review.\n"
         )
         return 2
@@ -275,7 +273,7 @@ def main() -> int:
         if existing != notice:
             sys.stderr.write(
                 "THIRD-PARTY-NOTICES.txt is out of date. "
-                "Run `python scripts/generate-licenses.py` and commit the result.\n"
+                "Run `python generate-licenses.py` and commit the result.\n"
             )
             return 1
         print("THIRD-PARTY-NOTICES.txt is up to date.")
