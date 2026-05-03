@@ -529,8 +529,7 @@
         "scriptTooLongBody": "Das Skript hat {chars} Zeichen (max. {max}). Bitte kürzen Sie die Folien-Texte.",
         "backToEdit": "Zurück zum Skript bearbeiten",
         "back": "Zurück",
-        "startRender": "Screencast erstellen",
-        "previousRenderBusy": "Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen."
+        "startRender": "Screencast erstellen"
       },
       "rendering": {
         "fallback": "Video wird erstellt...",
@@ -574,7 +573,8 @@
         "jobDeleted": "Der Job wurde gelöscht oder abgebrochen. Bitte starten Sie einen neuen Screencast.",
         "jobFolderMissing": "Job-Daten nicht mehr verfügbar - bitte neuen Screencast starten",
         "uploadError": "Fehler beim Hochladen",
-        "downloadFailed": "Download fehlgeschlagen"
+        "downloadFailed": "Download fehlgeschlagen",
+        "previousRenderBusy": "Der vorherige Render wird noch beendet. Bitte einen Moment warten und erneut versuchen."
       },
       "regenChat": {
         "headerTitle": "KI-Assistent · Folie {n}",
@@ -854,9 +854,11 @@
     },
     "workspaceLabel": {
       "title": "Bezeichnung \"Workspace\"",
-      "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Modul\" / \"Module\" oder \"Kurs\" / \"Kurse\"). Default: Workspace / Workspaces.",
+      "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Modul\" / \"Module\" oder \"Kurs\" / \"Kurse\"). Default: Workspace / Workspaces. Pro Sprache separat einstellbar.",
       "singular": "Singular",
-      "plural": "Plural"
+      "plural": "Plural",
+      "deSection": "Deutsch",
+      "enSection": "Englisch"
     },
     "systemInfo": {
       "intro": "Übersicht der aktuell konfigurierten Werte. Nur lesbar - Änderungen erfolgen im Code (<code>backend/src/limits.py</code>) bzw. unter „KI\" und „System\".",

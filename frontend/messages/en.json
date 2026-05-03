@@ -529,8 +529,7 @@
         "scriptTooLongBody": "The script has {chars} characters (max. {max}). Please shorten the slide texts.",
         "backToEdit": "Back to script editor",
         "back": "Back",
-        "startRender": "Create screencast",
-        "previousRenderBusy": "The previous render is still finishing. Please wait a moment and try again."
+        "startRender": "Create screencast"
       },
       "rendering": {
         "fallback": "Creating video...",
@@ -574,7 +573,8 @@
         "jobDeleted": "The job was deleted or cancelled. Please start a new screencast.",
         "jobFolderMissing": "Job data no longer available - please start a new screencast",
         "uploadError": "Upload failed",
-        "downloadFailed": "Download failed"
+        "downloadFailed": "Download failed",
+        "previousRenderBusy": "The previous render is still finishing. Please wait a moment and try again."
       },
       "regenChat": {
         "headerTitle": "AI assistant · Slide {n}",
@@ -854,9 +854,11 @@
     },
     "workspaceLabel": {
       "title": "\"Workspace\" label",
-      "description": "How the term is shown in the frontend (e.g. \"module\" / \"modules\" or \"course\" / \"courses\"). Default: workspace / workspaces.",
+      "description": "How the term is shown in the frontend (e.g. \"module\" / \"modules\" or \"course\" / \"courses\"). Default: workspace / workspaces. Configured per language.",
       "singular": "Singular",
-      "plural": "Plural"
+      "plural": "Plural",
+      "deSection": "German",
+      "enSection": "English"
     },
     "systemInfo": {
       "intro": "Overview of currently configured values. Read-only - changes happen in code (<code>backend/src/limits.py</code>) or under \"AI\" and \"System\".",

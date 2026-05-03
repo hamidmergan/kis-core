@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function GlossarySelector({ values, onChange }: Props) {
-  const t = useTranslations("glossarySelector");
+  const t = useTranslations("tools.glossarySelector");
   const { glossaries } = useGlossaries();
   const [open, setOpen] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);

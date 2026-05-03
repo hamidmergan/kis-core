@@ -9,8 +9,8 @@ import BackLink from "@/components/ui/BackLink";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function GlossaryPage() {
-  const t = useTranslations("glossary");
-  const tImport = useTranslations("glossary.import_");
+  const t = useTranslations("tools.glossary");
+  const tImport = useTranslations("tools.glossary.import_");
   const locale = useLocale();
   const { glossaries, createGlossary, updateGlossary, deleteGlossary } = useGlossaries();
 
