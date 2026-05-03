@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "next-intl";
 import { api } from "@/lib/api";
 
 export interface WorkspaceLabels {
@@ -8,20 +9,38 @@ export interface WorkspaceLabels {
   plural: string;
 }
 
-const DEFAULTS: WorkspaceLabels = { singular: "Workspace", plural: "Workspaces" };
+interface AllLabels {
+  de: WorkspaceLabels;
+  en: WorkspaceLabels;
+}
+
+const DEFAULTS: AllLabels = {
+  de: { singular: "Workspace", plural: "Workspaces" },
+  en: { singular: "Workspace", plural: "Workspaces" },
+};
 const LABELS_CHANGED_EVENT = "workspace-labels-changed";
 
-let cache: WorkspaceLabels | null = null;
-let inflight: Promise<WorkspaceLabels> | null = null;
+let cache: AllLabels | null = null;
+let inflight: Promise<AllLabels> | null = null;
 
-async function fetchLabels(): Promise<WorkspaceLabels> {
+function pickString(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+async function fetchLabels(): Promise<AllLabels> {
   try {
     const res = await api.fetch("/api/health/labels", { cache: "no-store" });
     if (!res.ok) return DEFAULTS;
     const data = await res.json();
     return {
-      singular: typeof data.workspace_singular === "string" && data.workspace_singular.trim() ? data.workspace_singular : DEFAULTS.singular,
-      plural: typeof data.workspace_plural === "string" && data.workspace_plural.trim() ? data.workspace_plural : DEFAULTS.plural,
+      de: {
+        singular: pickString(data.workspace_singular_de, DEFAULTS.de.singular),
+        plural: pickString(data.workspace_plural_de, DEFAULTS.de.plural),
+      },
+      en: {
+        singular: pickString(data.workspace_singular_en, DEFAULTS.en.singular),
+        plural: pickString(data.workspace_plural_en, DEFAULTS.en.plural),
+      },
     };
   } catch {
     return DEFAULTS;
@@ -29,7 +48,9 @@ async function fetchLabels(): Promise<WorkspaceLabels> {
 }
 
 export function useWorkspaceLabel(): WorkspaceLabels {
-  const [labels, setLabels] = useState<WorkspaceLabels>(cache ?? DEFAULTS);
+  const locale = useLocale();
+  const localeKey: keyof AllLabels = locale === "en" ? "en" : "de";
+  const [labels, setLabels] = useState<AllLabels>(cache ?? DEFAULTS);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +68,7 @@ export function useWorkspaceLabel(): WorkspaceLabels {
     };
   }, []);
 
-  return labels;
+  return labels[localeKey];
 }
 
 export function notifyWorkspaceLabelsChanged() {
