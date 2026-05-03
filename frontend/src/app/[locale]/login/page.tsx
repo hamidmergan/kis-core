@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [maintenanceOn, setMaintenanceOn] = useState(false);
 
   useEffect(() => {
     checkAuthStatus().then((status) => {
@@ -25,6 +26,23 @@ export default function LoginPage() {
       }
     });
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/health/maintenance", { cache: "no-store" });
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!cancelled) setMaintenanceOn(!!d.enabled);
+      } catch {
+        /* ignore */
+      }
+    };
+    poll();
+    const id = setInterval(poll, 15000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +57,8 @@ export default function LoginPage() {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {
         router.push("/pending");
+      } else if (maintenanceOn) {
+        setError(t("maintenanceBanner"));
       } else {
         setError(t("invalidCredentials"));
       }
@@ -57,6 +77,12 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-center mb-6">{t("welcome")}</h1>
         <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
           <h2 className="text-lg font-semibold mb-4">{t("title")}</h2>
+
+          {maintenanceOn && (
+            <p className="mb-4 text-xs text-warn bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+              {t("maintenanceBanner")}
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} aria-label={t("formAria")} className="space-y-4">
             <div>

@@ -36,6 +36,13 @@ async def login(body: LoginRequest, response: Response, locale: str = Depends(ge
     email = ldap_user["email"] or None  # store NULL instead of empty string
     role = ldap_user.get("role", "lecturer")
 
+    # Maintenance gate: only admin may sign in while maintenance is on.
+    maintenance_on = database.get_setting("maintenance_mode", "false").lower() == "true"
+    is_admin_email = bool(email and settings.admin_email and email.lower() == settings.admin_email.lower())
+    if maintenance_on and not is_admin_email:
+        logger.warning("Login blocked for '{}' (maintenance active, non-admin)", ldap_username)
+        raise HTTPException(status_code=503, detail=t("maintenance.message", locale))
+
     whitelist_enabled = database.get_setting("whitelist_enabled", "true").lower() == "true"
     if whitelist_enabled:
         active = 1 if (email and database.is_email_whitelisted(email)) else 0

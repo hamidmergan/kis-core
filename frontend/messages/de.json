@@ -152,7 +152,8 @@
     "hidePassword": "Passwort verbergen",
     "submit": "Anmelden",
     "submitting": "Wird angemeldet...",
-    "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort."
+    "invalidCredentials": "Ungültige Anmeldedaten. Bitte prüfen Sie Benutzername und Passwort.",
+    "maintenanceBanner": "Wartungsarbeiten aktiv. Bitte später erneut versuchen."
   },
   "toolsSidebar": {
     "heading": "Tools",

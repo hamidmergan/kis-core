@@ -152,7 +152,8 @@
     "hidePassword": "Hide password",
     "submit": "Sign in",
     "submitting": "Signing in...",
-    "invalidCredentials": "Invalid credentials. Please check username and password."
+    "invalidCredentials": "Invalid credentials. Please check username and password.",
+    "maintenanceBanner": "Maintenance in progress. Please try again later."
   },
   "toolsSidebar": {
     "heading": "Tools",
