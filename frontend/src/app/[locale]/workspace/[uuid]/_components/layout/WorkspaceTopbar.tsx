@@ -101,9 +101,9 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
             {t("backToOverview")}
           </Link>
           <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <h3 className="text-base font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)" }}>
+            <h1 className="text-lg font-bold truncate px-16 pointer-events-auto select-text cursor-text" style={{ color: "var(--kb)" }}>
               {title}
-            </h3>
+            </h1>
           </span>
           <div className="flex items-center gap-1.5 ml-auto">
             {headerToggleButton}

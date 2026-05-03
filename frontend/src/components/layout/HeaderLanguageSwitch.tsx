@@ -53,6 +53,7 @@ export default function HeaderLanguageSwitch() {
     buttonRef.current?.focus();
     if (next === currentLocale) return;
     router.replace(pathname, { locale: next });
+    router.refresh();
     void persistLocale(next);
   };
 

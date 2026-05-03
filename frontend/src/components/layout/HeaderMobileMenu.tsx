@@ -49,6 +49,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
   const toggleLocale = () => {
     const next: Locale = currentLocale === "de" ? "en" : "de";
     router.replace(pathname, { locale: next });
+    router.refresh();
     void persistLocale(next);
   };
 
