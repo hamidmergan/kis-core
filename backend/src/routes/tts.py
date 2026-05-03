@@ -59,7 +59,6 @@ async def get_tts_providers():
         mylab_enabled = bool(client and client.is_available())
     return {
         "elevenlabs_enabled": is_elevenlabs_enabled(),
-        "fish_speech_enabled": False,
         "kokoro_enabled": kokoro_enabled,
         "mylab_enabled": mylab_enabled,
     }
@@ -207,7 +206,7 @@ async def text_to_speech(
     style: float = Form(0.20),
     use_speaker_boost: bool = Form(True),
     pause_preset: str = Form("medium"),
-    provider: str = Form("elevenlabs"),  # "elevenlabs" or "fish_speech"
+    provider: str = Form("elevenlabs"),
     voice_label: str = Form(""),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),

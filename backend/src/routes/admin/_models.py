@@ -11,7 +11,6 @@ class UpdateSettingsRequest(BaseModel):
     whitelist_enabled: bool | None = None
     # TTS
     elevenlabs_enabled: bool | None = None
-    fish_speech_enabled: bool | None = None
     kokoro_enabled: bool | None = None
     mylab_enabled: bool | None = None
     # Transcription

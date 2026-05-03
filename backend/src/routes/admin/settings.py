@@ -9,7 +9,6 @@ from src import database as db
 from src.dependencies import get_admin_user
 from src.i18n import get_locale, t
 from src.services.admin.health import (
-    check_fish_speech_available,
     check_kokoro_available,
     check_mylab_available,
     check_mylab_base_available,
@@ -35,7 +34,6 @@ async def ping_service(
     app_settings = _get_settings()
 
     checks = {
-        "fish_speech": check_fish_speech_available,
         "kokoro": check_kokoro_available,
         "mylab_tts": check_mylab_available,
         "mylab_base": check_mylab_base_available,
@@ -49,7 +47,6 @@ async def ping_service(
 
     # URL pick for DNS pre-check
     urls = {
-        "fish_speech": app_settings.fish_speech_base_url,
         "kokoro": app_settings.kokoro_base_url,
         "mylab_tts": app_settings.mylab_tts_base_url,
         "mylab_base": app_settings.fallback_provider_base_url or app_settings.mylab_tts_base_url,
@@ -72,7 +69,6 @@ async def get_settings(_admin=Depends(get_admin_user)):
     # Reachability is NOT probed here - doing external HTTP calls on every
     # settings load makes the endpoint slow (8s DNS timeout per offline host).
     # The UI uses a separate /admin/settings/ping?service=... endpoint on demand.
-    fish_available = None
     kokoro_available = None
     mylab_tts_available = None
     fallback_available = None
@@ -85,9 +81,6 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # ── TTS (flat list of products, not a primary/fallback/local hierarchy) ──
         "elevenlabs_enabled": _enabled("elevenlabs_enabled"),
         "elevenlabs_configured": bool(app_settings.elevenlabs_api_key),
-        "fish_speech_enabled": _enabled("fish_speech_enabled"),
-        "fish_speech_configured": bool(app_settings.fish_speech_base_url),
-        "fish_speech_available": fish_available,
         "kokoro_enabled": _enabled("kokoro_enabled"),
         "kokoro_configured": bool(app_settings.kokoro_base_url),
         "kokoro_available": kokoro_available,
@@ -171,7 +164,7 @@ def _current_models() -> dict[str, str]:
 # Simple bool setting keys: all set with the same schema
 _SIMPLE_BOOL_FIELDS = (
     "whitelist_enabled",
-    "elevenlabs_enabled", "fish_speech_enabled", "kokoro_enabled", "mylab_enabled",
+    "elevenlabs_enabled", "kokoro_enabled", "mylab_enabled",
     "primary_whisper_enabled", "fallback_whisper_enabled",
     "primary_image_gen_enabled", "fallback_image_gen_enabled",
     "primary_image_analyze_enabled", "fallback_image_analyze_enabled",

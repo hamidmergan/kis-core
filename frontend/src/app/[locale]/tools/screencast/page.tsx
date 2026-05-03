@@ -113,11 +113,10 @@ function ScreencastPageInner() {
     mylab: mylabVoices,
   } = voicesResult;
   const elevenlabsEnabled = providers.elevenlabs;
-  const fishSpeechEnabled = providers.fish_speech;
   const kokoroEnabled = providers.kokoro;
   const mylabEnabled = providers.mylab;
   const [voiceId, setVoiceId] = useState("");
-  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "fish_speech" | "kokoro" | "mylab">("kokoro");
+  const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "kokoro" | "mylab">("kokoro");
   useEffect(() => {
     if (defaultProvider) setTtsProvider(defaultProvider);
   }, [defaultProvider]);
@@ -198,7 +197,7 @@ function ScreencastPageInner() {
     setSourceLang("DE");
     setTargetLang("EN-US");
     scriptInput.reset();
-    setTtsProvider(kokoroEnabled ? "kokoro" : fishSpeechEnabled ? "fish_speech" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
+    setTtsProvider(kokoroEnabled ? "kokoro" : elevenlabsEnabled ? "elevenlabs" : "kokoro");
     if (fileRef.current) fileRef.current.value = "";
   }, [translateJobUuid]);
 
@@ -570,7 +569,6 @@ function ScreencastPageInner() {
           <TtsSettingsStep
             providersLoaded={providersLoaded}
             elevenlabsEnabled={elevenlabsEnabled}
-            fishSpeechEnabled={fishSpeechEnabled}
             kokoroEnabled={kokoroEnabled}
             mylabEnabled={mylabEnabled}
             ttsProvider={ttsProvider}

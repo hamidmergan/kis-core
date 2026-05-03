@@ -120,4 +120,4 @@ export interface OpenAITtsVoice {
   description: string;
 }
 
-export type VoicesTab = "elevenlabs" | "fish_speech" | "kokoro" | "mylab";
+export type VoicesTab = "elevenlabs" | "kokoro" | "mylab";

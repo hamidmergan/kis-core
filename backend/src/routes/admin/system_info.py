@@ -68,7 +68,6 @@ async def get_system_info(_admin=Depends(get_admin_user)):
     tts_active = [
         name for name, key in (
             ("ElevenLabs", "elevenlabs_enabled"),
-            ("Fish-Speech", "fish_speech_enabled"),
             ("Kokoro", "kokoro_enabled"),
             ("myLab", "mylab_enabled"),
         ) if _enabled(key, "false")

@@ -184,20 +184,12 @@ def get_elevenlabs_client(locale: str = Depends(get_locale)) -> ElevenLabsClient
     return ElevenLabsClient(settings.elevenlabs_api_key)
 
 
-def get_fish_speech_client():
-    from src.services.fish_speech_client import FishSpeechClient
-    settings = get_settings()
-    if not settings.fish_speech_base_url:
-        return None
-    return FishSpeechClient(settings.fish_speech_base_url)
-
-
 def get_kokoro_client():
     from src.services.kokoro_client import KokoroClient
     settings = get_settings()
     if not settings.kokoro_base_url:
         return None
-    return KokoroClient(settings.kokoro_base_url, api_key=settings.kokoro_api_key)
+    return KokoroClient(settings.kokoro_base_url)
 
 
 def is_elevenlabs_enabled() -> bool:

@@ -71,8 +71,9 @@ export default function TtsPage() {
       setElevenlabsEnabled(data.elevenlabs_enabled);
       setKokoroEnabled(data.kokoro_enabled ?? false);
       setMylabEnabled(data.mylab_enabled ?? false);
-      if (!data.elevenlabs_enabled && data.kokoro_enabled) setProvider("kokoro");
-      else if (!data.elevenlabs_enabled && !data.kokoro_enabled && data.mylab_enabled) setProvider("mylab");
+      if (data.elevenlabs_enabled) setProvider("elevenlabs");
+      else if (data.kokoro_enabled) setProvider("kokoro");
+      else if (data.mylab_enabled) setProvider("mylab");
       if (data.elevenlabs_enabled) {
         api.getJson<{ voices: Voice[] }>("/api/voices").then((vData) => {
           setVoices(vData.voices);
@@ -92,7 +93,7 @@ export default function TtsPage() {
           }).catch(() => {});
       }
     }).catch(() => {
-      setElevenlabsEnabled(true);
+      // Provider check failed — leave all disabled, noProvider message will show.
     }).finally(() => {
       setProvidersLoaded(true);
     });

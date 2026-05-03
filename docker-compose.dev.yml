@@ -77,8 +77,6 @@ services:
   kokoro:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
     container_name: kis-kokoro
-    environment:
-      - API_KEY=${KOKORO_API_KEY:-kokoro-local-key}
     ports:
       - "8880:8880"
     restart: unless-stopped

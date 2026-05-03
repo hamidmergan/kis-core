@@ -23,11 +23,10 @@ export interface OpenAITtsVoice {
   description: string;
 }
 
-export type TtsProvider = "elevenlabs" | "fish_speech" | "kokoro" | "mylab";
+export type TtsProvider = "elevenlabs" | "kokoro" | "mylab";
 
 export interface ProviderFlags {
   elevenlabs: boolean;
-  fish_speech: boolean;
   kokoro: boolean;
   mylab: boolean;
 }
@@ -44,12 +43,11 @@ export interface UseVoicesResult {
 
 const EMPTY_FLAGS: ProviderFlags = {
   elevenlabs: false,
-  fish_speech: false,
   kokoro: false,
   mylab: false,
 };
 
-const PRIORITY: TtsProvider[] = ["kokoro", "mylab", "fish_speech", "elevenlabs"];
+const PRIORITY: TtsProvider[] = ["kokoro", "mylab", "elevenlabs"];
 
 function pickDefaultProvider(flags: ProviderFlags): TtsProvider | null {
   for (const p of PRIORITY) {
@@ -73,7 +71,6 @@ export function useVoices(): UseVoicesResult {
     api
       .getJson<{
         elevenlabs_enabled: boolean;
-        fish_speech_enabled: boolean;
         kokoro_enabled: boolean;
         mylab_enabled: boolean;
       }>("/api/tts/providers")
@@ -82,7 +79,6 @@ export function useVoices(): UseVoicesResult {
 
         const flags: ProviderFlags = {
           elevenlabs: data.elevenlabs_enabled,
-          fish_speech: data.fish_speech_enabled,
           kokoro: data.kokoro_enabled ?? false,
           mylab: data.mylab_enabled ?? false,
         };
@@ -129,9 +125,8 @@ export function useVoices(): UseVoicesResult {
         await Promise.allSettled(tasks);
       })
       .catch(() => {
-        if (cancelled) return;
-        setProviders({ ...EMPTY_FLAGS, elevenlabs: true });
-        setDefaultProvider("elevenlabs");
+        // Provider check failed — leave all flags empty so the UI can show
+        // a no-provider state instead of pretending ElevenLabs works.
       })
       .finally(() => {
         if (cancelled) return;

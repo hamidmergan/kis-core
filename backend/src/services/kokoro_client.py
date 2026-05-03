@@ -4,8 +4,6 @@ Endpoints (OpenAI-compatible):
     POST /v1/audio/speech   -> audio bytes (mp3)
     GET  /v1/voices         -> voice list
 
-Auth: Authorization: Bearer <api_key>  (optional if no key is set)
-
 Start via Docker:
     docker-compose --profile kokoro up -d
 """
@@ -47,15 +45,11 @@ def _split_text(text: str) -> list[str]:
 
 
 class KokoroClient:
-    def __init__(self, base_url: str = DEFAULT_BASE_URL, api_key: str = ""):
+    def __init__(self, base_url: str = DEFAULT_BASE_URL):
         self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
 
     def _headers(self) -> dict:
-        h = {"Content-Type": "application/json"}
-        if self._api_key:
-            h["Authorization"] = f"Bearer {self._api_key}"
-        return h
+        return {"Content-Type": "application/json"}
 
     def synthesize(
         self,

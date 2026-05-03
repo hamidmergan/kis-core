@@ -50,17 +50,6 @@ async def dns_ok(url: str, timeout: float = 1.0) -> bool:
     return ok
 
 
-def check_fish_speech_available(settings) -> bool:
-    if not settings.fish_speech_base_url:
-        return False
-
-    def _do():
-        from src.services.fish_speech_client import FishSpeechClient
-        return FishSpeechClient(settings.fish_speech_base_url).is_available()
-
-    return _cached_check(f"fish:{settings.fish_speech_base_url}", _do)
-
-
 def check_kokoro_available(settings) -> bool:
     if not settings.kokoro_base_url:
         return False

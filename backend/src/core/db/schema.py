@@ -727,7 +727,7 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # Stage 5: rename provider-specific settings keys to generic slot names
             # (kisski_* → primary_*, mylab_* → fallback_*, ollama_* → local_*).
             # Idempotent: if the new key already exists, the legacy row is dropped.
-            # TTS keys (mylab_enabled, mylab_tts_model, elevenlabs_*, kokoro_*, fish_*)
+            # TTS keys (mylab_enabled, mylab_tts_model, elevenlabs_*, kokoro_*)
             # are intentionally NOT renamed - TTS providers are a flat list, not
             # a primary/fallback/local hierarchy.
             for old_key, new_key in (

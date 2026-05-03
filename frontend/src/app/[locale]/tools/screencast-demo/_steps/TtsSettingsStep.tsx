@@ -12,13 +12,12 @@ interface Voice {
   description?: string | null;
 }
 
-type TtsProvider = "elevenlabs" | "fish_speech" | "kokoro" | "mylab";
+type TtsProvider = "elevenlabs" | "kokoro" | "mylab";
 
 
 interface TtsSettingsStepProps {
   providersLoaded: boolean;
   elevenlabsEnabled: boolean;
-  fishSpeechEnabled: boolean;
   kokoroEnabled: boolean;
   mylabEnabled: boolean;
   ttsProvider: TtsProvider;
@@ -46,7 +45,7 @@ interface TtsSettingsStepProps {
 
 
 export function TtsSettingsStep({
-  providersLoaded, elevenlabsEnabled, fishSpeechEnabled, kokoroEnabled, mylabEnabled,
+  providersLoaded, elevenlabsEnabled, kokoroEnabled, mylabEnabled,
   ttsProvider, voices, kokoroVoices, mylabVoices, voiceId,
   speed, slidePause, dpi, slides, totalWords, totalChars, scriptOverLimit, maxChars, ttsSettingsError,
   onTtsProviderChange, onVoiceIdChange, onSpeedChange, onSlidePauseChange, onDpiChange,
@@ -59,8 +58,7 @@ export function TtsSettingsStep({
 
   const handleProviderChange = (p: TtsProvider) => {
     onTtsProviderChange(p);
-    if (p === "fish_speech") onVoiceIdChange("default");
-    else if (p === "kokoro" && kokoroVoices.length > 0) onVoiceIdChange(kokoroVoices[0].voice_id);
+    if (p === "kokoro" && kokoroVoices.length > 0) onVoiceIdChange(kokoroVoices[0].voice_id);
     else if (p === "mylab" && mylabVoices.length > 0) onVoiceIdChange(mylabVoices[0].voice_id);
     else if (p === "elevenlabs" && voices.length > 0) onVoiceIdChange(voices[0].voice_id);
   };
@@ -69,7 +67,7 @@ export function TtsSettingsStep({
     <section className="animate-[fadeIn_0.3s_ease-out]">
       <h2 className="text-lg font-bold mb-6">{t("ttsSettings.heading")}</h2>
 
-      {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
+      {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
         <div className="mb-2">
           <label htmlFor="sc-provider-select" className="block text-sm font-medium text-foreground-soft mb-2">{t("ttsSettings.providerLabel")}</label>
           <Select id="sc-provider-select" value={ttsProvider}
@@ -77,23 +75,19 @@ export function TtsSettingsStep({
             options={[
               ...(kokoroEnabled ? [{ value: "kokoro", label: "Kokoro TTS" }] : []),
               ...(mylabEnabled ? [{ value: "mylab", label: "THL myLab (XTTS-v2)" }] : []),
-              ...(fishSpeechEnabled ? [{ value: "fish_speech", label: "Fish Speech 1.5.1" }] : []),
               ...(elevenlabsEnabled ? [{ value: "elevenlabs", label: "ElevenLabs" }] : []),
             ]}
           />
         </div>
       )}
 
-      {providersLoaded && (elevenlabsEnabled || fishSpeechEnabled || kokoroEnabled || mylabEnabled) && (
+      {providersLoaded && (elevenlabsEnabled || kokoroEnabled || mylabEnabled) && (
         <div className="mb-6 mt-4 space-y-3">
           <div>
             <label htmlFor="sc-voice-select" className="block text-sm font-medium text-foreground-soft mb-2">{t("ttsSettings.voiceLabel")}</label>
             <Select id="sc-voice-select" value={voiceId} onChange={onVoiceIdChange}
-              disabled={ttsProvider === "fish_speech"}
               options={
-                ttsProvider === "fish_speech"
-                  ? [{ value: "default", label: t("ttsSettings.voiceDefault") }]
-                  : ttsProvider === "kokoro"
+                ttsProvider === "kokoro"
                   ? kokoroVoices.map((v) => {
                       const flag = v.accent === "American" ? "🇺🇸" : v.accent === "British" ? "🇬🇧" : "";
                       return { value: v.voice_id, label: `${flag} ${v.name}`.trim() };

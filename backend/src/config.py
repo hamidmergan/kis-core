@@ -40,12 +40,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("LOCAL_PROVIDER_BASE_URL", "OLLAMA_BASE_URL"),
     )
 
-    # Fish Speech TTS (local TTS server): empty = disabled
-    fish_speech_base_url: str = ""
-
     # Kokoro TTS (Docker service, Apache 2.0): empty = disabled
     kokoro_base_url: str = ""
-    kokoro_api_key: str = ""
 
     # myLab TTS (TH Luebeck, Coqui XTTS-v2 via openedai-speech): empty = disabled.
     # Slot identity = product name; not part of the primary/fallback/local hierarchy.

@@ -37,7 +37,7 @@ def run_tts(
     provider: str = "elevenlabs",
     voice_label: str = "",
 ):
-    """Synthesize uploaded document to MP3 via ElevenLabs or Fish Speech (local).
+    """Synthesize uploaded document to MP3.
 
     Long texts are split into ≤25k-char chunks. Each chunk is saved immediately
     after synthesis so a crash or network error can be resumed without re-paying
