@@ -1,206 +1,211 @@
 # KIS
 
-> Built by **Hamid Mergan** at Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck
-> hamid.mergan@th-luebeck.de · hamid.mergan@gmail.com
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688.svg)](https://fastapi.tiangolo.com/)
 
-Web-based translation and media service for documents at TH Lübeck. Translates DOCX, PPTX, MD, TEX and PDF files automatically from German to English, with a glossary for consistent terminology. Also provides text-to-speech, script generation, transcription, and automatic screencast creation from PPTX files.
+AI-powered media and learning platform for TH Lübeck. Translates documents, generates lecture screencasts, transcribes audio/video, and provides an AI study assistant with workspaces, mindmaps, schedules, and language training.
 
-## Architecture
+> Built by **Hamid Mergan** at Institut für Interaktive Systeme (ISy), Technische Hochschule Lübeck.
+> Contact: hamid.mergan@th-luebeck.de
 
-- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS (port 3000)
-- **Backend**: FastAPI, DeepL API, ElevenLabs API, KISSKI LLM, python-docx, python-pptx, FFmpeg (port 8000)
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Stack](#stack)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Development](#development)
+- [Configuration](#configuration)
+- [Authentication](#authentication)
+- [Internationalization](#internationalization)
+- [Project Status](#project-status)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+---
+
+## Features
+
+**Media tools**
+- Document translation (DOCX, PPTX, MD, TEX, PDF) with custom glossary
+- Text-to-speech (Kokoro, TH Lübeck myLab/Coqui)
+- Transcription (Whisper)
+- Image generation
+- AI summarization
+- Automatic screencast creation from PPTX (translation → script → TTS → video)
+
+**AI study assistant**
+- Workspaces per course or topic
+- Source ingestion (PDF, audio, video, web)
+- Chat with sources (RAG)
+- Mindmaps, exercises, flashcards, multiple-choice
+- Schedule extraction from documents
+- Language training cards
+- Notes and data tables
+
+**Admin**
+- Provider management (LLM, embedding, TTS, OCR slots)
+- Quota and rate limiting
+- Usage statistics
+- Maintenance mode
+
+---
+
+## Stack
+
+**Frontend**
+- Next.js 15, React 19, TypeScript
+- Tailwind CSS 4
+- next-intl (DE/EN)
+- Phosphor icons, react-markdown, mind-elixir, embedpdf
+
+**Backend**
+- FastAPI, Python 3.11
+- PostgreSQL 16 + pgvector (RAG embeddings)
+- Redis (Celery broker)
+- Celery (3 worker queues: `screencast`, `tts/general`, `aia`) + Celery Beat
+- DeepL, OpenAI-compatible LLM clients (KISSKI, myLab, Ollama)
+- Kokoro TTS
+- Langfuse LLM observability (dev/local only)
+- S3-compatible storage (MinIO local, Hetzner Object Storage prod)
+
+**System dependencies (in container)**
+- FFmpeg (audio/video)
+- LibreOffice (PPTX → PDF)
+- poppler-utils (PDF → PNG)
+
+---
+
+## Prerequisites
+
+- Docker and Docker Compose v2
+- Node.js 20+ (for frontend dev)
+- ~10 GB free disk for Docker images and storage volume
+
+---
 
 ## Quick Start
 
 ```bash
-cp .env.example .env   # adjust .env (see Configuration)
-docker-compose up -d --build
+git clone <repo-url> kis
+cd kis
+cp .env.example .env       # fill in API keys, see Configuration
+docker compose up -d --build
 ```
 
-## Local Development
+Frontend: http://localhost:3000
+API docs: http://localhost:8000/docs
 
-Run the backend in Docker:
-```bash
-docker compose up backend
-```
+Stop everything: `docker compose down`
 
-Run the frontend locally (hot reload, no rebuild needed):
-```bash
-cd frontend && npm run dev
-```
+---
 
-The frontend is served on http://localhost:3001 (or 3000 if free).
-Frontend changes are visible in the browser immediately.
-Backend changes are auto-reloaded.
+## Development
 
-
-## Development Setup
-
-After cloning, run this once so the IDE (VSCode, WebStorm, Cursor, etc.) picks up TypeScript types:
+Backend runs in Docker with hot reload (Python source mounted read-only). Frontend runs locally with Next.js dev server for instant HMR.
 
 ```bash
-cd frontend && npm install
+# 1. Start backend stack (Postgres, Redis, Celery, LDAP, FastAPI)
+docker compose up -d
+
+# 2. Start frontend dev server
+cd frontend
+npm install
+npm run dev    # http://localhost:3000
 ```
 
-- Frontend: `http://localhost:3000`
-- API docs: `http://localhost:8000/docs`
+**Useful commands**
 
-Stop everything: `docker-compose down`
-
-## Features
-
-### Document translation
-
-Translates documents from German to English while preserving layout. Supports an optional glossary.
-
-| Format | Method | Notes |
-|--------|--------|-------|
-| `.docx` | Custom parser | Layout preserved |
-| `.pptx` | Custom parser | Includes footer, notes, master |
-| `.md` | Custom parser | Code blocks remain unchanged |
-| `.tex` | Custom parser | Math/verbatim remain unchanged |
-| `.pdf` | DeepL Document API | Limitations on formulas/complex layouts |
-
-### Text-to-Speech (TTS)
-
-Converts documents into spoken MP3 audio (via the ElevenLabs API).
-
-- Speed control (0.5x to 1.2x)
-- Pause presets (short, medium, long, very long)
-- Advanced voice settings (stability, similarity, style, speaker boost)
-
-### Script generation
-
-Generates AI-spoken lecture scripts from documents (via the KISSKI LLM).
-
-- Upload a document, the AI produces a matching speaker text
-- Download as Markdown
-
-### Transcription
-
-Transcribes audio and video files to text (via KISSKI Whisper).
-
-- Task modes: transcription or translation
-- Output formats: text, SRT, VTT
-- Supports a wide range of audio/video formats
-
-### Screencast creation
-
-Automatically creates a screencast video from a PPTX presentation: translation, script generation, TTS, video rendering.
-
-**Auto mode**: fully automated one-click run.
-
-**Manual mode**: step-by-step with editing options:
-
-1. Upload PPTX
-2. Translation (with glossary support)
-3. Optional user prompt for script tweaks
-4. Review the translation (slide preview, upload corrected PPTX)
-5. AI script generation
-6. Edit the per-slide scripts
-7. TTS settings (speed, pauses)
-8. Video rendering
-9. MP4 download
-
-## Glossary
-
-The glossary ensures that domain terms are translated consistently with the desired target-language equivalents, regardless of what the underlying translation API would return.
-
-### Management
-
-- Edited via the glossary tab in the frontend (German to English)
-- Entries live only in the browser (no server storage, no database storage)
-- On submit, entries are sent as JSON in the request body
-
-### Implementation: token-replacement approach
-
-The project does **not** use the native glossary feature of DeepL or any other API. Instead, a custom token-replacement approach works independently of the API:
-
-1. **Before** translation: glossary terms in the source text are replaced with unique placeholders (`__GLOSSARY_0__`, `__GLOSSARY_1__`, ...)
-2. The prepared text (with placeholders) is sent to the translation API. Placeholders pass through untouched.
-3. **After** translation: placeholders are replaced with the defined target terms.
-
-**Example:**
-
-```
-Input:           "Die Lehrveranstaltung beginnt pünktlich."
-After step 1:    "Die __GLOSSARY_0__ beginnt pünktlich."
-After DeepL:     "The __GLOSSARY_0__ starts on time."
-Output:          "The Course starts on time."
+```bash
+docker compose logs -f backend            # backend logs
+docker compose logs -f celery-worker-aia  # worker logs
+docker compose restart backend            # restart after dependency change
+npm run check:i18n                        # verify DE/EN key parity
+npm run lint
 ```
 
-Longer terms are replaced first to avoid overlaps.
+Optional profiles:
 
-### Where is the glossary applied?
+```bash
+docker compose --profile kokoro up -d     # local Kokoro TTS server
+docker compose --profile presenton up -d  # AI presentation generator
+```
 
-| Tool | Glossary active | Notes |
-|------|:---:|-------|
-| Document translation (DOCX, PPTX, MD, TEX) | Yes | Token replacement via `GlossaryService` |
-| Screencast translation (PPTX step) | Yes | Same logic as document translation |
-| Transcription | No | Direct KISSKI Whisper call, no glossary |
-| Text-to-Speech | No | ElevenLabs call, no glossary |
-| Script generation | Yes | Glossary entries are injected as a terminology instruction into the LLM system prompt (no token replacement) |
-
-## API endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/login` | POST | Login |
-| `/auth/logout` | POST | Logout |
-| `/auth/status` | GET | Check auth status |
-| `/health` | GET | Health check |
-| `/translate` | POST | Translate document (custom parser) |
-| `/translate-document` | POST | Translate document (DeepL Document API) |
-| `/tts` | POST | Text-to-Speech (document to MP3) |
-| `/script` | POST | Script generation (document to speaker text) |
-| `/transcription` | POST | Audio/video transcription |
-| `/screencast` | POST | Screencast (auto mode) |
-| `/screencast/translate` | POST | Screencast: translate PPTX, extract texts/images |
-| `/screencast/extract-texts` | POST | Screencast: extract texts from PPTX |
-| `/screencast/prepare` | POST | Screencast: PPTX to slide images |
-| `/screencast/generate-scripts` | POST | Screencast: generate scripts |
-| `/screencast/render` | POST | Screencast: render MP4 |
+---
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DEEPL_API_KEY` | DeepL API key | - |
-| `SOURCE_LANG` | Source language | `DE` |
-| `TARGET_LANG` | Target language | `EN-US` |
-| `ELEVENLABS_API_KEY` | ElevenLabs API key (TTS) | - |
-| `KISSKI_API_KEY` | KISSKI LLM API key (scripts, transcription) | - |
-| `KISSKI_BASE_URL` | KISSKI API base URL | `https://chat-ai.academiccloud.de/v1` |
-| `KISSKI_MODEL` | KISSKI LLM model | `qwen3-30b-a3b-instruct-2507` |
-| `APP_PASSWORD` | Login password | `admin` |
-| `SESSION_SECRET` | Secret for session tokens | - |
-| `SESSION_MAX_AGE_SECONDS` | Session lifetime in seconds | `86400` |
+All config is in `.env` (copy from `.env.example`). Provider keys are managed in the admin panel after first login, not via env vars.
 
-## System dependencies (backend container)
+| Variable | Description |
+|---|---|
+| `ADMIN_EMAIL` | Auto-whitelisted admin on first start |
+| `SESSION_SECRET` | Random string, required |
+| `POSTGRES_PASSWORD` | Database password, change in production |
+| `S3_*` | Object storage (MinIO local, S3-compatible in prod) |
+| `DEEPL_API_KEY` | DeepL translation |
+| `PRIMARY_PROVIDER_API_KEY` | Primary LLM provider (default: KISSKI/Academic Cloud) |
+| `FALLBACK_PROVIDER_BASE_URL` | Fallback LLM/Whisper (default: TH Lübeck myLab) |
+| `LOCAL_PROVIDER_BASE_URL` | Local LLM (Ollama) |
+| `LDAP_*` | LDAP server config (TH Lübeck or local sim) |
+| `LANGFUSE_*` | LLM observability (dev/local only, optional) |
+| `TRANSLATION_LANGUAGES` | Comma-separated language codes |
 
-- **FFmpeg**: video/audio processing (screencast, TTS pauses)
-- **LibreOffice**: PPTX to PDF conversion (screencast)
-- **poppler-utils**: PDF to PNG conversion (screencast)
+See `.env.example` for the full list with defaults.
 
-These are installed automatically inside the Docker image.
+---
+
+## Authentication
+
+Login via LDAP. A local OpenLDAP container is bundled for development with seeded test users (`docker/ldap/seed.ldif`). Integration with the TH Lübeck LDAP server is planned once the project moves to TH infrastructure.
+
+Sessions are cookie-based, signed with `SESSION_SECRET`. Maintenance mode keeps `/admin` and `/auth` reachable so the admin can toggle it off.
+
+---
+
+## Internationalization
+
+Hybrid German/English with German as the default.
+
+- **Frontend**: `next-intl`, messages in `frontend/messages/{de,en}.json`. Both files must stay in sync. Run `npm run check:i18n` before committing.
+- **Backend**: `Accept-Language` header drives translated `HTTPException` details and tool labels via `backend/src/i18n.py`. LLM prompts are always English; output language is controlled by `target_language` ("German" / "English").
+
+User-facing strings only. Internal identifiers, file paths, comments, and database columns are English.
+
+---
+
+## Project Status
+
+Active development. Currently hosted on Hetzner; migration to TH Lübeck infrastructure planned. Used internally at TH Lübeck.
+
+---
 
 ## License
 
-Apache License 2.0, Copyright 2026 Technische Hochschule Lübeck
+Apache License 2.0, Copyright 2026 Technische Hochschule Lübeck.
 
-Full text: see [LICENSE](LICENSE). Attribution: see [NOTICE](NOTICE). Lead developer and contributors: see [AUTHORS](AUTHORS).
+- Full text: [LICENSE](LICENSE)
+- Attribution: [NOTICE](NOTICE)
+- Contributors: [AUTHORS](AUTHORS)
+- Third-party licenses (Python + npm, aggregated): [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)
 
-### Third-party licenses
-
-All third-party dependencies (Backend Python + Frontend npm) are aggregated
-with full license texts in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
-
-Regenerate after dependency changes (requires running `kis-backend` container
-and frontend `node_modules` installed):
+Regenerate third-party notices after dependency changes:
 
 ```bash
 python generate-licenses.py
 ```
 
-The generator fails on any AGPL or strong-copyleft GPL dependency. LGPL is
-allowed (dynamic-linking via PyPI/npm). Drift check via `--check` flag.
+The generator fails on AGPL or strong-copyleft GPL dependencies. LGPL is allowed via dynamic linking through PyPI/npm.
+
+---
+
+## Acknowledgments
+
+- **GWDG / KISSKI** (Academic Cloud) — primary LLM and embeddings
+- **TH Lübeck myLab** — Whisper, OCR, image, embeddings via internal infrastructure
+- **DeepL** — document translation
+- **Langfuse** — LLM observability (dev/local only)
