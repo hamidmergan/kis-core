@@ -138,7 +138,7 @@
   },
   "pending": {
     "title": "Konto noch nicht freigeschaltet",
-    "body1": "KIS befindet sich derzeit in der Testphase. Ihr TH-Lübeck-Konto wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung freigegeben.",
+    "body1": "KIS befindet sich derzeit in der Testphase. Ihr Konto wurde erfolgreich erkannt, ist aber noch nicht für die Nutzung freigegeben.",
     "body2": "Wenn Sie Zugang zu KIS benötigen, wenden Sie sich bitte an:",
     "backToLogin": "Zurück zur Anmeldung"
   },

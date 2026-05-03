@@ -138,7 +138,7 @@
   },
   "pending": {
     "title": "Account not yet activated",
-    "body1": "KIS is currently in a test phase. Your TH Lübeck account was recognized but is not yet activated for use.",
+    "body1": "KIS is currently in a test phase. Your account was recognized but is not yet activated for use.",
     "body2": "If you need access to KIS, please contact:",
     "backToLogin": "Back to sign in"
   },
