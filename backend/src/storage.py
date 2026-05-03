@@ -17,11 +17,6 @@ JOBS_DIR = STORAGE_ROOT / "jobs"
 
 # --- S3 config (read once at import time) ---
 _S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "")
-# Browser-reachable endpoint for presigned URLs; falls back to _S3_ENDPOINT when empty.
-# In Docker setups the internal hostname (e.g. "http://minio:9000") is unreachable
-# from the user's browser, so a host-accessible URL (e.g. "http://localhost:9000")
-# must be used when generating presigned links the frontend follows.
-_S3_PUBLIC_ENDPOINT = os.environ.get("S3_PUBLIC_ENDPOINT", "") or _S3_ENDPOINT
 _S3_BUCKET = os.environ.get("S3_BUCKET", "kis")
 USE_S3 = bool(_S3_ENDPOINT)
 
@@ -119,27 +114,17 @@ def init_lifecycle_policy() -> None:
         )
 
 
-def _make_s3_client(endpoint: str):
+@lru_cache(maxsize=1)
+def _s3():
     import boto3
     from botocore.client import Config
     return boto3.client(
         "s3",
-        endpoint_url=endpoint,
+        endpoint_url=_S3_ENDPOINT,
         aws_access_key_id=os.environ.get("S3_ACCESS_KEY", ""),
         aws_secret_access_key=os.environ.get("S3_SECRET_KEY", ""),
         config=Config(signature_version="s3v4"),
     )
-
-
-@lru_cache(maxsize=1)
-def _s3():
-    return _make_s3_client(_S3_ENDPOINT)
-
-
-@lru_cache(maxsize=1)
-def _s3_public():
-    """Client used only for generating presigned URLs browsers can follow."""
-    return _make_s3_client(_S3_PUBLIC_ENDPOINT)
 
 
 def init_storage() -> None:
@@ -183,21 +168,6 @@ def stream_s3_object(file_path: str, range_header: str | None = None):
             body.close()
 
     return iterator(), resp["ContentLength"], resp.get("ContentRange")
-
-
-def presigned_get_url(
-    file_path: str,
-    content_type: str | None = None,
-    content_disposition: str | None = None,
-    expires_in: int = 3600,
-) -> str:
-    """Generate a presigned GET URL for an S3 object. Only valid when USE_S3 is True."""
-    params: dict = {"Bucket": _S3_BUCKET, "Key": file_path}
-    if content_type:
-        params["ResponseContentType"] = content_type
-    if content_disposition:
-        params["ResponseContentDisposition"] = content_disposition
-    return _s3_public().generate_presigned_url("get_object", Params=params, ExpiresIn=expires_in)
 
 
 def file_exists(file_path: str) -> bool:

@@ -180,11 +180,15 @@ _SIMPLE_BOOL_FIELDS = (
     "mascot_enabled",
 )
 
-# Radio fields: exactly one provider may be active at a time.
-# - Embedding: vector dimension would be inconsistent under parallel operation.
-# - LLM: system-wide selection, no fallback (see _resolve_llm_provider).
+# Radio fields: exactly one provider may be active at a time per group.
+# Switching is a manual admin action — there is no automatic failover.
 _EMBEDDING_KEYS = ("primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled")
 _LLM_KEYS = ("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled")
+_WHISPER_KEYS = ("primary_whisper_enabled", "fallback_whisper_enabled")
+_IMAGE_GEN_KEYS = ("primary_image_gen_enabled", "fallback_image_gen_enabled")
+_IMAGE_EDIT_KEYS = ("primary_image_edit_enabled", "fallback_image_edit_enabled")
+_IMAGE_ANALYZE_KEYS = ("primary_image_analyze_enabled", "fallback_image_analyze_enabled")
+_OCR_KEYS = ("primary_ocr_enabled", "fallback_ocr_enabled")
 
 
 def _apply_radio_group(
@@ -237,13 +241,17 @@ async def update_settings(
 
     # Embeddings - exactly one must be enabled at any time.
     # Different embedding models have different vector dimensions, so parallel
-    # operation or silent fallback would corrupt the index.
+    # operation would corrupt the index.
     if _apply_radio_group(body_dict, _EMBEDDING_KEYS, "Embedding", locale):
         invalidate_fingerprint_cache()
 
     # LLM Chat - exactly one must be enabled at any time.
-    # Provider selection is no longer controlled via env vars (see _resolve_llm_provider).
     _apply_radio_group(body_dict, _LLM_KEYS, "LLM", locale)
+    _apply_radio_group(body_dict, _WHISPER_KEYS, "Whisper", locale)
+    _apply_radio_group(body_dict, _IMAGE_GEN_KEYS, "Image generation", locale)
+    _apply_radio_group(body_dict, _IMAGE_EDIT_KEYS, "Image editing", locale)
+    _apply_radio_group(body_dict, _IMAGE_ANALYZE_KEYS, "Image analysis", locale)
+    _apply_radio_group(body_dict, _OCR_KEYS, "OCR", locale)
 
     # UI label overrides for "Workspace" (per UI locale)
     for label_key in (

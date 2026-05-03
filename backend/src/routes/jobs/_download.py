@@ -1,8 +1,6 @@
 """Download-Endpunkte: /download (Result-File), /pptx (Translated PPTX), /bundle (ZIP)."""
 
-import base64
 import io
-import json as json_lib
 import zipfile
 from pathlib import Path
 
@@ -49,43 +47,6 @@ async def download_job_result(
         raise HTTPException(status_code=404, detail=t("job.fileExpired", locale))
 
     ext = Path(result_path_str).suffix.lower()
-
-    # Multi-image JSON → ZIP (or single PNG direct)
-    if ext == ".json" and job["tool"] == "image_generate":
-        try:
-            images_data = json_lib.loads(data)["images"]
-        except Exception:
-            raise HTTPException(status_code=500, detail=t("image.dataReadFailed", locale))
-
-        if len(images_data) == 1:
-            img_bytes = base64.b64decode(images_data[0]["b64_json"])
-            png_filename = images_data[0].get("filename", "image.png")
-            return StreamingResponse(
-                iter([img_bytes]),
-                media_type="image/png",
-                headers={
-                    "Content-Length": str(len(img_bytes)),
-                    "Content-Disposition": f'attachment; filename="{png_filename}"',
-                },
-            )
-        else:
-            buf = io.BytesIO()
-            with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_STORED) as zf:
-                for img in images_data:
-                    img_bytes = base64.b64decode(img["b64_json"])
-                    zf.writestr(img.get("filename", "image.png"), img_bytes)
-            zip_bytes = buf.getvalue()
-            base_name = (job["result_filename"] or "images").removesuffix(".json")
-            zip_filename = f"{base_name}.zip"
-            return StreamingResponse(
-                iter([zip_bytes]),
-                media_type="application/zip",
-                headers={
-                    "Content-Length": str(len(zip_bytes)),
-                    "Content-Disposition": f'attachment; filename="{zip_filename}"',
-                },
-            )
-
     content_type = _CONTENT_TYPES.get(ext, "application/octet-stream")
     filename = job["result_filename"] or Path(result_path_str).name
 

@@ -6,7 +6,13 @@ from loguru import logger
 
 from src import database as db
 from src.dependencies import get_current_user, get_settings, is_admin_user
-from src.i18n import get_locale, t
+from src.i18n import (
+    DEFAULT_TRANSLATE_SOURCE,
+    DEFAULT_TRANSLATE_TARGET,
+    TRANSLATE_LANGUAGES,
+    get_locale,
+    t,
+)
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.storage import save_queue_file
@@ -25,22 +31,19 @@ async def get_translate_config(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    settings = get_settings()
-
     providers = [
         {"id": "deepl", "label": t("translateProvider.deepl", locale)},
         {"id": "llm", "label": t("translateProvider.llm", locale)},
     ]
 
-    raw_langs = [lang.strip() for lang in settings.translation_languages.split(",") if lang.strip()]
-    languages = [{"id": lang, "label": t(f"lang.{lang}", locale)} for lang in raw_langs]
+    languages = [{"id": lang, "label": t(f"lang.{lang}", locale)} for lang in TRANSLATE_LANGUAGES]
 
     return {
         "providers": providers,
         "default_provider": "deepl",
         "languages": languages,
-        "default_source": "DE",
-        "default_target": "EN-US",
+        "default_source": DEFAULT_TRANSLATE_SOURCE,
+        "default_target": DEFAULT_TRANSLATE_TARGET,
     }
 
 
@@ -74,8 +77,8 @@ def translate_pptx_content(
             pass
     service = TranslationService(deepl_client=deepl_client, glossary=glossary)
     try:
-        eff_source = source_lang if source_lang else "DE"
-        eff_target = target_lang if target_lang else "EN-US"
+        eff_source = source_lang if source_lang else DEFAULT_TRANSLATE_SOURCE
+        eff_target = target_lang if target_lang else DEFAULT_TRANSLATE_TARGET
         return translate_pptx(content, eff_source, eff_target, service)
     except ValueError as e:
         raise HTTPException(status_code=500, detail=t("translate.pptxError", locale, error=str(e)))
@@ -128,7 +131,7 @@ async def translate(
             )
 
     effective_source = source_lang or ""
-    effective_target = target_lang or "EN-US"
+    effective_target = target_lang or DEFAULT_TRANSLATE_TARGET
 
     job_uuid = uuid.uuid4().hex
     user_id = current_user.get("user_id", 0)

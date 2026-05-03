@@ -770,20 +770,24 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 cur.execute("DELETE FROM settings WHERE key = %s", (old_key,))
 
             # Provider radio groups: exactly one provider per group may be active.
-            # - Embedding: different models have different vector dimensions.
-            # - LLM: system-wide selection, provider selection via DB instead of env since 2026-04-25.
-            _enforce_radio_group(
-                cur, _log,
-                keys=("primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled"),
-                default="primary_embedding_enabled",
-                label="Embedding",
-            )
-            _enforce_radio_group(
-                cur, _log,
-                keys=("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled"),
-                default="primary_llm_enabled",
-                label="LLM",
-            )
+            # Switching is a manual admin action — there is no automatic failover.
+            for keys, default, label in (
+                (("primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled"),
+                    "primary_embedding_enabled", "Embedding"),
+                (("primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled"),
+                    "primary_llm_enabled", "LLM"),
+                (("primary_whisper_enabled", "fallback_whisper_enabled"),
+                    "primary_whisper_enabled", "Whisper"),
+                (("primary_image_gen_enabled", "fallback_image_gen_enabled"),
+                    "primary_image_gen_enabled", "Image generation"),
+                (("primary_image_edit_enabled", "fallback_image_edit_enabled"),
+                    "primary_image_edit_enabled", "Image editing"),
+                (("primary_image_analyze_enabled", "fallback_image_analyze_enabled"),
+                    "primary_image_analyze_enabled", "Image analysis"),
+                (("primary_ocr_enabled", "fallback_ocr_enabled"),
+                    "primary_ocr_enabled", "OCR"),
+            ):
+                _enforce_radio_group(cur, _log, keys=keys, default=default, label=label)
 
             # Runtime-tunable model names: seed only the explicitly-listed keys
             # (SEEDED_MODEL_KEYS). Other keys live as pure code-side defaults so

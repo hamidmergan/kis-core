@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
+import {
+  DEFAULT_TRANSLATE_SOURCE,
+  DEFAULT_TRANSLATE_TARGET,
+  TRANSLATE_LANGUAGES,
+} from "@/lib/constants";
 
 export interface Language {
   id: string;
@@ -18,19 +23,12 @@ interface TranslateConfigResponse {
 export function useLanguageConfig() {
   const t = useTranslations("langLabels");
   const defaults = useMemo<Language[]>(
-    () => [
-      { id: "DE", label: t("DE") },
-      { id: "EN-US", label: t("EN-US") },
-      { id: "EN-GB", label: t("EN-GB") },
-      { id: "FR", label: t("FR") },
-      { id: "ES", label: t("ES") },
-      { id: "IT", label: t("IT") },
-    ],
+    () => TRANSLATE_LANGUAGES.map((id) => ({ id, label: t(id) })),
     [t],
   );
   const [languages, setLanguages] = useState<Language[]>(defaults);
-  const [sourceLang, setSourceLang] = useState<string>("DE");
-  const [targetLang, setTargetLang] = useState<string>("EN-US");
+  const [sourceLang, setSourceLang] = useState<string>(DEFAULT_TRANSLATE_SOURCE);
+  const [targetLang, setTargetLang] = useState<string>(DEFAULT_TRANSLATE_TARGET);
 
   useEffect(() => {
     api

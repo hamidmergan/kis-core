@@ -21,14 +21,11 @@ ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 async def generate_image(
     prompt: str = Form(...),
     size: str = Form("1024x1024"),
-    n: int = Form(1),
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
     if not prompt.strip():
         raise HTTPException(status_code=400, detail=t("prompt.empty", locale))
-    if n < 1 or n > 4:
-        raise HTTPException(status_code=400, detail=t("image.invalidCount", locale))
     if size not in {"1024x1024", "1280x720"}:
         raise HTTPException(status_code=400, detail=t("image.invalidSize", locale))
 
@@ -40,7 +37,7 @@ async def generate_image(
     db.create_job(job_uuid, user_id, "image_generate", prompt[:100], locale=locale)
 
     from src.tasks.general_tasks import run_image_generate
-    run_image_generate.delay(job_uuid, prompt, size, n)
+    run_image_generate.delay(job_uuid, prompt, size)
 
     logger.info("Image generate job {} queued", job_uuid)
     return {"job_uuid": job_uuid, "status": "pending"}

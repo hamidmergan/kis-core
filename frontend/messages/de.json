@@ -397,12 +397,10 @@
       "generate": {
         "promptPlaceholder": "Beschreiben Sie das gewünschte Bild ...",
         "size": "Größe",
-        "count": "Anzahl",
         "submit": "Bild generieren",
         "spinner": "Wird generiert…",
         "longRunning": "Läuft noch - Bildgenerierung kann etwas länger dauern…",
-        "resultAlt": "Generiertes Bild {n}",
-        "downloadAllZip": "Alle als ZIP",
+        "resultAlt": "Generiertes Bild",
         "regenerate": "Neu generieren"
       },
       "edit": {
@@ -788,19 +786,19 @@
       "modelLabel": "Modell:",
       "speechTitle": "Text in Sprache",
       "transcriptionTitle": "Transkription (Sprache in Text)",
-      "transcriptionHint": "KISSKI = primär, THL myLab = Fallback bei Ausfall",
+      "transcriptionHint": "Nur ein Anbieter gleichzeitig aktiv.",
       "transcriptTranslationTitle": "Transkript-Übersetzung (EN)",
       "transcriptTranslationHint": "Übersetzung deutscher Video-/Audio-Transkripte ins Englische. Modus (aus/auto/manuell) wird pro Modul gesetzt - hier nur der globale Anbieter.",
       "providerLabel": "Anbieter",
       "providerHint": "DeepL: schnell, aber Kontingent-limitiert. LLM: nutzt den konfigurierten Chat-Provider, keine zusätzliche Quote.",
       "imageGenTitle": "Bild-Generierung",
-      "imageGenHint": "Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.",
+      "imageGenHint": "Nur ein Anbieter gleichzeitig aktiv.",
       "imageAnalyzeTitle": "Bild-Analyse",
       "imageAnalyzeHint": "Nur KISSKI verfuegbar (THL myLab hat kein Vision-Modell).",
       "imageEditTitle": "Bild-Bearbeitung",
-      "imageEditHint": "Ist THL myLab aktiv, wird myLab benutzt, sonst KISSKI.",
+      "imageEditHint": "Nur ein Anbieter gleichzeitig aktiv.",
       "ocrTitle": "OCR (Texterkennung)",
-      "ocrHint": "KISSKI = primär, THL myLab = Fallback bei Ausfall",
+      "ocrHint": "Nur ein Anbieter gleichzeitig aktiv.",
       "embeddingTitle": "Embeddings (KI-Assistent)",
       "embeddingHint": "Nur ein Anbieter gleichzeitig - Wechsel erfordert Reindex (siehe unten).",
       "llmTitle": "LLM Chat",
@@ -1114,11 +1112,7 @@
   },
   "langLabels": {
     "DE": "Deutsch",
-    "EN-US": "Englisch",
-    "EN-GB": "Englisch (UK)",
-    "FR": "Französisch",
-    "ES": "Spanisch",
-    "IT": "Italienisch"
+    "EN-US": "Englisch"
   },
   "workspace": {
     "detail": {

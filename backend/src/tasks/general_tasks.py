@@ -222,7 +222,6 @@ def run_image_generate(
     job_uuid: str,
     prompt: str,
     size: str,
-    n: int,
 ):
     try:
         db.update_job_status(job_uuid, "running")
@@ -232,10 +231,10 @@ def run_image_generate(
         if provider == "fallback":
             from src.services.runtime_models import get_model
             base_url, client = _fallback_http_client(timeout=120.0)
-            body: dict = {"model": get_model("fallback_image_gen_model"), "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
+            body: dict = {"model": get_model("fallback_image_gen_model"), "prompt": prompt, "size": size, "n": 1, "response_format": "b64_json"}
         else:
             base_url, client = _primary_http_client(timeout=120.0)
-            body = {"model": "flux", "prompt": prompt, "size": size, "n": n, "response_format": "b64_json"}
+            body = {"model": "flux", "prompt": prompt, "size": size, "n": 1, "response_format": "b64_json"}
 
         with job_heartbeat(job_uuid), client:
             response = client.post(f"{base_url}/images/generations", json=body)
@@ -249,21 +248,12 @@ def run_image_generate(
             raise RuntimeError("Keine Bilder generiert")
 
         label = prompt[:40].strip().replace(" ", "_")
-        if len(images) == 1:
-            img_bytes = base64.b64decode(images[0]["b64_json"])
-            result_filename = f"image_{label}.png"
-            result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
-        else:
-            images_data = [
-                {"b64_json": img["b64_json"], "filename": f"image_{label}_{i + 1}.png"}
-                for i, img in enumerate(images)
-            ]
-            result_json = json.dumps({"images": images_data})
-            result_filename = f"images_{label}.json"
-            result_path = save_result_file(user_id, job_uuid, ".json", result_json.encode("utf-8"))
+        img_bytes = base64.b64decode(images[0]["b64_json"])
+        result_filename = f"image_{label}.png"
+        result_path = save_result_file(user_id, job_uuid, ".png", img_bytes)
         save_result_and_evict(user_id, job_uuid, result_path, result_filename)
         db.update_job_status(job_uuid, "success")
-        logger.info("Image generate task {} completed ({} images)", job_uuid, len(images))
+        logger.info("Image generate task {} completed", job_uuid)
 
     except Exception as e:
         logger.error("Image generate task {} failed: {}", job_uuid, e)

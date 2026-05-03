@@ -397,12 +397,10 @@
       "generate": {
         "promptPlaceholder": "Describe the desired image ...",
         "size": "Size",
-        "count": "Count",
         "submit": "Generate image",
         "spinner": "Generating…",
         "longRunning": "Still running - image generation may take a bit longer…",
-        "resultAlt": "Generated image {n}",
-        "downloadAllZip": "All as ZIP",
+        "resultAlt": "Generated image",
         "regenerate": "Regenerate"
       },
       "edit": {
@@ -788,19 +786,19 @@
       "modelLabel": "Model:",
       "speechTitle": "Text to speech",
       "transcriptionTitle": "Transcription (speech to text)",
-      "transcriptionHint": "KISSKI = primary, THL myLab = fallback on failure",
+      "transcriptionHint": "Only one provider active at a time.",
       "transcriptTranslationTitle": "Transcript translation (EN)",
       "transcriptTranslationHint": "Translation of German video/audio transcripts into English. Mode (off/auto/manual) is set per module - this only configures the global provider.",
       "providerLabel": "Provider",
       "providerHint": "DeepL: fast but quota-limited. LLM: uses the configured chat provider, no extra quota.",
       "imageGenTitle": "Image generation",
-      "imageGenHint": "If THL myLab is active, myLab is used, otherwise KISSKI.",
+      "imageGenHint": "Only one provider active at a time.",
       "imageAnalyzeTitle": "Image analysis",
       "imageAnalyzeHint": "Only KISSKI available (THL myLab has no vision model).",
       "imageEditTitle": "Image editing",
-      "imageEditHint": "If THL myLab is active, myLab is used, otherwise KISSKI.",
+      "imageEditHint": "Only one provider active at a time.",
       "ocrTitle": "OCR (text recognition)",
-      "ocrHint": "KISSKI = primary, THL myLab = fallback on failure",
+      "ocrHint": "Only one provider active at a time.",
       "embeddingTitle": "Embeddings (AI assistant)",
       "embeddingHint": "Only one provider at a time - switching requires reindex (see below).",
       "llmTitle": "LLM chat",
@@ -1114,11 +1112,7 @@
   },
   "langLabels": {
     "DE": "German",
-    "EN-US": "English",
-    "EN-GB": "English (UK)",
-    "FR": "French",
-    "ES": "Spanish",
-    "IT": "Italian"
+    "EN-US": "English"
   },
   "workspace": {
     "detail": {

@@ -5,8 +5,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { CaretDown, Check, Globe } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
+import { UI_LOCALES } from "@/lib/constants";
 
-const LOCALES: Locale[] = ["de", "en"];
+const LOCALES = UI_LOCALES as readonly Locale[];
 
 async function persistLocale(locale: Locale) {
   try {
@@ -30,8 +31,32 @@ export default function HeaderLanguageSwitch() {
   const [highlightIdx, setHighlightIdx] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const closeTimer = useRef<number | null>(null);
 
   const selectedIdx = LOCALES.findIndex((l) => l === currentLocale);
+
+  const cancelClose = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => setOpen(false), 150);
+  };
+
+  useEffect(() => () => cancelClose(), []);
+
+  const handlePointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    cancelClose();
+    setOpen(true);
+  };
+  const handlePointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    scheduleClose();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +98,13 @@ export default function HeaderLanguageSwitch() {
   };
 
   return (
-    <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
+    <div
+      ref={rootRef}
+      className="relative"
+      onKeyDown={onKeyDown}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+    >
       <button
         ref={buttonRef}
         type="button"

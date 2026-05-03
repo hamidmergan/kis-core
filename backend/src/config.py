@@ -3,9 +3,6 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Translation
-    translation_languages: str = "DE,EN-US,FR,ES,IT"
-
     # Note: provider selection and model names are managed via the admin panel
     # (DB settings, see routes/admin/settings.py and services/runtime_models.py).
     # Only credentials/URLs and pure deployment stuff live here.
@@ -30,7 +27,11 @@ class Settings(BaseSettings):
     # used for Whisper, embeddings, OCR, image gen/edit when admin toggles it).
     fallback_provider_base_url: str = Field(
         default="",
-        validation_alias=AliasChoices("FALLBACK_PROVIDER_BASE_URL", "MYLAB_BASE_URL"),
+        validation_alias=AliasChoices(
+            "SECONDARY_PROVIDER_BASE_URL",
+            "FALLBACK_PROVIDER_BASE_URL",
+            "MYLAB_BASE_URL",
+        ),
     )
 
     # Local OpenAI-compatible LLM/embedding provider (today: Ollama in Docker).

@@ -175,26 +175,18 @@ export function JobArtifacts({ job }: { job: MyJob }) {
   // Generic fallback: any job with a downloadable result
   if (job.status === "success" && job.has_download) {
     const downloadLabel =
-      job.tool === "image_generate"
-        ? job.result_filename?.endsWith(".json")
-          ? "ZIP"
-          : "PNG"
-        : job.tool === "image_edit"
+      job.tool === "image_generate" || job.tool === "image_edit"
         ? "PNG"
         : job.tool === "image_analyze"
         ? "TXT"
         : (job.tool === "transcription" || job.tool === "translation" || job.tool === "summary")
         ? (job.result_filename?.split(".").pop()?.toUpperCase() ?? t("fallbackFile"))
         : t("fallbackFile");
-    const downloadFilename =
-      job.tool === "image_generate" && job.result_filename?.endsWith(".json")
-        ? job.result_filename.replace(".json", ".zip")
-        : job.result_filename || "download";
     return (
       <div className="mt-3">
         <DownloadChip
           href={`/api/jobs/${job.job_uuid}/download`}
-          filename={downloadFilename}
+          filename={job.result_filename || "download"}
           label={downloadLabel}
         />
       </div>

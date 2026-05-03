@@ -103,10 +103,6 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
 
     # ── image ────────────────────────────────────────────────────────────────
-    "image.invalidCount": {
-        "de": "Anzahl muss zwischen 1 und 4 liegen",
-        "en": "Count must be between 1 and 4",
-    },
     "image.invalidSize": {
         "de": "Ungültige Bildgröße",
         "en": "Invalid image size",
@@ -118,10 +114,6 @@ MESSAGES: dict[str, dict[str, str]] = {
     "image.tooLarge": {
         "de": "Bild zu groß (max 10 MB)",
         "en": "Image too large (max 10 MB)",
-    },
-    "image.dataReadFailed": {
-        "de": "Bilddaten konnten nicht gelesen werden",
-        "en": "Image data could not be read",
     },
 
     # ── auth ─────────────────────────────────────────────────────────────────

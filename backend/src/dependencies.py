@@ -75,7 +75,7 @@ def _llm_provider_config(provider: str) -> tuple[str, str, str]:
     if provider == "fallback":
         fallback_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
         if not fallback_url:
-            raise RuntimeError("Fallback LLM not configured (FALLBACK_PROVIDER_BASE_URL missing).")
+            raise RuntimeError("Secondary LLM not configured (SECONDARY_PROVIDER_BASE_URL missing).")
         return "ignored", f"{fallback_url.rstrip('/')}/v1", get_model("fallback_llm_model")
     if provider == "local":
         if not settings.local_provider_base_url:
@@ -130,27 +130,37 @@ def _resolve_translation_llm_provider() -> tuple[str, str, str, str]:
 def resolve_whisper_client() -> OpenAICompatLLMClient:
     """Resolve a Whisper client based on admin toggles.
 
-    Default whisper provider follows the active LLM provider's transcription
-    endpoint; if ``fallback_whisper_enabled`` is set the fallback provider's
-    whisper-3-large instance is used instead. Both endpoints are OpenAI-compatible.
+    Whisper providers are a radio group: exactly one of
+    ``primary_whisper_enabled`` / ``fallback_whisper_enabled`` is active.
     """
     from src import database as db
     settings = get_settings()
 
+    from src.services.runtime_models import get_model
+
     if db.get_setting("fallback_whisper_enabled", "false").lower() == "true":
-        fallback_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
-        if not fallback_url:
-            raise RuntimeError("Fallback Whisper enabled but FALLBACK_PROVIDER_BASE_URL not configured")
-        from src.services.runtime_models import get_model
+        secondary_url = settings.fallback_provider_base_url or settings.mylab_tts_base_url
+        if not secondary_url:
+            raise RuntimeError("Secondary Whisper enabled but SECONDARY_PROVIDER_BASE_URL not configured")
         return OpenAICompatLLMClient(
             api_key="not-needed",
-            base_url=f"{fallback_url.rstrip('/')}/v1",
+            base_url=f"{secondary_url.rstrip('/')}/v1",
             model=get_model("fallback_llm_model"),
             provider="fallback",
             whisper_model="whisper-3-large",
         )
-    api_key, base_url, model, provider = _resolve_llm_provider()
-    return OpenAICompatLLMClient(api_key=api_key, base_url=base_url, model=model, provider=provider)
+    if db.get_setting("primary_whisper_enabled", "true").lower() == "true":
+        if not settings.primary_provider_api_key:
+            raise RuntimeError("Primary Whisper enabled but PRIMARY_PROVIDER_API_KEY not configured")
+        return OpenAICompatLLMClient(
+            api_key=settings.primary_provider_api_key,
+            base_url=settings.primary_provider_base_url,
+            model=get_model("primary_llm_model"),
+            provider="primary",
+        )
+    raise RuntimeError(
+        "No Whisper provider active. Enable exactly one in the admin panel under 'Transcription'."
+    )
 
 
 def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:

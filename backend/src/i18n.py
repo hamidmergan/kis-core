@@ -18,6 +18,11 @@ from fastapi import Header, Query
 SUPPORTED_LOCALES = ("de", "en")
 DEFAULT_LOCALE = "de"
 
+# Translate-tool language codes (DeepL format).
+TRANSLATE_LANGUAGES: tuple[str, ...] = ("DE", "EN-US")
+DEFAULT_TRANSLATE_SOURCE = "DE"
+DEFAULT_TRANSLATE_TARGET = "EN-US"
+
 
 # All user-facing backend strings live here. Keys follow `area.key` convention.
 # Add to BOTH locales when introducing a new key.
@@ -227,10 +232,6 @@ MESSAGES: dict[str, dict[str, str]] = {
     # Translate language labels (DeepL codes)
     "lang.DE": {"de": "Deutsch", "en": "German"},
     "lang.EN-US": {"de": "Englisch", "en": "English"},
-    "lang.EN-GB": {"de": "Englisch (UK)", "en": "English (UK)"},
-    "lang.FR": {"de": "Französisch", "en": "French"},
-    "lang.ES": {"de": "Spanisch", "en": "Spanish"},
-    "lang.IT": {"de": "Italienisch", "en": "Italian"},
 }
 
 

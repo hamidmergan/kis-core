@@ -38,6 +38,8 @@ function ProviderToggle({
   onModelChange?: (key: string, value: string) => void;
 }) {
   const t = useTranslations("admin.settings");
+  const usable = configured && available !== false;
+  const visuallyOn = enabled && usable;
   const statusText = !configured
     ? t("providerNotConfigured")
     : !enabled
@@ -87,15 +89,15 @@ function ProviderToggle({
       </div>
       <button
         onClick={() => onToggle(settingKey, !enabled)}
-        disabled={saving || !configured}
+        disabled={saving || !usable}
         title={!configured && envHint ? t("envNotSetTitle", { envHint }) : undefined}
         className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
-          enabled ? "bg-kb" : "bg-border"
+          visuallyOn ? "bg-kb" : "bg-border"
         } disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <span
           className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-            enabled ? "translate-x-5" : "translate-x-0"
+            visuallyOn ? "translate-x-5" : "translate-x-0"
           }`}
         />
       </button>
@@ -159,9 +161,19 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
 
   const EMBEDDING_KEYS = ["primary_embedding_enabled", "fallback_embedding_enabled", "local_embedding_enabled"];
   const LLM_KEYS = ["primary_llm_enabled", "fallback_llm_enabled", "local_llm_enabled"];
+  const WHISPER_KEYS = ["primary_whisper_enabled", "fallback_whisper_enabled"];
+  const IMAGE_GEN_KEYS = ["primary_image_gen_enabled", "fallback_image_gen_enabled"];
+  const IMAGE_EDIT_KEYS = ["primary_image_edit_enabled", "fallback_image_edit_enabled"];
+  const IMAGE_ANALYZE_KEYS = ["primary_image_analyze_enabled", "fallback_image_analyze_enabled"];
+  const OCR_KEYS = ["primary_ocr_enabled", "fallback_ocr_enabled"];
   const RADIO_GROUPS: Record<string, string[]> = {
     embedding: EMBEDDING_KEYS,
     llm: LLM_KEYS,
+    whisper: WHISPER_KEYS,
+    image_gen: IMAGE_GEN_KEYS,
+    image_edit: IMAGE_EDIT_KEYS,
+    image_analyze: IMAGE_ANALYZE_KEYS,
+    ocr: OCR_KEYS,
   };
 
   const toggle = async (key: string, val: boolean) => {
@@ -213,7 +225,7 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
 
           <ProviderSection title={t("transcriptionTitle")} hint={t("transcriptionHint")}>
             <P label={t("providerKisskiWhisper")} settingKey="primary_whisper_enabled" enabled={s.primary_whisper_enabled ?? true} configured={s.primary_whisper_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label={t("providerMylabWhisper3")} settingKey="fallback_whisper_enabled" enabled={s.fallback_whisper_enabled ?? false} configured={s.fallback_whisper_configured ?? false} available={s.fallback_whisper_available} envHint="FALLBACK_PROVIDER_BASE_URL" />
+            <P label={t("providerMylabWhisper3")} settingKey="fallback_whisper_enabled" enabled={s.fallback_whisper_enabled ?? false} configured={s.fallback_whisper_configured ?? false} available={s.fallback_whisper_available} envHint="SECONDARY_PROVIDER_BASE_URL" />
           </ProviderSection>
 
           <ProviderSection title={t("transcriptTranslationTitle")} hint={t("transcriptTranslationHint")}>
@@ -241,22 +253,22 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
         <>
           <ProviderSection title={t("imageGenTitle")} hint={t("imageGenHint")}>
             <P label={t("providerKisskiFlux")} settingKey="primary_image_gen_enabled" enabled={s.primary_image_gen_enabled ?? true} configured={s.primary_image_gen_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label={t("providerMylab")} settingKey="fallback_image_gen_enabled" enabled={s.fallback_image_gen_enabled ?? false} configured={s.fallback_image_gen_configured ?? false} available={s.fallback_image_gen_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_gen_model" />
+            <P label={t("providerMylab")} settingKey="fallback_image_gen_enabled" enabled={s.fallback_image_gen_enabled ?? false} configured={s.fallback_image_gen_configured ?? false} available={s.fallback_image_gen_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_image_gen_model" />
           </ProviderSection>
 
           <ProviderSection title={t("imageAnalyzeTitle")} hint={t("imageAnalyzeHint")}>
             <P label={t("providerKisskiQwen")} settingKey="primary_image_analyze_enabled" enabled={s.primary_image_analyze_enabled ?? true} configured={s.primary_image_analyze_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_image_analyze_model" />
-            <P label={t("providerMylab")} settingKey="fallback_image_analyze_enabled" enabled={s.fallback_image_analyze_enabled ?? false} configured={s.fallback_image_analyze_configured ?? false} available={s.fallback_image_analyze_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_analyze_model" />
+            <P label={t("providerMylab")} settingKey="fallback_image_analyze_enabled" enabled={s.fallback_image_analyze_enabled ?? false} configured={s.fallback_image_analyze_configured ?? false} available={s.fallback_image_analyze_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_image_analyze_model" />
           </ProviderSection>
 
           <ProviderSection title={t("imageEditTitle")} hint={t("imageEditHint")}>
             <P label={t("providerKisskiFlux")} settingKey="primary_image_edit_enabled" enabled={s.primary_image_edit_enabled ?? true} configured={s.primary_image_edit_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
-            <P label={t("providerMylab")} settingKey="fallback_image_edit_enabled" enabled={s.fallback_image_edit_enabled ?? false} configured={s.fallback_image_edit_configured ?? false} available={s.fallback_image_edit_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_image_edit_model" />
+            <P label={t("providerMylab")} settingKey="fallback_image_edit_enabled" enabled={s.fallback_image_edit_enabled ?? false} configured={s.fallback_image_edit_configured ?? false} available={s.fallback_image_edit_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_image_edit_model" />
           </ProviderSection>
 
           <ProviderSection title={t("ocrTitle")} hint={t("ocrHint")}>
             <P label={t("providerKisski")} settingKey="primary_ocr_enabled" enabled={s.primary_ocr_enabled ?? true} configured={s.primary_ocr_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_ocr_model" />
-            <P label={t("providerMylab")} settingKey="fallback_ocr_enabled" enabled={s.fallback_ocr_enabled ?? false} configured={s.fallback_ocr_configured ?? false} available={s.fallback_ocr_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_ocr_model" />
+            <P label={t("providerMylab")} settingKey="fallback_ocr_enabled" enabled={s.fallback_ocr_enabled ?? false} configured={s.fallback_ocr_configured ?? false} available={s.fallback_ocr_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_ocr_model" />
           </ProviderSection>
         </>
       )}
@@ -265,7 +277,7 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
         <>
           <ProviderSection title={t("embeddingTitle")} hint={t("embeddingHint")}>
             <P label={t("providerKisski")} settingKey="primary_embedding_enabled" enabled={s.primary_embedding_enabled ?? true} configured={s.primary_embedding_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_embedding_model" />
-            <P label={t("providerMylab")} settingKey="fallback_embedding_enabled" enabled={s.fallback_embedding_enabled ?? false} configured={s.fallback_embedding_configured ?? false} available={s.fallback_embedding_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_embedding_model" />
+            <P label={t("providerMylab")} settingKey="fallback_embedding_enabled" enabled={s.fallback_embedding_enabled ?? false} configured={s.fallback_embedding_configured ?? false} available={s.fallback_embedding_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_embedding_model" />
             <P label={t("providerOllama")} settingKey="local_embedding_enabled" enabled={s.local_embedding_enabled ?? false} configured={s.local_embedding_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_embedding_model" />
           </ProviderSection>
 
@@ -277,7 +289,7 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
         <>
           <ProviderSection title={t("llmTitle")} hint={t("llmHint")}>
             <P label={t("providerKisski")} settingKey="primary_llm_enabled" enabled={s.primary_llm_enabled ?? true} configured={s.primary_llm_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_llm_model" />
-            <P label={t("providerMylab")} settingKey="fallback_llm_enabled" enabled={s.fallback_llm_enabled ?? false} configured={s.fallback_llm_configured ?? false} available={s.fallback_llm_available} envHint="FALLBACK_PROVIDER_BASE_URL" modelKey="fallback_llm_model" />
+            <P label={t("providerMylab")} settingKey="fallback_llm_enabled" enabled={s.fallback_llm_enabled ?? false} configured={s.fallback_llm_configured ?? false} available={s.fallback_llm_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_llm_model" />
             <P label={t("providerOllama")} settingKey="local_llm_enabled" enabled={s.local_llm_enabled ?? false} configured={s.local_llm_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_llm_model" />
           </ProviderSection>
 
@@ -308,7 +320,7 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
               return (
                 <>
                   <T label={t("providerKisski")} target="primary" configured={s.primary_llm_configured ?? false} modelKey="translation_primary_model" envHint="PRIMARY_PROVIDER_API_KEY" />
-                  <T label={t("providerMylab")} target="fallback" configured={s.fallback_llm_configured ?? false} modelKey="translation_fallback_model" envHint="FALLBACK_PROVIDER_BASE_URL" />
+                  <T label={t("providerMylab")} target="fallback" configured={s.fallback_llm_configured ?? false} modelKey="translation_fallback_model" envHint="SECONDARY_PROVIDER_BASE_URL" />
                   <T label={t("providerOllama")} target="local" configured={s.local_llm_configured ?? false} modelKey="translation_local_model" envHint="LOCAL_PROVIDER_BASE_URL" />
                 </>
               );
