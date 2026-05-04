@@ -590,10 +590,6 @@ me-tpc:hover .mm-src-chip {
 :root[data-theme="dark"] .heatmap-cell.is-selected span {
   color: #FFFFFF !important;
 }
-:root:not([data-theme="dark"]) .heatmap-cell:hover span,
-:root:not([data-theme="dark"]) .heatmap-cell.is-selected span {
-  color: var(--kb) !important;
-}
 
 /* Admin-Sidebar selected item — kontrastreicher BG, Light + Dark separat */
 .admin-nav-active {

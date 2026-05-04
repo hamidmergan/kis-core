@@ -261,6 +261,8 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                               const dateObj = new Date(d.day + "T12:00:00+02:00");
                               const dayNum = dateObj.getDate();
                               const isToday = d.day === today;
+                              const intensity = d.answers > 0 ? Math.min(d.answers / maxAns, 1) : 0;
+                              const isDarkBg = intensity >= 0.5;
                               return (
                                 <button
                                   key={d.day}
@@ -277,7 +279,7 @@ export function StudentStatsView({ stats, loading, workspaceUuid, onNavigateToSe
                                   }}
                                   title={t("stats.answersTooltip", { date: formatDay(d.day), count: d.answers })}
                                 >
-                                  {showDayNums && <span className="text-[10px] font-medium" style={{ color: d.answers > 0 ? `rgba(255,255,255,${Math.min(0.5 + (d.answers / maxAns) * 0.5, 1)})` : "var(--muted)" }}>{dayNum}</span>}
+                                  {showDayNums && <span className="text-[10px] font-medium" style={{ color: isDarkBg ? "#fff" : "var(--muted)" }}>{dayNum}</span>}
                                 </button>
                               );
                             })}

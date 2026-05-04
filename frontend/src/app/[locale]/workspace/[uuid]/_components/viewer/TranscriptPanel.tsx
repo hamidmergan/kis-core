@@ -82,6 +82,12 @@ export function TranscriptPanel({
   const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
+  // Persist a "translation dispatched at" marker so the running state survives
+  // reloads / source switches. Backend Celery task is idempotent, so re-mounting
+  // and resuming the poll is safe even if the task has already finished.
+  const regenStorageKey = `kis:en-translate:${sourceUuid}`;
+  const REGEN_TTL_MS = 10 * 60 * 1000;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -108,9 +114,25 @@ export function TranscriptPanel({
       if (de && en) setMode("both");
       else if (de) setMode("de");
       else if (en) setMode("en");
+      // Resume "running" state if a translation was dispatched recently and EN
+      // is still missing — the backend task may still be working in the background.
+      if (!en) {
+        const tsRaw = typeof window !== "undefined" ? window.localStorage.getItem(regenStorageKey) : null;
+        const ts = Number(tsRaw || 0);
+        if (ts > 0) {
+          if (Date.now() - ts <= REGEN_TTL_MS) {
+            setRegenEn("running");
+          } else {
+            window.localStorage.removeItem(regenStorageKey);
+          }
+        }
+      } else {
+        // EN already arrived — clear any stale marker.
+        if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
+      }
     });
     return () => { cancelled = true; };
-  }, [workspaceUuid, sourceUuid]);
+  }, [workspaceUuid, sourceUuid, regenStorageKey]);
 
   // Use the DE track as the timing master when available (identical timestamps
   // to EN because both come from Whisper on the same audio).
@@ -183,6 +205,7 @@ export function TranscriptPanel({
     const timer = setInterval(async () => {
       if (Date.now() - started > TIMEOUT_MS) {
         clearInterval(timer);
+        if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
         setRegenEn("error");
         setRegenError(t("regenEnTimeout"));
         return;
@@ -202,6 +225,7 @@ export function TranscriptPanel({
         if (res.ok) {
           const cues = parseVtt(await res.text());
           clearInterval(timer);
+          if (typeof window !== "undefined") window.localStorage.removeItem(regenStorageKey);
           setEnCues(cues);
           if (deCues) setMode("both");
           setRegenEn("idle");
@@ -211,7 +235,7 @@ export function TranscriptPanel({
       }
     }, INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [regenEn, workspaceUuid, sourceUuid, deCues]);
+  }, [regenEn, workspaceUuid, sourceUuid, deCues, regenStorageKey]);
 
   const regenerateEnTranscript = async () => {
     if (regenEn === "running") return;
@@ -225,6 +249,10 @@ export function TranscriptPanel({
       if (!res.ok) {
         const detail = (await res.json().catch(() => null))?.detail;
         throw new Error(detail || `HTTP ${res.status}`);
+      }
+      // Persist marker so reload / source-switch can resume the running state.
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(regenStorageKey, String(Date.now()));
       }
       // Task was dispatched; polling effect takes over.
     } catch (e) {

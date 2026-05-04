@@ -42,12 +42,11 @@ export function ChatEmptyState({ activeSourceIds, onSendPrompt, hildeEnabled = t
             key={prompt}
             disabled={disabled}
             onClick={() => onSendPrompt?.(prompt)}
-            className="text-left text-sm px-4 rounded-xl border transition-colors enabled:hover:bg-[rgba(var(--kb-rgb),0.10)] enabled:hover:border-[rgba(var(--kb-rgb),0.4)]"
+            className="text-left text-sm px-4 rounded-xl border transition-colors enabled:hover:bg-[var(--surface-dim)] enabled:hover:border-[rgba(var(--kb-rgb),0.4)]"
             style={{
               height: 50,
               borderColor: disabled ? "var(--border)" : "rgba(var(--kb-rgb),0.25)",
               color: disabled ? "var(--muted)" : "var(--foreground)",
-              backgroundColor: "transparent",
               cursor: disabled ? "default" : "pointer",
               opacity: disabled ? 0.5 : 1,
             }}

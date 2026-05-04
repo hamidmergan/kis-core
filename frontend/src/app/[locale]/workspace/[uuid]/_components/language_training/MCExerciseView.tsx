@@ -101,14 +101,6 @@ export function MCExerciseView({
     advance();
   }
 
-  // Auto-advance ~2s after the user picks an answer so they read feedback then move on.
-  useEffect(() => {
-    if (!answered || showResults) return;
-    const timer = setTimeout(advance, 2000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answered, showResults, index]);
-
   async function requestHint() {
     if (!card || hintLoading) return;
     setHintLoading(true);
@@ -267,15 +259,16 @@ export function MCExerciseView({
                             {hintLoading ? t("common.loading") : t("common.hint")}
                           </button>
                         )}
-                        <button type="button" onClick={skip}
-                          className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors hover:bg-[var(--surface-dim)]"
-                          style={{ color: "var(--muted)" }}>
-                          {t("common.dontKnow")}
-                        </button>
+                        {tool !== "quiz" && (
+                          <button type="button" onClick={skip}
+                            className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors hover:bg-[var(--surface-dim)]"
+                            style={{ color: "var(--muted)" }}>
+                            {t("common.dontKnow")}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
-                  {/* Chat link after answering. Auto-advance kicks in via the effect above. */}
                   {answered && (
                     <div className="flex items-center justify-start mt-2">
                       <button type="button" onClick={() => onAskChat(tool === "vokabeltest" || tool === "lueckentext"
@@ -288,6 +281,14 @@ export function MCExerciseView({
                   )}
                 </div>
               </div>
+              {(answered || tool === "quiz") && (
+                <div className="flex justify-center">
+                  <button type="button" onClick={advance}
+                    className="btn-fill-accent px-5 py-2 rounded-full text-xs font-semibold transition-all">
+                    {index + 1 >= total ? t("common.finish") : t("common.next")}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </>
