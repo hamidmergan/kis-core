@@ -133,10 +133,10 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "fallback_llm_available": fallback_available,
         "local_llm_enabled": _enabled("local_llm_enabled", "false"),
         "local_llm_configured": local_configured,
-        # ── Transcript translation (EN) ──
+        # ── Translation (file-translate tool + transcript-EN; merged into one admin radio) ──
         "transcript_translation_provider": db.get_setting("transcript_translation_provider", "llm"),
-        # ── /translate LLM provider override (empty = no override; per-provider models live in `models` dict) ──
         "translation_llm_provider": db.get_setting("translation_llm_provider", ""),
+        "deepl_configured": bool(app_settings.deepl_api_key),
         # ── Provider model names (editable in the admin panel) ──
         "models": _current_models(),
         # ── UI labels (per locale; legacy unsuffixed keys fall back as DE defaults) ──

@@ -188,6 +188,13 @@ export function TranscriptPanel({
         return;
       }
       try {
+        const probe = await fetch(
+          `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript/exists?lang=en`,
+          { credentials: "include" },
+        );
+        if (!probe.ok) return;
+        const { exists } = (await probe.json()) as { exists: boolean };
+        if (!exists) return;
         const res = await fetch(
           `/api/ai-assistant/workspaces/${workspaceUuid}/sources/${sourceUuid}/transcript?lang=en`,
           { credentials: "include" },

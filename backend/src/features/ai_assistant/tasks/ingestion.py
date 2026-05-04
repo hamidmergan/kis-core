@@ -216,6 +216,23 @@ def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl")
     ``provider`` is ``"deepl"`` (fast, quota-limited) or ``"llm"`` (via KISSKI chat,
     used as manual fallback when DeepL's free-tier quota is exhausted).
     """
+    try:
+        return _run_translate_transcript_en_inner(source_uuid, provider)
+    except Exception as e:
+        msg = str(e).lower()
+        is_rate_limit = "429" in msg or "rate limit" in msg
+        if is_rate_limit and self.request.retries < 5:
+            countdown = 60 * (2 ** self.request.retries)  # 1m, 2m, 4m, 8m, 16m
+            logger.warning(
+                "KI Tutor EN-translate: source {} hit rate limit (attempt {}/{}), retrying in {}s",
+                source_uuid, self.request.retries + 1, 5, countdown,
+            )
+            raise self.retry(exc=e, countdown=countdown, max_retries=5)
+        logger.error("KI Tutor EN-translate: source {} failed: {}", source_uuid, e)
+        raise
+
+
+def _run_translate_transcript_en_inner(source_uuid: str, provider: str) -> None:
     from src.services.subtitle_converter import vtt_to_segments, segments_to_vtt
     from src.storage import file_exists, get_file
 
@@ -259,8 +276,8 @@ def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl")
 
     if provider == "llm":
         from src.services.llm_translation_client import LLMTranslationClient
-        from src.dependencies import _resolve_llm_provider
-        api_key, base_url, model, prov = _resolve_llm_provider()
+        from src.dependencies import _resolve_translation_llm_provider
+        api_key, base_url, model, prov = _resolve_translation_llm_provider()
         if not api_key:
             raise RuntimeError("Kein LLM-Provider konfiguriert")
         client = LLMTranslationClient(
@@ -417,8 +434,15 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
 
         # 6. Set status based on results
         if rate_limited:
+            if self.request.retries < 5:
+                countdown = 60 * (2 ** self.request.retries)  # 1m, 2m, 4m, 8m, 16m
+                logger.warning(
+                    "KI Tutor: summary rate limited for {} - saved partial results, retrying in {}s (attempt {}/{})",
+                    source_uuid, countdown, self.request.retries + 1, 5,
+                )
+                raise self.retry(countdown=countdown, max_retries=5)
             db.update_aia_source_summaries_status(source_uuid, "rate_limited")
-            logger.warning("KI Tutor: rate limited for {} - saved partial results, user can retry", source_uuid)
+            logger.warning("KI Tutor: rate limited for {} - max retries exhausted, manual retry available", source_uuid)
         elif failed_batches > 0:
             db.update_aia_source_summaries_status(source_uuid, "failed")
             logger.warning(
@@ -430,11 +454,19 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
             logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
 
     except Exception as e:
+        from celery.exceptions import Retry
+        if isinstance(e, Retry):
+            raise  # let Celery process the retry; do not overwrite status
         err_str = str(e)
-        if "429" in err_str or "rate" in err_str.lower():
-            status = "rate_limited"
-        else:
-            status = "failed"
+        is_rate_limit = "429" in err_str or "rate" in err_str.lower()
+        if is_rate_limit and self.request.retries < 5:
+            countdown = 60 * (2 ** self.request.retries)
+            logger.warning(
+                "KI Tutor: summary task hit rate limit before batch loop for {} (attempt {}/{}), retrying in {}s",
+                source_uuid, self.request.retries + 1, 5, countdown,
+            )
+            raise self.retry(exc=e, countdown=countdown, max_retries=5)
+        status = "rate_limited" if is_rate_limit else "failed"
         logger.error("KI Tutor: summary generation {} for {}: {}", status, source_uuid, e)
         db.update_aia_source_summaries_status(source_uuid, status)
 

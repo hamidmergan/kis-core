@@ -1,14 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import Select from "@/components/ui/Select";
 import Spinner from "@/components/ui/Spinner";
 import WorkspaceLabelCard from "./WorkspaceLabelCard";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { notifyMascotGlobalChanged } from "@/hooks/useHildePref";
-
-type TranslationProvider = "deepl" | "llm";
 
 export type SettingsSection = "system" | "speech" | "images" | "embedding" | "llm";
 
@@ -134,11 +131,6 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
   const [s, setS] = useState<Record<string, any> | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const TRANSLATION_PROVIDER_OPTIONS = useMemo(() => [
-    { value: "deepl" as const, label: "DeepL" },
-    { value: "llm" as const, label: "LLM" },
-  ], []);
-
   useEffect(() => {
     fetch("/api/admin/settings", { credentials: "include" })
       .then((r) => r.json())
@@ -228,23 +220,50 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
             <P label={t("providerMylabWhisper3")} settingKey="fallback_whisper_enabled" enabled={s.fallback_whisper_enabled ?? false} configured={s.fallback_whisper_configured ?? false} available={s.fallback_whisper_available} envHint="SECONDARY_PROVIDER_BASE_URL" />
           </ProviderSection>
 
-          <ProviderSection title={t("transcriptTranslationTitle")} hint={t("transcriptTranslationHint")}>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-foreground">{t("providerLabel")}</p>
-                <p className="text-xs text-muted mt-1">{t("providerHint")}</p>
-              </div>
-              <Select<TranslationProvider>
-                value={(s.transcript_translation_provider ?? "llm") as TranslationProvider}
-                onChange={(v) => {
-                  setS((prev) => (prev ? { ...prev, transcript_translation_provider: v } : prev));
-                  patch({ transcript_translation_provider: v });
-                }}
-                options={TRANSLATION_PROVIDER_OPTIONS}
-                disabled={saving}
-                className="shrink-0 w-48"
-              />
-            </div>
+          <ProviderSection title={t("translationTitle")} hint={t("translationHint")}>
+            {(() => {
+              const llmProv: string = s.translation_llm_provider ?? "";
+              const mech: string = s.transcript_translation_provider ?? "llm";
+              const active: "deepl" | "primary" | "fallback" | "local" | "" =
+                mech === "deepl" ? "deepl"
+                : llmProv === "primary" || llmProv === "fallback" || llmProv === "local" ? llmProv
+                : "";
+              const setProvider = async (target: "deepl" | "primary" | "fallback" | "local") => {
+                const updates: Record<string, string> = target === "deepl"
+                  ? { transcript_translation_provider: "deepl", translation_llm_provider: "" }
+                  : { transcript_translation_provider: "llm", translation_llm_provider: target };
+                setS((prev) => (prev ? { ...prev, ...updates } : prev));
+                await patch(updates);
+              };
+              const T = ({ label, target, configured, modelKey, envHint }: {
+                label: string;
+                target: "deepl" | "primary" | "fallback" | "local";
+                configured: boolean;
+                modelKey?: string;
+                envHint: string;
+              }) => (
+                <ProviderToggle
+                  label={label}
+                  enabled={active === target}
+                  configured={configured}
+                  envHint={envHint}
+                  saving={saving}
+                  settingKey={`translation:${target}`}
+                  onToggle={(_k, val) => { if (val) setProvider(target); }}
+                  modelKey={modelKey}
+                  modelValue={modelKey ? models[modelKey] : undefined}
+                  onModelChange={modelKey ? setModel : undefined}
+                />
+              );
+              return (
+                <>
+                  <T label={t("providerDeepl")} target="deepl" configured={s.deepl_configured ?? false} envHint="DEEPL_API_KEY" />
+                  <T label={t("providerKisski")} target="primary" configured={s.primary_llm_configured ?? false} modelKey="translation_primary_model" envHint="PRIMARY_PROVIDER_API_KEY" />
+                  <T label={t("providerMylab")} target="fallback" configured={s.fallback_llm_configured ?? false} modelKey="translation_fallback_model" envHint="SECONDARY_PROVIDER_BASE_URL" />
+                  <T label={t("providerOllama")} target="local" configured={s.local_llm_configured ?? false} modelKey="translation_local_model" envHint="LOCAL_PROVIDER_BASE_URL" />
+                </>
+              );
+            })()}
           </ProviderSection>
         </>
       )}
@@ -291,40 +310,6 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
             <P label={t("providerKisski")} settingKey="primary_llm_enabled" enabled={s.primary_llm_enabled ?? true} configured={s.primary_llm_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_llm_model" />
             <P label={t("providerMylab")} settingKey="fallback_llm_enabled" enabled={s.fallback_llm_enabled ?? false} configured={s.fallback_llm_configured ?? false} available={s.fallback_llm_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_llm_model" />
             <P label={t("providerOllama")} settingKey="local_llm_enabled" enabled={s.local_llm_enabled ?? false} configured={s.local_llm_configured ?? false} envHint="LOCAL_PROVIDER_BASE_URL" modelKey="local_llm_model" />
-          </ProviderSection>
-
-          <ProviderSection title={t("llmTranslationTitle")} hint={t("llmTranslationHint")}>
-            {(() => {
-              const tProvider: string = s.translation_llm_provider ?? "";
-              const toggleProvider = async (target: "primary" | "fallback" | "local", on: boolean) => {
-                const next = on ? target : "";
-                setS((prev) => (prev ? { ...prev, translation_llm_provider: next } : prev));
-                await patch({ translation_llm_provider: next });
-              };
-              const T = ({ label, target, configured, modelKey, envHint }: {
-                label: string; target: "primary" | "fallback" | "local"; configured: boolean; modelKey: string; envHint: string;
-              }) => (
-                <ProviderToggle
-                  label={label}
-                  enabled={tProvider === target}
-                  configured={configured}
-                  envHint={envHint}
-                  saving={saving}
-                  settingKey={`translation_llm_provider:${target}`}
-                  onToggle={(_k, val) => toggleProvider(target, val)}
-                  modelKey={modelKey}
-                  modelValue={models[modelKey]}
-                  onModelChange={setModel}
-                />
-              );
-              return (
-                <>
-                  <T label={t("providerKisski")} target="primary" configured={s.primary_llm_configured ?? false} modelKey="translation_primary_model" envHint="PRIMARY_PROVIDER_API_KEY" />
-                  <T label={t("providerMylab")} target="fallback" configured={s.fallback_llm_configured ?? false} modelKey="translation_fallback_model" envHint="SECONDARY_PROVIDER_BASE_URL" />
-                  <T label={t("providerOllama")} target="local" configured={s.local_llm_configured ?? false} modelKey="translation_local_model" envHint="LOCAL_PROVIDER_BASE_URL" />
-                </>
-              );
-            })()}
           </ProviderSection>
         </>
       )}

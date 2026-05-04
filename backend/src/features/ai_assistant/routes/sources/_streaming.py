@@ -160,3 +160,35 @@ async def get_transcript_vtt(
         media_type="text/vtt; charset=utf-8",
         headers={"Cache-Control": "private, max-age=300"},
     )
+
+
+@router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/transcript/exists")
+async def get_transcript_exists(
+    workspace_uuid: str,
+    source_uuid: str,
+    lang: str,
+    current_user: dict = Depends(get_current_user),
+    locale: str = Depends(get_locale),
+):
+    """Return {exists: bool} for a transcript file. Used for clean polling without 404 spam."""
+    user_id = current_user["user_id"]
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+
+    is_owner = workspace["user_id"] == user_id
+    is_enrolled = db.is_student_enrolled(workspace["id"], user_id)
+    if not is_owner and not is_enrolled:
+        raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+
+    source = db.get_aia_source(source_uuid)
+    if not source:
+        raise HTTPException(status_code=404, detail=t("source.notFound", locale))
+
+    lang_clean = (lang or "").strip().lower()
+    if not re.fullmatch(r"[a-z]{2,5}", lang_clean):
+        raise HTTPException(status_code=400, detail=t("ai.transcript.invalidLangCode", locale))
+
+    base_key = source["file_path"].rsplit(".", 1)[0]
+    vtt_key = f"{base_key}_transcript.{lang_clean}.vtt"
+    return {"exists": file_exists(vtt_key)}
