@@ -72,10 +72,10 @@ class OpenAICompatOcrProvider(OcrProvider):
         return _call_vlm(self._client, self._model, image_bytes, mime_type)
 
 
-# ── Factory functions per admin-panel slot ─────────────────────────────────
+# ── Per-provider factory functions ─────────────────────────────────────────
 
-def _make_primary_ocr_provider() -> OpenAICompatOcrProvider:
-    """Build an OCR provider against the primary slot (today: KISSKI Vision-LLM)."""
+def _make_kisski_ocr_provider() -> OpenAICompatOcrProvider:
+    """Build the KISSKI Vision-LLM OCR provider."""
     from src.config import Settings
     from src.services.runtime_models import get_model
     s = Settings()
@@ -86,14 +86,14 @@ def _make_primary_ocr_provider() -> OpenAICompatOcrProvider:
     )
 
 
-def _make_fallback_ocr_provider() -> OpenAICompatOcrProvider:
-    """Build an OCR provider against the fallback slot (today: THL myLab Vision-LLM)."""
+def _make_mylab_ocr_provider() -> OpenAICompatOcrProvider:
+    """Build the THL myLab Vision-LLM OCR provider."""
     from src.config import Settings
     from src.services.runtime_models import get_model
     s = Settings()
     base = (s.fallback_provider_base_url or "").rstrip("/")
     if not base:
-        raise RuntimeError("Fallback OCR base URL not configured")
+        raise RuntimeError("myLab OCR base URL not configured")
     return OpenAICompatOcrProvider(
         base_url=f"{base}/v1",
         api_key="ignored",
@@ -104,20 +104,19 @@ def _make_fallback_ocr_provider() -> OpenAICompatOcrProvider:
 def get_ocr_provider() -> Optional[OcrProvider]:
     """Return the currently-active OCR provider, or None if OCR is disabled.
 
-    Priority order is configured via the admin panel:
-      1. ``primary_ocr_enabled``  (default true)  → primary OCR provider
-      2. ``fallback_ocr_enabled`` (default false) → fallback OCR provider
-      otherwise → None
+    The admin panel exposes one toggle per provider; only one is expected to
+    be active at a time. DB-key names (``primary_ocr_enabled`` /
+    ``fallback_ocr_enabled``) are legacy and kept for backward compatibility.
     """
     from src import database as db
     if db.get_setting("primary_ocr_enabled", "true").lower() == "true":
         try:
-            return _make_primary_ocr_provider()
+            return _make_kisski_ocr_provider()
         except Exception as e:
-            logger.warning("Primary OCR init failed: {}", e)
+            logger.warning("KISSKI OCR init failed: {}", e)
     if db.get_setting("fallback_ocr_enabled", "false").lower() == "true":
         try:
-            return _make_fallback_ocr_provider()
+            return _make_mylab_ocr_provider()
         except Exception as e:
-            logger.warning("Fallback OCR init failed: {}", e)
+            logger.warning("myLab OCR init failed: {}", e)
     return None

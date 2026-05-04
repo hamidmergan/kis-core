@@ -98,28 +98,9 @@ def get_page_count(file_path: str, file_type: str) -> int:
 
 # ── Format-specific extractors ────────────────────────────────────────────────
 
-_OCR_MIN_CHARS = 100        # fully image-only pages: always OCR
-_OCR_MIXED_MAX_CHARS = 400  # page has images AND text-layer < this → also OCR
-_OCR_IMAGE_AREA_FRAC = 0.15  # image covers >= 15% of page area → treat as "has images"
-
-
-def _page_has_significant_image(page) -> bool:
-    """True if the page contains a raster image covering ≥ _OCR_IMAGE_AREA_FRAC
-    of the page area. Filters out small logos/icons.
-    """
-    import pypdfium2.raw as pdfium_c
-    try:
-        page_w, page_h = page.get_size()
-        page_area = max(page_w * page_h, 1.0)
-        for obj in page.get_objects(filter=[pdfium_c.FPDF_PAGEOBJ_IMAGE]):
-            l, b, r, t = obj.get_pos()
-            w = max(r - l, 0)
-            h = max(t - b, 0)
-            if (w * h) / page_area >= _OCR_IMAGE_AREA_FRAC:
-                return True
-    except Exception:
-        return False
-    return False
+_OCR_TEXT_THRESHOLD = 300  # text-layer < this → trigger OCR (catches image-only +
+                            # sparse pages where vector tables / screenshots carry
+                            # the actual content)
 
 
 def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
@@ -139,10 +120,14 @@ def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
         raw_text = textpage.get_text_range() or ""
         text = _clean(raw_text).strip()
 
-        # Trigger OCR on (a) near-empty pages (scanned docs) or (b) mixed pages
-        # where a large image likely carries text the text-layer doesn't have.
-        should_ocr = len(text) < _OCR_MIN_CHARS or (
-            len(text) < _OCR_MIXED_MAX_CHARS and _page_has_significant_image(page)
+        # Trigger OCR on text-sparse pages: scanned docs, image-only pages,
+        # vector-drawn tables, embedded screenshots. pypdfium2 image-detection
+        # misses Form-XObject-wrapped raster and pure-vector content, so we
+        # rely on text density alone.
+        should_ocr = len(text) < _OCR_TEXT_THRESHOLD
+        logger.info(
+            "PDF page {}: text={} chars, ocr={}",
+            page_num + 1, len(text), should_ocr,
         )
 
         if should_ocr:
