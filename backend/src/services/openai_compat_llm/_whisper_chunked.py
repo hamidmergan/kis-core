@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
 
+from src.services.openai_compat_llm import _chunk_cache
 from src.services.openai_compat_llm._chunking import (
     CHUNK_MAX_SEC,
     MAX_AUDIO_SEC,
@@ -15,6 +16,10 @@ from src.services.openai_compat_llm._chunking import (
     split_audio,
 )
 from src.services.openai_compat_llm._subtitles import merge_srt, merge_vtt
+
+# Per-source concurrency for Whisper chunk uploads. Higher = faster but risks
+# rate-limit (429) at KISSKI/myLab when several sources run in parallel.
+CHUNK_TRANSCRIBE_CONCURRENCY = 2
 
 
 def _reject_if_too_long(duration: float) -> None:
@@ -41,7 +46,7 @@ class _WhisperChunkedMixin:
         with tempfile.TemporaryDirectory() as tmpdir:
             chunks = split_audio(file_path, split_points, tmpdir)
             results: dict[int, tuple[str, float]] = {}
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=CHUNK_TRANSCRIBE_CONCURRENCY) as executor:
                 futures = {
                     executor.submit(self.transcribe, path, response_format): (i, offset)
                     for i, (path, offset) in enumerate(chunks)
@@ -75,7 +80,7 @@ class _WhisperChunkedMixin:
         with tempfile.TemporaryDirectory() as tmpdir:
             chunks = split_audio(file_path, split_points, tmpdir)
             results: dict[int, tuple[str, float]] = {}
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=CHUNK_TRANSCRIBE_CONCURRENCY) as executor:
                 futures = {
                     executor.submit(self.transcribe_and_translate, path, response_format): (i, offset)
                     for i, (path, offset) in enumerate(chunks)
@@ -95,12 +100,17 @@ class _WhisperChunkedMixin:
                 return merge_vtt(ordered)
             return " ".join(text for text, _ in ordered).strip()
 
-    def transcribe_chunked_verbose(self, file_path: str) -> tuple[list[dict], float, str]:
+    def transcribe_chunked_verbose(
+        self, file_path: str, cache_key: str | None = None
+    ) -> tuple[list[dict], float, str]:
         """Transcribe audio with timestamps, splitting if needed.
 
         Returns ``(segments, duration, language)`` where segments =
         ``[{start, end, text}, ...]`` and language is the detected source
         language (e.g. 'de', 'en').
+
+        ``cache_key`` (e.g. source_uuid) enables per-chunk Redis caching so
+        Celery retries skip chunks that already succeeded.
         """
         duration = get_audio_duration(file_path)
         _reject_if_too_long(duration)
@@ -112,12 +122,23 @@ class _WhisperChunkedMixin:
         silence_starts = find_silence_starts(file_path)
         split_points = compute_split_points(duration, silence_starts)
 
+        def _transcribe_or_cached(path: str, idx: int) -> tuple[list[dict], str]:
+            if cache_key:
+                hit = _chunk_cache.get(cache_key, idx)
+                if hit is not None:
+                    logger.info("Chunk {}/{} cache hit (verbose)", idx + 1, len(chunks))
+                    return hit
+            segs, lang = self.transcribe_verbose(path)
+            if cache_key:
+                _chunk_cache.put(cache_key, idx, segs, lang)
+            return segs, lang
+
         with tempfile.TemporaryDirectory() as tmpdir:
             chunks = split_audio(file_path, split_points, tmpdir)
             results: dict[int, tuple[tuple[list[dict], str], float]] = {}
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=CHUNK_TRANSCRIBE_CONCURRENCY) as executor:
                 futures = {
-                    executor.submit(self.transcribe_verbose, path): (i, offset)
+                    executor.submit(_transcribe_or_cached, path, i): (i, offset)
                     for i, (path, offset) in enumerate(chunks)
                 }
                 for future in as_completed(futures):
@@ -141,6 +162,9 @@ class _WhisperChunkedMixin:
                         "text": seg["text"],
                     })
 
+            if cache_key:
+                _chunk_cache.clear(cache_key, len(chunks))
+
         return all_segments, duration, first_lang
 
     def translate_chunked_verbose(self, file_path: str) -> list[dict]:
@@ -161,7 +185,7 @@ class _WhisperChunkedMixin:
         with tempfile.TemporaryDirectory() as tmpdir:
             chunks = split_audio(file_path, split_points, tmpdir)
             results: dict[int, tuple[list[dict], float]] = {}
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=CHUNK_TRANSCRIBE_CONCURRENCY) as executor:
                 futures = {
                     executor.submit(self.translate_verbose, path): (i, offset)
                     for i, (path, offset) in enumerate(chunks)

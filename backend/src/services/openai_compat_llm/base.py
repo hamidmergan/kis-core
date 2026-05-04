@@ -13,14 +13,15 @@ _LLM_HTTP_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.
 
 
 def is_transient_error(e: Exception) -> bool:
-    """Match transient upstream failures worth retrying (5xx, timeouts, connection errors)."""
+    """Match transient upstream failures worth retrying (5xx, 429 rate-limit, timeouts, connection errors)."""
     status = getattr(e, "status_code", None) or getattr(getattr(e, "response", None), "status_code", None)
-    if isinstance(status, int) and 500 <= status < 600:
+    if isinstance(status, int) and (500 <= status < 600 or status == 429):
         return True
     msg = str(e).lower()
     return any(kw in msg for kw in (
         "internal server error", "bad gateway", "service unavailable",
         "gateway timeout", "timeout", "connection", "temporarily",
+        "rate limit", "429",
     ))
 
 

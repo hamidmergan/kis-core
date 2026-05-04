@@ -78,7 +78,9 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 from src.dependencies import resolve_whisper_client
                 whisper_client = resolve_whisper_client()
                 logger.info("KI Tutor: transcribing media source {} ({})", source_uuid, filename)
-                segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(local_path)
+                segments, media_duration, media_language = whisper_client.transcribe_chunked_verbose(
+                    local_path, cache_key=source_uuid
+                )
                 if not segments:
                     raise RuntimeError("Whisper returned no segments for this audio/video file.")
                 chunks = aia_chunker.segments_to_chunks(segments)
@@ -182,9 +184,23 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
         # 11. Summaries are generated on-demand via button in PDF viewer
 
     except Exception as e:
-        logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
         from src.services.aia_chunker import PdfNoReadableTextError
         from src.i18n import t
+
+        # Rate-limit / transient upstream → keep status, requeue task with backoff.
+        # Already-transcribed chunks are cached per source_uuid in Redis, so the
+        # retry skips them and only re-tries the chunk that failed.
+        msg = str(e).lower()
+        is_rate_limit = "429" in msg or "rate limit" in msg
+        if is_rate_limit and self.request.retries < 5:
+            countdown = 60 * (2 ** self.request.retries)  # 60s, 2m, 4m, 8m, 16m
+            logger.warning(
+                "KI Tutor: source {} hit rate limit (attempt {}/{}), retrying in {}s",
+                source_uuid, self.request.retries + 1, 5, countdown,
+            )
+            raise self.retry(exc=e, countdown=countdown, max_retries=5)
+
+        logger.error("KI Tutor: indexing source {} failed: {}", source_uuid, e)
         if isinstance(e, PdfNoReadableTextError):
             error_message = t("ai.source.pdfNoReadableText", locale)
         else:
