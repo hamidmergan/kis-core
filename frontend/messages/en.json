@@ -1402,7 +1402,7 @@
         "rateLimited": "API limit reached. Please try again later.",
         "failed": "Generation failed.",
         "none": "No summaries yet.",
-        "generateButton": "Generate summaries",
+        "generateButton": "Summarize",
         "noneForPage": "No summary for this page."
       },
       "pdf": {

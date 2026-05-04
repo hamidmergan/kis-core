@@ -1402,7 +1402,7 @@
         "rateLimited": "API-Limit erreicht. Bitte später erneut versuchen.",
         "failed": "Generierung fehlgeschlagen.",
         "none": "Noch keine Zusammenfassungen vorhanden.",
-        "generateButton": "Zusammenfassungen generieren",
+        "generateButton": "Zusammenfassen",
         "noneForPage": "Keine Zusammenfassung für diese Seite."
       },
       "pdf": {
