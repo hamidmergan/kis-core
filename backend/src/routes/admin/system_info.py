@@ -166,8 +166,6 @@ async def get_system_info(_admin=Depends(get_admin_user)):
         "tts_hard_seconds": L.TTS_TIME_LIMIT,
         "screencast_soft_seconds": L.SCREENCAST_SOFT_TIME_LIMIT,
         "screencast_hard_seconds": L.SCREENCAST_TIME_LIMIT,
-        "screencast_auto_soft_seconds": L.SCREENCAST_AUTO_SOFT_TIME_LIMIT,
-        "screencast_auto_hard_seconds": L.SCREENCAST_AUTO_TIME_LIMIT,
     }
 
     # ── Render / process parallelism ───────────────────────────────────
