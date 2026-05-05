@@ -11,6 +11,7 @@ backend/demo/
 
 .claude/
 .superpowers/
+.playwright-mcp/
 private/
 
 # Frontend
