@@ -19,6 +19,7 @@ from src.services.screencast.generation import (
     generate_all_tts,
 )
 from src.services.screencast.naming import build_artifact_stem, translate_stem
+from src.services.screencast.outro import create_outro_image, get_image_dimensions
 
 __all__ = [
     "IMAGE_TMP_DIR",
@@ -27,8 +28,10 @@ __all__ = [
     "build_artifact_stem",
     "concatenate_videos",
     "convert_slides_to_images_async",
+    "create_outro_image",
     "create_slide_video",
     "extract_text_per_slide",
+    "get_image_dimensions",
     "generate_all_scripts",
     "generate_all_tts",
     "get_audio_duration",

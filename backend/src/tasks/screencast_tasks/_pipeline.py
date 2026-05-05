@@ -51,6 +51,7 @@ def _run_render_pipeline(
         _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
         _create_slide_video, _concatenate_videos, _apply_faststart,
         _extract_text_per_slide,
+        _create_outro_image, _get_image_dimensions,
     ) = _get_screencast_helpers()
 
     tts_client = _get_tts_client(provider)
@@ -132,7 +133,7 @@ def _run_render_pipeline(
             _assert_not_cancelled(job_uuid)
             db.update_job_status(job_uuid, "running", progress={"step": "tts", "current": current, "total": total})
 
-        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id))
+        tts_results = asyncio.run(_generate_all_tts(scripts, tts_client, tmp, speed, voice_id, on_slide_done=_tts_progress, job_uuid=job_uuid, user_id=user_id, provider=provider))
         audio_paths = [r[0] for r in tts_results]
         alignments = [r[1] for r in tts_results]
 
@@ -168,6 +169,20 @@ def _run_render_pipeline(
                 if _cancelled_by_watcher.is_set():
                     raise _JobCancelled()
                 _assert_not_cancelled(job_uuid)
+
+        # ── Outro (KI-Hinweis, 3s silent) ─────────────────────────────────
+        _assert_not_cancelled(job_uuid)
+        if _cancelled_by_watcher.is_set():
+            raise _JobCancelled()
+        try:
+            outro_w, outro_h = _get_image_dimensions(slide_images[0])
+            outro_img = tmp / "outro.png"
+            outro_clip = tmp / f"clip_{num_slides:03d}.mp4"
+            _create_outro_image(outro_w, outro_h, outro_img)
+            _create_slide_video(outro_img, None, outro_clip, pause=0.0, crf=23, job_uuid=job_uuid, silent_duration=3.0)
+            clip_paths.append(outro_clip)
+        except Exception as e:
+            logger.warning("Outro generation failed, continuing without outro: {}", e)
 
         # ── Concatenate ───────────────────────────────────────────────────
         _assert_not_cancelled(job_uuid)

@@ -27,11 +27,11 @@ def get_audio_duration(audio_path: Path | None) -> float:
     return float(result.stdout.strip())
 
 
-def create_slide_video(image_path: Path, audio_path: Path | None, output_path: Path, pause: float = 0.0, crf: int = 23, job_uuid: str | None = None) -> None:
+def create_slide_video(image_path: Path, audio_path: Path | None, output_path: Path, pause: float = 0.0, crf: int = 23, job_uuid: str | None = None, silent_duration: float = 3.0) -> None:
     """Combine a single slide image with its audio into a video clip.
 
-    If audio_path is None (silent/empty slide), produces a video-only clip
-    with a fixed 3-second duration and no audio track.
+    If audio_path is None (silent/empty slide), produces a clip with silent
+    audio whose length is ``silent_duration`` seconds (default 3s).
     """
     # Normalise: treat missing or empty audio files the same as None (silent slide)
     if audio_path is not None and (not audio_path.exists() or audio_path.stat().st_size == 0):
@@ -51,7 +51,7 @@ def create_slide_video(image_path: Path, audio_path: Path | None, output_path: P
             "ffmpeg", "-y",
             "-loop", "1", "-framerate", "1", "-i", str(image_path),
             "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-            "-t", "3",
+            "-t", str(silent_duration),
             "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-c:v", "libx264", "-tune", "stillimage", "-preset", "ultrafast",
             "-crf", str(crf), "-pix_fmt", "yuv420p",

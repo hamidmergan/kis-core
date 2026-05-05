@@ -37,9 +37,11 @@ def _get_screencast_helpers():
         apply_faststart,
         concatenate_videos,
         convert_slides_to_images_async,
+        create_outro_image,
         create_slide_video,
         extract_text_per_slide,
         generate_all_tts,
+        get_image_dimensions,
         pptx_to_images,
     )
     return (
@@ -47,6 +49,7 @@ def _get_screencast_helpers():
         pptx_to_images, generate_all_tts, convert_slides_to_images_async,
         create_slide_video, concatenate_videos, apply_faststart,
         extract_text_per_slide,
+        create_outro_image, get_image_dimensions,
     )
 
 
