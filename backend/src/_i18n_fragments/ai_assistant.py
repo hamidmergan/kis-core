@@ -6,6 +6,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültiger Übersetzungs-Modus",
         "en": "Invalid translation mode",
     },
+    "ai.workspace.transcriptDefaultLangInvalid": {
+        "de": "Ungültige Standard-Transkript-Sprache",
+        "en": "Invalid default transcript language",
+    },
     "ai.workspace.invalidEnrollCode": {
         "de": "Ungültiger oder abgelaufener Einschreibecode",
         "en": "Invalid or expired enrollment code",

@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CaretLeft, SidebarSimple, SpeakerHigh } from "@phosphor-icons/react";
-import type { ViewerState } from "../../_types";
+import type { ViewerState, TranscriptDefaultLang } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { FileIcon } from "../sources/FileIcon";
 import { TranscriptPanel } from "./TranscriptPanel";
 
 export function MediaPlayer({
-  source, onClose, workspaceUuid, onMinimize, canDownload = false, canManage = false, onSaveNote,
+  source, onClose, workspaceUuid, onMinimize, canDownload = false, canManage = false, onSaveNote, defaultTranscriptLang = "both",
 }: {
   source: ViewerState;
   onClose: () => void;
@@ -16,6 +16,7 @@ export function MediaPlayer({
   canDownload?: boolean;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
+  defaultTranscriptLang?: TranscriptDefaultLang;
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const tPanels = useTranslations("workspace.detail.panels");
@@ -124,6 +125,7 @@ export function MediaPlayer({
         sourceUuid={source.uuid}
         canManage={canManage}
         onSaveNote={onSaveNote}
+        defaultLang={defaultTranscriptLang}
       />
     </div>
   );

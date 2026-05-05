@@ -275,6 +275,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_translation_mode TEXT NOT NULL DEFAULT 'manual'"
             )
+            # Per-workspace setting: default transcript language pill (de/en/both). Owner-controlled.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_default_lang TEXT NOT NULL DEFAULT 'both'"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
                     id           SERIAL PRIMARY KEY,

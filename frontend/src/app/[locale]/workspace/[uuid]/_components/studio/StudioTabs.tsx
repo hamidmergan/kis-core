@@ -93,10 +93,10 @@ export function StudioTabs({ tabs, active, onSelect, accentColor }: {
               key={tab.key}
               type="button"
               onClick={() => onSelect(tab.key)}
-              className={`py-1.5 px-3 text-sm font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap border-2 ${!fits ? "flex-shrink-0 select-none" : ""} ${
+              className={`py-1.5 px-3 text-sm font-medium rounded-lg transition-all overflow-hidden text-ellipsis whitespace-nowrap ${!fits ? "flex-shrink-0 select-none" : ""} ${
                 isActive
-                  ? "text-[var(--tab-accent)] dark:text-white bg-transparent border-[var(--tab-accent)]"
-                  : "border-transparent text-[var(--muted)] outline-[#004261] hover:text-[var(--kb)] dark:hover:text-white hover:bg-transparent hover:outline-2 -outline-offset-1"
+                  ? "text-[var(--tab-accent)] dark:text-white bg-surface"
+                  : "text-[var(--muted)] hover:text-[var(--kb)] dark:hover:text-white hover:bg-surface"
               }`}
               style={{ ["--tab-accent" as string]: accentColor || "var(--kb)" } as React.CSSProperties}
             >

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useHildePref } from "@/hooks/useHildePref";
-import type { TranscriptTranslationMode } from "../../_types";
+import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface SettingsMenuProps {
   open: boolean;
@@ -17,6 +17,8 @@ interface SettingsMenuProps {
   isOwner: boolean;
   translationMode: TranscriptTranslationMode;
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
+  transcriptDefaultLang: TranscriptDefaultLang;
+  onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
 }
 
 function ToggleRow({
@@ -67,6 +69,8 @@ export function SettingsMenu({
   isOwner,
   translationMode,
   onChangeTranslationMode,
+  transcriptDefaultLang,
+  onChangeTranscriptDefaultLang,
 }: SettingsMenuProps) {
   const t = useTranslations("workspace.detail.settings");
   const { enabled: hildeEnabled, toggle: toggleHilde, globalEnabled: mascotGlobalEnabled } = useHildePref();
@@ -118,6 +122,38 @@ export function SettingsMenu({
                 onChange={onChangeTranslationMode}
                 options={TRANSLATION_MODE_OPTIONS}
               />
+            </div>
+          </div>
+        )}
+        {isOwner && (
+          <div className="mt-3">
+            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("transcriptDefaultLangTitle")}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              {t("transcriptDefaultLangDescription")}
+            </p>
+            <div className="mt-3 flex gap-1">
+              {(["de", "en", "both"] as const).map((lang) => {
+                const active = transcriptDefaultLang === lang;
+                const label = lang === "de" ? t("transcriptDefaultLangDe")
+                  : lang === "en" ? t("transcriptDefaultLangEn")
+                  : t("transcriptDefaultLangBoth");
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => onChangeTranscriptDefaultLang(lang)}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                    style={{
+                      backgroundColor: active ? "var(--kb)" : "transparent",
+                      color: active ? "white" : "var(--muted)",
+                      border: `1px solid ${active ? "var(--kb)" : "var(--border)"}`,
+                    }}
+                    aria-pressed={active}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

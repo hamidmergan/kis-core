@@ -1312,7 +1312,12 @@
         "translationModeManual": "Manuell (per Klick)",
         "translationModeOffHint": "Es werden keine englischen Untertitel erstellt.",
         "translationModeAutoHint": "Sobald eine Quelle indexiert ist, startet die Übersetzung automatisch.",
-        "translationModeManualHint": "Übersetzung erst per Klick im Transkript-Panel (Standard)."
+        "translationModeManualHint": "Übersetzung erst per Klick im Transkript-Panel (Standard).",
+        "transcriptDefaultLangTitle": "Standard-Sprache im Transkript",
+        "transcriptDefaultLangDescription": "Welche Sprache beim Öffnen einer Audio-/Video-Quelle vorausgewählt ist. Studierende können im Transkript-Panel jederzeit umschalten.",
+        "transcriptDefaultLangDe": "Deutsch",
+        "transcriptDefaultLangEn": "English",
+        "transcriptDefaultLangBoth": "Beide"
       },
       "subviewHeader": {
         "back": "Zurück"

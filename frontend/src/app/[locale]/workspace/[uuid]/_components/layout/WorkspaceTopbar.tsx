@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { GearSix, CaretUp, CaretDown } from "@phosphor-icons/react";
 import { SettingsMenu } from "./SettingsMenu";
-import type { PanelKey, TranscriptTranslationMode } from "../../_types";
+import type { PanelKey, TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
 
 interface WorkspaceTopbarProps {
   isMobile: boolean;
@@ -24,6 +24,8 @@ interface WorkspaceTopbarProps {
   onToggleHideHeader: () => void;
   translationMode: TranscriptTranslationMode;
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
+  transcriptDefaultLang: TranscriptDefaultLang;
+  onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
   // Mobile tabs
   activeTab: PanelKey;
   setActiveTab: (k: PanelKey) => void;
@@ -43,6 +45,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     language_trainingActive, onToggleLanguageTraining,
     isLecturer, isOwner, hideHeader, onToggleHideHeader,
     translationMode, onChangeTranslationMode,
+    transcriptDefaultLang, onChangeTranscriptDefaultLang,
     activeTab, setActiveTab,
   } = props;
   const t = useTranslations("workspace.detail.topbar");
@@ -59,6 +62,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       isOwner={isOwner}
       translationMode={translationMode}
       onChangeTranslationMode={onChangeTranslationMode}
+      transcriptDefaultLang={transcriptDefaultLang}
+      onChangeTranscriptDefaultLang={onChangeTranscriptDefaultLang}
     />
   );
 

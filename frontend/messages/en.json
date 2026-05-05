@@ -1312,7 +1312,12 @@
         "translationModeManual": "Manual (on click)",
         "translationModeOffHint": "No English subtitles are generated.",
         "translationModeAutoHint": "Translation starts automatically once a source is indexed.",
-        "translationModeManualHint": "Translation only on click in the transcript panel (default)."
+        "translationModeManualHint": "Translation only on click in the transcript panel (default).",
+        "transcriptDefaultLangTitle": "Default transcript language",
+        "transcriptDefaultLangDescription": "Which language is preselected when an audio/video source is opened. Students can switch any time in the transcript panel.",
+        "transcriptDefaultLangDe": "German",
+        "transcriptDefaultLangEn": "English",
+        "transcriptDefaultLangBoth": "Both"
       },
       "subviewHeader": {
         "back": "Back"

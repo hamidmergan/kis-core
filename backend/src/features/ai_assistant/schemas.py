@@ -15,6 +15,7 @@ class PatchWorkspaceBody(BaseModel):
     description: Optional[str] = Field(None, max_length=300)
     is_active: Optional[bool] = None
     transcript_translation_mode: Optional[str] = None
+    transcript_default_lang: Optional[str] = None
 
 
 class RenewCodeBody(BaseModel):

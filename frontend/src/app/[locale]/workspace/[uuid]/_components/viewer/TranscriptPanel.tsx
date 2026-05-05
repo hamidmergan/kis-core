@@ -61,18 +61,20 @@ export function TranscriptPanel({
   sourceUuid,
   canManage = false,
   onSaveNote,
+  defaultLang = "both",
 }: {
   mediaRef: React.RefObject<HTMLVideoElement | HTMLAudioElement | null>;
   workspaceUuid: string;
   sourceUuid: string;
   canManage?: boolean;
   onSaveNote?: (content: string, sourceUuids?: string[], extras?: AddNoteExtras) => void | Promise<void>;
+  defaultLang?: ViewMode;
 }) {
   const t = useTranslations("workspace.detail.viewer");
   const [deCues, setDeCues] = useState<Cue[] | null>(null);
   const [enCues, setEnCues] = useState<Cue[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<ViewMode>("both");
+  const [mode, setMode] = useState<ViewMode>(defaultLang);
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
   const [followCurrent, setFollowCurrent] = useState(true);
   const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
@@ -110,8 +112,8 @@ export function TranscriptPanel({
       setDeCues(de);
       setEnCues(en);
       setLoading(false);
-      // Default mode: prefer bilingual if both exist, else whatever is available
-      if (de && en) setMode("both");
+      // Default mode: workspace setting if the requested track exists, else whatever is available
+      if (de && en) setMode(defaultLang);
       else if (de) setMode("de");
       else if (en) setMode("en");
       // Resume "running" state if a translation was dispatched recently and EN
@@ -132,7 +134,7 @@ export function TranscriptPanel({
       }
     });
     return () => { cancelled = true; };
-  }, [workspaceUuid, sourceUuid, regenStorageKey]);
+  }, [workspaceUuid, sourceUuid, regenStorageKey, defaultLang]);
 
   // Use the DE track as the timing master when available (identical timestamps
   // to EN because both come from Whisper on the same audio).
