@@ -101,10 +101,12 @@ export default function MeineJobsPage() {
   }, [fetchJobs]);
 
   const handleRetry = async (job: MyJob) => {
-    // Screencast retries: open the wizard at the last input step (tts-settings)
-    // so the user can review voice/speed/pause before re-rendering. Other tools
-    // (TTS, demo render) re-queue immediately with no settings to revisit.
-    if (job.tool === "screencast_translate" || job.tool === "screencast_render") {
+    // Translate-stage failures need the wizard: render_params.json is saved at render
+    // pipeline start, so the retry endpoint has no params yet, user must redo translate.
+    // Render-stage failures re-queue directly with saved params. Routing into the wizard
+    // would let the user navigate back and edit scripts/settings, which would silently
+    // poison the index-based render_cache (no content-hash check on slide reuse).
+    if (job.tool === "screencast_translate") {
       router.push(`/${locale}/tools/screencast?resume=${job.job_uuid}`);
       return;
     }
