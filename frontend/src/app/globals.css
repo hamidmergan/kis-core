@@ -244,7 +244,7 @@
   border-color: var(--kb) !important;
 }
 
-/* Unified Abbrechen-Button: Outline permanent 2px (Layout-stabil), default transparent → Hover #004261 + weisse Schrift. BG bleibt unveraendert. */
+/* Unified Abbrechen-Button: Outline permanent 2px (Layout-stabil), default transparent → Hover Outline #004261. Light: Schrift unveraendert. Dark: Schrift bleibt weiss. */
 .btn-cancel {
   outline: 2px solid transparent;
   outline-offset: -2px;
@@ -253,7 +253,6 @@
 }
 .btn-cancel:hover:not(:disabled, [aria-disabled="true"]) {
   outline-color: #004261 !important;
-  color: #FFFFFF !important;
 }
 :root[data-theme="dark"] .btn-cancel {
   color: #FFFFFF !important;
