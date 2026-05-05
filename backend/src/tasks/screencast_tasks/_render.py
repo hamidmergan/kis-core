@@ -44,7 +44,8 @@ def run_screencast_render(
     Reads PPTX from the translate job's folder (corrected.pptx or translated.pptx).
     All artifacts are saved to the same folder (single-folder workflow).
     """
-    from celery.exceptions import SoftTimeLimitExceeded
+    from celery.exceptions import Retry, SoftTimeLimitExceeded
+    from fastapi import HTTPException
     try:
         db.update_job_status(translate_job_uuid, "running", progress={
             "step": "render", "voice_id": voice_id, "voice_label": voice_label, "provider": provider,
@@ -95,6 +96,33 @@ def run_screencast_render(
         locale = (job and job.get("creator_locale")) or "de"
         db.update_job_status(translate_job_uuid, "failed", error_message=t("job.timeoutRetry", locale))
         _maybe_dispatch_next(translate_job_uuid)
+
+    except HTTPException as e:
+        # Transient upstream TTS error (5xx): requeue with exponential backoff.
+        # Already-cached slide audios survive the retry via render_cache/, so only
+        # the failed slide(s) re-synthesize on the next attempt.
+        detail = str(getattr(e, "detail", e))
+        is_tts_transient = e.status_code == 502 and "TTS" in detail
+        if is_tts_transient and self.request.retries < 5:
+            countdown = 60 * (2 ** self.request.retries)  # 1m, 2m, 4m, 8m, 16m
+            logger.warning(
+                "Screencast {}: TTS upstream error (attempt {}/{}), retrying in {}s — {}",
+                translate_job_uuid, self.request.retries + 1, 5, countdown, detail,
+            )
+            db.update_job_status(translate_job_uuid, "running", progress={
+                "step": "tts_retry_pending",
+                "retry_in_seconds": countdown,
+                "attempt": self.request.retries + 1,
+                "max_attempts": 5,
+            })
+            raise self.retry(exc=e, countdown=countdown, max_retries=5)
+        logger.error("Screencast render task {} failed (HTTPException {}): {}", translate_job_uuid, e.status_code, detail)
+        db.update_job_status(translate_job_uuid, "failed", error_message=detail)
+        _maybe_dispatch_next(translate_job_uuid)
+        raise
+
+    except Retry:
+        raise  # Celery's own retry signal — let it propagate without overwriting status
 
     except Exception as e:
         logger.error("Screencast render task {} failed: {}", translate_job_uuid, e)

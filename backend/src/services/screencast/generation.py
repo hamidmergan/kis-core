@@ -40,6 +40,18 @@ async def generate_all_scripts(
         )
 
 
+# ── TTS concurrency knobs ──────────────────────────────────────────────────
+# Per-provider TTS concurrency. Conservative default (1) for any provider not
+# listed below — opt-in to parallelism explicitly per provider, since under-
+# powered TTS servers (e.g. myLab/XTTS-2) collapse under load.
+TTS_DEFAULT_PARALLELISM = 1
+TTS_PROVIDER_PARALLELISM: dict[str, int] = {
+    "mylab": 1,        # XTTS-2: serialise, server returns 500s under any parallel load
+    "kokoro": 10,      # KISSKI GPU cluster: handles high parallelism
+    "elevenlabs": 10,  # SaaS: handles high parallelism
+}
+
+
 async def generate_all_tts(
     slide_scripts: list[str],
     tts_client: ElevenLabsClient,
@@ -49,6 +61,7 @@ async def generate_all_tts(
     on_slide_done: Callable[[int, int], None] | None = None,
     job_uuid: str | None = None,
     user_id: int | None = None,
+    provider: str = "elevenlabs",
 ) -> list[tuple[Path, dict | None]]:
     """Generate TTS audio for all slides in parallel via ElevenLabs.
 
@@ -57,7 +70,9 @@ async def generate_all_tts(
     Each slide's audio is saved to persistent storage immediately after synthesis
     so a crash can be recovered without re-paying for completed slides.
     """
-    sem = asyncio.Semaphore(10)
+    parallelism = TTS_PROVIDER_PARALLELISM.get(provider, TTS_DEFAULT_PARALLELISM)
+    logger.info("TTS provider {}: parallelism={}", provider, parallelism)
+    sem = asyncio.Semaphore(parallelism)
     lock = asyncio.Lock()
     counter = 0
     total = len(slide_scripts)
