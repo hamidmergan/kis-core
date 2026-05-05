@@ -302,8 +302,9 @@ export default function KiTutorWorkspacePage() {
       extracting={glossaryExtracting}
       onGenerate={generateGlossary}
       sourceCount={selectedSourceIds.length}
-      onOpenSource={(page, highlightText, startTime) => {
-        const src = sources.find((s) => selectedSourceIds.includes(s.uuid));
+      onOpenSource={(filename, page, highlightText, startTime) => {
+        const src = (filename && sources.find((s) => s.filename === filename))
+          || sources.find((s) => selectedSourceIds.includes(s.uuid));
         if (!src) return;
         if (_isMediaFile(src.filename) && startTime != null) {
           setPrevSelectedSourceIds(selectedSourceIds);

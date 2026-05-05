@@ -49,7 +49,7 @@ export function GlossaryView({
 }: {
   entries: GlossaryEntry[]; loading: boolean; extracting?: boolean;
   onGenerate: () => void; onBack?: () => void;
-  onOpenSource?: (page: number, highlightText?: string, startTime?: number | null) => void;
+  onOpenSource?: (filename: string | undefined, page: number, highlightText?: string, startTime?: number | null) => void;
   onDelete?: (id: number) => void;
   onDeleteAll?: () => void;
   sourceCount?: number;
@@ -159,7 +159,7 @@ export function GlossaryView({
                         <span
                           role="button"
                           tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); onOpenSource?.(entry.page_number!, entry.term_de, entry.start_time); }}
+                          onClick={(e) => { e.stopPropagation(); onOpenSource?.(entry.filename, entry.page_number!, entry.term_de, entry.start_time); }}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); e.currentTarget.click(); } }}
                           className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 chip-cite cursor-pointer"
                           style={{ backgroundColor: "rgba(var(--kb-rgb),0.12)", color: "var(--kb)" }}
