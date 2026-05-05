@@ -55,7 +55,11 @@ async def get_resume_data(
         raise HTTPException(status_code=404, detail=t("job.notFound", locale))
     if job["user_id"] != current_user.get("user_id", 0):
         raise HTTPException(status_code=403, detail=t("job.accessDenied", locale))
-    if job["status"] != "awaiting_user":
+    # awaiting_user → normal wizard resume.
+    # failed → screencast render failed; let the user re-open the wizard at the
+    # last input step (tts-settings if accepted_scripts.json exists) so they can
+    # tweak settings before re-rendering instead of immediately re-queuing.
+    if job["status"] not in ("awaiting_user", "failed"):
         raise HTTPException(status_code=409, detail=t("job.notInputState", locale))
 
     tool = job["tool"]

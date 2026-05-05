@@ -101,6 +101,13 @@ export default function MeineJobsPage() {
   }, [fetchJobs]);
 
   const handleRetry = async (job: MyJob) => {
+    // Screencast retries: open the wizard at the last input step (tts-settings)
+    // so the user can review voice/speed/pause before re-rendering. Other tools
+    // (TTS, demo render) re-queue immediately with no settings to revisit.
+    if (job.tool === "screencast_translate" || job.tool === "screencast_render") {
+      router.push(`/${locale}/tools/screencast?resume=${job.job_uuid}`);
+      return;
+    }
     setRetrying(job.job_uuid);
     try {
       const res = await fetch(`/api/jobs/${job.job_uuid}/retry`, { method: "POST", credentials: "include" });
