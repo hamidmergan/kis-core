@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { api, parseDetail } from "@/lib/api";
 import BackLink from "@/components/ui/BackLink";
+import { SCREENCAST_MAX_CHARS } from "@/lib/constants";
 import { wordCount } from "@/lib/text";
 import { KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
 import ScreencastStepper from "@/components/screencast/ScreencastStepper";
@@ -44,7 +45,6 @@ interface GenerateScriptsResponse {
 }
 
 const RENDER_SESSION_KEY = "kis_screencast_demo_active_render";
-const SCREENCAST_MAX_CHARS = 100_000;
 
 function ScreencastDemoPageInner() {
   const t = useTranslations("tools.screencast");

@@ -9,6 +9,7 @@ import { withCitations, type CitationChipClickHandler } from "../chat/_citations
 import { SubviewHeader, type BreadcrumbItem } from "../layout/SubviewHeader";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { NOTE_TITLE_MAX, NOTE_BODY_MAX, NOTE_BODY_WARN_AT } from "../../_constants";
 
 export interface Note {
   id: number;
@@ -97,19 +98,19 @@ export function NotesStudio({
             <textarea
               ref={textareaRef}
               value={draft}
-              onChange={(e) => { if (e.target.value.length <= 2000) setDraft(e.target.value); }}
+              onChange={(e) => { if (e.target.value.length <= NOTE_BODY_MAX) setDraft(e.target.value); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && draft.trim()) { e.preventDefault(); onAdd(draft.trim()); setDraft(""); }
               }}
               placeholder={t("placeholder")}
-              maxLength={2000}
+              maxLength={NOTE_BODY_MAX}
               rows={1}
               className="flex-1 text-base resize-none focus:outline-none bg-transparent"
               style={{ color: "var(--foreground)", maxHeight: 160, overflowY: "auto" }}
             />
-            {draft.length > 1800 && (
-              <span className="text-xs flex-shrink-0" style={{ color: draft.length >= 2000 ? "var(--error)" : "var(--muted)" }}>
-                {draft.length}/2000
+            {draft.length > NOTE_BODY_WARN_AT && (
+              <span className="text-xs flex-shrink-0" style={{ color: draft.length >= NOTE_BODY_MAX ? "var(--error)" : "var(--muted)" }}>
+                {draft.length}/{NOTE_BODY_MAX}
               </span>
             )}
             {draft && (
@@ -213,14 +214,14 @@ export function NotesStudio({
                               autoFocus
                               type="text"
                               value={titleDraft}
-                              onChange={(e) => setTitleDraft(e.target.value.slice(0, 200))}
+                              onChange={(e) => setTitleDraft(e.target.value.slice(0, NOTE_TITLE_MAX))}
                               onBlur={commitTitle}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
                                 else if (e.key === "Escape") { e.preventDefault(); skipTitleCommitRef.current = true; (e.currentTarget as HTMLInputElement).blur(); }
                               }}
                               placeholder={t("titlePlaceholder")}
-                              maxLength={200}
+                              maxLength={NOTE_TITLE_MAX}
                               className="w-full text-base font-medium mb-2 px-2 py-1 rounded-md focus:outline-none"
                               style={{ backgroundColor: "var(--surface-dim)", color: "var(--foreground)", border: "1px solid var(--border)" }}
                             />
@@ -252,6 +253,7 @@ export function NotesStudio({
                               ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5">{children}</ol>,
                               li: ({ children }) => <li className="leading-relaxed">{wrapCitations(children)}</li>,
                               strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                              em: ({ children }) => <em style={{ color: "var(--muted)" }}>{children}</em>,
                               h1: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                               h2: ({ children }) => <p className="font-semibold mb-1">{wrapCitations(children)}</p>,
                               h3: ({ children }) => <p className="font-medium mb-1">{wrapCitations(children)}</p>,

@@ -39,3 +39,5 @@ export interface WorkspaceStats {
 }
 
 export const MAX_ACCESS_LINKS = 10;
+export const WORKSPACE_TITLE_MAX = 50;
+export const WORKSPACE_DESCRIPTION_MAX = 300;

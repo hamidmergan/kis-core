@@ -5,17 +5,12 @@ from loguru import logger
 from src.celery_app import celery_app
 from src import database as db
 from src.i18n import t
-
-# Jobs with no progress update for longer than this are considered stuck.
-STUCK_THRESHOLD_MINUTES = 5  # 5 minutes - the heartbeat fires every 10 s, so this is a generous safety net
-
-# awaiting_user jobs older than this are considered abandoned - cleaned up for storage.
-AWAITING_USER_TIMEOUT_HOURS = 168  # 7 days - matches file retention, no slot blocked
+from src.limits import AWAITING_USER_TIMEOUT_HOURS, JOB_WATCHDOG_MINUTES
 
 
 @celery_app.task(name="watchdog.check")
 def check_stuck_jobs() -> None:
-    stuck = db.get_stuck_running_jobs(threshold_minutes=STUCK_THRESHOLD_MINUTES)
+    stuck = db.get_stuck_running_jobs(threshold_minutes=JOB_WATCHDOG_MINUTES)
     if stuck:
         for job in stuck:
             job_uuid = job["job_uuid"]

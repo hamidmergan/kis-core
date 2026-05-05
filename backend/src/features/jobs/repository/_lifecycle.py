@@ -207,7 +207,7 @@ def get_stale_awaiting_user_jobs(threshold_hours: int = 2) -> list[dict]:
         return [dict(row) for row in rows]
 
 
-def get_stuck_running_jobs(threshold_minutes: int = 20) -> list[dict]:
+def get_stuck_running_jobs(threshold_minutes: int) -> list[dict]:
     """Return running/pending jobs that have not made progress for longer than threshold_minutes."""
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=threshold_minutes)
     with get_connection() as conn:

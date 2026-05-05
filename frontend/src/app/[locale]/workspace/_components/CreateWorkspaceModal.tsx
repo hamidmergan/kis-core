@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
-import type { KiTutorWorkspace } from "../_shared";
+import { WORKSPACE_TITLE_MAX, WORKSPACE_DESCRIPTION_MAX, type KiTutorWorkspace } from "../_shared";
 
 interface CreateWorkspaceModalProps {
   onClose: () => void;
@@ -80,14 +80,14 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value.slice(0, 50))}
+              onChange={(e) => setTitle(e.target.value.slice(0, WORKSPACE_TITLE_MAX))}
               required
-              maxLength={50}
+              maxLength={WORKSPACE_TITLE_MAX}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
               style={{ backgroundColor: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
               placeholder={t("titlePlaceholder")}
             />
-            <p className="text-xs text-muted-soft text-right mt-1">{title.length}/50</p>
+            <p className="text-xs text-muted-soft text-right mt-1">{title.length}/{WORKSPACE_TITLE_MAX}</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
@@ -95,14 +95,14 @@ export default function CreateWorkspaceModal({ onClose, onCreated }: CreateWorks
             </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value.slice(0, 300))}
-              maxLength={300}
+              onChange={(e) => setDescription(e.target.value.slice(0, WORKSPACE_DESCRIPTION_MAX))}
+              maxLength={WORKSPACE_DESCRIPTION_MAX}
               rows={2}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ backgroundColor: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
               placeholder={t("descriptionPlaceholder")}
             />
-            <p className="text-xs text-muted-soft text-right mt-1">{description.length}/300</p>
+            <p className="text-xs text-muted-soft text-right mt-1">{description.length}/{WORKSPACE_DESCRIPTION_MAX}</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>

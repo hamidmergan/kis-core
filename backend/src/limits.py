@@ -39,9 +39,10 @@ QUOTA_DEFAULTS: dict[str, dict] = {
 }
 
 # --- Job management ---------------------------------------------------------
-MAX_RESULT_FILES     = 20    # max stored result files per user (oldest is evicted)
-JOB_RETENTION_HOURS  = 168  # 7 days, after which the file is marked as "expired"
-JOB_WATCHDOG_MINUTES = 20   # job is considered stuck when no heartbeat for X minutes
+MAX_RESULT_FILES            = 20    # max stored result files per user (oldest is evicted)
+JOB_RETENTION_HOURS         = 168   # 7 days, after which the file is marked as "expired"
+JOB_WATCHDOG_MINUTES        = 5     # job is stuck when no heartbeat for X minutes (heartbeat fires every 10 s)
+AWAITING_USER_TIMEOUT_HOURS = 168   # awaiting_user jobs older than this are abandoned and cleaned up
 
 # --- Upload sizes ------------------------------------------------------------
 MAX_UPLOAD_BYTES           = 500 * 1024 * 1024   # general (500 MB)
@@ -72,15 +73,22 @@ MAX_QUEUED_SCREENCAST_JOBS     = 5  # max jobs in user queue (including running)
 # Rule of thumb: half the core count, leaves enough CPU for Uvicorn + OS
 RENDER_MAX_WORKERS = 2  # ThreadPoolExecutor limit for PDF->PNG and FFmpeg
 
+# Per-provider TTS concurrency for screencast batch generation. Conservative
+# default (1) for any provider not listed — opt-in to parallelism explicitly,
+# since under-powered TTS servers (e.g. myLab/XTTS-2) collapse under load.
+SCREENCAST_TTS_DEFAULT_PARALLELISM = 1
+SCREENCAST_TTS_PROVIDER_PARALLELISM: dict[str, int] = {
+    "mylab":      1,    # XTTS-2: serialise, server returns 500s under any parallel load
+    "kokoro":     10,   # KISSKI GPU cluster: handles high parallelism
+    "elevenlabs": 10,   # SaaS: handles high parallelism
+}
+
 # --- Celery task timeouts (in seconds) --------------------------------------
 TTS_SOFT_TIME_LIMIT             = 5400   # 90 min, SoftTimeLimitExceeded -> graceful DB update
 TTS_TIME_LIMIT                  = 5520   # 92 min, SIGKILL fallback
 
 SCREENCAST_SOFT_TIME_LIMIT      = 3600   # 60 min
 SCREENCAST_TIME_LIMIT           = 3720   # 62 min
-
-SCREENCAST_AUTO_SOFT_TIME_LIMIT = 7200   # 2h (translate + scripts + TTS + render)
-SCREENCAST_AUTO_TIME_LIMIT      = 7320   # 2h 2min
 
 # --- AI tutor page summaries ------------------------------------------------
 AIA_SUMMARY_MAX_RETRIES             = 3

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, X } from "@phosphor-icons/react";
 import type { ScheduleEntry, ScheduleEntryType } from "../../_types";
+import { SCHEDULE_TITLE_MAX, SCHEDULE_DESCRIPTION_MAX } from "../../_constants";
 
 export interface EditInput {
   type: ScheduleEntryType;
@@ -88,7 +89,7 @@ export function ScheduleEntryEditModal({
             <input
               type="text"
               required
-              maxLength={200}
+              maxLength={SCHEDULE_TITLE_MAX}
               value={titleVal}
               onChange={(e) => setTitleVal(e.target.value)}
               className="w-full px-3 py-2 rounded-lg text-base border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"
@@ -123,7 +124,7 @@ export function ScheduleEntryEditModal({
             <span className="text-sm font-medium block mb-1" style={{ color: "var(--muted)" }}>{t("descriptionField")}</span>
             <textarea
               rows={3}
-              maxLength={2000}
+              maxLength={SCHEDULE_DESCRIPTION_MAX}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3 py-2 rounded-lg text-base resize-none border-2 border-[var(--border)] hover:border-[var(--kb)] focus:border-[var(--kb)] focus:outline-none transition-colors"

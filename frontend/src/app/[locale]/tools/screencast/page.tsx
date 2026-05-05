@@ -30,6 +30,7 @@ import { flowReducer, INITIAL_FLOW_STATE } from "./_reducer";
 import { useScreencastRenderFlow } from "./_hooks/useScreencastRenderFlow";
 import { useScreencastTranslateFlow } from "./_hooks/useScreencastTranslateFlow";
 import { notifyJobsChanged } from "@/lib/jobs-events";
+import { SCREENCAST_MAX_CHARS } from "@/lib/constants";
 import { wordCount } from "@/lib/text";
 import { useFileDropzone } from "@/hooks/useFileDropzone";
 import { useVoices } from "@/hooks/useVoices";
@@ -45,7 +46,6 @@ import { useRegenAnchor } from "@/hooks/useRegenAnchor";
 const ACCEPTED_EXTENSIONS = [".pptx"];
 
 const RENDER_SESSION_KEY = "kis_screencast_active_render";
-const SCREENCAST_MAX_CHARS = 100_000;
 
 function ScreencastPageInner() {
   const t = useTranslations("tools.screencast");

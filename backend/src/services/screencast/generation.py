@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import HTTPException
 from loguru import logger
 
+from src.limits import SCREENCAST_TTS_DEFAULT_PARALLELISM, SCREENCAST_TTS_PROVIDER_PARALLELISM
 from src.services.elevenlabs_client import ElevenLabsClient
 from src.services.openai_compat_llm import OpenAICompatLLMClient
 from src.services.screencast.pptx import pptx_to_images
@@ -40,18 +41,6 @@ async def generate_all_scripts(
         )
 
 
-# ── TTS concurrency knobs ──────────────────────────────────────────────────
-# Per-provider TTS concurrency. Conservative default (1) for any provider not
-# listed below — opt-in to parallelism explicitly per provider, since under-
-# powered TTS servers (e.g. myLab/XTTS-2) collapse under load.
-TTS_DEFAULT_PARALLELISM = 1
-TTS_PROVIDER_PARALLELISM: dict[str, int] = {
-    "mylab": 1,        # XTTS-2: serialise, server returns 500s under any parallel load
-    "kokoro": 10,      # KISSKI GPU cluster: handles high parallelism
-    "elevenlabs": 10,  # SaaS: handles high parallelism
-}
-
-
 async def generate_all_tts(
     slide_scripts: list[str],
     tts_client: ElevenLabsClient,
@@ -70,7 +59,7 @@ async def generate_all_tts(
     Each slide's audio is saved to persistent storage immediately after synthesis
     so a crash can be recovered without re-paying for completed slides.
     """
-    parallelism = TTS_PROVIDER_PARALLELISM.get(provider, TTS_DEFAULT_PARALLELISM)
+    parallelism = SCREENCAST_TTS_PROVIDER_PARALLELISM.get(provider, SCREENCAST_TTS_DEFAULT_PARALLELISM)
     logger.info("TTS provider {}: parallelism={}", provider, parallelism)
     sem = asyncio.Semaphore(parallelism)
     lock = asyncio.Lock()

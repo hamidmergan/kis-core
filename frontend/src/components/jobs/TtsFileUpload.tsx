@@ -2,10 +2,9 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { MAX_UPLOAD_MB, MAX_UPLOAD_BYTES } from "@/lib/constants";
 
 const ACCEPTED_EXTENSIONS = [".docx", ".md", ".txt"];
-const MAX_SIZE_MB = 500;
-const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 interface TtsFileUploadProps {
   onFileSelected: (file: File) => void;
@@ -25,8 +24,8 @@ export default function TtsFileUpload({ onFileSelected, disabled = false, select
     if (!ACCEPTED_EXTENSIONS.includes(ext)) {
       return tCommon("onlyExtsAllowed", { exts: ACCEPTED_EXTENSIONS.join(", ") });
     }
-    if (file.size > MAX_SIZE_BYTES) {
-      return tCommon("fileTooLarge", { n: MAX_SIZE_MB });
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return tCommon("fileTooLarge", { n: MAX_UPLOAD_MB });
     }
     return null;
   }, [tCommon]);

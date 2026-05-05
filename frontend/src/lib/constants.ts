@@ -10,6 +10,9 @@ export const MAX_TRANSCRIPTION_BYTES = MAX_TRANSCRIPTION_MB * 1024 * 1024;
 export const MAX_IMAGE_MB = 20;
 export const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 
+/** Max script chars for screencast (mirrors backend SCREENCAST_MAX_CHARS in limits.py). */
+export const SCREENCAST_MAX_CHARS = 100_000;
+
 /** UI locales for the header language switch (next-intl). */
 export const UI_LOCALES = ["de", "en"] as const;
 export const DEFAULT_UI_LOCALE: (typeof UI_LOCALES)[number] = "de";

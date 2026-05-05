@@ -7,7 +7,7 @@ Usage:
         result = some_slow_api_call(...)
 
 The watchdog marks jobs as stuck if progress_updated_at is not updated for
-STUCK_THRESHOLD_MINUTES (currently 30s). This context manager fires a DB
+JOB_WATCHDOG_MINUTES (see src/limits.py). This context manager fires a DB
 heartbeat every 10 seconds during the wrapped call, keeping the timer fresh.
 """
 

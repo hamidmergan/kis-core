@@ -14,3 +14,11 @@ export const TOOL_KEYS = [
   "vokabeltest",
   "quiz",
 ] as const;
+
+// Studio form-input limits (frontend-only UX caps; backend stores TEXT without VARCHAR limit).
+export const NOTE_TITLE_MAX = 200;
+export const NOTE_BODY_MAX = 2000;
+export const NOTE_BODY_WARN_AT = 1800;  // shows char counter when draft length crosses this
+
+export const SCHEDULE_TITLE_MAX = 200;
+export const SCHEDULE_DESCRIPTION_MAX = 2000;

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
+import { WORKSPACE_TITLE_MAX, WORKSPACE_DESCRIPTION_MAX } from "../_shared";
 
 interface EditWorkspaceModalProps {
   currentTitle: string;
@@ -59,16 +60,16 @@ export default function EditWorkspaceModal({
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value.slice(0, 50))}
+            onChange={(e) => setTitle(e.target.value.slice(0, WORKSPACE_TITLE_MAX))}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !saving) handleSave();
             }}
-            maxLength={50}
+            maxLength={WORKSPACE_TITLE_MAX}
             autoFocus
             className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2"
             style={{ borderColor: "var(--border)" }}
           />
-          <p className="text-xs text-muted-soft text-right mt-1">{title.length}/50</p>
+          <p className="text-xs text-muted-soft text-right mt-1">{title.length}/{WORKSPACE_TITLE_MAX}</p>
         </div>
         <div className="flex flex-col flex-1 min-h-0">
           <label className="block text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
@@ -76,14 +77,14 @@ export default function EditWorkspaceModal({
           </label>
           <textarea
             value={description}
-            onChange={(e) => setDescription(e.target.value.slice(0, 300))}
-            maxLength={300}
+            onChange={(e) => setDescription(e.target.value.slice(0, WORKSPACE_DESCRIPTION_MAX))}
+            maxLength={WORKSPACE_DESCRIPTION_MAX}
             rows={8}
             className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none flex-1 sm:min-h-[180px] lg:min-h-[260px]"
             style={{ backgroundColor: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
             placeholder={t("descriptionPlaceholder")}
           />
-          <p className="text-xs text-muted-soft text-right mt-1">{description.length}/300</p>
+          <p className="text-xs text-muted-soft text-right mt-1">{description.length}/{WORKSPACE_DESCRIPTION_MAX}</p>
         </div>
         {error && <p className="text-xs text-error mt-2">{error}</p>}
         <div className="flex gap-3 justify-end mt-5">
