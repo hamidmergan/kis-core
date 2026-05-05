@@ -77,6 +77,7 @@ export function TranscriptPanel({
   const [mode, setMode] = useState<ViewMode>(defaultLang);
   const [currentIdx, setCurrentIdx] = useState<number>(-1);
   const [followCurrent, setFollowCurrent] = useState(true);
+  const [jumpHover, setJumpHover] = useState(false);
   const [savedCueIdx, setSavedCueIdx] = useState<number | null>(null);
   const [savingCueIdx, setSavingCueIdx] = useState<number | null>(null);
   const [regenEn, setRegenEn] = useState<"idle" | "running" | "error">("idle");
@@ -280,8 +281,8 @@ export function TranscriptPanel({
     const wantEn = (mode === "en" || mode === "both") && !!enText;
     const parts: string[] = [];
     if (wantDe) parts.push(deText!);
-    if (wantEn) parts.push(enText!);
-    const body = parts.join("\n");
+    if (wantEn) parts.push(`*${enText!}*`);
+    const body = parts.join("\n\n");
     if (!body) return;
     const primary = wantDe ? deText! : enText!;
     const keyword = primary.slice(0, 40).replace(/\s+/g, " ").trim();
@@ -329,13 +330,15 @@ export function TranscriptPanel({
         <button
           type="button"
           onClick={jumpToCurrent}
+          onMouseEnter={() => setJumpHover(true)}
+          onMouseLeave={() => setJumpHover(false)}
           disabled={currentIdx < 0}
           title={t("jumpToCurrent")}
           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             backgroundColor: followCurrent ? "rgba(var(--kb-rgb), 0.12)" : "transparent",
-            color: followCurrent ? "var(--kb)" : "var(--muted)",
-            border: "1px solid var(--border)",
+            color: followCurrent || jumpHover ? "var(--kb)" : "var(--muted)",
+            border: `2px solid ${jumpHover ? "var(--kb)" : "var(--border)"}`,
           }}
         >
           <NavigationArrow size={14} weight={followCurrent ? "fill" : "regular"} />
@@ -469,15 +472,19 @@ function TabButton({
   onClick: () => void;
   children: React.ReactNode;
 }) {
+  const [hover, setHover] = useState(false);
+  const showHover = hover && !active;
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
       style={{
         backgroundColor: active ? "var(--kb)" : "transparent",
-        color: active ? "#fff" : "var(--muted)",
-        border: active ? "1px solid var(--kb)" : "1px solid var(--border)",
+        color: active ? "#fff" : showHover ? "var(--kb)" : "var(--muted)",
+        border: `2px solid ${active || showHover ? "var(--kb)" : "var(--border)"}`,
       }}
     >
       {children}
