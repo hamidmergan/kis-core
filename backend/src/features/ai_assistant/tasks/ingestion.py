@@ -181,7 +181,23 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                     source_uuid, translation_mode,
                 )
 
-        # 11. Summaries are generated on-demand via button in PDF viewer
+        # 11. PDF page summaries: owner-controlled per workspace (default "manual").
+        # Only "auto" triggers at ingest; "manual" waits for the button; "off" disables it.
+        if source["file_type"] == "pdf":
+            workspace = db.get_aia_workspace_by_id(workspace_id)
+            summary_mode = (workspace or {}).get("summary_mode", "manual")
+            if summary_mode == "auto":
+                from src.tasks.aia_tasks import run_generate_summaries
+                run_generate_summaries.delay(source_uuid, locale)
+                logger.info(
+                    "KI Tutor: dispatched auto page-summaries for {} (mode=auto)",
+                    source_uuid,
+                )
+            else:
+                logger.info(
+                    "KI Tutor: skipping auto page-summaries for {} (mode={})",
+                    source_uuid, summary_mode,
+                )
 
     except Exception as e:
         from src.services.aia_chunker import PdfNoReadableTextError
