@@ -10,6 +10,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Ungültige Standard-Transkript-Sprache",
         "en": "Invalid default transcript language",
     },
+    "ai.workspace.summaryModeInvalid": {
+        "de": "Ungültiger Summary-Modus",
+        "en": "Invalid summary mode",
+    },
     "ai.workspace.invalidEnrollCode": {
         "de": "Ungültiger oder abgelaufener Einschreibecode",
         "en": "Invalid or expired enrollment code",
@@ -62,6 +66,10 @@ MESSAGES: dict[str, dict[str, str]] = {
     "ai.source.pdfConversionFailed": {
         "de": "Konvertierung nach PDF fehlgeschlagen",
         "en": "Conversion to PDF failed",
+    },
+    "ai.summary.disabled": {
+        "de": "Seiten-Zusammenfassungen sind in diesem Workspace deaktiviert",
+        "en": "Page summaries are disabled in this workspace",
     },
     # Chat / RAG
     "ai.chat.noIndexedSources": {
