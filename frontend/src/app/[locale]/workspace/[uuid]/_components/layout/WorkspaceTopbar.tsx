@@ -29,6 +29,9 @@ interface WorkspaceTopbarProps {
   // Mobile tabs
   activeTab: PanelKey;
   setActiveTab: (k: PanelKey) => void;
+  // Language level diagnosis
+  languageLevel?: string | null;
+  onResetLanguageLevel?: () => void | Promise<void>;
 }
 
 const BackArrow = ({ size }: { size: 12 | 14 }) => (
@@ -47,6 +50,7 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
     translationMode, onChangeTranslationMode,
     transcriptDefaultLang, onChangeTranscriptDefaultLang,
     activeTab, setActiveTab,
+    languageLevel, onResetLanguageLevel,
   } = props;
   const t = useTranslations("workspace.detail.topbar");
   const tPanels = useTranslations("workspace.detail.panels");
@@ -64,6 +68,8 @@ export function WorkspaceTopbar(props: WorkspaceTopbarProps) {
       onChangeTranslationMode={onChangeTranslationMode}
       transcriptDefaultLang={transcriptDefaultLang}
       onChangeTranscriptDefaultLang={onChangeTranscriptDefaultLang}
+      languageLevel={languageLevel}
+      onResetLanguageLevel={onResetLanguageLevel}
     />
   );
 

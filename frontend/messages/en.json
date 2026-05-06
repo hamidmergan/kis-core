@@ -1115,6 +1115,37 @@
   "workspace": {
     "detail": {
       "languageTraining": {
+        "diagnosis": {
+          "title": "Language Diagnosis",
+          "intro": "Hi, I'm Hilde. Let's quickly assess your German level.",
+          "progress": "Question {current} of {total}",
+          "next": "Next",
+          "back": "Back",
+          "submit": "Submit for evaluation",
+          "readyToSubmit": "All questions answered. Ready for evaluation?",
+          "loading": "Evaluating…",
+          "errorGeneric": "Evaluation failed. Please try again.",
+          "retry": "Retry",
+          "resultTitle": "Your Level",
+          "continue": "Continue to training",
+          "abort": "Cancel",
+          "abortConfirmTitle": "Cancel diagnosis?",
+          "abortConfirmBody": "Your answers will be lost. You can restart the diagnosis later.",
+          "abortConfirmKeep": "Keep going",
+          "abortConfirmDiscard": "Cancel anyway",
+          "freeTextPlaceholder": "Write your answer…",
+          "panelDisabledTooltip": "Not available during language diagnosis",
+          "resetSetting": "Reset language level",
+          "resetConfirmTitle": "Reset language level?",
+          "resetConfirmBody": "You'll need to retake the diagnosis next time you enable language training.",
+          "skill": {
+            "grammar": "Grammar",
+            "vocabulary": "Vocabulary",
+            "reading": "Reading",
+            "writing": "Writing",
+            "pragmatics": "Pragmatics"
+          }
+        },
         "tools": {
           "flashcards": "Vocab cards",
           "karteikarten": "Flashcards",

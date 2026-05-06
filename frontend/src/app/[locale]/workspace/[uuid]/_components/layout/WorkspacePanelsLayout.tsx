@@ -33,6 +33,8 @@ interface WorkspacePanelsLayoutProps {
   renderQuellen: (ctx: PanelContext) => React.ReactNode;
   renderChat: (ctx: PanelContext) => React.ReactNode;
   renderStudio: (ctx: PanelContext) => React.ReactNode;
+  // Locks sources & studio mini-strips while diagnosis runs in middle slot
+  diagnosisActive?: boolean;
 }
 
 const panelBaseClass = "flex flex-col overflow-hidden rounded-2xl";
@@ -46,8 +48,11 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
     p1Style, p2Style, p3Style,
     studioEnabled, canDrag, startDrag,
     renderQuellen, renderChat, renderStudio,
+    diagnosisActive = false,
   } = props;
   const tPanels = useTranslations("workspace.detail.panels");
+  const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
+  const diagnosisLockTooltip = tDiag("panelDisabledTooltip");
 
   if (isMobile) {
     const switchToChat = () => setActiveTab("chat");
@@ -105,7 +110,13 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
     >
       <div ref={p1Ref} className={panelBaseClass} style={{ ...p1Style, ...panelBaseStyle }}>
         {!panels.quellen
-          ? <MiniStrip label={tPanels("sources")} onClick={() => togglePanel("quellen")} side="left" />
+          ? <MiniStrip
+              label={tPanels("sources")}
+              onClick={() => togglePanel("quellen")}
+              side="left"
+              disabled={diagnosisActive}
+              disabledTooltip={diagnosisLockTooltip}
+            />
           : renderQuellen({ onMinimize: () => togglePanel("quellen"), hideHeader: false })}
       </div>
 
@@ -123,7 +134,13 @@ export function WorkspacePanelsLayout(props: WorkspacePanelsLayoutProps) {
           <div ref={p3Ref} className={panelBaseClass} style={{ ...p3Style, ...panelBaseStyle }}>
             <MinimizeContext.Provider value={() => togglePanel("studio")}>
               {!panels.studio
-                ? <MiniStrip label={tPanels("studio")} onClick={() => togglePanel("studio")} side="right" />
+                ? <MiniStrip
+                    label={tPanels("studio")}
+                    onClick={() => togglePanel("studio")}
+                    side="right"
+                    disabled={diagnosisActive}
+                    disabledTooltip={diagnosisLockTooltip}
+                  />
                 : renderStudio({ onMinimize: () => togglePanel("studio"), hideHeader: false })}
             </MinimizeContext.Provider>
           </div>

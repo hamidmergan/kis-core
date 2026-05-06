@@ -1115,6 +1115,37 @@
   "workspace": {
     "detail": {
       "languageTraining": {
+        "diagnosis": {
+          "title": "Sprachdiagnose",
+          "intro": "Hi, ich bin Hilde. Lass uns kurz dein Sprachniveau einschätzen.",
+          "progress": "Frage {current} von {total}",
+          "next": "Weiter",
+          "back": "Zurück",
+          "submit": "Auswertung starten",
+          "readyToSubmit": "Alle Fragen beantwortet. Bereit für die Auswertung?",
+          "loading": "Auswertung läuft…",
+          "errorGeneric": "Auswertung fehlgeschlagen. Bitte erneut versuchen.",
+          "retry": "Erneut versuchen",
+          "resultTitle": "Dein Niveau",
+          "continue": "Weiter zum Training",
+          "abort": "Abbrechen",
+          "abortConfirmTitle": "Diagnose abbrechen?",
+          "abortConfirmBody": "Deine Antworten gehen verloren. Du kannst die Diagnose später erneut starten.",
+          "abortConfirmKeep": "Weitermachen",
+          "abortConfirmDiscard": "Abbrechen",
+          "freeTextPlaceholder": "Schreibe deine Antwort…",
+          "panelDisabledTooltip": "Während der Sprachdiagnose nicht verfügbar",
+          "resetSetting": "Sprachniveau zurücksetzen",
+          "resetConfirmTitle": "Sprachniveau zurücksetzen?",
+          "resetConfirmBody": "Du musst die Diagnose erneut machen, wenn du wieder Fachsprachentraining nutzt.",
+          "skill": {
+            "grammar": "Grammatik",
+            "vocabulary": "Wortschatz",
+            "reading": "Leseverständnis",
+            "writing": "Schreiben",
+            "pragmatics": "Pragmatik"
+          }
+        },
         "tools": {
           "flashcards": "Lernkarten",
           "karteikarten": "Karteikarten",

@@ -19,6 +19,8 @@ interface SettingsMenuProps {
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
   transcriptDefaultLang: TranscriptDefaultLang;
   onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
+  languageLevel?: string | null;
+  onResetLanguageLevel?: () => void | Promise<void>;
 }
 
 function ToggleRow({
@@ -71,9 +73,18 @@ export function SettingsMenu({
   onChangeTranslationMode,
   transcriptDefaultLang,
   onChangeTranscriptDefaultLang,
+  languageLevel,
+  onResetLanguageLevel,
 }: SettingsMenuProps) {
   const t = useTranslations("workspace.detail.settings");
+  const tDiag = useTranslations("workspace.detail.languageTraining.diagnosis");
   const { enabled: hildeEnabled, toggle: toggleHilde, globalEnabled: mascotGlobalEnabled } = useHildePref();
+
+  const handleResetLanguageLevel = () => {
+    if (!onResetLanguageLevel) return;
+    if (!window.confirm(tDiag("resetConfirmBody"))) return;
+    void onResetLanguageLevel();
+  };
 
   const TRANSLATION_MODE_OPTIONS = [
     { value: "off" as const, label: t("translationModeOff") },
@@ -105,6 +116,24 @@ export function SettingsMenu({
           onToggle={onToggleLanguageTraining}
           disabled={!studioEnabled}
         />
+        {languageLevel && onResetLanguageLevel && (
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+                {tDiag("resetSetting")} <span className="ml-1 px-1.5 py-0.5 rounded text-xs" style={{ backgroundColor: "var(--kb)", color: "var(--on-accent)" }}>{languageLevel}</span>
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{tDiag("resetConfirmBody")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetLanguageLevel}
+              className="px-3 py-1.5 text-xs rounded-md border"
+              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+            >
+              {tDiag("resetSetting")}
+            </button>
+          </div>
+        )}
         {isOwner && (
           <div className="mt-3">
             <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("translationModeTitle")}</p>

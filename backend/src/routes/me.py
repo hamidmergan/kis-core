@@ -23,6 +23,8 @@ async def get_me(
     row = db.get_user_by_id(user_id)
     if not row:
         raise HTTPException(status_code=404, detail=t("user.notFound", locale))
+    ll = db.get_user_language_level(user_id)
+    set_at = ll["language_level_set_at"]
     return {
         "id": row["id"],
         "username": row["ldap_username"],
@@ -30,6 +32,9 @@ async def get_me(
         "email": row["email"],
         "role": row["role"],
         "locale": row.get("locale", "de"),
+        "language_level": ll["language_level"],
+        "language_level_set_at": set_at.isoformat() if set_at else None,
+        "language_level_skill_scores": ll["language_level_skill_scores"],
     }
 
 

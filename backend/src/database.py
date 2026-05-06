@@ -23,3 +23,4 @@ from src.features.ai_assistant.repository.schedule import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.glossary import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.exercises import *  # noqa: F401,F403
 from src.features.ai_assistant.repository.stats import *  # noqa: F401,F403
+from src.features.ai_assistant.repository.language_level import *  # noqa: F401,F403

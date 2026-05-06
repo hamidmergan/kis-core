@@ -125,4 +125,17 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Transkript nicht verfügbar",
         "en": "Transcript not available",
     },
+    # Language diagnosis (one-time CEFR self-assessment)
+    "ai.languageDiagnosis.wrongAnswerCount": {
+        "de": "Erwarte {expected} Antworten, erhalten: {got}.",
+        "en": "Expected {expected} answers, got {got}.",
+    },
+    "ai.languageDiagnosis.llmUnavailable": {
+        "de": "Auswertung aktuell nicht möglich. Bitte später erneut versuchen.",
+        "en": "Evaluation unavailable. Please try again later.",
+    },
+    "ai.languageDiagnosis.invalidResponse": {
+        "de": "Auswertung fehlgeschlagen. Bitte erneut versuchen.",
+        "en": "Evaluation failed. Please retry.",
+    },
 }

@@ -34,6 +34,7 @@ import { SourcesPanel } from "./_components/sources/SourcesPanel";
 import { ChatPanel } from "./_components/chat/ChatPanel";
 import { CreateSetModal } from "./_components/language_training/CreateSetModal";
 import { GlossaryView } from "./_components/language_training/GlossaryView";
+import { LanguageDiagnosisPanel } from "./_components/language_training/LanguageDiagnosisPanel";
 import { WorkspaceTopbar } from "./_components/layout/WorkspaceTopbar";
 import { WorkspacePanelsLayout } from "./_components/layout/WorkspacePanelsLayout";
 import { StudioPanelContent } from "./_components/studio/StudioPanelContent";
@@ -103,6 +104,29 @@ export default function KiTutorWorkspacePage() {
 
   const [studioEnabled, setStudioEnabled] = useState(true);
   const [language_trainingActive, setLanguageTrainingActive] = useState(false);
+
+  // Language level diagnosis: triggered when Fachsprachentrainer toggles on
+  // for a user without a stored language_level. Fetched once at mount.
+  const [me, setMe] = useState<{ id: number; language_level: string | null } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/me", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (!cancelled && data) setMe({ id: data.id, language_level: data.language_level }); })
+      .catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
+  }, []);
+  const diagnosisActive = language_trainingActive && me !== null && me.language_level === null;
+  // While diagnosis runs, force sources & studio minimized so the user focuses
+  // on the diagnosis panel. The MiniStrip buttons are disabled separately, so
+  // the user can't re-expand them until the diagnosis is done or aborted.
+  useEffect(() => {
+    if (!diagnosisActive) return;
+    setPanels((prev) =>
+      prev.quellen || prev.studio ? { ...prev, quellen: false, studio: false } : prev,
+    );
+  }, [diagnosisActive, setPanels]);
+
   const [translationMode, setTranslationMode] = useState<TranscriptTranslationMode>("manual");
   useEffect(() => {
     if (moduleDetail?.transcript_translation_mode) {
@@ -439,30 +463,50 @@ export default function KiTutorWorkspacePage() {
     );
   };
 
-  // Chat panel content: mobile + desktop shared
-  const renderChatContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => (
-    <ChatPanel
-      messages={messages}
-      activeSourceIds={activeSourceIds}
-      sources={sources}
-      loading={chatLoading}
-      onSend={(v) => sendChatMessage(v)}
-      onStop={stopChat}
-      onSendPrompt={(text) => sendChatMessage(text)}
-      onPillClick={handlePillClick}
-      moduleReady={moduleDetail?.status === "ready"}
-      onClear={() => {
-        const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
-        fetch(`/api/ai-assistant/workspaces/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" });
-        setMessages([]);
-      }}
-      externalTextareaRef={chatTextareaRef}
-      onSaveNote={addNote}
-      onMinimize={onMinimize}
-      registerSetInput={registerChatSetInput}
-      {...(hh ? { hideHeader: true } : {})}
-    />
-  );
+  // Chat panel content: mobile + desktop shared.
+  // While Fachsprachentrainer is on but no language_level is set yet, the
+  // diagnosis panel takes over the middle slot until the user completes it.
+  const renderChatContent = ({ onMinimize, hideHeader: hh }: { onMinimize: () => void; hideHeader: boolean }) => {
+    if (diagnosisActive) {
+      return (
+        <LanguageDiagnosisPanel
+          userId={me?.id ?? null}
+          hideHeader={hh}
+          onComplete={() => {
+            // Re-fetch /me so language_level reflects the persisted value
+            fetch("/api/me", { credentials: "include" })
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data) => { if (data) setMe({ id: data.id, language_level: data.language_level }); })
+              .catch(() => { /* ignore */ });
+          }}
+          onAbort={() => setLanguageTrainingActive(false)}
+        />
+      );
+    }
+    return (
+      <ChatPanel
+        messages={messages}
+        activeSourceIds={activeSourceIds}
+        sources={sources}
+        loading={chatLoading}
+        onSend={(v) => sendChatMessage(v)}
+        onStop={stopChat}
+        onSendPrompt={(text) => sendChatMessage(text)}
+        onPillClick={handlePillClick}
+        moduleReady={moduleDetail?.status === "ready"}
+        onClear={() => {
+          const eidParam = enrollmentId ? `?enrollment_id=${enrollmentId}` : "";
+          fetch(`/api/ai-assistant/workspaces/${uuid}/messages${eidParam}`, { method: "DELETE", credentials: "include" });
+          setMessages([]);
+        }}
+        externalTextareaRef={chatTextareaRef}
+        onSaveNote={addNote}
+        onMinimize={onMinimize}
+        registerSetInput={registerChatSetInput}
+        {...(hh ? { hideHeader: true } : {})}
+      />
+    );
+  };
 
   if (!initialized) {
     return (
@@ -502,6 +546,14 @@ export default function KiTutorWorkspacePage() {
           onChangeTranscriptDefaultLang={handleChangeTranscriptDefaultLang}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          languageLevel={me?.language_level ?? null}
+          onResetLanguageLevel={async () => {
+            await fetch("/api/ai-assistant/language-diagnosis/me", {
+              method: "DELETE",
+              credentials: "include",
+            });
+            setMe((prev) => (prev ? { ...prev, language_level: null } : prev));
+          }}
         />
 
 
@@ -520,6 +572,7 @@ export default function KiTutorWorkspacePage() {
           renderQuellen={renderQuellenContent}
           renderChat={renderChatContent}
           renderStudio={({ onMinimize, hideHeader }) => renderStudioPanel(onMinimize, hideHeader)}
+          diagnosisActive={diagnosisActive}
         />
       </div>
       {/* Create Set Modal */}

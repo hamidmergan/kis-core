@@ -20,12 +20,13 @@ from src.features.ai_assistant.routes.studio import (
 from src.features.ai_assistant.routes.language_training import (
     exercises,
     stats,
+    diagnosis,
 )
 
 router = APIRouter()
 
 for m in [
     popup, workspaces, sources, chat, messages, notes, glossary,
-    mindmap, flashcards, data_table, schedule, exercises, stats,
+    mindmap, flashcards, data_table, schedule, exercises, stats, diagnosis,
 ]:
     router.include_router(m.router)

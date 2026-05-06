@@ -169,6 +169,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
             # UI locale preference (DE default, EN supported). Cookie + URL prefix are authoritative
             # for unauthenticated requests; this column is the cross-device source of truth after login.
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'de' CHECK (locale IN ('de', 'en'))")
+            # Language level diagnosis (one-time CEFR self-assessment for Fachsprachentrainer).
+            # All three columns nullable: NULL means "diagnosis not yet completed".
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_skill_scores JSONB")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS whitelist (
                     id         SERIAL PRIMARY KEY,
