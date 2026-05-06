@@ -82,6 +82,9 @@ async def trigger_paragraph_summaries(
     if workspace["user_id"] != user_id:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
 
+    if workspace.get("summary_mode", "manual") == "off":
+        raise HTTPException(status_code=403, detail=t("ai.summary.disabled", locale))
+
     source = db.get_aia_source(source_uuid)
     if not source:
         raise HTTPException(status_code=404, detail=t("source.notFound", locale))
