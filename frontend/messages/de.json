@@ -1344,6 +1344,14 @@
         "translationModeOffHint": "Es werden keine englischen Untertitel erstellt.",
         "translationModeAutoHint": "Sobald eine Quelle indexiert ist, startet die Übersetzung automatisch.",
         "translationModeManualHint": "Übersetzung erst per Klick im Transkript-Panel (Standard).",
+        "summaryModeTitle": "KI-Zusammenfassung der PDF-Seiten",
+        "summaryModeDescription": "Erzeugt zu jeder PDF-Seite eine kurze KI-Zusammenfassung. Studierende sehen sie im Summary-Panel neben der Seite. Die Generierung läuft als Hintergrund-Job und kann bei großen PDFs ein paar Minuten dauern.",
+        "summaryModeOff": "Aus",
+        "summaryModeAuto": "Auto",
+        "summaryModeManual": "Manuell (per Klick)",
+        "summaryModeOffHint": "Für PDFs werden keine Seiten-Zusammenfassungen erzeugt.",
+        "summaryModeAutoHint": "Sobald ein PDF indexiert ist, startet die Zusammenfassung automatisch.",
+        "summaryModeManualHint": "Zusammenfassung erst per Klick im Summary-Panel (Standard).",
         "transcriptDefaultLangTitle": "Standard-Sprache im Transkript",
         "transcriptDefaultLangDescription": "Welche Sprache beim Öffnen einer Audio-/Video-Quelle vorausgewählt ist. Studierende können im Transkript-Panel jederzeit umschalten.",
         "transcriptDefaultLangDe": "Deutsch",
@@ -1439,7 +1447,8 @@
         "failed": "Generierung fehlgeschlagen.",
         "none": "Noch keine Zusammenfassungen vorhanden.",
         "generateButton": "Zusammenfassen",
-        "noneForPage": "Keine Zusammenfassung für diese Seite."
+        "noneForPage": "Keine Zusammenfassung für diese Seite.",
+        "disabledByOwner": "Seiten-Zusammenfassungen sind in diesem Workspace deaktiviert."
       },
       "pdf": {
         "askQuestion": "Frage stellen",
