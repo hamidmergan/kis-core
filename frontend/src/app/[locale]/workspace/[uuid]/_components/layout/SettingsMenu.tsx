@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { useHildePref } from "@/hooks/useHildePref";
-import type { TranscriptTranslationMode, TranscriptDefaultLang } from "../../_types";
+import type { TranscriptTranslationMode, TranscriptDefaultLang, SummaryMode } from "../../_types";
 
 interface SettingsMenuProps {
   open: boolean;
@@ -19,6 +19,8 @@ interface SettingsMenuProps {
   onChangeTranslationMode: (mode: TranscriptTranslationMode) => void;
   transcriptDefaultLang: TranscriptDefaultLang;
   onChangeTranscriptDefaultLang: (lang: TranscriptDefaultLang) => void;
+  summaryMode: SummaryMode;
+  onChangeSummaryMode: (mode: SummaryMode) => void;
   languageLevel?: string | null;
   onResetLanguageLevel?: () => void | Promise<void>;
 }
@@ -73,6 +75,8 @@ export function SettingsMenu({
   onChangeTranslationMode,
   transcriptDefaultLang,
   onChangeTranscriptDefaultLang,
+  summaryMode,
+  onChangeSummaryMode,
   languageLevel,
   onResetLanguageLevel,
 }: SettingsMenuProps) {
@@ -90,6 +94,12 @@ export function SettingsMenu({
     { value: "off" as const, label: t("translationModeOff") },
     { value: "auto" as const, label: t("translationModeAuto") },
     { value: "manual" as const, label: t("translationModeManual") },
+  ];
+
+  const SUMMARY_MODE_OPTIONS = [
+    { value: "off" as const, label: t("summaryModeOff") },
+    { value: "auto" as const, label: t("summaryModeAuto") },
+    { value: "manual" as const, label: t("summaryModeManual") },
   ];
 
   return (
@@ -183,6 +193,26 @@ export function SettingsMenu({
                   </button>
                 );
               })}
+            </div>
+          </div>
+        )}
+        {isOwner && (
+          <div className="mt-3">
+            <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{t("summaryModeTitle")}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              {t("summaryModeDescription")}
+            </p>
+            <ul className="text-xs mt-2 space-y-1 pl-4 list-disc" style={{ color: "var(--muted)" }}>
+              <li><strong>{t("summaryModeOff")}</strong> {t("summaryModeOffHint")}</li>
+              <li><strong>{t("summaryModeAuto")}</strong> {t("summaryModeAutoHint")}</li>
+              <li><strong>{t("summaryModeManual")}</strong> {t("summaryModeManualHint")}</li>
+            </ul>
+            <div className="mt-3">
+              <Select<SummaryMode>
+                value={summaryMode}
+                onChange={onChangeSummaryMode}
+                options={SUMMARY_MODE_OPTIONS}
+              />
             </div>
           </div>
         )}
