@@ -12,7 +12,9 @@ elif [ "$CMD" = "restart" ]; then
     docker compose $COMPOSE_FILES down
     PRODUCTION=true docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
+    docker builder prune -af
 else
     PRODUCTION=true docker compose $COMPOSE_FILES up -d --build
     docker image prune -f
+    docker builder prune -af
 fi

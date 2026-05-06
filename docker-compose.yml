@@ -98,7 +98,8 @@ services:
   celery-worker-aia:
     build: ./backend
     container_name: kis-celery-aia
-    command: celery -A src.celery_app worker --queues=aia --autoscale=6,2 --loglevel=info
+    command: celery -A src.celery_app worker --queues=aia --concurrency=2 --loglevel=info
+    mem_limit: 1.5g
     env_file:
       - .env
     volumes:
