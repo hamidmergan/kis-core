@@ -223,30 +223,30 @@ export function FlashcardsLearnView({
                   <div className="p-5 flex flex-col gap-4">
                     {/* Term */}
                     <div className="text-center">
-                      <p className="text-lg font-bold" style={{ color: "var(--foreground)" }}>{card.front}</p>
+                      <p className="text-lg leading-relaxed font-semibold" style={{ color: "var(--foreground)" }}>{card.front}</p>
                       {showTranslation && card.back_en && (
-                        <p className="text-xs italic mt-0.5" >{t("flashcardsLearn.translationPrefix")} {card.back_en}</p>
+                        <p className="text-sm italic mt-0.5" >{t("flashcardsLearn.translationPrefix")} {card.back_en}</p>
                       )}
                     </div>
                     {/* Definition */}
                     <div>
-                      <span className="text-[9px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.definition")}</span>
-                      <p className="text-sm leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{definition}</p>
+                      <span className="text-[10px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.definition")}</span>
+                      <p className="text-base leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{definition}</p>
                     </div>
                     {/* Word parts */}
                     {wordParts && (() => {
                       const parts = wordPartsExplained.split("|").map(p => p.trim()).filter(Boolean);
                       return (
                         <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--surface-dim)" }}>
-                          <span className="text-[9px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.wordParts")}</span>
-                          <p className="text-sm font-semibold mt-1.5" style={{ color: "var(--foreground)" }}>{wordParts}</p>
+                          <span className="text-[10px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.wordParts")}</span>
+                          <p className="text-base font-semibold mt-1.5" style={{ color: "var(--foreground)" }}>{wordParts}</p>
                           {parts.length > 0 && (
                             <div className="flex flex-col gap-1 mt-2">
                               {parts.map((part, pi) => {
                                 const [term, ...rest] = part.split("=");
                                 const explanation = rest.join("=").trim();
                                 return (
-                                  <div key={pi} className="flex items-baseline gap-1.5 text-xs">
+                                  <div key={pi} className="flex items-baseline gap-1.5 text-sm">
                                     <span className="font-semibold shrink-0" style={{ color: "var(--foreground)" }}>{term.trim()}</span>
                                     {explanation && <span >{explanation}</span>}
                                   </div>
@@ -260,8 +260,8 @@ export function FlashcardsLearnView({
                     {/* Context sentence */}
                     {exampleSentence && (
                       <div className="px-3 py-2.5 rounded-xl" style={{ border: "1px solid var(--border)" }}>
-                        <span className="text-[9px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
-                        <p className="text-xs italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
+                        <span className="text-[10px] font-bold uppercase tracking-widest" >{t("flashcardsLearn.example")}</span>
+                        <p className="text-sm italic leading-relaxed mt-1" style={{ color: "var(--foreground)" }}>{exampleSentence}</p>
                       </div>
                     )}
                     {/* Sources + Chat */}
@@ -305,8 +305,8 @@ export function FlashcardsLearnView({
                     <div className="flex items-center justify-end">
                       {onAskChat && (
                         <button type="button" onClick={() => onAskChat(promptTermDeep(card.front))}
-                          className="btn-soft-accent inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full transition-colors">
-                          <Chat size={10} weight="bold" /> {t("common.learnMore")}
+                          className="btn-soft-accent inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors">
+                          <Chat size={12} weight="bold" /> {t("common.learnMore")}
                         </button>
                       )}
                     </div>
@@ -314,8 +314,8 @@ export function FlashcardsLearnView({
                 </div>
                 {/* Next button */}
                 <button type="button" onClick={() => { answer(true); }}
-                  className="btn-soft-accent w-full py-2.5 rounded-xl text-xs font-semibold transition-all">
-                  {index >= total - 1 ? t("common.finish") : t("flashcardsLearn.nextTerm")} <CaretRight size={12} weight="bold" className="inline ml-0.5" style={{ verticalAlign: "-1px" }} />
+                  className="btn-soft-accent w-full py-2.5 rounded-xl text-sm font-semibold transition-all">
+                  {index >= total - 1 ? t("common.finish") : t("flashcardsLearn.nextTerm")} <CaretRight size={14} weight="bold" className="inline ml-0.5" style={{ verticalAlign: "-1px" }} />
                 </button>
               </div>
             </div>
