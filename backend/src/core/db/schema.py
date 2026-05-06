@@ -284,6 +284,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_default_lang TEXT NOT NULL DEFAULT 'both'"
             )
+            # Per-workspace setting: PDF page-summary mode (off/auto/manual). Owner-controlled.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS summary_mode TEXT NOT NULL DEFAULT 'manual'"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
                     id           SERIAL PRIMARY KEY,
