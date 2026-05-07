@@ -129,7 +129,7 @@
     "phoneLabel": "Phone:",
     "emailLabel": "E-mail:",
     "projectHeading": "Project:",
-    "projectBody": "Developed at the Institute for Interactive Systems (ISy),\nLübeck University of Applied Sciences.\nSource code licensed under Apache-2.0."
+    "projectBody": "Developed at the Institute for Interactive Systems (ISy),\nLübeck University of Applied Sciences."
   },
   "wartung": {
     "title": "Maintenance",
@@ -995,11 +995,11 @@
     },
     "auth": {
       "heading": "2. Authentication and user account",
-      "intro": "Access to the platform is provided via LDAP authentication. A dedicated LDAP server is currently in use; integration with the directory service of TH Lübeck is being prepared. The following data is stored in our database:",
-      "item1": "Username (LDAP username)",
+      "intro": "Access to the platform is provided via a directory service. The following data is stored in our database:",
+      "item1": "Username",
       "item2": "Display name (full name)",
       "item3": "Email address",
-      "outro": "Passwords are not stored on this platform. Authentication is handled exclusively by the LDAP server."
+      "outro": "Passwords are not stored on this platform; authentication is handled exclusively against the directory service.\nLegal basis: Art. 6 (1) (e) GDPR (performance of a task carried out in the public interest).\nRetention period: until the user account is deleted."
     },
     "cookies": {
       "heading": "3. Cookies and local storage",
@@ -1012,12 +1012,12 @@
     },
     "jobs": {
       "heading": "4. Processing of user uploads and job data",
-      "intro": "When you use the AI tools, uploaded files (e.g. documents, audio files, presentations) and the generated results are stored temporarily. For each processing job, the following metadata is also stored:",
+      "intro": "When you use the platform, uploaded files (e.g. videos, PDFs, presentations, audio files) and the results derived from them (e.g. transcripts, summaries) are stored in your workspace. For each processing job, the following metadata is also stored:",
       "item1": "Tool used (e.g. transcription, summary)",
       "item2": "Original file name",
       "item3": "Time of creation and completion",
       "item4": "Processing status",
-      "retention": "Job data and the associated files are automatically deleted after no more than <strong>7 days</strong>."
+      "retention": "Uploaded files and the results derived from them remain stored in your workspace until you or a workspace administrator deletes them. Job metadata for individual processing jobs is automatically removed after no more than <strong>7 days</strong>."
     },
     "thirdParty": {
       "heading": "5. Third parties and external AI services",

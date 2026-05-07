@@ -129,7 +129,7 @@
     "phoneLabel": "Telefon:",
     "emailLabel": "E-Mail:",
     "projectHeading": "Projekt:",
-    "projectBody": "Entwicklung am Institut für Interaktive Systeme (ISy),\nTechnische Hochschule Lübeck.\nQuellcode lizenziert unter Apache-2.0."
+    "projectBody": "Entwicklung am Institut für Interaktive Systeme (ISy),\nTechnische Hochschule Lübeck."
   },
   "wartung": {
     "title": "Wartungsarbeiten",
@@ -995,11 +995,11 @@
     },
     "auth": {
       "heading": "2. Authentifizierung und Nutzerkonto",
-      "intro": "Der Zugang zur Plattform erfolgt über eine LDAP-Authentifizierung. Aktuell wird hierfür ein eigener LDAP-Server genutzt; eine Anbindung an den Verzeichnisdienst der Technischen Hochschule Lübeck ist in Vorbereitung. Folgende Daten werden in unserer Datenbank gespeichert:",
-      "item1": "Benutzername (LDAP-Username)",
+      "intro": "Der Zugang zur Plattform erfolgt über einen Verzeichnisdienst. Folgende Daten werden in unserer Datenbank gespeichert:",
+      "item1": "Benutzername",
       "item2": "Anzeigename (vollständiger Name)",
       "item3": "E-Mail-Adresse",
-      "outro": "Passwörter werden nicht in dieser Plattform gespeichert. Die Authentifizierung erfolgt ausschließlich über den LDAP-Server."
+      "outro": "Passwörter werden nicht auf dieser Plattform gespeichert; die Anmeldung erfolgt ausschließlich gegen den Verzeichnisdienst.\nRechtsgrundlage: Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse).\nSpeicherdauer: bis zur Löschung des Nutzerkontos."
     },
     "cookies": {
       "heading": "3. Cookies und lokale Speicherung",
@@ -1012,12 +1012,12 @@
     },
     "jobs": {
       "heading": "4. Verarbeitung von Nutzer-Uploads und Job-Daten",
-      "intro": "Beim Nutzen der KI-Tools werden hochgeladene Dateien (z. B. Dokumente, Audio-Dateien, Präsentationen) sowie die daraus erzeugten Ergebnisse temporär gespeichert. Zusätzlich wird für jeden Verarbeitungsauftrag (Job) gespeichert:",
+      "intro": "Bei der Nutzung der Plattform werden hochgeladene Dateien (z. B. Videos, PDFs, Präsentationen, Audio-Dateien) sowie die daraus erzeugten Ergebnisse (z. B. Transkripte, Zusammenfassungen) in Ihrem Workspace gespeichert. Pro Verarbeitungsauftrag (Job) wird zusätzlich gespeichert:",
       "item1": "Genutztes Tool (z. B. Transkription, Zusammenfassung)",
       "item2": "Ursprünglicher Dateiname",
       "item3": "Zeitpunkt der Erstellung und Fertigstellung",
       "item4": "Verarbeitungsstatus",
-      "retention": "Job-Daten und zugehörige Dateien werden nach spätestens <strong>7 Tagen</strong> automatisch gelöscht."
+      "retention": "Hochgeladene Dateien und die daraus erzeugten Ergebnisse bleiben in Ihrem Workspace gespeichert, bis Sie oder ein Workspace-Administrator sie löschen. Job-Metadaten zu einzelnen Verarbeitungsaufträgen werden nach spätestens <strong>7 Tagen</strong> automatisch entfernt."
     },
     "thirdParty": {
       "heading": "5. Drittanbieter und externe KI-Dienste",

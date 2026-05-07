@@ -30,7 +30,7 @@ export default function DatenschutzPage() {
               <li>{t("auth.item2")}</li>
               <li>{t("auth.item3")}</li>
             </ul>
-            <p className="text-foreground-soft mt-2">
+            <p className="text-foreground-soft mt-2 whitespace-pre-line">
               {t("auth.outro")}
             </p>
           </section>
