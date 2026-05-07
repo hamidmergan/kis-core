@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { usePathname } from "@/i18n/navigation";
 import {
   Sidebar,
   Translate,
@@ -33,6 +34,7 @@ const STORAGE_KEY = "kis_tools_sidebar_collapsed";
 
 export default function ToolsSidebar() {
   const t = useTranslations("toolsSidebar");
+  const pathname = usePathname();
   const { loaded, isToolEnabled } = useEnabledTools();
   const [userPref, setUserPref] = useState<boolean | null>(null);
   const [isLarge, setIsLarge] = useState(false);
@@ -122,12 +124,14 @@ export default function ToolsSidebar() {
           {tools.map((tool) => {
             const ToolIcon = tool.icon;
             const title = t(`items.${tool.key}`);
+            const isActive = pathname === tool.href || pathname.startsWith(`${tool.href}/`);
             return (
               <li key={tool.key}>
                 <Link
                   href={tool.href}
                   title={effectiveCollapsed ? title : undefined}
-                  className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline transition-colors hover:bg-surface-dim ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`tools-sidebar-item flex items-center gap-3 rounded-lg no-underline transition-colors hover:bg-surface-dim ${isActive ? "is-active" : ""} ${effectiveCollapsed ? "justify-center px-1 py-2" : "px-2 py-2"}`}
                 >
                   <span className="tools-sidebar-item__box flex items-center justify-center flex-shrink-0 w-10 h-10 rounded-lg">
                     <ToolIcon size={18} weight="bold" />

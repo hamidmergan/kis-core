@@ -605,14 +605,19 @@ me-tpc:hover .mm-src-chip {
   color: var(--kb);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.tools-sidebar-item:hover .tools-sidebar-item__box {
+.tools-sidebar-item:hover .tools-sidebar-item__box,
+.tools-sidebar-item.is-active .tools-sidebar-item__box {
   border-color: var(--kb);
   box-shadow: 0 0 0 1px var(--kb);
+}
+.tools-sidebar-item.is-active {
+  background-color: var(--surface-dim);
 }
 :root[data-theme="dark"] .tools-sidebar-item__box {
   color: var(--muted) !important;
 }
-:root[data-theme="dark"] .tools-sidebar-item:hover .tools-sidebar-item__box {
+:root[data-theme="dark"] .tools-sidebar-item:hover .tools-sidebar-item__box,
+:root[data-theme="dark"] .tools-sidebar-item.is-active .tools-sidebar-item__box {
   color: var(--kb) !important;
 }
 
