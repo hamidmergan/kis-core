@@ -6,14 +6,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { Globe, List, Moon, Sidebar, SignOut, Stack, Sun, UserCircleGear, X } from "@phosphor-icons/react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
+import { useTheme } from "@/hooks/useTheme";
 
 interface HeaderMobileMenuProps {
   isAdmin: boolean;
   showToolsToggle?: boolean;
   onLogout: () => void;
 }
-
-type Theme = "light" | "dark";
 
 async function persistLocale(locale: Locale) {
   try {
@@ -33,7 +32,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
   const pathname = usePathname();
   const currentLocale = useLocale() as Locale;
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggle: toggleTheme } = useTheme();
   const ref = useRef<HTMLDivElement>(null);
   const isDark = theme === "dark";
 
@@ -90,7 +89,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
           </button>
           <button
             type="button"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
+            onClick={toggleTheme}
             className={rowClass}
             style={{ color: "var(--foreground)", borderBottom: "1px solid var(--border)" }}
             aria-label={isDark ? t("themeToLightAria") : t("themeToDarkAria")}
