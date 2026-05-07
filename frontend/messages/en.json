@@ -1617,7 +1617,7 @@
       }
     },
     "list": {
-      "headerTitle": "AI internationalization of study programs",
+      "headerTitle": "Hello, {name}",
       "myWorkspaces": "My {label}",
       "createAria": "Create {label}",
       "emptyTitle": "No {label} yet.",

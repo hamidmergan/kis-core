@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Files } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -9,14 +9,24 @@ import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import WorkspaceTable from "./WorkspaceTable";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
+import { checkAuthStatus } from "@/lib/auth";
 import type { AccessLink, KiTutorWorkspace } from "../_shared";
 
 export default function LecturerView() {
   const t = useTranslations("workspace.list");
+  const locale = useLocale();
   const labels = useWorkspaceLabel();
   const [workspaces, setModules] = useState<KiTutorWorkspace[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [firstName, setFirstName] = useState<string>("");
+
+  useEffect(() => {
+    checkAuthStatus().then((s) => {
+      const name = s.display_name?.split(" ")[0] ?? s.username ?? "";
+      setFirstName(name);
+    });
+  }, []);
 
   const loadModules = useCallback(async () => {
     try {
@@ -95,7 +105,20 @@ export default function LecturerView() {
 
       <div className="px-4 sm:px-6 md:px-8 pt-6 pb-20 lg:pt-15 lg:pb-30">
         <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-bold mb-10 lg:mb-16">{t("headerTitle")}</h1>
+          <div className="mb-10 lg:mb-16">
+            <h1 className="text-3xl font-bold min-h-[2.25rem]">
+              {firstName && t("headerTitle", { name: firstName })}
+            </h1>
+            <p className="text-sm text-foreground-soft mt-1">
+              {new Date().toLocaleDateString(locale === "en" ? "en-US" : "de-DE", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                timeZone: "Europe/Berlin",
+              })}
+            </p>
+          </div>
 
           <div className="mb-12">
             <UpcomingDeadlinesWidget />

@@ -1617,7 +1617,7 @@
       }
     },
     "list": {
-      "headerTitle": "KI-Internationalisierung von Studiengängen",
+      "headerTitle": "Hallo, {name}",
       "myWorkspaces": "Meine {label}",
       "createAria": "{label} erstellen",
       "emptyTitle": "Noch keine {label} vorhanden.",
