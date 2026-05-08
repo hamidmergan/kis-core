@@ -395,7 +395,7 @@ export default function KiTutorWorkspacePage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
-  const isLecturer = auth?.role === "lecturer";
+  const isLecturer = !!auth?.permissions?.allow_workspace_create;
   const activeSourceIds = viewerSource ? [viewerSource.uuid] : selectedSourceIds;
 
   const p1Style: React.CSSProperties = panels.quellen

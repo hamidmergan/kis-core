@@ -1,4 +1,4 @@
-export type SystemRole = "admin" | "staff" | "user" | "custom" | "lecturer" | "student";
+export type SystemRole = "admin" | "staff" | "user" | "custom";
 
 export interface UserPermissions {
   allow_admin_panel: boolean;

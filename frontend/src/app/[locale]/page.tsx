@@ -7,15 +7,20 @@ import LecturerView from "./workspace/_components/LecturerView";
 import StudentView from "./workspace/_components/StudentView";
 
 export default function HomePage() {
-  const [role, setRole] = useState<string | null>(null);
+  // null = still loading. true = staff/admin (can create workspaces). false = user role.
+  const [canCreate, setCanCreate] = useState<boolean | null>(null);
 
   useEffect(() => {
-    checkAuthStatus().then((s) => setRole(s.role ?? "lecturer"));
+    checkAuthStatus().then((s) => {
+      setCanCreate(!!s.permissions?.allow_workspace_create);
+    });
   }, []);
 
   return (
     <ProtectedRoute>
-      {role !== null && (role === "lecturer" ? <LecturerView /> : <Suspense><StudentView /></Suspense>)}
+      {canCreate === null ? null : (
+        canCreate ? <LecturerView /> : <Suspense><StudentView /></Suspense>
+      )}
     </ProtectedRoute>
   );
 }
