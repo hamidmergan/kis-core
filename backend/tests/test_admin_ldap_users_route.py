@@ -82,6 +82,27 @@ def test_create_ldap_user_validation_returns_400(client):
     assert r.status_code == 400
 
 
+def test_create_ldap_user_service_error_returns_500(client):
+    from src.ldap_admin import LdapServiceError
+
+    with patch(
+        "src.routes.admin.ldap_users.create_ldap_user",
+        side_effect=LdapServiceError("LDAP service bind failed: connection refused"),
+    ):
+        r = client.post(
+            "/admin/ldap-users",
+            json={
+                "uid": "newone",
+                "given_name": "N",
+                "surname": "O",
+                "email": "n@th-luebeck.de",
+                "employee_type": "staff",
+            },
+        )
+    assert r.status_code == 500
+    assert r.json()["detail"]
+
+
 def test_create_ldap_user_404_when_flag_off(monkeypatch):
     monkeypatch.delenv("LDAP_USER_CREATION_ENABLED", raising=False)
     from src.dependencies import get_admin_user, get_settings

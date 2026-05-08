@@ -63,8 +63,8 @@ ldap_user_creation_enabled: bool = False
   5. Map `entryAlreadyExists` → raise `LdapUserExists`. Other LDAP errors → `LdapAddError`.
   6. Return generated plain password (never logged).
 
-**`backend/src/routes/admin/ldap_users.py`** (new file, mounted under existing `/api/admin` router)
-- `POST /api/admin/ldap-users` — body: `{ uid, given_name, surname, email, employee_type }`.
+**`backend/src/routes/admin/ldap_users.py`** (new file, mounted under the existing `/admin` admin router; the Next.js frontend proxies `/api/*` so the URL the browser sees is `/api/admin/ldap-users`)
+- `POST /admin/ldap-users` (FastAPI path) / `/api/admin/ldap-users` (browser path) — body: `{ uid, given_name, surname, email, employee_type }`.
 - Guards: existing admin dep + check `settings.ldap_user_creation_enabled` → `404` if disabled (so feature is invisible).
 - On success: `200 { uid, generated_password }`.
 - On uid conflict: `409 { detail: t("admin.ldap.userExists") }`.

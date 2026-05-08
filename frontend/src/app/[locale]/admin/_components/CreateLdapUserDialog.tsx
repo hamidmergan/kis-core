@@ -60,7 +60,8 @@ export default function CreateLdapUserDialog({ onClose }: Props) {
         setSuccess({ uid: body.uid, password: body.generated_password });
       } else {
         const body = await r.json().catch(() => ({}));
-        setError(body.detail || t("errorGeneric"));
+        const detail = typeof body?.detail === "string" ? body.detail : null;
+        setError(detail ?? t("errorGeneric"));
       }
     } catch {
       setError(t("errorGeneric"));

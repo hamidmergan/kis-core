@@ -54,7 +54,12 @@ def resolve_user_permissions(
     custom_role_id: int | None,
     is_env_admin: bool,
 ) -> Permissions:
-    """Compute effective permissions, layering the LDAP feature flag on admins."""
+    """Compute effective permissions, layering the LDAP feature flag on admins.
+
+    Note: `get_settings()` is `lru_cache`d, so `ldap_user_creation_enabled`
+    is read once per process and frozen. Toggling the env var requires a
+    backend restart — matches the deploy-time-only flag strategy in the spec.
+    """
     base = _resolve_base_permissions(role, custom_role_id, is_env_admin)
     if base.allow_admin_panel:
         if get_settings().ldap_user_creation_enabled:

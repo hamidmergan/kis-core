@@ -9,7 +9,7 @@ import os
 import re
 import secrets
 
-from ldap3 import ALL, Connection, Server
+from ldap3 import NONE, Connection, Server
 from ldap3.core.exceptions import LDAPException
 
 from src.config import Settings
@@ -107,7 +107,7 @@ def create_ldap_user(
         settings.ldap_server,
         port=settings.ldap_port,
         use_ssl=settings.ldap_use_ssl,
-        get_info=ALL,
+        get_info=NONE,
     )
     try:
         conn = Connection(
