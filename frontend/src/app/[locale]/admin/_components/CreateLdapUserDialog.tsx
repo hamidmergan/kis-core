@@ -1,22 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Copy, Check, Warning } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
 
-type EmployeeType = "staff" | "user";
-
 type Props = {
   onClose: () => void;
 };
+
+type RoleSelection =
+  | { kind: "system"; value: "staff" | "user" }
+  | { kind: "custom"; customRoleId: number };
 
 type FormState = {
   uid: string;
   given_name: string;
   surname: string;
   email: string;
-  employee_type: EmployeeType;
+  role: RoleSelection;
 };
 
 const EMPTY: FormState = {
@@ -24,21 +26,51 @@ const EMPTY: FormState = {
   given_name: "",
   surname: "",
   email: "",
-  employee_type: "staff",
+  role: { kind: "system", value: "staff" },
 };
+
+type CustomRole = { id: number; name: string };
+
+function roleToSelectValue(r: RoleSelection): string {
+  return r.kind === "system" ? r.value : `custom:${r.customRoleId}`;
+}
+
+function roleFromSelectValue(value: string): RoleSelection {
+  if (value === "staff" || value === "user") {
+    return { kind: "system", value };
+  }
+  if (value.startsWith("custom:")) {
+    return { kind: "custom", customRoleId: Number(value.slice("custom:".length)) };
+  }
+  return { kind: "system", value: "staff" };
+}
 
 export default function CreateLdapUserDialog({ onClose }: Props) {
   const t = useTranslations("admin.createLdapUser");
   const [form, setForm] = useState<FormState>(EMPTY);
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ uid: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const employeeTypeOptions = [
-    { value: "staff", label: t("employeeTypeStaff") },
-    { value: "user", label: t("employeeTypeUser") },
-  ];
+  useEffect(() => {
+    fetch("/api/admin/roles", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.custom_roles) setCustomRoles(d.custom_roles);
+      })
+      .catch(() => {});
+  }, []);
+
+  const roleOptions = useMemo(
+    () => [
+      { value: "staff", label: t("roleStaff") },
+      { value: "user", label: t("roleUser") },
+      ...customRoles.map((r) => ({ value: `custom:${r.id}`, label: r.name })),
+    ],
+    [t, customRoles],
+  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -48,19 +80,36 @@ export default function CreateLdapUserDialog({ onClose }: Props) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    const body =
+      form.role.kind === "system"
+        ? {
+            uid: form.uid,
+            given_name: form.given_name,
+            surname: form.surname,
+            email: form.email,
+            kis_role: form.role.value,
+          }
+        : {
+            uid: form.uid,
+            given_name: form.given_name,
+            surname: form.surname,
+            email: form.email,
+            kis_role: "custom",
+            custom_role_id: form.role.customRoleId,
+          };
     try {
       const r = await fetch("/api/admin/ldap-users", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       });
       if (r.ok) {
-        const body = await r.json();
-        setSuccess({ uid: body.uid, password: body.generated_password });
+        const resp = await r.json();
+        setSuccess({ uid: resp.uid, password: resp.generated_password });
       } else {
-        const body = await r.json().catch(() => ({}));
-        const detail = typeof body?.detail === "string" ? body.detail : null;
+        const errBody = await r.json().catch(() => ({}));
+        const detail = typeof errBody?.detail === "string" ? errBody.detail : null;
         setError(detail ?? t("errorGeneric"));
       }
     } catch {
@@ -169,11 +218,11 @@ export default function CreateLdapUserDialog({ onClose }: Props) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs uppercase tracking-wide text-muted">{t("fieldEmployeeType")}</label>
+              <label className="text-xs uppercase tracking-wide text-muted">{t("fieldRole")}</label>
               <Select
-                value={form.employee_type}
-                onChange={(v) => update("employee_type", v as EmployeeType)}
-                options={employeeTypeOptions}
+                value={roleToSelectValue(form.role)}
+                onChange={(v) => update("role", roleFromSelectValue(v))}
+                options={roleOptions}
                 className="w-full"
               />
             </div>

@@ -130,4 +130,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "LDAP-Benutzererstellung ist deaktiviert",
         "en": "LDAP user creation is disabled",
     },
+    "admin.ldap.invalidCustomRole": {
+        "de": "Custom Role nicht gefunden",
+        "en": "Custom role not found",
+    },
+    "admin.ldap.dbWriteFailed": {
+        "de": "LDAP-Eintrag erstellt, aber DB-Anlage fehlgeschlagen. Rolle bitte nach erstem Login manuell zuweisen.",
+        "en": "LDAP entry created but DB record failed. Assign the role manually after the user's first login.",
+    },
 }
