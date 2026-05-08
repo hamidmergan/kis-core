@@ -1,3 +1,12 @@
+export type SystemRole = "admin" | "staff" | "user" | "custom" | "lecturer" | "student";
+
+export interface UserPermissions {
+  allow_admin_panel: boolean;
+  allow_aia: boolean;
+  allow_workspace_create: boolean;
+  tools: string[]; // tool keys
+}
+
 export interface AuthStatus {
   authenticated: boolean;
   user_id?: number;
@@ -5,7 +14,9 @@ export interface AuthStatus {
   display_name?: string;
   email?: string;
   is_admin?: boolean;
-  role?: string;
+  role?: SystemRole;
+  custom_role_id?: number | null;
+  permissions?: UserPermissions;
 }
 
 export interface LoginResponse {
