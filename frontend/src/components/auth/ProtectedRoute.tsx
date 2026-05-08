@@ -40,7 +40,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         return;
       }
       const perms = status.permissions ?? EMPTY_PERMS;
-      const isAiaPath = pathname === "/" || pathname?.startsWith("/workspace/");
+      const isWorkspacePath = pathname?.startsWith("/workspace/");
       const isAdminPath = pathname?.startsWith("/admin");
       const isToolPath = pathname?.startsWith("/tools/");
 
@@ -57,8 +57,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
           return;
         }
       }
-      if (isAiaPath && !perms.allow_aia) {
-        router.replace("/login");
+      if (isWorkspacePath && !perms.allow_aia) {
+        router.replace("/");
         setLoading(false);
         return;
       }

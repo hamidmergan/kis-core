@@ -2,24 +2,37 @@
 
 import { Suspense, useEffect, useState } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import LockedNotice from "@/components/auth/LockedNotice";
 import { checkAuthStatus } from "@/lib/auth";
 import LecturerView from "./workspace/_components/LecturerView";
 import StudentView from "./workspace/_components/StudentView";
 
+type HomeView = "lecturer" | "student" | "tools-only";
+
 export default function HomePage() {
-  // null = still loading. true = staff/admin (can create workspaces). false = user role.
-  const [canCreate, setCanCreate] = useState<boolean | null>(null);
+  const [view, setView] = useState<HomeView | null>(null);
 
   useEffect(() => {
     checkAuthStatus().then((s) => {
-      setCanCreate(!!s.permissions?.allow_workspace_create);
+      const perms = s.permissions;
+      if (perms?.allow_workspace_create) setView("lecturer");
+      else if (perms?.allow_aia) setView("student");
+      else setView("tools-only");
     });
   }, []);
 
   return (
     <ProtectedRoute>
-      {canCreate === null ? null : (
-        canCreate ? <LecturerView /> : <Suspense><StudentView /></Suspense>
+      {view === null ? null : view === "lecturer" ? (
+        <LecturerView />
+      ) : view === "student" ? (
+        <Suspense><StudentView /></Suspense>
+      ) : (
+        <div className="px-4 sm:px-6 md:px-8 pt-10 pb-20">
+          <div className="max-w-2xl mx-auto">
+            <LockedNotice variant="aia" />
+          </div>
+        </div>
       )}
     </ProtectedRoute>
   );
