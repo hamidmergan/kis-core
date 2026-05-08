@@ -20,7 +20,7 @@ class CreateLdapUserPayload(BaseModel):
     given_name: str = Field(..., min_length=1, max_length=64)
     surname: str = Field(..., min_length=1, max_length=64)
     email: str = Field(..., min_length=3, max_length=128)
-    employee_type: str = Field(..., pattern="^(staff|student)$")
+    employee_type: str = Field(..., pattern="^(staff|user)$")
 
 
 @router.post("/ldap-users")

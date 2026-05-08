@@ -17,7 +17,7 @@ from src.config import Settings
 
 _UID_RE = re.compile(r"^[a-z0-9_.-]{2,32}$")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_VALID_EMPLOYEE_TYPES = ("staff", "student")
+_VALID_EMPLOYEE_TYPES = ("staff", "user")
 
 
 class LdapValidationError(ValueError):

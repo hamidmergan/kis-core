@@ -704,7 +704,7 @@
       "fieldEmail": "Email",
       "fieldEmployeeType": "Role",
       "employeeTypeStaff": "Staff",
-      "employeeTypeStudent": "Student",
+      "employeeTypeUser": "User",
       "submit": "Create",
       "cancel": "Cancel",
       "successTitle": "User created",

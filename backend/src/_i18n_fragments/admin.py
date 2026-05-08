@@ -115,8 +115,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Invalid email address",
     },
     "admin.ldap.invalidEmployeeType": {
-        "de": "Rolle muss 'staff' oder 'student' sein",
-        "en": "Role must be 'staff' or 'student'",
+        "de": "Rolle muss 'staff' oder 'user' sein",
+        "en": "Role must be 'staff' or 'user'",
     },
     "admin.ldap.nameRequired": {
         "de": "Vor- und Nachname sind Pflicht",

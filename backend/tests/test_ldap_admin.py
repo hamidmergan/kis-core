@@ -133,7 +133,7 @@ def test_create_ldap_user_conflict_raises(server_mock, conn_cls_mock):
             given_name="A",
             surname="B",
             email="a@b.de",
-            employee_type="student",
+            employee_type="user",
         )
 
 

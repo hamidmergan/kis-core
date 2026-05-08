@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Copy, Check, Warning } from "@phosphor-icons/react";
 import Select from "@/components/ui/Select";
 
-type EmployeeType = "staff" | "student";
+type EmployeeType = "staff" | "user";
 
 type Props = {
   onClose: () => void;
@@ -37,7 +37,7 @@ export default function CreateLdapUserDialog({ onClose }: Props) {
 
   const employeeTypeOptions = [
     { value: "staff", label: t("employeeTypeStaff") },
-    { value: "student", label: t("employeeTypeStudent") },
+    { value: "user", label: t("employeeTypeUser") },
   ];
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
