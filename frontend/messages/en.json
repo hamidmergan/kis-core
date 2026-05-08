@@ -1007,6 +1007,35 @@
       "chatWave": "Hello! Glad you are here. How can I help?",
       "bubbleStateLabel": "Bubble state:",
       "sizesHeading": "Size test (idle)"
+    },
+    "roles": {
+      "tabLabel": "Roles",
+      "title": "Manage roles",
+      "system": "System roles",
+      "systemHint": "System roles are fixed and cannot be edited or deleted.",
+      "custom": "Custom roles",
+      "newRole": "New role",
+      "name": "Name",
+      "allowAia": "AIA access",
+      "tools": "Global tools",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "confirmDelete": "Delete this role? Users with this role will be reset to 'user'.",
+      "userRoleLabel": "Role",
+      "roleAdmin": "Admin",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "roleCustom": "Custom",
+      "envAdminLocked": "The primary admin (from server settings) cannot be changed."
+    }
+  },
+  "permissions": {
+    "locked": {
+      "aia": "This area is locked for your account.",
+      "tool": "This tool is locked for your account.",
+      "workspaceCreate": "You cannot create new workspaces. You only have access to assigned workspaces."
     }
   },
   "privacy": {

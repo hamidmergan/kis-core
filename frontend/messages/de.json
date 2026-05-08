@@ -1007,6 +1007,35 @@
       "chatWave": "Hallo! Schön, dass du da bist. Womit kann ich helfen?",
       "bubbleStateLabel": "Bubble-State:",
       "sizesHeading": "Größen-Test (Idle)"
+    },
+    "roles": {
+      "tabLabel": "Rollen",
+      "title": "Rollen verwalten",
+      "system": "System-Rollen",
+      "systemHint": "System-Rollen sind fest definiert und können nicht bearbeitet oder gelöscht werden.",
+      "custom": "Eigene Rollen",
+      "newRole": "Neue Rolle",
+      "name": "Name",
+      "allowAia": "AIA-Zugriff",
+      "tools": "Globale Tools",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "delete": "Löschen",
+      "edit": "Bearbeiten",
+      "confirmDelete": "Rolle wirklich löschen? Nutzer mit dieser Rolle werden auf 'user' zurückgesetzt.",
+      "userRoleLabel": "Rolle",
+      "roleAdmin": "Admin",
+      "roleStaff": "Mitarbeiter",
+      "roleUser": "Nutzer",
+      "roleCustom": "Custom",
+      "envAdminLocked": "Der Haupt-Admin (aus den Server-Einstellungen) kann nicht geändert werden."
+    }
+  },
+  "permissions": {
+    "locked": {
+      "aia": "Dieser Bereich ist für deinen Account gesperrt.",
+      "tool": "Dieses Tool ist für deinen Account gesperrt.",
+      "workspaceCreate": "Du kannst keine neuen Workspaces erstellen. Du hast nur Zugriff auf zugewiesene Workspaces."
     }
   },
   "privacy": {
