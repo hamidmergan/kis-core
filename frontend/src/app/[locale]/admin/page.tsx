@@ -10,6 +10,7 @@ import {
   CheckCircle,
   GearSix,
   HourglassMedium,
+  IdentificationCard,
   Lightning,
   List,
   ListMagnifyingGlass,
@@ -31,6 +32,7 @@ import PromptsTab from "./_components/PromptsTab";
 import QuotaTab from "./_components/QuotaTab";
 import HildeTab from "./_components/HildeTab";
 import ToolsTab from "./_components/ToolsTab";
+import RolesTab from "./_components/RolesTab";
 import SystemInfoTab from "./_components/SystemInfoTab";
 
 type Tab =
@@ -40,6 +42,7 @@ type Tab =
   | "pending"
   | "whitelist"
   | "users"
+  | "roles"
   | "tools"
   | "jobs"
   | "stats"
@@ -87,6 +90,7 @@ export default function AdminPage() {
         { key: "pending", label: t("nav.pending"), icon: <HourglassMedium {...ICON_PROPS} /> },
         { key: "whitelist", label: t("nav.whitelist"), icon: <CheckCircle {...ICON_PROPS} /> },
         { key: "users", label: t("nav.allUsers"), icon: <Users {...ICON_PROPS} /> },
+        { key: "roles", label: t("roles.tabLabel"), icon: <IdentificationCard {...ICON_PROPS} /> },
       ],
     },
     {
@@ -269,6 +273,7 @@ export default function AdminPage() {
           {tab === "pending" && <PendingTab />}
           {tab === "whitelist" && <WhitelistTab adminEmail={adminEmail} />}
           {tab === "users" && <UsersTab onOpenQuota={openQuotaForUser} />}
+          {tab === "roles" && <RolesTab />}
           {tab === "tools" && <ToolsTab />}
           {tab === "jobs" && <JobsTab />}
           {tab === "stats" && <StatsTab />}

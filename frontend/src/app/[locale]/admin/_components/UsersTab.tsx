@@ -20,6 +20,8 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   const [offset, setOffset] = useState(0);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string; customId: number | null }[]>([]);
+  const [adminEmail, setAdminEmail] = useState<string>("");
 
   const pageSizeOptions = useMemo(
     () => [
@@ -55,6 +57,48 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
       })
       .finally(() => setLoading(false));
   }, [limit, offset, debouncedQ, dateFrom, dateTo]);
+
+  useEffect(() => {
+    fetch("/api/admin/roles", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d) return;
+        const opts = [
+          { value: "admin", label: t("roles.roleAdmin"), customId: null as number | null },
+          { value: "staff", label: t("roles.roleStaff"), customId: null as number | null },
+          { value: "user", label: t("roles.roleUser"), customId: null as number | null },
+          ...d.custom_roles.map((r: { id: number; name: string }) => ({
+            value: `custom:${r.id}`,
+            label: r.name,
+            customId: r.id,
+          })),
+        ];
+        setRoleOptions(opts);
+      });
+    fetch("/auth/status", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((s) => { if (s?.email) setAdminEmail(String(s.email).toLowerCase()); });
+  }, [t]);
+
+  async function changeRole(userId: number, value: string) {
+    const opt = roleOptions.find((o) => o.value === value);
+    if (!opt) return;
+    const role = opt.value.startsWith("custom:") ? "custom" : opt.value;
+    const customRoleId = opt.customId;
+    const res = await fetch(`/api/admin/users/${userId}/role`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, custom_role_id: customRoleId }),
+    });
+    if (res.ok) {
+      setUsers((prev) => prev.map((u) =>
+        u.id === userId
+          ? { ...u, role: role as AdminUser["role"], custom_role_id: customRoleId }
+          : u,
+      ));
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const currentPage = Math.floor(offset / limit) + 1;
@@ -108,6 +152,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                 <th className="px-4 py-3 text-left">{t("users.colName")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colEmail")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colStatus")}</th>
+                <th className="px-4 py-3 text-left">{t("roles.userRoleLabel")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colCreated")}</th>
                 <th className="px-4 py-3 text-left">{t("users.colQuotas")}</th>
               </tr>
@@ -132,6 +177,37 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
                         {t("users.inactive")}
                       </span>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const isEnvAdmin = !!u.email && u.email.toLowerCase() === adminEmail;
+                      const currentValue =
+                        u.role === "custom" && u.custom_role_id != null
+                          ? `custom:${u.custom_role_id}`
+                          : (u.role ?? "user");
+                      if (isEnvAdmin) {
+                        return (
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--muted-soft)" }}
+                            title={t("roles.envAdminLocked")}
+                          >
+                            {t("roles.roleAdmin")}
+                          </span>
+                        );
+                      }
+                      return (
+                        <select
+                          value={currentValue}
+                          onChange={(e) => changeRole(u.id, e.target.value)}
+                          className="text-xs border border-border rounded-md px-2 py-1 bg-background"
+                        >
+                          {roleOptions.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-muted-soft text-xs whitespace-nowrap">
                     {formatDate(u.created_at)}

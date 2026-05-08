@@ -17,6 +17,8 @@ export interface AdminUser {
   email: string | null;
   active: number;
   created_at: string;
+  role?: "admin" | "staff" | "user" | "custom";
+  custom_role_id?: number | null;
 }
 
 export interface AdminJob {
