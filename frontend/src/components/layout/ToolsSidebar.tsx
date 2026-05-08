@@ -78,7 +78,7 @@ export default function ToolsSidebar() {
   const tools = TOOLS.filter((t) => isToolEnabled(t.key) && permissions.tools.includes(t.key));
   if (tools.length === 0) return null;
 
-  const effectiveCollapsed = userPref !== null ? userPref : !isLarge;
+  const effectiveCollapsed = userPref !== null ? userPref : true;
 
   if (isSmartphone && effectiveCollapsed) return null;
 
