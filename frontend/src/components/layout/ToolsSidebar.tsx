@@ -16,6 +16,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { useEnabledTools } from "@/hooks/useEnabledTools";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type SidebarItemKey = "translation" | "tts" | "transcription" | "image" | "summary" | "screencast" | "glossary";
 type SidebarTool = { key: SidebarItemKey; href: string; icon: Icon };
@@ -36,6 +37,7 @@ export default function ToolsSidebar() {
   const t = useTranslations("toolsSidebar");
   const pathname = usePathname();
   const { loaded, isToolEnabled } = useEnabledTools();
+  const { loaded: permsLoaded, permissions } = usePermissions();
   const [userPref, setUserPref] = useState<boolean | null>(null);
   const [isLarge, setIsLarge] = useState(false);
   const [isSmartphone, setIsSmartphone] = useState(false);
@@ -71,9 +73,9 @@ export default function ToolsSidebar() {
     };
   }, []);
 
-  if (!loaded || !hydrated) return null;
+  if (!loaded || !permsLoaded || !hydrated) return null;
 
-  const tools = TOOLS.filter((t) => isToolEnabled(t.key));
+  const tools = TOOLS.filter((t) => isToolEnabled(t.key) && permissions.tools.includes(t.key));
   if (tools.length === 0) return null;
 
   const effectiveCollapsed = userPref !== null ? userPref : !isLarge;

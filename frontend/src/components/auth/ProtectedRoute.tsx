@@ -4,6 +4,27 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import { checkAuthStatus } from "@/lib/auth";
 import Spinner from "@/components/ui/Spinner";
+import { EMPTY_PERMS } from "@/lib/permissions";
+
+const TOOL_KEY_BY_SLUG: Record<string, string> = {
+  translate: "translation",
+  tts: "tts",
+  stt: "transcription",
+  image: "image",
+  summarize: "summary",
+  screencast: "screencast",
+  "screencast-demo": "screencast",
+  glossary: "glossary",
+};
+
+function toolKeyFromPath(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const segs = pathname.split("/").filter(Boolean);
+  const idx = segs.indexOf("tools");
+  if (idx === -1) return null;
+  const slug = segs[idx + 1];
+  return slug ? TOOL_KEY_BY_SLUG[slug] ?? null : null;
+}
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -15,15 +36,33 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     checkAuthStatus().then((status) => {
       if (!status.authenticated) {
         router.replace("/login");
-      } else {
-        const role = status.role ?? "lecturer";
-        const isKiTutor = pathname === "/" || pathname?.startsWith("/workspace/");
-        if (role === "student" && !isKiTutor) {
+        setLoading(false);
+        return;
+      }
+      const perms = status.permissions ?? EMPTY_PERMS;
+      const isAiaPath = pathname === "/" || pathname?.startsWith("/workspace/");
+      const isAdminPath = pathname?.startsWith("/admin");
+      const isToolPath = pathname?.startsWith("/tools/");
+
+      if (isAdminPath && !perms.allow_admin_panel) {
+        router.replace("/");
+        setLoading(false);
+        return;
+      }
+      if (isToolPath) {
+        const key = toolKeyFromPath(pathname);
+        if (key && !perms.tools.includes(key)) {
           router.replace("/");
-        } else {
-          setAuthenticated(true);
+          setLoading(false);
+          return;
         }
       }
+      if (isAiaPath && !perms.allow_aia) {
+        router.replace("/login");
+        setLoading(false);
+        return;
+      }
+      setAuthenticated(true);
       setLoading(false);
     });
   }, [router, pathname]);
@@ -35,10 +74,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       </div>
     );
   }
-
-  if (!authenticated) {
-    return null;
-  }
-
+  if (!authenticated) return null;
   return <>{children}</>;
 }
