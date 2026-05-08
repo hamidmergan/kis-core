@@ -6,6 +6,7 @@ Custom roles store their permissions in the `custom_roles` DB table.
 """
 from dataclasses import dataclass
 
+from src.dependencies import get_settings
 from src.tools_registry import ALL_TOOL_KEYS
 
 SYSTEM_ROLES: tuple[str, ...] = ("admin", "staff", "user")
@@ -56,7 +57,6 @@ def resolve_user_permissions(
     """Compute effective permissions, layering the LDAP feature flag on admins."""
     base = _resolve_base_permissions(role, custom_role_id, is_env_admin)
     if base.allow_admin_panel:
-        from src.dependencies import get_settings
         if get_settings().ldap_user_creation_enabled:
             return Permissions(
                 allow_admin_panel=base.allow_admin_panel,
