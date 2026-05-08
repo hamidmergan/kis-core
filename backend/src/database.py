@@ -6,6 +6,7 @@ from src.core.db._common import _notify_job_update, _de_date_to_utc  # noqa: F40
 from src.limits import MAX_RESULT_FILES, JOB_RETENTION_HOURS  # noqa: F401
 
 from src.features.admin.repository.users import *  # noqa: F401,F403
+from src.features.admin.repository.roles import *  # noqa: F401,F403
 from src.features.admin.repository.settings import *  # noqa: F401,F403
 from src.features.jobs.repository import *  # noqa: F401,F403
 from src.features.quotas.repository import *  # noqa: F401,F403
