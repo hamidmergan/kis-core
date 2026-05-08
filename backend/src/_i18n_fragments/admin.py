@@ -31,6 +31,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Modellname für {key} darf nicht leer sein",
         "en": "Model name for {key} must not be empty",
     },
+    "admin.settings.deepl.keyTooLong": {
+        "de": "DeepL-API-Key ist zu lang (max. 200 Zeichen).",
+        "en": "DeepL API key is too long (max. 200 characters).",
+    },
     # DeepL multi-key admin
     "admin.settings.deepl.invalidKeyId": {
         "de": "Ungültige DeepL-Key-ID.",

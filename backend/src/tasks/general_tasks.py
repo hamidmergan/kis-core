@@ -121,9 +121,11 @@ def run_translate(
             glossary = GlossaryService()  # empty: LLM handles glossary via prompt
         else:
             from src.services.deepl_client import DeepLClient
-            if not settings.deepl_api_key:
-                raise RuntimeError("DeepL API Key nicht konfiguriert")
-            translation_client = DeepLClient(settings.deepl_api_key)
+            from src.dependencies import resolve_deepl_api_key
+            api_key = resolve_deepl_api_key()
+            if not api_key:
+                raise RuntimeError("DeepL API key not configured")
+            translation_client = DeepLClient(api_key)
             glossary = GlossaryService()
             if glossary_entries:
                 glossary.set_entries(glossary_entries)

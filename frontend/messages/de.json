@@ -833,7 +833,19 @@
       "providerKokoro": "Kokoro TTS",
       "providerMylabXtts": "THL myLab (XTTS-v2)",
       "providerMylab": "THL myLab",
-      "providerMylabWhisper3": "THL myLab (Whisper-3-large)"
+      "providerMylabWhisper3": "THL myLab (Whisper-3-large)",
+      "deeplKey": {
+        "title": "DeepL API Key",
+        "hint": "Leer → Standard-Key vom Backend.",
+        "placeholderEmpty": "DeepL API Key eintragen…",
+        "activeEnv": "Aktiv: ••••{last}",
+        "activeEnvNoKey": "Kein Key gesetzt",
+        "activeOverride": "Aktiv: Override (••••{last})",
+        "save": "Speichern",
+        "clear": "Override entfernen",
+        "saving": "Speichern…",
+        "saved": "Gespeichert"
+      }
     },
     "whitelistCard": {
       "title": "Whitelist-Modus",

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import WorkspaceLabelCard from "./WorkspaceLabelCard";
 import WorkspaceExportImportCard from "./WorkspaceExportImportCard";
+import DeeplKeyCard from "./DeeplKeyCard";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { notifyMascotGlobalChanged } from "@/hooks/useHildePref";
 
@@ -266,6 +267,17 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
               );
             })()}
           </ProviderSection>
+
+          <DeeplKeyCard
+            overrideSet={s.deepl_override_set ?? false}
+            overrideLastChars={s.deepl_override_last_chars ?? null}
+            envLastChars={s.deepl_env_last_chars ?? null}
+            onChanged={() => {
+              fetch("/api/admin/settings", { credentials: "include" })
+                .then((r) => r.json())
+                .then((d) => setS(d));
+            }}
+          />
         </>
       )}
 
