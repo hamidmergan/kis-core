@@ -9,6 +9,11 @@ import os
 import re
 import secrets
 
+from ldap3 import ALL, Connection, Server
+from ldap3.core.exceptions import LDAPException
+
+from src.config import Settings
+
 
 _UID_RE = re.compile(r"^[a-z0-9_.-]{2,32}$")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -22,6 +27,14 @@ class LdapValidationError(ValueError):
         super().__init__(f"{field}: {reason}")
         self.field = field
         self.reason = reason
+
+
+class LdapUserExistsError(Exception):
+    """Raised when the uid already exists in the directory."""
+
+
+class LdapServiceError(RuntimeError):
+    """Raised on bind failures or unexpected LDAP add errors."""
 
 
 def _make_ssha_hash(password: str) -> str:
@@ -53,3 +66,70 @@ def validate_inputs(
         raise LdapValidationError("email", "invalid email format")
     if employee_type not in _VALID_EMPLOYEE_TYPES:
         raise LdapValidationError("employee_type", f"must be one of {_VALID_EMPLOYEE_TYPES}")
+
+
+def create_ldap_user(
+    *,
+    settings: Settings,
+    uid: str,
+    given_name: str,
+    surname: str,
+    email: str,
+    employee_type: str,
+) -> str:
+    """Add an inetOrgPerson under ou=people. Return the generated plain password.
+
+    The password is hashed to {SSHA} before it leaves this function.
+    The plaintext is returned to the caller exactly once and must NOT be logged
+    or persisted.
+    """
+    validate_inputs(
+        uid=uid,
+        given_name=given_name,
+        surname=surname,
+        email=email,
+        employee_type=employee_type,
+    )
+
+    plain_password = _generate_password()
+    hashed = _make_ssha_hash(plain_password)
+    dn = f"uid={uid},ou=people,{settings.ldap_base_dn}"
+    attrs = {
+        "uid": uid,
+        "cn": f"{given_name.strip()} {surname.strip()}",
+        "sn": surname.strip(),
+        "mail": email,
+        "userPassword": hashed,
+        "employeeType": employee_type,
+    }
+
+    server = Server(
+        settings.ldap_server,
+        port=settings.ldap_port,
+        use_ssl=settings.ldap_use_ssl,
+        get_info=ALL,
+    )
+    try:
+        conn = Connection(
+            server,
+            user=settings.ldap_bind_dn,
+            password=settings.ldap_bind_password,
+            auto_bind=True,
+        )
+    except LDAPException as e:
+        raise LdapServiceError(f"LDAP service bind failed: {e}") from e
+
+    try:
+        ok = conn.add(dn, ["inetOrgPerson"], attrs)
+        if ok:
+            return plain_password
+
+        desc = (conn.result or {}).get("description", "")
+        if desc == "entryAlreadyExists":
+            raise LdapUserExistsError(uid)
+        raise LdapServiceError(f"LDAP add failed: {desc or conn.result!r}")
+    finally:
+        try:
+            conn.unbind()
+        except LDAPException:
+            pass

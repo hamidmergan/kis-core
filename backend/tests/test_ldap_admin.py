@@ -63,3 +63,94 @@ def test_validate_inputs_rejects_blank_names():
         validate_inputs(uid="ok", given_name="", surname="B", email="a@b.de", employee_type="staff")
     with pytest.raises(LdapValidationError):
         validate_inputs(uid="ok", given_name="A", surname="", email="a@b.de", employee_type="staff")
+
+
+from unittest.mock import MagicMock, patch
+
+from src.ldap_admin import (
+    LdapUserExistsError,
+    LdapServiceError,
+    create_ldap_user,
+)
+
+
+def _fake_settings(**overrides):
+    base = MagicMock()
+    base.ldap_server = "ldap://openldap"
+    base.ldap_port = 389
+    base.ldap_use_ssl = False
+    base.ldap_base_dn = "dc=th-luebeck,dc=de"
+    base.ldap_bind_dn = "cn=admin,dc=th-luebeck,dc=de"
+    base.ldap_bind_password = "admin"
+    base.ldap_attr_username = "uid"
+    for k, v in overrides.items():
+        setattr(base, k, v)
+    return base
+
+
+@patch("src.ldap_admin.Connection")
+@patch("src.ldap_admin.Server")
+def test_create_ldap_user_happy_path(server_mock, conn_cls_mock):
+    conn = MagicMock()
+    conn.add.return_value = True
+    conn.result = {"description": "success"}
+    conn_cls_mock.return_value = conn
+
+    pw = create_ldap_user(
+        settings=_fake_settings(),
+        uid="newuser",
+        given_name="New",
+        surname="User",
+        email="new@th-luebeck.de",
+        employee_type="staff",
+    )
+
+    assert isinstance(pw, str) and len(pw) >= 16
+    conn.add.assert_called_once()
+    dn, classes, attrs = conn.add.call_args.args
+    assert dn == "uid=newuser,ou=people,dc=th-luebeck,dc=de"
+    assert "inetOrgPerson" in classes
+    assert attrs["uid"] == "newuser"
+    assert attrs["cn"] == "New User"
+    assert attrs["sn"] == "User"
+    assert attrs["mail"] == "new@th-luebeck.de"
+    assert attrs["employeeType"] == "staff"
+    assert attrs["userPassword"].startswith("{SSHA}")
+
+
+@patch("src.ldap_admin.Connection")
+@patch("src.ldap_admin.Server")
+def test_create_ldap_user_conflict_raises(server_mock, conn_cls_mock):
+    conn = MagicMock()
+    conn.add.return_value = False
+    conn.result = {"description": "entryAlreadyExists", "result": 68}
+    conn_cls_mock.return_value = conn
+
+    with pytest.raises(LdapUserExistsError):
+        create_ldap_user(
+            settings=_fake_settings(),
+            uid="existing",
+            given_name="A",
+            surname="B",
+            email="a@b.de",
+            employee_type="student",
+        )
+
+
+@patch("src.ldap_admin.Connection")
+@patch("src.ldap_admin.Server")
+def test_create_ldap_user_other_failure_raises_service_error(server_mock, conn_cls_mock):
+    conn = MagicMock()
+    conn.add.return_value = False
+    conn.result = {"description": "insufficientAccessRights", "result": 50}
+    conn_cls_mock.return_value = conn
+
+    with pytest.raises(LdapServiceError):
+        create_ldap_user(
+            settings=_fake_settings(),
+            uid="ok",
+            given_name="A",
+            surname="B",
+            email="a@b.de",
+            employee_type="staff",
+        )
