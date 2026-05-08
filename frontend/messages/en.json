@@ -694,6 +694,27 @@
       "inactive": "Inactive",
       "details": "Details"
     },
+    "createLdapUser": {
+      "buttonLabel": "+ Add user",
+      "title": "Create LDAP user",
+      "fieldUid": "Username (uid)",
+      "fieldUidHint": "Lowercase, digits, _ . -, 2-32 characters",
+      "fieldGivenName": "First name",
+      "fieldSurname": "Last name",
+      "fieldEmail": "Email",
+      "fieldEmployeeType": "Role",
+      "employeeTypeStaff": "Staff",
+      "employeeTypeStudent": "Student",
+      "submit": "Create",
+      "cancel": "Cancel",
+      "successTitle": "User created",
+      "successPasswordLabel": "Initial password",
+      "successCopyButton": "Copy",
+      "successCopied": "Copied!",
+      "successWarning": "This password is shown ONCE. Copy or write it down before closing the dialog.",
+      "successClose": "Close",
+      "errorGeneric": "Creation failed"
+    },
     "jobs": {
       "searchPlaceholder": "Search: user, tool, file...",
       "from": "From",

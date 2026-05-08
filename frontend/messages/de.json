@@ -694,6 +694,27 @@
       "inactive": "Inaktiv",
       "details": "Details"
     },
+    "createLdapUser": {
+      "buttonLabel": "+ Benutzer anlegen",
+      "title": "LDAP-Benutzer anlegen",
+      "fieldUid": "Benutzername (uid)",
+      "fieldUidHint": "Kleinbuchstaben, Zahlen, _ . -, 2-32 Zeichen",
+      "fieldGivenName": "Vorname",
+      "fieldSurname": "Nachname",
+      "fieldEmail": "E-Mail",
+      "fieldEmployeeType": "Rolle",
+      "employeeTypeStaff": "Mitarbeitend (staff)",
+      "employeeTypeStudent": "Studierende:r (student)",
+      "submit": "Anlegen",
+      "cancel": "Abbrechen",
+      "successTitle": "Benutzer angelegt",
+      "successPasswordLabel": "Initial-Passwort",
+      "successCopyButton": "Kopieren",
+      "successCopied": "Kopiert!",
+      "successWarning": "Dieses Passwort wird NUR JETZT angezeigt. Notiere oder kopiere es, bevor du den Dialog schließt.",
+      "successClose": "Schließen",
+      "errorGeneric": "Anlegen fehlgeschlagen"
+    },
     "jobs": {
       "searchPlaceholder": "Suche: User, Tool, Datei...",
       "from": "Von",
