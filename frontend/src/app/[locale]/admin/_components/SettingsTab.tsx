@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import WorkspaceLabelCard from "./WorkspaceLabelCard";
+import WorkspaceExportImportCard from "./WorkspaceExportImportCard";
 import { useWorkspaceLabel } from "@/hooks/useWorkspaceLabel";
 import { notifyMascotGlobalChanged } from "@/hooks/useHildePref";
 
@@ -645,6 +646,7 @@ function SystemPane() {
       <WhitelistCard />
       <WorkspaceLabelCard />
       <MascotCard />
+      <WorkspaceExportImportCard />
     </div>
   );
 }

@@ -6,6 +6,7 @@ admin.router`) continue to work unchanged."""
 
 from fastapi import APIRouter
 
+from src.routes.admin.aia_workspaces import router as _aia_workspaces_router
 from src.routes.admin.jobs import router as _jobs_router
 from src.routes.admin.maintenance import router as _maintenance_router
 from src.routes.admin.prompts import router as _prompts_router
@@ -26,5 +27,6 @@ router.include_router(_jobs_router)
 router.include_router(_prompts_router)
 router.include_router(_quota_router)
 router.include_router(_system_info_router)
+router.include_router(_aia_workspaces_router)
 
 __all__ = ["router"]

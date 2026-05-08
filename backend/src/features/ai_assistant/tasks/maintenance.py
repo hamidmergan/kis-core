@@ -119,3 +119,73 @@ def run_reindex_all_sources(self):
     }))
     logger.info("KI Tutor reindex: finished ({} ok, {} failed)", done - failed, failed)
 
+
+@celery_app.task(bind=True, name="aia.reindex_workspace", queue="aia")
+def run_reindex_workspace(self, workspace_uuid: str):
+    """Re-embed every chunk of one workspace with the current embedding provider.
+
+    Used after a workspace import where the bundled embedding model differs from
+    the active one — the import permissively loads chunks+vectors, this task
+    rewrites them to match the current provider.
+    """
+    import json as _json
+    from src.services.aia_embeddings import get_embedding_provider, compute_fingerprint
+
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if workspace is None:
+        logger.warning("KI Tutor reindex-workspace: {} not found", workspace_uuid)
+        return
+
+    provider = get_embedding_provider()
+    fingerprint = compute_fingerprint(provider)
+    embedding_model = provider.model_name
+
+    sources = db.get_aia_sources_by_workspace(workspace["id"])
+    progress_key = f"reindex_workspace_progress_{workspace_uuid}"
+    total = len(sources)
+    done = 0
+    failed = 0
+
+    def _set_progress(current: str):
+        db.set_setting(progress_key, _json.dumps({
+            "total": total, "done": done, "current": current, "failed": failed,
+            "running": True,
+        }))
+
+    _set_progress("start")
+    logger.info("KI Tutor reindex-workspace {}: {} sources", workspace_uuid, total)
+
+    for source in sources:
+        source_uuid = source["uuid"]
+        filename = source.get("filename") or ""
+        try:
+            _set_progress(filename)
+            chunks = db.get_aia_chunks_by_source(source["id"])
+            if chunks:
+                _BATCH = 20
+                for i in range(0, len(chunks), _BATCH):
+                    batch = chunks[i: i + _BATCH]
+                    vectors = provider.embed([c["content"] for c in batch])
+                    for c, vec in zip(batch, vectors):
+                        db.update_chunk_embedding(c["id"], vec)
+            db.update_aia_source_status(source_uuid, "ready", embedding_model=embedding_model)
+        except Exception as e:
+            failed += 1
+            logger.error("KI Tutor reindex-workspace: source {} failed: {}", source_uuid, e)
+            db.update_aia_source_status(source_uuid, "failed", error_message=str(e))
+        finally:
+            done += 1
+            _set_progress(filename)
+
+    db.update_aia_workspace_status(
+        workspace_uuid, "ready",
+        embedding_model=embedding_model,
+        embedding_fingerprint=fingerprint,
+    )
+    db.set_setting(progress_key, _json.dumps({
+        "total": total, "done": done, "current": "done", "failed": failed,
+        "running": False,
+    }))
+    logger.info("KI Tutor reindex-workspace {}: done ({} ok, {} failed)",
+                workspace_uuid, done - failed, failed)
+
