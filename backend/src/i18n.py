@@ -36,6 +36,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Admin-Zugriff erforderlich",
         "en": "Admin access required",
     },
+    "auth.aiaForbidden": {
+        "de": "Du hast keinen Zugriff auf den AIA-Bereich.",
+        "en": "You do not have access to the AIA area.",
+    },
+    "auth.workspaceCreateForbidden": {
+        "de": "Du darfst keine neuen Workspaces erstellen.",
+        "en": "You may not create new workspaces.",
+    },
+    "auth.toolForbidden": {
+        "de": "Du darfst dieses Tool nicht nutzen.",
+        "en": "You may not use this tool.",
+    },
     # Common errors (broadly reused across feature routes)
     "workspace.notFound": {"de": "Modul nicht gefunden", "en": "Workspace not found"},
     "workspace.accessDenied": {"de": "Kein Zugriff", "en": "Access denied"},

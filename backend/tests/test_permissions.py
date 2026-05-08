@@ -36,3 +36,22 @@ def test_unknown_role_raises():
     import pytest
     with pytest.raises(ValueError):
         permissions_for_system_role("ninja")
+
+
+from src.permissions import resolve_user_permissions
+
+
+def test_env_admin_overrides_any_role():
+    perms = resolve_user_permissions(role="user", custom_role_id=None, is_env_admin=True)
+    assert perms.allow_admin_panel is True
+
+
+def test_unknown_role_falls_back_to_user():
+    perms = resolve_user_permissions(role="banana", custom_role_id=None, is_env_admin=False)
+    assert perms.allow_admin_panel is False
+    assert perms.tools == ()
+
+
+def test_custom_role_without_id_falls_back_to_user():
+    perms = resolve_user_permissions(role="custom", custom_role_id=None, is_env_admin=False)
+    assert perms.tools == ()

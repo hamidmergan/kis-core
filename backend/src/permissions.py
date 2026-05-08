@@ -44,6 +44,32 @@ def permissions_for_system_role(role: str) -> Permissions:
     raise ValueError(f"Unknown system role: {role!r}")
 
 
+def resolve_user_permissions(
+    role: str,
+    custom_role_id: int | None,
+    is_env_admin: bool,
+) -> Permissions:
+    """Compute effective permissions for a session.
+
+    env-admin always wins (bootstrap super-admin). Otherwise: system role
+    constants, or DB-backed custom role.
+    """
+    if is_env_admin:
+        return permissions_for_system_role("admin")
+    if role in SYSTEM_ROLES:
+        return permissions_for_system_role(role)
+    if role == "custom" and custom_role_id is not None:
+        # Lazy import to avoid pulling psycopg2 at module import time.
+        from src import database
+        cr = database.get_custom_role(custom_role_id)
+        if cr is None:
+            # Custom role was deleted concurrently; degrade gracefully to 'user'.
+            return permissions_for_system_role("user")
+        return custom_role_permissions(cr["allow_aia"], cr["allowed_tools"])
+    # Unknown / corrupt role -> safest fallback
+    return permissions_for_system_role("user")
+
+
 def custom_role_permissions(allow_aia: bool, tool_keys: list[str]) -> Permissions:
     """Permissions for a DB-backed custom role.
 
