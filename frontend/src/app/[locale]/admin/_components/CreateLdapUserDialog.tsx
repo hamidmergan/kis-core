@@ -177,7 +177,7 @@ export default function CreateLdapUserDialog({ onClose }: Props) {
                 required
                 value={form.uid}
                 onChange={(e) => update("uid", e.target.value.toLowerCase())}
-                pattern="[a-z0-9_.-]{2,32}"
+                pattern="[a-z0-9_.\-]{2,32}"
                 className="w-full text-sm border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-kb font-mono"
               />
               <p className="text-xs text-muted-soft">{t("fieldUidHint")}</p>

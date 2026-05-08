@@ -1046,8 +1046,8 @@
       "confirmDelete": "Rolle wirklich löschen? Nutzer mit dieser Rolle werden auf 'user' zurückgesetzt.",
       "userRoleLabel": "Rolle",
       "roleAdmin": "Admin",
-      "roleStaff": "Mitarbeiter",
-      "roleUser": "Nutzer",
+      "roleStaff": "Staff",
+      "roleUser": "User",
       "roleCustom": "Custom",
       "envAdminLocked": "Der Haupt-Admin (aus den Server-Einstellungen) kann nicht geändert werden."
     }
