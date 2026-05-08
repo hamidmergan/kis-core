@@ -8,6 +8,7 @@ import Spinner from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/format";
 import type { AdminUser } from "../_shared";
+import CreateLdapUserDialog from "./CreateLdapUserDialog";
 
 export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number) => void }) {
   const t = useTranslations("admin");
@@ -22,6 +23,9 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
   const [dateTo, setDateTo] = useState("");
   const [roleOptions, setRoleOptions] = useState<{ value: string; label: string; customId: number | null }[]>([]);
   const [adminEmail, setAdminEmail] = useState<string>("");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [allowLdapCreate, setAllowLdapCreate] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const pageSizeOptions = useMemo(
     () => [
@@ -56,7 +60,7 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
         setTotal(d.total ?? 0);
       })
       .finally(() => setLoading(false));
-  }, [limit, offset, debouncedQ, dateFrom, dateTo]);
+  }, [limit, offset, debouncedQ, dateFrom, dateTo, refreshKey]);
 
   useEffect(() => {
     fetch("/api/admin/roles", { credentials: "include" })
@@ -77,7 +81,10 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
       });
     fetch("/auth/status", { credentials: "include" })
       .then((r) => r.ok ? r.json() : null)
-      .then((s) => { if (s?.email) setAdminEmail(String(s.email).toLowerCase()); });
+      .then((s) => {
+        if (s?.email) setAdminEmail(String(s.email).toLowerCase());
+        setAllowLdapCreate(Boolean(s?.permissions?.allow_ldap_user_create));
+      });
   }, [t]);
 
   async function changeRole(userId: number, value: string) {
@@ -134,6 +141,15 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
           className="w-40"
         />
         <span className="text-xs text-muted-soft whitespace-nowrap">{t("users.totalUsers", { n: total })}</span>
+        {allowLdapCreate && (
+          <button
+            type="button"
+            onClick={() => setShowCreateDialog(true)}
+            className="px-3 py-2 text-sm bg-kb text-white rounded-md whitespace-nowrap"
+          >
+            {t("createLdapUser.buttonLabel")}
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -264,6 +280,13 @@ export default function UsersTab({ onOpenQuota }: { onOpenQuota: (userId: number
             ›
           </button>
         </div>
+      )}
+
+      {showCreateDialog && (
+        <CreateLdapUserDialog onClose={() => {
+          setShowCreateDialog(false);
+          setRefreshKey((k) => k + 1);
+        }} />
       )}
     </div>
   );
