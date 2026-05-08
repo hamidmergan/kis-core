@@ -145,6 +145,7 @@ async def auth_status(request: Request):
             "allow_admin_panel": perms.allow_admin_panel,
             "allow_aia": perms.allow_aia,
             "allow_workspace_create": perms.allow_workspace_create,
+            "allow_ldap_user_create": perms.allow_ldap_user_create,
             "tools": list(perms.tools),
         },
     }

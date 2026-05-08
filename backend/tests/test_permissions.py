@@ -55,3 +55,55 @@ def test_unknown_role_falls_back_to_user():
 def test_custom_role_without_id_falls_back_to_user():
     perms = resolve_user_permissions(role="custom", custom_role_id=None, is_env_admin=False)
     assert perms.tools == ()
+
+
+def test_admin_has_ldap_user_create_when_flag_on(monkeypatch):
+    from src.dependencies import get_settings
+    from src.permissions import resolve_user_permissions
+
+    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    get_settings.cache_clear()
+    try:
+        perms = resolve_user_permissions(role="admin", custom_role_id=None, is_env_admin=False)
+        assert perms.allow_ldap_user_create is True
+    finally:
+        get_settings.cache_clear()
+
+
+def test_staff_does_not_get_ldap_user_create_even_with_flag(monkeypatch):
+    from src.dependencies import get_settings
+    from src.permissions import resolve_user_permissions
+
+    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    get_settings.cache_clear()
+    try:
+        perms = resolve_user_permissions(role="staff", custom_role_id=None, is_env_admin=False)
+        assert perms.allow_ldap_user_create is False
+    finally:
+        get_settings.cache_clear()
+
+
+def test_admin_no_ldap_user_create_when_flag_off(monkeypatch):
+    from src.dependencies import get_settings
+    from src.permissions import resolve_user_permissions
+
+    monkeypatch.delenv("LDAP_USER_CREATION_ENABLED", raising=False)
+    get_settings.cache_clear()
+    try:
+        perms = resolve_user_permissions(role="admin", custom_role_id=None, is_env_admin=False)
+        assert perms.allow_ldap_user_create is False
+    finally:
+        get_settings.cache_clear()
+
+
+def test_env_admin_gets_ldap_user_create_when_flag_on(monkeypatch):
+    from src.dependencies import get_settings
+    from src.permissions import resolve_user_permissions
+
+    monkeypatch.setenv("LDAP_USER_CREATION_ENABLED", "true")
+    get_settings.cache_clear()
+    try:
+        perms = resolve_user_permissions(role="user", custom_role_id=None, is_env_admin=True)
+        assert perms.allow_ldap_user_create is True
+    finally:
+        get_settings.cache_clear()
