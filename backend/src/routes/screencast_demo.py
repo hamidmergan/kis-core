@@ -22,11 +22,15 @@ from loguru import logger
 from pydantic import BaseModel
 
 from src.dependencies import get_current_user
+from src.dependencies_rbac import require_tool_access
 from src.i18n import get_locale, t
 from src.limits import BUNDLE_INCLUDE_AUDIO, BUNDLE_INCLUDE_IMAGES
 from src.storage import _S3_BUCKET, _s3
 
-router = APIRouter(tags=["screencast-demo"])
+router = APIRouter(
+    tags=["screencast-demo"],
+    dependencies=[Depends(require_tool_access("screencast"))],
+)
 
 DEMO_DIR = Path(__file__).resolve().parent.parent.parent / "demo"
 _S3_DEMO_PREFIX = "demo"

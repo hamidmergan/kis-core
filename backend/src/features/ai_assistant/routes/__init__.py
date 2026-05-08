@@ -1,7 +1,8 @@
 """Aggregates all KI-Assistent sub-routers into one umbrella router."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from src.dependencies_rbac import require_aia_access
 from src.features.ai_assistant.routes import (
     popup,
     workspaces,
@@ -23,7 +24,7 @@ from src.features.ai_assistant.routes.language_training import (
     diagnosis,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_aia_access)])
 
 for m in [
     popup, workspaces, sources, chat, messages, notes, glossary,

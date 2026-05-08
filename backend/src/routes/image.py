@@ -12,8 +12,12 @@ from src.limits import MAX_IMAGE_BYTES
 from src.utils.file_validation import validate_or_raise
 from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
+from src.dependencies_rbac import require_tool_access
 
-router = APIRouter(tags=["image"])
+router = APIRouter(
+    tags=["image"],
+    dependencies=[Depends(require_tool_access("image"))],
+)
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 
 

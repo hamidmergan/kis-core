@@ -15,8 +15,12 @@ from src.storage import save_queue_file
 from src.services.elevenlabs_client import DEFAULT_VOICE_ID
 from src.utils.file_validation import TTS_EXTENSIONS, MAX_UPLOAD_BYTES, TTS_MAX_CHARS, validate_or_raise
 from src.utils.text_extraction import EXTRACTORS
+from src.dependencies_rbac import require_tool_access
 
-router = APIRouter(tags=["tts"])
+router = APIRouter(
+    tags=["tts"],
+    dependencies=[Depends(require_tool_access("tts"))],
+)
 
 
 # ---------- Routes ----------

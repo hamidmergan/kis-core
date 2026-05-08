@@ -19,8 +19,12 @@ from src.utils.file_validation import (
     validate_or_raise,
 )
 from src.utils.text_extraction import EXTRACTORS
+from src.dependencies_rbac import require_tool_access
 
-router = APIRouter(tags=["summary"])
+router = APIRouter(
+    tags=["summary"],
+    dependencies=[Depends(require_tool_access("summary"))],
+)
 
 _OUTPUT_MIME = {
     "txt": "text/plain; charset=utf-8",

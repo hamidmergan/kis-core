@@ -47,11 +47,15 @@ from src.features.ai_assistant.routes._helpers import (
     _MEDIA_EXTENSIONS,
     _MAX_UPLOAD_BYTES,
 )
+from src.dependencies_rbac import require_workspace_create
 from src.features.ai_assistant import schemas
 
 router = APIRouter(tags=["ki-assistent: workspaces"])
 
-@router.post("/ai-assistant/workspaces")
+@router.post(
+    "/ai-assistant/workspaces",
+    dependencies=[Depends(require_workspace_create)],
+)
 async def create_workspace(
     title: str = Form(..., max_length=100),
     description: Optional[str] = Form(None, max_length=300),

@@ -13,8 +13,12 @@ from src.quotas import enforce_quota
 from src.security.rate_limit import enforce_tool_burst
 from src.storage import save_queue_file
 from src.utils.file_validation import MAX_TRANSCRIPTION_BYTES, TRANSCRIPTION_EXTENSIONS, validate_or_raise
+from src.dependencies_rbac import require_tool_access
 
-router = APIRouter(tags=["transcription"])
+router = APIRouter(
+    tags=["transcription"],
+    dependencies=[Depends(require_tool_access("transcription"))],
+)
 
 
 
