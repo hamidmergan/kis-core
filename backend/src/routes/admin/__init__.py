@@ -11,6 +11,7 @@ from src.routes.admin.jobs import router as _jobs_router
 from src.routes.admin.maintenance import router as _maintenance_router
 from src.routes.admin.prompts import router as _prompts_router
 from src.routes.admin.quota import router as _quota_router
+from src.routes.admin.roles import router as _roles_router
 from src.routes.admin.settings import router as _settings_router
 from src.routes.admin.stats import router as _stats_router
 from src.routes.admin.system_info import router as _system_info_router
@@ -28,5 +29,6 @@ router.include_router(_prompts_router)
 router.include_router(_quota_router)
 router.include_router(_system_info_router)
 router.include_router(_aia_workspaces_router)
+router.include_router(_roles_router)
 
 __all__ = ["router"]

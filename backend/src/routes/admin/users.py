@@ -1,9 +1,10 @@
 """User-Management: Liste/Approve und Whitelist-Verwaltung."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from src import database as db
-from src.dependencies import get_admin_user
+from src.dependencies import get_admin_user, get_settings
 from src.i18n import get_locale, t
 
 from src.routes.admin._models import AddWhitelistRequest
@@ -89,3 +90,38 @@ async def remove_whitelist(
     db.remove_from_whitelist(email)
     db.deactivate_user_by_email(email)
     return {"ok": True}
+
+
+# ── User Role Assignment ───────────────────────────────────────────────────────
+
+class UpdateUserRoleBody(BaseModel):
+    role: str
+    custom_role_id: int | None = None
+
+
+@router.post("/users/{user_id}/role")
+async def update_user_role(
+    user_id: int,
+    body: UpdateUserRoleBody,
+    _admin=Depends(get_admin_user),
+):
+    """Update a user's role.
+
+    Safety rules:
+    - Cannot change the env-admin's role.
+    - Other users may be freely assigned admin/staff/user/custom.
+    """
+    target = db.get_user_by_id(user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    settings = get_settings()
+    target_email = (target.get("email") or "").lower()
+    if settings.admin_email and target_email == settings.admin_email.lower():
+        raise HTTPException(status_code=400, detail="Cannot change role of the env-admin")
+
+    try:
+        db.set_user_role(user_id, body.role, body.custom_role_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "ok"}
