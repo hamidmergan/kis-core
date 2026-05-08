@@ -29,7 +29,7 @@ def get_user_by_id(user_id: int):
             cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
             return cur.fetchone()
 
-def create_user(ldap_username: str, display_name: str, email: str, active: int, role: str = "lecturer") -> int:
+def create_user(ldap_username: str, display_name: str, email: str, active: int, role: str = "user") -> int:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -40,12 +40,15 @@ def create_user(ldap_username: str, display_name: str, email: str, active: int, 
         conn.commit()
         return user_id
 
-def update_user(user_id: int, display_name: str, email: str, active: int, role: str = "lecturer") -> None:
+def update_user(user_id: int, display_name: str, email: str, active: int) -> None:
+    """Update a user's profile fields. Role and custom_role_id are NOT touched here;
+    role mutation goes through `set_user_role` (see roles repository).
+    """
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE users SET display_name = %s, email = %s, active = %s, role = %s WHERE id = %s",
-                (display_name, email, active, role, user_id),
+                "UPDATE users SET display_name = %s, email = %s, active = %s WHERE id = %s",
+                (display_name, email, active, user_id),
             )
         conn.commit()
 

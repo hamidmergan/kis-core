@@ -30,18 +30,22 @@ async def get_current_user(request: Request) -> dict:
 
 
 def is_admin_user(user: dict) -> bool:
-    """Return True if the user is the configured admin."""
+    """Return True if the user is admin: env-admin OR has 'admin' role in session."""
     settings = get_settings()
-    email = user.get("email", "")
-    return bool(email and email.lower() == settings.admin_email.lower())
+    email = (user.get("email") or "").lower()
+    if email and settings.admin_email and email == settings.admin_email.lower():
+        return True
+    return user.get("role") == "admin"
 
 
 async def get_admin_user(request: Request, locale: str = Depends(get_locale)) -> dict:
-    """Like get_current_user, but raises 403 if the user is not the admin."""
+    """Like get_current_user, but raises 403 if the user is not an admin.
+
+    Kept for backwards compat with existing admin routes; equivalent in effect to
+    require_admin from dependencies_rbac.
+    """
     user = await get_current_user(request)
-    settings = get_settings()
-    email = user.get("email", "")
-    if not email or email.lower() != settings.admin_email.lower():
+    if not is_admin_user(user):
         raise HTTPException(status_code=403, detail=t("auth.adminRequired", locale))
     return user
 

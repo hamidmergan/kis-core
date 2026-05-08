@@ -34,7 +34,17 @@ async def login(body: LoginRequest, response: Response, locale: str = Depends(ge
     ldap_username = ldap_user["username"]  # confirmed by LDAP, not from body
     display_name = ldap_user["fullname"] or ldap_username
     email = ldap_user["email"] or None  # store NULL instead of empty string
-    role = ldap_user.get("role", "lecturer")
+
+    # LDAP-supplied role used only as initial value for brand-new users.
+    raw_ldap_role = ldap_user.get("role", "user")
+    if raw_ldap_role == "lecturer":
+        ldap_role_default = "staff"
+    elif raw_ldap_role == "student":
+        ldap_role_default = "user"
+    elif raw_ldap_role in ("admin", "staff", "user"):
+        ldap_role_default = raw_ldap_role
+    else:
+        ldap_role_default = "user"
 
     # Maintenance gate: only admin may sign in while maintenance is on.
     maintenance_on = database.get_setting("maintenance_mode", "false").lower() == "true"
@@ -52,10 +62,16 @@ async def login(body: LoginRequest, response: Response, locale: str = Depends(ge
     # Step 3: Sync user with database (create or update)
     db_user = database.get_user_by_username(ldap_username)
     if db_user is None:
-        user_id = database.create_user(ldap_username, display_name, email, active, role)
+        user_id = database.create_user(
+            ldap_username, display_name, email, active, ldap_role_default
+        )
+        effective_role = ldap_role_default
+        custom_role_id = None
     else:
         user_id = db_user["id"]
-        database.update_user(user_id, display_name, email, active, role)
+        database.update_user(user_id, display_name, email, active)  # role left intact
+        effective_role = db_user.get("role") or "user"
+        custom_role_id = db_user.get("custom_role_id")
 
     # Step 4: Check whitelist
     if not active:
@@ -69,7 +85,8 @@ async def login(body: LoginRequest, response: Response, locale: str = Depends(ge
         "username": ldap_username,
         "display_name": display_name,
         "email": email or "",
-        "role": role,
+        "role": effective_role,
+        "custom_role_id": custom_role_id,
     })
     response.set_cookie(
         key="session",
@@ -79,7 +96,7 @@ async def login(body: LoginRequest, response: Response, locale: str = Depends(ge
         max_age=86400,
         secure=settings.production,
     )
-    return {"status": "ok", "username": ldap_username, "display_name": display_name, "role": role}
+    return {"status": "ok", "username": ldap_username, "display_name": display_name, "role": effective_role}
 
 
 @router.post("/logout")
@@ -102,7 +119,37 @@ async def auth_status(request: Request):
         return {"authenticated": False}
     data = store.get_data(token) or {}
     settings = get_settings()
-    email = data.get("email", "")
-    is_admin = bool(email and email.lower() == settings.admin_email.lower())
-    role = data.get("role", "lecturer")
-    return {"authenticated": True, "is_admin": is_admin, "role": role, **data}
+    email = (data.get("email") or "").lower()
+    is_env_admin = bool(email and settings.admin_email and email == settings.admin_email.lower())
+
+    # Always re-fetch role from DB so role changes apply on next request, not next login.
+    user_id = data.get("user_id")
+    if user_id:
+        db_user = database.get_user_by_id(user_id)
+        if db_user:
+            data["role"] = db_user.get("role") or data.get("role") or "user"
+            data["custom_role_id"] = db_user.get("custom_role_id")
+
+    from src.permissions import resolve_user_permissions
+    perms = resolve_user_permissions(
+        role=data.get("role", "user"),
+        custom_role_id=data.get("custom_role_id"),
+        is_env_admin=is_env_admin,
+    )
+    payload = {
+        "authenticated": True,
+        "is_admin": perms.allow_admin_panel,
+        "role": data.get("role", "user"),
+        "custom_role_id": data.get("custom_role_id"),
+        "permissions": {
+            "allow_admin_panel": perms.allow_admin_panel,
+            "allow_aia": perms.allow_aia,
+            "allow_workspace_create": perms.allow_workspace_create,
+            "tools": list(perms.tools),
+        },
+    }
+    # Preserve other session fields (display_name, username, etc.) without clobbering keys above.
+    for k, v in data.items():
+        if k not in payload:
+            payload[k] = v
+    return payload
