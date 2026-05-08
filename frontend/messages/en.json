@@ -694,6 +694,27 @@
       "inactive": "Inactive",
       "details": "Details"
     },
+    "createLdapUser": {
+      "buttonLabel": "+ Add user",
+      "title": "Create LDAP user",
+      "fieldUid": "Username (uid)",
+      "fieldUidHint": "Lowercase, digits, _ . -, 2-32 characters",
+      "fieldGivenName": "First name",
+      "fieldSurname": "Last name",
+      "fieldEmail": "Email",
+      "fieldRole": "Role",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "submit": "Create",
+      "cancel": "Cancel",
+      "successTitle": "User created",
+      "successPasswordLabel": "Initial password",
+      "successCopyButton": "Copy",
+      "successCopied": "Copied!",
+      "successWarning": "This password is shown ONCE. Copy or write it down before closing the dialog.",
+      "successClose": "Close",
+      "errorGeneric": "Creation failed"
+    },
     "jobs": {
       "searchPlaceholder": "Search: user, tool, file...",
       "from": "From",
@@ -812,7 +833,19 @@
       "providerKokoro": "Kokoro TTS",
       "providerMylabXtts": "THL myLab (XTTS-v2)",
       "providerMylab": "THL myLab",
-      "providerMylabWhisper3": "THL myLab (Whisper-3-large)"
+      "providerMylabWhisper3": "THL myLab (Whisper-3-large)",
+      "deeplKey": {
+        "title": "DeepL API key",
+        "hint": "Empty → backend default key.",
+        "placeholderEmpty": "Enter DeepL API key…",
+        "activeEnv": "Active: ••••{last}",
+        "activeEnvNoKey": "No key set",
+        "activeOverride": "Active: override (••••{last})",
+        "save": "Save",
+        "clear": "Remove override",
+        "saving": "Saving…",
+        "saved": "Saved"
+      }
     },
     "whitelistCard": {
       "title": "Whitelist mode",

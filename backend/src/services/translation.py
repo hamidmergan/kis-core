@@ -13,8 +13,8 @@ def translate_output_filename(filename: str, output_ext: str | None = None, sour
     if not stem.strip():
         return fallback
     try:
-        from src.config import Settings
-        api_key = Settings().deepl_api_key
+        from src.dependencies import resolve_deepl_api_key
+        api_key = resolve_deepl_api_key()
         if not api_key:
             return fallback
         deepl = DeepLClient(api_key)

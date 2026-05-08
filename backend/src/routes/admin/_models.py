@@ -41,6 +41,8 @@ class UpdateSettingsRequest(BaseModel):
     # /translate LLM provider override (empty = use active LLM)
     # Model values flow through the generic `models` dict (see MODEL_KEYS).
     translation_llm_provider: str | None = None  # "" | "primary" | "fallback" | "local"
+    # DeepL API key override; empty string clears it (env var DEEPL_API_KEY is used instead).
+    deepl_api_key_override: str | None = None
     # Provider model names (DB setting). Allowed keys: see runtime_models.MODEL_KEYS.
     models: dict[str, str] | None = None
     # UI label for "Workspace" (singular + plural), per UI locale.

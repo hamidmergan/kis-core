@@ -76,6 +76,12 @@ async def get_settings(_admin=Depends(get_admin_user)):
     def _enabled(key: str, default: str = "true") -> bool:
         return db.get_setting(key, default).lower() == "true"
 
+    def _last6(s: str) -> str | None:
+        return s[-6:] if s and len(s) > 6 else (s or None)
+
+    deepl_override = db.get_setting("deepl_api_key_override", "").strip()
+    env_deepl = app_settings.deepl_api_key or ""
+
     return {
         "whitelist_enabled": _enabled("whitelist_enabled"),
         # ── TTS (flat list of products, not a primary/fallback/local hierarchy) ──
@@ -136,7 +142,10 @@ async def get_settings(_admin=Depends(get_admin_user)):
         # ── Translation (file-translate tool + transcript-EN; merged into one admin radio) ──
         "transcript_translation_provider": db.get_setting("transcript_translation_provider", "llm"),
         "translation_llm_provider": db.get_setting("translation_llm_provider", ""),
-        "deepl_configured": bool(app_settings.deepl_api_key),
+        "deepl_configured": bool(deepl_override) or bool(app_settings.deepl_api_key),
+        "deepl_override_set": bool(deepl_override),
+        "deepl_override_last_chars": _last6(deepl_override),
+        "deepl_env_last_chars": _last6(env_deepl),
         # ── Provider model names (editable in the admin panel) ──
         "models": _current_models(),
         # ── UI labels (per locale; legacy unsuffixed keys fall back as DE defaults) ──
@@ -276,6 +285,15 @@ async def update_settings(
                 detail=t("translate.invalidProvider", locale),
             )
         db.set_setting("transcript_translation_provider", body.transcript_translation_provider)
+
+    if body.deepl_api_key_override is not None:
+        stripped = body.deepl_api_key_override.strip()
+        if len(stripped) > 200:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.deepl.keyTooLong", locale),
+            )
+        db.set_setting("deepl_api_key_override", stripped)
 
     # /translate LLM provider override (model values flow through the generic `models` dict)
     if body.translation_llm_provider is not None:

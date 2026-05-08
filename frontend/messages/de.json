@@ -694,6 +694,27 @@
       "inactive": "Inaktiv",
       "details": "Details"
     },
+    "createLdapUser": {
+      "buttonLabel": "+ Benutzer anlegen",
+      "title": "LDAP-Benutzer anlegen",
+      "fieldUid": "Benutzername (uid)",
+      "fieldUidHint": "Kleinbuchstaben, Zahlen, _ . -, 2-32 Zeichen",
+      "fieldGivenName": "Vorname",
+      "fieldSurname": "Nachname",
+      "fieldEmail": "E-Mail",
+      "fieldRole": "Rolle",
+      "roleStaff": "Staff",
+      "roleUser": "User",
+      "submit": "Anlegen",
+      "cancel": "Abbrechen",
+      "successTitle": "Benutzer angelegt",
+      "successPasswordLabel": "Initial-Passwort",
+      "successCopyButton": "Kopieren",
+      "successCopied": "Kopiert!",
+      "successWarning": "Dieses Passwort wird NUR JETZT angezeigt. Notiere oder kopiere es, bevor du den Dialog schließt.",
+      "successClose": "Schließen",
+      "errorGeneric": "Anlegen fehlgeschlagen"
+    },
     "jobs": {
       "searchPlaceholder": "Suche: User, Tool, Datei...",
       "from": "Von",
@@ -812,7 +833,19 @@
       "providerKokoro": "Kokoro TTS",
       "providerMylabXtts": "THL myLab (XTTS-v2)",
       "providerMylab": "THL myLab",
-      "providerMylabWhisper3": "THL myLab (Whisper-3-large)"
+      "providerMylabWhisper3": "THL myLab (Whisper-3-large)",
+      "deeplKey": {
+        "title": "DeepL API Key",
+        "hint": "Leer → Standard-Key vom Backend.",
+        "placeholderEmpty": "DeepL API Key eintragen…",
+        "activeEnv": "Aktiv: ••••{last}",
+        "activeEnvNoKey": "Kein Key gesetzt",
+        "activeOverride": "Aktiv: Override (••••{last})",
+        "save": "Speichern",
+        "clear": "Override entfernen",
+        "saving": "Speichern…",
+        "saved": "Gespeichert"
+      }
     },
     "whitelistCard": {
       "title": "Whitelist-Modus",
@@ -1025,8 +1058,8 @@
       "confirmDelete": "Rolle wirklich löschen? Nutzer mit dieser Rolle werden auf 'user' zurückgesetzt.",
       "userRoleLabel": "Rolle",
       "roleAdmin": "Admin",
-      "roleStaff": "Mitarbeiter",
-      "roleUser": "Nutzer",
+      "roleStaff": "Staff",
+      "roleUser": "User",
       "roleCustom": "Custom",
       "envAdminLocked": "Der Haupt-Admin (aus den Server-Einstellungen) kann nicht geändert werden."
     }

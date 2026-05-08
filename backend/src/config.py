@@ -70,4 +70,8 @@ class Settings(BaseSettings):
     ldap_role_lecturer_values: str = "staff,faculty"
     ldap_use_ssl: bool = False
 
+    # Admin-only feature flag: enables UI for creating LDAP users.
+    # Disable on prod / SSO deployments.
+    ldap_user_creation_enabled: bool = False
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "populate_by_name": True}

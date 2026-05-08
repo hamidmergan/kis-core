@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from loguru import logger
 
 from src import database as db
-from src.dependencies import get_current_user, get_settings, is_admin_user
+from src.dependencies import get_current_user, is_admin_user
 from src.i18n import (
     DEFAULT_TRANSLATE_SOURCE,
     DEFAULT_TRANSLATE_TARGET,
@@ -66,8 +66,8 @@ def translate_pptx_content(
     from src.services.translation import TranslationService
     from src.translators.pptx import translate_pptx
 
-    settings = get_settings()
-    api_key = settings.deepl_api_key
+    from src.dependencies import resolve_deepl_api_key
+    api_key = resolve_deepl_api_key()
     if not api_key:
         raise HTTPException(status_code=500, detail=t("translate.deeplKeyMissing", locale))
     deepl_client = DeepLClient(api_key)

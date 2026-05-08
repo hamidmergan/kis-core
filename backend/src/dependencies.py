@@ -232,13 +232,27 @@ def is_mylab_enabled() -> bool:
     return db.get_setting("mylab_enabled", "true").lower() == "true"
 
 
+def resolve_deepl_api_key() -> str | None:
+    """Return the active DeepL API key, or None if nothing usable is configured.
+
+    Admin override (settings.deepl_api_key_override) wins over the env var
+    DEEPL_API_KEY. Empty / missing override -> env fallback.
+    """
+    from src import database as db
+    override = db.get_setting("deepl_api_key_override", "").strip()
+    if override:
+        return override
+    settings = get_settings()
+    return settings.deepl_api_key or None
+
+
 def get_deepl_client():
     from src.services.deepl_client import DeepLClient
-    settings = get_settings()
-    if not settings.deepl_api_key:
+    api_key = resolve_deepl_api_key()
+    if not api_key:
         return None
     try:
-        return DeepLClient(settings.deepl_api_key)
+        return DeepLClient(api_key)
     except Exception as e:
         logger.warning("DeepL client init failed: {}", e)
         return None
