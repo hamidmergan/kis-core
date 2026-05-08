@@ -174,6 +174,45 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2'))")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_set_at TIMESTAMP WITH TIME ZONE")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS language_level_skill_scores JSONB")
+            # === Role system migration ===
+            # System roles: 'admin', 'staff', 'user' (fixed, code-defined permissions).
+            # Custom roles live in the custom_roles table; users.custom_role_id is set
+            # iff users.role = 'custom'. Existing legacy values are migrated:
+            #   'lecturer' -> 'staff'
+            #   'student'  -> 'user'
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS custom_roles (
+                    id            SERIAL PRIMARY KEY,
+                    name          TEXT NOT NULL UNIQUE,
+                    allow_aia     BOOLEAN NOT NULL DEFAULT FALSE,
+                    allowed_tools JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at    TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_role_id INTEGER "
+                "REFERENCES custom_roles(id) ON DELETE SET NULL"
+            )
+            # Migrate legacy role strings (idempotent).
+            cur.execute("UPDATE users SET role = 'staff' WHERE role = 'lecturer'")
+            cur.execute("UPDATE users SET role = 'user'  WHERE role = 'student'")
+            # New default for the column going forward.
+            cur.execute("ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user'")
+            # Constraint: role must be one of the four allowed values.
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check'
+                    ) THEN
+                        ALTER TABLE users
+                            ADD CONSTRAINT users_role_check
+                            CHECK (role IN ('admin', 'staff', 'user', 'custom'));
+                    END IF;
+                END
+                $$
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS whitelist (
                     id         SERIAL PRIMARY KEY,
