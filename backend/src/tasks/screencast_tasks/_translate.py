@@ -57,6 +57,7 @@ def run_screencast_translate(
             _pptx_to_images, _generate_all_tts, _convert_slides_to_images_async,
             _create_slide_video, _concatenate_videos, _apply_faststart,
             _extract_text_per_slide,
+            _create_outro_image, _get_image_dimensions,
         ) = _get_screencast_helpers()
 
         db.update_job_status(job_uuid, "running", progress={"step": "extract"})
