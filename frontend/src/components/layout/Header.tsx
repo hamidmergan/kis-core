@@ -12,12 +12,12 @@ import HeaderLanguageSwitch from "@/components/layout/HeaderLanguageSwitch";
 import HeaderThemeToggle from "@/components/layout/HeaderThemeToggle";
 
 interface HeaderProps {
-  hasSession: boolean;
+  hasSession?: boolean;
   showLogout?: boolean;
   showToolsToggle?: boolean;
 }
 
-export default function Header({ hasSession, showLogout = false, showToolsToggle = false }: HeaderProps) {
+export default function Header({ hasSession = true, showLogout = false, showToolsToggle = false }: HeaderProps) {
   const router = useRouter();
   const t = useTranslations("header");
   const [isAdmin, setIsAdmin] = useState(false);
