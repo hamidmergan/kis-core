@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { SignOut, UserCircleGear } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
@@ -18,7 +17,6 @@ interface HeaderProps {
 }
 
 export default function Header({ hasSession = true, showLogout = false, showToolsToggle = false }: HeaderProps) {
-  const router = useRouter();
   const t = useTranslations("header");
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -31,7 +29,8 @@ export default function Header({ hasSession = true, showLogout = false, showTool
 
   const handleLogout = async () => {
     await logout();
-    router.push("/login");
+    // Hard nav so the server layout re-reads the cleared session cookie.
+    window.location.assign("/login");
   };
 
   return (

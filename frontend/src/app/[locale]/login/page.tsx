@@ -52,7 +52,10 @@ export default function LoginPage() {
     try {
       await login(username.trim(), password);
       await checkAuthStatus();
-      router.push("/");
+      // Hard nav so the server layout re-reads the new session cookie and
+      // hasSession flips to true (router.push keeps the cached SSR shell).
+      window.location.assign("/");
+      return;
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message === "account_not_activated") {
