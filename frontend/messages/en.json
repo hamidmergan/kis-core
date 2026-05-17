@@ -129,7 +129,7 @@
     "phoneLabel": "Phone:",
     "emailLabel": "E-mail:",
     "projectHeading": "Project:",
-    "projectBody": "Developed at the Institute for Interactive Systems (ISy),\nLübeck University of Applied Sciences."
+    "projectBody": "Developed at the Institute for Interactive Systems (ISy),\nTechnische Hochschule Lübeck."
   },
   "wartung": {
     "title": "Maintenance",
@@ -1073,7 +1073,6 @@
   },
   "privacy": {
     "title": "Privacy policy",
-    "lastUpdated": "Last updated: 2026-04-29",
     "controller": {
       "heading": "1. Data controller",
       "body": "Hamid Mergan\nMönkhofer Weg 239\n23562 Lübeck, Germany\nEmail: hamid.mergan@th-luebeck.de\nPhone: +49 451 160818 81"
@@ -1782,7 +1781,7 @@
   "layoutMeta": {
     "title": "KIS",
     "description": "KIS - Services of TH Lübeck",
-    "author": "Hamid Mergan, Institute for Interactive Systems (ISy), Lübeck University of Applied Sciences",
-    "copyright": "© 2026 Hamid Mergan, Institute for Interactive Systems (ISy), Lübeck University of Applied Sciences"
+    "author": "Hamid Mergan, Institute for Interactive Systems (ISy), Technische Hochschule Lübeck",
+    "copyright": "© 2026 Hamid Mergan, Institute for Interactive Systems (ISy), Technische Hochschule Lübeck"
   }
 }

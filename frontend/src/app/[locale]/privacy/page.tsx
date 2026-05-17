@@ -22,10 +22,6 @@ export default function DatenschutzPage() {
         <div className="bg-background rounded-xl shadow-sm border border-border-soft p-8">
           <h1 className="text-2xl font-bold mb-6">{t("title")}</h1>
 
-          <p className="text-foreground-soft text-sm mb-6">
-            {t("lastUpdated")}
-          </p>
-
           <section className="mb-6">
             <h2 className="text-lg font-semibold mb-2">{t("controller.heading")}</h2>
             <p className="text-foreground-soft whitespace-pre-line">
