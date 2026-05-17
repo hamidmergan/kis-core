@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { SignOut, UserCircleGear } from "@phosphor-icons/react";
+import { SignIn, SignOut, UserCircleGear } from "@phosphor-icons/react";
 import { checkAuthStatus, logout } from "@/lib/auth";
 import JobsPanel from "@/components/jobs/JobsPanel";
 import HeaderMobileMenu from "@/components/layout/HeaderMobileMenu";
@@ -20,10 +20,12 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
   const router = useRouter();
   const t = useTranslations("header");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!showLogout) return;
     checkAuthStatus().then((s) => {
+      setIsAuthenticated(s.authenticated ?? false);
       setIsAdmin(s.is_admin ?? false);
     });
   }, [showLogout]);
@@ -51,14 +53,14 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
           )}
         </h1>
 
-        {showLogout && (
+        {showLogout && isAuthenticated !== null && (
           <div className="flex items-center gap-1.5">
             <div className="hidden sm:flex items-center gap-1.5">
-              <JobsPanel />
+              {isAuthenticated && <JobsPanel />}
               <HeaderLanguageSwitch />
               <HeaderThemeToggle />
 
-              {isAdmin && (
+              {isAuthenticated && isAdmin && (
                 <Link
                   href="/admin"
                   aria-label={t("admin")}
@@ -70,18 +72,35 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
                 </Link>
               )}
 
-              <button
-                onClick={handleLogout}
-                aria-label={t("logout")}
-                title={t("logout")}
-                className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full border border-white/25 btn-on-dark"
-              >
-                <SignOut size={17} weight="bold" />
-                <span className="text-sm font-medium">{t("logout")}</span>
-              </button>
+              {isAuthenticated ? (
+                <button
+                  onClick={handleLogout}
+                  aria-label={t("logout")}
+                  title={t("logout")}
+                  className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full border border-white/25 btn-on-dark"
+                >
+                  <SignOut size={17} weight="bold" />
+                  <span className="text-sm font-medium">{t("logout")}</span>
+                </button>
+              ) : (
+                <Link
+                  href="/login"
+                  aria-label={t("login")}
+                  title={t("login")}
+                  className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full border border-white/25 btn-on-dark"
+                >
+                  <SignIn size={17} weight="bold" />
+                  <span className="text-sm font-medium">{t("login")}</span>
+                </Link>
+              )}
             </div>
 
-            <HeaderMobileMenu isAdmin={isAdmin} showToolsToggle={showToolsToggle} onLogout={handleLogout} />
+            <HeaderMobileMenu
+              isAuthenticated={isAuthenticated}
+              isAdmin={isAdmin}
+              showToolsToggle={showToolsToggle}
+              onLogout={handleLogout}
+            />
           </div>
         )}
       </div>
