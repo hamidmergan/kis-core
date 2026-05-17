@@ -28,6 +28,10 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
+// Layout reads the session cookie to drive header/footer visibility; force
+// dynamic rendering so the build does not snapshot a "no session" version.
+export const dynamic = "force-dynamic";
+
 // Backfills the kis-theme cookie from localStorage on first paint so SSR can
 // pick it up after the next navigation. Cookie is the source of truth for SSR;
 // localStorage stays for backwards-compat and cross-tab sync via storage events.
