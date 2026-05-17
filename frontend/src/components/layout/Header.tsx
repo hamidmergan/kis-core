@@ -12,21 +12,22 @@ import HeaderLanguageSwitch from "@/components/layout/HeaderLanguageSwitch";
 import HeaderThemeToggle from "@/components/layout/HeaderThemeToggle";
 
 interface HeaderProps {
+  hasSession: boolean;
   showLogout?: boolean;
   showToolsToggle?: boolean;
 }
 
-export default function Header({ showLogout = false, showToolsToggle = false }: HeaderProps) {
+export default function Header({ hasSession, showLogout = false, showToolsToggle = false }: HeaderProps) {
   const router = useRouter();
   const t = useTranslations("header");
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!showLogout) return;
+    if (!showLogout || !hasSession) return;
     checkAuthStatus().then((s) => {
       setIsAdmin(s.is_admin ?? false);
     });
-  }, [showLogout]);
+  }, [showLogout, hasSession]);
 
   const handleLogout = async () => {
     await logout();
@@ -54,11 +55,11 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
         {showLogout && (
           <div className="flex items-center gap-1.5">
             <div className="hidden sm:flex items-center gap-1.5">
-              <JobsPanel />
+              {hasSession && <JobsPanel />}
               <HeaderLanguageSwitch />
               <HeaderThemeToggle />
 
-              {isAdmin && (
+              {hasSession && isAdmin && (
                 <Link
                   href="/admin"
                   aria-label={t("admin")}
@@ -70,18 +71,25 @@ export default function Header({ showLogout = false, showToolsToggle = false }: 
                 </Link>
               )}
 
-              <button
-                onClick={handleLogout}
-                aria-label={t("logout")}
-                title={t("logout")}
-                className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full border border-white/25 btn-on-dark"
-              >
-                <SignOut size={17} weight="bold" />
-                <span className="text-sm font-medium">{t("logout")}</span>
-              </button>
+              {hasSession && (
+                <button
+                  onClick={handleLogout}
+                  aria-label={t("logout")}
+                  title={t("logout")}
+                  className="flex items-center justify-center h-9 px-3 gap-1.5 ml-1 rounded-full border border-white/25 btn-on-dark"
+                >
+                  <SignOut size={17} weight="bold" />
+                  <span className="text-sm font-medium">{t("logout")}</span>
+                </button>
+              )}
             </div>
 
-            <HeaderMobileMenu isAdmin={isAdmin} showToolsToggle={showToolsToggle} onLogout={handleLogout} />
+            <HeaderMobileMenu
+              hasSession={hasSession}
+              isAdmin={isAdmin}
+              showToolsToggle={showToolsToggle}
+              onLogout={handleLogout}
+            />
           </div>
         )}
       </div>

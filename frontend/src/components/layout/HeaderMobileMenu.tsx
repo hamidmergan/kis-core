@@ -9,6 +9,7 @@ import type { Locale } from "@/i18n/routing";
 import { useTheme } from "@/hooks/useTheme";
 
 interface HeaderMobileMenuProps {
+  hasSession: boolean;
   isAdmin: boolean;
   showToolsToggle?: boolean;
   onLogout: () => void;
@@ -26,7 +27,7 @@ async function persistLocale(locale: Locale) {
   }
 }
 
-export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
+export default function HeaderMobileMenu({ hasSession, isAdmin, showToolsToggle = false, onLogout }: HeaderMobileMenuProps) {
   const t = useTranslations("header");
   const router = useRouter();
   const pathname = usePathname();
@@ -97,7 +98,7 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
             {isDark ? <Moon size={20} weight="bold" /> : <Sun size={20} weight="bold" />}
             <span className="flex-1">{isDark ? t("themeDark") : t("themeLight")}</span>
           </button>
-          {showToolsToggle && (
+          {hasSession && showToolsToggle && (
             <button
               type="button"
               onClick={() => {
@@ -111,16 +112,18 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
               <span>{t("tools")}</span>
             </button>
           )}
-          <Link
-            href="/my-jobs"
-            onClick={() => setOpen(false)}
-            className={rowClass}
-            style={{ color: "var(--foreground)" }}
-          >
-            <Stack size={20} weight="bold" />
-            <span>{t("jobs")}</span>
-          </Link>
-          {isAdmin && (
+          {hasSession && (
+            <Link
+              href="/my-jobs"
+              onClick={() => setOpen(false)}
+              className={rowClass}
+              style={{ color: "var(--foreground)" }}
+            >
+              <Stack size={20} weight="bold" />
+              <span>{t("jobs")}</span>
+            </Link>
+          )}
+          {hasSession && isAdmin && (
             <Link
               href="/admin"
               onClick={() => setOpen(false)}
@@ -131,18 +134,20 @@ export default function HeaderMobileMenu({ isAdmin, showToolsToggle = false, onL
               <span>{t("admin")}</span>
             </Link>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onLogout();
-            }}
-            className={rowClass}
-            style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)" }}
-          >
-            <SignOut size={20} weight="bold" />
-            <span>{t("logout")}</span>
-          </button>
+          {hasSession && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+              className={rowClass}
+              style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)" }}
+            >
+              <SignOut size={20} weight="bold" />
+              <span>{t("logout")}</span>
+            </button>
+          )}
         </div>
       )}
     </div>

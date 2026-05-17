@@ -29,8 +29,7 @@ export default function LayoutShell({
 }) {
   const pathname = usePathname();
 
-  const showHeader =
-    hasSession && !NO_HEADER_PATHS.has(pathname) && !matchesPrefix(pathname, NO_HEADER_PREFIXES);
+  const showHeader = !NO_HEADER_PATHS.has(pathname) && !matchesPrefix(pathname, NO_HEADER_PREFIXES);
   const showSidebar =
     hasSession && !NO_SIDEBAR_PATHS.has(pathname) && !matchesPrefix(pathname, NO_SIDEBAR_PREFIXES);
 
@@ -39,7 +38,7 @@ export default function LayoutShell({
   if (!showSidebar) {
     return (
       <>
-        {showHeader && <Header showLogout showToolsToggle={false} />}
+        {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle={false} />}
         {children}
       </>
     );
@@ -47,7 +46,7 @@ export default function LayoutShell({
 
   return (
     <>
-      {showHeader && <Header showLogout showToolsToggle />}
+      {showHeader && <Header hasSession={hasSession} showLogout showToolsToggle />}
       <div className="flex items-stretch min-h-[calc(100vh-4rem)] overflow-x-hidden">
         <ToolsSidebar />
         <div className="flex-1 min-w-0">{children}</div>
