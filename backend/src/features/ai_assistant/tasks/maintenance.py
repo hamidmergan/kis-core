@@ -220,3 +220,34 @@ def run_backfill_doc_summaries(self, limit: int | None = None):
     logger.info("KI Tutor doc-summary backfill: done ({} ok, {} failed of {})",
                 done, failed, total)
     return {"total": total, "ok": done, "failed": failed}
+
+
+@celery_app.task(bind=True, name="aia.backfill_page_summaries", queue="aia")
+def run_backfill_page_summaries(self):
+    """One-shot: generate page-summaries for every PDF source that has none.
+
+    Only PDFs are eligible - media has no page concept. Dispatches the regular
+    ``run_generate_summaries`` task per source; that task is resume-safe and
+    will chain a fresh doc-summary at the end (so citations get accurate page
+    numbers in the multi-source GENERIC chat path).
+    """
+    from src.features.ai_assistant.tasks.ingestion import run_generate_summaries
+
+    sources = db.get_all_aia_sources()
+    pending = []
+    for s in sources:
+        if s.get("status") != "ready":
+            continue
+        if s.get("file_type") != "pdf":
+            continue
+        if db.get_page_summaries_by_source(s["id"]):
+            continue
+        pending.append(s)
+
+    total = len(pending)
+    logger.info("KI Tutor page-summary backfill: {} PDFs pending", total)
+
+    for s in pending:
+        run_generate_summaries.delay(s["uuid"])
+
+    return {"total": total, "queued": total}

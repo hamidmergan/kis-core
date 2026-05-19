@@ -13,6 +13,7 @@ from src.features.ai_assistant.tasks.maintenance import (  # noqa: F401
     run_reindex_all_sources,
     run_reindex_workspace,
     run_backfill_doc_summaries,
+    run_backfill_page_summaries,
 )
 from src.features.ai_assistant.tasks.studio.mindmap import run_generate_mindmap  # noqa: F401
 from src.features.ai_assistant.tasks.studio.data_table import run_generate_data_table  # noqa: F401

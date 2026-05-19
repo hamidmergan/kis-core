@@ -883,6 +883,14 @@
       "started": "Läuft im Hintergrund, Status siehe Worker-Logs.",
       "failed": "Konnte nicht gestartet werden."
     },
+    "backfillPageSummaryCard": {
+      "title": "Page-Summaries nachgenerieren",
+      "description": "Erzeugt für alle PDFs ohne Page-Summaries die seitenweisen Zusammenfassungen. Wichtig für klickbare Seitenzahlen in Mehrquellen-Chats. Läuft pro PDF als eigener Job; Doc-Summary wird danach automatisch aktualisiert.",
+      "pendingCount": "{pending} von {total} PDFs ohne Page-Summaries.",
+      "start": "Nachgenerieren",
+      "started": "Läuft im Hintergrund, Status siehe Worker-Logs.",
+      "failed": "Konnte nicht gestartet werden."
+    },
     "mascotCard": {
       "title": "Hilde-Maskottchen",
       "active": "Aktiv - die Eulen-Begleiterin wird systemweit angezeigt; jeder Nutzer kann sie für sich abschalten.",

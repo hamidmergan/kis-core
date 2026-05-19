@@ -52,6 +52,50 @@ _CITATION_RE = re.compile(
 )
 
 
+# Inline position markers the doc-summary prompt asks the LLM to keep:
+#   [p.5]       single page
+#   [p.5-8]     page range
+#   [p.3,7]     non-consecutive pages
+#   [t:120]     media timestamp in seconds
+#   [t:120-180] media range in seconds
+_DOC_SUMMARY_MARKER_RE = re.compile(r"\[(p|t)\.?:?\s*([\d,\-\s]+)\]", re.IGNORECASE)
+
+
+def _split_doc_summary_by_markers(summary: str) -> list[dict]:
+    """Split a marker-annotated doc-summary into segments.
+
+    Each segment becomes a virtual chunk with its own ``page_number`` (or
+    ``start_time`` for media) so the chat LLM can build accurate citations. If
+    the summary contains no markers (older summary or LLM ignored the format),
+    returns a single segment with ``page_number=1`` so callers can still render
+    a chip - just without precise position info.
+    """
+    matches = list(_DOC_SUMMARY_MARKER_RE.finditer(summary))
+    if not matches:
+        return [{"page_number": 1, "start_time": None, "content": summary.strip()}]
+
+    segments: list[dict] = []
+    for i, m in enumerate(matches):
+        kind = m.group(1).lower()
+        raw_value = m.group(2)
+        # Use the first integer in the marker (e.g. "5-8" -> 5, "3,7" -> 3)
+        first_int = re.search(r"\d+", raw_value)
+        if not first_int:
+            continue
+        n = int(first_int.group())
+        body_start = m.end()
+        body_end = matches[i + 1].start() if i + 1 < len(matches) else len(summary)
+        body = summary[body_start:body_end].strip().lstrip(":").strip()
+        if not body:
+            continue
+        segments.append({
+            "page_number": n if kind == "p" else 1,
+            "start_time": float(n) if kind == "t" else None,
+            "content": body,
+        })
+    return segments or [{"page_number": 1, "start_time": None, "content": summary.strip()}]
+
+
 def _classify_intent(llm, question: str) -> str:
     """Decide GENERIC (cross-source overview) vs SPECIFIC (topic-focused) for routing.
 
@@ -241,33 +285,59 @@ async def chat(
                     chunks.append(fallback[0])
                 logger.info("Generic single-source: used first-chunk fallback (no summaries yet)")
         else:
-            # ── Multi-source overview: doc-summary per source (~300 tokens each) ──
-            missing_summary: list[int] = []
+            # ── Multi-source overview ──
+            # Each source contributes multiple anchored chunks so the LLM has
+            # equal weight per source (otherwise media gets drowned out by PDFs):
+            #   - PDFs: page-summaries (real page_number), capped to 12 evenly
+            #     spaced pages.
+            #   - Media: raw chunks (real start_time), capped to 8 evenly spaced.
+            #   - Fallback: split doc-summary by inline markers, else first chunk.
+            PAGE_SUMS_PER_SOURCE = 12
+            MEDIA_CHUNKS_PER_SOURCE = 8
+
+            def _sample(items: list, k: int) -> list:
+                if len(items) <= k:
+                    return items
+                step = len(items) / k
+                return [items[int(i * step)] for i in range(k)]
+
             for sid in source_ids:
                 src = all_sources_map.get(sid)
                 if not src:
                     continue
+                page_sums = db.get_page_summaries_by_source(sid)
+                if page_sums:
+                    for ps in _sample(page_sums, PAGE_SUMS_PER_SOURCE):
+                        chunks.append({
+                            "source_id": sid,
+                            "page_number": ps["page_number"],
+                            "content": ps["summary"],
+                            "start_time": None,
+                        })
+                    continue
+                # Media (no page-summaries by design): sample raw chunks. Their
+                # start_time gives clickable timestamps; multiple chunks give
+                # the LLM enough anchor points to actually cite the video.
+                raw_chunks = db.get_aia_chunks_by_source(sid)
+                if raw_chunks and any(c.get("start_time") is not None for c in raw_chunks):
+                    for c in _sample(raw_chunks, MEDIA_CHUNKS_PER_SOURCE):
+                        chunks.append(c)
+                    continue
                 doc_summary = (src.get("summary") or "").strip()
                 if doc_summary:
-                    chunks.append({
-                        "source_id": sid,
-                        "page_number": 1,
-                        "content": doc_summary,
-                        "start_time": None,
-                    })
-                else:
-                    missing_summary.append(sid)
+                    for seg in _split_doc_summary_by_markers(doc_summary):
+                        chunks.append({
+                            "source_id": sid,
+                            "page_number": seg["page_number"],
+                            "content": seg["content"],
+                            "start_time": seg["start_time"],
+                        })
+                    continue
+                fallback = db.get_aia_chunks_by_source(sid)
+                if fallback:
+                    chunks.append(fallback[0])
 
-            if missing_summary:
-                # Pre-rollout sources without a doc-summary yet: take the first chunk
-                # as a stand-in so the overview still mentions them by name.
-                for sid in missing_summary:
-                    fallback = db.get_aia_chunks_by_source(sid)
-                    if fallback:
-                        chunks.append(fallback[0])
-                logger.info("Generic: {} sources without doc-summary, used first chunk", len(missing_summary))
-
-            logger.info("Generic multi-source: {} doc-summaries across {} sources", len(chunks), len(source_ids))
+            logger.info("Generic multi-source: {} segments across {} sources", len(chunks), len(source_ids))
     else:
         # ── Normal path: hybrid search ──
         # Query rewriting (condense question): on a real follow-up, condense history into
@@ -330,11 +400,16 @@ async def chat(
                     src = all_sources_map.get(sid)
                     doc_summary = ((src or {}).get("summary") or "").strip()
                     if doc_summary:
+                        # Use the first marker-segment as the fallback. The whole
+                        # doc-summary is overkill for a "we missed this source"
+                        # hint, and the first segment usually has the strongest
+                        # topic signal anyway.
+                        seg = _split_doc_summary_by_markers(doc_summary)[0]
                         diverse_chunks.append({
                             "source_id": sid,
-                            "page_number": 1,
-                            "content": doc_summary,
-                            "start_time": None,
+                            "page_number": seg["page_number"],
+                            "content": seg["content"],
+                            "start_time": seg["start_time"],
                         })
                         seen_sources.add(sid)
                         logger.info("Source-Diversity fallback: source {} added via doc-summary", sid)

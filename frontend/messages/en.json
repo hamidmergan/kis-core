@@ -883,6 +883,14 @@
       "started": "Running in the background, see worker logs for status.",
       "failed": "Could not start."
     },
+    "backfillPageSummaryCard": {
+      "title": "Backfill page-summaries",
+      "description": "Generates per-page summaries for every PDF still missing them. Required for clickable page numbers in multi-source chats. Each PDF runs as its own job; doc-summary is refreshed automatically after.",
+      "pendingCount": "{pending} of {total} PDFs without page-summaries.",
+      "start": "Run backfill",
+      "started": "Running in the background, see worker logs for status.",
+      "failed": "Could not start."
+    },
     "mascotCard": {
       "title": "Hilde mascot",
       "active": "Active - the owl companion is shown system-wide; each user can hide her individually.",

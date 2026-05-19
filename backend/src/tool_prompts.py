@@ -318,12 +318,34 @@ AIA_INTENT_CLASSIFIER_FEWSHOT: list[dict] = [
 # Doc-level summary: one compact English overview of an entire source. Used as
 # cross-source chat context (Fall 1) and as source-diversity fallback (Fall 2).
 # Always English regardless of source language - the chat LLM translates if needed.
+# Output keeps the input's position markers ([p.X] for PDF pages, [t:SECS] for
+# media timestamps) inline so the chat layer can build clickable citations.
 AIA_DOC_SUMMARY_SYSTEM = (
-    "You write compact English overviews of documents for downstream retrieval. "
-    "Capture the main topics, scope, and key concepts so another LLM can decide "
-    "whether the document is relevant to a question. Use 4-6 sentences. "
-    "Be specific (name topics, methods, entities). Do not start with 'This document' "
-    "or 'The text'. No URLs, DOIs, ISBNs, or contact info. English only."
+    "You produce a compact English index of a document for downstream retrieval.\n"
+    "\n"
+    "OUTPUT FORMAT - STRICT:\n"
+    "- Output 4-7 lines.\n"
+    "- Each line is ONE sentence.\n"
+    "- Each line MUST start with a position marker, then a space, then the sentence.\n"
+    "- Markers: [p.N] for a PDF page, [p.N-M] for a page range, [p.N,M] for "
+    "non-consecutive pages, [t:SECS] for a media timestamp in seconds, [t:S-E] "
+    "for a media segment.\n"
+    "- The input is pre-annotated with these markers. Re-use the markers from "
+    "the input - do NOT invent positions.\n"
+    "- No prose paragraphs. No intro. No conclusion. No 'This document'.\n"
+    "- English only. No URLs, DOIs, ISBNs, contact info.\n"
+    "\n"
+    "EXAMPLE (PDF):\n"
+    "[p.1-3] Introduces the methodology of scientific writing and target audience.\n"
+    "[p.5-8] Explains how to build an outline and maintain a coherent thread.\n"
+    "[p.12] Lists citation styles such as APA, IEEE, and MLA with examples.\n"
+    "[p.15-18] Gives tips on style, abbreviations, figures, and proofreading.\n"
+    "\n"
+    "EXAMPLE (media transcript):\n"
+    "[t:0-300] Course logistics, deadlines, and how the assessment works.\n"
+    "[t:300-900] Derives the stars-and-bars formula for unordered draws.\n"
+    "[t:900-1500] Worked examples with multisets and Pascal symmetry.\n"
+    "[t:1500-1800] Q&A and reminder of next submission deadline.\n"
 )
 AIA_DOC_SUMMARY_USER = "Document content:\n\n{content}"
 

@@ -211,8 +211,11 @@ def _gather_doc_summary_input(source_id: int) -> str:
     """Pick the best compact input for a doc-level summary of this source.
 
     Prefer page-summaries (already compressed) when present; otherwise fall back
-    to the raw chunks. Output is truncated to _DOC_SUMMARY_INPUT_MAX_CHARS so the
-    downstream LLM call stays within typical context windows.
+    to the raw chunks. Each block is prefixed with a position marker - ``[p.X]``
+    for PDF pages, ``[t:SECS]`` for media timestamps - so the LLM can carry the
+    markers through into the doc-summary output (used for clickable citations).
+    Output is truncated to _DOC_SUMMARY_INPUT_MAX_CHARS so the downstream LLM
+    call stays within typical context windows.
     """
     page_summaries = db.get_page_summaries_by_source(source_id)
     if page_summaries:
@@ -221,7 +224,20 @@ def _gather_doc_summary_input(source_id: int) -> str:
         )
     else:
         chunks = db.get_aia_chunks_by_source(source_id)
-        joined = "\n".join((c.get("content") or "").strip() for c in chunks)
+        parts: list[str] = []
+        for c in chunks:
+            content = (c.get("content") or "").strip()
+            if not content:
+                continue
+            start_time = c.get("start_time")
+            if start_time is not None:
+                marker = f"[t:{int(start_time)}]"
+            elif c.get("page_number"):
+                marker = f"[p.{c['page_number']}]"
+            else:
+                marker = ""
+            parts.append(f"{marker} {content}" if marker else content)
+        joined = "\n".join(parts)
     return joined[:_DOC_SUMMARY_INPUT_MAX_CHARS]
 
 

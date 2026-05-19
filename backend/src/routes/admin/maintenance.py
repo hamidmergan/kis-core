@@ -100,3 +100,35 @@ async def backfill_doc_summaries(_admin=Depends(get_admin_user)):
     from src.tasks.aia_tasks import run_backfill_doc_summaries
     run_backfill_doc_summaries.delay()
     return {"ok": True}
+
+
+@router.get("/backfill-page-summaries")
+async def backfill_page_summaries_status(_admin=Depends(get_admin_user)):
+    """How many ready PDF sources are still missing page-summaries?"""
+    from src.core.db.pool import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT COUNT(*) FROM aia_sources s
+                   WHERE s.status = 'ready' AND s.file_type = 'pdf'
+                     AND NOT EXISTS (
+                       SELECT 1 FROM aia_page_summaries p WHERE p.source_id = s.id
+                     )"""
+            )
+            pending = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM aia_sources WHERE status = 'ready' AND file_type = 'pdf'")
+            total = cur.fetchone()[0]
+    return {"pending": pending, "total": total}
+
+
+@router.post("/backfill-page-summaries")
+async def backfill_page_summaries(_admin=Depends(get_admin_user)):
+    """Queue a one-shot job that generates page-summaries for every PDF missing them.
+
+    Each PDF is dispatched as a separate ``run_generate_summaries`` task; that
+    task chains a fresh doc-summary at completion, so multi-source GENERIC
+    chat will end up with accurate page-number citations on the next ask.
+    """
+    from src.tasks.aia_tasks import run_backfill_page_summaries
+    run_backfill_page_summaries.delay()
+    return {"ok": True}
