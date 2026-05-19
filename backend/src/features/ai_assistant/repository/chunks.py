@@ -29,7 +29,7 @@ def create_aia_chunk(
             cur.execute(
                 """INSERT INTO aia_chunks
                    (source_id, page_number, content, search_vector, start_time, end_time)
-                   VALUES (%s, %s, %s, to_tsvector('german', %s), %s, %s)
+                   VALUES (%s, %s, %s, to_tsvector('simple', %s), %s, %s)
                    RETURNING id""",
                 (source_id, page_number, content, content, start_time, end_time),
             )
@@ -126,24 +126,33 @@ def hybrid_search_chunks(
             cur.execute(
                 f"""SELECT c.id, c.page_number, ROW_NUMBER() OVER (
                         ORDER BY ts_rank_cd(c.search_vector,
-                            (regexp_replace(plainto_tsquery('german', %s)::text, ' & ', ' | ', 'g'))::tsquery
+                            (regexp_replace(plainto_tsquery('simple', %s)::text, ' & ', ' | ', 'g'))::tsquery
                         ) DESC
                     ) AS rank
                     FROM aia_chunks c
                     JOIN aia_sources s ON s.id = c.source_id
                     WHERE s.workspace_id = %s {source_filter}
                       AND c.search_vector IS NOT NULL
-                      AND c.search_vector @@ (regexp_replace(plainto_tsquery('german', %s)::text, ' & ', ' | ', 'g'))::tsquery
+                      AND c.search_vector @@ (regexp_replace(plainto_tsquery('simple', %s)::text, ' & ', ' | ', 'g'))::tsquery
                     LIMIT 40""",
                 [query_text, workspace_id] + source_param + [query_text],
             )
             kw_rows = cur.fetchall()
 
-            # 2b) Exact substring fallback (catches proper names / non-German terms)
-            _stop = {"der","die","das","ein","eine","und","oder","ist","hat","war","wer","was","wie","wo",
-                      "mit","von","für","auf","aus","bei","den","dem","des","als","nach","über","vor","bis",
-                      "wenn","dass","aber","auch","noch","nur","doch","sehr","wird","sind","kann","mehr",
-                      "nicht","sich","gibt","diese","einer","einem","einen","welche","welcher","welches"}
+            # 2b) Exact substring fallback (catches proper names / out-of-vocab terms).
+            # Stopwords spans DE + EN to keep ILIKE searches focused on content words
+            # regardless of source / query language.
+            _stop = {
+                # German
+                "der","die","das","ein","eine","und","oder","ist","hat","war","wer","was","wie","wo",
+                "mit","von","für","auf","aus","bei","den","dem","des","als","nach","über","vor","bis",
+                "wenn","dass","aber","auch","noch","nur","doch","sehr","wird","sind","kann","mehr",
+                "nicht","sich","gibt","diese","einer","einem","einen","welche","welcher","welches",
+                # English
+                "the","and","or","of","is","in","to","a","an","was","that","this","for","with","on",
+                "at","by","from","as","it","be","are","were","has","had","have","not","but","so",
+                "if","then","do","does","did","what","which","who","when","where","why","how",
+            }
             words = [w for w in query_text.split() if len(w) >= 2 and w.lower() not in _stop]
             if words:
                 ilike_clauses = " AND ".join(["c.content ILIKE %s"] * len(words))

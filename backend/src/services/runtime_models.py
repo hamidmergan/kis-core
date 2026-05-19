@@ -16,11 +16,14 @@ MODEL_DEFAULTS: dict[str, str] = {
     # LLM Chat
     "primary_llm_model": "mistral-large-3-675b-instruct-2512",
     "fallback_llm_model": "chat-default",
-    "local_llm_model": "qwen3:8b",
+    # qwen3-16k = qwen3:8b mit baked-in num_ctx=16384 (siehe Modelfile-Setup
+    # in deploy/ollama). Ollama's Default num_ctx ist 4096, das trunciert
+    # den RAG-System-Prompt am Ende → Citation-Regeln verloren → keine Chips.
+    "local_llm_model": "qwen3-16k",
     # LLM Translation (per-provider override for /translate; smaller/faster than chat)
     "translation_primary_model": "gemma-3-27b-it",
     "translation_fallback_model": "chat-default",
-    "translation_local_model": "qwen3:8b",
+    "translation_local_model": "qwen3-16k",
     # Embeddings (AI assistant)
     "primary_embedding_model": "e5-mistral-7b-instruct",
     "fallback_embedding_model": "qwen3-embedding-4b",

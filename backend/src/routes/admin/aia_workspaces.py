@@ -115,7 +115,7 @@ def _bulk_insert_chunks(source_id: int, chunks: list[dict]) -> int:
                        (source_id, page_number, content, embedding,
                         start_time, end_time, search_vector)
                        VALUES (%s, %s, %s, %s::vector, %s, %s,
-                               to_tsvector('german', %s))""",
+                               to_tsvector('simple', %s))""",
                     (
                         source_id, c["page_number"], c["content"], embedding_param,
                         c.get("start_time"), c.get("end_time"), c["content"],

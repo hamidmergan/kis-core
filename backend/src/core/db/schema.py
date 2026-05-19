@@ -764,17 +764,36 @@ def init_db(admin_email: Optional[str] = None) -> None:
             """)
         conn.commit()
 
-    # Backfill tsvector for existing chunks (separate transaction)
+    # Backfill / migrate tsvector (separate transaction).
+    # Switched from 'german' to 'simple' tokenizer so non-German content
+    # (English, Turkish, Spanish slides/transcripts) also gets useful keyword
+    # search hits. Vector search still handles semantic matches; the keyword
+    # side just needs language-agnostic exact-token matching.
     from loguru import logger as _log
     with get_connection() as conn:
         with conn.cursor() as cur:
+            migration_key = "search_vector_simple_migration_done"
+            cur.execute("SELECT value FROM settings WHERE key = %s", (migration_key,))
+            row = cur.fetchone()
+            already_migrated = bool(row and row[0] == "true")
+
             cur.execute("SELECT COUNT(*) FROM aia_chunks WHERE search_vector IS NULL")
             null_count = cur.fetchone()[0]
-            if null_count > 0:
+
+            if not already_migrated:
+                _log.info("Rewriting search_vector with 'simple' tokenizer for ALL chunks...")
+                cur.execute("UPDATE aia_chunks SET search_vector = to_tsvector('simple', content)")
+                cur.execute(
+                    """INSERT INTO settings (key, value) VALUES (%s, 'true')
+                       ON CONFLICT (key) DO UPDATE SET value = 'true'""",
+                    (migration_key,),
+                )
+                _log.info("search_vector simple-migration done.")
+            elif null_count > 0:
                 _log.info("Backfilling search_vector for {} chunks...", null_count)
                 cur.execute("""
                     UPDATE aia_chunks
-                    SET search_vector = to_tsvector('german', content)
+                    SET search_vector = to_tsvector('simple', content)
                     WHERE search_vector IS NULL
                 """)
                 _log.info("search_vector backfill done.")

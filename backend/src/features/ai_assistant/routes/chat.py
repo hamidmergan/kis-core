@@ -96,17 +96,21 @@ def _split_doc_summary_by_markers(summary: str) -> list[dict]:
     return segments or [{"page_number": 1, "start_time": None, "content": summary.strip()}]
 
 
-def _classify_intent(llm, question: str) -> str:
+async def _classify_intent(llm, question: str) -> str:
     """Decide GENERIC (cross-source overview) vs SPECIFIC (topic-focused) for routing.
 
     Single small LLM call - language-agnostic, replaces the old DE/EN regex list.
     On any error or unexpected output we fall back to SPECIFIC, the more
     conservative path (hybrid search still works for overview-ish questions,
-    just costs more tokens).
+    just costs more tokens). Runs in a worker thread so a stalled provider
+    cannot block the FastAPI event loop.
     """
+    import asyncio
     raw = ""
-    try:
-        response = llm._client.chat.completions.create(
+    def _call():
+        # 60s covers Ollama cold-start model load on first request after
+        # provider switch / restart. Warm calls return in ~500ms anyway.
+        return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
             model=llm._model,
             messages=[
                 {"role": "system", "content": AIA_INTENT_CLASSIFIER_SYSTEM},
@@ -116,6 +120,8 @@ def _classify_intent(llm, question: str) -> str:
             max_tokens=200,  # leave headroom for reasoning preambles; we parse the verdict out
             **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
+    try:
+        response = await asyncio.to_thread(_call)
         msg = response.choices[0].message
         raw = (msg.content or getattr(msg, "reasoning_content", None) or "").strip()
         # Strip <think>...</think> blocks (reasoning models) before parsing
@@ -131,12 +137,14 @@ def _classify_intent(llm, question: str) -> str:
     return verdict
 
 
-def _rewrite_query(llm, history: list[dict], question: str) -> str:
+async def _rewrite_query(llm, history: list[dict], question: str) -> str:
     """Condense follow-up question to standalone using conversation history.
 
     Returns original question if rewrite fails, output is empty, or result is
-    suspiciously long (defensive against LLM over-elaboration).
+    suspiciously long (defensive against LLM over-elaboration). Runs in a
+    worker thread so a stalled provider cannot block the event loop.
     """
+    import asyncio
     hist_text = "\n".join(
         f"{m['role']}: {_CITATION_RE.sub('', m['content'])}" for m in history
     )
@@ -147,14 +155,17 @@ def _rewrite_query(llm, history: list[dict], question: str) -> str:
             "content": f"History:\n{hist_text}\n\nLatest: {question}\nOutput:",
         },
     ]
-    try:
-        response = llm._client.chat.completions.create(
+    def _call():
+        # 60s covers Ollama cold-start model load (see _classify_intent).
+        return llm._client.with_options(timeout=60.0, max_retries=0).chat.completions.create(
             model=llm._model,
             messages=messages,
             temperature=0.0,
             max_tokens=300,
             **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
         )
+    try:
+        response = await asyncio.to_thread(_call)
         rewritten = (response.choices[0].message.content or "").strip()
     except Exception as e:
         logger.warning("Query rewrite failed, using original: {}", e)
@@ -196,6 +207,7 @@ async def chat(
     import time as _time
     _trace_llm(llm, "aia-chat")
     user_id = current_user["user_id"]
+    logger.info("Chat: request received user={} workspace={}", user_id, workspace_uuid[:8])
 
     # Burst block: at >50 chat requests in 60s the user is blocked for 10 min.
     # Raises 429 if currently blocked or the limit is being exceeded right now.
@@ -244,7 +256,10 @@ async def chat(
     if body.source_text or not source_ids or _q_words > _INTENT_MAX_WORDS:
         intent = "SPECIFIC"
     else:
-        intent = _classify_intent(llm, body.question)
+        logger.info("Chat: calling intent classifier...")
+        _t0 = _time.monotonic()
+        intent = await _classify_intent(llm, body.question)
+        logger.info("Chat: intent classifier returned after {:.1f}s", _time.monotonic() - _t0)
     logger.info("Chat intent: {} ('{}' across {} sources)", intent, body.question[:60], len(source_ids or []))
 
     # Default: question is used as-is. Only on the hybrid-search path with history
@@ -349,7 +364,7 @@ async def chat(
                 include_aborted=False,
             )
             if history_for_rewrite:
-                rewritten_question = _rewrite_query(
+                rewritten_question = await _rewrite_query(
                     llm, history_for_rewrite, body.question
                 )
                 if rewritten_question != body.question:
@@ -362,7 +377,10 @@ async def chat(
         provider = get_embedding_provider()
 
         embed_text = body.source_text if body.source_text else rewritten_question
-        query_vector = provider.embed_one(embed_text)
+        # Run sync embedding call in a worker thread so a stalled provider
+        # cannot block the FastAPI event loop.
+        import asyncio as _asyncio
+        query_vector = await _asyncio.to_thread(provider.embed_one, embed_text)
 
         # For popup actions, only search in the source file
         search_source_ids = source_ids
@@ -544,7 +562,10 @@ async def chat(
             answer_parts: list[str] = []
             aborted = False
             try:
-                stream = await llm._async_client.chat.completions.create(
+                # 90s connect/first-token timeout so an Ollama cold-start model
+                # load can finish before we abort. Once tokens flow the
+                # inter-chunk inactivity guard below takes over.
+                stream = await llm._async_client.with_options(timeout=90.0, max_retries=0).chat.completions.create(
                     model=llm._model,
                     messages=messages,
                     temperature=0.2,

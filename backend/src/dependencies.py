@@ -173,12 +173,19 @@ def get_llm_client(locale: str = Depends(get_locale)) -> OpenAICompatLLMClient:
     except RuntimeError as e:
         logger.warning("LLM provider resolution failed: {}", e)
         raise HTTPException(status_code=503, detail=t("llm.notConfigured", locale))
-    return OpenAICompatLLMClient(
+    client = OpenAICompatLLMClient(
         api_key=api_key,
         base_url=base_url,
         model=model,
         provider=provider,
     )
+    # Ollama defaults to a tiny num_ctx (4096) on its OpenAI-compat endpoint,
+    # which silently truncates large RAG prompts (the citation rules at the
+    # tail of the system prompt are the first things to disappear). Bump it
+    # so the model actually sees the whole prompt + context.
+    if provider == "local":
+        client._extra_body = {"options": {"num_ctx": 16384}}
+    return client
 
 
 def get_elevenlabs_client(locale: str = Depends(get_locale)) -> ElevenLabsClient:

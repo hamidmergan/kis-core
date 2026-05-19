@@ -41,7 +41,11 @@ class OpenAICompatEmbeddingProvider(EmbeddingProvider):
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
         from langfuse.openai import OpenAI
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        # 60s timeout: covers a local-Ollama cold-start model load on the first
+        # request after a provider switch. Warm calls (KISSKI or warm Ollama)
+        # return in well under a second. Chat callers wrap this in to_thread
+        # so the event loop stays free even at the worst case.
+        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
         self._model = model
 
     def embed(self, texts: list[str]) -> list[list[float]]:
