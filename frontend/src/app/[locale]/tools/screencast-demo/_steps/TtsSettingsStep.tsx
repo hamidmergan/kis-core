@@ -23,7 +23,7 @@ interface TtsSettingsStepProps {
   ttsProvider: TtsProvider;
   voices: Voice[];
   kokoroVoices: Array<{ voice_id: string; name: string; accent: string; gender: string }>;
-  mylabVoices: Array<{ voice_id: string; name: string; description: string }>;
+  mylabVoices: Array<{ voice_id: string; name: string; description: string; language?: string }>;
   voiceId: string;
   speed: number;
   slidePause: number;
@@ -93,7 +93,10 @@ export function TtsSettingsStep({
                       return { value: v.voice_id, label: `${flag} ${v.name}`.trim() };
                     })
                   : ttsProvider === "mylab"
-                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} - ${v.description}` }))
+                  ? mylabVoices.map((v) => {
+                      const flag = v.language === "de" ? "🇩🇪" : v.language === "en" ? "🇺🇸" : "";
+                      return { value: v.voice_id, label: `${flag} ${v.name} - ${v.description}`.trim() };
+                    })
                   : voices.map((v) => {
                       const desc = translateDesc(v.description);
                       return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };

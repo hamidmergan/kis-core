@@ -45,14 +45,40 @@ def _split_text(text: str) -> list[str]:
     return chunks
 
 
-# Known voices of the OpenAI-compatible TTS API (openedai-speech)
-_BUILTIN_VOICES = [
-    {"voice_id": "alloy",   "name": "Alloy",   "description": "Neutral, vielseitig"},
+# Known voices of the OpenAI-compatible TTS API (openedai-speech).
+# Each underlying voice is multilingual (XTTS-v2 auto-detects from input),
+# so we expose every voice once per supported UI language. The "@<lang>"
+# suffix is consumed by _synthesize_one before the request is sent upstream.
+_SUPPORTED_LANGUAGES = ("de", "en")
+
+_BASE_VOICES = [
+    {"voice_id": "alloy",   "name": "Alloy",    "description": "Neutral, vielseitig"},
     {"voice_id": "echo",    "name": "Echo",     "description": "Warm, klar"},
     {"voice_id": "fable",   "name": "Fable",    "description": "Erzählerisch, ausdrucksstark"},
     {"voice_id": "onyx",    "name": "Onyx",     "description": "Tief, autoritär"},
     {"voice_id": "nova",    "name": "Nova",     "description": "Freundlich, energetisch"},
     {"voice_id": "shimmer", "name": "Shimmer",  "description": "Sanft, beruhigend"},
+]
+
+
+def _split_voice_language(voice_id: str) -> tuple[str, str | None]:
+    """Strip an optional ``@<lang>`` suffix off a voice id."""
+    if "@" in voice_id:
+        base, lang = voice_id.rsplit("@", 1)
+        if lang in _SUPPORTED_LANGUAGES:
+            return base, lang
+    return voice_id, None
+
+
+_BUILTIN_VOICES = [
+    {
+        "voice_id": f"{v['voice_id']}@{lang}",
+        "name": v["name"],
+        "description": v["description"],
+        "language": lang,
+    }
+    for v in _BASE_VOICES
+    for lang in _SUPPORTED_LANGUAGES
 ]
 
 
@@ -106,8 +132,12 @@ class OpenAICompatTTSClient:
         speed: float = 1.0,
     ) -> bytes:
         text = " ".join(line.strip() for line in text.splitlines() if line.strip())
-        voice = _DEFAULT_VOICE if voice_id in ("default", "") else voice_id
-        payload = {
+        # Strip the internal ``@<lang>`` suffix - the upstream server only knows
+        # the bare voice name. The language hint is purely UI metadata; XTTS-v2
+        # auto-detects the spoken language from the input text itself.
+        base_voice, _ = _split_voice_language(voice_id)
+        voice = _DEFAULT_VOICE if base_voice in ("default", "") else base_voice
+        payload: dict = {
             "model": self._model,
             "input": text,
             "voice": voice,

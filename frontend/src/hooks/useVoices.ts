@@ -21,6 +21,7 @@ export interface OpenAITtsVoice {
   voice_id: string;
   name: string;
   description: string;
+  language?: string;
 }
 
 export type TtsProvider = "elevenlabs" | "kokoro" | "mylab";

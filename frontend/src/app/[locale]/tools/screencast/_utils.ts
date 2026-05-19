@@ -1,16 +1,26 @@
 import type { JobStatus } from "@/lib/api";
 import { KOKORO_ACCENT_LABEL } from "@/lib/voice-labels";
-import type { KokoroVoice, ElevenLabsVoice } from "@/hooks/useVoices";
+import type { KokoroVoice, ElevenLabsVoice, OpenAITtsVoice } from "@/hooks/useVoices";
+
+const MYLAB_FLAG: Record<string, string> = {
+  "de": "🇩🇪",
+  "en": "🇺🇸",
+};
 
 export function computeVoiceLabel(
   provider: string,
   voiceId: string,
   kokoroVoices: KokoroVoice[],
   elevenlabsVoices: ElevenLabsVoice[],
+  mylabVoices: OpenAITtsVoice[] = [],
 ): string {
   if (provider === "kokoro") {
     const v = kokoroVoices.find((x) => x.voice_id === voiceId);
     return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId;
+  }
+  if (provider === "mylab") {
+    const v = mylabVoices.find((x) => x.voice_id === voiceId);
+    return v ? `${MYLAB_FLAG[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId;
   }
   return elevenlabsVoices.find((x) => x.voice_id === voiceId)?.label ?? voiceId;
 }

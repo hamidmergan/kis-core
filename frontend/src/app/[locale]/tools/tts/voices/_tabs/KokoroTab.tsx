@@ -42,7 +42,7 @@ export default function KokoroTab({ active }: { active: boolean }) {
   return (
     <div className="space-y-4">
       {languages.map((lang) => (
-        <details key={lang} open={lang === "Deutsch"}>
+        <details key={lang} open={lang === "English"}>
           <summary className="cursor-pointer select-none px-4 py-3 bg-surface border border-border-soft rounded-lg text-sm font-medium text-foreground hover:bg-surface transition-colors">
             {KOKORO_LANGUAGE_LABEL[lang] ?? lang}
             <span className="ml-2 text-xs text-muted-soft font-normal">

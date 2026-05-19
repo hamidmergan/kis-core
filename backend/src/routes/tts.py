@@ -83,15 +83,9 @@ async def kokoro_preview(
     if not client or not client.is_available():
         raise HTTPException(status_code=503, detail=t("kokoro.unreachable", locale))
     voice_id = body.get("voice_id", "af_heart")
-    # Voice prefix wins over UI locale - a German voice MUST speak German text,
-    # otherwise the audio quality drops. Only fall back to UI locale for
-    # locale-agnostic voices.
-    if voice_id.startswith(("df_", "dm_")):
-        preview_text = "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
-    elif locale == "de":
-        preview_text = "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
-    else:
-        preview_text = "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
+    # Kokoro is restricted to English voices: preview text is always English
+    # to match the voice character, regardless of the user's UI locale.
+    preview_text = "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
     audio = client.synthesize_chunk(
         preview_text,
         voice_id=voice_id,
@@ -127,9 +121,15 @@ async def mylab_preview(
     if not client or not client.is_available():
         raise HTTPException(status_code=503, detail=t("mylab.ttsUnreachable", locale))
     voice_id = body.get("voice_id", "alloy")
+    # Voice id encodes language (e.g. "alloy@de"); preview text follows that
+    # so users hear the voice in the language they actually selected. Fall
+    # back to UI locale for legacy voice ids without a suffix.
+    from src.services.openai_compat_tts import _split_voice_language
+    _, voice_lang = _split_voice_language(voice_id)
+    effective_lang = voice_lang or locale
     preview_text = (
         "Hello! This is a preview of the selected voice. I hope you enjoy the sound."
-        if locale == "en"
+        if effective_lang == "en"
         else "Hallo! Dies ist eine Vorschau der ausgewählten Stimme. Ich hoffe, sie gefällt Ihnen."
     )
     audio = client.synthesize_chunk(

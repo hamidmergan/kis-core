@@ -248,6 +248,7 @@ function ScreencastPageInner() {
     ttsProvider,
     kokoroVoices,
     voices,
+    mylabVoices,
     failedRender,
     renderResult,
     checkBeforeSubmit,

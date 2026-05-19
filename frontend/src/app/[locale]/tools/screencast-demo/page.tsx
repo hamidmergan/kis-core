@@ -70,7 +70,7 @@ function ScreencastDemoPageInner() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{ voice_id: string; name: string; accent: string; gender: string }>>([]);
-  const [mylabVoices, setMylabVoices] = useState<Array<{ voice_id: string; name: string; description: string }>>([]);
+  const [mylabVoices, setMylabVoices] = useState<Array<{ voice_id: string; name: string; description: string; language?: string }>>([]);
   const [voiceId, setVoiceId] = useState("");
   const [ttsProvider, setTtsProvider] = useState<"elevenlabs" | "kokoro" | "mylab">("kokoro");
   const [elevenlabsEnabled, setElevenlabsEnabled] = useState(false);
@@ -107,7 +107,7 @@ function ScreencastDemoPageInner() {
           }).catch(() => {});
       }
       if (data.mylab_enabled) {
-        api.getJson<{ voices: Array<{ voice_id: string; name: string; description: string }> }>("/api/mylab/voices")
+        api.getJson<{ voices: Array<{ voice_id: string; name: string; description: string; language?: string }> }>("/api/mylab/voices")
           .then((mData) => {
             setMylabVoices(mData.voices ?? []);
             if (mData.voices?.length > 0 && !data.kokoro_enabled) setVoiceId(mData.voices[0].voice_id);
@@ -236,8 +236,11 @@ function ScreencastDemoPageInner() {
     setStep("rendering");
     setLoading(true);
     try {
+      const mylabFlag: Record<string, string> = { de: "🇩🇪", en: "🇺🇸" };
       const voiceLabel = ttsProvider === "kokoro"
         ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
+        : ttsProvider === "mylab"
+        ? (() => { const v = mylabVoices.find(x => x.voice_id === voiceId); return v ? `${mylabFlag[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId; })()
         : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
       const response = await fetch("/api/screencast-demo/render", {
         method: "POST",
@@ -254,7 +257,7 @@ function ScreencastDemoPageInner() {
       if (err instanceof Error && err.name === "AbortError") return;
       goError(err instanceof Error ? err.message : tCommon("unknownError"));
     }
-  }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, voices, translateJobUuid, goError, processRenderResponse, tCommon]);
+  }, [voiceId, speed, slidePause, dpi, ttsProvider, kokoroVoices, mylabVoices, voices, translateJobUuid, goError, processRenderResponse, tCommon]);
 
   const handleJsonImport = useCallback((file: File) => {
     setImportError(null);

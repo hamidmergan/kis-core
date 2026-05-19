@@ -20,7 +20,11 @@ interface Voice {
 const KOKORO_ACCENT_LABEL: Record<string, string> = {
   "American": "🇺🇸",
   "British": "🇬🇧",
-  "Deutsch": "🇩🇪",
+};
+
+const MYLAB_LANGUAGE_FLAG: Record<string, string> = {
+  "de": "🇩🇪",
+  "en": "🇺🇸",
 };
 
 const PAUSE_KEYS = ["short", "medium", "long", "very_long"] as const;
@@ -59,7 +63,7 @@ export default function TtsPage() {
   // Voice selection
   const [voices, setVoices] = useState<Voice[]>([]);
   const [kokoroVoices, setKokoroVoices] = useState<Array<{voice_id: string; name: string; language?: string; accent: string; gender: string}>>([]);
-  const [mylabVoices, setMylabVoices] = useState<Array<{voice_id: string; name: string; description: string}>>([]);
+  const [mylabVoices, setMylabVoices] = useState<Array<{voice_id: string; name: string; description: string; language?: string}>>([]);
   const [voiceId, setVoiceId] = useState("");
 
   // Audio settings
@@ -87,7 +91,7 @@ export default function TtsPage() {
           }).catch(() => {});
       }
       if (data.mylab_enabled) {
-        api.getJson<{ voices: Array<{voice_id: string; name: string; description: string}> }>("/api/mylab/voices")
+        api.getJson<{ voices: Array<{voice_id: string; name: string; description: string; language?: string}> }>("/api/mylab/voices")
           .then((d) => {
             setMylabVoices(d.voices);
           }).catch(() => {});
@@ -141,7 +145,7 @@ export default function TtsPage() {
       const voiceLabel = provider === "kokoro"
         ? (() => { const v = kokoroVoices.find(x => x.voice_id === voiceId); return v ? `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() : voiceId; })()
         : provider === "mylab"
-        ? (mylabVoices.find(x => x.voice_id === voiceId)?.name ?? voiceId)
+        ? (() => { const v = mylabVoices.find(x => x.voice_id === voiceId); return v ? `${MYLAB_LANGUAGE_FLAG[v.language ?? ""] ?? ""} ${v.name}`.trim() : voiceId; })()
         : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
 
       const formData = new FormData();
@@ -280,7 +284,7 @@ export default function TtsPage() {
                   provider === "kokoro"
                     ? kokoroVoices.map((v) => ({ value: v.voice_id, label: `${KOKORO_ACCENT_LABEL[v.accent] ?? ""} ${v.name}`.trim() }))
                     : provider === "mylab"
-                    ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} - ${v.description}` }))
+                    ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${MYLAB_LANGUAGE_FLAG[v.language ?? ""] ?? ""} ${v.name} - ${v.description}`.trim() }))
                     : voices.map((v) => {
                         const desc = translateDesc(v.description);
                         return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };

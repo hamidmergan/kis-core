@@ -4,7 +4,7 @@ import { useCallback, useEffect, type Dispatch, type MutableRefObject } from "re
 import { downloadJobAsBlob, parseDetail, pollJob, type JobStatus } from "@/lib/api";
 import { notifyJobsChanged } from "@/lib/jobs-events";
 import type { SlideData } from "@/types";
-import type { ElevenLabsVoice, KokoroVoice, TtsProvider } from "@/hooks/useVoices";
+import type { ElevenLabsVoice, KokoroVoice, OpenAITtsVoice, TtsProvider } from "@/hooks/useVoices";
 import type { useFailedRender } from "@/hooks/useFailedRender";
 import type { useRenderResult } from "@/hooks/useRenderResult";
 import { computeVoiceLabel, renderProgress, type RenderProgress } from "../_utils";
@@ -40,6 +40,7 @@ interface UseScreencastRenderFlowOptions {
   ttsProvider: TtsProvider;
   kokoroVoices: KokoroVoice[];
   voices: ElevenLabsVoice[];
+  mylabVoices: OpenAITtsVoice[];
 
   // Sub-hooks
   failedRender: ReturnType<typeof useFailedRender>;
@@ -71,6 +72,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
     ttsProvider,
     kokoroVoices,
     voices,
+    mylabVoices,
     failedRender,
     renderResult,
     checkBeforeSubmit,
@@ -129,7 +131,7 @@ export function useScreencastRenderFlow(opts: UseScreencastRenderFlowOptions) {
           scripts: slides.map((s) => s.script),
           translate_job_uuid: translateJobUuid,
           voice_id: voiceId,
-          voice_label: computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices),
+          voice_label: computeVoiceLabel(ttsProvider, voiceId, kokoroVoices, voices, mylabVoices),
           speed,
           slide_pause: slidePause,
           dpi,

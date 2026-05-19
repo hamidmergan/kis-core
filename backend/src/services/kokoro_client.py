@@ -112,34 +112,17 @@ class KokoroClient:
             )
         return response.content
 
-    # Language mapping based on Kokoro voice-id prefix
+    # Language mapping based on Kokoro voice-id prefix.
+    # Kokoro is English-only here: its non-English voices produce noticeably
+    # worse audio for our use cases, so we only ship the English locales.
     _LANGUAGE_MAP = {
         "af_": {"language": "English", "accent": "American", "gender": "Female"},
         "am_": {"language": "English", "accent": "American", "gender": "Male"},
         "bf_": {"language": "English", "accent": "British",  "gender": "Female"},
         "bm_": {"language": "English", "accent": "British",  "gender": "Male"},
-        "df_": {"language": "Deutsch", "accent": "Deutsch",  "gender": "Female"},
-        "dm_": {"language": "Deutsch", "accent": "Deutsch",  "gender": "Male"},
-        "ff_": {"language": "Français", "accent": "Français", "gender": "Female"},
-        "fm_": {"language": "Français", "accent": "Français", "gender": "Male"},
-        "ef_": {"language": "Español", "accent": "Español",  "gender": "Female"},
-        "em_": {"language": "Español", "accent": "Español",  "gender": "Male"},
-        "if_": {"language": "Italiano", "accent": "Italiano", "gender": "Female"},
-        "im_": {"language": "Italiano", "accent": "Italiano", "gender": "Male"},
-        "pf_": {"language": "Português", "accent": "Português", "gender": "Female"},
-        "pm_": {"language": "Português", "accent": "Português", "gender": "Male"},
-        "jf_": {"language": "Japanese", "accent": "Japanese", "gender": "Female"},
-        "jm_": {"language": "Japanese", "accent": "Japanese", "gender": "Male"},
-        "zf_": {"language": "Chinese", "accent": "Chinese",  "gender": "Female"},
-        "zm_": {"language": "Chinese", "accent": "Chinese",  "gender": "Male"},
-        "hf_": {"language": "Hindi",   "accent": "Hindi",    "gender": "Female"},
-        "hm_": {"language": "Hindi",   "accent": "Hindi",    "gender": "Male"},
-        "kf_": {"language": "Korean",  "accent": "Korean",   "gender": "Female"},
-        "km_": {"language": "Korean",  "accent": "Korean",   "gender": "Male"},
     }
 
-    # Only English + German as supported languages
-    _SUPPORTED_PREFIXES = ("af_", "am_", "bf_", "bm_", "df_", "dm_")
+    _SUPPORTED_PREFIXES = ("af_", "am_", "bf_", "bm_")
 
     # Fixed voice list as fallback (Kokoro v1.0+, Apache 2.0)
     _BUILTIN_VOICES = [
@@ -173,11 +156,6 @@ class KokoroClient:
         {"voice_id": "bm_fable",    "name": "Fable",    "language": "English", "accent": "British",  "gender": "Male"},
         {"voice_id": "bm_lewis",    "name": "Lewis",    "language": "English", "accent": "British",  "gender": "Male"},
         {"voice_id": "bm_daniel",   "name": "Daniel",   "language": "English", "accent": "British",  "gender": "Male"},
-        # German
-        {"voice_id": "df_eva",      "name": "Eva",      "language": "Deutsch", "accent": "Deutsch",  "gender": "Female"},
-        {"voice_id": "df_dora",     "name": "Dora",     "language": "Deutsch", "accent": "Deutsch",  "gender": "Female"},
-        {"voice_id": "dm_florian",  "name": "Florian",  "language": "Deutsch", "accent": "Deutsch",  "gender": "Male"},
-        {"voice_id": "dm_hans",     "name": "Hans",     "language": "Deutsch", "accent": "Deutsch",  "gender": "Male"},
     ]
 
     @classmethod

@@ -21,7 +21,13 @@ interface MylabVoice {
   voice_id: string;
   name: string;
   description: string;
+  language?: string;
 }
+
+const MYLAB_FLAG: Record<string, string> = {
+  "de": "🇩🇪",
+  "en": "🇺🇸",
+};
 
 type TtsProvider = "elevenlabs" | "kokoro" | "mylab";
 
@@ -135,7 +141,7 @@ export default function TtsSettingsStep(props: TtsSettingsStepProps) {
                       return { value: v.voice_id, label: `${flag} ${v.name}`.trim() };
                     })
                   : ttsProvider === "mylab"
-                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${v.name} - ${v.description}` }))
+                  ? mylabVoices.map((v) => ({ value: v.voice_id, label: `${MYLAB_FLAG[v.language ?? ""] ?? ""} ${v.name} - ${v.description}`.trim() }))
                   : voices.map((v) => {
                       const desc = translateVoiceDescription(v.description, tDesc);
                       return { value: v.voice_id, label: desc ? `${v.label} - ${desc}` : v.label };

@@ -57,10 +57,15 @@ export const USE_CASE_KEYS = [
   "ads",
 ] as const;
 
-export const KOKORO_LANGUAGE_ORDER = ["Deutsch", "English"];
+export const KOKORO_LANGUAGE_ORDER = ["English"];
 export const KOKORO_LANGUAGE_LABEL: Record<string, string> = {
-  "Deutsch": "🇩🇪 Deutsch",
   "English": "🇺🇸🇬🇧 English",
+};
+
+export const MYLAB_LANGUAGE_ORDER = ["de", "en"];
+export const MYLAB_LANGUAGE_LABEL: Record<string, string> = {
+  "de": "🇩🇪 Deutsch",
+  "en": "🇺🇸 English",
 };
 
 export type DescriptionTranslator = (key: string) => string;
@@ -118,6 +123,7 @@ export interface OpenAITtsVoice {
   voice_id: string;
   name: string;
   description: string;
+  language?: string;
 }
 
 export type VoicesTab = "elevenlabs" | "kokoro" | "mylab";
