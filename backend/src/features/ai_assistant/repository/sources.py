@@ -117,6 +117,16 @@ def update_aia_source_toc(uuid: str, toc: list[dict]) -> None:
                 "UPDATE aia_sources SET toc = %s WHERE uuid = %s",
                 (json.dumps(toc), uuid),
             )
+
+def update_aia_source_summary(uuid: str, summary: str) -> None:
+    """Persist the English doc-level summary for a source."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET summary = %s WHERE uuid = %s",
+                (summary, uuid),
+            )
+        conn.commit()
         conn.commit()
 
 def delete_aia_source(uuid: str) -> None:

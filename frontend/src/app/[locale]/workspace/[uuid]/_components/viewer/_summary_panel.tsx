@@ -5,13 +5,12 @@ type SummaryPanelProps = {
   page: number;
   summaryText: string | undefined;
   summariesStatus: string;
-  summaryMode: "off" | "auto" | "manual";
   onGenerate: () => void | Promise<void>;
   onScrollPdf?: (deltaY: number) => void;
 };
 
 export function SummaryPanel({
-  page, summaryText, summariesStatus, summaryMode, onGenerate, onScrollPdf,
+  page, summaryText, summariesStatus, onGenerate, onScrollPdf,
 }: SummaryPanelProps) {
   const t = useTranslations("workspace.detail.summary");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -42,15 +41,6 @@ export function SummaryPanel({
       return renderWithBreaks(summaryText);
     }
     if (summariesStatus === "none" || summariesStatus === "failed" || summariesStatus === "rate_limited") {
-      if (summaryMode === "off") {
-        return (
-          <div style={{ textAlign: "center", padding: "16px 12px" }}>
-            <span style={{ color: "var(--muted)", display: "block", fontSize: 12 }}>
-              {t("disabledByOwner")}
-            </span>
-          </div>
-        );
-      }
       return (
         <div style={{ textAlign: "center", padding: "16px 12px" }}>
           <span style={{ color: "var(--muted)", display: "block", marginBottom: 10, fontSize: 12 }}>

@@ -7,7 +7,6 @@ export interface Source {
 
 export type TranscriptTranslationMode = "off" | "auto" | "manual";
 export type TranscriptDefaultLang = "de" | "en" | "both";
-export type SummaryMode = "off" | "auto" | "manual";
 
 export interface WorkspaceDetail {
   uuid: string;
@@ -18,7 +17,6 @@ export interface WorkspaceDetail {
   is_owner?: boolean;
   transcript_translation_mode?: TranscriptTranslationMode;
   transcript_default_lang?: TranscriptDefaultLang;
-  summary_mode?: SummaryMode;
   sources: Source[];
 }
 

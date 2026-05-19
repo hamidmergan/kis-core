@@ -258,6 +258,75 @@ AIA_SUMMARY_PAGE_BATCH_USER = (
     "Pages:\n{pages}"
 )
 
+# Intent classifier: route chat questions to either the cross-source overview path
+# (compact doc-summaries, cheap) or the topic-specific path (hybrid search). English
+# system prompt for cross-language robustness; the question itself can be any language.
+# Paired with AIA_INTENT_CLASSIFIER_FEWSHOT (conversation-style few-shot) because
+# instruction-only prompts proved unreliable - some models echo the question or
+# write meta-commentary instead of emitting just the verdict.
+AIA_INTENT_CLASSIFIER_SYSTEM = (
+    "You are a classifier. Your only allowed output is one of these two tokens:\n"
+    "GENERIC\n"
+    "SPECIFIC\n"
+    "\n"
+    "Output GENERIC if the user wants a summary, overview, or main topics across "
+    "their documents (no particular concept is named in the question).\n"
+    "Output SPECIFIC if the user asks about a particular concept, term, "
+    "definition, person, fact, mechanism, comparison, or detail.\n"
+    "\n"
+    "Examples (output column is your full response):\n"
+    "Input: fasse zusammen | Output: GENERIC\n"
+    "Input: fasse alle Quellen zusammen | Output: GENERIC\n"
+    "Input: gib mir einen Überblick | Output: GENERIC\n"
+    "Input: was sind die Hauptthemen | Output: GENERIC\n"
+    "Input: summarize | Output: GENERIC\n"
+    "Input: resumen | Output: GENERIC\n"
+    "Input: erkläre Microcredentials | Output: SPECIFIC\n"
+    "Input: was sind neuronale Netze | Output: SPECIFIC\n"
+    "Input: wer hat das gesagt | Output: SPECIFIC\n"
+    "Input: unterschied zwischen X und Y | Output: SPECIFIC\n"
+    "\n"
+    "Now classify the next input. Reply with exactly one token, no explanation, "
+    "no punctuation, no quotes."
+)
+
+# Conversation-style few-shots: the model sees the expected output shape directly
+# in prior assistant turns. Far more reliable than instruction-only prompting.
+AIA_INTENT_CLASSIFIER_FEWSHOT: list[dict] = [
+    {"role": "user", "content": "fasse zusammen"},
+    {"role": "assistant", "content": "GENERIC"},
+    {"role": "user", "content": "was sind die Hauptthemen"},
+    {"role": "assistant", "content": "GENERIC"},
+    {"role": "user", "content": "gib mir einen Überblick"},
+    {"role": "assistant", "content": "GENERIC"},
+    {"role": "user", "content": "summarize all sources"},
+    {"role": "assistant", "content": "GENERIC"},
+    {"role": "user", "content": "resumen por favor"},
+    {"role": "assistant", "content": "GENERIC"},
+    {"role": "user", "content": "erkläre Microcredentials"},
+    {"role": "assistant", "content": "SPECIFIC"},
+    {"role": "user", "content": "was ist ein neuronales Netz"},
+    {"role": "assistant", "content": "SPECIFIC"},
+    {"role": "user", "content": "wer hat das Konzept eingeführt"},
+    {"role": "assistant", "content": "SPECIFIC"},
+    {"role": "user", "content": "unterschied zwischen X und Y"},
+    {"role": "assistant", "content": "SPECIFIC"},
+    {"role": "user", "content": "explain neural networks"},
+    {"role": "assistant", "content": "SPECIFIC"},
+]
+
+# Doc-level summary: one compact English overview of an entire source. Used as
+# cross-source chat context (Fall 1) and as source-diversity fallback (Fall 2).
+# Always English regardless of source language - the chat LLM translates if needed.
+AIA_DOC_SUMMARY_SYSTEM = (
+    "You write compact English overviews of documents for downstream retrieval. "
+    "Capture the main topics, scope, and key concepts so another LLM can decide "
+    "whether the document is relevant to a question. Use 4-6 sentences. "
+    "Be specific (name topics, methods, entities). Do not start with 'This document' "
+    "or 'The text'. No URLs, DOIs, ISBNs, or contact info. English only."
+)
+AIA_DOC_SUMMARY_USER = "Document content:\n\n{content}"
+
 
 AIA_MINDMAP_PROMPT = (
     "You are an expert in knowledge structuring. Create a hierarchical mind map from the given text.\n\n"

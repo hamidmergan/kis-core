@@ -44,7 +44,7 @@ def build_source_context(uuids: list[str], tool: str) -> QuelleContext | None:
             first_label = source_label
 
         chunks_all = db.get_chunks_by_source(source["id"]) if use_chunks else None
-        summaries = None if use_chunks else db.get_paragraph_summaries_by_source(source["id"])
+        summaries = None if use_chunks else db.get_page_summaries_by_source(source["id"])
 
         if use_chunks and chunks_all:
             for c in chunks_all:

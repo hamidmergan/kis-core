@@ -81,7 +81,7 @@ def run_generate_mindmap(self, mindmap_id: int, source_ids: list[int], source_uu
                         parts.append(f"[{source_label}, {time_label}] {c['content']}")
                     context_parts.append(f"--- {source_label} ---\n" + "\n".join(parts))
             else:
-                summaries = db.get_paragraph_summaries_by_source(sid)
+                summaries = db.get_page_summaries_by_source(sid)
                 if summaries:
                     pages: dict[int, list[str]] = {}
                     for s in summaries:

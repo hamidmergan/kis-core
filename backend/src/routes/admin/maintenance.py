@@ -77,3 +77,26 @@ async def reindex_all(
     }))
     run_reindex_all_sources.delay()
     return {"ok": True}
+
+
+@router.get("/backfill-doc-summaries")
+async def backfill_doc_summaries_status(_admin=Depends(get_admin_user)):
+    """How many ready sources are still missing a doc-summary?"""
+    from src.core.db.pool import get_connection
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM aia_sources WHERE status = 'ready' AND (summary IS NULL OR summary = '')"
+            )
+            pending = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM aia_sources WHERE status = 'ready'")
+            total = cur.fetchone()[0]
+    return {"pending": pending, "total": total}
+
+
+@router.post("/backfill-doc-summaries")
+async def backfill_doc_summaries(_admin=Depends(get_admin_user)):
+    """Queue a one-shot job that generates doc-summaries for every source missing one."""
+    from src.tasks.aia_tasks import run_backfill_doc_summaries
+    run_backfill_doc_summaries.delay()
+    return {"ok": True}

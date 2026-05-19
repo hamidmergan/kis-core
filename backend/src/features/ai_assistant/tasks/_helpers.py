@@ -201,6 +201,72 @@ def _get_llm_client():
     )
     return client, _model, _provider
 
+# Doc-summary input budget: large enough for a 100-min transcript (~50k chars)
+# or ~75 page-summaries; small enough to fit a 32k-token context with output budget.
+_DOC_SUMMARY_INPUT_MAX_CHARS = 80_000
+_DOC_SUMMARY_MAX_TOKENS = 600  # ~300-word English overview
+
+
+def _gather_doc_summary_input(source_id: int) -> str:
+    """Pick the best compact input for a doc-level summary of this source.
+
+    Prefer page-summaries (already compressed) when present; otherwise fall back
+    to the raw chunks. Output is truncated to _DOC_SUMMARY_INPUT_MAX_CHARS so the
+    downstream LLM call stays within typical context windows.
+    """
+    page_summaries = db.get_page_summaries_by_source(source_id)
+    if page_summaries:
+        joined = "\n".join(
+            f"[p.{s['page_number']}] {s['summary']}" for s in page_summaries if s.get("summary")
+        )
+    else:
+        chunks = db.get_aia_chunks_by_source(source_id)
+        joined = "\n".join((c.get("content") or "").strip() for c in chunks)
+    return joined[:_DOC_SUMMARY_INPUT_MAX_CHARS]
+
+
+def generate_doc_summary(source_uuid: str) -> str | None:
+    """Generate and persist an English doc-level summary for a source.
+
+    Returns the saved summary on success, ``None`` if the source has no usable
+    content (e.g. indexing failed before chunks were stored).
+    """
+    from src.tool_prompts import AIA_DOC_SUMMARY_SYSTEM, AIA_DOC_SUMMARY_USER
+
+    source = db.get_aia_source(source_uuid)
+    if source is None:
+        logger.warning("KI Tutor doc-summary: source {} not found, skipping", source_uuid)
+        return None
+
+    content = _gather_doc_summary_input(source["id"])
+    if not content.strip():
+        logger.warning("KI Tutor doc-summary: no content available for {}", source_uuid)
+        return None
+
+    client, model, _provider = _get_llm_client()
+    resp = _call_llm_with_retry(
+        client, model,
+        [
+            {"role": "system", "content": AIA_DOC_SUMMARY_SYSTEM},
+            {"role": "user", "content": AIA_DOC_SUMMARY_USER.format(content=content)},
+        ],
+        temperature=0.2,
+        max_tokens=_DOC_SUMMARY_MAX_TOKENS,
+        timeout=AIA_SUMMARY_TIMEOUT_LARGE,
+        extra_body={},
+    )
+    msg = resp.choices[0].message
+    raw = msg.content or getattr(msg, "reasoning_content", None) or ""
+    summary = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+    if not summary:
+        logger.warning("KI Tutor doc-summary: empty LLM output for {}", source_uuid)
+        return None
+
+    db.update_aia_source_summary(source_uuid, summary)
+    logger.info("KI Tutor doc-summary: saved {} chars for {}", len(summary), source_uuid)
+    return summary
+
+
 def _clean_llm_json(text: str) -> str:
     """Strip markdown fences and leading/trailing whitespace from LLM JSON output."""
     text = text.strip()

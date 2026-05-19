@@ -148,7 +148,6 @@ async def get_workspace(
         "is_owner": workspace["user_id"] == current_user["user_id"],
         "transcript_translation_mode": workspace.get("transcript_translation_mode", "manual"),
         "transcript_default_lang": workspace.get("transcript_default_lang", "both"),
-        "summary_mode": workspace.get("summary_mode", "manual"),
         "access_links": [
             {
                 "id": l["id"],
@@ -196,10 +195,6 @@ async def patch_workspace(
         if body.transcript_default_lang not in ("de", "en", "both"):
             raise HTTPException(status_code=400, detail=t("ai.workspace.transcriptDefaultLangInvalid", locale))
         db.set_aia_workspace_transcript_default_lang(workspace_uuid, body.transcript_default_lang)
-    if body.summary_mode is not None:
-        if body.summary_mode not in ("off", "auto", "manual"):
-            raise HTTPException(status_code=400, detail=t("ai.workspace.summaryModeInvalid", locale))
-        db.set_aia_workspace_summary_mode(workspace_uuid, body.summary_mode)
     return {"uuid": workspace_uuid, "title": new_title, "is_active": new_active}
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}/renew-code")

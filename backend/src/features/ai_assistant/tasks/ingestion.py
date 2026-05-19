@@ -23,6 +23,7 @@ from src.features.ai_assistant.tasks._helpers import (
     _summarize_batch,
     _get_llm_client,
     _clean_llm_json,
+    generate_doc_summary,
 )
 
 
@@ -181,23 +182,17 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                     source_uuid, translation_mode,
                 )
 
-        # 11. PDF page summaries: owner-controlled per workspace (default "manual").
-        # Only "auto" triggers at ingest; "manual" waits for the button; "off" disables it.
+        # 11. Summary pipeline. PDFs get page-summaries first (UI panel + better
+        # doc-summary input); the page-summary task chains doc-summary at its end.
+        # Non-PDFs (audio/video/docx/pptx/txt) have no page-summary concept, so
+        # doc-summary runs directly from their chunks.
         if source["file_type"] == "pdf":
-            workspace = db.get_aia_workspace_by_id(workspace_id)
-            summary_mode = (workspace or {}).get("summary_mode", "manual")
-            if summary_mode == "auto":
-                from src.tasks.aia_tasks import run_generate_summaries
-                run_generate_summaries.delay(source_uuid, locale)
-                logger.info(
-                    "KI Tutor: dispatched auto page-summaries for {} (mode=auto)",
-                    source_uuid,
-                )
-            else:
-                logger.info(
-                    "KI Tutor: skipping auto page-summaries for {} (mode={})",
-                    source_uuid, summary_mode,
-                )
+            from src.tasks.aia_tasks import run_generate_summaries
+            run_generate_summaries.delay(source_uuid, locale)
+            logger.info("KI Tutor: dispatched page-summaries for {}", source_uuid)
+        else:
+            run_generate_doc_summary.delay(source_uuid)
+            logger.info("KI Tutor: dispatched doc-summary for {}", source_uuid)
 
     except Exception as e:
         from src.services.aia_chunker import PdfNoReadableTextError
@@ -223,6 +218,29 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
             error_message = str(e)
         db.update_aia_source_status(source_uuid, "failed", error_message=error_message)
         raise
+
+@celery_app.task(bind=True, name="aia.generate_doc_summary", queue="aia")
+def run_generate_doc_summary(self, source_uuid: str):
+    """Generate the English doc-level summary for a source.
+
+    Soft-failure: any error is logged but never marks the source itself as
+    failed - the doc-summary is an optional retrieval aid, chat and reader
+    still work without it.
+    """
+    try:
+        generate_doc_summary(source_uuid)
+    except Exception as e:
+        msg = str(e).lower()
+        if "429" in msg or "rate limit" in msg:
+            if self.request.retries < 3:
+                countdown = 60 * (2 ** self.request.retries)  # 1m, 2m, 4m
+                logger.warning(
+                    "KI Tutor doc-summary: {} rate limited (attempt {}/3), retry in {}s",
+                    source_uuid, self.request.retries + 1, countdown,
+                )
+                raise self.retry(exc=e, countdown=countdown, max_retries=3)
+        logger.warning("KI Tutor doc-summary: {} failed, will retry on next reindex: {}", source_uuid, e)
+
 
 @celery_app.task(bind=True, name="aia.translate_transcript_en", queue="aia")
 def run_translate_transcript_en(self, source_uuid: str, provider: str = "deepl"):
@@ -387,7 +405,7 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
         )
 
         # 4. Skip pages that already have summaries (resume after partial failure)
-        existing = db.get_paragraph_summaries_by_source(source["id"])
+        existing = db.get_page_summaries_by_source(source["id"])
         existing_pages = {s["page_number"] for s in existing}
         remaining_pages = [p for p in pages if p["page_number"] not in existing_pages]
 
@@ -403,16 +421,10 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
 
         # 5. Generate summaries in batches, save each batch immediately to DB
         def _save_page_summaries(page_batch: list[dict], summary_batch: list[str]):
-            db.bulk_create_paragraph_summaries(
+            db.bulk_create_page_summaries(
                 source_id=source["id"],
                 summaries=[
-                    {
-                        "page_number": p["page_number"],
-                        "block_index": 0,
-                        "bbox": {"x0": 0, "y0": 0, "x1": 0, "y1": 0},
-                        "content": p["content"][:500],
-                        "summary": s,
-                    }
+                    {"page_number": p["page_number"], "summary": s}
                     for p, s in zip(page_batch, summary_batch)
                     if s.strip()
                 ],
@@ -468,6 +480,10 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
         else:
             db.update_aia_source_summaries_status(source_uuid, "ready")
             logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
+            # Chain doc-summary now that page-summaries are available - it'll use
+            # them as compact input (instead of falling back to truncated chunks).
+            run_generate_doc_summary.delay(source_uuid)
+            logger.info("KI Tutor: dispatched doc-summary for {} (from page-summaries)", source_uuid)
 
     except Exception as e:
         from celery.exceptions import Retry

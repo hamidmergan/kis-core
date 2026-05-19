@@ -13,7 +13,7 @@ Bundle layout (ZIP):
 
 Optional, opt-in via query flags on export, permissively read on import:
     glossary.json   — aia_glossary_entries (per source)
-    summaries.json  — aia_paragraph_summaries (per source)
+    summaries.json  — aia_page_summaries (per source)
     notes.json      — aia_notes (per workspace + user; user_id reassigned to importer)
     schedule.json   — aia_schedule_entries (per workspace + user; user_id reassigned)
     studio.json     — aia_mindmaps + aia_data_tables + aia_exercise_sets/items
@@ -64,7 +64,7 @@ def _workspace_export_dict(workspace: dict) -> dict:
     keep = (
         "uuid", "title", "description", "is_active", "status",
         "embedding_model", "embedding_fingerprint",
-        "transcript_translation_mode", "transcript_default_lang", "summary_mode",
+        "transcript_translation_mode", "transcript_default_lang",
     )
     return {k: workspace.get(k) for k in keep}
 
@@ -214,15 +214,14 @@ def _fetch_glossary(source_id_to_uuid: dict[int, str]) -> list[dict]:
     ]
 
 
-def _fetch_paragraph_summaries(source_id_to_uuid: dict[int, str]) -> list[dict]:
+def _fetch_page_summaries(source_id_to_uuid: dict[int, str]) -> list[dict]:
     if not source_id_to_uuid:
         return []
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute(
-                """SELECT source_id, page_number, block_index,
-                          bbox_x0, bbox_y0, bbox_x1, bbox_y1, content, summary
-                   FROM aia_paragraph_summaries WHERE source_id = ANY(%s)
+                """SELECT source_id, page_number, summary
+                   FROM aia_page_summaries WHERE source_id = ANY(%s)
                    ORDER BY id""",
                 (list(source_id_to_uuid.keys()),),
             )
@@ -363,13 +362,9 @@ def _insert_summaries(rows: list[dict], uuid_to_source_id: dict[str, int]) -> in
                 if not sid:
                     continue
                 cur.execute(
-                    """INSERT INTO aia_paragraph_summaries
-                       (source_id, page_number, block_index,
-                        bbox_x0, bbox_y0, bbox_x1, bbox_y1, content, summary)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (sid, s.get("page_number"), s.get("block_index"),
-                     s.get("bbox_x0"), s.get("bbox_y0"), s.get("bbox_x1"), s.get("bbox_y1"),
-                     s.get("content") or "", s.get("summary") or ""),
+                    """INSERT INTO aia_page_summaries (source_id, page_number, summary)
+                       VALUES (%s, %s, %s)""",
+                    (sid, s.get("page_number"), s.get("summary") or ""),
                 )
                 n += 1
         conn.commit()
@@ -568,7 +563,7 @@ async def export_workspace(
         extras_data["glossary"] = _fetch_glossary(source_id_to_uuid)
         extras_meta.append("glossary")
     if summaries:
-        extras_data["summaries"] = _fetch_paragraph_summaries(source_id_to_uuid)
+        extras_data["summaries"] = _fetch_page_summaries(source_id_to_uuid)
         extras_meta.append("summaries")
     if notes:
         extras_data["notes"] = _fetch_notes(workspace["id"])
@@ -731,8 +726,8 @@ async def import_workspace(
                         """INSERT INTO aia_workspaces
                            (uuid, user_id, title, description, is_active, status,
                             embedding_model, embedding_fingerprint,
-                            transcript_translation_mode, transcript_default_lang, summary_mode)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            transcript_translation_mode, transcript_default_lang)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                            RETURNING id""",
                         (
                             workspace_uuid, admin_user_id,
@@ -744,7 +739,6 @@ async def import_workspace(
                             workspace_data.get("embedding_fingerprint"),
                             workspace_data.get("transcript_translation_mode") or "manual",
                             workspace_data.get("transcript_default_lang") or "both",
-                            workspace_data.get("summary_mode") or "manual",
                         ),
                     )
                     workspace_id = cur.fetchone()[0]

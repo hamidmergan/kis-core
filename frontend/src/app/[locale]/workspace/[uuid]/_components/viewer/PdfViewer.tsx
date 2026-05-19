@@ -16,7 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 
 
 export function PdfViewer({
-  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary, isOwner = false, summaryMode = "manual",
+  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary, isOwner = false,
 }: {
   source: ViewerState;
   onClose: () => void;
@@ -27,7 +27,6 @@ export function PdfViewer({
   onMinimize?: () => void;
   onAddToGlossary?: (text: string, sourceUuid: string, page: number) => void;
   isOwner?: boolean;
-  summaryMode?: "off" | "auto" | "manual";
 }) {
   const t = useTranslations("workspace.detail.pdf");
   const tViewer = useTranslations("workspace.detail.viewer");
@@ -640,7 +639,6 @@ export function PdfViewer({
           page={page}
           summaryText={pageSummaries[page]}
           summariesStatus={summariesStatus}
-          summaryMode={summaryMode}
           onGenerate={async () => {
             setSummariesStatus("generating");
             setSummariesLoaded(false);

@@ -651,11 +651,72 @@ function MascotCard() {
   );
 }
 
+function BackfillDocSummaryCard() {
+  const t = useTranslations("admin.backfillDocSummaryCard");
+  const [pending, setPending] = useState<number | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
+  const [working, setWorking] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/backfill-doc-summaries", { credentials: "include" });
+      if (res.ok) {
+        const d = await res.json();
+        setPending(d.pending);
+        setTotal(d.total);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const start = async () => {
+    setWorking(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/backfill-doc-summaries", { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error(t("failed"));
+      setMessage(t("started"));
+      setTimeout(() => void load(), 5000);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div className="border border-border-soft rounded-xl bg-background p-5 space-y-4">
+      <div>
+        <p className="text-sm font-medium text-foreground">{t("title")}</p>
+        <p className="text-xs text-muted mt-1">{t("description")}</p>
+      </div>
+      {pending !== null && total !== null && (
+        <p className="text-xs text-foreground-soft">
+          {t("pendingCount", { pending, total })}
+        </p>
+      )}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={start}
+          disabled={working || pending === 0}
+          className="btn-primary px-3 py-1.5 text-xs font-medium rounded-md disabled:opacity-40"
+        >
+          {working ? "…" : t("start")}
+        </button>
+        {message && <p className="text-xs text-muted">{message}</p>}
+      </div>
+    </div>
+  );
+}
+
 function SystemPane() {
   return (
     <div className="space-y-4">
       <MaintenanceCard />
       <WhitelistCard />
+      <BackfillDocSummaryCard />
       <WorkspaceLabelCard />
       <MascotCard />
       <WorkspaceExportImportCard />

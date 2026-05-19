@@ -39,6 +39,8 @@ celery_app.conf.update(
         "watchdog.check": {"queue": "general"},
         # AI tutor: dedicated queue for learning tools and language training
         "aia.index_source": {"queue": "aia"},
+        "aia.generate_doc_summary": {"queue": "aia"},
+        "aia.backfill_doc_summaries": {"queue": "aia"},
         "aia.generate_summaries": {"queue": "aia"},
         "aia.generate_mindmap": {"queue": "aia"},
         "aia.generate_exercise_set": {"queue": "aia"},

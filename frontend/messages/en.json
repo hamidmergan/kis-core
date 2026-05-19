@@ -875,6 +875,14 @@
       "lastRunFailed": ", {n} errors",
       "activateMaintenance": "Activate maintenance mode (System tab) before starting."
     },
+    "backfillDocSummaryCard": {
+      "title": "Backfill doc-summaries",
+      "description": "Generates the compact English overview the chat uses for cross-source \"summarize\" questions, for every source still missing one. Runs as a background job.",
+      "pendingCount": "{pending} of {total} sources without doc-summary.",
+      "start": "Run backfill",
+      "started": "Running in the background, see worker logs for status.",
+      "failed": "Could not start."
+    },
     "mascotCard": {
       "title": "Hilde mascot",
       "active": "Active - the owl companion is shown system-wide; each user can hide her individually.",
@@ -1428,14 +1436,6 @@
         "translationModeOffHint": "No English subtitles are generated.",
         "translationModeAutoHint": "Translation starts automatically once a source is indexed.",
         "translationModeManualHint": "Translation only on click in the transcript panel (default).",
-        "summaryModeTitle": "AI page summaries for PDFs",
-        "summaryModeDescription": "Generates a short AI summary for every PDF page. Students see it in the summary panel next to the page. Runs as a background job and can take a few minutes on large PDFs.",
-        "summaryModeOff": "Off",
-        "summaryModeAuto": "Auto",
-        "summaryModeManual": "Manual (on click)",
-        "summaryModeOffHint": "No page summaries are generated for PDFs.",
-        "summaryModeAutoHint": "Page summary generation starts automatically once a PDF is indexed.",
-        "summaryModeManualHint": "Summary is generated only when clicked in the summary panel (default).",
         "transcriptDefaultLangTitle": "Default transcript language",
         "transcriptDefaultLangDescription": "Which language is preselected when an audio/video source is opened. Students can switch any time in the transcript panel.",
         "transcriptDefaultLangDe": "German",
@@ -1531,8 +1531,7 @@
         "failed": "Generation failed.",
         "none": "No summaries yet.",
         "generateButton": "Summarize",
-        "noneForPage": "No summary for this page.",
-        "disabledByOwner": "Page summaries are disabled in this workspace."
+        "noneForPage": "No summary for this page."
       },
       "pdf": {
         "askQuestion": "Ask a question",

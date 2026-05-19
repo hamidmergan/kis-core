@@ -35,7 +35,14 @@ from src.tool_prompts import (
     aia_system_rag,
     AIA_QUERY_REWRITE,
     AIA_POPUP_ACTIONS,
+    AIA_INTENT_CLASSIFIER_SYSTEM,
+    AIA_INTENT_CLASSIFIER_FEWSHOT,
 )
+
+# Upper bound on the question length we hand to the LLM intent classifier.
+# Longer questions are nearly always topic-specific (no need for an LLM round-trip)
+# and very long inputs blow up the cheap-pre-filter premise of the classifier call.
+_INTENT_MAX_WORDS = 30
 
 # Accept both ASCII [] and CJK lenticular 【】 - some LLMs emit the latter
 # despite the prompt, and unstripped citations in history reinforce the
@@ -43,6 +50,41 @@ from src.tool_prompts import (
 _CITATION_RE = re.compile(
     r"\s*[\[【](?:Q?\d+,\s*)?(?:S\.\s*\d+|\d{1,2}:\d{2}(?::\d{2})?)(?:\s*\|[^\]】]+)?[\]】]"
 )
+
+
+def _classify_intent(llm, question: str) -> str:
+    """Decide GENERIC (cross-source overview) vs SPECIFIC (topic-focused) for routing.
+
+    Single small LLM call - language-agnostic, replaces the old DE/EN regex list.
+    On any error or unexpected output we fall back to SPECIFIC, the more
+    conservative path (hybrid search still works for overview-ish questions,
+    just costs more tokens).
+    """
+    raw = ""
+    try:
+        response = llm._client.chat.completions.create(
+            model=llm._model,
+            messages=[
+                {"role": "system", "content": AIA_INTENT_CLASSIFIER_SYSTEM},
+                {"role": "user", "content": question},
+            ],
+            temperature=0.0,
+            max_tokens=200,  # leave headroom for reasoning preambles; we parse the verdict out
+            **(llm._extra_body and {"extra_body": llm._extra_body} or {}),
+        )
+        msg = response.choices[0].message
+        raw = (msg.content or getattr(msg, "reasoning_content", None) or "").strip()
+        # Strip <think>...</think> blocks (reasoning models) before parsing
+        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+    except Exception as e:
+        logger.warning("Intent classifier failed, defaulting to SPECIFIC: {}", e)
+        return "SPECIFIC"
+    # Some models echo punctuation, quote marks, the prefix "Q:", or reply in the
+    # source language. Normalise hard and check for the GENERIC token anywhere.
+    cleaned = re.sub(r"[^A-Za-z]+", " ", raw).upper().strip()
+    verdict = "GENERIC" if "GENERIC" in cleaned.split() else "SPECIFIC"
+    logger.info("Intent classifier raw='{}' → {}", raw[:50], verdict)
+    return verdict
 
 
 def _rewrite_query(llm, history: list[dict], question: str) -> str:
@@ -151,99 +193,81 @@ async def chat(
                 resolved.append(source["id"])
         source_ids = resolved if resolved else None
 
-    # Detection: generic summary request vs. specific question
-    # Language-independent: short request + signal pattern = generic
-    import re as _re
-    _q_lower = body.question.strip().lower()
-    _q_words = len(_q_lower.split())
-    _GENERIC_SIGNALS = [
-        r"fass\w*\b.*\bzusammen",
-        r"zusammenfas+ung",
-        r"überblick|übersicht",
-        r"worum\s+geht\s+es",
-        r"wovon\s+handelt",
-        r"(kern|haupt)(aussagen|punkte|themen)",
-        r"wichtigsten?\s+(punkte|aussagen|themen|inhalte)",
-        r"(jede|alle)\w*\s+(source|datei|dokument)",
-        # English
-        r"summar(y|ize|ise)",
-        r"overview",
-        r"what.*(about|cover)",
-        r"(main|key)\s+(points?|topics?|ideas?)",
-        r"(each|every|all)\s+(source|file|document)",
-    ]
-    _has_signal = any(_re.search(p, _q_lower) for p in _GENERIC_SIGNALS)
-    _is_generic = (
-        not body.source_text
-        and source_ids
-        and _has_signal
-        and _q_words <= 15  # short request = likely generic
-    )
+    # Routing: GENERIC (cross-source overview, uses compact doc-summaries) vs
+    # SPECIFIC (topic-focused, uses hybrid search). Cheap pre-filter avoids an
+    # LLM round-trip when the answer is obvious (popup, no sources, long question).
+    _q_words = len(body.question.strip().split())
+    if body.source_text or not source_ids or _q_words > _INTENT_MAX_WORDS:
+        intent = "SPECIFIC"
+    else:
+        intent = _classify_intent(llm, body.question)
+    logger.info("Chat intent: {} ('{}' across {} sources)", intent, body.question[:60], len(source_ids or []))
 
     # Default: question is used as-is. Only on the hybrid-search path with history
     # is it potentially rewritten (condense question).
     rewritten_question = body.question
 
-    if _is_generic:
-        # ── Generic summary: summaries + time-distributed media chunks ──
-        logger.info("Generic summary detected for {} sources, skipping hybrid search", len(source_ids))
+    if intent == "GENERIC":
         all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
         chunks: list[dict] = []
-        char_budget_per_source = 200000 // len(source_ids)
 
-        for sid in source_ids:
+        if len(source_ids) == 1:
+            # ── Single source: use the richer page-summaries directly (covers
+            # the full document, no compression artifact). Falls back to the
+            # doc-summary for media/DOCX/PPTX or pre-rollout PDFs.
+            sid = source_ids[0]
             src = all_sources_map.get(sid)
-            if not src:
-                continue
-            is_media = Path(src["filename"]).suffix.lower() in _MEDIA_EXTENSIONS
-
-            if is_media:
-                # Media: load all chunks sorted by time until budget is full
-                all_media_chunks = db.get_aia_chunks_by_source(sid)
-                all_media_chunks.sort(key=lambda c: c.get("start_time") or 0)
-                taken: list[dict] = []
-                total_chars = 0
-                for c in all_media_chunks:
-                    total_chars += len(c.get("content", ""))
-                    if total_chars > char_budget_per_source:
-                        break
-                    taken.append(c)
-                chunks.extend(taken)
-                logger.info("Generic: source {} (media) → {} chunks from {} total", sid, len(taken), len(all_media_chunks))
+            page_sums = db.get_page_summaries_by_source(sid) if src else []
+            if page_sums:
+                for ps in page_sums:
+                    chunks.append({
+                        "source_id": sid,
+                        "page_number": ps["page_number"],
+                        "content": ps["summary"],
+                        "start_time": None,
+                    })
+                logger.info("Generic single-source: used {} page-summaries", len(page_sums))
+            elif src and (src.get("summary") or "").strip():
+                chunks.append({
+                    "source_id": sid,
+                    "page_number": 1,
+                    "content": src["summary"].strip(),
+                    "start_time": None,
+                })
+                logger.info("Generic single-source: used doc-summary (no page-summaries)")
             else:
-                # PDF: use existing paragraph summaries (more compact than raw chunks)
-                summaries = db.get_paragraph_summaries_by_source(sid)
-                if summaries:
-                    total_chars = 0
-                    for s in summaries:
-                        total_chars += len(s["summary"])
-                        if total_chars > char_budget_per_source:
-                            break
-                        chunks.append({
-                            "source_id": sid,
-                            "page_number": s["page_number"],
-                            "content": s["summary"],
-                            "start_time": None,
-                        })
-                    logger.info("Generic: source {} (PDF) → {} summaries used", sid, min(len(summaries), len([c for c in chunks if c["source_id"] == sid])))
+                fallback = db.get_aia_chunks_by_source(sid)
+                if fallback:
+                    chunks.append(fallback[0])
+                logger.info("Generic single-source: used first-chunk fallback (no summaries yet)")
+        else:
+            # ── Multi-source overview: doc-summary per source (~300 tokens each) ──
+            missing_summary: list[int] = []
+            for sid in source_ids:
+                src = all_sources_map.get(sid)
+                if not src:
+                    continue
+                doc_summary = (src.get("summary") or "").strip()
+                if doc_summary:
+                    chunks.append({
+                        "source_id": sid,
+                        "page_number": 1,
+                        "content": doc_summary,
+                        "start_time": None,
+                    })
                 else:
-                    # Fallback: raw chunks distributed evenly across pages
-                    all_pdf_chunks = db.get_aia_chunks_by_source(sid)
-                    all_pdf_chunks.sort(key=lambda c: c.get("page_number") or 0)
-                    sampled = []
-                    total_chars = 0
-                    if all_pdf_chunks:
-                        step = max(1, len(all_pdf_chunks) // 10)
-                        for i in range(0, len(all_pdf_chunks), step):
-                            c = all_pdf_chunks[i]
-                            total_chars += len(c.get("content", ""))
-                            if total_chars > char_budget_per_source:
-                                break
-                            sampled.append(c)
-                    chunks.extend(sampled)
-                    logger.info("Generic: source {} (PDF, no summaries) → {} sampled chunks", sid, len(sampled))
+                    missing_summary.append(sid)
 
-        logger.info("Generic summary: {} total context chunks across {} sources", len(chunks), len(source_ids))
+            if missing_summary:
+                # Pre-rollout sources without a doc-summary yet: take the first chunk
+                # as a stand-in so the overview still mentions them by name.
+                for sid in missing_summary:
+                    fallback = db.get_aia_chunks_by_source(sid)
+                    if fallback:
+                        chunks.append(fallback[0])
+                logger.info("Generic: {} sources without doc-summary, used first chunk", len(missing_summary))
+
+            logger.info("Generic multi-source: {} doc-summaries across {} sources", len(chunks), len(source_ids))
     else:
         # ── Normal path: hybrid search ──
         # Query rewriting (condense question): on a real follow-up, condense history into
@@ -285,7 +309,7 @@ async def chat(
         found_source_ids = sorted(set(c["source_id"] for c in chunks))
         logger.info("Hybrid Search: {} chunks, source_ids={}, Seiten: {}, Query: '{}'", len(chunks), found_source_ids, found_pages, embed_text[:80])
 
-        # Source diversity: with multiple active sources at least 1 chunk per source
+        # Source diversity: with multiple active sources at least 1 entry per source
         if source_ids and len(source_ids) > 1:
             seen_sources: set[int] = set()
             diverse_chunks: list[dict] = []
@@ -296,14 +320,30 @@ async def chat(
                     diverse_chunks.append(chunk)
                 else:
                     remaining.append(chunk)
-            # Fallback: include sources without hybrid-search hits anyway
-            for sid in source_ids:
-                if sid not in seen_sources:
-                    fallback = db.get_aia_chunks_by_source(sid)
-                    if fallback:
-                        diverse_chunks.append(fallback[0])
+            # Fallback for sources without a hybrid-search hit: prefer the compact
+            # doc-summary (signals "this source covers X, Y, Z" without false-citation
+            # risk) and fall back to the first raw chunk for sources still missing one.
+            missing = [sid for sid in source_ids if sid not in seen_sources]
+            if missing:
+                all_sources_map = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
+                for sid in missing:
+                    src = all_sources_map.get(sid)
+                    doc_summary = ((src or {}).get("summary") or "").strip()
+                    if doc_summary:
+                        diverse_chunks.append({
+                            "source_id": sid,
+                            "page_number": 1,
+                            "content": doc_summary,
+                            "start_time": None,
+                        })
                         seen_sources.add(sid)
-                        logger.info("Source-Diversity fallback: source {} added with 1 chunk", sid)
+                        logger.info("Source-Diversity fallback: source {} added via doc-summary", sid)
+                    else:
+                        raw_fallback = db.get_aia_chunks_by_source(sid)
+                        if raw_fallback:
+                            diverse_chunks.append(raw_fallback[0])
+                            seen_sources.add(sid)
+                            logger.info("Source-Diversity fallback: source {} added via first chunk (no doc-summary)", sid)
             chunks = diverse_chunks + remaining
 
     # Build source-number mapping (Q1, Q2, ...) for multi-source disambiguation

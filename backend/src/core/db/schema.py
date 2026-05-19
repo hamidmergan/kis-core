@@ -69,6 +69,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("kia_zeitplan_processed_sources", "aia_schedule_processed_sources"),
                 # Stage 4: rename aia_module* tables to aia_workspace* (consistency with frontend /workspace route).
                 ("aia_modules", "aia_workspaces"),
+                # Stage 5: rename aia_paragraph_summaries → aia_page_summaries (per-page summaries, never per-paragraph in practice).
+                ("aia_paragraph_summaries", "aia_page_summaries"),
             ]:
                 cur.execute(
                     "SELECT to_regclass(%s) IS NOT NULL AND to_regclass(%s) IS NULL",
@@ -323,10 +325,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_default_lang TEXT NOT NULL DEFAULT 'both'"
             )
-            # Per-workspace setting: PDF page-summary mode (off/auto/manual). Owner-controlled.
-            cur.execute(
-                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS summary_mode TEXT NOT NULL DEFAULT 'manual'"
-            )
+            # Legacy per-workspace toggle removed: page-summary is now always
+            # generated at ingest (provides UI panel + doc-summary input). The
+            # off/auto/manual modes added no real value once doc-summary became
+            # a mandatory chat-context input.
+            cur.execute("ALTER TABLE aia_workspaces DROP COLUMN IF EXISTS summary_mode")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_access_links (
                     id           SERIAL PRIMARY KEY,
@@ -435,6 +438,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS language TEXT
             """)
+            # Migration: add doc-level summary column (always English, used as compact
+            # context for cross-source chat questions and as source-diversity fallback).
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summary TEXT
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_chunks (
                     id          SERIAL PRIMARY KEY,
@@ -469,21 +477,18 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ON aia_chunks USING gin(search_vector)
             """)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS aia_paragraph_summaries (
+                CREATE TABLE IF NOT EXISTS aia_page_summaries (
                     id          SERIAL PRIMARY KEY,
                     source_id   INTEGER NOT NULL
                                   REFERENCES aia_sources(id) ON DELETE CASCADE,
                     page_number INTEGER NOT NULL,
-                    block_index INTEGER NOT NULL,
-                    bbox_x0     REAL NOT NULL,
-                    bbox_y0     REAL NOT NULL,
-                    bbox_x1     REAL NOT NULL,
-                    bbox_y1     REAL NOT NULL,
-                    content     TEXT NOT NULL,
                     summary     TEXT NOT NULL,
                     created_at  TIMESTAMP NOT NULL DEFAULT NOW()
                 )
             """)
+            # Drop legacy columns from the per-paragraph design (never used in practice — page-level only).
+            for col in ("block_index", "bbox_x0", "bbox_y0", "bbox_x1", "bbox_y1", "content"):
+                cur.execute(f"ALTER TABLE aia_page_summaries DROP COLUMN IF EXISTS {col}")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_mindmaps (
                     id           SERIAL PRIMARY KEY,

@@ -16,7 +16,6 @@ class PatchWorkspaceBody(BaseModel):
     is_active: Optional[bool] = None
     transcript_translation_mode: Optional[str] = None
     transcript_default_lang: Optional[str] = None
-    summary_mode: Optional[str] = None
 
 
 class RenewCodeBody(BaseModel):

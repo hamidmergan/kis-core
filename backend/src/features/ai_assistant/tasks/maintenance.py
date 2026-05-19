@@ -41,6 +41,7 @@ from src.features.ai_assistant.tasks._helpers import (
     _summarize_batch,
     _get_llm_client,
     _clean_llm_json,
+    generate_doc_summary,
 )
 
 @celery_app.task(bind=True, name="aia.reindex_all_sources", queue="aia")
@@ -189,3 +190,33 @@ def run_reindex_workspace(self, workspace_uuid: str):
     logger.info("KI Tutor reindex-workspace {}: done ({} ok, {} failed)",
                 workspace_uuid, done - failed, failed)
 
+
+@celery_app.task(bind=True, name="aia.backfill_doc_summaries", queue="aia")
+def run_backfill_doc_summaries(self, limit: int | None = None):
+    """One-shot: generate doc-summaries for every source that doesn't have one yet.
+
+    Triggered manually after rollout (admin endpoint or shell). Soft-failure on
+    individual sources - logs and moves on. ``limit`` caps the number of sources
+    processed in one run; useful for dry-runs and rate-limit-aware batching.
+    """
+    sources = db.get_all_aia_sources()
+    pending = [s for s in sources if s.get("status") == "ready" and not s.get("summary")]
+    if limit is not None:
+        pending = pending[:limit]
+
+    total = len(pending)
+    logger.info("KI Tutor doc-summary backfill: {} sources pending", total)
+
+    done = 0
+    failed = 0
+    for s in pending:
+        try:
+            generate_doc_summary(s["uuid"])
+            done += 1
+        except Exception as e:
+            failed += 1
+            logger.warning("KI Tutor doc-summary backfill: {} failed: {}", s["uuid"], e)
+
+    logger.info("KI Tutor doc-summary backfill: done ({} ok, {} failed of {})",
+                done, failed, total)
+    return {"total": total, "ok": done, "failed": failed}

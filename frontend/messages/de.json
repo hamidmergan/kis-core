@@ -875,6 +875,14 @@
       "lastRunFailed": ", {n} Fehler",
       "activateMaintenance": "Wartungsmodus aktivieren (Tab \"System\"), bevor du startest."
     },
+    "backfillDocSummaryCard": {
+      "title": "Doc-Summaries nachgenerieren",
+      "description": "Erzeugt für alle Quellen ohne Doc-Summary die kompakte englische Übersicht, die der Chat für „fasse zusammen“-Fragen über mehrere Quellen nutzt. Läuft als Hintergrund-Job.",
+      "pendingCount": "{pending} von {total} Quellen ohne Doc-Summary.",
+      "start": "Nachgenerieren",
+      "started": "Läuft im Hintergrund, Status siehe Worker-Logs.",
+      "failed": "Konnte nicht gestartet werden."
+    },
     "mascotCard": {
       "title": "Hilde-Maskottchen",
       "active": "Aktiv - die Eulen-Begleiterin wird systemweit angezeigt; jeder Nutzer kann sie für sich abschalten.",
@@ -1428,14 +1436,6 @@
         "translationModeOffHint": "Es werden keine englischen Untertitel erstellt.",
         "translationModeAutoHint": "Sobald eine Quelle indexiert ist, startet die Übersetzung automatisch.",
         "translationModeManualHint": "Übersetzung erst per Klick im Transkript-Panel (Standard).",
-        "summaryModeTitle": "KI-Zusammenfassung der PDF-Seiten",
-        "summaryModeDescription": "Erzeugt zu jeder PDF-Seite eine kurze KI-Zusammenfassung. Studierende sehen sie im Summary-Panel neben der Seite. Die Generierung läuft als Hintergrund-Job und kann bei großen PDFs ein paar Minuten dauern.",
-        "summaryModeOff": "Aus",
-        "summaryModeAuto": "Auto",
-        "summaryModeManual": "Manuell (per Klick)",
-        "summaryModeOffHint": "Für PDFs werden keine Seiten-Zusammenfassungen erzeugt.",
-        "summaryModeAutoHint": "Sobald ein PDF indexiert ist, startet die Zusammenfassung automatisch.",
-        "summaryModeManualHint": "Zusammenfassung erst per Klick im Summary-Panel (Standard).",
         "transcriptDefaultLangTitle": "Standard-Sprache im Transkript",
         "transcriptDefaultLangDescription": "Welche Sprache beim Öffnen einer Audio-/Video-Quelle vorausgewählt ist. Studierende können im Transkript-Panel jederzeit umschalten.",
         "transcriptDefaultLangDe": "Deutsch",
@@ -1531,8 +1531,7 @@
         "failed": "Generierung fehlgeschlagen.",
         "none": "Noch keine Zusammenfassungen vorhanden.",
         "generateButton": "Zusammenfassen",
-        "noneForPage": "Keine Zusammenfassung für diese Seite.",
-        "disabledByOwner": "Seiten-Zusammenfassungen sind in diesem Workspace deaktiviert."
+        "noneForPage": "Keine Zusammenfassung für diese Seite."
       },
       "pdf": {
         "askQuestion": "Frage stellen",

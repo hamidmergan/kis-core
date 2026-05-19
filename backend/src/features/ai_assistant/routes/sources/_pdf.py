@@ -37,7 +37,7 @@ async def get_pdf_toc(
 
 
 @router.get("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/summaries")
-async def get_paragraph_summaries(
+async def get_page_summaries(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
@@ -59,7 +59,7 @@ async def get_paragraph_summaries(
         raise HTTPException(status_code=404, detail=t("source.notFound", locale))
 
     status = source.get("summaries_status", "none")
-    summaries = db.get_paragraph_summaries_by_source(source["id"])
+    summaries = db.get_page_summaries_by_source(source["id"])
     by_page: dict[int, str] = {}
     for s in summaries:
         by_page[s["page_number"]] = s["summary"]
@@ -68,22 +68,19 @@ async def get_paragraph_summaries(
 
 
 @router.post("/ai-assistant/workspaces/{workspace_uuid}/sources/{source_uuid}/summaries/generate")
-async def trigger_paragraph_summaries(
+async def trigger_page_summaries(
     workspace_uuid: str,
     source_uuid: str,
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Manually trigger paragraph summary generation for a source."""
+    """Manually trigger page summary generation for a source."""
     user_id = current_user["user_id"]
     workspace = db.get_aia_workspace(workspace_uuid)
     if not workspace:
         raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
     if workspace["user_id"] != user_id:
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
-
-    if workspace.get("summary_mode", "manual") == "off":
-        raise HTTPException(status_code=403, detail=t("ai.summary.disabled", locale))
 
     source = db.get_aia_source(source_uuid)
     if not source:

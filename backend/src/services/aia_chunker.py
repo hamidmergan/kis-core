@@ -13,23 +13,10 @@ class PdfNoReadableTextError(ValueError):
     task is the only place that knows which locale to render in.
     """
 
-# Chunk sizes per embedding provider:
-#   ollama / nomic-embed-text: BERT 2048-token ctx, German ~2-3 chars/token
-#     → 600 chars ≈ 240 tokens, safely within limit
-#   kisski / e5-mistral-7b-instruct: 4096-token ctx, German ~3-4 chars/token
-#     → 1000 chars ≈ 250-333 tokens, well within limit and matches original value
-_CHUNK_PARAMS: dict[str, tuple[int, int]] = {
-    "ollama":  (600,  80),
-    "kisski": (1000, 100),
-}
-_CHUNK_PARAMS_DEFAULT = _CHUNK_PARAMS["ollama"]
-
-
-def _get_chunk_params() -> tuple[int, int]:
-    """Return (chunk_size, overlap) for the configured embedding provider."""
-    import os
-    provider = os.getenv("AIA_EMBEDDING_PROVIDER", "ollama")
-    return _CHUNK_PARAMS.get(provider, _CHUNK_PARAMS_DEFAULT)
+# 1000 chars ≈ 250-333 tokens (German); 200 char overlap = 20% (LangChain default).
+# All supported embedding models (nomic-embed-text 2048 ctx, e5-mistral 4096 ctx) handle this comfortably.
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 200
 
 
 def _clean(text: str) -> str:
@@ -74,16 +61,15 @@ def extract_chunks(file_path: str, file_type: str) -> list[dict]:
           - page_number (int, 1-indexed)
           - content    (str)
     """
-    chunk_size, overlap = _get_chunk_params()
     ft = file_type.lower().lstrip(".")
     if ft == "pdf":
-        return _extract_pdf(file_path, chunk_size, overlap)
+        return _extract_pdf(file_path, CHUNK_SIZE, CHUNK_OVERLAP)
     if ft == "docx":
-        return _extract_docx(file_path, chunk_size)
+        return _extract_docx(file_path, CHUNK_SIZE)
     if ft == "pptx":
-        return _extract_pptx(file_path, chunk_size, overlap)
+        return _extract_pptx(file_path, CHUNK_SIZE, CHUNK_OVERLAP)
     if ft in ("txt", "md"):
-        return _extract_text(file_path, chunk_size, overlap)
+        return _extract_text(file_path, CHUNK_SIZE, CHUNK_OVERLAP)
     if ft in ("mp3", "mp4", "wav", "flac", "m4a", "webm"):
         raise ValueError(
             "Audio/Video files must be transcribed first - use segments_to_chunks() instead."
@@ -345,7 +331,6 @@ def segments_to_chunks(segments: list[dict]) -> list[dict]:
           - start_time  (float, seconds)
           - end_time    (float, seconds)
     """
-    chunk_size, _ = _get_chunk_params()
     chunks: list[dict] = []
     current_text = ""
     current_start: float | None = None
@@ -360,9 +345,9 @@ def segments_to_chunks(segments: list[dict]) -> list[dict]:
         if current_start is None:
             current_start = seg["start"]
 
-        # Check if adding this segment exceeds chunk_size
+        # Check if adding this segment exceeds CHUNK_SIZE
         combined = (current_text + " " + text).strip() if current_text else text
-        if len(combined) > chunk_size and current_text:
+        if len(combined) > CHUNK_SIZE and current_text:
             # Flush current chunk
             chunks.append({
                 "page_number": page_number,
