@@ -58,6 +58,25 @@ def get_aia_sources_by_workspace(workspace_id: int) -> list[dict]:
             rows = cur.fetchall()
     return [dict(row) for row in rows]
 
+
+def count_active_aia_sources_by_user(user_id: int) -> int:
+    """Count sources currently in the indexing pipeline for one user.
+
+    Used by the upload limiter to refuse new uploads once the user has
+    `UPLOAD_CONCURRENT_MAX` items in flight. A source counts as active until
+    its status leaves the pending/indexing pair (ready or failed).
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT COUNT(*) FROM aia_sources s
+                   JOIN aia_workspaces w ON w.id = s.workspace_id
+                   WHERE w.user_id = %s AND s.status IN ('pending', 'indexing')""",
+                (user_id,),
+            )
+            row = cur.fetchone()
+    return int(row[0]) if row else 0
+
 def list_aia_workspaces_with_stale_fingerprint(current_fingerprint: str) -> list[dict]:
     """Return workspaces (with owner name) whose stored fingerprint differs from current.
 
@@ -94,18 +113,61 @@ def update_aia_source_status(
     duration: float | None = None,
     language: str | None = None,
 ) -> None:
+    # Terminal states (ready/failed) clear the progress JSON so the UI stops
+    # showing a stale stage label after indexing finishes.
+    progress_clause = ", progress = NULL" if status in ("ready", "failed") else ""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """UPDATE aia_sources
-                   SET status = %s,
-                       chunk_count = COALESCE(%s, chunk_count),
-                       embedding_model = COALESCE(%s, embedding_model),
-                       error_message = COALESCE(%s, error_message),
-                       duration = COALESCE(%s, duration),
-                       language = COALESCE(%s, language)
-                   WHERE uuid = %s""",
+                f"""UPDATE aia_sources
+                    SET status = %s,
+                        chunk_count = COALESCE(%s, chunk_count),
+                        embedding_model = COALESCE(%s, embedding_model),
+                        error_message = COALESCE(%s, error_message),
+                        duration = COALESCE(%s, duration),
+                        language = COALESCE(%s, language)
+                        {progress_clause}
+                    WHERE uuid = %s""",
                 (status, chunk_count, embedding_model, error_message, duration, language, uuid),
+            )
+        conn.commit()
+
+
+def clear_aia_source_progress(uuid: str) -> None:
+    """Reset the progress JSON to NULL, e.g. when the trailing doc-summary
+    task finishes after the source already reached the ready status.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET progress = NULL WHERE uuid = %s",
+                (uuid,),
+            )
+        conn.commit()
+
+
+def update_aia_source_progress(
+    uuid: str,
+    stage: str,
+    page: int | None = None,
+    total: int | None = None,
+) -> None:
+    """Record the active indexing stage for the source so the UI can render it.
+
+    ``page`` / ``total`` are optional and only meaningful for the OCR stage;
+    other stages pass them as ``None``. The terminal status update clears this
+    column.
+    """
+    payload: dict = {"stage": stage}
+    if page is not None:
+        payload["page"] = page
+    if total is not None:
+        payload["total"] = total
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE aia_sources SET progress = %s WHERE uuid = %s",
+                (json.dumps(payload), uuid),
             )
         conn.commit()
 

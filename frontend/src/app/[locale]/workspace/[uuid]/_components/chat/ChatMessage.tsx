@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -40,9 +40,28 @@ function ChatMessageImpl({
   const [savingNote, setSavingNote] = useState(false);
 
   const msgQmap = msg.source_qmap ?? [];
-  const isUserLong = msg.content.split("\n").length > 5 || msg.content.length > 300;
-  const isAssistantLong = msg.content.split("\n").length > 5 || msg.content.length > 300;
-  const collapseAssistant = collapseByDefault && msg.role === "assistant" && isAssistantLong && !expandAssistantContent;
+  const assistantContentRef = useRef<HTMLDivElement | null>(null);
+  const userContentRef = useRef<HTMLDivElement | null>(null);
+  const [isAssistantOverflow, setIsAssistantOverflow] = useState(false);
+  const [isUserOverflow, setIsUserOverflow] = useState(false);
+  // Measure actual rendered height instead of guessing from raw markdown length
+  // (citation markers like [2|file|page] inflate content.length but render as short chips)
+  useLayoutEffect(() => {
+    const el = msg.role === "assistant" ? assistantContentRef.current : userContentRef.current;
+    if (!el) return;
+    const check = () => {
+      const fontSize = parseFloat(getComputedStyle(el).fontSize) || 16;
+      const maxPx = 8 * fontSize;
+      const overflow = el.scrollHeight > maxPx + 1;
+      if (msg.role === "assistant") setIsAssistantOverflow(overflow);
+      else setIsUserOverflow(overflow);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [msg.content, msg.role]);
+  const collapseAssistant = collapseByDefault && msg.role === "assistant" && isAssistantOverflow && !expandAssistantContent;
   const wrapCitations = (children: React.ReactNode) =>
     withCitations(children, msg, activeSourceIds, getFilename, onChipClick);
 
@@ -160,6 +179,7 @@ function ChatMessageImpl({
           ) : msg.role === "assistant" ? (
             <>
               <div
+                ref={assistantContentRef}
                 style={collapseAssistant ? { maxHeight: "8em", overflow: "hidden" } : undefined}
               >
                 <ReactMarkdown
@@ -182,7 +202,7 @@ function ChatMessageImpl({
                   {msg.content.replace(/[[【]([^\]】]*\|[^\]】]*)[\]】]/g, (m) => m.replace(/\|/g, "❘"))}
                 </ReactMarkdown>
               </div>
-              {collapseByDefault && isAssistantLong && (
+              {collapseByDefault && isAssistantOverflow && (
                 <button
                   type="button"
                   onClick={() => setExpandAssistantContent(v => !v)}
@@ -200,6 +220,7 @@ function ChatMessageImpl({
           ) : (
             <>
               <div
+                ref={userContentRef}
                 style={{
                   maxHeight: expandUserContent ? "none" : "8em",
                   overflow: "hidden",
@@ -207,7 +228,7 @@ function ChatMessageImpl({
               >
                 {msg.content}
               </div>
-              {isUserLong && (
+              {isUserOverflow && (
                 <button
                   type="button"
                   onClick={() => setExpandUserContent(v => !v)}

@@ -185,6 +185,18 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Chat ist bis {time} Uhr gesperrt (zu viele Anfragen in kurzer Zeit). Bitte später erneut versuchen.",
         "en": "Chat is locked until {time} (too many requests in a short time). Please try again later.",
     },
+    "rateLimit.uploadConcurrent": {
+        "de": "Du hast bereits {active} von {limit} Uploads in Bearbeitung. Bitte warte, bis ein Upload fertig ist.",
+        "en": "You already have {active} of {limit} uploads in progress. Please wait until one finishes.",
+    },
+    "rateLimit.uploadHourly": {
+        "de": "Stunden-Limit erreicht ({limit} Uploads pro Stunde). Erneut versuchen in ~{minutes} Min.",
+        "en": "Hourly limit reached ({limit} uploads per hour). Try again in ~{minutes} min.",
+    },
+    "admin.settings.maxSourcesOutOfRange": {
+        "de": "Quellen-Limit muss zwischen {min} und {max} liegen.",
+        "en": "Source limit must be between {min} and {max}.",
+    },
     # Quota enforcement
     "quota.limitReached": {
         "de": "Limit erreicht für {label}.",

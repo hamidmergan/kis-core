@@ -279,6 +279,11 @@ def generate_doc_summary(source_uuid: str) -> str | None:
         return None
 
     db.update_aia_source_summary(source_uuid, summary)
+    # Doc-summary is the terminal stage of the ingestion pipeline. Clear the
+    # progress field so the UI stops showing the "Doc-Summary" label after
+    # the source has reached "ready" - status was already set ready upstream
+    # by run_index_source, this is just the trailing async finish.
+    db.clear_aia_source_progress(source_uuid)
     logger.info("KI Tutor doc-summary: saved {} chars for {}", len(summary), source_uuid)
     return summary
 

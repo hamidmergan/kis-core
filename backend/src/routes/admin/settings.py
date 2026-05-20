@@ -162,6 +162,10 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "workspace_label_plural_en": db.get_setting("workspace_label_plural_en", "Workspaces"),
         # ── Hilde mascot (system-wide) ──
         "mascot_enabled": _enabled("mascot_enabled"),
+        # ── Workspace limits (admin-tunable) ──
+        "aia_workspace_max_sources": int(
+            db.get_setting("aia_workspace_max_sources", "30")
+        ),
     }
 
 
@@ -306,6 +310,17 @@ async def update_settings(
                 detail=t("translate.invalidProvider", locale),
             )
         db.set_setting("translation_llm_provider", prov)
+
+    # Workspace source upload cap. Bounded to a sane range so a typo can't
+    # render the upload endpoint useless or unbounded.
+    if body.aia_workspace_max_sources is not None:
+        value = body.aia_workspace_max_sources
+        if value < 1 or value > 1000:
+            raise HTTPException(
+                status_code=400,
+                detail=t("admin.settings.maxSourcesOutOfRange", locale, min=1, max=1000),
+            )
+        db.set_setting("aia_workspace_max_sources", str(value))
 
     # Provider model names
     if body.models:

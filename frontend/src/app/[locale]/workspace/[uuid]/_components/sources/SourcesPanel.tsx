@@ -63,7 +63,12 @@ export function SourcesPanel({
     return () => ro.disconnect();
   }, []);
 
-  const readySources = sources.filter((s) => s.status === "ready");
+  // A source is only chat-ready once indexing AND background summaries are
+  // done (progress field cleared). Selecting before that would feed the chat
+  // a source with empty page-summaries, which makes the model answer "not in
+  // sources" for every question.
+  const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;
+  const readySources = sources.filter(isFullyReady);
   const allSelected = readySources.length > 0 && readySources.every((s) => selectedSourceIds.includes(s.uuid));
 
   function toggleAll() {
@@ -72,7 +77,7 @@ export function SourcesPanel({
       sources.forEach((s) => { if (selectedSourceIds.includes(s.uuid)) onToggleSource(s.uuid); });
     } else {
       // select all ready
-      sources.filter((s) => s.status === "ready" && !selectedSourceIds.includes(s.uuid))
+      sources.filter((s) => isFullyReady(s) && !selectedSourceIds.includes(s.uuid))
         .forEach((s) => onToggleSource(s.uuid));
     }
   }
@@ -190,7 +195,7 @@ export function SourcesPanel({
         ) : (
           sources.map((src) => {
             const checked = selectedSourceIds.includes(src.uuid);
-            const ready = src.status === "ready";
+            const ready = isFullyReady(src);
             return (
               <div
                 key={src.uuid}
@@ -238,7 +243,7 @@ export function SourcesPanel({
                   >
                     {src.filename}
                   </span>
-                  <SourceStatus status={src.status} />
+                  <SourceStatus status={src.status} progress={src.progress} />
                 </div>
 
                 {src.status === "failed" && src.error_message && (
@@ -317,7 +322,7 @@ export function SourcesPanel({
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-base font-semibold mb-2">{t("deleteTitle")}</h3>
-            <p className="text-sm text-foreground-soft mb-1">
+            <p className="text-sm text-foreground-soft mb-1 break-all">
               <span className="font-medium">{sources.find((s) => s.uuid === deleteSourceId)?.filename || t("deleteFallback")}</span>
             </p>
             <p className="text-sm text-error mb-6">

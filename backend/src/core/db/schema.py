@@ -443,6 +443,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS summary TEXT
             """)
+            # Migration: fine-grained progress info during indexing. NULL when the
+            # source is at rest (ready/failed/pending). JSON shape is
+            # ``{"stage": str, "page": int?, "total": int?}`` so the UI can render
+            # a stage label plus an optional page counter without inventing keys.
+            cur.execute("""
+                ALTER TABLE aia_sources ADD COLUMN IF NOT EXISTS progress JSONB
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS aia_chunks (
                     id          SERIAL PRIMARY KEY,
@@ -734,6 +741,15 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_schedule_jobs_workspace_user
                 ON aia_schedule_jobs(workspace_id, user_id)
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS aia_schedule_source_extractions (
+                    source_id        INTEGER PRIMARY KEY
+                                       REFERENCES aia_sources(id) ON DELETE CASCADE,
+                    candidates       JSONB NOT NULL,
+                    classifications  JSONB NOT NULL,
+                    extracted_at     TIMESTAMP NOT NULL DEFAULT NOW()
+                )
             """)
 
             # ─── LLM Usage Log ────────────────────────────────────────────────

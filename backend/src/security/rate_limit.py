@@ -33,6 +33,9 @@ from src.limits import (
     TOOL_BURST_REQUESTS,
     TOOL_BURST_WINDOW_SECONDS,
     TOOL_BURST_BLOCK_MINUTES,
+    UPLOAD_CONCURRENT_MAX,
+    UPLOAD_HOURLY_MAX,
+    UPLOAD_HOURLY_WINDOW_SECONDS,
 )
 
 _REDIS_URL = os.environ.get("REDIS_URL", "redis://kis-redis:6379/0")
@@ -217,3 +220,69 @@ def enforce_tool_burst(user_id: int, tool_key: str, locale: str = "de") -> None:
 def enforce_aia_burst(user_id: int, locale: str = "de") -> None:
     """Backward-compatible alias for the AI tutor burst gate."""
     enforce_tool_burst(user_id, "aia", locale)
+
+
+def enforce_upload_limits(user_id: int, active_count: int, locale: str = "de") -> None:
+    """Reject an upload that would exceed either the concurrent or hourly cap.
+
+    ``active_count`` is the number of sources already in flight (pending or
+    indexing) and is computed via SQL so this helper stays Redis-only for the
+    hourly window. The two checks are independent: a user can be blocked by
+    either limit. The hourly counter is incremented when the upload would be
+    accepted, so rejected uploads do not consume the quota.
+    """
+    if user_id <= 0:
+        return
+    if active_count >= UPLOAD_CONCURRENT_MAX:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": t(
+                    "rateLimit.uploadConcurrent",
+                    locale,
+                    active=active_count,
+                    limit=UPLOAD_CONCURRENT_MAX,
+                ),
+                "kind": "upload_concurrent",
+                "active": active_count,
+                "limit": UPLOAD_CONCURRENT_MAX,
+            },
+            headers={"Retry-After": "30"},
+        )
+
+    redis_key = f"rl:upload:hourly:{user_id}"
+    try:
+        r = _redis()
+        pipe = r.pipeline()
+        pipe.incr(redis_key)
+        pipe.expire(redis_key, UPLOAD_HOURLY_WINDOW_SECONDS, nx=True)
+        count, _ = pipe.execute()
+        # On overflow roll the counter back so the user can retry next hour
+        # without being penalized for the rejected attempt.
+        if count > UPLOAD_HOURLY_MAX:
+            r.decr(redis_key)
+        ttl = r.ttl(redis_key)
+        r.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("Upload hourly limit Redis error (user={}): {}", user_id, e)
+        return  # fail-open
+
+    if count > UPLOAD_HOURLY_MAX:
+        retry_after = max(ttl, 60) if ttl and ttl > 0 else UPLOAD_HOURLY_WINDOW_SECONDS
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": t(
+                    "rateLimit.uploadHourly",
+                    locale,
+                    limit=UPLOAD_HOURLY_MAX,
+                    minutes=max(1, retry_after // 60),
+                ),
+                "kind": "upload_hourly",
+                "limit": UPLOAD_HOURLY_MAX,
+                "retry_after_seconds": retry_after,
+            },
+            headers={"Retry-After": str(retry_after)},
+        )

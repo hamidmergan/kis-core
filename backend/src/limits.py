@@ -22,6 +22,16 @@ TOOL_BURST_REQUESTS             = 50   # max requests per burst window per tool
 TOOL_BURST_WINDOW_SECONDS       = 60
 TOOL_BURST_BLOCK_MINUTES        = 10
 
+# --- Source upload limits ---------------------------------------------------
+# Prevents a single user from flooding the indexing pipeline. The concurrent
+# cap counts sources still in pending/indexing across all of the user's
+# workspaces (and any other upload-driven module that joins this counter).
+# The hourly cap throttles the drip pattern: 100/hour comfortably covers a
+# lecturer setting up a course while blocking bot-style spam.
+UPLOAD_CONCURRENT_MAX           = 10
+UPLOAD_HOURLY_MAX               = 100
+UPLOAD_HOURLY_WINDOW_SECONDS    = 3600
+
 # --- Quota: per-user tool limits ---------------------------------------------
 # limit:        max requests per time window
 # window_hours: hours until reset (starts when the limit is first hit)
@@ -99,7 +109,7 @@ AIA_SUMMARY_MAX_TOKENS_LARGE        = 2048   # cloud, single page
 AIA_SUMMARY_MAX_TOKENS_BATCH        = 16384  # cloud, batch: up to 100 pages x ~400 chars + JSON overhead
 AIA_SUMMARY_CONTENT_MAX_CHARS       = 3000   # max chars per page to LLM (25x3000 + 25x400 output = 85k per batch, well within context)
 AIA_SUMMARY_PARALLEL_WORKERS_SMALL  = 5      # ollama: parallel single requests
-AIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 1      # cloud: sequential, more reliable
+AIA_SUMMARY_PARALLEL_WORKERS_LARGE  = 5      # cloud: parallel batch requests
 AIA_SUMMARY_BATCH_SIZE              = 25     # pages per batch request (300 pages = 12 requests)
 AIA_SOURCE_MAX_PAGES                = 300     # max pages per PDF/DOCX/PPTX upload
 AIA_WORKSPACE_MAX_SOURCES              = 30      # max sources per workspace

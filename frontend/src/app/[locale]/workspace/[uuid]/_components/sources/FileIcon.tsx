@@ -2,13 +2,42 @@ import { useTranslations } from "next-intl";
 import Spinner from "@/components/ui/Spinner";
 import { XIcon } from "@phosphor-icons/react";
 import { _fileKind, _getChipIcon } from "../../_utils";
+import type { IndexingProgress } from "../../_types";
 
-export function SourceStatus({ status }: { status: string }) {
+export function SourceStatus({
+  status,
+  progress,
+}: {
+  status: string;
+  progress?: IndexingProgress | null;
+}) {
   const t = useTranslations("workspace.detail.sources");
-  if (status === "pending" || status === "indexing")
+  // Even after status=ready, page-summary and doc-summary tasks may still be
+  // running in the background. The chat needs those summaries for context,
+  // so we keep the spinner visible until the source is fully done
+  // (progress field cleared).
+  const isProcessing =
+    status === "pending" || status === "indexing" || (status === "ready" && !!progress);
+  if (isProcessing) {
+    const stageLabel = progress?.stage
+      ? t(`progressStage.${progress.stage}`)
+      : null;
+    const pageInfo =
+      progress?.stage === "ocr" && progress.page && progress.total
+        ? ` ${progress.page}/${progress.total}`
+        : "";
     return (
-      <Spinner size="xs" className="" />
+      <span className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs text-muted">
+        <Spinner size="xs" className="" />
+        {stageLabel && (
+          <span className="truncate max-w-[8rem]">
+            {stageLabel}
+            {pageInfo}
+          </span>
+        )}
+      </span>
     );
+  }
   if (status === "ready") return null;
   return (
     <span title={t("indexingFailed")} className="flex-shrink-0 inline-flex">

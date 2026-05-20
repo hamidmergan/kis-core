@@ -20,8 +20,8 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     # Sources
     "ai.source.maxPerWorkspace": {
-        "de": "Maximal {max} Sources pro Workspace erlaubt. Bitte lösche nicht mehr benötigte Sources.",
-        "en": "Maximum {max} sources per workspace allowed. Please delete sources you no longer need.",
+        "de": "Maximal {max} Sources pro {label} erlaubt. Bitte lösche nicht mehr benötigte Sources.",
+        "en": "Maximum {max} sources per {label} allowed. Please delete sources you no longer need.",
     },
     "ai.source.maxAllowed": {
         "de": "Maximal {max} Sources erlaubt",

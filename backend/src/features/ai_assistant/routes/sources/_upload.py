@@ -1,6 +1,7 @@
 """Source upload / retry / delete."""
 import uuid
 
+from src.security.rate_limit import enforce_upload_limits
 from src.utils.file_validation import validate_or_raise
 
 from ._shared import (
@@ -24,11 +25,29 @@ async def upload_source(
 ):
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
 
+    # Reject before reading the body so spam attempts don't waste bandwidth.
+    active_count = db.count_active_aia_sources_by_user(current_user["user_id"])
+    enforce_upload_limits(current_user["user_id"], active_count, locale=locale)
+
     existing_sources = db.get_aia_sources_by_workspace(workspace["id"])
-    if len(existing_sources) >= AIA_WORKSPACE_MAX_SOURCES:
+    # Limit is admin-tunable at runtime via the settings tab; fall back to the
+    # code constant when the DB setting is missing or unparseable.
+    raw_limit = db.get_setting("aia_workspace_max_sources", str(AIA_WORKSPACE_MAX_SOURCES))
+    try:
+        max_sources = int(raw_limit)
+    except (TypeError, ValueError):
+        max_sources = AIA_WORKSPACE_MAX_SOURCES
+    if len(existing_sources) >= max_sources:
+        # Use the admin-configured workspace label (e.g. "Modul", "Kurs") so the
+        # error message matches whatever students see elsewhere in the UI.
+        label_key = "workspace_label_singular_en" if locale == "en" else "workspace_label_singular_de"
+        ws_label = db.get_setting(
+            label_key,
+            db.get_setting("workspace_label_singular", "Workspace"),
+        )
         raise HTTPException(
             status_code=409,
-            detail=t("ai.source.maxPerWorkspace", locale, max=AIA_WORKSPACE_MAX_SOURCES),
+            detail=t("ai.source.maxPerWorkspace", locale, max=max_sources, label=ws_label),
         )
 
     if not file.filename:

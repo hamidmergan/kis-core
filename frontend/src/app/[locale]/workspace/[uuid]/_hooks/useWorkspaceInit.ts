@@ -79,15 +79,18 @@ export function useWorkspaceInit(opts: UseWorkspaceInitOptions) {
   return { auth, initialized };
 }
 
-// Restore previously selected sources from sessionStorage, fallback to all ready
+// Restore previously selected sources from sessionStorage, fallback to all ready.
+// "Fully ready" excludes sources still running page/doc summaries - selecting
+// those would feed the chat empty context (see SourcesPanel.tsx).
 function restoreSelectedSources(uuid: string, srcs: Source[]): string[] {
   const storageKey = `kis-selected-sources-${uuid}`;
-  const allReady = () => srcs.filter((s) => s.status === "ready").map((s) => s.uuid);
+  const isFullyReady = (s: Source) => s.status === "ready" && !s.progress;
+  const allReady = () => srcs.filter(isFullyReady).map((s) => s.uuid);
   const saved = sessionStorage.getItem(storageKey);
   if (!saved) return allReady();
   try {
     const savedIds: string[] = JSON.parse(saved);
-    const validIds = savedIds.filter((id) => srcs.some((s) => s.uuid === id && s.status === "ready"));
+    const validIds = savedIds.filter((id) => srcs.some((s) => s.uuid === id && isFullyReady(s)));
     return validIds.length > 0 ? validIds : allReady();
   } catch {
     return allReady();

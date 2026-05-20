@@ -1,12 +1,32 @@
+export type IndexingStage =
+  | "parsing"
+  | "ocr"
+  | "chunking"
+  | "embedding"
+  | "page_summaries"
+  | "doc_summary";
+
+export interface IndexingProgress {
+  stage: IndexingStage;
+  page?: number;
+  total?: number;
+}
+
 export interface Source {
   uuid: string;
   filename: string;
   status: "pending" | "indexing" | "ready" | "failed";
   error_message?: string | null;
+  progress?: IndexingProgress | null;
 }
 
 export type TranscriptTranslationMode = "off" | "auto" | "manual";
 export type TranscriptDefaultLang = "de" | "en" | "both";
+
+export interface UploadQuota {
+  active: number;
+  limit: number;
+}
 
 export interface WorkspaceDetail {
   uuid: string;
@@ -18,6 +38,7 @@ export interface WorkspaceDetail {
   transcript_translation_mode?: TranscriptTranslationMode;
   transcript_default_lang?: TranscriptDefaultLang;
   sources: Source[];
+  upload_quota?: UploadQuota;
 }
 
 export interface SourceRef {

@@ -107,9 +107,12 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 # before translation finishes.
                 _en_translation_pending = lang_code not in ("en", "unknown")
             else:
-                chunks = aia_chunker.extract_chunks(local_path, file_type)
+                def _progress_cb(stage: str, page: int | None = None, total: int | None = None) -> None:
+                    db.update_aia_source_progress(source_uuid, stage, page=page, total=total)
+                chunks = aia_chunker.extract_chunks(local_path, file_type, progress_cb=_progress_cb)
 
             # 6. Save chunks to DB
+            db.update_aia_source_progress(source_uuid, "chunking")
             chunk_ids: list[int] = []
             for chunk in chunks:
                 chunk_id = db.create_aia_chunk(
@@ -122,6 +125,7 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
                 chunk_ids.append(chunk_id)
 
             # 7. Embed chunks in batches of 20
+            db.update_aia_source_progress(source_uuid, "embedding")
             _EMBED_BATCH = 20
             for i in range(0, len(chunks), _EMBED_BATCH):
                 batch_chunks = chunks[i: i + _EMBED_BATCH]
@@ -186,11 +190,18 @@ def run_index_source(self, source_uuid: str, locale: str = "de"):
         # doc-summary input); the page-summary task chains doc-summary at its end.
         # Non-PDFs (audio/video/docx/pptx/txt) have no page-summary concept, so
         # doc-summary runs directly from their chunks.
+        # Pre-set the next stage on the source itself so the UI keeps the
+        # spinner visible during the Celery queue gap. Without this, status
+        # is "ready" with progress=NULL for a few seconds before the chained
+        # task runs - the source would look fully done in the UI even though
+        # the summaries haven't started yet.
         if source["file_type"] == "pdf":
             from src.tasks.aia_tasks import run_generate_summaries
+            db.update_aia_source_progress(source_uuid, "page_summaries")
             run_generate_summaries.delay(source_uuid, locale)
             logger.info("KI Tutor: dispatched page-summaries for {}", source_uuid)
         else:
+            db.update_aia_source_progress(source_uuid, "doc_summary")
             run_generate_doc_summary.delay(source_uuid)
             logger.info("KI Tutor: dispatched doc-summary for {}", source_uuid)
 
@@ -368,6 +379,7 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
             return
 
         db.update_aia_source_summaries_status(source_uuid, "generating")
+        db.update_aia_source_progress(source_uuid, "page_summaries")
         logger.info("KI Tutor: generating page summaries for source {}", source_uuid)
 
         # 1. Build page texts from existing chunks in DB (no need to re-read PDF)
@@ -411,6 +423,7 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
 
         if not remaining_pages:
             db.update_aia_source_summaries_status(source_uuid, "ready")
+            db.clear_aia_source_progress(source_uuid)
             logger.info("KI Tutor: all pages already summarized for {}", source_uuid)
             return
 
@@ -470,15 +483,18 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
                 )
                 raise self.retry(countdown=countdown, max_retries=5)
             db.update_aia_source_summaries_status(source_uuid, "rate_limited")
+            db.clear_aia_source_progress(source_uuid)
             logger.warning("KI Tutor: rate limited for {} - max retries exhausted, manual retry available", source_uuid)
         elif failed_batches > 0:
             db.update_aia_source_summaries_status(source_uuid, "failed")
+            db.clear_aia_source_progress(source_uuid)
             logger.warning(
                 "KI Tutor: {} batch(es) failed for {} - saved partial results, retry will resume",
                 failed_batches, source_uuid,
             )
         else:
             db.update_aia_source_summaries_status(source_uuid, "ready")
+            db.update_aia_source_progress(source_uuid, "doc_summary")
             logger.info("KI Tutor: page summaries ready for source {} ({} pages)", source_uuid, len(pages))
             # Chain doc-summary now that page-summaries are available - it'll use
             # them as compact input (instead of falling back to truncated chunks).
@@ -501,4 +517,5 @@ def run_generate_summaries(self, source_uuid: str, locale: str = "de"):
         status = "rate_limited" if is_rate_limit else "failed"
         logger.error("KI Tutor: summary generation {} for {}: {}", status, source_uuid, e)
         db.update_aia_source_summaries_status(source_uuid, status)
+        db.clear_aia_source_progress(source_uuid)
 

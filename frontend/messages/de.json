@@ -902,6 +902,13 @@
       "disabled": "Deaktiviert - Hilde wird nirgendwo angezeigt, der Nutzer-Toggle in den KI-Assistent-Einstellungen ist ausgeblendet.",
       "toggleAria": "Maskottchen umschalten"
     },
+    "workspaceLimitsCard": {
+      "title": "Maximale Quellen pro {label}",
+      "hint": "Wie viele Dokumente Nutzer pro {label} hochladen dürfen. Greift sofort für neue Uploads.",
+      "unit": "Quellen",
+      "outOfRange": "Wert muss zwischen 1 und 1000 liegen.",
+      "saveFailed": "Speichern fehlgeschlagen."
+    },
     "workspaceLabel": {
       "title": "Bezeichnung \"Workspace\"",
       "description": "Wie der Begriff im Frontend angezeigt wird (z. B. \"Modul\" / \"Module\" oder \"Kurs\" / \"Kurse\"). Default: Workspace / Workspaces. Pro Sprache separat einstellbar.",
@@ -1004,7 +1011,7 @@
       "sumParallelSmall": "Parallele Worker (Ollama)",
       "sumParallelSmallHint": "Mehrere Seiten parallel",
       "sumParallelLarge": "Parallele Worker (Cloud)",
-      "sumParallelLargeHint": "Sequenziell für Stabilität",
+      "sumParallelLargeHint": "Mehrere Batches parallel",
       "sumBatchSize": "Seiten pro Batch",
       "sumBatchSizeHint": "Cloud, mehrere Seiten in einer Anfrage",
       "jobsTitle": "Job-Verwaltung",
@@ -1504,6 +1511,14 @@
         "stillProcessing": "Quelle wird noch verarbeitet",
         "openInViewer": "Im Viewer öffnen",
         "indexingFailed": "Indizierung fehlgeschlagen",
+        "progressStage": {
+          "parsing": "Lesen",
+          "ocr": "OCR Seite",
+          "chunking": "Zerlegen",
+          "embedding": "Embedding",
+          "page_summaries": "Seiten-Zusammenfassungen",
+          "doc_summary": "Doc-Zusammenfassung"
+        },
         "retry": "Erneut versuchen",
         "options": "Optionen",
         "delete": "Löschen",
@@ -1697,6 +1712,7 @@
       "errors": {
         "uploadFailed": "Upload fehlgeschlagen",
         "uploadSkippedMax": "Übersprungen, maximal {max} Dateien gleichzeitig hochladen.",
+        "uploadSkippedLimit": "Übersprungen: Upload-Limit erreicht.",
         "networkError": "Netzwerkfehler",
         "noteSaveFailed": "Notiz konnte nicht gespeichert werden.",
         "termsAdded": "{count, plural, =1 {1 Begriff hinzugefügt.} other {# Begriffe hinzugefügt.}}",

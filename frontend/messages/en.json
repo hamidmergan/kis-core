@@ -902,6 +902,13 @@
       "disabled": "Disabled - Hilde is not shown anywhere, the user toggle in the AI assistant settings is hidden.",
       "toggleAria": "Toggle mascot"
     },
+    "workspaceLimitsCard": {
+      "title": "Max sources per {label}",
+      "hint": "How many documents users may upload per {label}. Takes effect immediately for new uploads.",
+      "unit": "sources",
+      "outOfRange": "Value must be between 1 and 1000.",
+      "saveFailed": "Save failed."
+    },
     "workspaceLabel": {
       "title": "\"Workspace\" label",
       "description": "How the term is shown in the frontend (e.g. \"module\" / \"modules\" or \"course\" / \"courses\"). Default: workspace / workspaces. Configured per language.",
@@ -1004,7 +1011,7 @@
       "sumParallelSmall": "Parallel workers (Ollama)",
       "sumParallelSmallHint": "Multiple pages in parallel",
       "sumParallelLarge": "Parallel workers (cloud)",
-      "sumParallelLargeHint": "Sequential for stability",
+      "sumParallelLargeHint": "Multiple batches in parallel",
       "sumBatchSize": "Pages per batch",
       "sumBatchSizeHint": "Cloud, multiple pages per request",
       "jobsTitle": "Job management",
@@ -1504,6 +1511,14 @@
         "stillProcessing": "Source is still being processed",
         "openInViewer": "Open in viewer",
         "indexingFailed": "Indexing failed",
+        "progressStage": {
+          "parsing": "Parsing",
+          "ocr": "OCR page",
+          "chunking": "Chunking",
+          "embedding": "Embedding",
+          "page_summaries": "Page summaries",
+          "doc_summary": "Doc summary"
+        },
         "retry": "Retry",
         "options": "Options",
         "delete": "Delete",
@@ -1697,6 +1712,7 @@
       "errors": {
         "uploadFailed": "Upload failed",
         "uploadSkippedMax": "Skipped, upload max {max} files at once.",
+        "uploadSkippedLimit": "Skipped: upload limit reached.",
         "networkError": "Network error",
         "noteSaveFailed": "Note could not be saved.",
         "termsAdded": "{count, plural, =1 {1 term added.} other {# terms added.}}",

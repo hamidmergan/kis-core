@@ -135,10 +135,12 @@ async def get_workspace(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
+    from src.limits import UPLOAD_CONCURRENT_MAX
     workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
     db.touch_aia_workspace_visited(workspace_uuid)
     sources = db.get_aia_sources_by_workspace(workspace["id"])
     links = db.get_access_links_by_workspace(workspace["id"])
+    active_uploads = db.count_active_aia_sources_by_user(current_user["user_id"])
     return {
         "uuid": workspace["uuid"],
         "title": workspace["title"],
@@ -169,10 +171,15 @@ async def get_workspace(
                 "status": s["status"],
                 "chunk_count": s["chunk_count"],
                 "error_message": s.get("error_message"),
+                "progress": s.get("progress"),
                 "created_at": s["created_at"].isoformat() + "Z" if s["created_at"] else None,
             }
             for s in sources
         ],
+        "upload_quota": {
+            "active": active_uploads,
+            "limit": UPLOAD_CONCURRENT_MAX,
+        },
     }
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}")

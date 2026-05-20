@@ -49,12 +49,23 @@ def _split_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     return chunks
 
 
-def extract_chunks(file_path: str, file_type: str) -> list[dict]:
+ProgressCallback = "Callable[[str, int | None, int | None], None] | None"
+
+
+def extract_chunks(
+    file_path: str,
+    file_type: str,
+    progress_cb=None,
+) -> list[dict]:
     """Extract text chunks from a document file.
 
     Args:
-        file_path: Absolute path to the file on disk.
-        file_type:  One of "pdf", "docx", "pptx", "txt", "md".
+        file_path:   Absolute path to the file on disk.
+        file_type:   One of "pdf", "docx", "pptx", "txt", "md".
+        progress_cb: Optional callback ``fn(stage, page=None, total=None)``
+                     invoked when the extractor enters a new stage. Used by
+                     the indexing task to surface per-page OCR progress in
+                     the UI without coupling the chunker to the DB.
 
     Returns:
         List of dicts with keys:
@@ -63,7 +74,7 @@ def extract_chunks(file_path: str, file_type: str) -> list[dict]:
     """
     ft = file_type.lower().lstrip(".")
     if ft == "pdf":
-        return _extract_pdf(file_path, CHUNK_SIZE, CHUNK_OVERLAP)
+        return _extract_pdf(file_path, CHUNK_SIZE, CHUNK_OVERLAP, progress_cb)
     if ft == "docx":
         return _extract_docx(file_path, CHUNK_SIZE)
     if ft == "pptx":
@@ -111,18 +122,27 @@ def _bitmap_coverage(page) -> float:
     return min(total / page_area, 1.0)
 
 
-def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
+def _extract_pdf(
+    file_path: str,
+    chunk_size: int,
+    overlap: int,
+    progress_cb=None,
+) -> list[dict]:
     import io
     import pypdfium2 as pdfium
     chunks: list[dict] = []
     doc = pdfium.PdfDocument(file_path)
+    total_pages = len(doc)
 
     # Lazy-init OCR provider once per PDF. None means OCR toggle is off or
     # the configured provider couldn't be constructed - either way, skip OCR.
     ocr_provider = None
     ocr_checked = False
 
-    for page_num in range(len(doc)):
+    if progress_cb:
+        progress_cb("parsing", None, None)
+
+    for page_num in range(total_pages):
         page = doc[page_num]
         textpage = page.get_textpage()
         raw_text = textpage.get_text_range() or ""
@@ -150,6 +170,8 @@ def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
                 ocr_checked = True
 
             if ocr_provider is not None:
+                if progress_cb:
+                    progress_cb("ocr", page_num + 1, total_pages)
                 try:
                     # 200 DPI = scale factor 200/72 since pdfium native resolution is 72 DPI
                     bitmap = page.render(scale=200 / 72)
