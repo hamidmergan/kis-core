@@ -518,6 +518,15 @@ async def chat(
     source_pages: list[dict] = []
     is_popup = bool(body.source_text and body.source_uuid and body.source_page)
 
+    # Persist user question up-front so it survives any stream-termination path
+    # (browser reload, CancelledError, yield exception). Otherwise a mid-stream
+    # disconnect can leave the turn invisible after reload.
+    await asyncio.to_thread(
+        db.save_aia_message,
+        workspace["id"], user_id, "user", body.question,
+        enrollment_id=enrollment_id,
+    )
+
     if is_popup:
         source_pages.append({
             "source_uuid": body.source_uuid,
@@ -555,11 +564,12 @@ async def chat(
         # disconnects mid-stream - default is "ok".
         _log_status = "ok"
         stream = None
+        answer_parts: list[str] = []
+        assistant_saved = False
         try:
             # Send qmap upfront so the frontend can resolve [Q1], [Q2] chips
             # during streaming instead of falling back to activeSourceIds[0].
             yield f"data: {json.dumps({'qmap': source_qmap, 'source_pages': source_pages})}\n\n"
-            answer_parts: list[str] = []
             aborted = False
             try:
                 # 90s connect/first-token timeout so an Ollama cold-start model
@@ -621,20 +631,17 @@ async def chat(
                     )
                 except Exception:
                     pass
-                # Persist user question + partial answer flagged as aborted so
-                # the rewriter can filter them out and the UI can render a marker.
+                # Persist partial answer flagged as aborted so the rewriter can
+                # filter it out and the UI can render a marker. User question
+                # was already saved before _stream started.
                 try:
-                    await asyncio.to_thread(
-                        db.save_aia_message,
-                        workspace["id"], user_id, "user", body.question,
-                        enrollment_id=enrollment_id,
-                    )
                     await asyncio.to_thread(
                         db.save_aia_message,
                         workspace["id"], user_id, "assistant", answer,
                         source_pages=source_pages, enrollment_id=enrollment_id,
                         source_qmap=source_qmap, aborted=True,
                     )
+                    assistant_saved = True
                 except Exception as e:
                     logger.warning("Failed to persist aborted chat message: {}", e)
                 return
@@ -646,22 +653,36 @@ async def chat(
 
             # Keywords in citations stay (used by frontend for highlighting)
 
-            # Save messages
-            await asyncio.to_thread(
-                db.save_aia_message,
-                workspace["id"], user_id, "user", body.question,
-                enrollment_id=enrollment_id,
-            )
+            # Save assistant answer (user message was saved before _stream).
             await asyncio.to_thread(
                 db.save_aia_message,
                 workspace["id"], user_id, "assistant", answer,
                 source_pages=source_pages, enrollment_id=enrollment_id,
                 source_qmap=source_qmap,
             )
+            assistant_saved = True
 
             # Send final metadata event - also send corrected answer
             yield f"data: {json.dumps({'done': True, 'answer': answer, 'source_pages': source_pages, 'source_qmap': source_qmap})}\n\n"
         finally:
+            # Fallback: if no save path ran (CancelledError, yield exception on
+            # dead connection, anything else that bypassed the explicit branches)
+            # and we have any partial content, persist it as aborted. Use a sync
+            # DB call so it survives task cancellation - asyncio.to_thread would
+            # re-raise CancelledError here.
+            if not assistant_saved and answer_parts:
+                partial = "".join(answer_parts).strip()
+                if partial:
+                    try:
+                        db.save_aia_message(
+                            workspace["id"], user_id, "assistant", partial,
+                            source_pages=source_pages, enrollment_id=enrollment_id,
+                            source_qmap=source_qmap, aborted=True,
+                        )
+                        if _log_status == "ok":
+                            _log_status = "aborted"
+                    except Exception as e:
+                        logger.warning("Fallback save of partial answer failed: {}", e)
             _log_usage(
                 user_id=user_id,
                 endpoint="chat",
