@@ -37,7 +37,7 @@ _EMBED_GROUP = (
     "fallback_embedding_enabled",
     "local_embedding_enabled",
 )
-_OCR_GROUP = ("primary_ocr_enabled", "fallback_ocr_enabled")
+_OCR_GROUP = ("docling_ocr_enabled", "fallback_ocr_enabled")
 _IMAGE_GEN_GROUP = ("primary_image_gen_enabled", "fallback_image_gen_enabled")
 _IMAGE_EDIT_GROUP = ("primary_image_edit_enabled", "fallback_image_edit_enabled")
 _IMAGE_ANALYZE_GROUP = ("primary_image_analyze_enabled", "fallback_image_analyze_enabled")

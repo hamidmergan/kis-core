@@ -832,6 +832,11 @@ def init_db(admin_email: Optional[str] = None) -> None:
                 ("ollama_llm_model",              "local_llm_model"),
                 ("ollama_embedding_enabled",      "local_embedding_enabled"),
                 ("ollama_embedding_model",        "local_embedding_model"),
+                # OCR: the "primary" slot used to host KISSKI's generic vision
+                # LLM. We've replaced it with the GWDG Docling document API,
+                # which is a different service entirely - the rename makes
+                # admin settings legible and drops the orphaned model setting.
+                ("primary_ocr_enabled",           "docling_ocr_enabled"),
             ):
                 # Insert under the new key only if it does not already exist
                 # (otherwise the new key wins, keeping the most recent admin edit).
@@ -844,6 +849,10 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     (new_key, old_key),
                 )
                 cur.execute("DELETE FROM settings WHERE key = %s", (old_key,))
+
+            # primary_ocr_model used to configure the KISSKI Vision-LLM. The
+            # Docling API has no model parameter, so the setting is orphaned.
+            cur.execute("DELETE FROM settings WHERE key = 'primary_ocr_model'")
 
             # Provider radio groups: exactly one provider per group may be active.
             # Switching is a manual admin action — there is no automatic failover.
@@ -860,8 +869,8 @@ def init_db(admin_email: Optional[str] = None) -> None:
                     "primary_image_edit_enabled", "Image editing"),
                 (("primary_image_analyze_enabled", "fallback_image_analyze_enabled"),
                     "primary_image_analyze_enabled", "Image analysis"),
-                (("primary_ocr_enabled", "fallback_ocr_enabled"),
-                    "primary_ocr_enabled", "OCR"),
+                (("docling_ocr_enabled", "fallback_ocr_enabled"),
+                    "docling_ocr_enabled", "OCR"),
             ):
                 _enforce_radio_group(cur, _log, keys=keys, default=default, label=label)
 

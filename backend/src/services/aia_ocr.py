@@ -1,15 +1,23 @@
-"""OCR providers for KI Tutor - Vision-LLM based.
+"""OCR providers for KI Tutor.
 
-OCR is delegated to an OpenAI-compatible /v1/chat/completions endpoint with a
-Vision-LLM. The same adapter works against any OpenAI-compatible vision model;
-the active deployment (model + base_url + key) is picked at runtime via the
-admin panel. Image input is passed as a base64 data URL.
+Two backends are supported, both selected at runtime via the admin panel:
+
+- ``DoclingOcrProvider``: GWDG/KISSKI Docling-API. Per-image POST, dedicated
+  document-understanding model. ~7s per typical slide vs. 30-70s for the
+  vision-LLM route - 5-10x faster in practice.
+- ``OpenAICompatOcrProvider``: OpenAI-compatible /v1/chat/completions with a
+  Vision-LLM (e.g. THL myLab chandra-ocr-2). Kept as alternative provider.
+
+Both expose the same ``ocr_image(bytes) -> str`` interface so the chunker
+doesn't care which is active.
 """
 
 import base64
+import re
 from abc import ABC, abstractmethod
 from typing import Optional
 
+import httpx
 from loguru import logger
 
 
@@ -75,22 +83,57 @@ class OpenAICompatOcrProvider(OcrProvider):
         return _call_vlm(self._client, self._model, image_bytes, mime_type)
 
 
+class DoclingOcrProvider(OcrProvider):
+    """OCR via GWDG/KISSKI Docling document-understanding API.
+
+    Posts the image as a single-page document to ``/v1/documents/convert`` and
+    returns the extracted markdown. The API runs IBM's Granite-Docling model
+    end-to-end (layout + OCR) - much faster than a generic vision LLM, but the
+    response is one markdown blob with no page metadata. Since the chunker
+    calls this once per PDF page, page-mapping comes from the caller, not the
+    response.
+    """
+
+    _PICTURE_REF_RE = re.compile(r"^picture-\d+\.png\s*$", re.MULTILINE)
+    _IMAGE_COMMENT_RE = re.compile(r"<!--\s*image\s*-->")
+
+    def __init__(self, base_url: str, api_key: str, timeout: float = 120.0) -> None:
+        self._endpoint = f"{base_url.rstrip('/')}/documents/convert"
+        self._api_key = api_key
+        self._timeout = timeout
+
+    def ocr_image(self, image_bytes: bytes, mime_type: str = "image/png") -> str:
+        ext = mime_type.rsplit("/", 1)[-1] or "png"
+        files = {"document": (f"page.{ext}", image_bytes, mime_type)}
+        headers = {"Authorization": f"Bearer {self._api_key}"}
+        with httpx.Client(timeout=self._timeout) as client:
+            response = client.post(self._endpoint, files=files, headers=headers)
+        response.raise_for_status()
+        markdown = (response.json().get("markdown") or "").strip()
+        # Docling tags image-input responses with "<!-- image -->" and inlines
+        # picture-N.png placeholders for embedded images. Neither belongs in
+        # the chunk text - the rendered page is the source of truth visually.
+        markdown = self._IMAGE_COMMENT_RE.sub("", markdown)
+        markdown = self._PICTURE_REF_RE.sub("", markdown)
+        return markdown.strip()
+
+
 # ── Per-provider factory functions ─────────────────────────────────────────
 
-def _make_kisski_ocr_provider() -> OpenAICompatOcrProvider:
-    """Build the KISSKI Vision-LLM OCR provider."""
+def _make_docling_ocr_provider() -> DoclingOcrProvider:
+    """Build the GWDG/KISSKI Docling OCR provider."""
     from src.config import Settings
-    from src.services.runtime_models import get_model
     s = Settings()
-    return OpenAICompatOcrProvider(
+    if not s.primary_provider_api_key:
+        raise RuntimeError("Docling OCR requires PRIMARY_PROVIDER_API_KEY")
+    return DoclingOcrProvider(
         base_url=s.primary_provider_base_url,
         api_key=s.primary_provider_api_key,
-        model=get_model("primary_ocr_model"),
     )
 
 
 def _make_mylab_ocr_provider() -> OpenAICompatOcrProvider:
-    """Build the THL myLab Vision-LLM OCR provider."""
+    """Build the THL myLab Vision-LLM OCR provider (chandra-ocr-2 default)."""
     from src.config import Settings
     from src.services.runtime_models import get_model
     s = Settings()
@@ -107,20 +150,18 @@ def _make_mylab_ocr_provider() -> OpenAICompatOcrProvider:
 def get_ocr_provider() -> Optional[OcrProvider]:
     """Return the currently-active OCR provider, or None if OCR is disabled.
 
-    Master toggle ``ocr_enabled`` short-circuits everything: admins can kill
-    OCR system-wide when the latency budget can't accommodate it (single
-    vision call ≈ 30-70s, vs. ~140ms for a text-layer page). The per-provider
-    toggles (``primary_ocr_enabled`` / ``fallback_ocr_enabled``) select which
-    backend handles OCR when it is enabled.
+    Master toggle ``ocr_enabled`` short-circuits everything. The per-provider
+    toggles (``docling_ocr_enabled`` / ``fallback_ocr_enabled``) form a radio
+    group selecting which backend handles OCR when it is enabled.
     """
     from src import database as db
     if db.get_setting("ocr_enabled", "true").lower() != "true":
         return None
-    if db.get_setting("primary_ocr_enabled", "true").lower() == "true":
+    if db.get_setting("docling_ocr_enabled", "true").lower() == "true":
         try:
-            return _make_kisski_ocr_provider()
+            return _make_docling_ocr_provider()
         except Exception as e:
-            logger.warning("KISSKI OCR init failed: {}", e)
+            logger.warning("Docling OCR init failed: {}", e)
     if db.get_setting("fallback_ocr_enabled", "false").lower() == "true":
         try:
             return _make_mylab_ocr_provider()

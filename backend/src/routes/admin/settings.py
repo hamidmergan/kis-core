@@ -127,8 +127,8 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "fallback_image_edit_available": fallback_available,
         # ── OCR ──
         "ocr_enabled": _enabled("ocr_enabled"),
-        "primary_ocr_enabled": _enabled("primary_ocr_enabled"),
-        "primary_ocr_configured": primary_configured,
+        "docling_ocr_enabled": _enabled("docling_ocr_enabled"),
+        "docling_ocr_configured": primary_configured,
         "fallback_ocr_enabled": _enabled("fallback_ocr_enabled", "false"),
         "fallback_ocr_configured": fallback_configured,
         "fallback_ocr_available": fallback_available,
@@ -180,7 +180,7 @@ _SIMPLE_BOOL_FIELDS = (
     "primary_image_analyze_enabled", "fallback_image_analyze_enabled",
     "primary_image_edit_enabled", "fallback_image_edit_enabled",
     "ocr_enabled",
-    "primary_ocr_enabled", "fallback_ocr_enabled",
+    "docling_ocr_enabled", "fallback_ocr_enabled",
     "mascot_enabled",
 )
 
@@ -192,7 +192,7 @@ _WHISPER_KEYS = ("primary_whisper_enabled", "fallback_whisper_enabled")
 _IMAGE_GEN_KEYS = ("primary_image_gen_enabled", "fallback_image_gen_enabled")
 _IMAGE_EDIT_KEYS = ("primary_image_edit_enabled", "fallback_image_edit_enabled")
 _IMAGE_ANALYZE_KEYS = ("primary_image_analyze_enabled", "fallback_image_analyze_enabled")
-_OCR_KEYS = ("primary_ocr_enabled", "fallback_ocr_enabled")
+_OCR_KEYS = ("docling_ocr_enabled", "fallback_ocr_enabled")
 
 
 def _apply_radio_group(

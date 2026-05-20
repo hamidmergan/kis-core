@@ -159,7 +159,7 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
   const IMAGE_GEN_KEYS = ["primary_image_gen_enabled", "fallback_image_gen_enabled"];
   const IMAGE_EDIT_KEYS = ["primary_image_edit_enabled", "fallback_image_edit_enabled"];
   const IMAGE_ANALYZE_KEYS = ["primary_image_analyze_enabled", "fallback_image_analyze_enabled"];
-  const OCR_KEYS = ["primary_ocr_enabled", "fallback_ocr_enabled"];
+  const OCR_KEYS = ["docling_ocr_enabled", "fallback_ocr_enabled"];
   const RADIO_GROUPS: Record<string, string[]> = {
     embedding: EMBEDDING_KEYS,
     llm: LLM_KEYS,
@@ -323,7 +323,7 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
                 />
               </button>
             </div>
-            <P label={t("providerKisski")} settingKey="primary_ocr_enabled" enabled={s.primary_ocr_enabled ?? true} configured={s.primary_ocr_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_ocr_model" />
+            <P label={t("providerDocling")} settingKey="docling_ocr_enabled" enabled={s.docling_ocr_enabled ?? true} configured={s.docling_ocr_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" />
             <P label={t("providerMylab")} settingKey="fallback_ocr_enabled" enabled={s.fallback_ocr_enabled ?? false} configured={s.fallback_ocr_configured ?? false} available={s.fallback_ocr_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_ocr_model" />
           </ProviderSection>
         </>

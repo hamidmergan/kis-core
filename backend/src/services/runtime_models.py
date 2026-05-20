@@ -28,8 +28,7 @@ MODEL_DEFAULTS: dict[str, str] = {
     "primary_embedding_model": "e5-mistral-7b-instruct",
     "fallback_embedding_model": "qwen3-embedding-4b",
     "local_embedding_model": "nomic-embed-text",
-    # OCR
-    "primary_ocr_model": "qwen3.5-122b-a10b",
+    # OCR (Docling has no model parameter, so only the fallback slot is listed)
     "fallback_ocr_model": "chandra-ocr-2",
     # Image generation / editing (fallback slot only - primary slot has no equivalent today)
     "fallback_image_gen_model": "flux.1-dev",
@@ -54,7 +53,6 @@ SEEDED_MODEL_KEYS: frozenset[str] = frozenset({
     "primary_embedding_model",
     "fallback_embedding_model",
     "local_embedding_model",
-    "primary_ocr_model",
     "fallback_ocr_model",
     "fallback_image_gen_model",
     "fallback_image_edit_model",
