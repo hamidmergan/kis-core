@@ -402,3 +402,51 @@ def update_schedule_job(
         with conn.cursor() as cur:
             cur.execute(sql, params)
         conn.commit()
+
+
+# ─── Source Extractions (workspace-shared) ──────────────────────────────────
+
+def get_source_extraction(source_id: int) -> Optional[dict]:
+    """Return the stored regex + LLM output for a source, or None.
+
+    Shape: {"candidates": [...], "classifications": [...], "extracted_at": ...}.
+    The two lists are index-aligned (each classification belongs to the
+    candidate at the same index), as produced by the schedule pipeline.
+    """
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT candidates, classifications, extracted_at
+                  FROM aia_schedule_source_extractions
+                 WHERE source_id = %s
+                """,
+                (source_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+
+def upsert_source_extraction(
+    source_id: int,
+    candidates: list[dict],
+    classifications: list[dict],
+) -> None:
+    """Persist the regex + LLM output for a source. Idempotent.
+
+    INSERT ... ON CONFLICT DO NOTHING: if two users trigger extraction
+    concurrently on the same source, only one row sticks. The duplicate
+    LLM call is wasted work but never causes an error.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO aia_schedule_source_extractions
+                       (source_id, candidates, classifications)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (source_id) DO NOTHING
+                """,
+                (source_id, json.dumps(candidates), json.dumps(classifications)),
+            )
+        conn.commit()

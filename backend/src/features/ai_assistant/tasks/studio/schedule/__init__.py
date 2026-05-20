@@ -59,29 +59,68 @@ def run_generate_schedule(self, job_id: int, workspace_id: int, user_id: int,
             logger.info("Schedule job {}: no pending sources", job_id)
             return
 
-        # STAGE 1: Regex-based candidate collection (across all pending sources)
-        all_candidates: list[dict] = []
+        # STAGE 1+2: For each pending source, reuse stored extraction or
+        # run regex + LLM and persist. Result is two index-aligned lists
+        # (all_candidates, classifications) covering all pending sources,
+        # assembled in `pending` order.
+        today_d = _date_cls.today()
+        per_source: dict[int, tuple[list[dict], list[dict]]] = {}
+        sources_needing_classify: list[tuple[dict, list[dict]]] = []
+
         for src in pending:
-            cands = _build_candidates_for_source(src)
-            logger.info("Schedule job {}: source '{}' -> {} date candidates",
-                        job_id, src.get("filename", src["id"]), len(cands))
+            stored = db.get_source_extraction(src["id"])
+            if stored is not None:
+                per_source[src["id"]] = (stored["candidates"], stored["classifications"])
+                logger.info(
+                    "Schedule job {}: source '{}' -> cache hit ({} candidates)",
+                    job_id, src.get("filename", src["id"]),
+                    len(stored["candidates"]),
+                )
+            else:
+                cands = _build_candidates_for_source(src)
+                logger.info(
+                    "Schedule job {}: source '{}' -> {} date candidates (will classify)",
+                    job_id, src.get("filename", src["id"]), len(cands),
+                )
+                sources_needing_classify.append((src, cands))
+
+        if sources_needing_classify:
+            to_classify: list[dict] = []
+            for _src, cands in sources_needing_classify:
+                to_classify.extend(cands)
+
+            client, model, _ = _get_llm_client()
+            try:
+                fresh = _classify_candidates(client, model, to_classify, today_d)
+            except Exception as e:
+                logger.error("Schedule job {}: classify failed: {}", job_id, e)
+                db.update_schedule_job(
+                    job_id, "failed",
+                    error=f"Klassifikation fehlgeschlagen: {e}",
+                )
+                return
+
+            idx = 0
+            for src, cands in sources_needing_classify:
+                n = len(cands)
+                slice_ = fresh[idx : idx + n]
+                per_source[src["id"]] = (cands, slice_)
+                db.upsert_source_extraction(src["id"], cands, slice_)
+                idx += n
+
+        # Assemble final flat lists in pending order.
+        all_candidates: list[dict] = []
+        classifications: list[dict] = []
+        for src in pending:
+            cands, cls = per_source[src["id"]]
             all_candidates.extend(cands)
+            classifications.extend(cls)
 
         if not all_candidates:
             for src in pending:
                 db.mark_source_processed(workspace_id, user_id, src["id"])
             db.update_schedule_job(job_id, "success", added_count=0)
             logger.info("Schedule job {}: no candidates found", job_id)
-            return
-
-        # STAGE 2: ONE batch LLM call classifies everything
-        today_d = _date_cls.today()
-        client, model, _ = _get_llm_client()
-        try:
-            classifications = _classify_candidates(client, model, all_candidates, today_d)
-        except Exception as e:
-            logger.error("Schedule job {}: classify failed: {}", job_id, e)
-            db.update_schedule_job(job_id, "failed", error=f"Klassifikation fehlgeschlagen: {e}")
             return
 
         # Load existing entries now so the harmonize pass can align new
