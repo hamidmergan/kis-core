@@ -84,9 +84,31 @@ def get_page_count(file_path: str, file_type: str) -> int:
 
 # ── Format-specific extractors ────────────────────────────────────────────────
 
-_OCR_TEXT_THRESHOLD = 300  # text-layer < this → trigger OCR (catches image-only +
-                            # sparse pages where vector tables / screenshots carry
-                            # the actual content)
+# Trigger OCR when raster images cover >= this fraction of the page area.
+# Bitmap-coverage heuristic skips logos/decorative icons (typically < 5%) and
+# only OCRs pages dominated by screenshots or full-page scans. Title slides
+# with a header logo and short text no longer trigger spurious vision calls.
+_OCR_IMAGE_COVERAGE_THRESHOLD = 0.20
+
+
+def _bitmap_coverage(page) -> float:
+    """Return the fraction of page area covered by raster image objects."""
+    import pypdfium2.raw as pdfium_c
+    page_w = page.get_width()
+    page_h = page.get_height()
+    page_area = page_w * page_h
+    if page_area <= 0:
+        return 0.0
+    total = 0.0
+    for obj in page.get_objects(filter=[pdfium_c.FPDF_PAGEOBJ_IMAGE]):
+        try:
+            left, bottom, right, top = obj.get_bounds()
+        except Exception:
+            continue
+        w = max(0.0, right - left)
+        h = max(0.0, top - bottom)
+        total += w * h
+    return min(total / page_area, 1.0)
 
 
 def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
@@ -106,14 +128,15 @@ def _extract_pdf(file_path: str, chunk_size: int, overlap: int) -> list[dict]:
         raw_text = textpage.get_text_range() or ""
         text = _clean(raw_text).strip()
 
-        # Trigger OCR on text-sparse pages: scanned docs, image-only pages,
-        # vector-drawn tables, embedded screenshots. pypdfium2 image-detection
-        # misses Form-XObject-wrapped raster and pure-vector content, so we
-        # rely on text density alone.
-        should_ocr = len(text) < _OCR_TEXT_THRESHOLD
+        # Bitmap-coverage heuristic: only OCR pages where raster images
+        # dominate the layout (screenshots, scans). Small header/footer logos
+        # fall below the threshold and are correctly ignored, even on pages
+        # with little or no text-layer content.
+        coverage = _bitmap_coverage(page)
+        should_ocr = coverage >= _OCR_IMAGE_COVERAGE_THRESHOLD
         logger.info(
-            "PDF page {}: text={} chars, ocr={}",
-            page_num + 1, len(text), should_ocr,
+            "PDF page {}: text={} chars, image_coverage={:.1%}, ocr={}",
+            page_num + 1, len(text), coverage, should_ocr,
         )
 
         if should_ocr:

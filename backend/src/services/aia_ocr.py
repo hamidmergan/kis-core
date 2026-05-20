@@ -64,7 +64,10 @@ class OpenAICompatOcrProvider(OcrProvider):
     """
 
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
-        from langfuse.openai import OpenAI
+        # Plain OpenAI client (not langfuse-wrapped): vision payloads trigger
+        # Langfuse multimodal media uploads, which require an S3 bucket we
+        # don't run. Tracing OCR calls isn't worth the operational cost.
+        from openai import OpenAI
         self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
 
@@ -104,11 +107,15 @@ def _make_mylab_ocr_provider() -> OpenAICompatOcrProvider:
 def get_ocr_provider() -> Optional[OcrProvider]:
     """Return the currently-active OCR provider, or None if OCR is disabled.
 
-    The admin panel exposes one toggle per provider; only one is expected to
-    be active at a time. DB-key names (``primary_ocr_enabled`` /
-    ``fallback_ocr_enabled``) are legacy and kept for backward compatibility.
+    Master toggle ``ocr_enabled`` short-circuits everything: admins can kill
+    OCR system-wide when the latency budget can't accommodate it (single
+    vision call ≈ 30-70s, vs. ~140ms for a text-layer page). The per-provider
+    toggles (``primary_ocr_enabled`` / ``fallback_ocr_enabled``) select which
+    backend handles OCR when it is enabled.
     """
     from src import database as db
+    if db.get_setting("ocr_enabled", "true").lower() != "true":
+        return None
     if db.get_setting("primary_ocr_enabled", "true").lower() == "true":
         try:
             return _make_kisski_ocr_provider()

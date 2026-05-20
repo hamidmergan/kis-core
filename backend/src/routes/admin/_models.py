@@ -30,6 +30,7 @@ class UpdateSettingsRequest(BaseModel):
     primary_image_edit_enabled: bool | None = None
     fallback_image_edit_enabled: bool | None = None
     # OCR
+    ocr_enabled: bool | None = None
     primary_ocr_enabled: bool | None = None
     fallback_ocr_enabled: bool | None = None
     # LLM Chat

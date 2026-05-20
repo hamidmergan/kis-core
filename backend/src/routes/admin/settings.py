@@ -126,6 +126,7 @@ async def get_settings(_admin=Depends(get_admin_user)):
         "fallback_image_edit_configured": fallback_configured,
         "fallback_image_edit_available": fallback_available,
         # ── OCR ──
+        "ocr_enabled": _enabled("ocr_enabled"),
         "primary_ocr_enabled": _enabled("primary_ocr_enabled"),
         "primary_ocr_configured": primary_configured,
         "fallback_ocr_enabled": _enabled("fallback_ocr_enabled", "false"),
@@ -178,6 +179,7 @@ _SIMPLE_BOOL_FIELDS = (
     "primary_image_gen_enabled", "fallback_image_gen_enabled",
     "primary_image_analyze_enabled", "fallback_image_analyze_enabled",
     "primary_image_edit_enabled", "fallback_image_edit_enabled",
+    "ocr_enabled",
     "primary_ocr_enabled", "fallback_ocr_enabled",
     "mascot_enabled",
 )

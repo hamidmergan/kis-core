@@ -299,6 +299,30 @@ function ProvidersPane({ section }: { section: Exclude<SettingsSection, "system"
           </ProviderSection>
 
           <ProviderSection title={t("ocrTitle")} hint={t("ocrHint")}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-foreground-soft">{t("ocrMasterLabel")}</p>
+                <p className="text-xs text-muted mt-0.5">
+                  {(s.ocr_enabled ?? true) ? t("ocrMasterOn") : t("ocrMasterOff")}
+                </p>
+                <p className="mt-2 text-xs text-warn-strong bg-warn-bg border border-warn-border rounded-md px-3 py-2">
+                  {t("ocrMasterWarning")}
+                </p>
+              </div>
+              <button
+                onClick={() => toggle("ocr_enabled", !(s.ocr_enabled ?? true))}
+                disabled={saving}
+                className={`relative inline-flex shrink-0 w-11 h-6 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none enabled:hover:border-kb ${
+                  (s.ocr_enabled ?? true) ? "bg-kb" : "bg-border"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <span
+                  className={`pointer-events-none inline-block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                    (s.ocr_enabled ?? true) ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
             <P label={t("providerKisski")} settingKey="primary_ocr_enabled" enabled={s.primary_ocr_enabled ?? true} configured={s.primary_ocr_configured ?? false} envHint="PRIMARY_PROVIDER_API_KEY" modelKey="primary_ocr_model" />
             <P label={t("providerMylab")} settingKey="fallback_ocr_enabled" enabled={s.fallback_ocr_enabled ?? false} configured={s.fallback_ocr_configured ?? false} available={s.fallback_ocr_available} envHint="SECONDARY_PROVIDER_BASE_URL" modelKey="fallback_ocr_model" />
           </ProviderSection>
