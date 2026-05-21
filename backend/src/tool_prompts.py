@@ -202,14 +202,20 @@ AIA_QUERY_REWRITE = (
 # -- AI tutor: note title -----------------------------------------------------
 # Generates a short, concise title for a note saved by the user.
 AIA_NOTE_TITLE = (
-    "You generate a concise title for a note.\n\n"
-    "RULES:\n"
-    "- Short and to the point; avoid overly long titles. Keep it brief but do not truncate artificially.\n"
-    "- No quotation marks, no period at the end, no prefix like 'Title:'.\n"
-    "- Comma-separated enumerations are allowed when the note covers multiple topics.\n"
-    "- Summarize the core; no full sentences, no introduction.\n"
-    "- Respond in the language of the note.\n"
-    "- Return ONLY the title, nothing else."
+    "You generate a SHORT keyword title for a note. Strict rules:\n\n"
+    "- Respond in {target_language}. NEVER use any other language.\n"
+    "- MAX 60 characters. NEVER write a full sentence.\n"
+    "- Keywords / noun phrases only. No verbs, no subordinate clauses, no \"…\".\n"
+    "- Comma-separated enumerations allowed for multiple topics (e.g. \"Photosynthese, Calvin-Zyklus\").\n"
+    "- No quotation marks, no trailing punctuation, no prefix like \"Title:\".\n"
+    "- Return ONLY the title, nothing else.\n\n"
+    "GOOD examples (German):\n"
+    "- \"Photosynthese: Lichtreaktion\"\n"
+    "- \"Newton'sches Gesetz, Anwendungsbeispiele\"\n"
+    "- \"Convolutional Neural Networks\"\n\n"
+    "BAD examples (DO NOT produce):\n"
+    "- \"Ein guter Anfang, wenn du dich in ein neues Thema einarbeitest\" (full sentence)\n"
+    "- \"Notiz über die Funktionsweise von Photosynthese in Pflanzen\" (too long, descriptive)\n"
 )
 
 
@@ -744,39 +750,50 @@ AIA_SCHEDULE_PROMPT = (
 
 AIA_POPUP_ACTIONS: list[dict[str, str | int]] = [
     {
-        "key": "elaborate",
-        "label_de": "Genauer ausführen",
-        "label_en": "Elaborate",
-        "icon": "Binoculars",
-        "prompt_de": "Erläutere diese Passage. Erkläre die Konzepte ausführlich und gib konkrete Beispiele. Antworte in der Sprache des Originaltexts:",
-        "prompt_en": "Elaborate on this passage. Explain the concepts in depth and give concrete examples. Respond in the source-text language:",
+        "key": "translate",
+        "label_de": "Übersetzen",
+        "label_en": "Translate",
+        "icon": "Translate",
+        "prompt_de": (
+            "Übersetze die markierte Passage. Deutscher Originaltext wird ins Englische übersetzt, "
+            "englischer Originaltext ins Deutsche. "
+            "Nutze den umgebenden Dokumentkontext, um Mehrdeutigkeiten, Fachbegriffe "
+            "und Wörter mit mehreren möglichen Bedeutungen korrekt aufzulösen. "
+            "Gib NUR die Übersetzung aus — keine Erklärungen, keine Anmerkungen, "
+            "kein Originaltext, keine Anführungszeichen. "
+            "Behalte Register, Ton und Stil des Originals:"
+        ),
+        "prompt_en": (
+            "Translate the marked passage. If the source is German, translate to English; "
+            "if the source is English, translate to German. "
+            "Use the surrounding document context to disambiguate ambiguous terms, "
+            "domain-specific vocabulary, and words with multiple possible meanings. "
+            "Output ONLY the translation — no explanations, no notes, no original text, "
+            "no quotation marks. Preserve register, tone, and style of the original:"
+        ),
         "min_words": 1,
-    },
-    {
-        "key": "summarize",
-        "label_de": "Zusammenfassung",
-        "label_en": "Summarize",
-        "icon": "FunnelSimple",
-        "prompt_de": "Fasse diese Passage in höchstens 2-3 Sätzen zusammen. Verwende höchstens halb so viele Wörter wie das Original. Fließtext, keine Stichpunkte. Antworte in der Sprache des Originaltexts:",
-        "prompt_en": "Summarize this passage in at most 2-3 sentences. Use at most half as many words as the original. Flowing text, no bullet points. Respond in the source-text language:",
-        "min_words": 10,
-    },
-    {
-        "key": "bullets",
-        "label_de": "Stichpunkte",
-        "label_en": "Bullet points",
-        "icon": "ListBullets",
-        "prompt_de": "Wandle diese Passage in kompakte Stichpunkte um. Antworte in der Sprache des Originaltexts:",
-        "prompt_en": "Convert this passage into concise bullet points. Respond in the source-text language:",
-        "min_words": 5,
     },
     {
         "key": "simplify",
         "label_de": "Erklären",
         "label_en": "Explain",
         "icon": "Lightbulb",
-        "prompt_de": "Erkläre diese Passage in einfacher Sprache (B1). Nutze kurze Sätze, einfache Wörter und vermeide komplexe Fachbegriffe wo möglich. Antworte in der Sprache des Originaltexts:",
-        "prompt_en": "Explain this passage at a simple language level (B1). Use short sentences, simple words, and avoid complex jargon where possible. Respond in the source-text language:",
+        "prompt_de": (
+            "Erkläre diese Passage so, dass jemand ohne Vorwissen sie versteht (Niveau B1). "
+            "Ersetze Fachbegriffe durch alltagssprachliche Umschreibungen oder, wo das nicht geht, "
+            "definiere den Begriff in einem Halbsatz. "
+            "Nutze kurze Sätze und eine konkrete Alltagsanalogie, falls hilfreich. "
+            "Fließtext, keine Stichpunkte. "
+            "Antworte in der Sprache des Originaltexts:"
+        ),
+        "prompt_en": (
+            "Explain this passage so someone without prior knowledge understands it (B1 level). "
+            "Replace jargon with everyday wording or, where that isn't possible, "
+            "define the term in a half-sentence. "
+            "Use short sentences and a concrete everyday analogy if it helps. "
+            "Flowing text, no bullet points. "
+            "Respond in the source-text language:"
+        ),
         "min_words": 3,
     },
 ]

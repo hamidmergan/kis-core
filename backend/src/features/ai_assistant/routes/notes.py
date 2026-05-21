@@ -34,11 +34,20 @@ from src.tool_prompts import (
     AIA_NOTE_TITLE,
 )
 
-_NOTE_TITLE_SAFETY_CAP = 200
+_NOTE_TITLE_SAFETY_CAP = 80
+
+# Citation markers like "[Q1:UUID, S. 2]" or "[Q1:UUID, 00:42 | term]" are
+# inline anchors for the source-chip renderer; they must never leak into the
+# auto-generated title, so we strip them before AND after the LLM call.
+_CITATION_MARKER_RE = re.compile(r"\s*\[Q\d+:[^\]]+\]\s*")
 
 
-def _generate_and_store_note_title(llm, note_id: int, user_id: int, content: str) -> None:
-    title = _generate_note_title(llm, content)
+def _strip_citation_markers(text: str) -> str:
+    return _CITATION_MARKER_RE.sub(" ", text).strip()
+
+
+def _generate_and_store_note_title(llm, note_id: int, user_id: int, content: str, language: str = "German") -> None:
+    title = _generate_note_title(llm, content, language)
     if not title:
         logger.warning("Notiz-Titel: LLM lieferte keinen Titel (note_id={})", note_id)
         return
@@ -49,17 +58,18 @@ def _generate_and_store_note_title(llm, note_id: int, user_id: int, content: str
         logger.warning("Notiz-Titel konnte nicht gespeichert werden (note_id={}): {}", note_id, e)
 
 
-def _generate_note_title(llm, content: str) -> Optional[str]:
+def _generate_note_title(llm, content: str, language: str = "German") -> Optional[str]:
     snippet = content.strip()
     if not snippet:
         return None
     if len(snippet) > 4000:
         snippet = snippet[:4000]
+    system_prompt = AIA_NOTE_TITLE.replace("{target_language}", language)
     try:
         response = llm._client.with_options(timeout=30.0).chat.completions.create(
             model=llm._model,
             messages=[
-                {"role": "system", "content": AIA_NOTE_TITLE},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": snippet},
             ],
             temperature=0.2,
@@ -72,9 +82,17 @@ def _generate_note_title(llm, content: str) -> Optional[str]:
         return None
     if not title:
         return None
+    title = _strip_citation_markers(title)
     title = " ".join(title.split())
+    if not title:
+        return None
     if len(title) > _NOTE_TITLE_SAFETY_CAP:
-        title = title[:_NOTE_TITLE_SAFETY_CAP].rstrip()
+        # Cut at last word boundary so we never end mid-word ("einarbeite…").
+        cut = title[:_NOTE_TITLE_SAFETY_CAP]
+        last_space = cut.rfind(" ")
+        if last_space > _NOTE_TITLE_SAFETY_CAP // 2:
+            cut = cut[:last_space]
+        title = cut.rstrip(" ,;:.-")
     return title
 
 from src.features.ai_assistant.routes._helpers import (
@@ -156,7 +174,9 @@ async def create_note(
         body.source_uuids, body.source_pages, body.popup_selection,
     )
     if body.auto_title:
-        background_tasks.add_task(_generate_and_store_note_title, llm, note["id"], user_id, content)
+        chat_lang = (db.get_aia_user_settings(workspace["id"], user_id) or {}).get("chat_lang") or locale or "de"
+        target_language = "English" if chat_lang.lower().startswith("en") else "German"
+        background_tasks.add_task(_generate_and_store_note_title, llm, note["id"], user_id, content, target_language)
     return {
         "id": note["id"],
         "title": note.get("title"),

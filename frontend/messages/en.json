@@ -265,6 +265,15 @@
       "upload": {
         "selectFileAria": "Select file to read aloud"
       },
+      "inputMode": {
+        "text": "Enter text",
+        "file": "Upload file"
+      },
+      "textInput": {
+        "label": "Text to read aloud",
+        "placeholder": "Type or paste text here…",
+        "count": "{count} / {max} characters"
+      },
       "voiceDescription": {
         "Laid-Back": "Laid-back",
         "Casual": "Casual",
@@ -1358,7 +1367,7 @@
           "extractTooltip": "Extracts subject terms from the selected sources.",
           "emptyTitle": "No glossary generated yet. Click \"Extract terms\" above to extract subject terms from your sources.",
           "context": "Context",
-          "explanationB1": "Explanation (B1)",
+          "explanation": "Explanation",
           "pageShort": "p. {page}"
         },
         "overview": {
@@ -1531,6 +1540,30 @@
           "single": "1 file failed",
           "multi": "{n} files failed",
           "dismiss": "Close"
+        },
+        "staffNote": {
+          "title": "Note",
+          "expand": "Open note",
+          "collapse": "Close note",
+          "edit": "Edit note",
+          "emptyOwnerHint": "Add a note for users",
+          "modalTitle": "Note",
+          "modalSubtitle": "Visible to all users · {label}",
+          "textLabel": "Note text",
+          "textPlaceholder": "What users should know…",
+          "linksLabel": "Links",
+          "linksHint": "Label describes the content, URL points to the page.",
+          "addLink": "Add link",
+          "linkLabelPlaceholder": "Label",
+          "linkUrlPlaceholder": "https://…",
+          "removeLink": "Remove link",
+          "charCount": "{used}/{max}",
+          "save": "Save",
+          "cancel": "Cancel",
+          "saving": "Saving…",
+          "saveError": "Saving failed. Please try again.",
+          "linkUrlInvalid": "URL must start with http(s):// or mailto:",
+          "linkLabelMissing": "Label is missing."
         }
       },
       "viewer": {
@@ -1568,6 +1601,9 @@
         "addToGlossary": "Add to glossary",
         "addToGlossaryDescription": "Add specialized terms to the glossary",
         "addToGlossaryTitle": "Add to glossary",
+        "addToNote": "To note",
+        "addToNoteDescription": "Save selection as a new note",
+        "addToNoteTitle": "Save as note",
         "summaries": "Summaries",
         "tracksDe": "German",
         "tracksEn": "English"

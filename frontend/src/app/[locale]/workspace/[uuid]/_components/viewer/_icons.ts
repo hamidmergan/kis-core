@@ -40,6 +40,18 @@ registerIcons({
     fill: "primary",
     stroke: "none",
   },
+  "ph-note-pencil": {
+    viewBox: "0 0 256 256",
+    path: "M232.49,55.51l-32-32a12,12,0,0,0-17,0l-96,96A12,12,0,0,0,84,128v32a12,12,0,0,0,12,12h32a12,12,0,0,0,8.49-3.51l96-96A12,12,0,0,0,232.49,55.51ZM192,49l15,15L196,75,181,60Zm-69,99H108V133l56-56,15,15Zm105-7.43V208a20,20,0,0,1-20,20H48a20,20,0,0,1-20-20V48A20,20,0,0,1,48,28h67.43a12,12,0,0,1,0,24H52V204H204V140.57a12,12,0,0,1,24,0Z",
+    fill: "primary",
+    stroke: "none",
+  },
+  "ph-translate": {
+    viewBox: "0 0 256 256",
+    path: "M239.15,212.42l-56-112a12,12,0,0,0-21.47,0L141,141.69A77.5,77.5,0,0,1,114.17,128,75.79,75.79,0,0,0,140,72H160a12,12,0,0,0,0-24H100V32a12,12,0,0,0-24,0V48H16a12,12,0,0,0,0,24h99.94A51.81,51.81,0,0,1,95.9,112,52.42,52.42,0,0,1,74.79,86.42a12,12,0,0,0-22.59,8.16,75.95,75.95,0,0,0,24,33.85,103.13,103.13,0,0,1-60.55,19.78,12,12,0,1,0,.71,24A127.1,127.1,0,0,0,96,143.79a127,127,0,0,0,33.79,17l-26.94,53.88a12,12,0,1,0,21.47,10.73L137.41,200h69.18l13.09,26.18a12,12,0,1,0,21.47-10.73ZM149.41,176l23.32-46.42L195.94,176Z",
+    fill: "primary",
+    stroke: "none",
+  },
 });
 
 // Map Phosphor icon names → EmbedPDF icon names (built-in or custom registered)
@@ -48,6 +60,7 @@ export const EMBEDPDF_ICON_MAP: Record<string, string> = {
   FunnelSimple: "ph-funnel-simple",
   ListBullets: "listTree",
   Lightbulb: "ph-lightbulb",
+  Translate: "ph-translate",
   ArrowsCounterClockwise: "arrowBackUp",
   Scissors: "redact",
   MagnifyingGlassPlus: "search",

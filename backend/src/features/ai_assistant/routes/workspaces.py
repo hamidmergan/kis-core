@@ -39,6 +39,7 @@ from src.features.ai_assistant.routes._helpers import (
     _count_pages,
     _format_timestamp,
     _require_own_workspace,
+    _require_workspace_access,
     _save_source_file,
     _delete_source_files_for_workspace,
     _resolve_source_ids,
@@ -136,8 +137,9 @@ async def get_workspace(
     locale: str = Depends(get_locale),
 ):
     from src.limits import UPLOAD_CONCURRENT_MAX
-    workspace = _require_own_workspace(workspace_uuid, current_user["user_id"], locale=locale)
-    db.touch_aia_workspace_visited(workspace_uuid)
+    workspace = _require_workspace_access(workspace_uuid, current_user["user_id"], locale=locale)
+    if workspace["user_id"] == current_user["user_id"]:
+        db.touch_aia_workspace_visited(workspace_uuid)
     sources = db.get_aia_sources_by_workspace(workspace["id"])
     links = db.get_access_links_by_workspace(workspace["id"])
     active_uploads = db.count_active_aia_sources_by_user(current_user["user_id"])
@@ -150,6 +152,8 @@ async def get_workspace(
         "is_owner": workspace["user_id"] == current_user["user_id"],
         "transcript_translation_mode": workspace.get("transcript_translation_mode", "manual"),
         "transcript_default_lang": workspace.get("transcript_default_lang", "both"),
+        "staff_note_text": workspace.get("staff_note_text"),
+        "staff_note_links": workspace.get("staff_note_links") or [],
         "access_links": [
             {
                 "id": l["id"],
@@ -202,6 +206,11 @@ async def patch_workspace(
         if body.transcript_default_lang not in ("de", "en", "both"):
             raise HTTPException(status_code=400, detail=t("ai.workspace.transcriptDefaultLangInvalid", locale))
         db.set_aia_workspace_transcript_default_lang(workspace_uuid, body.transcript_default_lang)
+    if body.staff_note_text is not None or body.staff_note_links is not None:
+        new_text = body.staff_note_text if body.staff_note_text is not None else workspace.get("staff_note_text")
+        new_links_models = body.staff_note_links if body.staff_note_links is not None else []
+        new_links = [{"url": l.url, "label": l.label} for l in new_links_models] if body.staff_note_links is not None else (workspace.get("staff_note_links") or [])
+        db.set_aia_workspace_staff_note(workspace_uuid, new_text, new_links)
     return {"uuid": workspace_uuid, "title": new_title, "is_active": new_active}
 
 @router.patch("/ai-assistant/workspaces/{workspace_uuid}/renew-code")

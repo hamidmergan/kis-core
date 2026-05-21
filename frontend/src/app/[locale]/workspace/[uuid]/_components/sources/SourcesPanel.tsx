@@ -9,9 +9,11 @@ import {
   Check,
   DotsThreeVertical,
 } from "@phosphor-icons/react";
-import type { Source } from "../../_types";
+import type { Source, StaffNoteLink } from "../../_types";
 import { FileIcon, SourceStatus } from "./FileIcon";
 import { UploadErrorsBlock } from "./UploadErrorsBlock";
+import { StaffNoteBox } from "./StaffNoteBox";
+import { StaffNoteEditModal } from "./StaffNoteEditModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export function SourcesPanel({
@@ -29,6 +31,9 @@ export function SourcesPanel({
   onMinimize,
   workspaceUuid,
   hideHeader,
+  staffNoteText,
+  staffNoteLinks,
+  onStaffNoteSave,
 }: {
   sources: Source[];
   selectedSourceIds: string[];
@@ -44,6 +49,9 @@ export function SourcesPanel({
   onMinimize: () => void;
   workspaceUuid: string;
   hideHeader?: boolean;
+  staffNoteText?: string | null;
+  staffNoteLinks?: StaffNoteLink[];
+  onStaffNoteSave?: (text: string | null, links: StaffNoteLink[]) => Promise<void>;
 }) {
   const t = useTranslations("workspace.detail.sources");
   const tPanels = useTranslations("workspace.detail.panels");
@@ -52,6 +60,8 @@ export function SourcesPanel({
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
+  const [staffNoteModalOpen, setStaffNoteModalOpen] = useState(false);
+  const noteLinks = staffNoteLinks ?? [];
 
   useEffect(() => {
     const el = panelRef.current;
@@ -157,6 +167,17 @@ export function SourcesPanel({
             <UploadErrorsBlock errors={uploadErrors} onDismiss={onDismissUploadErrors} />
           )}
         </div>
+      )}
+
+      {/* Owner-managed pinned note (visible to owner + enrolled students) */}
+      {onStaffNoteSave && (
+        <StaffNoteBox
+          text={staffNoteText ?? null}
+          links={noteLinks}
+          isOwner={isLecturer}
+          workspaceUuid={workspaceUuid}
+          onEdit={() => setStaffNoteModalOpen(true)}
+        />
       )}
 
       {/* Select all row */}
@@ -316,6 +337,17 @@ export function SourcesPanel({
           })
         )}
       </div>
+
+      {/* Staff note edit modal (owner only) */}
+      {isLecturer && onStaffNoteSave && (
+        <StaffNoteEditModal
+          open={staffNoteModalOpen}
+          initialText={staffNoteText ?? null}
+          initialLinks={noteLinks}
+          onClose={() => setStaffNoteModalOpen(false)}
+          onSave={onStaffNoteSave}
+        />
+      )}
 
       {/* Delete confirmation modal */}
       {deleteSourceId && (

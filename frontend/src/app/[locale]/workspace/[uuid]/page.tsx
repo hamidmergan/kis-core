@@ -14,8 +14,10 @@ import type {
   LanguageTrainingView,
   TranscriptTranslationMode,
   TranscriptDefaultLang,
+  StaffNoteLink,
 } from "./_types";
 import { _isMediaFile } from "./_utils";
+import { NOTE_BODY_MAX } from "./_constants";
 import { usePanelLayout } from "./_hooks/usePanelLayout";
 import { useSources } from "./_hooks/useSources";
 import { useMindmap } from "./_hooks/useMindmap";
@@ -157,6 +159,17 @@ export default function KiTutorWorkspacePage() {
       body: JSON.stringify({ transcript_default_lang: lang }),
     }).catch(() => { /* ignore */ });
   };
+
+  const handleStaffNoteSave = async (text: string | null, links: StaffNoteLink[]) => {
+    const res = await fetch(`/api/ai-assistant/workspaces/${uuid}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ staff_note_text: text, staff_note_links: links }),
+    });
+    if (!res.ok) throw new Error("save failed");
+    setWorkspaceDetail((prev) => (prev ? { ...prev, staff_note_text: text, staff_note_links: links } : prev));
+  };
   // popupActions from useChat
 
   const [studioView, setStudioView] = useState<StudioView>("overview");
@@ -260,6 +273,23 @@ export default function KiTutorWorkspacePage() {
     if (isMobile) setActiveTab("studio");
     else setPanels((prev) => ({ ...prev, studio: true }));
     await extractGlossary(text, sourceUuid, page);
+  }
+
+  // Wrapper: save PDF selection as a new note with source chip
+  // Appends a citation marker so wrapCitations renders an inline, clickable source chip
+  // that jumps back to the original page and highlights the selected text.
+  async function handleAddToNote(text: string, sourceUuid: string, page: number) {
+    const citation = ` [Q1:${sourceUuid}, S. ${page}]`;
+    const bodyBudget = NOTE_BODY_MAX - citation.length;
+    const truncated = text.length > bodyBudget ? text.slice(0, bodyBudget - 1) + "…" : text;
+    setStudioTabRequest({ tab: "notes", nonce: Date.now() });
+    if (isMobile) setActiveTab("studio");
+    else setPanels((prev) => ({ ...prev, studio: true }));
+    await addNote(
+      truncated + citation,
+      [sourceUuid],
+      { popupSelection: { uuid: sourceUuid, page, text: truncated } },
+    );
   }
 
   // ─── Language training functions (from useLanguageTraining) ──────────────
@@ -440,7 +470,7 @@ export default function KiTutorWorkspacePage() {
       return _isMediaFile(viewerSource.filename) ? (
         <MediaPlayer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onMinimize={onMinimize} canDownload={isLecturer || isAdmin} canManage={isLecturer || isAdmin} onSaveNote={addNote} defaultTranscriptLang={transcriptDefaultLang} />
       ) : (
-        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onMinimize={onMinimize} isOwner={moduleDetail?.is_owner ?? false} />
+        <PdfViewer source={viewerSource} onClose={handleCloseViewer} workspaceUuid={uuid} onAskWithSelection={handleAskWithSelection} onCustomQuestion={handleCustomQuestion} popupActions={popupActions} onAddToGlossary={handleAddToGlossary} onAddToNote={handleAddToNote} onMinimize={onMinimize} isOwner={moduleDetail?.is_owner ?? false} />
       );
     }
     return (
@@ -458,6 +488,9 @@ export default function KiTutorWorkspacePage() {
         isLecturer={isLecturer}
         onMinimize={onMinimize}
         workspaceUuid={uuid}
+        staffNoteText={moduleDetail?.staff_note_text ?? null}
+        staffNoteLinks={moduleDetail?.staff_note_links ?? []}
+        onStaffNoteSave={handleStaffNoteSave}
         {...(hh ? { hideHeader: true } : {})}
       />
     );
@@ -488,6 +521,7 @@ export default function KiTutorWorkspacePage() {
         messages={messages}
         activeSourceIds={activeSourceIds}
         sources={sources}
+        popupActions={popupActions}
         loading={chatLoading}
         onSend={(v) => sendChatMessage(v)}
         onStop={stopChat}

@@ -16,16 +16,17 @@ import { useTheme } from "@/hooks/useTheme";
 
 
 export function PdfViewer({
-  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary, isOwner = false,
+  source, onClose, workspaceUuid, onAskWithSelection, onCustomQuestion, popupActions, onMinimize, onAddToGlossary, onAddToNote, isOwner = false,
 }: {
   source: ViewerState;
   onClose: () => void;
   workspaceUuid: string;
-  onAskWithSelection?: (text: string, sourceInfo: { uuid: string; filename: string; page: number; selectedText?: string }) => void;
+  onAskWithSelection?: (text: string, sourceInfo: { uuid: string; filename: string; page: number; selectedText?: string; actionKey?: string }) => void;
   onCustomQuestion?: (selectedText: string) => void;
   popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
   onMinimize?: () => void;
   onAddToGlossary?: (text: string, sourceUuid: string, page: number) => void;
+  onAddToNote?: (text: string, sourceUuid: string, page: number) => void;
   isOwner?: boolean;
 }) {
   const t = useTranslations("workspace.detail.pdf");
@@ -58,6 +59,8 @@ export function PdfViewer({
   onCustomQuestionRef.current = onCustomQuestion;
   const onAddToGlossaryRef = useRef(onAddToGlossary);
   onAddToGlossaryRef.current = onAddToGlossary;
+  const onAddToNoteRef = useRef(onAddToNote);
+  onAddToNoteRef.current = onAddToNote;
   const popupActionsRef = useRef(popupActions);
   popupActionsRef.current = popupActions;
 
@@ -335,7 +338,7 @@ export function PdfViewer({
               const selPage = formatted.length > 0 ? formatted[0].pageIndex + 1 : 1;
               onAskWithSelectionRef.current?.(
                 `${action.prompt}\n\n"${text}"`,
-                { uuid: sourceRef.current.uuid, filename: sourceRef.current.filename, page: selPage, selectedText: text },
+                { uuid: sourceRef.current.uuid, filename: sourceRef.current.filename, page: selPage, selectedText: text, actionKey: action.key },
               );
             }).catch(() => { /* ignore */ });
           },
@@ -434,6 +437,37 @@ export function PdfViewer({
       },
     });
 
+    // Register add-to-note command – stores selection as a new note with source chip
+    commands.registerCommand({
+      id: "kis.add-to-note",
+      label: t("addToNote"),
+      description: t("addToNoteDescription"),
+      icon: "ph-note-pencil",
+      iconProps: { title: t("addToNoteTitle") },
+      categories: ["kis-actions"],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      visible: ({ state, documentId }: any) => {
+        const doc = state?.plugins?.selection?.documents?.[documentId];
+        if (!doc?.slices) return true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const totalChars = Object.values(doc.slices as Record<string, any>).reduce((sum: number, s: any) => sum + (s.count || 0), 0);
+        return totalChars > 0;
+      },
+      action: ({ registry: r, documentId }: { registry: unknown; documentId: string }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sel = (r as any).getPlugin?.("selection")?.provides?.();
+        if (!sel) return;
+        const textTask = sel.getSelectedText?.(documentId);
+        const promise: Promise<string[]> = textTask?.toPromise?.() ?? Promise.resolve([]);
+        promise.then((lines: string[]) => {
+          const text = (Array.isArray(lines) ? lines : [lines]).join(" ").trim();
+          const formatted: Array<{ pageIndex: number }> = sel.forDocument?.(documentId)?.getFormattedSelection?.() ?? [];
+          const selPage = formatted.length > 0 ? formatted[0].pageIndex + 1 : 1;
+          onAddToNoteRef.current?.(text, sourceRef.current.uuid, selPage);
+        }).catch(() => { /* ignore */ });
+      },
+    });
+
     // Register summary toggle command (opens EmbedPDF sidebar like comments)
     commands.registerCommand({
       id: "kis.toggle-summaries",
@@ -486,6 +520,7 @@ export function PdfViewer({
             ...existingSelItems,
             { type: "divider", id: "kis-custom-divider", categories: ["kis-actions"] },
             { type: "command-button", id: "kis.add-to-glossary", commandId: "kis.add-to-glossary", variant: "icon", categories: ["kis-actions"] },
+            { type: "command-button", id: "kis.add-to-note", commandId: "kis.add-to-note", variant: "icon", categories: ["kis-actions"] },
             { type: "command-button", id: "kis.custom-question", commandId: "kis.custom-question", variant: "icon", categories: ["kis-actions"] },
             ...(actions?.length ? actions.map(a => ({
               type: "command-button",

@@ -325,6 +325,13 @@ def init_db(admin_email: Optional[str] = None) -> None:
             cur.execute(
                 "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS transcript_default_lang TEXT NOT NULL DEFAULT 'both'"
             )
+            # Owner-managed pinned note shown above the sources list. Plain text + structured links.
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_text TEXT"
+            )
+            cur.execute(
+                "ALTER TABLE aia_workspaces ADD COLUMN IF NOT EXISTS staff_note_links JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
             # Legacy per-workspace toggle removed: page-summary is now always
             # generated at ingest (provides UI panel + doc-summary input). The
             # off/auto/manual modes added no real value once doc-summary became

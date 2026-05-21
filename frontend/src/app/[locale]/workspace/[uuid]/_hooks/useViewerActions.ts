@@ -18,7 +18,7 @@ interface UseViewerActionsOptions {
   setActiveTab: (k: PanelKey) => void;
   chatSetInputRef: React.MutableRefObject<((v: string) => void) | null>;
   chatTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  sendChatMessage: (text: string, directText?: boolean, sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string }) => void;
+  sendChatMessage: (text: string, directText?: boolean, sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string; actionKey?: string }) => void;
 }
 
 export function useViewerActions(opts: UseViewerActionsOptions) {
@@ -43,7 +43,7 @@ export function useViewerActions(opts: UseViewerActionsOptions) {
     setViewerSource(null);
   }, [prevSelectedSourceIds, setSelectedSourceIds, setViewerSource]);
 
-  const askWithSelection = useCallback((prompt: string, sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string }) => {
+  const askWithSelection = useCallback((prompt: string, sourceInfo?: { uuid: string; filename: string; page: number; selectedText?: string; actionKey?: string }) => {
     if (isMobile) setActiveTab("chat");
     else setPanels((prev) => ({ ...prev, chat: true }));
     sendChatMessage(prompt, true, sourceInfo);

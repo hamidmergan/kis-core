@@ -63,6 +63,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "de": "Dokument zu lang ({chars} Zeichen). Bitte aufteilen (max. {maxChars} Zeichen).",
         "en": "Document too long ({chars} characters). Please split (max {maxChars} characters).",
     },
+    "tts.textTooLong": {
+        "de": "Text zu lang ({chars} Zeichen). Bitte kürzen (max. {maxChars} Zeichen).",
+        "en": "Text too long ({chars} characters). Please shorten (max {maxChars} characters).",
+    },
+    "tts.textEmpty": {
+        "de": "Bitte Text eingeben.",
+        "en": "Please enter some text.",
+    },
+    "tts.noInput": {
+        "de": "Bitte Text eingeben oder Datei hochladen.",
+        "en": "Please enter text or upload a file.",
+    },
+    "tts.bothInputs": {
+        "de": "Bitte entweder Text eingeben oder eine Datei hochladen, nicht beides.",
+        "en": "Please provide either text or a file, not both.",
+    },
     "kokoro.notActive": {
         "de": "Kokoro nicht aktiv",
         "en": "Kokoro not active",

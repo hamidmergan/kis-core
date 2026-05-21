@@ -24,7 +24,8 @@ export function useNotes({ uuid }: UseNotesOptions) {
   const pollForTitle = useCallback(async (noteId: number) => {
     setPendingTitleIds((prev) => { const next = new Set(prev); next.add(noteId); return next; });
     const clear = () => setPendingTitleIds((prev) => { const next = new Set(prev); next.delete(noteId); return next; });
-    const delays = [3000, 4000, 6000, 8000, 10000];
+    // ~120s window covers slow LLM providers (KISSKI/myLab/Ollama cold start).
+    const delays = [2000, 3000, 4000, 6000, 10000, 15000, 25000, 25000, 30000];
     for (const wait of delays) {
       await new Promise((r) => setTimeout(r, wait));
       try {

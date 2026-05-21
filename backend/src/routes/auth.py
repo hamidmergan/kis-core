@@ -46,10 +46,17 @@ async def login(body: LoginRequest, response: Response, locale: str = Depends(ge
     else:
         ldap_role_default = "user"
 
-    # Maintenance gate: only admin may sign in while maintenance is on.
+    # Pre-fetch existing DB user so the maintenance gate below knows the
+    # role without committing any DB writes for non-admins during maintenance.
+    db_user = database.get_user_by_username(ldap_username)
+
+    # Maintenance gate: only admin may sign in while maintenance is on. Mirrors
+    # is_admin_user(): env-admin email OR DB-role 'admin'. Without the DB-role
+    # branch a role='admin' user gets locked out of their own system.
     maintenance_on = database.get_setting("maintenance_mode", "false").lower() == "true"
     is_admin_email = bool(email and settings.admin_email and email.lower() == settings.admin_email.lower())
-    if maintenance_on and not is_admin_email:
+    is_db_admin = bool(db_user and (db_user.get("role") or "") == "admin")
+    if maintenance_on and not (is_admin_email or is_db_admin):
         logger.warning("Login blocked for '{}' (maintenance active, non-admin)", ldap_username)
         raise HTTPException(status_code=503, detail=t("maintenance.message", locale))
 
@@ -60,7 +67,6 @@ async def login(body: LoginRequest, response: Response, locale: str = Depends(ge
         active = 1  # whitelist disabled - all LDAP-authenticated users are allowed
 
     # Step 3: Sync user with database (create or update)
-    db_user = database.get_user_by_username(ldap_username)
     if db_user is None:
         user_id = database.create_user(
             ldap_username, display_name, email, active, ldap_role_default

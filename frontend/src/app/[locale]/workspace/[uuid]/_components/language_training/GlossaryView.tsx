@@ -183,7 +183,7 @@ export function GlossaryView({
                           </div>
                         )}
                         <div>
-                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanationB1")}</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--kb)" }}>{t("glossary.explanation")}</span>
                           <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)", opacity: 0.8 }}>
                             {entry.definition}
                           </p>

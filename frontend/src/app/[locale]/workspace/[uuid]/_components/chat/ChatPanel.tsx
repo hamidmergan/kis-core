@@ -14,6 +14,7 @@ export function ChatPanel({
   messages,
   activeSourceIds,
   sources,
+  popupActions,
   loading,
   onSend,
   onStop,
@@ -29,6 +30,7 @@ export function ChatPanel({
   messages: ChatMessageType[];
   activeSourceIds: string[];
   sources: Source[];
+  popupActions?: { key: string; label: string; icon: string; prompt: string; min_words: number }[];
   loading: boolean;
   onSend: (value: string) => void;
   onStop?: () => void;
@@ -185,6 +187,7 @@ export function ChatPanel({
                 hildeEnabled={hildeEnabled}
                 isLatest={i === messages.length - 1}
                 collapseByDefault={msg.role === "assistant" && !recentAssistantIdx.has(i)}
+                popupActions={popupActions}
               />
             ));
           })()}

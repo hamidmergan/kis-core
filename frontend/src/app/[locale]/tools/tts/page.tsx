@@ -4,11 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import TtsFileUpload from "@/components/jobs/TtsFileUpload";
+import TtsTextInput from "@/components/jobs/TtsTextInput";
 import TtsStatus from "@/components/jobs/TtsStatus";
 import { api, pollJob, downloadJobAsBlob, parseDetail } from "@/lib/api";
+import { TTS_MAX_CHARS } from "@/lib/constants";
 import type { TTSState } from "@/types";
 import BackLink from "@/components/ui/BackLink";
 import Select from "@/components/ui/Select";
+import Tabs from "@/components/ui/Tabs";
+
+type InputMode = "text" | "file";
 
 interface Voice {
   voice_id: string;
@@ -46,6 +51,8 @@ export default function TtsPage() {
   }, [tDesc]);
 
   const [ttsState, setTtsState] = useState<TTSState>("idle");
+  const [inputMode, setInputMode] = useState<InputMode>("text");
+  const [pendingText, setPendingText] = useState<string>("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [ttsSelectedFile, setTtsSelectedFile] = useState<string>("");
   const [ttsDownloadBlob, setTtsDownloadBlob] = useState<Blob | null>(null);
@@ -133,8 +140,14 @@ export default function TtsPage() {
     setTtsState("idle");
   }, []);
 
+  const trimmedText = pendingText.trim();
+  const textOverLimit = pendingText.length > TTS_MAX_CHARS;
+  const canSubmit = inputMode === "file"
+    ? !!pendingFile
+    : trimmedText.length > 0 && !textOverLimit;
+
   const handleSubmit = async () => {
-    if (!pendingFile || isProcessing) return;
+    if (!canSubmit || isProcessing) return;
 
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
@@ -149,7 +162,11 @@ export default function TtsPage() {
         : (voices.find(x => x.voice_id === voiceId)?.label ?? voiceId);
 
       const formData = new FormData();
-      formData.append("file", pendingFile);
+      if (inputMode === "file" && pendingFile) {
+        formData.append("file", pendingFile);
+      } else {
+        formData.append("text", pendingText);
+      }
       formData.append("voice_id", voiceId);
       formData.append("voice_label", voiceLabel);
       formData.append("speed", String(speed));
@@ -191,9 +208,12 @@ export default function TtsPage() {
 
       window.dispatchEvent(new CustomEvent("kis-jobs-changed"));
       setTtsProgressLabel(tProgress("downloading"));
+      const fallbackStem = inputMode === "file" && pendingFile
+        ? pendingFile.name.replace(/\.[^.]+$/, "")
+        : "text";
       const { blob, filename } = await downloadJobAsBlob(
         jobResult.job_uuid,
-        `${pendingFile.name.replace(/\.[^.]+$/, "")}.mp3`,
+        `${fallbackStem}.mp3`,
       );
       setTtsDownloadBlob(blob);
       setTtsDownloadName(filename);
@@ -222,11 +242,19 @@ export default function TtsPage() {
   const handleTtsReset = () => {
     setTtsState("idle");
     setPendingFile(null);
+    setPendingText("");
     setTtsSelectedFile("");
     setTtsDownloadBlob(null);
     setTtsDownloadName("");
     setTtsErrorMessage("");
     setTtsProgressLabel("");
+  };
+
+  const handleModeChange = (mode: InputMode) => {
+    if (isProcessing) return;
+    setInputMode(mode);
+    setTtsErrorMessage("");
+    if (ttsState === "error") setTtsState("idle");
   };
 
   return (
@@ -239,11 +267,31 @@ export default function TtsPage() {
             {t("intro")}
           </p>
 
-          <TtsFileUpload
-            onFileSelected={handleTtsFileSelected}
-            disabled={isProcessing || noProvider}
-            selectedFilename={ttsSelectedFile || undefined}
-          />
+          <div className="mb-4">
+            <Tabs
+              variant="pill"
+              active={inputMode}
+              onChange={(key) => handleModeChange(key as InputMode)}
+              items={[
+                { key: "text", label: t("inputMode.text"), disabled: isProcessing || noProvider },
+                { key: "file", label: t("inputMode.file"), disabled: isProcessing || noProvider },
+              ]}
+            />
+          </div>
+
+          {inputMode === "text" ? (
+            <TtsTextInput
+              value={pendingText}
+              onChange={setPendingText}
+              disabled={isProcessing || noProvider}
+            />
+          ) : (
+            <TtsFileUpload
+              onFileSelected={handleTtsFileSelected}
+              disabled={isProcessing || noProvider}
+              selectedFilename={ttsSelectedFile || undefined}
+            />
+          )}
           {noProvider && (
             <p className="mt-3 text-sm text-muted-soft">{t("noProvider")}</p>
           )}
@@ -368,7 +416,7 @@ export default function TtsPage() {
             <div className="mb-6 flex items-center gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!pendingFile || isProcessing || noProvider}
+                disabled={!canSubmit || isProcessing || noProvider}
                 className="self-start px-5 py-2 btn-primary text-sm font-medium rounded-md  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-kb transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t("submit")}

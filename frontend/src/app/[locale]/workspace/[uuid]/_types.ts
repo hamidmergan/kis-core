@@ -28,6 +28,11 @@ export interface UploadQuota {
   limit: number;
 }
 
+export interface StaffNoteLink {
+  url: string;
+  label: string;
+}
+
 export interface WorkspaceDetail {
   uuid: string;
   title: string;
@@ -37,6 +42,8 @@ export interface WorkspaceDetail {
   is_owner?: boolean;
   transcript_translation_mode?: TranscriptTranslationMode;
   transcript_default_lang?: TranscriptDefaultLang;
+  staff_note_text?: string | null;
+  staff_note_links?: StaffNoteLink[];
   sources: Source[];
   upload_quota?: UploadQuota;
 }
@@ -49,6 +56,8 @@ export interface SourceRef {
   start_time?: number;
   end_time?: number;
   is_popup_selection?: boolean;
+  action_key?: string;
+  action_icon?: string;
 }
 
 export interface SourceQmap {
@@ -65,7 +74,7 @@ export interface ChatMessage {
   source_pages?: SourceRef[];
   source_qmap?: SourceQmap[];
   sourceCount?: number;
-  popup_selection?: { uuid: string; page: number; text: string };
+  popup_selection?: { uuid: string; page: number; text: string; action_key?: string; action_icon?: string };
   aborted?: boolean;
 }
 

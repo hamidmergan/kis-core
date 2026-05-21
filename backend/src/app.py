@@ -9,7 +9,7 @@ from loguru import logger
 
 from src import database as db
 from src.database import init_db, reset_stuck_jobs
-from src.dependencies import get_session_store, get_settings
+from src.dependencies import get_session_store, get_settings, is_admin_user
 from src.security.auth import verify_auth
 from src.storage import USE_S3, cleanup_expired_files, init_storage
 from src.routes import admin, auth, health, image, jobs, aia, me, screencast, screencast_demo, summary, transcription, translate, tts
@@ -111,14 +111,14 @@ def create_app() -> FastAPI:
         if not enabled:
             return await call_next(request)
         # Admin keeps full access during maintenance so they can keep working.
+        # Mirrors is_admin_user(): env-admin OR DB-role 'admin' — otherwise a
+        # role='admin' user gets locked out of every non-/admin/ endpoint.
         token = request.cookies.get("session")
         if token:
             store = get_session_store()
             if store.validate(token):
                 data = store.get_data(token) or {}
-                email = (data.get("email") or "").lower()
-                admin_email = (settings.admin_email or "").lower()
-                if admin_email and email == admin_email:
+                if is_admin_user(data):
                     return await call_next(request)
         from src.i18n import parse_accept_language, t
         locale = parse_accept_language(request.headers.get("accept-language"))

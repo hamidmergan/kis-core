@@ -2,13 +2,23 @@ import { memo, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CaretDown, CaretUp, Check, Copy, NotePencil, Stop } from "@phosphor-icons/react";
+import { Binoculars, CaretDown, CaretUp, Check, ChatCircle, Copy, FunnelSimple, Lightbulb, ListBullets, NotePencil, Stop, Translate, type Icon as PhosphorIconType } from "@phosphor-icons/react";
 import Spinner from "@/components/ui/Spinner";
 import Hilde, { type HildeState } from "@/components/ui/Hilde";
 import { _embedQmapIntoCitations, _getChipIcon } from "../../_utils";
 import type { ChatMessage as ChatMessageType } from "../../_types";
 import type { AddNoteExtras } from "../../_hooks/useNotes";
 import { copyMessageText, withCitations, type CitationChipClickHandler } from "./_citations";
+
+
+const POPUP_ACTION_ICONS: Record<string, PhosphorIconType> = {
+  Translate,
+  Lightbulb,
+  Binoculars,
+  FunnelSimple,
+  ListBullets,
+  ChatCircle,
+};
 
 
 const SORRY_PATTERN = /nichts gefunden|keine information|in den quellen nicht enthalten|nicht in den (?:bereitgestellten |angegebenen )?quellen|kann ich nicht beantworten|steht nicht in den|not in the (?:provided |given )?sources?|no information (?:found|available|in)|could(?:n['']t| not) find|cannot find|is not (?:in|available in|contained in) (?:the )?sources?/i;
@@ -24,12 +34,14 @@ interface ChatMessageProps {
   hildeEnabled?: boolean;
   isLatest?: boolean;
   collapseByDefault?: boolean;
+  popupActions?: { key: string; label: string; icon: string }[];
 }
 
 
 function ChatMessageImpl({
   msg, activeSourceIds, getFilename, onChipClick, onSaveNote, loading,
   hildeEnabled = false, isLatest = false, collapseByDefault = false,
+  popupActions,
 }: ChatMessageProps) {
   const t = useTranslations("workspace.detail.chat");
   const [expandUserContent, setExpandUserContent] = useState(false);
@@ -217,33 +229,52 @@ function ChatMessageImpl({
                 </button>
               )}
             </>
-          ) : (
-            <>
-              <div
-                ref={userContentRef}
-                style={{
-                  maxHeight: expandUserContent ? "none" : "8em",
-                  overflow: "hidden",
-                }}
-              >
-                {msg.content}
-              </div>
-              {isUserOverflow && (
-                <button
-                  type="button"
-                  onClick={() => setExpandUserContent(v => !v)}
-                  className="flex items-center gap-1 mt-1.5 text-xs opacity-70 hover:opacity-100 transition-opacity"
-                  style={{ color: "white" }}
+          ) : (() => {
+            const actionKey = msg.popup_selection?.action_key;
+            const actionIconName = msg.popup_selection?.action_icon;
+            const ActionIcon = actionIconName ? POPUP_ACTION_ICONS[actionIconName] : undefined;
+            const actionLabel = actionKey
+              ? popupActions?.find((a) => a.key === actionKey)?.label ?? actionKey
+              : undefined;
+            const displayBody = actionKey
+              ? (msg.popup_selection?.text ?? "")
+              : msg.content;
+            return (
+              <>
+                {actionKey && (
+                  <div className="flex items-center gap-1.5 text-sm font-medium mb-2 opacity-95">
+                    {ActionIcon ? <ActionIcon size={14} weight="bold" /> : null}
+                    <span>{actionLabel}</span>
+                  </div>
+                )}
+                <div
+                  ref={userContentRef}
+                  className={actionKey ? "border-l-2 pl-2.5 italic text-[15px] opacity-95" : undefined}
+                  style={{
+                    maxHeight: expandUserContent ? "none" : "8em",
+                    overflow: "hidden",
+                    ...(actionKey ? { borderColor: "rgba(255,255,255,0.5)" } : {}),
+                  }}
                 >
-                  {expandUserContent ? (
-                    <><CaretUp size={12} /> {t("collapse")}</>
-                  ) : (
-                    <><CaretDown size={12} /> {t("expand")}</>
-                  )}
-                </button>
-              )}
-            </>
-          )}
+                  {displayBody}
+                </div>
+                {isUserOverflow && (
+                  <button
+                    type="button"
+                    onClick={() => setExpandUserContent(v => !v)}
+                    className="flex items-center gap-1 mt-1.5 text-xs opacity-70 hover:opacity-100 transition-opacity"
+                    style={{ color: "white" }}
+                  >
+                    {expandUserContent ? (
+                      <><CaretUp size={12} /> {t("collapse")}</>
+                    ) : (
+                      <><CaretDown size={12} /> {t("expand")}</>
+                    )}
+                  </button>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {msg.role === "assistant" && msg.aborted && (

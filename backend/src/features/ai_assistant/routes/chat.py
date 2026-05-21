@@ -518,23 +518,38 @@ async def chat(
     source_pages: list[dict] = []
     is_popup = bool(body.source_text and body.source_uuid and body.source_page)
 
+    # Build popup-selection entry up-front so the user message can carry it too
+    # (lets the chat render the action chip + selection on reload, not just live).
+    popup_entry: Optional[dict] = None
+    if is_popup:
+        popup_entry = {
+            "source_uuid": body.source_uuid,
+            "filename": body.source_filename or "",
+            "page_number": body.source_page,
+            "source_text": body.source_text,
+            "is_popup_selection": True,
+        }
+        if body.action_key:
+            action_def = next(
+                (a for a in AIA_POPUP_ACTIONS if a["key"] == body.action_key),
+                None,
+            )
+            if action_def:
+                popup_entry["action_key"] = body.action_key
+                popup_entry["action_icon"] = action_def["icon"]
+
     # Persist user question up-front so it survives any stream-termination path
     # (browser reload, CancelledError, yield exception). Otherwise a mid-stream
     # disconnect can leave the turn invisible after reload.
     await asyncio.to_thread(
         db.save_aia_message,
         workspace["id"], user_id, "user", body.question,
+        source_pages=[popup_entry] if popup_entry else None,
         enrollment_id=enrollment_id,
     )
 
-    if is_popup:
-        source_pages.append({
-            "source_uuid": body.source_uuid,
-            "filename": body.source_filename or "",
-            "page_number": body.source_page,
-            "source_text": body.source_text,
-            "is_popup_selection": True,
-        })
+    if popup_entry:
+        source_pages.append(popup_entry)
     else:
         all_sources = {s["id"]: s for s in db.get_aia_sources_by_workspace(workspace["id"])}
         for chunk in chunks:

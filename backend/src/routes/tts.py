@@ -199,10 +199,30 @@ async def list_voices():
         return {"voices": _FALLBACK_VOICES}
 
 
+def _sanitize_tts_text(raw: str) -> str:
+    """Normalize free-form text for safe pipeline use.
+
+    Strips NULs and other C0 control bytes (except common whitespace), normalises
+    newlines to ``\n``, and trims surrounding whitespace. The DB layer uses
+    parameterised statements throughout, so the goal here is not SQL escaping
+    but defence-in-depth: keep the stored text printable and free of bytes
+    that could break extractors, log lines, or downstream HTTP bodies.
+    """
+    # Normalise line endings before stripping control chars so \r\n -> \n
+    cleaned = raw.replace("\r\n", "\n").replace("\r", "\n")
+    # Keep tab / newline, drop the rest of C0 plus DEL
+    cleaned = "".join(
+        ch for ch in cleaned
+        if ch in ("\t", "\n") or (ord(ch) >= 32 and ord(ch) != 127)
+    )
+    return cleaned.strip()
+
+
 @router.post("/tts")
 async def text_to_speech(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    text: str = Form(""),
     voice_id: str = Form(""),
     speed: float = Form(1.0),
     stability: float = Form(0.70),
@@ -215,51 +235,76 @@ async def text_to_speech(
     current_user: dict = Depends(get_current_user),
     locale: str = Depends(get_locale),
 ):
-    """Queue a TTS job: synthesize uploaded document to MP3 via ElevenLabs.
+    """Queue a TTS job: synthesize uploaded document or pasted text to MP3.
 
-    Returns ``{ job_uuid }`` immediately. Poll ``GET /jobs/{job_uuid}`` for status.
-    On success the result contains ``download_url`` for the MP3.
+    Either ``file`` or ``text`` must be supplied. Returns ``{ job_uuid }``
+    immediately. Poll ``GET /jobs/{job_uuid}`` for status. On success the
+    result contains ``download_url`` for the MP3.
     """
-    if not file.filename:
-        raise HTTPException(status_code=400, detail=t("file.nameMissing", locale))
-
-    ext = Path(file.filename).suffix.lower()
-    if ext not in TTS_EXTENSIONS:
-        raise HTTPException(
-            status_code=400, detail=t("tts.unsupportedFormat", locale)
-        )
-
     valid_presets = {"short", "medium", "long", "very_long"}
     if pause_preset not in valid_presets:
         raise HTTPException(status_code=400, detail=t("tts.invalidPausePreset", locale))
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
+    has_file = bool(file and file.filename)
+    has_text = bool(text and text.strip())
+    if has_file and has_text:
+        raise HTTPException(status_code=400, detail=t("tts.bothInputs", locale))
+    if not has_file and not has_text:
+        raise HTTPException(status_code=400, detail=t("tts.noInput", locale))
 
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail=t("file.empty", locale))
-    if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
-    validate_or_raise(content, ext, locale)
+    if has_text:
+        cleaned = _sanitize_tts_text(text)
+        if not cleaned:
+            raise HTTPException(status_code=400, detail=t("tts.textEmpty", locale))
+        if len(cleaned) > TTS_MAX_CHARS:
+            raise HTTPException(
+                status_code=422,
+                detail=t(
+                    "tts.textTooLong",
+                    locale,
+                    chars=f"{len(cleaned):,}".replace(",", "."),
+                    maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
+                ),
+            )
+        ext = ".txt"
+        content = cleaned.encode("utf-8")
+        # Synthetic filename so the result MP3 still gets a sensible stem.
+        source_filename = "text.txt"
+    else:
+        assert file is not None  # narrowed by has_file
+        ext = Path(file.filename).suffix.lower()
+        if ext not in TTS_EXTENSIONS:
+            raise HTTPException(
+                status_code=400, detail=t("tts.unsupportedFormat", locale)
+            )
 
-    # Validate file type and that text can be extracted (fast check before queuing)
-    extractor = EXTRACTORS.get(ext)
-    if extractor is None:
-        raise HTTPException(status_code=400, detail=t("tts.unsupportedFileType", locale))
+        content_length = request.headers.get("content-length")
+        if content_length is not None and int(content_length) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
 
-    text = extractor(content)
-    if len(text) > TTS_MAX_CHARS:
-        raise HTTPException(
-            status_code=422,
-            detail=t(
-                "tts.documentTooLong",
-                locale,
-                chars=f"{len(text):,}".replace(",", "."),
-                maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
-            ),
-        )
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail=t("file.empty", locale))
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail=t("file.tooLargeMb200", locale))
+        validate_or_raise(content, ext, locale)
+
+        extractor = EXTRACTORS.get(ext)
+        if extractor is None:
+            raise HTTPException(status_code=400, detail=t("tts.unsupportedFileType", locale))
+
+        extracted = extractor(content)
+        if len(extracted) > TTS_MAX_CHARS:
+            raise HTTPException(
+                status_code=422,
+                detail=t(
+                    "tts.documentTooLong",
+                    locale,
+                    chars=f"{len(extracted):,}".replace(",", "."),
+                    maxChars=f"{TTS_MAX_CHARS:,}".replace(",", "."),
+                ),
+            )
+        source_filename = file.filename
 
     # Validate provider + client
     if provider == "kokoro":
@@ -287,7 +332,7 @@ async def text_to_speech(
     enforce_quota(user_id, "tts", is_admin_user(current_user), locale)
 
     job_uuid = uuid.uuid4().hex
-    db.create_job(job_uuid, user_id, "tts", file.filename, locale=locale)
+    db.create_job(job_uuid, user_id, "tts", source_filename, locale=locale)
     input_path = save_queue_file(user_id, job_uuid, ext, content)
     db.set_job_input_path(job_uuid, input_path)
 
@@ -295,7 +340,7 @@ async def text_to_speech(
     task = run_tts.apply_async(args=[
         job_uuid,
         input_path,
-        file.filename,
+        source_filename,
         voice_id,
         speed,
         stability,
@@ -308,5 +353,5 @@ async def text_to_speech(
     ])
     db.set_job_celery_task_id(job_uuid, task.id)
 
-    logger.info("TTS job queued: job_uuid={}, file={}", job_uuid, file.filename)
+    logger.info("TTS job queued: job_uuid={}, source={}", job_uuid, source_filename)
     return {"job_uuid": job_uuid}

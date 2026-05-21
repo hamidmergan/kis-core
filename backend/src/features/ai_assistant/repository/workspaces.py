@@ -116,6 +116,23 @@ def set_aia_workspace_transcript_default_lang(uuid: str, lang: str) -> None:
             )
         conn.commit()
 
+def set_aia_workspace_staff_note(uuid: str, text: str | None, links: list[dict]) -> None:
+    """Owner-managed pinned note rendered above the sources list."""
+    normalized_text = text.strip() if text else None
+    if normalized_text == "":
+        normalized_text = None
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE aia_workspaces
+                   SET staff_note_text = %s,
+                       staff_note_links = %s::jsonb,
+                       updated_at = NOW()
+                   WHERE uuid = %s""",
+                (normalized_text, json.dumps(links), uuid),
+            )
+        conn.commit()
+
 
 def update_aia_workspace_status(
     uuid: str,

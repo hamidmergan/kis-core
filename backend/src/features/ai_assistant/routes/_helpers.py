@@ -163,6 +163,17 @@ def _require_own_workspace(workspace_uuid: str, user_id: int, locale: str = DEFA
         raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
     return workspace
 
+def _require_workspace_access(workspace_uuid: str, user_id: int, locale: str = DEFAULT_LOCALE) -> dict:
+    """Allow owner OR enrolled student. Used for read-only workspace info."""
+    workspace = db.get_aia_workspace(workspace_uuid)
+    if not workspace:
+        raise HTTPException(status_code=404, detail=t("workspace.notFound", locale))
+    if workspace["user_id"] == user_id:
+        return workspace
+    if db.is_student_enrolled(workspace["id"], user_id):
+        return workspace
+    raise HTTPException(status_code=403, detail=t("workspace.accessDenied", locale))
+
 def _save_source_file(user_id: int, workspace_uuid: str, source_uuid: str, ext: str, data: bytes) -> str:
     from src.storage import aia_source_key
     key = aia_source_key(user_id, workspace_uuid, source_uuid, ext)

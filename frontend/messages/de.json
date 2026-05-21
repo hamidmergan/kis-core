@@ -265,6 +265,15 @@
       "upload": {
         "selectFileAria": "Datei zum Vorlesen auswählen"
       },
+      "inputMode": {
+        "text": "Text eingeben",
+        "file": "Datei hochladen"
+      },
+      "textInput": {
+        "label": "Text zum Vorlesen",
+        "placeholder": "Text hier eingeben oder einfügen…",
+        "count": "{count} / {max} Zeichen"
+      },
       "voiceDescription": {
         "Laid-Back": "Entspannt",
         "Casual": "Locker",
@@ -1358,7 +1367,7 @@
           "extractTooltip": "Extrahiert Fachbegriffe aus den ausgewählten Quellen.",
           "emptyTitle": "Noch kein Glossar generiert. Klicke oben auf „Begriffe extrahieren\", um Fachbegriffe aus deinen Quellen zu extrahieren.",
           "context": "Kontext",
-          "explanationB1": "Erklärung (B1)",
+          "explanation": "Erklärung",
           "pageShort": "S. {page}"
         },
         "overview": {
@@ -1531,6 +1540,30 @@
           "single": "1 Datei fehlgeschlagen",
           "multi": "{n} Dateien fehlgeschlagen",
           "dismiss": "Schließen"
+        },
+        "staffNote": {
+          "title": "Hinweis",
+          "expand": "Hinweis öffnen",
+          "collapse": "Hinweis schließen",
+          "edit": "Hinweis bearbeiten",
+          "emptyOwnerHint": "Hinweis für Nutzer hinzufügen",
+          "modalTitle": "Hinweis",
+          "modalSubtitle": "Sichtbar für alle Nutzer · {label}",
+          "textLabel": "Hinweistext",
+          "textPlaceholder": "Was Nutzer wissen sollten…",
+          "linksLabel": "Links",
+          "linksHint": "Beschriftung beschreibt den Inhalt, URL führt zur Seite.",
+          "addLink": "Link hinzufügen",
+          "linkLabelPlaceholder": "Beschriftung",
+          "linkUrlPlaceholder": "https://…",
+          "removeLink": "Link entfernen",
+          "charCount": "{used}/{max}",
+          "save": "Speichern",
+          "cancel": "Abbrechen",
+          "saving": "Speichert…",
+          "saveError": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+          "linkUrlInvalid": "URL muss mit http(s):// oder mailto: beginnen.",
+          "linkLabelMissing": "Beschriftung fehlt."
         }
       },
       "viewer": {
@@ -1568,6 +1601,9 @@
         "addToGlossary": "Zum Glossar",
         "addToGlossaryDescription": "Fachbegriffe zum Glossar hinzufügen",
         "addToGlossaryTitle": "Zum Glossar hinzufügen",
+        "addToNote": "In Notiz",
+        "addToNoteDescription": "Auswahl als neue Notiz speichern",
+        "addToNoteTitle": "In Notiz speichern",
         "summaries": "Zusammenfassungen",
         "tracksDe": "Deutsch",
         "tracksEn": "English"
